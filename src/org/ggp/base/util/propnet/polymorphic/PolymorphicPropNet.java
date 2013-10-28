@@ -199,6 +199,133 @@ public final class PolymorphicPropNet
 		
 		roles = sourcePropnet.getRoles();
 	}
+	public PolymorphicPropNet(PolymorphicPropNet sourcePropnet, PolymorphicComponentFactory componentFactory)
+	{
+		Map<PolymorphicComponent,PolymorphicComponent> sourceToTargetMap = new HashMap<PolymorphicComponent,PolymorphicComponent>();
+		
+		components = new HashSet<PolymorphicComponent>();
+		
+		//	Create the components
+		for(PolymorphicComponent old : sourcePropnet.getComponents())
+		{
+			PolymorphicComponent newComp;
+
+			if (old instanceof PolymorphicAnd)
+			{
+				newComp = componentFactory.createAnd();
+			}
+			else if (old instanceof PolymorphicOr)
+			{
+				newComp = componentFactory.createOr();
+			}
+			else if (old instanceof PolymorphicNot)
+			{
+				newComp = componentFactory.createNot();
+			}
+			else if (old instanceof PolymorphicProposition)
+			{
+				newComp = componentFactory.createProposition(((PolymorphicProposition)old).getName());
+			}
+			else if (old instanceof PolymorphicTransition)
+			{
+				newComp = componentFactory.createTransition();
+			}
+			else if (old instanceof PolymorphicConstant)
+			{
+				newComp = componentFactory.createConstant(((PolymorphicConstant)old).getValue());
+			}
+			else
+			{
+				throw new RuntimeException("Invalid propnet");
+			}
+			
+			sourceToTargetMap.put(old, newComp);
+			components.add(newComp);
+		}
+		
+		//	Connect them up
+		for(PolymorphicComponent old : sourcePropnet.getComponents())
+		{
+			PolymorphicComponent newComp = sourceToTargetMap.get(old);
+			
+			for(PolymorphicComponent oldInput : old.getInputs())
+			{
+				PolymorphicComponent newInput = sourceToTargetMap.get(oldInput);
+				
+				newComp.addInput(newInput);
+			}
+			
+			for(PolymorphicComponent oldOutput : old.getOutputs())
+			{
+				PolymorphicComponent newOutput = sourceToTargetMap.get(oldOutput);
+				
+				newComp.addOutput(newOutput);
+			}
+		}
+		
+		//	Construct the various maps and collections we need to supply
+		propositions = new HashSet<PolymorphicProposition>();
+		for(PolymorphicProposition oldProp : sourcePropnet.getPropositions())
+		{
+			PolymorphicProposition newProp = (PolymorphicProposition) sourceToTargetMap.get(oldProp);
+			
+			propositions.add(newProp);
+		}
+		basePropositions = new HashMap<GdlSentence,PolymorphicProposition>();
+		for(Entry<GdlSentence, PolymorphicProposition> oldEntry : sourcePropnet.getBasePropositions().entrySet())
+		{
+			PolymorphicProposition newProp = (PolymorphicProposition) sourceToTargetMap.get(oldEntry.getValue());
+			
+			basePropositions.put(oldEntry.getKey(), newProp);
+		}
+		inputPropositions = new HashMap<GdlSentence,PolymorphicProposition>();
+		for(Entry<GdlSentence, PolymorphicProposition> oldEntry : sourcePropnet.getInputPropositions().entrySet())
+		{
+			PolymorphicProposition newProp = (PolymorphicProposition) sourceToTargetMap.get(oldEntry.getValue());
+			
+			inputPropositions.put(oldEntry.getKey(), newProp);
+		}
+		legalPropositions = new HashMap<Role, Set<PolymorphicProposition>>();
+		for(Entry<Role, Set<PolymorphicProposition>> oldEntry : sourcePropnet.getLegalPropositions().entrySet())
+		{
+			Set<PolymorphicProposition> newProps = new HashSet<PolymorphicProposition>();
+			
+			for(PolymorphicProposition oldProp : oldEntry.getValue())
+			{
+				PolymorphicProposition newProp = (PolymorphicProposition) sourceToTargetMap.get(oldProp);
+				
+				newProps.add(newProp);
+			}
+			
+			legalPropositions.put(oldEntry.getKey(), newProps);
+		}
+		goalPropositions = new HashMap<Role, Set<PolymorphicProposition>>();
+		for(Entry<Role, Set<PolymorphicProposition>> oldEntry : sourcePropnet.getGoalPropositions().entrySet())
+		{
+			Set<PolymorphicProposition> newProps = new HashSet<PolymorphicProposition>();
+			
+			for(PolymorphicProposition oldProp : oldEntry.getValue())
+			{
+				PolymorphicProposition newProp = (PolymorphicProposition) sourceToTargetMap.get(oldProp);
+				
+				newProps.add(newProp);
+			}
+			
+			goalPropositions.put(oldEntry.getKey(), newProps);
+		}
+		initProposition = (PolymorphicProposition) sourceToTargetMap.get(sourcePropnet.getInitProposition());
+		terminalProposition = (PolymorphicProposition) sourceToTargetMap.get(sourcePropnet.getTerminalProposition());
+		legalInputMap = new HashMap<PolymorphicProposition, PolymorphicProposition>();
+		for(Entry<PolymorphicProposition, PolymorphicProposition> oldEntry : sourcePropnet.getLegalInputMap().entrySet())
+		{
+			PolymorphicProposition newProp1 = (PolymorphicProposition) sourceToTargetMap.get(oldEntry.getKey());
+			PolymorphicProposition newProp2 = (PolymorphicProposition) sourceToTargetMap.get(oldEntry.getValue());
+			
+			legalInputMap.put(newProp1, newProp2);
+		}
+		
+		roles = sourcePropnet.getRoles();
+	}
 	
 	public List<Role> getRoles()
 	{
