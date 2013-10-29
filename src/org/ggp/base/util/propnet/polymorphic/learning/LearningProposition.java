@@ -1,4 +1,4 @@
-package org.ggp.base.util.propnet.polymorphic.runtimeOptimized;
+package org.ggp.base.util.propnet.polymorphic.learning;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.architecture.Component;
@@ -10,7 +10,7 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
  * The Proposition class is designed to represent named latches.
  */
 @SuppressWarnings("serial")
-public final class RuntimeOptimizedProposition extends RuntimeOptimizedComponent implements PolymorphicProposition
+public final class LearningProposition extends LearningComponent implements PolymorphicProposition
 {
 	/** The name of the Proposition. */
 	private GdlSentence name;
@@ -19,15 +19,12 @@ public final class RuntimeOptimizedProposition extends RuntimeOptimizedComponent
 
 	/**
 	 * Creates a new Proposition with name <tt>name</tt>.
-	 * @param numOutputs 
 	 * 
 	 * @param name
 	 *            The name of the Proposition.
 	 */
-	public RuntimeOptimizedProposition(int numOutputs, GdlSentence name)
+	public LearningProposition(GdlSentence name)
 	{
-		super(1, numOutputs);
-		
 		this.name = name;
 		this.value = false;
 	}
@@ -64,7 +61,7 @@ public final class RuntimeOptimizedProposition extends RuntimeOptimizedComponent
 	protected boolean getValueInternal()
 	{
 		//	Pass-through for backward propagation in all cases except where predecessor is a transition
-		if ( inputIndex == 0 )
+		if ( getInputs().size() == 0 )
 		{
 			return value;
 		}
@@ -81,6 +78,35 @@ public final class RuntimeOptimizedProposition extends RuntimeOptimizedComponent
 			}
 		}
 	}
+
+    protected boolean getValueAndCost(EncapsulatedCost aggregatedCost)
+    {
+		aggregatedCost.incrementCost();
+ 		
+		if ( dirty )
+		{
+			if ( getInputs().size() == 0 )
+			{
+				return value;
+			}
+			else
+			{
+				PolymorphicComponent predecessor = getSingleInput();
+				if ( predecessor instanceof PolymorphicTransition)
+				{
+					return value;
+				}
+				else
+				{
+					return ((LearningComponent)predecessor).getValueAndCost(aggregatedCost);
+				}
+			}
+		}
+		else
+		{
+			return cachedValue;
+		}
+    }
 
 	@Override
     public void reset(boolean disable)

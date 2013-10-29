@@ -1,4 +1,4 @@
-package org.ggp.base.util.propnet.polymorphic.runtimeOptimized;
+package org.ggp.base.util.propnet.polymorphic.learning;
 
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -15,26 +15,26 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
-public abstract class RuntimeOptimizedComponent extends BidirectionalPropagationComponent implements Serializable {
-	private static final long serialVersionUID = 352527628564121134L;
+public abstract class LearningComponent extends BidirectionalPropagationComponent implements Serializable {
+	private static final long serialVersionUID = 352527824700221111L;
     /** The inputs to the component. */
-    protected RuntimeOptimizedComponent[] inputsArray = null;
+    protected List<LearningComponent> inputs;
     /** The outputs of the component. */
-    protected RuntimeOptimizedComponent[] outputsArray = null;
-    
-    protected int inputIndex = 0;
-    private int outputIndex = 0;
+    protected final Set<LearningComponent> outputs;
     
     protected boolean dirty;
     protected boolean cachedValue;
-
+    
+    public static int getCount;
+    public static int dirtyCount;
+ 
     /**
      * Creates a new Component with no inputs or outputs.
      */
-    public RuntimeOptimizedComponent(int numInputs, int numOutput)
+    public LearningComponent()
     {
-    	inputsArray = new RuntimeOptimizedComponent[numInputs];
-    	outputsArray = new RuntimeOptimizedComponent[numOutput];
+        this.inputs = new LinkedList<LearningComponent>();
+        this.outputs = new HashSet<LearningComponent>();
         
         dirty = true;
     }
@@ -47,9 +47,12 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
      */
     public void addInput(PolymorphicComponent input)
     {
-    	inputsArray[inputIndex++] = (RuntimeOptimizedComponent) input;
+    	if ( !inputs.contains(input))
+    	{
+    		inputs.add((LearningComponent) input);
+    	}
     }
-
+ 
     /**
      * Adds a new output.
      * 
@@ -58,25 +61,17 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
      */
     public void addOutput(PolymorphicComponent output)
     {
-    	outputsArray[outputIndex++] = (RuntimeOptimizedComponent) output;
+        outputs.add((LearningComponent) output);
     }
 
     /**
      * Getter method.
      * 
-     * @return The inputs to the component.  Note this should be rarely used in the finalized
-     * state of the propnet
+     * @return The inputs to the component.
      */
     public Collection<? extends PolymorphicComponent> getInputs()
     {
-    	LinkedList<RuntimeOptimizedComponent> result = new LinkedList<RuntimeOptimizedComponent>();
-    	
-    	for(int i = 0; i < inputIndex; i++)
-    	{
-    		result.add(inputsArray[i]);
-    	}
-    	
-        return result;
+        return inputs;
     }
     
     /**
@@ -87,7 +82,8 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
      * @return The single input to the component.
      */
     public PolymorphicComponent getSingleInput() {
-     	return inputsArray[0];
+        assert inputs.size() == 1;
+        return inputs.iterator().next();
     }    
     
     /**
@@ -97,15 +93,8 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
      */
     public Collection<? extends PolymorphicComponent> getOutputs()
     {
-    	LinkedList<RuntimeOptimizedComponent> result = new LinkedList<RuntimeOptimizedComponent>();
-    	
-    	for(RuntimeOptimizedComponent c : outputsArray)
-    	{
-    		result.add(c);
-    	}
-    	
-        return result;
-   }
+        return outputs;
+    }
     
     /**
      * A convenience method, to get a single output.
@@ -115,7 +104,8 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
      * @return The single output to the component.
      */
     public PolymorphicComponent getSingleOutput() {
-    	return outputsArray[0];
+        assert outputs.size() == 1;
+        return outputs.iterator().next();
     }
 
     /**
@@ -125,7 +115,9 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
      */
     public  boolean getValue()
     {
-     	if ( dirty )
+    	getCount++;
+    	
+    	if ( dirty )
     	{
     		dirty = false;
     		cachedValue = getValueInternal();
@@ -141,17 +133,19 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
     
     public void setDirty(boolean from, PolymorphicComponent source)
     {
-    	if ( !dirty )
+    	dirtyCount++;
+    	
+    	if ( !dirty  )
     	{
 	    	dirty = true;
 	    	
 	    	if ( !(this instanceof PolymorphicTransition) )
 	    	{
-	    		for(RuntimeOptimizedComponent output : outputsArray)
+	    		for(LearningComponent output : outputs)
 	    		{
 	    			output.setDirty(cachedValue, this);
 	    		}
- 	    	}
+	    	}
     	}
     }
     
@@ -174,6 +168,23 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
 			}
     	}
     }
+
+    protected class EncapsulatedCost
+    {
+    	private int cost = 0;
+    	
+    	public int getCost()
+    	{
+    		return cost;
+    	}
+    	
+    	public void incrementCost()
+    	{
+    		cost++;
+    	}
+    }
+    
+    protected abstract boolean getValueAndCost(EncapsulatedCost aggregatedCost);
     
     /**
      * Calculates the value of the Component.
@@ -181,6 +192,10 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
      * @return The value of the Component.
      */
     protected abstract boolean getValueInternal();
+
+    public void Optimize()
+    {
+    }
     
     /**
      * Returns a configurable representation of the Component in .dot format.

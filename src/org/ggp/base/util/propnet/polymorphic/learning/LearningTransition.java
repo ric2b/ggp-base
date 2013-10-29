@@ -1,4 +1,4 @@
-package org.ggp.base.util.propnet.polymorphic.runtimeOptimized;
+package org.ggp.base.util.propnet.polymorphic.learning;
 
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 
@@ -6,12 +6,8 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
  * The Transition class is designed to represent pass-through gates.
  */
 @SuppressWarnings("serial")
-public final class RuntimeOptimizedTransition extends RuntimeOptimizedComponent implements PolymorphicTransition
+public final class LearningTransition extends LearningComponent implements PolymorphicTransition
 {
-	public RuntimeOptimizedTransition(int numOutputs) {
-		super(1, numOutputs);
-	}
-
 	/**
 	 * Returns the value of the input to the transition.
 	 * 
@@ -22,6 +18,20 @@ public final class RuntimeOptimizedTransition extends RuntimeOptimizedComponent 
 	{
 		return getSingleInput().getValue();
 	}
+
+    protected boolean getValueAndCost(EncapsulatedCost aggregatedCost)
+    {
+		aggregatedCost.incrementCost();
+ 		
+		if ( dirty )
+		{
+			return ((LearningComponent)getSingleInput()).getValueAndCost(aggregatedCost);
+		}
+		else
+		{
+			return cachedValue;
+		}
+    }
 
 	/**
 	 * @see org.ggp.base.util.propnet.architecture.Component#toString()
