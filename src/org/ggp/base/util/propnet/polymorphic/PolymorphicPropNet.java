@@ -5,6 +5,7 @@ import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -43,15 +44,16 @@ public final class PolymorphicPropNet
 	
 	/** References to every BaseProposition in the PropNet, indexed by name. */
 	private final Map<GdlSentence, PolymorphicProposition> basePropositions;
+	private PolymorphicProposition[] basePropositionsArray;
 	
 	/** References to every InputProposition in the PropNet, indexed by name. */
 	private final Map<GdlSentence, PolymorphicProposition> inputPropositions;
 	
 	/** References to every LegalProposition in the PropNet, indexed by role. */
-	private final Map<Role, Set<PolymorphicProposition>> legalPropositions;
+	private final Map<Role, PolymorphicProposition[]> legalPropositions;
 	
 	/** References to every GoalProposition in the PropNet, indexed by role. */
-	private final Map<Role, Set<PolymorphicProposition>> goalPropositions;
+	private final Map<Role, PolymorphicProposition[]> goalPropositions;
 	
 	/** A reference to the single, unique, InitProposition. */
 	private final PolymorphicProposition initProposition;
@@ -85,27 +87,27 @@ public final class PolymorphicPropNet
 
 			if (old instanceof And)
 			{
-				newComp = componentFactory.createAnd();
+				newComp = componentFactory.createAnd(old.getInputs().size(), old.getOutputs().size());
 			}
 			else if (old instanceof Or)
 			{
-				newComp = componentFactory.createOr();
+				newComp = componentFactory.createOr(old.getInputs().size(), old.getOutputs().size());
 			}
 			else if (old instanceof Not)
 			{
-				newComp = componentFactory.createNot();
+				newComp = componentFactory.createNot(old.getOutputs().size());
 			}
 			else if (old instanceof Proposition)
 			{
-				newComp = componentFactory.createProposition(((Proposition)old).getName());
+				newComp = componentFactory.createProposition(old.getOutputs().size(),((Proposition)old).getName());
 			}
 			else if (old instanceof Transition)
 			{
-				newComp = componentFactory.createTransition();
+				newComp = componentFactory.createTransition(old.getOutputs().size());
 			}
 			else if (old instanceof Constant)
 			{
-				newComp = componentFactory.createConstant(((Constant)old).getValue());
+				newComp = componentFactory.createConstant(old.getOutputs().size(), ((Constant)old).getValue());
 			}
 			else
 			{
@@ -158,30 +160,32 @@ public final class PolymorphicPropNet
 			
 			inputPropositions.put(oldEntry.getKey(), newProp);
 		}
-		legalPropositions = new HashMap<Role, Set<PolymorphicProposition>>();
+		legalPropositions = new HashMap<Role, PolymorphicProposition[]>();
 		for(Entry<Role, Set<Proposition>> oldEntry : sourcePropnet.getLegalPropositions().entrySet())
 		{
-			Set<PolymorphicProposition> newProps = new HashSet<PolymorphicProposition>();
+			PolymorphicProposition newProps[] = new PolymorphicProposition[oldEntry.getValue().size()];
+			int index = 0;
 			
 			for(Proposition oldProp : oldEntry.getValue())
 			{
 				PolymorphicProposition newProp = (PolymorphicProposition) sourceToTargetMap.get(oldProp);
 				
-				newProps.add(newProp);
+				newProps[index++] = newProp;
 			}
 			
 			legalPropositions.put(oldEntry.getKey(), newProps);
 		}
-		goalPropositions = new HashMap<Role, Set<PolymorphicProposition>>();
+		goalPropositions = new HashMap<Role, PolymorphicProposition[]>();
 		for(Entry<Role, Set<Proposition>> oldEntry : sourcePropnet.getGoalPropositions().entrySet())
 		{
-			Set<PolymorphicProposition> newProps = new HashSet<PolymorphicProposition>();
+			PolymorphicProposition[] newProps = new PolymorphicProposition[oldEntry.getValue().size()];
+			int index = 0;
 			
 			for(Proposition oldProp : oldEntry.getValue())
 			{
 				PolymorphicProposition newProp = (PolymorphicProposition) sourceToTargetMap.get(oldProp);
 				
-				newProps.add(newProp);
+				newProps[index++] = newProp;
 			}
 			
 			goalPropositions.put(oldEntry.getKey(), newProps);
@@ -198,7 +202,15 @@ public final class PolymorphicPropNet
 		}
 		
 		roles = sourcePropnet.getRoles();
+		
+		basePropositionsArray = new PolymorphicProposition[basePropositions.size()];
+		int index = 0;
+		for(PolymorphicProposition p : basePropositions.values())
+		{
+			basePropositionsArray[index++] = p;
+		}
 	}
+	
 	public PolymorphicPropNet(PolymorphicPropNet sourcePropnet, PolymorphicComponentFactory componentFactory)
 	{
 		Map<PolymorphicComponent,PolymorphicComponent> sourceToTargetMap = new HashMap<PolymorphicComponent,PolymorphicComponent>();
@@ -212,27 +224,27 @@ public final class PolymorphicPropNet
 
 			if (old instanceof PolymorphicAnd)
 			{
-				newComp = componentFactory.createAnd();
+				newComp = componentFactory.createAnd(old.getInputs().size(), old.getOutputs().size());
 			}
 			else if (old instanceof PolymorphicOr)
 			{
-				newComp = componentFactory.createOr();
+				newComp = componentFactory.createOr(old.getInputs().size(), old.getOutputs().size());
 			}
 			else if (old instanceof PolymorphicNot)
 			{
-				newComp = componentFactory.createNot();
+				newComp = componentFactory.createNot(old.getOutputs().size());
 			}
 			else if (old instanceof PolymorphicProposition)
 			{
-				newComp = componentFactory.createProposition(((PolymorphicProposition)old).getName());
+				newComp = componentFactory.createProposition(old.getOutputs().size(), ((PolymorphicProposition)old).getName());
 			}
 			else if (old instanceof PolymorphicTransition)
 			{
-				newComp = componentFactory.createTransition();
+				newComp = componentFactory.createTransition(old.getOutputs().size());
 			}
 			else if (old instanceof PolymorphicConstant)
 			{
-				newComp = componentFactory.createConstant(((PolymorphicConstant)old).getValue());
+				newComp = componentFactory.createConstant(old.getOutputs().size(), ((PolymorphicConstant)old).getValue());
 			}
 			else
 			{
@@ -285,30 +297,32 @@ public final class PolymorphicPropNet
 			
 			inputPropositions.put(oldEntry.getKey(), newProp);
 		}
-		legalPropositions = new HashMap<Role, Set<PolymorphicProposition>>();
-		for(Entry<Role, Set<PolymorphicProposition>> oldEntry : sourcePropnet.getLegalPropositions().entrySet())
+		legalPropositions = new HashMap<Role, PolymorphicProposition[]>();
+		for(Entry<Role, PolymorphicProposition[]> oldEntry : sourcePropnet.getLegalPropositions().entrySet())
 		{
-			Set<PolymorphicProposition> newProps = new HashSet<PolymorphicProposition>();
+			PolymorphicProposition[] newProps = new PolymorphicProposition[oldEntry.getValue().length];
+			int index = 0;
 			
 			for(PolymorphicProposition oldProp : oldEntry.getValue())
 			{
 				PolymorphicProposition newProp = (PolymorphicProposition) sourceToTargetMap.get(oldProp);
 				
-				newProps.add(newProp);
+				newProps[index++] = newProp;
 			}
 			
 			legalPropositions.put(oldEntry.getKey(), newProps);
 		}
-		goalPropositions = new HashMap<Role, Set<PolymorphicProposition>>();
-		for(Entry<Role, Set<PolymorphicProposition>> oldEntry : sourcePropnet.getGoalPropositions().entrySet())
+		goalPropositions = new HashMap<Role, PolymorphicProposition[]>();
+		for(Entry<Role, PolymorphicProposition[]> oldEntry : sourcePropnet.getGoalPropositions().entrySet())
 		{
-			Set<PolymorphicProposition> newProps = new HashSet<PolymorphicProposition>();
+			PolymorphicProposition[] newProps = new PolymorphicProposition[oldEntry.getValue().length];
+			int index = 0;
 			
 			for(PolymorphicProposition oldProp : oldEntry.getValue())
 			{
 				PolymorphicProposition newProp = (PolymorphicProposition) sourceToTargetMap.get(oldProp);
 				
-				newProps.add(newProp);
+				newProps[index++] = newProp;
 			}
 			
 			goalPropositions.put(oldEntry.getKey(), newProps);
@@ -325,6 +339,13 @@ public final class PolymorphicPropNet
 		}
 		
 		roles = sourcePropnet.getRoles();
+		
+		basePropositionsArray = new PolymorphicProposition[basePropositions.size()];
+		int index = 0;
+		for(PolymorphicProposition p : sourcePropnet.getBasePropositionsArray())
+		{
+			basePropositionsArray[index++] = (PolymorphicProposition) sourceToTargetMap.get(p);
+		}
 	}
 	
 	public List<Role> getRoles()
@@ -347,6 +368,11 @@ public final class PolymorphicPropNet
 	{
 		return basePropositions;
 	}
+	
+	public PolymorphicProposition[] getBasePropositionsArray()
+	{
+		return basePropositionsArray;
+	}
 
 	/**
 	 * Getter method.
@@ -364,7 +390,7 @@ public final class PolymorphicPropNet
 	 * @return References to every GoalProposition in the PropNet, indexed by
 	 *         player name.
 	 */
-	public Map<Role, Set<PolymorphicProposition>> getGoalPropositions()
+	public Map<Role, PolymorphicProposition[]> getGoalPropositions()
 	{
 		return goalPropositions;
 	}
@@ -396,7 +422,7 @@ public final class PolymorphicPropNet
 	 * @return References to every LegalProposition in the PropNet, indexed by
 	 *         player name.
 	 */
-	public Map<Role, Set<PolymorphicProposition>> getLegalPropositions()
+	public Map<Role, PolymorphicProposition[]> getLegalPropositions()
 	{
 		return legalPropositions;
 	}

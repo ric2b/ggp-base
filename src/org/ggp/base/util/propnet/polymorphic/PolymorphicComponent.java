@@ -20,14 +20,6 @@ public abstract interface PolymorphicComponent
      *            A new input.
      */
     public abstract void addInput(PolymorphicComponent input);
-    
-    public abstract void removeInput(PolymorphicComponent input);
-    
-    public abstract void removeOutput(PolymorphicComponent output);
-    
-    public abstract void removeAllInputs();
-    
-	public abstract void removeAllOutputs();
 
     /**
      * Adds a new output.
