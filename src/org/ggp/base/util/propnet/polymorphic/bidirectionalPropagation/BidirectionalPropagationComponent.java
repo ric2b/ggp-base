@@ -8,7 +8,7 @@ public abstract class BidirectionalPropagationComponent implements
 	   
     public abstract boolean isDirty();
     
-    public abstract void setDirty(boolean from, PolymorphicComponent source);
+    public abstract void setDirty(boolean from, BidirectionalPropagationComponent source);
     
     public abstract void reset(boolean disable);
 

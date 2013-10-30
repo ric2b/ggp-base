@@ -9,6 +9,7 @@ import java.util.Set;
 import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
+import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
 
 /**
@@ -89,7 +90,7 @@ public final class RuntimeOptimizedAnd extends RuntimeOptimizedComponent impleme
 	}
 
 	@Override
-    public void setDirty(boolean from, PolymorphicComponent source)
+    public void setDirty(boolean from, BidirectionalPropagationComponent source)
     {
 		if ( !dirty )
 		{
@@ -108,6 +109,29 @@ public final class RuntimeOptimizedAnd extends RuntimeOptimizedComponent impleme
 	    		}
     		}
 		}
+    }
+	
+    public void setKnownChangedState(boolean newState, BidirectionalPropagationComponent source)
+    {
+		if (!newState)
+		{
+			if ( knownFalseInput == null)
+			{
+				knownFalseInput = source;
+			}
+			dirty = false;
+			if ( cachedValue )
+			{
+				cachedValue = false;
+	    		for(RuntimeOptimizedComponent output : outputsArray)
+	    		{
+	    			output.setKnownChangedState(true, this);
+	    		}
+			}
+			return;
+		}
+		
+		setDirty(true, source);
     }
 
 	/**

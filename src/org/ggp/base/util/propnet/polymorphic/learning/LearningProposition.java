@@ -5,6 +5,7 @@ import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
+import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponent;
 
 /**
  * The Proposition class is designed to represent named latches.
@@ -130,8 +131,13 @@ public final class LearningProposition extends LearningComponent implements Poly
 		if ( this.value != value )
 		{
 			this.value = value;
+			cachedValue = value;
+			dirty = false;
 			
-			setDirty(!value, this);
+    		for(LearningComponent output : outputs)
+    		{
+    			output.setDirty(!value, this);
+    		}
 		}
 	}
 

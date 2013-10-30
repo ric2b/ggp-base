@@ -131,7 +131,7 @@ public abstract class LearningComponent extends BidirectionalPropagationComponen
     	return dirty;
     }
     
-    public void setDirty(boolean from, PolymorphicComponent source)
+    public void setDirty(boolean from, BidirectionalPropagationComponent source)
     {
     	dirtyCount++;
     	
@@ -153,7 +153,8 @@ public abstract class LearningComponent extends BidirectionalPropagationComponen
     {
     	if (this instanceof PolymorphicConstant)
     	{
-    		dirty = true;
+    		dirty = false;
+    		cachedValue = getValueInternal();
     	}
     	else
     	{

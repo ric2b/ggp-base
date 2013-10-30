@@ -5,6 +5,7 @@ import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
+import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
 /**
  * The Proposition class is designed to represent named latches.
@@ -16,6 +17,7 @@ public final class RuntimeOptimizedProposition extends RuntimeOptimizedComponent
 	private GdlSentence name;
 	/** The value of the Proposition. */
 	private boolean value;
+	private PolymorphicTransition predecessorTransition = null;
 
 	/**
 	 * Creates a new Proposition with name <tt>name</tt>.
@@ -53,7 +55,18 @@ public final class RuntimeOptimizedProposition extends RuntimeOptimizedComponent
     public void setName(GdlSentence newName)
     {
         name = newName;
-    }	
+    }
+    
+    @Override
+    public void addInput(PolymorphicComponent input)
+    {
+    	super.addInput(input);
+    	
+    	if ( input instanceof PolymorphicTransition )
+    	{
+    		predecessorTransition = (PolymorphicTransition)input;
+    	}
+    }
 
 	/**
 	 * Returns the current value of the Proposition.
@@ -64,21 +77,13 @@ public final class RuntimeOptimizedProposition extends RuntimeOptimizedComponent
 	protected boolean getValueInternal()
 	{
 		//	Pass-through for backward propagation in all cases except where predecessor is a transition
-		if ( inputIndex == 0 )
+		if ( inputIndex == 0 || predecessorTransition != null )
 		{
 			return value;
 		}
 		else
 		{
-			PolymorphicComponent predecessor = getSingleInput();
-			if ( predecessor instanceof PolymorphicTransition)
-			{
-				return value;
-			}
-			else
-			{
-				return predecessor.getValue();
-			}
+			return inputsArray[0].getValue();
 		}
 	}
 
@@ -104,11 +109,27 @@ public final class RuntimeOptimizedProposition extends RuntimeOptimizedComponent
 		if ( this.value != value )
 		{
 			this.value = value;
+			cachedValue = value;
+			dirty = false;
 			
-			setDirty(!value, this);
+    		for(RuntimeOptimizedComponent output : outputsArray)
+    		{
+    			output.setDirty(!value, this);
+    		}
 		}
 	}
 
+    public void setKnownChangedState(boolean newState, BidirectionalPropagationComponent source)
+    {
+		dirty = false;
+		cachedValue = newState;
+    	
+		for(RuntimeOptimizedComponent output : outputsArray)
+		{
+			output.setKnownChangedState(newState, this);
+		}
+    }
+    
 	/**
 	 * @see org.ggp.base.util.propnet.architecture.Component#toString()
 	 */

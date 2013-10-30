@@ -19,6 +19,7 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
 	private static final long serialVersionUID = 352527628564121134L;
     /** The inputs to the component. */
     protected RuntimeOptimizedComponent[] inputsArray = null;
+    protected RuntimeOptimizedComponent singleInput = null;
     /** The outputs of the component. */
     protected RuntimeOptimizedComponent[] outputsArray = null;
     
@@ -47,6 +48,10 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
      */
     public void addInput(PolymorphicComponent input)
     {
+    	if ( inputIndex == 0 )
+    	{
+    		singleInput = (RuntimeOptimizedComponent)input;
+    	}
     	inputsArray[inputIndex++] = (RuntimeOptimizedComponent) input;
     }
 
@@ -87,7 +92,7 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
      * @return The single input to the component.
      */
     public PolymorphicComponent getSingleInput() {
-     	return inputsArray[0];
+     	return singleInput;
     }    
     
     /**
@@ -139,27 +144,38 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
     	return dirty;
     }
     
-    public void setDirty(boolean from, PolymorphicComponent source)
+    public void setDirty(boolean from, BidirectionalPropagationComponent source)
     {
     	if ( !dirty )
     	{
 	    	dirty = true;
 	    	
-	    	if ( !(this instanceof PolymorphicTransition) )
-	    	{
-	    		for(RuntimeOptimizedComponent output : outputsArray)
-	    		{
-	    			output.setDirty(cachedValue, this);
-	    		}
- 	    	}
+    		for(RuntimeOptimizedComponent output : outputsArray)
+    		{
+    			output.setDirty(cachedValue, this);
+    		}
     	}
+    }
+    
+    public void setKnownChangedState(boolean newState, BidirectionalPropagationComponent source)
+    {
+    	if ( !dirty )
+    	{
+	    	dirty = true;
+	    	
+    		for(RuntimeOptimizedComponent output : outputsArray)
+    		{
+    			output.setDirty(cachedValue, this);
+    		}
+     	}
     }
     
     public void reset(boolean disable)
     {
     	if (this instanceof PolymorphicConstant)
     	{
-    		dirty = true;
+    		dirty = false;
+    		cachedValue = getValueInternal();
     	}
     	else
     	{

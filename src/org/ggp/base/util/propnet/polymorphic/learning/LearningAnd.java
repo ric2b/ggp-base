@@ -6,7 +6,9 @@ import java.util.Map;
 
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
+import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 import org.ggp.base.util.propnet.polymorphic.learning.LearningComponent.EncapsulatedCost;
+import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponent;
 
 
 /**
@@ -207,10 +209,31 @@ public final class LearningAnd extends LearningComponent implements PolymorphicA
 	}
 
 	@Override
-    public void setDirty(boolean from, PolymorphicComponent source)
+    public void setDirty(boolean from, BidirectionalPropagationComponent source)
     {
     	dirtyCount++;
     	
+		if ( !source.isDirty())
+		{
+			if (from)
+			{
+				if ( knownFalseInput == null)
+				{
+					knownFalseInput = source;
+				}
+				dirty = false;
+				if ( cachedValue )
+				{
+					cachedValue = false;
+		    		for(LearningComponent output : outputs)
+		    		{
+		    			output.setDirty(true, this);
+		    		}
+				}
+				return;
+			}
+		}
+		
 		if ( !dirty  )
 		{
 			if ( source == knownFalseInput )

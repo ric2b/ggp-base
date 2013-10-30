@@ -1,6 +1,9 @@
 package org.ggp.base.util.propnet.polymorphic.runtimeOptimized;
 
+import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicNot;
+import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
+import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
 /**
  * The Not class is designed to represent logical NOT gates.
@@ -20,8 +23,32 @@ public final class RuntimeOptimizedNot extends RuntimeOptimizedComponent impleme
 	@Override
 	protected boolean getValueInternal()
 	{
-		return !getSingleInput().getValue();
+		return !singleInput.getValue();
 	}
+	   
+	public void setDirty(boolean from, BidirectionalPropagationComponent source)
+    {
+		if ( !dirty )
+    	{
+	    	dirty = true;
+	    	
+    		for(RuntimeOptimizedComponent output : outputsArray)
+    		{
+    			output.setDirty(cachedValue, this);
+    		}
+    	}
+    }
+
+    public void setKnownChangedState(boolean newState, BidirectionalPropagationComponent source)
+    {
+		dirty = false;
+		cachedValue = !newState;
+    	
+		for(RuntimeOptimizedComponent output : outputsArray)
+		{
+			output.setKnownChangedState(newState, this);
+		}
+    }
 
 	/**
 	 * @see org.ggp.base.util.propnet.architecture.Component#toString()

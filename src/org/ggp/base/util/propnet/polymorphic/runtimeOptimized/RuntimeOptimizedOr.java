@@ -7,6 +7,7 @@ import java.util.Map;
 import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicOr;
+import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
 /**
  * The Or class is designed to represent logical OR gates.
@@ -86,7 +87,7 @@ public final class RuntimeOptimizedOr extends RuntimeOptimizedComponent implemen
 	}
 
 	@Override
-    public void setDirty(boolean from, PolymorphicComponent source)
+    public void setDirty(boolean from, BidirectionalPropagationComponent source)
     {
 		if ( !dirty)
 		{
@@ -105,6 +106,29 @@ public final class RuntimeOptimizedOr extends RuntimeOptimizedComponent implemen
 	    		}
     		}
 		}
+    }
+	
+    public void setKnownChangedState(boolean newState, BidirectionalPropagationComponent source)
+    {
+		if (newState)
+		{
+			if ( knownTrueInput == null)
+			{
+				knownTrueInput = source;
+			}
+			dirty = false;
+			if ( !cachedValue )
+			{
+				cachedValue = true;
+	    		for(RuntimeOptimizedComponent output : outputsArray)
+	    		{
+	    			output.setKnownChangedState(false, this);
+	    		}
+			}
+			return;
+		}
+		
+		setDirty(false, source);
     }
 
 	/**
