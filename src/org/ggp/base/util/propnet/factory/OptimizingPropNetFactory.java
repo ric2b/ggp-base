@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +57,8 @@ import org.ggp.base.util.propnet.architecture.components.Or;
 import org.ggp.base.util.propnet.architecture.components.Proposition;
 import org.ggp.base.util.propnet.architecture.components.Transition;
 import org.ggp.base.util.statemachine.Role;
+
+
 
 import com.google.common.collect.Multimap;
 
@@ -228,7 +231,12 @@ public class OptimizingPropNetFactory {
 			System.out.println("Setting up 'init' proposition...");
 		setUpInit(components, trueComponent, falseComponent);
 		//Now we can safely...
+		if(verbose)
+			System.out.println("Num components before useless removed: " + components.size());
+		
 		removeUselessBasePropositions(components, negations, trueComponent, falseComponent);
+		if(verbose)
+			System.out.println("Num components after useless removed: " + components.size());
 		if(verbose)
 			System.out.println("Creating component set...");
 		Set<Component> componentSet = new HashSet<Component>(components.values());
@@ -398,21 +406,47 @@ public class OptimizingPropNetFactory {
 	    }
 	}
 
+	private static Set<Component> findImmediatelyNonEssentialChildren(Component parent)
+	{
+		Set<Component> result = new HashSet<Component>();
+		
+		for(Component c : parent.getOutputs())
+		{
+			if ( !isEssentialProposition(c) && !(c instanceof Transition))
+			{
+				result.add(c);
+			}
+		}
+		return result;
+	}
+	
 	//TODO: Create a version with just a set of components that we can share with post-optimizations
 	private static void optimizeAwayFalse(
 			Map<GdlSentence, Component> components, Map<GdlSentence, Component> negations, PropNet pn, Component trueComponent,
 			Component falseComponent) {
         assert((components != null && negations != null) || pn != null);
         assert((components == null && negations == null) || pn == null);
-		while(hasNonessentialChildren(falseComponent)) {
-			Iterator<Component> outputItr = falseComponent.getOutputs().iterator();
-			Component output = outputItr.next();
-			while(isEssentialProposition(output) || output instanceof Transition) {
-			    if(outputItr.hasNext())
-			        output = outputItr.next();
-			    else
-			        return;
-			}
+        
+        Set<Component> nonEssentials;
+        
+		//while(hasNonessentialChildren(falseComponent)) {
+		while((nonEssentials = findImmediatelyNonEssentialChildren(falseComponent)).size() != 0) {
+			//System.out.println("Found " + nonEssentials.size() + " immediately non-essential children, out of a total of " + falseComponent.getOutputs().size());
+			//int count = 0;
+			for(Component output : nonEssentials)
+			{
+				//if ( count++ % 1000 == 0)
+				//{
+				//	System.out.println("...processed " + count + " of " + nonEssentials.size());
+				//}
+			//Iterator<Component> outputItr = falseComponent.getOutputs().iterator();
+			//Component output = outputItr.next();
+			//while(isEssentialProposition(output) || output instanceof Transition) {
+			//    if(outputItr.hasNext())
+			//        output = outputItr.next();
+			//    else
+			//        return;
+			//}
 			if(output instanceof Proposition) {
 				//Move its outputs to be outputs of false
 				for(Component child : output.getOutputs()) {
@@ -440,6 +474,8 @@ public class OptimizingPropNetFactory {
 				}
 			} else if(output instanceof And) {
 				And and = (And) output;
+				and.removeInput(falseComponent);
+				falseComponent.removeOutput(and);
 				//Attach children of and to falseComponent
 				for(Component child : and.getOutputs()) {
 					child.addInput(falseComponent);
@@ -496,6 +532,7 @@ public class OptimizingPropNetFactory {
 				//???
 				System.err.println("Fix optimizeAwayFalse's case for Transitions");
 			}
+			}
 		}
 	}
 
@@ -504,15 +541,23 @@ public class OptimizingPropNetFactory {
 			Map<GdlSentence, Component> components, Map<GdlSentence, Component> negations, PropNet pn, Component trueComponent,
 			Component falseComponent) {
 	    assert((components != null && negations != null) || pn != null);
-		while(hasNonessentialChildren(trueComponent)) {
-			Iterator<Component> outputItr = trueComponent.getOutputs().iterator();
-			Component output = outputItr.next();
-			while(isEssentialProposition(output) || output instanceof Transition) {
-				if (outputItr.hasNext())
-					output = outputItr.next();
-				else
-					return;
-			}
+	    
+        Set<Component> nonEssentials;
+        
+		//while(hasNonessentialChildren(trueComponent)) {
+		while((nonEssentials = findImmediatelyNonEssentialChildren(trueComponent)).size() != 0) {
+			//System.out.println("Found " + nonEssentials.size() + " immediately non-essential children, out of a total of " + falseComponent.getOutputs().size());
+			//int count = 0;
+			for(Component output : nonEssentials)
+			{
+			//Iterator<Component> outputItr = trueComponent.getOutputs().iterator();
+			//Component output = outputItr.next();
+			//while(isEssentialProposition(output) || output instanceof Transition) {
+			//	if (outputItr.hasNext())
+			//		output = outputItr.next();
+			//	else
+			//		return;
+			//}
 			if(output instanceof Proposition) {
 				//Move its outputs to be outputs of true
 				for(Component child : output.getOutputs()) {
@@ -540,6 +585,8 @@ public class OptimizingPropNetFactory {
 				}
 			} else if(output instanceof Or) {
 				Or or = (Or) output;
+				or.removeInput(trueComponent);
+				trueComponent.removeOutput(or);
 				//Attach children of or to trueComponent
 				for(Component child : or.getOutputs()) {
 					child.addInput(trueComponent);
@@ -596,6 +643,7 @@ public class OptimizingPropNetFactory {
 				//???
 				System.err.println("Fix optimizeAwayTrue's case for Transitions");
 			}
+			}
 		}
 	}
 
@@ -607,8 +655,11 @@ public class OptimizingPropNetFactory {
 			if(!isEssentialProposition(child))
 				return true;
 			//We don't want any grandchildren, either
-			if(!child.getOutputs().isEmpty())
-				return true;
+			//	SD - this breaks down in certain case leading to infinite loops - for
+			//	example when an isLegal is used as input to other parts of the state
+			//	calculation (crossers3 is an example such ruleset)
+			//if(!child.getOutputs().isEmpty())
+			//	return true;
 		}
 		return false;
 	}
@@ -840,7 +891,7 @@ public class OptimizingPropNetFactory {
 			if(alwaysTrueSentence.getName().equals(LEGAL)
 					|| alwaysTrueSentence.getName().equals(NEXT)
 					|| alwaysTrueSentence.getName().equals(GOAL)) {
-				Proposition prop = new Proposition(alwaysTrueSentence);
+				Proposition prop =  new Proposition(alwaysTrueSentence);
 				//Attach to true
 				trueComponent.addOutput(prop);
 				prop.addInput(trueComponent);
@@ -1184,6 +1235,50 @@ public class OptimizingPropNetFactory {
         return color;
     }
 	}
+	
+	static class ReEvaulationSet implements Iterable<Component>
+	{
+		private Set<Component> contents = new LinkedHashSet<Component>();
+		
+		public void add(Component c)
+		{
+			if ( c instanceof Constant )
+			{
+				System.out.println("Constant added to re-eval list!");
+			}
+			
+			contents.add(c);
+		}
+		
+		public void addAll(Set<Component> set)
+		{
+			for(Component c : set)
+			{
+				add(c);
+			}
+		}
+		
+		public void remove(Component c)
+		{
+			contents.remove(c);
+		}
+		
+		public Iterator<Component> iterator()
+		{
+			return contents.iterator();
+		}
+		
+		public boolean isEmpty()
+		{
+			return contents.isEmpty();
+		}
+		
+		public int size()
+		{
+			return contents.size();
+		}
+	}
+	
 	public static void removeUnreachableBasesAndInputs(PropNet pn) {
 	    //This actually might remove more than bases and inputs
 	    //We flow through the game graph to see what can be true (and what can be false?)...
@@ -1203,10 +1298,20 @@ public class OptimizingPropNetFactory {
 	        }
 	    }
 
-        Set<Component> toReevaluate = new HashSet<Component>();
+        //Set<Component> toReevaluate = new LinkedHashSet<Component>();
+	    ReEvaulationSet toReevaluate = new ReEvaulationSet();
+        Set<Component> explicitlyInitedBases = new HashSet<Component>();
+
         //Every input can be false (we assume that no player will have just one move allowed all game)
         for(Proposition p : pn.getInputPropositions().values()) {
-            reachability.put(p, Type.FALSE);
+            if(pn.getLegalInputMap().containsKey(p))
+            {
+                reachability.put(p, Type.BOTH);
+            }
+            else
+            {
+                reachability.put(p, Type.FALSE);
+			}
             toReevaluate.addAll(p.getOutputs());
         }
 	    //Every base with "init" can be true, every base without "init" can be false
@@ -1218,6 +1323,7 @@ public class OptimizingPropNetFactory {
 	        if(entry.getKey() instanceof GdlRelation
 	                && initted.contains(((GdlRelation)entry.getKey()).get(0))) {
 	            reachability.put(p, Type.TRUE);
+	            explicitlyInitedBases.add(p);
 	        } else {
 	            reachability.put(entry.getValue(), Type.FALSE);
 	        }
@@ -1227,8 +1333,35 @@ public class OptimizingPropNetFactory {
 	    Proposition initProposition = pn.getInitProposition();
 	    reachability.put(initProposition, Type.BOTH);
 	    toReevaluate.addAll(initProposition.getOutputs());
+	    
+	    int loopDetectionCount = 0;
+	    int reEvaluationLimit = toReevaluate.size();
+	    
 	    //Now, propagate everything we know
 	    while(!toReevaluate.isEmpty()) {
+	    	if ( loopDetectionCount++ > reEvaluationLimit )
+	    	{
+	    		//	We're in a loop of undecided components - just leave anything that's still undecided untrimmed
+	    		//	For now we take a REALLY simplistic approach and promote everything caught in the looping to
+	    		//	BOTH
+	    		//Set<Component> newReEvaulateList = new LinkedHashSet<Component>();
+	    		ReEvaulationSet newReEvaulateList = new ReEvaulationSet();
+	    		
+	    		for(Component curComp : toReevaluate)
+	    		{
+	    	        Type type = reachability.get(curComp);
+	    	        type = addTrue(type);
+	    	        type = addFalse(type);
+	    	        reachability.put(curComp, type);
+
+	    	        newReEvaulateList.addAll(curComp.getOutputs());
+	    		}
+	    	
+	    		toReevaluate = newReEvaulateList;
+	        	loopDetectionCount = 0;
+	        	reEvaluationLimit = toReevaluate.size();
+	    		continue;
+	    	}
 	        Component curComp = toReevaluate.iterator().next();
 	        toReevaluate.remove(curComp);
 	        //Can we upgrade its type?
@@ -1245,56 +1378,129 @@ public class OptimizingPropNetFactory {
 	        boolean curCompIsLegalProposition = false;
 
 	        //How we react to the parents (or pseudo-parents) depends on the type
-	        Set<Component> parents = curComp.getInputs();
+	        Collection<Component> parents = curComp.getInputs();
 	        if(curComp instanceof And) {
 	            if(checkTrue) {
 	                //All parents must be capable of being true
 	                boolean allCanBeTrue = true;
+	                Set<Component> starParents = new HashSet<Component>();
 	                for(Component parent : parents) {
 	                    Type parentType = reachability.get(parent);
-	                    if(!parentType.hasTrue()) {
+	                    if (parent instanceof Constant)
+	                    {
+	                    	parentType = parent.getValue() ? Type.TRUE : Type.FALSE;
+	                    }
+	                    if ( parentType == Type.STAR )
+	                    {
+	                    	starParents.add(parent);
+	                    }
+	                    else if(!parentType.hasTrue()) {
 	                        allCanBeTrue = false;
 	                        break;
 	                    }
+	                }
+	                if ( starParents.size() > 0 )
+	                {
+	                	//	Cannot decide yet - add STAR parents for re-evaluation
+	                	//	and then ourselves again
+	                	toReevaluate.addAll(starParents);
+	                	continue;
 	                }
 	                upgradeTrue = allCanBeTrue;
 	            }
 	            if(checkFalse) {
 	                //Some parent must be capable of being false
+	                Set<Component> starParents = new HashSet<Component>();
 	                for(Component parent : parents) {
 	                    Type parentType = reachability.get(parent);
-	                    if(parentType.hasFalse()) {
+	                    if (parent instanceof Constant)
+	                    {
+	                    	parentType = parent.getValue() ? Type.TRUE : Type.FALSE;
+	                    }
+	                    if ( parentType == Type.STAR )
+	                    {
+	                    	starParents.add(parent);
+	                    }
+	                    else if(parentType.hasFalse()) {
 	                        upgradeFalse = true;
 	                        break;
 	                    }
+	                }
+	                if ( !upgradeFalse && starParents.size() > 0 )
+	                {
+	                	//	Cannot decide yet - add STAR parents for re-evaluation
+	                	//	and then ourselves again
+	                	toReevaluate.addAll(starParents);
+	                	continue;
 	                }
 	            }
 	        } else if(curComp instanceof Or) {
 	            if(checkTrue) {
 	                //Some parent must be capable of being true
+	                Set<Component> starParents = new HashSet<Component>();
 	                for(Component parent : parents) {
 	                    Type parentType = reachability.get(parent);
-                        if(parentType.hasTrue()) {
+	                    if (parent instanceof Constant)
+	                    {
+	                    	parentType = parent.getValue() ? Type.TRUE : Type.FALSE;
+	                    }
+	                    if ( parentType == Type.STAR )
+	                    {
+	                    	starParents.add(parent);
+	                    }
+	                    else if(parentType.hasTrue()) {
                             upgradeTrue = true;
                             break;
                         }
+	                }
+	                if ( !upgradeTrue && starParents.size() > 0 )
+	                {
+	                	//	Cannot decide yet - add STAR parents for re-evaluation
+	                	//	and then ourselves again
+	                	toReevaluate.addAll(starParents);
+	                	continue;
 	                }
 	            }
 	            if(checkFalse) {
 	              //All parents must be capable of being false
                     boolean allCanBeFalse = true;
+	                Set<Component> starParents = new HashSet<Component>();
                     for(Component parent : parents) {
                         Type parentType = reachability.get(parent);
-                        if(!parentType.hasFalse()) {
+	                    if (parent instanceof Constant)
+	                    {
+	                    	parentType = parent.getValue() ? Type.TRUE : Type.FALSE;
+	                    }
+	                    if ( parentType == Type.STAR )
+	                    {
+	                    	starParents.add(parent);
+	                    }
+	                    else if(!parentType.hasFalse()) {
                             allCanBeFalse = false;
                             break;
                         }
                     }
+	                if ( starParents.size() > 0 )
+	                {
+	                	//	Cannot decide yet - add STAR parents for re-evaluation
+	                	//	and then ourselves again
+	                	toReevaluate.addAll(starParents);
+	                	continue;
+	                }
                     upgradeFalse = allCanBeFalse;
 	            }
 	        } else if(curComp instanceof Not) {
 	            Component parent = curComp.getSingleInput();
 	            Type parentType = reachability.get(parent);
+                if (parent instanceof Constant)
+                {
+                	parentType = parent.getValue() ? Type.TRUE : Type.FALSE;
+                }
+	            if ( parentType == Type.STAR)
+	            {
+	            	toReevaluate.add(parent);
+	            	continue;
+	            }
 	            if(checkTrue && parentType.hasFalse())
 	                upgradeTrue = true;
 	            if(checkFalse && parentType.hasTrue())
@@ -1302,6 +1508,15 @@ public class OptimizingPropNetFactory {
 	        } else if(curComp instanceof Transition) {
 	            Component parent = curComp.getSingleInput();
                 Type parentType = reachability.get(parent);
+                if (parent instanceof Constant)
+                {
+                	parentType = parent.getValue() ? Type.TRUE : Type.FALSE;
+                }
+	            if ( parentType == Type.STAR)
+	            {
+	            	toReevaluate.add(parent);
+	            	continue;
+	            }
                 if(checkTrue && parentType.hasTrue())
                     upgradeTrue = true;
                 if(checkFalse && parentType.hasFalse())
@@ -1328,6 +1543,15 @@ public class OptimizingPropNetFactory {
 	            if(curComp.getInputs().size() == 1) {
 	                Component parent = curComp.getSingleInput();
 	                Type parentType = reachability.get(parent);
+                    if (parent instanceof Constant)
+                    {
+                    	parentType = parent.getValue() ? Type.TRUE : Type.FALSE;
+                    }
+		            if ( parentType == Type.STAR)
+		            {
+		            	toReevaluate.add(parent);
+		            	continue;
+		            }
 	                if(checkTrue && parentType.hasTrue())
 	                    upgradeTrue = true;
 	                if(checkFalse && parentType.hasFalse())
@@ -1353,6 +1577,8 @@ public class OptimizingPropNetFactory {
 	            if(curCompIsLegalProposition) {
 	                toReevaluate.add(pn.getLegalInputMap().get(curComp));
 	            }
+	        	loopDetectionCount = 0;
+	        	reEvaluationLimit = toReevaluate.size();
 	        }
 
 	    }
@@ -1370,8 +1596,10 @@ public class OptimizingPropNetFactory {
 	    //TODO: Go through all the cases of everything I can dump
 	    //For now... how about inputs?
 	    Constant trueConst = new Constant(true);
+	    Constant alternateTrueConst = new Constant(true);
 	    Constant falseConst = new Constant(false);
 	    pn.addComponent(trueConst);
+	    pn.addComponent(alternateTrueConst);	//	Used for nodes we need to keep but which are always true
 	    pn.addComponent(falseConst);
 	    //Make them the input of all false/true components
 	    for(Entry<Component, Type> entry : reachability.entrySet()) {
@@ -1383,20 +1611,33 @@ public class OptimizingPropNetFactory {
 	                input.removeOutput(c);
 	            }
 	            c.removeAllInputs();
-	            if(type == Type.TRUE) {
-	                c.addInput(trueConst);
-	                trueConst.addOutput(c);
+	            if((type == Type.TRUE) != (c instanceof Not)) {
+	            	if ( explicitlyInitedBases.contains(c))
+	            	{
+	            		//	Cannot dump bases that are init'd else they'll be missing from the state
+	            		//	in which they should appear essentially as a fixture - hook them up to
+	            		//	a constant TRUE that we will not trim descendants of
+		                c.addInput(alternateTrueConst);
+		                alternateTrueConst.addOutput(c);	            		
+	            	}
+	            	else
+	            	{
+		                c.addInput(trueConst);
+		                trueConst.addOutput(c);
+					}
 	            } else {
                     c.addInput(falseConst);
                     falseConst.addOutput(c);
 	            }
 	        }
 	    }
+	    
 	    //then...
 	    //optimizeAwayTrueAndFalse(null, null, trueConst, falseConst);
 	    optimizeAwayTrueAndFalse(pn, trueConst, falseConst);
+	    
 	}
-
+	
 	private static Type addTrue(Type type) {
         switch(type) {
         case STAR:
@@ -1485,6 +1726,122 @@ public class OptimizingPropNetFactory {
 		}
 	}
 
+	public static void removeRedundantConstantsAndGates(PropNet pn)
+	{
+	    //	What about constants other than true and false props?
+	    Set<Component> redundantComponents = new HashSet<Component>();
+	    int removedRedundantComponentCount = 0;
+	    
+	    Component trueConst = null;
+	    Component falseConst = null;
+	    
+	    do
+	    {
+	    	redundantComponents.clear();
+	    	
+		    for(Component c : pn.getComponents())
+		    {
+		    	if ( c instanceof Constant &&
+		    		 c != trueConst &&
+		    		 c != falseConst )
+		    	{
+		    		if (trueConst == null && c.getValue())
+		    		{
+		    			trueConst = c;
+		    		}
+		    		else if (falseConst == null && !c.getValue())
+		    		{
+		    			falseConst = c;
+		    		}
+		    		else
+		    		{
+		    			redundantComponents.add(c);
+		    		}
+		    	}
+		    	else
+		    	{
+		    		if ( c instanceof And )
+		    		{
+		    			if ( c.getOutputs().size() == 1 && c.getSingleOutput() instanceof And)
+	    				{
+		    	    		redundantComponents.add(c);
+	    				}
+		    		}
+		    		else if ( c instanceof Or )
+		    		{
+		    			if ( c.getOutputs().size() == 1 && c.getSingleOutput() instanceof Or)
+	    				{
+		    	    		redundantComponents.add(c);
+	    				}
+		    		}
+		    		else if ( c instanceof Not )
+		    		{
+		    			if ( c.getOutputs().size() == 1 && c.getSingleOutput() instanceof Not)
+	    				{
+		    	    		redundantComponents.add(c);
+	    				}
+		    		}
+		    	}
+		    }
+		    
+		    for(Component c : redundantComponents)
+		    {
+		    	if (c instanceof Constant)
+		    	{
+		    		for(Component output : c.getOutputs())
+		    		{
+		 	    		output.removeInput(c);
+			 	    	if ( c.getValue() )
+				    	{
+			 	    		trueConst.addOutput(output);
+			 	    		output.addInput(trueConst);
+				    	}
+				    	else
+				    	{
+			 	    		falseConst.addOutput(output);
+			 	    		output.addInput(falseConst);
+				    	}
+		    		}
+		    	}
+		    	else if ( (c instanceof And) || (c instanceof Or))
+		    	{
+		    		Component output = c.getSingleOutput();
+		    		
+		    		output.removeInput(c);
+		    		
+		    		for(Component input : c.getInputs())
+		    		{
+		    			input.removeOutput(c);
+		    			input.addOutput(output);
+		    			output.addInput(input);
+		    		}
+		    	}
+		    	else if ( c instanceof Not)
+		    	{
+		    		Component nextInLine = c.getSingleOutput();
+		    		Component input = c.getSingleInput();
+		    		
+		    		input.removeOutput(c);
+		    		
+		    		for(Component output : nextInLine.getOutputs())
+		    		{
+		    			output.removeInput(nextInLine);
+		    			output.addInput(input);
+		    			input.addOutput(output);
+		    		}
+		    		
+		    		removedRedundantComponentCount++;
+		    		pn.removeComponent(nextInLine);
+		    	}
+	    		
+		    	removedRedundantComponentCount++;
+		    	pn.removeComponent(c);
+		    }
+		} while (redundantComponents.size() > 0);
+	    
+	    System.out.println("Removed " + removedRedundantComponentCount + " redundant components");
+	}
+	
 	/**
 	 * Potentially optimizes an already-existing propnet by removing propositions
 	 * with no special meaning. The inputs and outputs of those propositions
@@ -1528,7 +1885,7 @@ public class OptimizingPropNetFactory {
 		}
 		for(Proposition p : toSplice) {
 			//Get the inputs and outputs...
-			Set<Component> inputs = p.getInputs();
+			Collection<Component> inputs = p.getInputs();
 			Set<Component> outputs = p.getOutputs();
 			//Remove the proposition...
 			pn.removeComponent(p);
