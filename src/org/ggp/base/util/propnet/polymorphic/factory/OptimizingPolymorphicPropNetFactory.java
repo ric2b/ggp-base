@@ -408,7 +408,7 @@ public class OptimizingPolymorphicPropNetFactory {
 	 * @throws InterruptedException
 	 */
 	private static void optimizeAwayTrueAndFalse(Map<GdlSentence, PolymorphicComponent> components, Map<GdlSentence, PolymorphicComponent> negations, PolymorphicComponent trueComponent, PolymorphicComponent falseComponent) throws InterruptedException {
-	    while(hasNonessentialChildren(trueComponent) || hasNonessentialChildren(falseComponent)) {
+	    while(hasNonessentialChildren(trueComponent, false) || hasNonessentialChildren(falseComponent, true)) {
 	    	ConcurrencyUtils.checkForInterruption();
             optimizeAwayTrue(components, negations, null, trueComponent, falseComponent);
             optimizeAwayFalse(components, negations, null, trueComponent, falseComponent);
@@ -416,19 +416,19 @@ public class OptimizingPolymorphicPropNetFactory {
 	}
 
 	private static void optimizeAwayTrueAndFalse(PolymorphicPropNet pn, PolymorphicComponent trueComponent, PolymorphicComponent falseComponent) {
-	    while(hasNonessentialChildren(trueComponent) || hasNonessentialChildren(falseComponent)) {
+	    while(hasNonessentialChildren(trueComponent, false) || hasNonessentialChildren(falseComponent, true)) {
 	        optimizeAwayTrue(null, null, pn, trueComponent, falseComponent);
 	        optimizeAwayFalse(null, null, pn, trueComponent, falseComponent);
 	    }
 	}
 
-	private static Set<PolymorphicComponent> findImmediatelyNonEssentialChildren(PolymorphicComponent parent)
+	private static Set<PolymorphicComponent> findImmediatelyNonEssentialChildren(PolymorphicComponent parent, boolean forFalse)
 	{
 		Set<PolymorphicComponent> result = new HashSet<PolymorphicComponent>();
 		
 		for(PolymorphicComponent c : parent.getOutputs())
 		{
-			if ( !isEssentialProposition(c) && !(c instanceof PolymorphicTransition))
+			if ( !isEssentialProposition(c, forFalse) && !(c instanceof PolymorphicTransition))
 			{
 				result.add(c);
 			}
@@ -446,7 +446,7 @@ public class OptimizingPolymorphicPropNetFactory {
         Set<PolymorphicComponent> nonEssentials;
         
 		//while(hasNonessentialChildren(falseComponent)) {
-		while((nonEssentials = findImmediatelyNonEssentialChildren(falseComponent)).size() != 0) {
+		while((nonEssentials = findImmediatelyNonEssentialChildren(falseComponent, true)).size() != 0) {
 			//System.out.println("Found " + nonEssentials.size() + " immediately non-essential children, out of a total of " + falseComponent.getOutputs().size());
 			//int count = 0;
 			for(PolymorphicComponent output : nonEssentials)
@@ -475,7 +475,7 @@ public class OptimizingPolymorphicPropNetFactory {
 				}
 				output.removeAllOutputs();
 
-				if(!isEssentialProposition(output)) {
+				if(!isEssentialProposition(output, true)) {
 					PolymorphicProposition prop = (PolymorphicProposition) output;
 					//Remove the proposition entirely
 					falseComponent.removeOutput(output);
@@ -561,7 +561,7 @@ public class OptimizingPolymorphicPropNetFactory {
         Set<PolymorphicComponent> nonEssentials;
         
 		//while(hasNonessentialChildren(trueComponent)) {
-		while((nonEssentials = findImmediatelyNonEssentialChildren(trueComponent)).size() != 0) {
+		while((nonEssentials = findImmediatelyNonEssentialChildren(trueComponent, false)).size() != 0) {
 			//System.out.println("Found " + nonEssentials.size() + " immediately non-essential children, out of a total of " + falseComponent.getOutputs().size());
 			//int count = 0;
 			for(PolymorphicComponent output : nonEssentials)
@@ -586,7 +586,7 @@ public class OptimizingPolymorphicPropNetFactory {
 				}
 				output.removeAllOutputs();
 
-				if(!isEssentialProposition(output)) {
+				if(!isEssentialProposition(output, false)) {
 					PolymorphicProposition prop = (PolymorphicProposition) output;
 					//Remove the proposition entirely
 					trueComponent.removeOutput(output);
@@ -664,11 +664,11 @@ public class OptimizingPolymorphicPropNetFactory {
 	}
 
 
-	private static boolean hasNonessentialChildren(PolymorphicComponent trueComponent) {
+	private static boolean hasNonessentialChildren(PolymorphicComponent trueComponent, boolean forFalse) {
 		for(PolymorphicComponent child : trueComponent.getOutputs()) {
 			if(child instanceof PolymorphicTransition)
 				continue;
-			if(!isEssentialProposition(child))
+			if(!isEssentialProposition(child, forFalse))
 				return true;
 			//We don't want any grandchildren, either
 			//	SD - this breaks down in certain case leading to infinite loops - for
@@ -681,7 +681,7 @@ public class OptimizingPolymorphicPropNetFactory {
 	}
 
 
-	private static boolean isEssentialProposition(PolymorphicComponent component) {
+	private static boolean isEssentialProposition(PolymorphicComponent component, boolean forFalse) {
 		if(!(component instanceof PolymorphicProposition))
 			return false;
 
@@ -691,7 +691,7 @@ public class OptimizingPolymorphicPropNetFactory {
 		PolymorphicProposition prop = (PolymorphicProposition) component;
 		GdlConstant name = prop.getName().getName();
 
-		return name.equals(LEGAL) /*|| name.equals(NEXT)*/ || name.equals(GOAL)
+		return (name.equals(LEGAL) && !forFalse) /*|| name.equals(NEXT)*/ || name.equals(GOAL)
 				|| name.equals(INIT) || name.equals(TERMINAL);
 	}
 
@@ -1257,12 +1257,22 @@ public class OptimizingPolymorphicPropNetFactory {
 	static class ReEvaulationSet implements Iterable<PolymorphicComponent>
 	{
 		private Set<PolymorphicComponent> contents = new LinkedHashSet<PolymorphicComponent>();
+		private Map<PolymorphicComponent, Type> reachability;
+		
+		public ReEvaulationSet(Map<PolymorphicComponent, Type> reachability)
+		{
+			this.reachability = reachability;
+		}
 		
 		public void add(PolymorphicComponent c)
 		{
 			if ( c instanceof PolymorphicConstant )
 			{
 				System.out.println("Constant added to re-eval list!");
+			}
+			if ( !reachability.containsKey(c))
+			{
+				System.out.println("Unreachable component to re-eval list!");
 			}
 			
 			contents.add(c);
@@ -1326,7 +1336,7 @@ public class OptimizingPolymorphicPropNetFactory {
 	    }
 
         //Set<Component> toReevaluate = new LinkedHashSet<Component>();
-	    ReEvaulationSet toReevaluate = new ReEvaulationSet();
+	    ReEvaulationSet toReevaluate = new ReEvaulationSet(reachability);
         Set<PolymorphicComponent> explicitlyInitedBases = new HashSet<PolymorphicComponent>();
 
 	    for(PolymorphicComponent c : pn.getComponents()) {
@@ -1373,8 +1383,11 @@ public class OptimizingPolymorphicPropNetFactory {
 	    }
 	    //Might as well add in INIT
 	    PolymorphicProposition initProposition = pn.getInitProposition();
-	    reachability.put(initProposition, Type.BOTH);
-	    toReevaluate.addAll(initProposition.getOutputs());
+	    if ( initProposition != null )
+	    {
+	    	reachability.put(initProposition, Type.BOTH);
+	    	toReevaluate.addAll(initProposition.getOutputs());
+	    }
 	    
 	    int loopDetectionCount = 0;
 	    int reEvaluationLimit = toReevaluate.size();
@@ -1387,7 +1400,7 @@ public class OptimizingPolymorphicPropNetFactory {
 	    		//	For now we take a REALLY simplistic approach and promote everything caught in the looping to
 	    		//	BOTH
 	    		//Set<Component> newReEvaulateList = new LinkedHashSet<Component>();
-	    		ReEvaulationSet newReEvaulateList = new ReEvaulationSet();
+	    		ReEvaulationSet newReEvaulateList = new ReEvaulationSet(reachability);
 	    		
 	    		for(PolymorphicComponent curComp : toReevaluate)
 	    		{
@@ -1881,6 +1894,99 @@ public class OptimizingPolymorphicPropNetFactory {
 		    }
 		} while (redundantComponents.size() > 0);
 	    
+	    //	Eliminate TRUE inputs to ANDs and FALSE inputs to ORs.  Also eliminate single input ANDs/ORs
+    	List<PolymorphicComponent> eliminations = new LinkedList<PolymorphicComponent>();
+    	
+	    do
+	    {
+	    	eliminations.clear();
+	    	
+	    	if ( trueConst != null )
+	    	{
+	    		List<PolymorphicComponent> disconnected = new LinkedList<PolymorphicComponent>();
+	    		
+		    	for(PolymorphicComponent c : trueConst.getOutputs())
+		    	{
+		    		if ( c instanceof PolymorphicAnd )
+		    		{
+		    			c.removeInput(trueConst);
+		    			disconnected.add(c);
+		    		}
+		    	}
+		    	for(PolymorphicComponent c : disconnected)
+		    	{
+	    			trueConst.removeOutput(c);
+		    	}
+	    	}
+	    	
+	    	if ( falseConst != null )
+	    	{
+	    		List<PolymorphicComponent> disconnected = new LinkedList<PolymorphicComponent>();
+	    		
+		    	for(PolymorphicComponent c : falseConst.getOutputs())
+		    	{
+		    		if ( c instanceof PolymorphicOr )
+		    		{
+		    			c.removeInput(falseConst);
+		    			disconnected.add(c);
+		    		}
+		    		else if ( c instanceof PolymorphicProposition &&
+		    				  c.getOutputs().size() == 0 )
+		    		{
+		    			c.removeInput(falseConst);
+		    			disconnected.add(c);
+		    		}
+		    	}
+		    	for(PolymorphicComponent c : disconnected)
+		    	{
+		    		falseConst.removeOutput(c);
+		    	}
+	    	}
+	    	
+	    	
+	    	for(PolymorphicComponent c : pn.getComponents())
+	    	{
+	    		if ( c instanceof PolymorphicAnd || c instanceof PolymorphicOr )
+	    		{
+	    			if ( c.getInputs().size() == 1 )
+	    			{
+	    				PolymorphicComponent input = c.getSingleInput();
+	    				
+	    				for(PolymorphicComponent output : c.getOutputs())
+	    				{
+	    					output.removeInput(c);
+	    					output.addInput(input);
+	    					input.addOutput(output);
+	    				}
+	    				
+	    				eliminations.add(c);
+	    			}
+	    			else if ( c.getOutputs().size() == 0)
+	    			{
+	    				eliminations.add(c);
+	    			}
+	    		}
+	    		else if ( c.getOutputs().size() == 0 )
+	    		{
+	    			if ( !isEssentialProposition(c, c.getInputs().size()==0) &&
+	    				 (!(c instanceof PolymorphicProposition) || !pn.getBasePropositions().values().contains((PolymorphicProposition)c)))
+	    			{
+	    				eliminations.add(c);
+	    			}
+	    		}
+	    	}
+	    	
+	    	for(PolymorphicComponent c : eliminations)
+	    	{
+	    		for(PolymorphicComponent input : c.getInputs())
+	    		{
+	    			input.removeOutput(c);
+	    		}
+	    		pn.removeComponent(c);
+	    		removedRedundantComponentCount++;
+	    	}
+	    } while(eliminations.size() > 0);
+	    
 	    System.out.println("Removed " + removedRedundantComponentCount + " redundant components");
 	}
 	
@@ -1946,8 +2052,42 @@ public class OptimizingPolymorphicPropNetFactory {
 		}
 	}
 	
+	public static void removeInitPropositions(PolymorphicPropNet propNet)
+	{
+		List<PolymorphicComponent> removedComponents = new LinkedList<PolymorphicComponent>();
+		
+		for(PolymorphicComponent c : propNet.getComponents())
+		{
+			if ( c instanceof PolymorphicProposition)
+			{
+				GdlConstant name = ((PolymorphicProposition)c).getName().getName();
+				
+				if ( name == INIT )
+				{
+					if ( c.getInputs().size() > 0 )
+					{
+						c.getSingleInput().removeOutput(c);
+					}
+					for(PolymorphicComponent output : c.getOutputs())
+					{
+						output.removeInput(c);
+					}
+					
+					removedComponents.add(c);
+				}
+			}
+		}
+		
+		for(PolymorphicComponent c : removedComponents)
+		{
+			propNet.removeComponent(c);
+		}
+	}
+	
 	public static void fixBaseProposition(PolymorphicPropNet propNet, GdlSentence propName, boolean value)
 	{
+		GdlSentence result = null;
+		
 		System.out.println("Hardwire base prop " + propName + " to value: " + value);
 		PolymorphicProposition prop = propNet.getBasePropositions().get(propName);
 		PolymorphicConstant replacement = propNet.getComponentFactory().createConstant(-1, value);
@@ -1963,8 +2103,17 @@ public class OptimizingPolymorphicPropNetFactory {
 
 		prop.removeAllOutputs();
 
-        propNet.renderToFile("c:\\temp\\propnetReducedX1.dot");
-        OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(propNet, true);
-        propNet.renderToFile("c:\\temp\\propnetReducedX2.dot");
+		int numStartComponents;
+		int numEndComponents;
+		
+		do
+		{
+			numStartComponents = propNet.getComponents().size();
+
+	        OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(propNet, true);
+	        OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(propNet);
+	        
+			numEndComponents = propNet.getComponents().size();
+		} while(numEndComponents != numStartComponents);
 	}
 }

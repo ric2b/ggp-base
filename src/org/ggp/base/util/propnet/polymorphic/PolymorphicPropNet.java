@@ -26,6 +26,7 @@ import org.ggp.base.util.propnet.architecture.components.Not;
 import org.ggp.base.util.propnet.architecture.components.Or;
 import org.ggp.base.util.propnet.architecture.components.Proposition;
 import org.ggp.base.util.propnet.architecture.components.Transition;
+import org.ggp.base.util.propnet.polymorphic.factory.OptimizingPolymorphicPropNetFactory;
 import org.ggp.base.util.statemachine.Role;
 
 
@@ -63,7 +64,7 @@ public class PolymorphicPropNet
 	private Map<Role, PolymorphicProposition[]> goalPropositions;
 	
 	/** A reference to the single, unique, InitProposition. */
-	private final PolymorphicProposition initProposition;
+	private PolymorphicProposition initProposition;
 	
 	/** A reference to the single, unique, TerminalProposition. */
 	private final PolymorphicProposition terminalProposition;
@@ -643,6 +644,13 @@ public class PolymorphicPropNet
 	{
 		return initProposition;
 	}
+	
+	public void RemoveInits()
+	{
+		OptimizingPolymorphicPropNetFactory.removeInitPropositions(this);
+		
+		initProposition = null;
+	}
 
 	/**
 	 * Getter method.
@@ -766,8 +774,6 @@ public class PolymorphicPropNet
 					legalInputMap.remove(partner);
 					legalInputMap.remove(p);
 				}
-			} else if(name == GdlPool.getProposition(GdlPool.getConstant("INIT"))) {
-				throw new RuntimeException("The INIT component cannot be removed. Consider leaving it and ignoring it.");
 			} else if(name == GdlPool.getProposition(GdlPool.getConstant("terminal"))) {
 				throw new RuntimeException("The terminal component cannot be removed.");
 			} else {
