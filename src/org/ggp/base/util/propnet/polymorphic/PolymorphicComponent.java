@@ -76,4 +76,14 @@ public abstract interface PolymorphicComponent
     @Override
     public abstract String toString();
 
+	public abstract void removeInput(PolymorphicComponent input);
+
+	public abstract void removeAllInputs();
+
+	public abstract void removeAllOutputs();
+
+	public abstract void removeOutput(PolymorphicComponent output);
+	
+	public abstract void crystalize();
+
 }
