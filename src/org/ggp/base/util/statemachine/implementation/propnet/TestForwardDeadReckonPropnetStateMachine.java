@@ -7,6 +7,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Map.Entry;
 
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
@@ -21,8 +22,10 @@ import org.ggp.base.util.propnet.architecture.components.Proposition;
 import org.ggp.base.util.propnet.factory.OptimizingPropNetFactory;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponentFactory;
+import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
+import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 import org.ggp.base.util.propnet.polymorphic.factory.OptimizingPolymorphicPropNetFactory;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonComponent;
@@ -62,6 +65,9 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     private MachineState lastPropnetSetState = null;
     private GdlSentence XSentence = null;
     private MachineState initialState = null;
+    private PolymorphicProposition[] moveProps = null;
+    private boolean measuringBasePropChanges = false;
+    private Map<GdlSentence, Integer> basePropChangeCounts = new HashMap<GdlSentence, Integer>();
     
 	public long totalNumGatesPropagated = 0;
 	public long totalNumPropagates = 0;
@@ -201,6 +207,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	    		fullPropNet.renderToFile("c:\\temp\\propnetReduced.dot");
 	            
 	            roles = fullPropNet.getRoles();
+	    		moveProps = new PolymorphicProposition[roles.size()];
 	            stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(), fullPropNet.getInputPropositions().size(), fullPropNet.getLegalPropositions().get(getRoles().get(0)).length);
 	            //	Assess network statistics
 	            int numInputs = 0;
@@ -223,46 +230,200 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	    		int numComponents = fullPropNet.getComponents().size();
 	    		System.out.println("Num components: " + numComponents + " with an average of " + numInputs/numComponents + " inputs.");
 	    		System.out.println("Num multi-input components: " + numMultiInputComponents + " with an average of " + (numMultiInputComponents == 0 ? "N/A" : numMultiInputs/numMultiInputComponents) + " inputs.");
-
-	    		propNetX = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
-	    		propNetO = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
 	    		
 	    		fullPropNet.crystalize();
+	       		useDeadReckonerForLegal = fullPropNet.useDeadReckonerForLegal();
+	    		if ( !useDeadReckonerForLegal )
+	    		{
+		    		legalPropositionTransitions = new HashMap<Role,PolymorphicComponent[]>();
+		    		legalPropositionMoves = new HashMap<Role, Move[]>();
+		    		for(Role role : getRoles())
+		    		{
+			    		PolymorphicComponent legalTransitionsForRole[] = new PolymorphicComponent[fullPropNet.getLegalPropositions().get(role).length];
+			    		Move legalPropositionNamesForRole[] = new Move[fullPropNet.getLegalPropositions().get(role).length];
+			    		int index = 0;
+			    		for(PolymorphicProposition p : fullPropNet.getLegalPropositions().get(role))
+			    		{
+			    			legalTransitionsForRole[index] = p.getSingleInput();
+			    			legalPropositionNamesForRole[index++] = new Move(p.getName().getBody().get(1));
+			    		}
+			    		
+			    		legalPropositionTransitions.put(role, legalTransitionsForRole);
+			    		legalPropositionMoves.put(role, legalPropositionNamesForRole);    		
+		    		}
+	    		}
 	    		
-	    		fullPropNet.reset();
+	    		fullPropNet.reset(false);
 	    		fullPropNet.getInitProposition().setValue(true);
 	    		fullPropNet.propagate();
 	    		propNet = fullPropNet;
 	            initialState = getStateFromBase();
+	    		fullPropNet.reset(true);
+	            
+	            measuringBasePropChanges = true;
+	            for(GdlSentence baseSentence : fullPropNet.getBasePropositions().keySet())
+	            {
+	            	basePropChangeCounts.put(baseSentence,  0);
+	            }
+				try {
+					for(int i = 0; i < 10; i++)
+					{
+						performDepthCharge(initialState,null);
+					}
+				} catch (TransitionDefinitionException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				} catch (MoveDefinitionException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+				measuringBasePropChanges = false;
+				
+				int highestCount = 0;
+				for(Entry<GdlSentence,Integer> e : basePropChangeCounts.entrySet())
+				{
+					if ( e.getValue() > highestCount )
+					{
+						highestCount = e.getValue();
+						XSentence = e.getKey();
+					}
+				}
+	            
+				basePropChangeCounts = null;
 	    		lastSetState = null;
 	    		propNet = null;
 
-	    		//	Find the propnet exchange trigger proposition
-				for(GdlSentence s : propNetX.getBasePropositions().keySet())
-				{
-					if ( s.toString().contains("control") )
-					{
-						XSentence = s;
-						break;
-					}
-				}
-				
+	    		propNetX = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
+	    		propNetO = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
+				propNetX.RemoveInits();
+				propNetO.RemoveInits();
+
 				if ( XSentence != null )
 				{
+					System.out.println("Reducing with respect to XSentence: " + XSentence);
+					GdlSentence possibleOSentence = null;
 					OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, XSentence, true);
+					
+					//	If the reduced net always transitions it's own hard-wired sentence into the opposite state
+					//	it may be part of a pivot whereby control passes between alternating propositions.  Check this
+					//	Do we turn something else on unconditionally?
+					for(Entry<GdlSentence,PolymorphicProposition> e : propNetX.getBasePropositions().entrySet())
+					{
+						PolymorphicComponent input = e.getValue().getSingleInput();
+						
+						if ( input instanceof PolymorphicTransition )
+						{
+							PolymorphicComponent driver = input.getSingleInput();
+							
+							if ( driver instanceof PolymorphicConstant && driver.getValue())
+							{
+								//	Found a suitable candidate
+								possibleOSentence = e.getKey();
+								break;
+							}
+						}
+					}
+					
+					if ( possibleOSentence != null )
+					{
+						System.out.println("Possible OSentence: " + possibleOSentence);
+						OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, possibleOSentence, true);
+						
+						//	Does this one turn the original back on?
+						PolymorphicProposition originalPropInSecondNet = propNetO.getBasePropositions().get(XSentence);
+						if ( originalPropInSecondNet != null )
+						{
+							PolymorphicComponent input = originalPropInSecondNet.getSingleInput();
+							
+							if ( input instanceof PolymorphicTransition )
+							{
+								PolymorphicComponent driver = input.getSingleInput();
+								
+								if ( !(driver instanceof PolymorphicConstant) || !driver.getValue())
+								{
+									//	Nope - doesn't work
+									possibleOSentence = null;
+									System.out.println("Fails to recover back-transition to " + XSentence);
+								}
+							}
+						}
+						
+						if ( possibleOSentence != null )
+						{
+							//	So if we set the first net's trigger condition to off in the second net do we find
+							//	the second net's own trigger is always off?
+							OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, XSentence, false);
+							
+							PolymorphicProposition OSentenceInSecondNet = propNetO.getBasePropositions().get(possibleOSentence);
+							if ( OSentenceInSecondNet != null )
+							{
+								PolymorphicComponent input = OSentenceInSecondNet.getSingleInput();
+								
+								if ( input instanceof PolymorphicTransition )
+								{
+									PolymorphicComponent driver = input.getSingleInput();
+									
+									if ( !(driver instanceof PolymorphicConstant) || driver.getValue())
+									{
+										//	Nope - doesn't work
+										System.out.println("Fails to recover back-transition remove of " + possibleOSentence);
+										possibleOSentence = null;
+									}
+									
+									//	Finally, if we set the OSentence off in the first net do we recover the fact that
+									//	the XSentence always moves to off in transitions from the first net?
+									if ( OSentenceInSecondNet != null )
+									{
+										OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, possibleOSentence, false);
+										
+										PolymorphicProposition XSentenceInFirstNet = propNetX.getBasePropositions().get(XSentence);
+										if ( XSentenceInFirstNet != null )
+										{
+											input = XSentenceInFirstNet.getSingleInput();
+											
+											if ( input instanceof PolymorphicTransition )
+											{
+												driver = input.getSingleInput();
+												
+												if ( !(driver instanceof PolymorphicConstant) || driver.getValue())
+												{
+													//	Nope - doesn't work
+													System.out.println("Fails to recover removal of " + XSentence);
+													possibleOSentence = null;
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+						
+						if (possibleOSentence == null)
+						{
+							System.out.println("Reverting OSentence optimizations");
+							//	Failed - best we can do is simply drive the XSentence to true in one network
+				    		propNetX = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
+				    		propNetO = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
+							propNetX.RemoveInits();
+							propNetO.RemoveInits();
+							OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, XSentence, true);
+						}
+					}
+					
+					
+					//OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, XSentence, false);
+					propNetX.renderToFile("c:\\temp\\propnetReducedX.dot");
+		    		propNetO.renderToFile("c:\\temp\\propnetReducedO.dot");
 		    		System.out.println("Num components remaining in X-net: " + propNetX.getComponents().size());
-					OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, XSentence, false);
 		    		System.out.println("Num components remaining in O-net: " + propNetO.getComponents().size());
 				}
 				
 	    		propNetX.crystalize();
 	    		propNetO.crystalize();
 	    		
-	    		propNetX.reset();
-	    		propNetX.propagate();
-	    		propNetO.reset();
-	    		propNetO.propagate();
-   		}
+	    		propNetX.reset(true);
+	    		propNetO.reset(true);
+    		}
     		
     		//recreate(new RuntimeOptimizedComponentFactory());
     		
@@ -303,7 +464,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		    		legalPropositionMovesO.put(role, legalPropositionNamesForRole);    		
 	    		}
     		}
-		}
+   		}
     	catch (InterruptedException e)
     	{
 			// TODO: handle exception
@@ -337,6 +498,11 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 							//System.out.println("Changing prop " + s + " to true");
 							propNet.getBasePropositions().get(s).setValue(true);
 							changesMade = true;
+							
+							if (measuringBasePropChanges)
+							{
+								basePropChangeCounts.put(s, basePropChangeCounts.get(s)+1);
+							}
 						}
 					}
 					for(GdlSentence s : lastSetState.getContents())
@@ -346,6 +512,11 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 							//System.out.println("Changing prop " + s + " to false");
 							propNet.getBasePropositions().get(s).setValue(false);
 							changesMade = true;
+							
+							if (measuringBasePropChanges)
+							{
+								basePropChangeCounts.put(s, basePropChangeCounts.get(s)+1);
+							}
 						}
 					}
 				}
@@ -435,9 +606,11 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			
 			for(PolymorphicProposition p : goalProps)
 			{
-				if ( p.getSingleInput().getValue())
+				PolymorphicComponent goalTransition = p.getSingleInput();
+				if ( goalTransition != null && goalTransition.getValue())
 				{
 					result = Integer.parseInt(p.getName().getBody().get(1).toString());
+					break;
 				}
 			}
 			
@@ -538,7 +711,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	private void setPropNetUsage(MachineState state)
 	{
 		//System.out.println("setPropNetUsage for state: " + state);
-		if ( lastPropnetSetState != state )
+		if ( XSentence != null && lastPropnetSetState != state )
 		{
 			lastPropnetSetState = state;
 			
@@ -592,11 +765,16 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			//ForwardDeadReckonComponent.numPropagates = 0;
 			
 			Map<GdlSentence, PolymorphicProposition> inputProps = propNet.getInputPropositions();
-	
+			int movesCount = 0;
+			
 			for(GdlSentence moveSentence : toDoes(moves))
 			{
 				PolymorphicProposition moveInputProposition = inputProps.get(moveSentence);
-				moveInputProposition.setValue(true);
+				if ( moveInputProposition != null )
+				{
+					moveInputProposition.setValue(true);
+					moveProps[movesCount++] = moveInputProposition;
+				}
 			}
 			
 			setBasePropositionsFromState(state, true);
@@ -607,11 +785,18 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			//totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
 			//totalNumPropagates += ForwardDeadReckonComponent.numPropagates;
 	
-			for(GdlSentence moveSentence : toDoes(moves))
+			for(int i = 0; i < movesCount; i++)
 			{
-				PolymorphicProposition moveInputProposition = inputProps.get(moveSentence);
-				moveInputProposition.setValue(false);
+				moveProps[i].setValue(false);
 			}
+			//for(GdlSentence moveSentence : toDoes(moves))
+			//{
+			//	PolymorphicProposition moveInputProposition = inputProps.get(moveSentence);
+			//	if ( moveInputProposition != null )
+			//	{
+			//		moveInputProposition.setValue(false);
+			//	}
+			//}
 	        
 	        return result;
 		}

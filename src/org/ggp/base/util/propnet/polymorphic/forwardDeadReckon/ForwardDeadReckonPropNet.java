@@ -143,7 +143,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 		return activeBasePropositions;
 	}
 	
-	public void reset()
+	public void reset(boolean fullEquilibrium)
 	{
 		activeBasePropositions.clear();
 		activeBasePropositions.addAll(alwaysTrueBasePropositions);
@@ -159,12 +159,15 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 		{
 			((ForwardDeadReckonComponent) c).reset();
 		}
-		//	Establish full reset state
-		for(PolymorphicComponent c : getComponents())
+		//	Establish full reset state if required
+		if ( fullEquilibrium )
 		{
-			((ForwardDeadReckonComponent) c).queuePropagation();
+			for(PolymorphicComponent c : getComponents())
+			{
+				((ForwardDeadReckonComponent) c).queuePropagation();
+			}
+			propagate();
 		}
-		propagate();
 	}
 	
 	public void addToPropagateQueue(ForwardDeadReckonComponent component)
