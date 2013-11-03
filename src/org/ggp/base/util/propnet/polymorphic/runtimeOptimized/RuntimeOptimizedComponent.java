@@ -14,6 +14,8 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonComponent;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
 
 public abstract class RuntimeOptimizedComponent extends BidirectionalPropagationComponent implements Serializable {
 	private static final long serialVersionUID = 352527628564121134L;
@@ -26,20 +28,122 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
     protected int inputIndex = 0;
     private int outputIndex = 0;
     
+    private List<RuntimeOptimizedComponent> inputsList; 
+    private List<RuntimeOptimizedComponent> outputsList;
+    
     protected boolean dirty;
     protected boolean cachedValue;
+
 
     /**
      * Creates a new Component with no inputs or outputs.
      */
-    public RuntimeOptimizedComponent(int numInputs, int numOutput)
+    public RuntimeOptimizedComponent(int numInputs, int numOutputs)
     {
-    	inputsArray = new RuntimeOptimizedComponent[numInputs];
-    	outputsArray = new RuntimeOptimizedComponent[numOutput];
-        
-        dirty = true;
+    	if ( numInputs < 0 )
+    	{
+    		inputsArray = null;
+    		inputsList = new LinkedList<RuntimeOptimizedComponent>();
+    	}
+    	else
+    	{
+    		inputsArray = new RuntimeOptimizedComponent[numInputs];
+    		inputsList = null;
+    	}
+    	if ( numOutputs < 0 )
+    	{
+    		outputsArray = null;
+    		outputsList = new LinkedList<RuntimeOptimizedComponent>();
+    	}
+    	else
+    	{
+    		outputsArray = new RuntimeOptimizedComponent[numOutputs];
+    		outputsList = null;
+    	}
     }
+	
+	public void crystalize()
+	{
+		if ( inputsList != null )
+		{
+			inputsArray = new RuntimeOptimizedComponent[inputsList.size()];
+			
+			int index = 0;
+			for(RuntimeOptimizedComponent c : inputsList)
+			{
+				inputsArray[index++] = c;
+			}
+			
+			inputsList = null;
+			inputIndex = index;
+			if ( inputIndex > 0 )
+			{
+				singleInput = inputsArray[0];
+			}
+		}
+		if ( outputsList != null )
+		{
+			outputsArray = new RuntimeOptimizedComponent[outputsList.size()];
+			
+			int index = 0;
+			for(RuntimeOptimizedComponent c : outputsList)
+			{
+				outputsArray[index++] = c;
+			}
+			
+			outputsList = null;
+			outputIndex = index;
+		}
+	}
 
+	public void removeInput(PolymorphicComponent input)
+	{
+		if ( inputsList != null )
+		{
+			inputsList.remove(input);
+		}
+		else
+		{
+			throw new RuntimeException("Attempt to manipuate crystalized component");
+		}
+	}
+
+	public void removeAllInputs()
+	{
+		if ( inputsList != null )
+		{
+			inputsList.clear();
+		}
+		else
+		{
+			throw new RuntimeException("Attempt to manipuate crystalized component");
+		}	
+	}
+
+	public void removeAllOutputs()
+	{
+		if ( outputsList != null )
+		{
+			outputsList.clear();
+		}
+		else
+		{
+			throw new RuntimeException("Attempt to manipuate crystalized component");
+		}	
+	}
+
+	public void removeOutput(PolymorphicComponent output)
+	{
+		if ( outputsList != null )
+		{
+			outputsList.remove(output);
+		}
+		else
+		{
+			throw new RuntimeException("Attempt to manipuate crystalized component");
+		}
+	}
+    
     /**
      * Adds a new input.
      * 
@@ -48,11 +152,23 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
      */
     public void addInput(PolymorphicComponent input)
     {
-    	if ( inputIndex == 0 )
+    	if ( inputsArray == null )
     	{
-    		singleInput = (RuntimeOptimizedComponent)input;
+    		inputsList.add((RuntimeOptimizedComponent)input);
+    		
+    		if ( singleInput == null )
+    		{
+    			singleInput = (RuntimeOptimizedComponent)input;
+    		}
     	}
-    	inputsArray[inputIndex++] = (RuntimeOptimizedComponent) input;
+    	else
+    	{
+	    	if ( inputIndex == 0 )
+	    	{
+	    		singleInput = (RuntimeOptimizedComponent)input;
+	    	}
+	    	inputsArray[inputIndex++] = (RuntimeOptimizedComponent) input;
+    	}
     }
 
     /**
@@ -63,7 +179,14 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
      */
     public void addOutput(PolymorphicComponent output)
     {
-    	outputsArray[outputIndex++] = (RuntimeOptimizedComponent) output;
+    	if ( outputsArray == null )
+    	{
+    		outputsList.add((RuntimeOptimizedComponent)output);
+    	}
+    	else
+    	{
+    		outputsArray[outputIndex++] = (RuntimeOptimizedComponent) output;
+    	}
     }
 
     /**
@@ -74,14 +197,21 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
      */
     public Collection<? extends PolymorphicComponent> getInputs()
     {
-    	LinkedList<RuntimeOptimizedComponent> result = new LinkedList<RuntimeOptimizedComponent>();
-    	
-    	for(int i = 0; i < inputIndex; i++)
+    	if ( inputsArray == null )
     	{
-    		result.add(inputsArray[i]);
+    		return inputsList;
     	}
+    	else
+    	{
+	    	LinkedList<RuntimeOptimizedComponent> result = new LinkedList<RuntimeOptimizedComponent>();
+	    	
+	    	for(int i = 0; i < inputIndex; i++)
+	    	{
+	    		result.add(inputsArray[i]);
+	    	}
     	
-        return result;
+	    	return result;
+    	}
     }
     
     /**
@@ -102,14 +232,21 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
      */
     public Collection<? extends PolymorphicComponent> getOutputs()
     {
-    	LinkedList<RuntimeOptimizedComponent> result = new LinkedList<RuntimeOptimizedComponent>();
-    	
-    	for(RuntimeOptimizedComponent c : outputsArray)
+    	if ( outputsArray == null )
     	{
-    		result.add(c);
+    		return outputsList;
     	}
-    	
-        return result;
+    	else
+    	{
+	    	LinkedList<RuntimeOptimizedComponent> result = new LinkedList<RuntimeOptimizedComponent>();
+	    	
+	    	for(RuntimeOptimizedComponent c : outputsArray)
+	    	{
+	    		result.add(c);
+	    	}
+	    	
+	        return result;
+    	}
    }
     
     /**
@@ -120,8 +257,16 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
      * @return The single output to the component.
      */
     public PolymorphicComponent getSingleOutput() {
-    	return outputsArray[0];
+    	if (outputsArray == null)
+    	{
+    		return outputsList.get(0);
+    	}
+    	else
+    	{
+    		return outputsArray[0];
+    	}
     }
+
 
     /**
      * Gets the value of the Component.

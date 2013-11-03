@@ -73,6 +73,30 @@ public abstract class LearningComponent extends BidirectionalPropagationComponen
     {
         return inputs;
     }
+
+	public void removeInput(PolymorphicComponent input)
+	{
+		inputs.remove(input);
+	}
+
+	public void removeAllInputs()
+	{
+		inputs.clear();
+	}
+
+	public void removeAllOutputs()
+	{
+		outputs.clear();
+	}
+
+	public void removeOutput(PolymorphicComponent output)
+	{
+		outputs.remove(output);
+	}
+	
+	public void crystalize()
+	{
+	}
     
     /**
      * A convenience method, to get a single input.

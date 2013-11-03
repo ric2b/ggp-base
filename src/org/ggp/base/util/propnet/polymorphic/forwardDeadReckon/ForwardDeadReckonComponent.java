@@ -28,6 +28,9 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
     protected int inputIndex = 0;
     protected int outputIndex = 0;
     
+    private Set<ForwardDeadReckonComponent> inputsList; 
+    private Set<ForwardDeadReckonComponent> outputsList;
+    
     //protected boolean dirty;
     protected boolean cachedValue;
     protected boolean lastPropagatedValue;
@@ -39,11 +42,110 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
     /**
      * Creates a new Component with no inputs or outputs.
      */
-    public ForwardDeadReckonComponent(int numInputs, int numOutput)
+    public ForwardDeadReckonComponent(int numInputs, int numOutputs)
     {
-    	inputsArray = new ForwardDeadReckonComponent[numInputs];
-    	outputsArray = new ForwardDeadReckonComponent[numOutput];
+    	if ( numInputs < 0 || numOutputs < 0 )
+    	{
+    		inputsArray = null;
+    		inputsList = new HashSet<ForwardDeadReckonComponent>();
+    		outputsArray = null;
+    		outputsList = new HashSet<ForwardDeadReckonComponent>();
+    	}
+    	else
+    	{
+    		inputsArray = new ForwardDeadReckonComponent[numInputs];
+    		inputsList = null;
+    		outputsArray = new ForwardDeadReckonComponent[numOutputs];
+    		outputsList = null;
+    	}
     }
+	
+	public void crystalize()
+	{
+		if ( inputsList != null )
+		{
+			inputsArray = new ForwardDeadReckonComponent[inputsList.size()];
+			
+			int index = 0;
+			for(ForwardDeadReckonComponent c : inputsList)
+			{
+				inputsArray[index++] = c;
+			}
+			
+			inputsList = null;
+			inputIndex = index;
+			if ( inputIndex > 0 )
+			{
+				singleInput = inputsArray[0];
+			}
+		}
+		if ( outputsList != null )
+		{
+			outputsArray = new ForwardDeadReckonComponent[outputsList.size()];
+			
+			int index = 0;
+			for(ForwardDeadReckonComponent c : outputsList)
+			{
+				outputsArray[index++] = c;
+			}
+			
+			outputsList = null;
+			outputIndex = index;
+		}
+	}
+
+	public void removeInput(PolymorphicComponent input)
+	{
+		if ( inputsList != null )
+		{
+			inputsList.remove(input);
+			if ( singleInput == input )
+			{
+				singleInput = (inputsList.size() == 0 ? null : inputsList.iterator().next());
+			}
+		}
+		else
+		{
+			throw new RuntimeException("Attempt to manipuate crystalized component");
+		}
+	}
+
+	public void removeAllInputs()
+	{
+		if ( inputsList != null )
+		{
+			inputsList.clear();
+			singleInput = null;
+		}
+		else
+		{
+			throw new RuntimeException("Attempt to manipuate crystalized component");
+		}	
+	}
+
+	public void removeAllOutputs()
+	{
+		if ( outputsList != null )
+		{
+			outputsList.clear();
+		}
+		else
+		{
+			throw new RuntimeException("Attempt to manipuate crystalized component");
+		}	
+	}
+
+	public void removeOutput(PolymorphicComponent output)
+	{
+		if ( outputsList != null )
+		{
+			outputsList.remove(output);
+		}
+		else
+		{
+			throw new RuntimeException("Attempt to manipuate crystalized component");
+		}
+	}
 
     public void setPropnet(ForwardDeadReckonPropNet propNet)
     {
@@ -58,11 +160,23 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
      */
     public void addInput(PolymorphicComponent input)
     {
-    	if ( inputIndex == 0 )
+    	if ( inputsArray == null )
     	{
-    		singleInput = (ForwardDeadReckonComponent)input;
+    		inputsList.add((ForwardDeadReckonComponent)input);
+    		
+    		if ( singleInput == null )
+    		{
+    			singleInput = (ForwardDeadReckonComponent)input;
+    		}
     	}
-    	inputsArray[inputIndex++] = (ForwardDeadReckonComponent) input;
+    	else
+    	{
+	    	if ( inputIndex == 0 )
+	    	{
+	    		singleInput = (ForwardDeadReckonComponent)input;
+	    	}
+	    	inputsArray[inputIndex++] = (ForwardDeadReckonComponent) input;
+    	}
     }
 
     /**
@@ -73,7 +187,14 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
      */
     public void addOutput(PolymorphicComponent output)
     {
-    	outputsArray[outputIndex++] = (ForwardDeadReckonComponent) output;
+    	if ( outputsArray == null )
+    	{
+    		outputsList.add((ForwardDeadReckonComponent)output);
+    	}
+    	else
+    	{
+    		outputsArray[outputIndex++] = (ForwardDeadReckonComponent) output;
+    	}
     }
 
     /**
@@ -84,14 +205,21 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
      */
     public Collection<? extends PolymorphicComponent> getInputs()
     {
-    	LinkedList<ForwardDeadReckonComponent> result = new LinkedList<ForwardDeadReckonComponent>();
-    	
-    	for(int i = 0; i < inputIndex; i++)
+    	if ( inputsArray == null )
     	{
-    		result.add(inputsArray[i]);
+    		return inputsList;
     	}
+    	else
+    	{
+	    	LinkedList<ForwardDeadReckonComponent> result = new LinkedList<ForwardDeadReckonComponent>();
+	    	
+	    	for(int i = 0; i < inputIndex; i++)
+	    	{
+	    		result.add(inputsArray[i]);
+	    	}
     	
-        return result;
+	    	return result;
+    	}
     }
     
     /**
@@ -112,14 +240,21 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
      */
     public Collection<? extends PolymorphicComponent> getOutputs()
     {
-    	LinkedList<ForwardDeadReckonComponent> result = new LinkedList<ForwardDeadReckonComponent>();
-    	
-    	for(ForwardDeadReckonComponent c : outputsArray)
+    	if ( outputsArray == null )
     	{
-    		result.add(c);
+    		return outputsList;
     	}
-    	
-        return result;
+    	else
+    	{
+	    	LinkedList<ForwardDeadReckonComponent> result = new LinkedList<ForwardDeadReckonComponent>();
+	    	
+	    	for(ForwardDeadReckonComponent c : outputsArray)
+	    	{
+	    		result.add(c);
+	    	}
+	    	
+	        return result;
+    	}
    }
     
     /**
@@ -130,7 +265,14 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
      * @return The single output to the component.
      */
     public PolymorphicComponent getSingleOutput() {
-    	return outputsArray[0];
+    	if (outputsArray == null)
+    	{
+    		return outputsList.iterator().next();
+    	}
+    	else
+    	{
+    		return outputsArray[0];
+    	}
     }
 
     /**

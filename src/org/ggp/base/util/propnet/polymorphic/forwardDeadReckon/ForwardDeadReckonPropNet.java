@@ -2,6 +2,7 @@ package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -37,15 +38,31 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 	{
 		super(sourcePropnet, componentFactory);
 		
-		for(PolymorphicComponent c : getComponents())
-		{
-			((ForwardDeadReckonComponent)c).setPropnet(this);
-		}
+		propagationQueue = new ForwardDeadReckonComponent[getComponents().size()];
+		alternatePropagationQueue = new ForwardDeadReckonComponent[getComponents().size()];
+		propagationQueueIndex = 0;
+	}
+	
+	public ForwardDeadReckonPropNet(PolymorphicPropNet sourcePropnet, PolymorphicComponentFactory componentFactory)
+	{
+		super(sourcePropnet, componentFactory);
 		
 		propagationQueue = new ForwardDeadReckonComponent[getComponents().size()];
 		alternatePropagationQueue = new ForwardDeadReckonComponent[getComponents().size()];
 		propagationQueueIndex = 0;
+	}
+	
+	public ForwardDeadReckonPropNet(List<Role> roles, Set<PolymorphicComponent> components, PolymorphicComponentFactory componentFactory)
+	{
+		super(roles, components, componentFactory);
 		
+		propagationQueue = new ForwardDeadReckonComponent[getComponents().size()];
+		alternatePropagationQueue = new ForwardDeadReckonComponent[getComponents().size()];
+		propagationQueueIndex = 0;
+	}
+	
+	private void setUpActivePropositionSets()
+	{
 		int numTotalLegalProps = 0;
 		int numRoles = 0;
 		
@@ -78,7 +95,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 		activeBasePropositions = new HashSet<GdlSentence>();
 		alwaysTrueBasePropositions = new HashSet<GdlSentence>();
 		
-		for(PolymorphicProposition p : getBasePropositionsArray())
+		for(PolymorphicProposition p : getBasePropositions().values())
 		{
 			PolymorphicComponent input = p.getSingleInput();
 			
@@ -96,6 +113,19 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 				}
 			}
 		}
+	}
+	
+	@Override
+	public void crystalize()
+	{
+		super.crystalize();
+		
+		for(PolymorphicComponent c : getComponents())
+		{
+			((ForwardDeadReckonComponent)c).setPropnet(this);
+		}
+		
+		setUpActivePropositionSets();
 	}
 	
 	public boolean useDeadReckonerForLegal()
