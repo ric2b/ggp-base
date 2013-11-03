@@ -20,53 +20,57 @@ import org.ggp.base.util.statemachine.cache.CachedStateMachine;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
+import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.TestPropnetStateMachine;
 
 public class MonteCarloTestGamer extends SampleGamer {
 
-	private TestPropnetStateMachine	underlyingStateMachine;
+	private TestForwardDeadReckonPropnetStateMachine	underlyingStateMachine;
 	
 	@Override
 	public void stateMachineMetaGame(long timeout) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
 	{
-		//underlyingStateMachine.recreate(new LearningComponentFactory());
-        MachineState initial = underlyingStateMachine.getInitialState();
-        
-		underlyingStateMachine.setRandomSeed(1);
-		LearningComponent.getCount = 0;
-		underlyingStateMachine.performDepthCharge(initial,null);
-		System.out.println("#pre-learning gets for one depth charge: " + LearningComponent.getCount);
-		
-		if ( true )
+		if ( false )
 		{
-		    final int learningCount = 5;
-		    
-			for(int i = 0; i < learningCount; i++)
+			//underlyingStateMachine.recreate(new LearningComponentFactory());
+	        MachineState initial = underlyingStateMachine.getInitialState();
+	        
+			underlyingStateMachine.setRandomSeed(1);
+			LearningComponent.getCount = 0;
+			underlyingStateMachine.performDepthCharge(initial,null);
+			System.out.println("#pre-learning gets for one depth charge: " + LearningComponent.getCount);
+			
+			if ( true )
 			{
-				stateMachineSelectMoveInternal(Math.min(System.currentTimeMillis()+2000, timeout), false);
-				
-				underlyingStateMachine.Optimize();
+			    final int learningCount = 5;
+			    
+				for(int i = 0; i < learningCount; i++)
+				{
+					stateMachineSelectMoveInternal(Math.min(System.currentTimeMillis()+2000, timeout), false);
+					
+					underlyingStateMachine.Optimize();
+				}
 			}
+			
+	        initial = underlyingStateMachine.getInitialState();
+	        
+			underlyingStateMachine.setRandomSeed(1);
+			LearningComponent.getCount = 0;
+			underlyingStateMachine.performDepthCharge(initial,null);
+			System.out.println("#post-learning gets for one depth charge: " + LearningComponent.getCount);
+			
+			System.gc();
+			//underlyingStateMachine.recreate(new RuntimeOptimizedComponentFactory());
+			underlyingStateMachine.getInitialState();
+			System.gc();
 		}
-		
-        initial = underlyingStateMachine.getInitialState();
-        
-		underlyingStateMachine.setRandomSeed(1);
-		LearningComponent.getCount = 0;
-		underlyingStateMachine.performDepthCharge(initial,null);
-		System.out.println("#post-learning gets for one depth charge: " + LearningComponent.getCount);
-		
-		System.gc();
-		underlyingStateMachine.recreate(new RuntimeOptimizedComponentFactory());
-		underlyingStateMachine.getInitialState();
-		System.gc();
 	}
 	
 	// This is the default State Machine
 	public StateMachine getInitialStateMachine() {
 		GamerLogger.setFileToDisplay("StateMachine");
 		
-		underlyingStateMachine = new TestPropnetStateMachine(new LearningComponentFactory());
+		underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine();
 		//ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
 		//return new CachedStateMachine(underlyingStateMachine);
 		return underlyingStateMachine;
@@ -134,6 +138,8 @@ public class MonteCarloTestGamer extends SampleGamer {
 		GamerLogger.log("StateMachine", "Num MonteCarlo samples (test): " + numSamples);
 		GamerLogger.log("StateMachine", "Stats: ");
 		GamerLogger.log("StateMachine", underlyingStateMachine.getStats().toString());
+		GamerLogger.log("StateMachine", "Total num gates propagated: " + underlyingStateMachine.totalNumGatesPropagated);
+		GamerLogger.log("StateMachine", "Total num propagates: " + underlyingStateMachine.totalNumPropagates);
 		
 		if ( ProfilerContext.getContext() != null )
 		{
@@ -152,6 +158,7 @@ public class MonteCarloTestGamer extends SampleGamer {
 	int performDepthChargeFromMove(MachineState theState, Move myMove) {	    
 	    StateMachine theMachine = getStateMachine();
 	    try {
+	    	//System.out.println("Perform depth charge from state: " + theState);
             MachineState finalState = theMachine.performDepthCharge(theMachine.getRandomNextState(theState, getRole(), myMove), depth);
             return theMachine.getGoal(finalState, getRole());
         } catch (Exception e) {
