@@ -48,7 +48,14 @@ public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent imple
     		cachedValue = (falseInputCount == 0);
     		//System.out.println("AND value set to "+ cachedValue);
     		
-    		queuePropagation();
+    		if ( queuePropagation )
+    		{
+    			queuePropagation();
+    		}
+    		else
+    		{
+    			propagate();
+    		}
     	}
     }
     

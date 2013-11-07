@@ -1,13 +1,17 @@
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
+import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
+import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 
 /**
@@ -18,8 +22,9 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
 {
 	/** The name of the Proposition. */
 	private GdlSentence name;
-	private Set<Move> owningMoveSet = null;
-	private Move associatedMove = null;
+	private Collection<ForwardDeadReckonLegalMoveInfo> owningMoveSet = null;
+	private ForwardDeadReckonLegalMoveInfo associatedMove = null;
+	private ForwardDeadReckonPropositionCrossReferenceInfo opaqueInfo = null;
 
 	/**
 	 * Creates a new Proposition with name <tt>name</tt>.
@@ -34,8 +39,18 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
 		
 		this.name = name;
 	}
+	
+	public ForwardDeadReckonPropositionCrossReferenceInfo getCrossReferenceInfo()
+	{
+		return opaqueInfo;
+	}
+	
+	public void setCrossReferenceInfo(ForwardDeadReckonPropositionCrossReferenceInfo info)
+	{
+		opaqueInfo = info;
+	}
     
-    public void setTransitionSet(Move associatedMove, Set<Move> owningSet)
+    public void setTransitionSet(ForwardDeadReckonLegalMoveInfo associatedMove, Collection<ForwardDeadReckonLegalMoveInfo> owningSet)
     {
     	this.owningMoveSet = owningSet;
     	this.associatedMove = associatedMove;
@@ -70,17 +85,32 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
 		
 		if ( owningMoveSet != null )
 		{
-			if ( newState )
+			ProfileSection methodSection = new ProfileSection("ForwardDeadReckonProposition.stateChange");
+			try
 			{
-				owningMoveSet.add(associatedMove);
+				if ( newState )
+				{
+					owningMoveSet.add(associatedMove);
+				}
+				else
+				{
+					owningMoveSet.remove(associatedMove);
+				}				
 			}
-			else
+			finally
 			{
-				owningMoveSet.remove(associatedMove);
-			}				
+				methodSection.exitScope();
+			}
 		}
 
-		queuePropagation();
+		if ( queuePropagation )
+		{
+			queuePropagation();
+		}
+		else
+		{
+			propagate();
+		}
     }
 
 	/**
@@ -95,7 +125,14 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
 		{
 			cachedValue = value;
 			
-			queuePropagation();
+    		if ( queuePropagation )
+    		{
+    			queuePropagation();
+    		}
+    		else
+    		{
+    			propagate();
+    		}
 		}
 	}
     

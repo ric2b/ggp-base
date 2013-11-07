@@ -3,6 +3,7 @@ package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
+import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
@@ -13,8 +14,8 @@ import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.Bidirectio
 @SuppressWarnings("serial")
 public final class ForwardDeadReckonTransition extends ForwardDeadReckonComponent implements PolymorphicTransition
 {
-	private Set<GdlSentence> owningPropositionSet = null;
-	private GdlSentence owningProposition = null;
+	private Set<ForwardDeadReckonPropositionCrossReferenceInfo> owningTransitionInfoSet = null;
+	private ForwardDeadReckonPropositionCrossReferenceInfo transitionInfo = null;
 	
 	public ForwardDeadReckonTransition(int numOutputs) {
 		super(1, numOutputs);
@@ -23,23 +24,31 @@ public final class ForwardDeadReckonTransition extends ForwardDeadReckonComponen
     public void setKnownChangedState(boolean newState, ForwardDeadReckonComponent source)
     {
 		cachedValue = newState;
-		if ( owningPropositionSet != null )
+		if ( owningTransitionInfoSet != null )
 		{
-			if ( newState )
+			ProfileSection methodSection = new ProfileSection("ForwardDeadReckonTransition.legalStateChange");
+			try
 			{
-				owningPropositionSet.add(owningProposition);
+				if ( newState )
+				{
+					owningTransitionInfoSet.add(transitionInfo);
+				}
+				else
+				{
+					owningTransitionInfoSet.remove(transitionInfo);
+				}
 			}
-			else
+			finally
 			{
-				owningPropositionSet.remove(owningProposition);
+				methodSection.exitScope();
 			}
 		}
     }
     
-    public void setTransitionSet(GdlSentence owningProposition, Set<GdlSentence> owningSet)
+    public void setTransitionSet(ForwardDeadReckonPropositionCrossReferenceInfo transitionInfo, Set<ForwardDeadReckonPropositionCrossReferenceInfo> owningSet)
     {
-    	this.owningPropositionSet = owningSet;
-    	this.owningProposition = owningProposition;
+    	this.owningTransitionInfoSet = owningSet;
+    	this.transitionInfo = transitionInfo;
     }
     
 	/**

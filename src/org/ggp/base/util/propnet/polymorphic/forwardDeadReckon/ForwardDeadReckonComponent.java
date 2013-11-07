@@ -31,6 +31,11 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
     private Set<ForwardDeadReckonComponent> inputsList; 
     private Set<ForwardDeadReckonComponent> outputsList;
     
+    //	Empirically the overhead of queuing exceeds the overhead of
+    //	requiring slightly more propagation calls to reach equilibrium - for
+    //	games tested the extra calls are a tiny percentage
+    protected final boolean queuePropagation = false;
+    
     //protected boolean dirty;
     protected boolean cachedValue;
     protected boolean lastPropagatedValue;
@@ -307,7 +312,6 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
 		//{
 		//	output.validate();
 		//}
-		//propagate();
     	if ( lastPropagatedValue != cachedValue )
     	{
     		if ( !hasQueuedForPropagation && outputIndex > 0)

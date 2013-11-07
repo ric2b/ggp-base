@@ -30,8 +30,10 @@ import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.Bidirectio
 import org.ggp.base.util.propnet.polymorphic.factory.OptimizingPolymorphicPropNetFactory;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonComponent;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonComponentFactory;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionCrossReferenceInfo;
 import org.ggp.base.util.propnet.polymorphic.learning.LearningComponent;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
@@ -44,22 +46,99 @@ import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBui
 import org.ggp.base.util.stats.Stats;
 
 public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
+	private class MoveInputSet
+	{
+		public PolymorphicProposition[] moveInputPropositions;
+		int								numPropositions;
+	}
+	
+	private class InternalMachineState
+	{
+		Set<ForwardDeadReckonPropositionCrossReferenceInfo> contents = new HashSet<ForwardDeadReckonPropositionCrossReferenceInfo>();
+		boolean isXState = false;
+		
+		public InternalMachineState(GdlSentence XSentence, MachineState state)
+		{
+			ProfileSection methodSection = new ProfileSection("InternalMachineState.constructFromMachineState");
+			try
+			{
+				for(GdlSentence s : state.getContents())
+				{
+					ForwardDeadReckonProposition p = (ForwardDeadReckonProposition)propNet.getBasePropositions().get(s);
+					ForwardDeadReckonPropositionCrossReferenceInfo info = p.getCrossReferenceInfo();
+					contents.add(info);
+					
+					isXState |= (info.sentence == XSentence);
+				}
+			}
+			finally
+			{
+				methodSection.exitScope();
+			}
+		}
+		
+		public InternalMachineState() {
+			// TODO Auto-generated constructor stub
+		}
+
+		public MachineState getMachineState()
+		{
+			ProfileSection methodSection = new ProfileSection("InternalMachineState.getMachineState");
+			try
+			{
+				MachineState result = new MachineState(new HashSet<GdlSentence>());
+				
+				for(ForwardDeadReckonPropositionCrossReferenceInfo info : contents)
+				{
+					result.getContents().add(info.sentence);
+				}
+				
+				return result;
+			}
+			finally
+			{
+				methodSection.exitScope();
+			}
+		}
+		
+		@Override
+		public String toString()
+		{
+			StringBuilder sb = new StringBuilder();
+			boolean first = true;
+			
+			sb.append("( ");
+			for(ForwardDeadReckonPropositionCrossReferenceInfo info : contents)
+			{
+				if ( !first )
+				{
+					sb.append(", ");
+				}
+				sb.append(info.sentence);
+				first = false;
+			}
+			sb.append(" )");
+			
+			return sb.toString();
+		}
+	}
+	
     /** The underlying proposition network  */
     private ForwardDeadReckonPropNet propNetX = null;
     private ForwardDeadReckonPropNet propNetO = null;
     private ForwardDeadReckonPropNet propNet = null;
     private PropNet basicPropNet;
-    private Map<Role,PolymorphicComponent[]> legalPropositionTransitionsX = null;
+    private Map<Role,PolymorphicComponent[]> legalPropositionsX = null;
     private Map<Role,Move[]> legalPropositionMovesX = null;
-    private Map<Role,PolymorphicComponent[]> legalPropositionTransitionsO = null;
+    private Map<Role,PolymorphicComponent[]> legalPropositionsO = null;
     private Map<Role,Move[]> legalPropositionMovesO = null;
-    private Map<Role,PolymorphicComponent[]> legalPropositionTransitions = null;
+    private Map<Role,PolymorphicComponent[]> legalPropositions = null;
     private Map<Role,Move[]> legalPropositionMoves = null;
     /** The player roles */
     private List<Role> roles;
-    private MachineState lastSetStateX = null;
-    private MachineState lastSetStateO = null;
-    private MachineState lastSetState = null;
+    private InternalMachineState lastInternalSetStateX = null;
+    private InternalMachineState lastInternalSetStateO = null;
+    private InternalMachineState lastInternalSetState = null;
     private final boolean useSampleOfKnownLegals = false;
     private boolean useDeadReckonerForLegal = false;
     private MachineState lastPropnetSetState = null;
@@ -67,7 +146,13 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     private MachineState initialState = null;
     private PolymorphicProposition[] moveProps = null;
     private boolean measuringBasePropChanges = false;
-    private Map<GdlSentence, Integer> basePropChangeCounts = new HashMap<GdlSentence, Integer>();
+    private Map<ForwardDeadReckonPropositionCrossReferenceInfo, Integer> basePropChangeCounts = new HashMap<ForwardDeadReckonPropositionCrossReferenceInfo, Integer>();
+    private PolymorphicProposition[] chosenJointMoveProps = null;
+    private PolymorphicProposition[] previouslyChosenJointMovePropsX = null;
+    private PolymorphicProposition[] previouslyChosenJointMovePropsO = null;
+    private Map<Role,MoveInputSet> legalMoveInputPropositions = null;
+    private int numLegalsFound;
+    private ForwardDeadReckonPropNet fullPropNet = null;
     
 	public long totalNumGatesPropagated = 0;
 	public long totalNumPropagates = 0;
@@ -157,313 +242,314 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		
     	try
     	{
-    		if ( false )
+			fullPropNet = (ForwardDeadReckonPropNet) OptimizingPolymorphicPropNetFactory.create(description, new ForwardDeadReckonComponentFactory());
+			fullPropNet.renderToFile("c:\\temp\\propnet.dot");
+            
+    		OptimizingPolymorphicPropNetFactory.removeAnonymousPropositions(fullPropNet);
+    		OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(fullPropNet);
+    		OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(fullPropNet);
+            
+    		fullPropNet.renderToFile("c:\\temp\\propnetReduced.dot");
+            
+            roles = fullPropNet.getRoles();
+    		moveProps = new PolymorphicProposition[roles.size()];
+    		chosenJointMoveProps = new PolymorphicProposition[roles.size()];
+    		previouslyChosenJointMovePropsX = new PolymorphicProposition[roles.size()];
+    		previouslyChosenJointMovePropsO = new PolymorphicProposition[roles.size()];
+    		legalMoveInputPropositions = new HashMap<Role,MoveInputSet>();
+            stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(), fullPropNet.getInputPropositions().size(), fullPropNet.getLegalPropositions().get(getRoles().get(0)).length);
+            //	Assess network statistics
+            int numInputs = 0;
+            int numMultiInputs = 0;
+            int numMultiInputComponents = 0;
+            
+    		for(PolymorphicComponent c : fullPropNet.getComponents())
     		{
-	    		basicPropNet = OptimizingPropNetFactory.create(description,false);
-	    		basicPropNet.renderToFile("c:\\temp\\propnet.dot");
-	            
-	            OptimizingPropNetFactory.removeAnonymousPropositions(basicPropNet);
-	            OptimizingPropNetFactory.removeUnreachableBasesAndInputs(basicPropNet);
-	            OptimizingPropNetFactory.removeRedundantConstantsAndGates(basicPropNet);
-	            
-	            basicPropNet.renderToFile("c:\\temp\\propnetReduced.dot");
-	            
-	            roles = basicPropNet.getRoles();
-	            stats = new TestPropnetStateMachineStats(basicPropNet.getBasePropositions().size(), basicPropNet.getInputPropositions().size(), basicPropNet.getLegalPropositions().get(getRoles().get(0)).size());
-	            //	Assess network statistics
-	            int numInputs = 0;
-	            int numMultiInputs = 0;
-	            int numMultiInputComponents = 0;
-	            
-	    		for(Component c : basicPropNet.getComponents())
-	    		{
-	    			int n = c.getInputs().size();
-	    			
-	    			numInputs += n;
-	    			
-	    			if ( n > 1 )
-	    			{
-	    				numMultiInputComponents++;
-	    				numMultiInputs += n;
-	    			}
-	    		}
-	    		
-	    		int numComponents = basicPropNet.getComponents().size();
-	    		System.out.println("Num components: " + numComponents + " with an average of " + numInputs/numComponents + " inputs.");
-	    		System.out.println("Num multi-input components: " + numMultiInputComponents + " with an average of " + (numMultiInputComponents == 0 ? "N/A" : numMultiInputs/numMultiInputComponents) + " inputs.");
-
-	    		propNetX = new ForwardDeadReckonPropNet(basicPropNet, new ForwardDeadReckonComponentFactory());
-	    		propNetO = new ForwardDeadReckonPropNet(basicPropNet, new ForwardDeadReckonComponentFactory());
+    			int n = c.getInputs().size();
+    			
+    			numInputs += n;
+    			
+    			if ( n > 1 )
+    			{
+    				numMultiInputComponents++;
+    				numMultiInputs += n;
+    			}
     		}
-    		else
-    		{
-    			ForwardDeadReckonPropNet fullPropNet = (ForwardDeadReckonPropNet) OptimizingPolymorphicPropNetFactory.create(description, new ForwardDeadReckonComponentFactory());
-    			fullPropNet.renderToFile("c:\\temp\\propnet.dot");
-	            
-	    		OptimizingPolymorphicPropNetFactory.removeAnonymousPropositions(fullPropNet);
-	    		OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(fullPropNet);
-	    		OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(fullPropNet);
-	            
-	    		fullPropNet.renderToFile("c:\\temp\\propnetReduced.dot");
-	            
-	            roles = fullPropNet.getRoles();
-	    		moveProps = new PolymorphicProposition[roles.size()];
-	            stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(), fullPropNet.getInputPropositions().size(), fullPropNet.getLegalPropositions().get(getRoles().get(0)).length);
-	            //	Assess network statistics
-	            int numInputs = 0;
-	            int numMultiInputs = 0;
-	            int numMultiInputComponents = 0;
-	            
-	    		for(PolymorphicComponent c : fullPropNet.getComponents())
-	    		{
-	    			int n = c.getInputs().size();
-	    			
-	    			numInputs += n;
-	    			
-	    			if ( n > 1 )
-	    			{
-	    				numMultiInputComponents++;
-	    				numMultiInputs += n;
-	    			}
-	    		}
-	    		
-	    		int numComponents = fullPropNet.getComponents().size();
-	    		System.out.println("Num components: " + numComponents + " with an average of " + numInputs/numComponents + " inputs.");
-	    		System.out.println("Num multi-input components: " + numMultiInputComponents + " with an average of " + (numMultiInputComponents == 0 ? "N/A" : numMultiInputs/numMultiInputComponents) + " inputs.");
-	    		
-	    		fullPropNet.crystalize();
-	       		useDeadReckonerForLegal = fullPropNet.useDeadReckonerForLegal();
-	    		if ( !useDeadReckonerForLegal )
-	    		{
-		    		legalPropositionTransitions = new HashMap<Role,PolymorphicComponent[]>();
-		    		legalPropositionMoves = new HashMap<Role, Move[]>();
-		    		for(Role role : getRoles())
-		    		{
-			    		PolymorphicComponent legalTransitionsForRole[] = new PolymorphicComponent[fullPropNet.getLegalPropositions().get(role).length];
-			    		Move legalPropositionNamesForRole[] = new Move[fullPropNet.getLegalPropositions().get(role).length];
-			    		int index = 0;
-			    		for(PolymorphicProposition p : fullPropNet.getLegalPropositions().get(role))
-			    		{
-			    			legalTransitionsForRole[index] = p.getSingleInput();
-			    			legalPropositionNamesForRole[index++] = new Move(p.getName().getBody().get(1));
-			    		}
-			    		
-			    		legalPropositionTransitions.put(role, legalTransitionsForRole);
-			    		legalPropositionMoves.put(role, legalPropositionNamesForRole);    		
-		    		}
-	    		}
-	    		
-	    		fullPropNet.reset(false);
-	    		fullPropNet.getInitProposition().setValue(true);
-	    		fullPropNet.propagate();
-	    		propNet = fullPropNet;
-	            initialState = getStateFromBase();
-	    		fullPropNet.reset(true);
-	            
-	            measuringBasePropChanges = true;
-	            for(GdlSentence baseSentence : fullPropNet.getBasePropositions().keySet())
-	            {
-	            	basePropChangeCounts.put(baseSentence,  0);
-	            }
-				try {
-					for(int i = 0; i < 10; i++)
-					{
-						performDepthCharge(initialState,null);
-					}
-				} catch (TransitionDefinitionException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				} catch (MoveDefinitionException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-				measuringBasePropChanges = false;
+    		
+    		int numComponents = fullPropNet.getComponents().size();
+    		System.out.println("Num components: " + numComponents + " with an average of " + numInputs/numComponents + " inputs.");
+    		System.out.println("Num multi-input components: " + numMultiInputComponents + " with an average of " + (numMultiInputComponents == 0 ? "N/A" : numMultiInputs/numMultiInputComponents) + " inputs.");
+    		
+			for(Entry<GdlSentence,PolymorphicProposition> e : fullPropNet.getBasePropositions().entrySet())
+			{
+				ForwardDeadReckonProposition prop = (ForwardDeadReckonProposition)e.getValue();
+				ForwardDeadReckonPropositionCrossReferenceInfo info = new ForwardDeadReckonPropositionCrossReferenceInfo();
 				
-				int highestCount = 0;
-				for(Entry<GdlSentence,Integer> e : basePropChangeCounts.entrySet())
+				info.sentence = e.getKey();
+				info.xNetProp = prop;
+				info.oNetProp = prop;
+				
+				prop.setCrossReferenceInfo(info);
+            	basePropChangeCounts.put(info,  0);
+			}
+    		fullPropNet.crystalize();
+       		useDeadReckonerForLegal = fullPropNet.useDeadReckonerForLegal();
+    		if ( !useDeadReckonerForLegal )
+    		{
+	    		legalPropositions = new HashMap<Role,PolymorphicComponent[]>();
+	    		legalPropositionMoves = new HashMap<Role, Move[]>();
+	    		for(Role role : getRoles())
+	    		{
+		    		PolymorphicComponent legalPropositionsForRole[] = new PolymorphicComponent[fullPropNet.getLegalPropositions().get(role).length];
+		    		Move legalPropositionNamesForRole[] = new Move[fullPropNet.getLegalPropositions().get(role).length];
+		    		int index = 0;
+		    		for(PolymorphicProposition p : fullPropNet.getLegalPropositions().get(role))
+		    		{
+		    			legalPropositionsForRole[index] = p;
+		    			legalPropositionNamesForRole[index++] = new Move(p.getName().getBody().get(1));
+		    		}
+		    		
+		    		legalPropositions.put(role, legalPropositionsForRole);
+		    		legalPropositionMoves.put(role, legalPropositionNamesForRole);    		
+	    		}
+    		}
+
+    		for(Role role : getRoles())
+    		{
+    			MoveInputSet inputSetForRole = new MoveInputSet();
+    			inputSetForRole.moveInputPropositions = new PolymorphicProposition[fullPropNet.getLegalPropositions().get(role).length];
+	    		
+	    		legalMoveInputPropositions.put(role, inputSetForRole);
+    		}
+
+    		fullPropNet.reset(false);
+    		fullPropNet.getInitProposition().setValue(true);
+    		fullPropNet.propagate();
+    		propNet = fullPropNet;
+            initialState = getInternalStateFromBase().getMachineState();
+    		fullPropNet.reset(true);
+            
+            measuringBasePropChanges = true;
+
+			try {
+				for(int i = 0; i < 10; i++)
 				{
-					if ( e.getValue() > highestCount )
+					performDepthCharge(initialState,null);
+				}
+			} catch (TransitionDefinitionException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			} catch (MoveDefinitionException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			measuringBasePropChanges = false;
+			
+			int highestCount = 0;
+			for(Entry<ForwardDeadReckonPropositionCrossReferenceInfo, Integer> e : basePropChangeCounts.entrySet())
+			{
+				if ( e.getValue() > highestCount )
+				{
+					highestCount = e.getValue();
+					XSentence = e.getKey().sentence;
+				}
+			}
+            
+			basePropChangeCounts = null;
+    		lastInternalSetState = null;
+    		propNet = null;
+
+    		propNetX = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
+    		propNetO = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
+			propNetX.RemoveInits();
+			propNetO.RemoveInits();
+
+			if ( XSentence != null )
+			{
+				System.out.println("Reducing with respect to XSentence: " + XSentence);
+				GdlSentence possibleOSentence = null;
+				OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, XSentence, true);
+				
+				//	If the reduced net always transitions it's own hard-wired sentence into the opposite state
+				//	it may be part of a pivot whereby control passes between alternating propositions.  Check this
+				//	Do we turn something else on unconditionally?
+				for(Entry<GdlSentence,PolymorphicProposition> e : propNetX.getBasePropositions().entrySet())
+				{
+					PolymorphicComponent input = e.getValue().getSingleInput();
+					
+					if ( input instanceof PolymorphicTransition )
 					{
-						highestCount = e.getValue();
-						XSentence = e.getKey();
+						PolymorphicComponent driver = input.getSingleInput();
+						
+						if ( driver instanceof PolymorphicConstant && driver.getValue())
+						{
+							//	Found a suitable candidate
+							possibleOSentence = e.getKey();
+							break;
+						}
 					}
 				}
-	            
-				basePropChangeCounts = null;
-	    		lastSetState = null;
-	    		propNet = null;
-
-	    		propNetX = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
-	    		propNetO = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
-				propNetX.RemoveInits();
-				propNetO.RemoveInits();
-
-				if ( XSentence != null )
+				
+				if ( possibleOSentence != null )
 				{
-					System.out.println("Reducing with respect to XSentence: " + XSentence);
-					GdlSentence possibleOSentence = null;
-					OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, XSentence, true);
+					System.out.println("Possible OSentence: " + possibleOSentence);
+					OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, possibleOSentence, true);
 					
-					//	If the reduced net always transitions it's own hard-wired sentence into the opposite state
-					//	it may be part of a pivot whereby control passes between alternating propositions.  Check this
-					//	Do we turn something else on unconditionally?
-					for(Entry<GdlSentence,PolymorphicProposition> e : propNetX.getBasePropositions().entrySet())
+					//	Does this one turn the original back on?
+					PolymorphicProposition originalPropInSecondNet = propNetO.getBasePropositions().get(XSentence);
+					if ( originalPropInSecondNet != null )
 					{
-						PolymorphicComponent input = e.getValue().getSingleInput();
+						PolymorphicComponent input = originalPropInSecondNet.getSingleInput();
 						
 						if ( input instanceof PolymorphicTransition )
 						{
 							PolymorphicComponent driver = input.getSingleInput();
 							
-							if ( driver instanceof PolymorphicConstant && driver.getValue())
+							if ( !(driver instanceof PolymorphicConstant) || !driver.getValue())
 							{
-								//	Found a suitable candidate
-								possibleOSentence = e.getKey();
-								break;
+								//	Nope - doesn't work
+								possibleOSentence = null;
+								System.out.println("Fails to recover back-transition to " + XSentence);
 							}
 						}
 					}
 					
 					if ( possibleOSentence != null )
 					{
-						System.out.println("Possible OSentence: " + possibleOSentence);
-						OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, possibleOSentence, true);
+						//	So if we set the first net's trigger condition to off in the second net do we find
+						//	the second net's own trigger is always off?
+						OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, XSentence, false);
 						
-						//	Does this one turn the original back on?
-						PolymorphicProposition originalPropInSecondNet = propNetO.getBasePropositions().get(XSentence);
-						if ( originalPropInSecondNet != null )
+						PolymorphicProposition OSentenceInSecondNet = propNetO.getBasePropositions().get(possibleOSentence);
+						if ( OSentenceInSecondNet != null )
 						{
-							PolymorphicComponent input = originalPropInSecondNet.getSingleInput();
+							PolymorphicComponent input = OSentenceInSecondNet.getSingleInput();
 							
 							if ( input instanceof PolymorphicTransition )
 							{
 								PolymorphicComponent driver = input.getSingleInput();
 								
-								if ( !(driver instanceof PolymorphicConstant) || !driver.getValue())
+								if ( !(driver instanceof PolymorphicConstant) || driver.getValue())
 								{
 									//	Nope - doesn't work
+									System.out.println("Fails to recover back-transition remove of " + possibleOSentence);
 									possibleOSentence = null;
-									System.out.println("Fails to recover back-transition to " + XSentence);
 								}
-							}
-						}
-						
-						if ( possibleOSentence != null )
-						{
-							//	So if we set the first net's trigger condition to off in the second net do we find
-							//	the second net's own trigger is always off?
-							OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, XSentence, false);
-							
-							PolymorphicProposition OSentenceInSecondNet = propNetO.getBasePropositions().get(possibleOSentence);
-							if ( OSentenceInSecondNet != null )
-							{
-								PolymorphicComponent input = OSentenceInSecondNet.getSingleInput();
 								
-								if ( input instanceof PolymorphicTransition )
+								//	Finally, if we set the OSentence off in the first net do we recover the fact that
+								//	the XSentence always moves to off in transitions from the first net?
+								if ( possibleOSentence != null )
 								{
-									PolymorphicComponent driver = input.getSingleInput();
+									OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, possibleOSentence, false);
 									
-									if ( !(driver instanceof PolymorphicConstant) || driver.getValue())
+									PolymorphicProposition XSentenceInFirstNet = propNetX.getBasePropositions().get(XSentence);
+									if ( XSentenceInFirstNet != null )
 									{
-										//	Nope - doesn't work
-										System.out.println("Fails to recover back-transition remove of " + possibleOSentence);
-										possibleOSentence = null;
-									}
-									
-									//	Finally, if we set the OSentence off in the first net do we recover the fact that
-									//	the XSentence always moves to off in transitions from the first net?
-									if ( OSentenceInSecondNet != null )
-									{
-										OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, possibleOSentence, false);
+										input = XSentenceInFirstNet.getSingleInput();
 										
-										PolymorphicProposition XSentenceInFirstNet = propNetX.getBasePropositions().get(XSentence);
-										if ( XSentenceInFirstNet != null )
+										if ( input instanceof PolymorphicTransition )
 										{
-											input = XSentenceInFirstNet.getSingleInput();
+											driver = input.getSingleInput();
 											
-											if ( input instanceof PolymorphicTransition )
+											if ( !(driver instanceof PolymorphicConstant) || driver.getValue())
 											{
-												driver = input.getSingleInput();
-												
-												if ( !(driver instanceof PolymorphicConstant) || driver.getValue())
-												{
-													//	Nope - doesn't work
-													System.out.println("Fails to recover removal of " + XSentence);
-													possibleOSentence = null;
-												}
+												//	Nope - doesn't work
+												System.out.println("Fails to recover removal of " + XSentence);
+												possibleOSentence = null;
 											}
 										}
 									}
 								}
 							}
 						}
-						
-						if (possibleOSentence == null)
+						else
 						{
-							System.out.println("Reverting OSentence optimizations");
-							//	Failed - best we can do is simply drive the XSentence to true in one network
-				    		propNetX = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
-				    		propNetO = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
-							propNetX.RemoveInits();
-							propNetO.RemoveInits();
-							OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, XSentence, true);
+							possibleOSentence = null;
 						}
 					}
-					
-					
-					//OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, XSentence, false);
-					propNetX.renderToFile("c:\\temp\\propnetReducedX.dot");
-		    		propNetO.renderToFile("c:\\temp\\propnetReducedO.dot");
-		    		System.out.println("Num components remaining in X-net: " + propNetX.getComponents().size());
-		    		System.out.println("Num components remaining in O-net: " + propNetO.getComponents().size());
 				}
 				
-	    		propNetX.crystalize();
-	    		propNetO.crystalize();
-	    		
-	    		propNetX.reset(true);
-	    		propNetO.reset(true);
-    		}
+				if (possibleOSentence == null)
+				{
+					System.out.println("Reverting OSentence optimizations");
+					//	Failed - best we can do is simply drive the XSentence to true in one network
+		    		propNetX = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
+		    		propNetO = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
+					propNetX.RemoveInits();
+					propNetO.RemoveInits();
+					OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, XSentence, true);
+					OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, XSentence, false);
+				}
+				
+				//OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, XSentence, false);
+				propNetX.renderToFile("c:\\temp\\propnetReducedX.dot");
+	    		propNetO.renderToFile("c:\\temp\\propnetReducedO.dot");
+	    		System.out.println("Num components remaining in X-net: " + propNetX.getComponents().size());
+	    		System.out.println("Num components remaining in O-net: " + propNetO.getComponents().size());
+			}
+			
+			//	Cross-reference the base propositions of the two networks
+			for(Entry<GdlSentence,PolymorphicProposition> e : propNetX.getBasePropositions().entrySet())
+			{
+				ForwardDeadReckonProposition oProp = (ForwardDeadReckonProposition) propNetO.getBasePropositions().get(e.getKey());
+				ForwardDeadReckonProposition xProp = (ForwardDeadReckonProposition)e.getValue();
+				ForwardDeadReckonPropositionCrossReferenceInfo info = new ForwardDeadReckonPropositionCrossReferenceInfo();
+				
+				info.sentence = e.getKey();
+				info.xNetProp = xProp;
+				info.oNetProp = oProp;
+				
+				xProp.setCrossReferenceInfo(info);
+				oProp.setCrossReferenceInfo(info);
+			}
+			
+    		propNetX.crystalize();
+    		propNetO.crystalize();
     		
-    		//recreate(new RuntimeOptimizedComponentFactory());
-    		
+    		propNetX.reset(true);
+    		propNetO.reset(true);
+   		
     		useDeadReckonerForLegal = propNetX.useDeadReckonerForLegal();
     		if ( !useDeadReckonerForLegal )
     		{
-	    		legalPropositionTransitionsX = new HashMap<Role,PolymorphicComponent[]>();
+	    		legalPropositionsX = new HashMap<Role,PolymorphicComponent[]>();
 	    		legalPropositionMovesX = new HashMap<Role, Move[]>();
 	    		for(Role role : getRoles())
 	    		{
-		    		PolymorphicComponent legalTransitionsForRole[] = new PolymorphicComponent[propNetX.getLegalPropositions().get(role).length];
+		    		PolymorphicComponent legalPropositionsForRole[] = new PolymorphicComponent[propNetX.getLegalPropositions().get(role).length];
 		    		Move legalPropositionNamesForRole[] = new Move[propNetX.getLegalPropositions().get(role).length];
 		    		int index = 0;
 		    		for(PolymorphicProposition p : propNetX.getLegalPropositions().get(role))
 		    		{
-		    			legalTransitionsForRole[index] = p.getSingleInput();
+		    			legalPropositionsForRole[index] = p;
 		    			legalPropositionNamesForRole[index++] = new Move(p.getName().getBody().get(1));
 		    		}
 		    		
-		    		legalPropositionTransitionsX.put(role, legalTransitionsForRole);
+		    		legalPropositionsX.put(role, legalPropositionsForRole);
 		    		legalPropositionMovesX.put(role, legalPropositionNamesForRole);    		
 	    		}
 	    		
-	    		legalPropositionTransitionsO = new HashMap<Role,PolymorphicComponent[]>();
+	    		legalPropositionsO = new HashMap<Role,PolymorphicComponent[]>();
 	    		legalPropositionMovesO = new HashMap<Role, Move[]>();
 	    		for(Role role : getRoles())
 	    		{
-		    		PolymorphicComponent legalTransitionsForRole[] = new PolymorphicComponent[propNetO.getLegalPropositions().get(role).length];
+		    		PolymorphicComponent legalPropositionsForRole[] = new PolymorphicComponent[propNetO.getLegalPropositions().get(role).length];
 		    		Move legalPropositionNamesForRole[] = new Move[propNetO.getLegalPropositions().get(role).length];
 		    		int index = 0;
 		    		for(PolymorphicProposition p : propNetO.getLegalPropositions().get(role))
 		    		{
-		    			legalTransitionsForRole[index] = p.getSingleInput();
+		    			legalPropositionsForRole[index] = p;
 		    			legalPropositionNamesForRole[index++] = new Move(p.getName().getBody().get(1));
 		    		}
 		    		
-		    		legalPropositionTransitionsO.put(role, legalTransitionsForRole);
+		    		legalPropositionsO.put(role, legalPropositionsForRole);
 		    		legalPropositionMovesO.put(role, legalPropositionNamesForRole);    		
 	    		}
     		}
+    		
+			propNet = propNetX;
+		    legalPropositions = legalPropositionsX;
+		    legalPropositionMoves = legalPropositionMovesX;
    		}
     	catch (InterruptedException e)
     	{
@@ -479,43 +565,58 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		}
     }
     
-    private void setBasePropositionsFromState(MachineState state, boolean forceProp)
+    private void setBasePropositionsFromState(MachineState state)
     {
-		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.setBasePropositions");
+    	setBasePropositionsFromState(new InternalMachineState(XSentence, state));
+    }
+    
+    private void setBasePropositionsFromState(InternalMachineState state)
+    {
+		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.setBasePropositionsInternal");
 		try
 		{
 			//System.out.println("Last set state was: " + lastSetState);
-			if ( lastSetState != state )
+			if ( lastInternalSetState != state )
 			{
-				boolean changesMade = forceProp;
-				
-				if ( lastSetState != null )
+				if ( lastInternalSetState != null )
 				{
-					for(GdlSentence s : state.getContents())
+					for(ForwardDeadReckonPropositionCrossReferenceInfo info : state.contents)
 					{
-						if ( !lastSetState.getContents().contains(s) )
+						if ( !lastInternalSetState.contents.contains(info) )
 						{
 							//System.out.println("Changing prop " + s + " to true");
-							propNet.getBasePropositions().get(s).setValue(true);
-							changesMade = true;
+							if ( propNet == propNetX )
+							{
+								info.xNetProp.setValue(true);
+							}
+							else
+							{
+								info.oNetProp.setValue(true);
+							}
 							
 							if (measuringBasePropChanges)
 							{
-								basePropChangeCounts.put(s, basePropChangeCounts.get(s)+1);
+								basePropChangeCounts.put(info, basePropChangeCounts.get(info)+1);
 							}
 						}
 					}
-					for(GdlSentence s : lastSetState.getContents())
+					for(ForwardDeadReckonPropositionCrossReferenceInfo info : lastInternalSetState.contents)
 					{
-						if ( !state.getContents().contains(s) )
+						if ( !state.contents.contains(info) )
 						{
 							//System.out.println("Changing prop " + s + " to false");
-							propNet.getBasePropositions().get(s).setValue(false);
-							changesMade = true;
+							if ( propNet == propNetX )
+							{
+								info.xNetProp.setValue(false);
+							}
+							else
+							{
+								info.oNetProp.setValue(false);
+							}
 							
 							if (measuringBasePropChanges)
 							{
-								basePropChangeCounts.put(s, basePropChangeCounts.get(s)+1);
+								basePropChangeCounts.put(info, basePropChangeCounts.get(info)+1);
 							}
 						}
 					}
@@ -525,29 +626,22 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 					//System.out.println("Setting entire state");
 					for (PolymorphicProposition p : propNet.getBasePropositionsArray())
 					{
-						if ( state.getContents().contains(p.getName()) )
+						p.setValue(false);
+					}
+					for(ForwardDeadReckonPropositionCrossReferenceInfo s : state.contents)
+					{
+						if ( propNet == propNetX )
 						{
-							p.setValue(true);
+							s.xNetProp.setValue(true);
 						}
 						else
 						{
-							p.setValue(false);
+							s.oNetProp.setValue(true);
 						}
 					}
-					
-					changesMade = true;
 				}
 				
-				if ( changesMade )
-				{
-					propNet.propagate();
-				}
-				
-				lastSetState = state;
-			}
-			else if ( forceProp )
-			{
-				propNet.propagate();
+				lastInternalSetState = state;
 			}
 		}
 		finally
@@ -567,7 +661,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		try
 		{
 			setPropNetUsage(state);
-			setBasePropositionsFromState(state, false);
+			setBasePropositionsFromState(state);
 			
 			PolymorphicProposition terminalProp = propNet.getTerminalProposition();
 			boolean result = terminalProp.getSingleInput().getValue();
@@ -584,6 +678,26 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		}
 	}
 	
+	public boolean isTerminal()
+	{
+		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.isTerminal");
+		try
+		{
+			PolymorphicProposition terminalProp = propNet.getTerminalProposition();
+			boolean result = terminalProp.getSingleInput().getValue();
+			//if ( result )
+			//{
+			//	System.out.println("State " + state + " is terminal");
+			//}
+			
+			return result;
+		}
+		finally
+		{
+			methodSection.exitScope();
+		}
+	}
+
 	/**
 	 * Computes the goal for a role in the current state.
 	 * Should return the value of the goal proposition that
@@ -599,7 +713,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		//try
 		//{
 			setPropNetUsage(state);
-			setBasePropositionsFromState(state, false);
+			setBasePropositionsFromState(state);
 			
 			PolymorphicProposition[] goalProps = propNet.getGoalPropositions().get(role);
 			int result = 0;
@@ -620,6 +734,25 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		//{
 		//	methodSection.exitScope();
 		//}
+	}
+
+	private int getGoal(Role role)
+	throws GoalDefinitionException
+	{
+		PolymorphicProposition[] goalProps = propNet.getGoalPropositions().get(role);
+		int result = 0;
+		
+		for(PolymorphicProposition p : goalProps)
+		{
+			PolymorphicComponent goalTransition = p.getSingleInput();
+			if ( goalTransition != null && goalTransition.getValue())
+			{
+				result = Integer.parseInt(p.getName().getBody().get(1).toString());
+				break;
+			}
+		}
+		
+		return result;
 	}
 	
 	/**
@@ -647,16 +780,24 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			List<Move> result;
 			
 			setPropNetUsage(state);
-			setBasePropositionsFromState(state, false);
+			setBasePropositionsFromState(state);
+			
+			//ForwardDeadReckonComponent.numGatesPropagated = 0;
+			//ForwardDeadReckonComponent.numPropagates = 0;
+			//propNet.seq++;
 			
 			if ( useDeadReckonerForLegal )
 			{
-				result = new LinkedList<Move>(propNet.getActiveLegalProps().get(role));
+				result = new LinkedList<Move>();
+				for(ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps().get(role))
+				{
+					result.add(moveInfo.move);
+				}
 			}
 			else
 			{
 				result = new LinkedList<Move>();
-				PolymorphicComponent[] legalTransitions = legalPropositionTransitions.get(role);
+				PolymorphicComponent[] legalTransitions = legalPropositions.get(role);
 				Move[] legalPropMoves = legalPropositionMoves.get(role);
 				int numProps = legalTransitions.length;
 				
@@ -669,8 +810,53 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 				}
 			}
 			
+			//totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
+			//totalNumPropagates += ForwardDeadReckonComponent.numPropagates;
+			
 			//System.out.println("legals for role " + role + ": " + result);
 			return result;
+		}
+		finally
+		{
+			methodSection.exitScope();
+		}
+	}
+	
+	private void setupLegalMoveInputPropositions()
+	throws MoveDefinitionException
+	{
+		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.setupLegalMoveInputProps");
+		try
+		{
+			//setPropNetUsage(state);
+			//setBasePropositionsFromState(state, false);
+			
+			for(Role role : getRoles())
+			{
+				MoveInputSet inputSet = legalMoveInputPropositions.get(role);
+				inputSet.numPropositions = 0;
+				
+				if ( useDeadReckonerForLegal )
+				{
+					for(ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps().get(role))
+					{
+						inputSet.moveInputPropositions[inputSet.numPropositions++] = moveInfo.inputProposition;
+					}
+				}
+				else
+				{
+					PolymorphicComponent[] legalProps = legalPropositions.get(role);
+					int numProps = legalProps.length;
+					
+					for(int i = 0; i < numProps; i++)
+					{
+						if ( legalProps[i].getValue())
+						{
+							inputSet.moveInputPropositions[inputSet.numPropositions++] = propNet.getLegalInputMap().get(legalProps[i]);
+						}
+					}
+				}
+			}
 		}
 		finally
 		{
@@ -688,7 +874,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		try
 		{
 			setPropNetUsage(state);
-			setBasePropositionsFromState(state, false);
+			setBasePropositionsFromState(state);
 			
 			Map<GdlSentence, PolymorphicProposition> inputProps = propNet.getInputPropositions();
 			
@@ -710,35 +896,38 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	
 	private void setPropNetUsage(MachineState state)
 	{
+		setPropNetUsage(new InternalMachineState(XSentence, state));
+	}
+	
+	private void setPropNetUsage(InternalMachineState state)
+	{
 		//System.out.println("setPropNetUsage for state: " + state);
-		if ( XSentence != null && lastPropnetSetState != state )
+		if ( XSentence != null )
 		{
-			lastPropnetSetState = state;
-			
-			if ( state.getContents().contains(XSentence))
+			if ( state.isXState )
 			{
 				if ( propNet != propNetX )
 				{
-					//System.out.println("Switching to machine X in state: " + state);
+					//System.out.println("Switching (internal) to machine X in state: " + state);
 					propNet = propNetX;
-				    legalPropositionTransitions = legalPropositionTransitionsX;
+				    legalPropositions = legalPropositionsX;
 				    legalPropositionMoves = legalPropositionMovesX;
 				    
-				    lastSetStateO = lastSetState;
-				    lastSetState = lastSetStateX;
+				    lastInternalSetStateO = lastInternalSetState;
+				    lastInternalSetState = lastInternalSetStateX;
 				}
 			}
 			else
 			{
 				if ( propNet != propNetO )
 				{
-					//System.out.println("Switching to machine O in state: " + state);
+					//System.out.println("Switching (internal) to machine O in state: " + state);
 					propNet = propNetO;
-				    legalPropositionTransitions = legalPropositionTransitionsO;
+				    legalPropositions = legalPropositionsO;
 				    legalPropositionMoves = legalPropositionMovesO;
 				    
-				    lastSetStateX = lastSetState;
-				    lastSetState = lastSetStateO;
+				    lastInternalSetStateX = lastInternalSetState;
+				    lastInternalSetState = lastInternalSetStateO;
 				}
 			}
 		}
@@ -763,6 +952,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			//}
 			//ForwardDeadReckonComponent.numGatesPropagated = 0;
 			//ForwardDeadReckonComponent.numPropagates = 0;
+			//propNet.seq++;
 			
 			Map<GdlSentence, PolymorphicProposition> inputProps = propNet.getInputPropositions();
 			int movesCount = 0;
@@ -777,9 +967,9 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 				}
 			}
 			
-			setBasePropositionsFromState(state, true);
+			setBasePropositionsFromState(state);
 			
-			MachineState result = getStateFromBase();
+			MachineState result = getInternalStateFromBase().getMachineState();
 			
 			//System.out.println("After move " + moves + " in state " + state + " resulting state is " + result);
 			//totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
@@ -805,7 +995,89 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			methodSection.exitScope();
 		}
 	}
+
+	private void transitionToNextStateFromChosenMove()
+	{
+		//System.out.println("Get next state after " + moves + " from: " + state);
+		//RuntimeOptimizedComponent.getCount = 0;
+		//RuntimeOptimizedComponent.dirtyCount = 0;
+		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getNextStateFromChosen");
+		try
+		{
+			//for(PolymorphicComponent c : propNet.getComponents())
+			//{
+			//	((ForwardDeadReckonComponent)c).hasQueuedForPropagation = false;
+			//}
+			//ForwardDeadReckonComponent.numGatesPropagated = 0;
+			//ForwardDeadReckonComponent.numPropagates = 0;
+			//propNet.seq++;
+			
+			int index = 0;
+			for(PolymorphicProposition moveProp : chosenJointMoveProps)
+			{
+				PolymorphicProposition previousChosenMove;
+				
+				if ( propNet == propNetX )
+				{
+					previousChosenMove = previouslyChosenJointMovePropsX[index];
+				}
+				else
+				{
+					previousChosenMove = previouslyChosenJointMovePropsO[index];
+				}
+				if ( moveProp != null )
+				{
+					moveProp.setValue(true);
+					//System.out.println("Move: " + moveProp.getName());
+				}
+				if ( previousChosenMove != null && previousChosenMove != moveProp )
+				{
+					previousChosenMove.setValue(false);
+				}
+				if ( propNet == propNetX )
+				{
+					previouslyChosenJointMovePropsX[index++] = moveProp;
+				}
+				else
+				{
+					previouslyChosenJointMovePropsO[index++] = moveProp;
+				}
+			}
+			
+			
+			//setBasePropositionsFromState(state, true);
+			
+			InternalMachineState result = getInternalStateFromBase();
+			//System.out.println("Transitioning to state: " + result);
+			
+			//System.out.println("After move resulting state is " + result);
+			//totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
+			//totalNumPropagates += ForwardDeadReckonComponent.numPropagates;
 	
+			//for(PolymorphicProposition moveProp : chosenJointMoveProps)
+			//{
+			//	if ( moveProp != null )
+			//	{
+			//		moveProp.setValue(false);
+			//	}
+			//}
+			//for(GdlSentence moveSentence : toDoes(moves))
+			//{
+			//	PolymorphicProposition moveInputProposition = inputProps.get(moveSentence);
+			//	if ( moveInputProposition != null )
+			//	{
+			//		moveInputProposition.setValue(false);
+			//	}
+			//}
+			setPropNetUsage(result);
+			setBasePropositionsFromState(result);
+		}
+		finally
+		{
+			methodSection.exitScope();
+		}
+	}
+
 	/* Already implemented for you */
 	@Override
 	public List<Role> getRoles() {
@@ -838,42 +1110,25 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		return doeses;
 	}
 	
-	/**
-	 * Takes in a Legal Proposition and returns the appropriate corresponding Move
-	 * @param p
-	 * @return a PropNetMove
-	 */
-	public static Move getMoveFromProposition(Proposition p)
-	{
-		return new Move(p.getName().get(1));
-	}
-	
-	/**
-	 * Helper method for parsing the value of a goal proposition
-	 * @param goalProposition
-	 * @return the integer value of the goal proposition
-	 */	
-    private int getGoalValue(Proposition goalProposition)
-	{
-		GdlRelation relation = (GdlRelation) goalProposition.getName();
-		GdlConstant constant = (GdlConstant) relation.get(1);
-		return Integer.parseInt(constant.toString());
-	}
-	
-	/**
-	 * A Naive implementation that computes a PropNetMachineState
-	 * from the true BasePropositions.  This is correct but slower than more advanced implementations
-	 * You need not use this method!
-	 * @return PropNetMachineState
-	 */	
-	public MachineState getStateFromBase()
+	private InternalMachineState getInternalStateFromBase()
 	{
 		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getStateFromBase");
 		try
 		{
 			//RuntimeOptimizedComponent.getCount = 0;
 			
-			return new MachineState(new HashSet<GdlSentence>(propNet.getActiveBaseProps()));
+			InternalMachineState result = new InternalMachineState();
+			for(ForwardDeadReckonPropositionCrossReferenceInfo info : propNet.getActiveBaseProps())
+			{
+				result.contents.add(info);
+				
+				if ( info.sentence == XSentence )
+				{
+					result.isXState = true;
+				}
+			}
+			
+			return result;
 			//Set<GdlSentence> contents = new HashSet<GdlSentence>();
 			//nt numBaseProps = basePropositionTransitions.length;
 			
@@ -956,5 +1211,48 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	        int randIndex = getRandom(legals.size());
 	        return legals.get(randIndex);
 		}
+    }
+
+	private void chooseRandomJointMove() throws MoveDefinitionException
+	{
+		setupLegalMoveInputPropositions();
+		
+		int index = 0;
+        for (Role role : getRoles())
+        {
+        	MoveInputSet set = legalMoveInputPropositions.get(role);
+        	chosenJointMoveProps[index++] = set.moveInputPropositions[getRandom(set.numPropositions)];
+        }
+		
+	}
+  
+    public int getDepthChargeResult(MachineState state, Role role, final int[] theDepth) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException {  
+        int nDepth = 0;
+		setPropNetUsage(state);
+		setBasePropositionsFromState(state);
+        for(int i = 0; i < roles.size(); i++)
+        {
+        	previouslyChosenJointMovePropsX[i] = null;
+        	previouslyChosenJointMovePropsO[i] = null;
+        }
+        while(!isTerminal()) {
+            nDepth++;
+            chooseRandomJointMove();
+            transitionToNextStateFromChosenMove();
+        }
+        if(theDepth != null)
+            theDepth[0] = nDepth;
+        for(int i = 0; i < roles.size(); i++)
+        {
+        	if ( previouslyChosenJointMovePropsX[i] != null)
+        	{
+        		previouslyChosenJointMovePropsX[i].setValue(false);
+        	}
+        	if ( previouslyChosenJointMovePropsO[i] != null)
+        	{
+        		previouslyChosenJointMovePropsO[i].setValue(false);
+        	}
+        }
+        return getGoal(role);
     }
 }

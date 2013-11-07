@@ -45,7 +45,14 @@ public final class ForwardDeadReckonOr extends ForwardDeadReckonComponent implem
     	{
     		cachedValue = (trueInputCount != 0);
     		
-    		queuePropagation();
+    		if ( queuePropagation )
+    		{
+    			queuePropagation();
+    		}
+    		else
+    		{
+    			propagate();
+    		}
     	}
     }
     

@@ -1,7 +1,11 @@
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,9 +32,9 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 	private ForwardDeadReckonComponent[] propagationQueue = null;
 	private ForwardDeadReckonComponent[] alternatePropagationQueue = null;
 	private int propagationQueueIndex;
-	private Map<Role,Set<Move>> activeLegalMoves;
-	private Set<GdlSentence> activeBasePropositions;
-	private Set<GdlSentence> alwaysTrueBasePropositions;
+	private Map<Role,Collection<ForwardDeadReckonLegalMoveInfo>> activeLegalMoves;
+	private Set<ForwardDeadReckonPropositionCrossReferenceInfo> activeBasePropositions;
+	private Set<ForwardDeadReckonPropositionCrossReferenceInfo> alwaysTrueBasePropositions;
 	private boolean useDeadReckonerForLegal;
 	private final int legalPropsPerRoleThreasholdForDeadReckon = 20;
 	
@@ -74,26 +78,30 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 		useDeadReckonerForLegal = (numTotalLegalProps > numRoles*legalPropsPerRoleThreasholdForDeadReckon);
 		if ( useDeadReckonerForLegal )
 		{
-			activeLegalMoves = new HashMap<Role,Set<Move>>();
+			activeLegalMoves = new HashMap<Role,Collection<ForwardDeadReckonLegalMoveInfo>>();
 			
 			for(Role role : getRoles())
 			{
 				PolymorphicProposition[] legalProps = getLegalPropositions().get(role);
-				Set<Move> activeLegalMovesForRole = new HashSet<Move>();
+				Collection<ForwardDeadReckonLegalMoveInfo> activeLegalMovesForRole = new HashSet<ForwardDeadReckonLegalMoveInfo>();
 				
 				for(PolymorphicProposition p : legalProps)
 				{
 					ForwardDeadReckonProposition pfdr = (ForwardDeadReckonProposition)p;
+					ForwardDeadReckonLegalMoveInfo info = new ForwardDeadReckonLegalMoveInfo();
 					
-					pfdr.setTransitionSet(new Move(pfdr.getName().getBody().get(1)), activeLegalMovesForRole);
+					info.move = new Move(pfdr.getName().getBody().get(1));
+					info.inputProposition = getLegalInputMap().get(p);
+					
+					pfdr.setTransitionSet(info, activeLegalMovesForRole);
 				}
 				
 				activeLegalMoves.put(role, activeLegalMovesForRole);
 			}
 		}
 		
-		activeBasePropositions = new HashSet<GdlSentence>();
-		alwaysTrueBasePropositions = new HashSet<GdlSentence>();
+		activeBasePropositions = new HashSet<ForwardDeadReckonPropositionCrossReferenceInfo>();
+		alwaysTrueBasePropositions = new HashSet<ForwardDeadReckonPropositionCrossReferenceInfo>();
 		
 		for(PolymorphicProposition p : getBasePropositions().values())
 		{
@@ -103,13 +111,13 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 			{
 				ForwardDeadReckonTransition t = (ForwardDeadReckonTransition)input;
 				
-				t.setTransitionSet(p.getName(), activeBasePropositions);
+				t.setTransitionSet(((ForwardDeadReckonProposition)p).getCrossReferenceInfo(), activeBasePropositions);
 			}
 			else if ( input instanceof PolymorphicConstant )
 			{
 				if ( input.getValue() )
 				{
-					alwaysTrueBasePropositions.add(p.getName());
+					alwaysTrueBasePropositions.add(((ForwardDeadReckonProposition)p).getCrossReferenceInfo());
 				}
 			}
 		}
@@ -133,12 +141,12 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 		return useDeadReckonerForLegal;
 	}
 	
-	public Map<Role,Set<Move>> getActiveLegalProps()
+	public Map<Role,Collection<ForwardDeadReckonLegalMoveInfo>> getActiveLegalProps()
 	{
 		return activeLegalMoves;
 	}
 	
-	public Set<GdlSentence> getActiveBaseProps()
+	public Set<ForwardDeadReckonPropositionCrossReferenceInfo> getActiveBaseProps()
 	{
 		return activeBasePropositions;
 	}

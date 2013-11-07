@@ -19,7 +19,14 @@ public final class ForwardDeadReckonNot extends ForwardDeadReckonComponent imple
     {
 		cachedValue = !newState;
 		
-		queuePropagation();
+		if ( queuePropagation )
+		{
+			queuePropagation();
+		}
+		else
+		{
+			propagate();
+		}
     }
     
     @Override
