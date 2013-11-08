@@ -6,4 +6,5 @@ public class ForwardDeadReckonPropositionCrossReferenceInfo {
 	public GdlSentence sentence;
 	public ForwardDeadReckonProposition xNetProp;
 	public ForwardDeadReckonProposition oNetProp;
+	public int index;
 }
