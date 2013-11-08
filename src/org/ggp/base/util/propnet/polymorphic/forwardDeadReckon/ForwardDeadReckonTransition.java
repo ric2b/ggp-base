@@ -14,7 +14,7 @@ import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.Bidirectio
 @SuppressWarnings("serial")
 public final class ForwardDeadReckonTransition extends ForwardDeadReckonComponent implements PolymorphicTransition
 {
-	private Set<ForwardDeadReckonPropositionCrossReferenceInfo> owningTransitionInfoSet = null;
+	private ForwardDeadReckonInternalMachineState owningTransitionInfoSet = null;
 	private ForwardDeadReckonPropositionCrossReferenceInfo transitionInfo = null;
 	
 	public ForwardDeadReckonTransition(int numOutputs) {
@@ -45,7 +45,7 @@ public final class ForwardDeadReckonTransition extends ForwardDeadReckonComponen
 		}
     }
     
-    public void setTransitionSet(ForwardDeadReckonPropositionCrossReferenceInfo transitionInfo, Set<ForwardDeadReckonPropositionCrossReferenceInfo> owningSet)
+    public void setTransitionSet(ForwardDeadReckonPropositionCrossReferenceInfo transitionInfo, ForwardDeadReckonInternalMachineState owningSet)
     {
     	this.owningTransitionInfoSet = owningSet;
     	this.transitionInfo = transitionInfo;

@@ -33,8 +33,8 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 	private ForwardDeadReckonComponent[] alternatePropagationQueue = null;
 	private int propagationQueueIndex;
 	private Map<Role,Collection<ForwardDeadReckonLegalMoveInfo>> activeLegalMoves;
-	private Set<ForwardDeadReckonPropositionCrossReferenceInfo> activeBasePropositions;
-	private Set<ForwardDeadReckonPropositionCrossReferenceInfo> alwaysTrueBasePropositions;
+	private ForwardDeadReckonInternalMachineState activeBasePropositions;
+	private ForwardDeadReckonInternalMachineState alwaysTrueBasePropositions;
 	private boolean useDeadReckonerForLegal;
 	private final int legalPropsPerRoleThreasholdForDeadReckon = 20;
 	
@@ -65,7 +65,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 		propagationQueueIndex = 0;
 	}
 	
-	private void setUpActivePropositionSets()
+	private void setUpActivePropositionSets(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet)
 	{
 		int numTotalLegalProps = 0;
 		int numRoles = 0;
@@ -100,8 +100,8 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 			}
 		}
 		
-		activeBasePropositions = new HashSet<ForwardDeadReckonPropositionCrossReferenceInfo>();
-		alwaysTrueBasePropositions = new HashSet<ForwardDeadReckonPropositionCrossReferenceInfo>();
+		activeBasePropositions = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+		alwaysTrueBasePropositions = new ForwardDeadReckonInternalMachineState(masterInfoSet);
 		
 		for(PolymorphicProposition p : getBasePropositions().values())
 		{
@@ -123,8 +123,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 		}
 	}
 	
-	@Override
-	public void crystalize()
+	public void crystalize(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet)
 	{
 		super.crystalize();
 		
@@ -133,7 +132,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 			((ForwardDeadReckonComponent)c).setPropnet(this);
 		}
 		
-		setUpActivePropositionSets();
+		setUpActivePropositionSets(masterInfoSet);
 	}
 	
 	public boolean useDeadReckonerForLegal()
@@ -146,7 +145,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 		return activeLegalMoves;
 	}
 	
-	public Set<ForwardDeadReckonPropositionCrossReferenceInfo> getActiveBaseProps()
+	public ForwardDeadReckonInternalMachineState getActiveBaseProps()
 	{
 		return activeBasePropositions;
 	}
@@ -154,7 +153,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 	public void reset(boolean fullEquilibrium)
 	{
 		activeBasePropositions.clear();
-		activeBasePropositions.addAll(alwaysTrueBasePropositions);
+		activeBasePropositions.merge(alwaysTrueBasePropositions);
 		
 		if ( activeLegalMoves != null )
 		{

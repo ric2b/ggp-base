@@ -36,6 +36,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionCrossReferenceInfo;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.learning.LearningComponent;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
@@ -54,132 +55,6 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		int								numPropositions;
 	}
 	
-	private class InternalMachineState implements Iterable<ForwardDeadReckonPropositionCrossReferenceInfo>
-	{
-		private class InternalMachineStateIterator implements Iterator<ForwardDeadReckonPropositionCrossReferenceInfo>
-		{
-			private InternalMachineState parent;
-			int	index;
-			
-			public InternalMachineStateIterator(InternalMachineState parent)
-			{
-				this.parent = parent;
-				index = parent.contents.nextSetBit(0);
-			}
-			
-			@Override
-			public boolean hasNext() {
-				return (index != -1);
-			}
-
-			@Override
-			public ForwardDeadReckonPropositionCrossReferenceInfo next() {
-				ForwardDeadReckonPropositionCrossReferenceInfo result = parent.infoSet[index];
-				index = parent.contents.nextSetBit(index+1);
-				return result;
-			}
-
-			@Override
-			public void remove() {
-				// TODO Auto-generated method stub
-				
-			}
-		}
-		
-		private ForwardDeadReckonPropositionCrossReferenceInfo[] infoSet;
-		
-		BitSet contents = new BitSet();
-		//Set<ForwardDeadReckonPropositionCrossReferenceInfo> contents = new HashSet<ForwardDeadReckonPropositionCrossReferenceInfo>();
-		boolean isXState = false;
-		
-		public InternalMachineState(ForwardDeadReckonPropositionCrossReferenceInfo[] infoSet, GdlSentence XSentence, MachineState state)
-		{
-			this.infoSet = infoSet;
-			
-			ProfileSection methodSection = new ProfileSection("InternalMachineState.constructFromMachineState");
-			try
-			{
-				for(GdlSentence s : state.getContents())
-				{
-					ForwardDeadReckonProposition p = (ForwardDeadReckonProposition)propNet.getBasePropositions().get(s);
-					ForwardDeadReckonPropositionCrossReferenceInfo info = p.getCrossReferenceInfo();
-					contents.set(info.index);
-					
-					isXState |= (info.sentence == XSentence);
-				}
-			}
-			finally
-			{
-				methodSection.exitScope();
-			}
-		}
-		
-		public InternalMachineState(ForwardDeadReckonPropositionCrossReferenceInfo[] infoSet) {
-			this.infoSet = infoSet;
-		}
-
-		public void add(ForwardDeadReckonPropositionCrossReferenceInfo info)
-		{
-			contents.set(info.index);
-		}
-		
-		public boolean contains(ForwardDeadReckonPropositionCrossReferenceInfo info)
-		{
-			return contents.get(info.index);
-		}
-		
-		public void xor(InternalMachineState other)
-		{
-			contents.xor(other.contents);
-		}
-		
-		public MachineState getMachineState()
-		{
-			ProfileSection methodSection = new ProfileSection("InternalMachineState.getMachineState");
-			try
-			{
-				MachineState result = new MachineState(new HashSet<GdlSentence>());
-				
-				for (int i = contents.nextSetBit(0); i >= 0; i = contents.nextSetBit(i+1))
-				{
-					result.getContents().add(infoSet[i].sentence);
-				}
-				
-				return result;
-			}
-			finally
-			{
-				methodSection.exitScope();
-			}
-		}
-		
-		@Override
-		public String toString()
-		{
-			StringBuilder sb = new StringBuilder();
-			boolean first = true;
-			
-			sb.append("( ");
-			for (int i = contents.nextSetBit(0); i >= 0; i = contents.nextSetBit(i+1))
-			{
-				if ( !first )
-				{
-					sb.append(", ");
-				}
-				sb.append(infoSet[i].sentence);
-				first = false;
-			}
-			sb.append(" )");
-			
-			return sb.toString();
-		}
-
-		@Override
-		public Iterator<ForwardDeadReckonPropositionCrossReferenceInfo> iterator() {
-			// TODO Auto-generated method stub
-			return new InternalMachineStateIterator(this);
-		}
-	}
 	
     /** The underlying proposition network  */
     private ForwardDeadReckonPropNet propNetX = null;
@@ -194,9 +69,9 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     private Map<Role,Move[]> legalPropositionMoves = null;
     /** The player roles */
     private List<Role> roles;
-    private InternalMachineState lastInternalSetStateX = null;
-    private InternalMachineState lastInternalSetStateO = null;
-    private InternalMachineState lastInternalSetState = null;
+    private ForwardDeadReckonInternalMachineState lastInternalSetStateX = null;
+    private ForwardDeadReckonInternalMachineState lastInternalSetStateO = null;
+    private ForwardDeadReckonInternalMachineState lastInternalSetState = null;
     private final boolean useSampleOfKnownLegals = false;
     private boolean useDeadReckonerForLegal = false;
     private MachineState lastPropnetSetState = null;
@@ -286,7 +161,31 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     {
     	return stats;
     }
-    
+	
+	private ForwardDeadReckonInternalMachineState createInternalState(ForwardDeadReckonPropositionCrossReferenceInfo[] infoSet, GdlSentence XSentence, MachineState state)
+	{
+		ProfileSection methodSection = new ProfileSection("InternalMachineState.constructFromMachineState");
+		try
+		{
+			ForwardDeadReckonInternalMachineState result = new ForwardDeadReckonInternalMachineState(infoSet);
+			
+			for(GdlSentence s : state.getContents())
+			{
+				ForwardDeadReckonProposition p = (ForwardDeadReckonProposition)propNet.getBasePropositions().get(s);
+				ForwardDeadReckonPropositionCrossReferenceInfo info = p.getCrossReferenceInfo();
+				result.add(info);
+				
+				result.isXState |= (info.sentence == XSentence);
+			}
+			
+			return result;
+		}
+		finally
+		{
+			methodSection.exitScope();
+		}
+	}
+
     /**
      * Initializes the PropNetStateMachine. You should compute the topological
      * ordering here. Additionally you may compute the initial state here, at
@@ -355,7 +254,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 				prop.setCrossReferenceInfo(info);
             	basePropChangeCounts.put(info,  0);
 			}
-    		fullPropNet.crystalize();
+    		fullPropNet.crystalize(masterInfoSet);
        		useDeadReckonerForLegal = fullPropNet.useDeadReckonerForLegal();
     		if ( !useDeadReckonerForLegal )
     		{
@@ -571,8 +470,8 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 				oProp.setCrossReferenceInfo(info);
 			}
 			
-    		propNetX.crystalize();
-    		propNetO.crystalize();
+    		propNetX.crystalize(masterInfoSet);
+    		propNetO.crystalize(masterInfoSet);
     		
     		propNetX.reset(true);
     		propNetO.reset(true);
@@ -635,10 +534,10 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     
     private void setBasePropositionsFromState(MachineState state)
     {
-    	setBasePropositionsFromState(new InternalMachineState(masterInfoSet, XSentence, state));
+    	setBasePropositionsFromState(createInternalState(masterInfoSet, XSentence, state));
     }
     
-    private void setBasePropositionsFromState(InternalMachineState state)
+    private void setBasePropositionsFromState(ForwardDeadReckonInternalMachineState state)
     {
 		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.setBasePropositionsInternal");
 		try
@@ -998,10 +897,10 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	
 	private void setPropNetUsage(MachineState state)
 	{
-		setPropNetUsage(new InternalMachineState(masterInfoSet, XSentence, state));
+		setPropNetUsage(createInternalState(masterInfoSet, XSentence, state));
 	}
 	
-	private void setPropNetUsage(InternalMachineState state)
+	private void setPropNetUsage(ForwardDeadReckonInternalMachineState state)
 	{
 		//System.out.println("setPropNetUsage for state: " + state);
 		if ( XSentence != null )
@@ -1149,7 +1048,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			
 			//setBasePropositionsFromState(state, true);
 			
-			InternalMachineState result = getInternalStateFromBase();
+			ForwardDeadReckonInternalMachineState result = getInternalStateFromBase();
 			//System.out.println("Transitioning to state: " + result);
 			
 			//System.out.println("After move resulting state is " + result);
@@ -1212,14 +1111,14 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		return doeses;
 	}
 	
-	private InternalMachineState getInternalStateFromBase()
+	private ForwardDeadReckonInternalMachineState getInternalStateFromBase()
 	{
 		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getStateFromBase");
 		try
 		{
 			//RuntimeOptimizedComponent.getCount = 0;
 			
-			InternalMachineState result = new InternalMachineState(masterInfoSet);
+			ForwardDeadReckonInternalMachineState result = new ForwardDeadReckonInternalMachineState(masterInfoSet);
 			for(ForwardDeadReckonPropositionCrossReferenceInfo info : propNet.getActiveBaseProps())
 			{
 				result.add(info);
