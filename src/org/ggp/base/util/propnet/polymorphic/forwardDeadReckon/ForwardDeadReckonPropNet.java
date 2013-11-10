@@ -32,7 +32,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 	private ForwardDeadReckonComponent[] propagationQueue = null;
 	private ForwardDeadReckonComponent[] alternatePropagationQueue = null;
 	private int propagationQueueIndex;
-	private Map<Role,Collection<ForwardDeadReckonLegalMoveInfo>> activeLegalMoves;
+	private ForwardDeadReckonLegalMoveSet activeLegalMoves;
 	private ForwardDeadReckonInternalMachineState activeBasePropositions;
 	private ForwardDeadReckonInternalMachineState alwaysTrueBasePropositions;
 	private boolean useDeadReckonerForLegal;
@@ -78,12 +78,12 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 		useDeadReckonerForLegal = (numTotalLegalProps > numRoles*legalPropsPerRoleThreasholdForDeadReckon);
 		if ( useDeadReckonerForLegal )
 		{
-			activeLegalMoves = new HashMap<Role,Collection<ForwardDeadReckonLegalMoveInfo>>();
+			activeLegalMoves = new ForwardDeadReckonLegalMoveSet(getRoles());
+			int roleIndex = 0;
 			
 			for(Role role : getRoles())
 			{
 				PolymorphicProposition[] legalProps = getLegalPropositions().get(role);
-				Collection<ForwardDeadReckonLegalMoveInfo> activeLegalMovesForRole = new HashSet<ForwardDeadReckonLegalMoveInfo>();
 				
 				for(PolymorphicProposition p : legalProps)
 				{
@@ -92,11 +92,13 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 					
 					info.move = new Move(pfdr.getName().getBody().get(1));
 					info.inputProposition = getLegalInputMap().get(p);
+					info.roleIndex = roleIndex;
+					info.masterIndex = -1;
 					
-					pfdr.setTransitionSet(info, activeLegalMovesForRole);
+					pfdr.setTransitionSet(info, activeLegalMoves);
 				}
 				
-				activeLegalMoves.put(role, activeLegalMovesForRole);
+				roleIndex++;
 			}
 		}
 		
@@ -140,7 +142,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 		return useDeadReckonerForLegal;
 	}
 	
-	public Map<Role,Collection<ForwardDeadReckonLegalMoveInfo>> getActiveLegalProps()
+	public ForwardDeadReckonLegalMoveSet getActiveLegalProps()
 	{
 		return activeLegalMoves;
 	}
@@ -157,10 +159,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 		
 		if ( activeLegalMoves != null )
 		{
-			for(Role role : getRoles())
-			{
-				activeLegalMoves.get(role).clear();
-			}
+			activeLegalMoves.clear();
 		}
 		for(PolymorphicComponent c : getComponents())
 		{

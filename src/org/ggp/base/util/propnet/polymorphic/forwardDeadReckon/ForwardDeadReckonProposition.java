@@ -22,7 +22,7 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
 {
 	/** The name of the Proposition. */
 	private GdlSentence name;
-	private Collection<ForwardDeadReckonLegalMoveInfo> owningMoveSet = null;
+	private ForwardDeadReckonLegalMoveSet owningMoveSet = null;
 	private ForwardDeadReckonLegalMoveInfo associatedMove = null;
 	private ForwardDeadReckonPropositionCrossReferenceInfo opaqueInfo = null;
 
@@ -50,9 +50,9 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
 		opaqueInfo = info;
 	}
     
-    public void setTransitionSet(ForwardDeadReckonLegalMoveInfo associatedMove, Collection<ForwardDeadReckonLegalMoveInfo> owningSet)
+    public void setTransitionSet(ForwardDeadReckonLegalMoveInfo associatedMove, ForwardDeadReckonLegalMoveSet activeLegalMoves)
     {
-    	this.owningMoveSet = owningSet;
+    	this.owningMoveSet = activeLegalMoves;
     	this.associatedMove = associatedMove;
     }
 
@@ -85,8 +85,8 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
 		
 		if ( owningMoveSet != null )
 		{
-			ProfileSection methodSection = new ProfileSection("ForwardDeadReckonProposition.stateChange");
-			try
+			//ProfileSection methodSection = new ProfileSection("ForwardDeadReckonProposition.stateChange");
+			//try
 			{
 				if ( newState )
 				{
@@ -97,10 +97,10 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
 					owningMoveSet.remove(associatedMove);
 				}				
 			}
-			finally
-			{
-				methodSection.exitScope();
-			}
+			//finally
+			//{
+			//	methodSection.exitScope();
+			//}
 		}
 
 		if ( queuePropagation )

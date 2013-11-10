@@ -5,5 +5,7 @@ import org.ggp.base.util.statemachine.Move;
 
 public class ForwardDeadReckonLegalMoveInfo {
 	public Move	move;
+	public int roleIndex;
+	public int masterIndex;
 	public PolymorphicProposition inputProposition;
 }

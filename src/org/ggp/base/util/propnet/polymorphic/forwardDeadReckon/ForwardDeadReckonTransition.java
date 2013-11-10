@@ -26,8 +26,8 @@ public final class ForwardDeadReckonTransition extends ForwardDeadReckonComponen
 		cachedValue = newState;
 		if ( owningTransitionInfoSet != null )
 		{
-			ProfileSection methodSection = new ProfileSection("ForwardDeadReckonTransition.legalStateChange");
-			try
+			//ProfileSection methodSection = new ProfileSection("ForwardDeadReckonTransition.legalStateChange");
+			//try
 			{
 				if ( newState )
 				{
@@ -38,10 +38,10 @@ public final class ForwardDeadReckonTransition extends ForwardDeadReckonComponen
 					owningTransitionInfoSet.remove(transitionInfo);
 				}
 			}
-			finally
-			{
-				methodSection.exitScope();
-			}
+			//finally
+			//{
+			//	methodSection.exitScope();
+			//}
 		}
     }
     

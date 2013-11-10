@@ -82,8 +82,8 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
 	
 	public MachineState getMachineState()
 	{
-		ProfileSection methodSection = new ProfileSection("InternalMachineState.getMachineState");
-		try
+		//ProfileSection methodSection = new ProfileSection("InternalMachineState.getMachineState");
+		//try
 		{
 			MachineState result = new MachineState(new HashSet<GdlSentence>());
 			
@@ -94,10 +94,10 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
 			
 			return result;
 		}
-		finally
-		{
-			methodSection.exitScope();
-		}
+		//finally
+		//{
+		//	methodSection.exitScope();
+		//}
 	}
 	
 	@Override
