@@ -96,6 +96,7 @@ public class MonteCarloTestGamer extends SampleGamer {
 
 		List<Move> moves = theMachine.getLegalMoves(getCurrentState(), getRole());
 		Move selection = moves.get(0);
+		
 		if (moves.size() > 1) {		
     		int[] moveTotalPoints = new int[moves.size()];
     		int[] moveTotalAttempts = new int[moves.size()];
@@ -132,6 +133,10 @@ public class MonteCarloTestGamer extends SampleGamer {
     		}
     		selection = moves.get(bestMove);
 		}
+		else
+		{
+			System.out.println("Single move available in state: " + getCurrentState());
+		}
 
 		long stop = System.currentTimeMillis();
 
@@ -156,11 +161,11 @@ public class MonteCarloTestGamer extends SampleGamer {
 	
 	private int[] depth = new int[1];
 	int performDepthChargeFromMove(MachineState theState, Move myMove) {	    
-	    StateMachine theMachine = getStateMachine();
 	    try {
-	    	//System.out.println("Perform depth charge from state: " + theState);
-            MachineState finalState = theMachine.performDepthCharge(theMachine.getRandomNextState(theState, getRole(), myMove), depth);
-            return theMachine.getGoal(finalState, getRole());
+	    	int result = underlyingStateMachine.getDepthChargeResult(underlyingStateMachine.getRandomNextState(theState, getRole(), myMove), getRole(), 0, null, depth);
+             
+            //System.out.println("Gamer depth charge final state: " + finalState + " has value " + result);
+            return result;
         } catch (Exception e) {
             e.printStackTrace();
             return 0;
