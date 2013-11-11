@@ -22,9 +22,12 @@ import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.architecture.PropNet;
 import org.ggp.base.util.propnet.architecture.components.Proposition;
 import org.ggp.base.util.propnet.factory.OptimizingPropNetFactory;
+import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponentFactory;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
+import org.ggp.base.util.propnet.polymorphic.PolymorphicNot;
+import org.ggp.base.util.propnet.polymorphic.PolymorphicOr;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
@@ -79,6 +82,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     private boolean useDeadReckonerForLegal = false;
     private MachineState lastPropnetSetState = null;
     private GdlSentence XSentence = null;
+    private GdlSentence OSentence = null;
     private MachineState initialState = null;
     private PolymorphicProposition[] moveProps = null;
     private boolean measuringBasePropChanges = false;
@@ -92,6 +96,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     private ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet = null;
     private StateMachine validationMachine = null;
     private MachineState validationState = null;
+    private ForwardDeadReckonPropNet fullPropNet = null;
     
 	public long totalNumGatesPropagated = 0;
 	public long totalNumPropagates = 0;
@@ -215,6 +220,385 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		
 		return new MachineState(terminalSentences);
 	}
+
+	public Set<MachineState> findTerminalStates(int maxResultSet, int maxDepth)
+	{
+		PolymorphicProposition terminal = fullPropNet.getTerminalProposition();
+		
+		return findSupportStates(terminal.getName(), maxResultSet, maxDepth);
+	}
+
+	public Set<MachineState> findGoalStates(Role role, int value, int maxResultSet, int maxDepth)
+	{
+		Set<MachineState> results = new HashSet<MachineState>();
+		
+		for(PolymorphicProposition p : fullPropNet.getGoalPropositions().get(role))
+		{
+			if ( Integer.parseInt(p.getName().getBody().get(1).toString()) == value )
+			{
+				results.addAll(findSupportStates(p.getName(), maxResultSet, maxDepth));
+			}
+		}
+		
+		return results;
+	}
+	
+	private class AntecedantCursor
+	{
+		public Set<PolymorphicProposition> positiveProps;
+		public Set<PolymorphicProposition> negativeProps;
+		public boolean isPositive;
+		
+		public AntecedantCursor()
+		{
+			positiveProps = new HashSet<PolymorphicProposition>();
+			negativeProps = new HashSet<PolymorphicProposition>();
+			isPositive = true;
+		}
+		public AntecedantCursor(AntecedantCursor parent)
+		{
+			positiveProps = new HashSet<PolymorphicProposition>(parent.positiveProps);
+			negativeProps = new HashSet<PolymorphicProposition>(parent.negativeProps);
+			isPositive = parent.isPositive;
+		}
+		public boolean compatibleWith(AntecedantCursor other)
+		{
+			if ( isPositive == other.isPositive )
+			{
+				for(PolymorphicProposition p : positiveProps)
+				{
+					if (other.negativeProps.contains(p))
+					{
+						return false;
+					}
+				}
+				for(PolymorphicProposition p : other.positiveProps)
+				{
+					if (negativeProps.contains(p))
+					{
+						return false;
+					}
+				}
+				for(PolymorphicProposition p : negativeProps)
+				{
+					if (other.positiveProps.contains(p))
+					{
+						return false;
+					}
+				}
+				for(PolymorphicProposition p : other.negativeProps)
+				{
+					if (positiveProps.contains(p))
+					{
+						return false;
+					}
+				}
+			}
+			else
+			{
+				for(PolymorphicProposition p : positiveProps)
+				{
+					if (other.positiveProps.contains(p))
+					{
+						return false;
+					}
+				}
+				for(PolymorphicProposition p : other.positiveProps)
+				{
+					if (positiveProps.contains(p))
+					{
+						return false;
+					}
+				}
+				for(PolymorphicProposition p : negativeProps)
+				{
+					if (other.negativeProps.contains(p))
+					{
+						return false;
+					}
+				}
+				for(PolymorphicProposition p : other.negativeProps)
+				{
+					if (negativeProps.contains(p))
+					{
+						return false;
+					}
+				}
+			}
+			
+			return true;
+		}
+		
+		public boolean compatibleWithAll(Set<AntecedantCursor> set)
+		{
+			for(AntecedantCursor c : set)
+			{
+				if ( !compatibleWith(c))
+				{
+					return false;
+				}
+			}
+			
+			return true;
+		}
+		
+		public void unionInto(AntecedantCursor c)
+		{
+			if ( c.isPositive == isPositive )
+			{
+				c.positiveProps.addAll(positiveProps);
+				c.negativeProps.addAll(negativeProps);
+			}
+			else
+			{
+				c.positiveProps.addAll(negativeProps);
+				c.negativeProps.addAll(positiveProps);
+			}
+		}
+		
+		public void unionInto(Set<AntecedantCursor> set)
+		{
+			if ( set.isEmpty())
+			{
+				set.add(this);
+			}
+			else
+			{
+				for(AntecedantCursor c : set)
+				{
+					unionInto(c);
+				}
+			}
+		}
+	}
+	
+	private Set<AntecedantCursor> addPropositionAntecedants(PolymorphicPropNet pn, PolymorphicComponent p, AntecedantCursor cursor, int maxResultSet, int maxDepth, int depth)
+	{
+		if ( depth >= maxDepth )
+		{
+			return null;
+		}
+		
+		if ( p instanceof PolymorphicTransition )
+		{
+			return null;
+		}
+		else if ( p instanceof PolymorphicProposition )
+		{
+			PolymorphicProposition prop = (PolymorphicProposition)p;
+			
+			if ( pn.getBasePropositions().values().contains(prop) )
+			{
+				AntecedantCursor newCursor = new AntecedantCursor(cursor);
+				
+				if ( cursor.isPositive )
+				{
+					if ( !cursor.negativeProps.contains(p) )
+					{
+						newCursor.positiveProps.add(prop);
+						Set<AntecedantCursor> result = new HashSet<AntecedantCursor>();
+						result.add(newCursor);
+						return result;
+					}
+					else if ( !cursor.positiveProps.contains(p) )
+					{
+						newCursor.negativeProps.add(prop);
+						Set<AntecedantCursor> result = new HashSet<AntecedantCursor>();
+						result.add(newCursor);
+						return result;
+					}
+					else
+					{
+						return null;
+					}
+				}
+				else
+				{
+					if ( !cursor.positiveProps.contains(p) )
+					{
+						newCursor.negativeProps.add(prop);
+						Set<AntecedantCursor> result = new HashSet<AntecedantCursor>();
+						result.add(newCursor);
+						return result;
+					}
+					else if ( !cursor.negativeProps.contains(p) )
+					{
+						newCursor.positiveProps.add(prop);
+						Set<AntecedantCursor> result = new HashSet<AntecedantCursor>();
+						result.add(newCursor);
+						return result;
+					}
+					else
+					{
+						return null;
+					}
+				}
+			}
+		
+			return addPropositionAntecedants(pn, p.getSingleInput(), cursor, maxResultSet, maxDepth, depth+1);
+		}
+		else if ( p instanceof PolymorphicNot )
+		{
+			cursor.isPositive = !cursor.isPositive;
+			Set<AntecedantCursor> result = addPropositionAntecedants(pn, p.getSingleInput(), cursor, maxResultSet, maxDepth, depth+1);
+			cursor.isPositive = !cursor.isPositive;
+			
+			return result;
+		}
+		else if ( p instanceof PolymorphicAnd )
+		{
+			Set<AntecedantCursor> subResults = new HashSet<AntecedantCursor>();
+			
+			for(PolymorphicComponent c : p.getInputs())
+			{
+				if ( subResults.size() > maxResultSet )
+				{
+					return null;
+				}
+				
+				AntecedantCursor newCursor = new AntecedantCursor(cursor);
+				Set<AntecedantCursor> inputResults = addPropositionAntecedants(pn, c, newCursor, maxResultSet, maxDepth, depth+1);
+				if ( inputResults == null )
+				{
+					//	No positive matches in an AND that requires a positive result => failure
+					if ( cursor.isPositive )
+					{
+						return null;
+					}
+				}
+				else
+				{
+					if ( cursor.isPositive )
+					{
+						//	We require ALL inputs, so take the conditions gathered for this one and validate
+						//	consistency with the current cursor, then add them into that condition set
+						if ( subResults.isEmpty())
+						{
+							subResults = inputResults;
+						}
+						else
+						{
+							Set<AntecedantCursor> validInputResults = new HashSet<AntecedantCursor>();
+							
+							for(AntecedantCursor cur : inputResults)
+							{
+								for(AntecedantCursor subResult : subResults)
+								{
+									if ( subResult.compatibleWith(cur))
+									{
+										AntecedantCursor combinedResult = new AntecedantCursor(subResult);
+										cur.unionInto(combinedResult);
+										
+										validInputResults.add(combinedResult);
+									}
+								}
+							}
+							
+							subResults = validInputResults;
+						}
+					}
+					else
+					{
+						//	This is a OR when viewed in the negative sense, so we just need one, and each such
+						//	match is a new results set
+						subResults.addAll(inputResults);
+					}
+				}
+			}
+			
+			return subResults;
+		}
+		else if ( p instanceof PolymorphicOr )
+		{
+			Set<AntecedantCursor> subResults = new HashSet<AntecedantCursor>();
+			
+			for(PolymorphicComponent c : p.getInputs())
+			{
+				if ( subResults.size() > maxResultSet )
+				{
+					return null;
+				}
+				
+				AntecedantCursor newCursor = new AntecedantCursor(cursor);
+				Set<AntecedantCursor> inputResults = addPropositionAntecedants(pn, c, newCursor, maxResultSet, maxDepth, depth+1);
+				if ( inputResults == null )
+				{
+					//	Any positive matches in an OR that requires a negative result => failure
+					if ( !cursor.isPositive )
+					{
+						return null;
+					}
+				}
+				else
+				{
+					if ( !cursor.isPositive )
+					{
+						//	We require ALL inputs to be negative, so take the conditions gathered for this one and validate
+						//	consistency with the current cursor, then add them into that condition set
+						if ( subResults.isEmpty())
+						{
+							subResults = inputResults;
+						}
+						else
+						{
+							Set<AntecedantCursor> validInputResults = new HashSet<AntecedantCursor>();
+							
+							for(AntecedantCursor cur : inputResults)
+							{
+								for(AntecedantCursor subResult : subResults)
+								{
+									if ( subResult.compatibleWith(cur))
+									{
+										AntecedantCursor combinedResult = new AntecedantCursor(subResult);
+										cur.unionInto(combinedResult);
+										
+										validInputResults.add(combinedResult);
+									}
+								}
+							}
+							
+							subResults = validInputResults;
+						}
+					}
+					else
+					{
+						//	Any positive will do, and each such
+						//	match is a new results set
+						subResults.addAll(inputResults);
+					}
+				}
+			}
+			
+			return subResults;
+		}
+		
+		throw new RuntimeException("Unknon component");
+	}
+	
+	public Set<MachineState> findSupportStates(GdlSentence queryProposition, int maxResultSet, int maxDepth)
+	{
+		Set<MachineState> result = new HashSet<MachineState>();
+		
+		PolymorphicProposition p = fullPropNet.findProposition(queryProposition);
+		if ( p != null )
+		{
+			Set<AntecedantCursor> cursorSet = addPropositionAntecedants(fullPropNet, p, new AntecedantCursor(), maxResultSet, maxDepth, 0);
+			
+			for(AntecedantCursor c : cursorSet)
+			{
+				MachineState satisfyingState = new MachineState(new HashSet<GdlSentence>());
+				
+				for(PolymorphicProposition prop : c.positiveProps)
+				{
+					satisfyingState.getContents().add(prop.getName());
+				}
+				
+				result.add(satisfyingState);
+			}
+		}
+		
+		return result;
+	}
 	
     /**
      * Initializes the PropNetStateMachine. You should compute the topological
@@ -232,7 +616,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     		//validationMachine = new ProverStateMachine();
     		//validationMachine.initialize(description);
     		
-    		ForwardDeadReckonPropNet fullPropNet = (ForwardDeadReckonPropNet) OptimizingPolymorphicPropNetFactory.create(description, new ForwardDeadReckonComponentFactory());
+    		fullPropNet = (ForwardDeadReckonPropNet) OptimizingPolymorphicPropNetFactory.create(description, new ForwardDeadReckonComponentFactory());
 			fullPropNet.renderToFile("c:\\temp\\propnet.dot");
             
     		OptimizingPolymorphicPropNetFactory.removeAnonymousPropositions(fullPropNet);
@@ -364,7 +748,6 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			if ( XSentence != null )
 			{
 				System.out.println("Reducing with respect to XSentence: " + XSentence);
-				GdlSentence possibleOSentence = null;
 				OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, XSentence, true);
 				
 				//	If the reduced net always transitions it's own hard-wired sentence into the opposite state
@@ -381,16 +764,16 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 						if ( driver instanceof PolymorphicConstant && driver.getValue())
 						{
 							//	Found a suitable candidate
-							possibleOSentence = e.getKey();
+							OSentence = e.getKey();
 							break;
 						}
 					}
 				}
 				
-				if ( possibleOSentence != null )
+				if ( OSentence != null )
 				{
-					System.out.println("Possible OSentence: " + possibleOSentence);
-					OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, possibleOSentence, true);
+					System.out.println("Possible OSentence: " + OSentence);
+					OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, OSentence, true);
 					
 					//	Does this one turn the original back on?
 					PolymorphicProposition originalPropInSecondNet = propNetO.getBasePropositions().get(XSentence);
@@ -405,19 +788,19 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 							if ( !(driver instanceof PolymorphicConstant) || !driver.getValue())
 							{
 								//	Nope - doesn't work
-								possibleOSentence = null;
+								OSentence = null;
 								System.out.println("Fails to recover back-transition to " + XSentence);
 							}
 						}
 					}
 					
-					if ( possibleOSentence != null )
+					if ( OSentence != null )
 					{
 						//	So if we set the first net's trigger condition to off in the second net do we find
 						//	the second net's own trigger is always off?
 						OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, XSentence, false);
 						
-						PolymorphicProposition OSentenceInSecondNet = propNetO.getBasePropositions().get(possibleOSentence);
+						PolymorphicProposition OSentenceInSecondNet = propNetO.getBasePropositions().get(OSentence);
 						if ( OSentenceInSecondNet != null )
 						{
 							PolymorphicComponent input = OSentenceInSecondNet.getSingleInput();
@@ -429,15 +812,15 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 								if ( !(driver instanceof PolymorphicConstant) || driver.getValue())
 								{
 									//	Nope - doesn't work
-									System.out.println("Fails to recover back-transition remove of " + possibleOSentence);
-									possibleOSentence = null;
+									System.out.println("Fails to recover back-transition remove of " + OSentence);
+									OSentence = null;
 								}
 								
 								//	Finally, if we set the OSentence off in the first net do we recover the fact that
 								//	the XSentence always moves to off in transitions from the first net?
-								if ( possibleOSentence != null )
+								if ( OSentence != null )
 								{
-									OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, possibleOSentence, false);
+									OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, OSentence, false);
 									
 									PolymorphicProposition XSentenceInFirstNet = propNetX.getBasePropositions().get(XSentence);
 									if ( XSentenceInFirstNet != null )
@@ -452,7 +835,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 											{
 												//	Nope - doesn't work
 												System.out.println("Fails to recover removal of " + XSentence);
-												possibleOSentence = null;
+												OSentence = null;
 											}
 										}
 									}
@@ -461,12 +844,12 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 						}
 						else
 						{
-							possibleOSentence = null;
+							OSentence = null;
 						}
 					}
 				}
 				
-				if (possibleOSentence == null)
+				if (OSentence == null)
 				{
 					System.out.println("Reverting OSentence optimizations");
 					//	Failed - best we can do is simply drive the XSentence to true in one network
@@ -1402,7 +1785,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		}
 	}
   
-    public int getDepthChargeResult(MachineState state, Role role, final int[] theDepth) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException {  
+    public int getDepthChargeResult(MachineState state, Role role, int sampleDepth, MachineState sampleState, final int[] theDepth) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException {  
         int nDepth = 0;
         validationState = state;
 		setPropNetUsage(state);
@@ -1416,6 +1799,16 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
             nDepth++;
             chooseRandomJointMove();
             transitionToNextStateFromChosenMove();
+            if ( sampleState != null && nDepth == sampleDepth)
+            {
+            	sampleState.getContents().clear();
+            	sampleState.getContents().addAll(getInternalStateFromBase().getMachineState().getContents());
+            }
+        }
+        if ( sampleState != null && nDepth < sampleDepth)
+        {
+        	sampleState.getContents().clear();
+        	sampleState.getContents().addAll(getInternalStateFromBase().getMachineState().getContents());
         }
         if(theDepth != null)
             theDepth[0] = nDepth;
@@ -1432,4 +1825,16 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
         }
         return getGoal(role);
     }
+
+	public Set<GdlSentence> getBasePropositions() {
+		return fullPropNet.getBasePropositions().keySet();
+	}
+
+	public GdlSentence getXSentence() {
+		return XSentence;
+	}
+
+	public GdlSentence getOSentence() {
+		return OSentence;
+	}
 }

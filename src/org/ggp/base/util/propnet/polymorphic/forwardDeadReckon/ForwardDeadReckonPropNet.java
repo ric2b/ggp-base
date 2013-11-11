@@ -216,4 +216,16 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 			methodSection.exitScope();
 		}
 	}
+
+	public PolymorphicProposition findProposition(GdlSentence queryProposition) {
+		for(PolymorphicProposition p : getPropositions())
+		{
+			if ( p.getName() == queryProposition )
+			{
+				return p;
+			}
+		}
+		
+		return null;
+	}
 }
