@@ -13,10 +13,21 @@ import org.ggp.base.util.statemachine.StateMachine;
 public class StateMachineVerifier {
 	private static boolean statesMatch(MachineState state1, MachineState state2)
 	{
+		//System.out.println("State 1: " + state1);
+		//System.out.println("State 2: " + state2);
 		//	Only match one way, because propnets deliberately drop base props that are always true
 		for(GdlSentence sentence : state1.getContents())
 		{
 			if ( !state2.getContents().contains(sentence))
+			{
+				return false;
+			}
+		}
+		
+		//	For now...
+		for(GdlSentence sentence : state2.getContents())
+		{
+			if ( !state1.getContents().contains(sentence))
 			{
 				return false;
 			}
@@ -35,7 +46,7 @@ public class StateMachineVerifier {
         
         GamerLogger.emitToConsole("Consistency checking: [");
         int nRound = 0;
-        boolean matchFullStates = true;
+        boolean matchFullStates = false;
         while(true) {
             nRound++;
             
@@ -90,6 +101,7 @@ public class StateMachineVerifier {
                 try {
                     //Proceed on to the next state.
                     List<Move> theJointMove = theMachines.get(0).getRandomJointMove(theCurrentStates[0]);
+                    //GamerLogger.log("StateMachine", "Make move: " + theJointMove + ".");
 
                     for(int i = 0; i < theMachines.size(); i++) {
                         try {
@@ -97,17 +109,14 @@ public class StateMachineVerifier {
                         } catch(Exception e) {
                             GamerLogger.logStackTrace("StateMachine", e);
                         }
-                        if ( matchFullStates )
-                        {
-	                    	if ( !statesMatch(theCurrentStates[i], theCurrentStates[0]))
-	                    	{
-	                            GamerLogger.log("StateMachine", "Inconsistency between machine #" + i + " and ProverStateMachine after move " + theJointMove + " : " + theCurrentStates[0] + " vs " + theCurrentStates[i].getContents());
-	                            return false;                    
-	                    	}
-	                    	else {
-	                            //GamerLogger.log("StateMachine", "Made move " + theJointMove + ".");
-							}
-                        }
+                    if ( matchFullStates && i > 0 )
+                    {
+                    	if ( !statesMatch(theCurrentStates[i], theCurrentStates[0]))
+                    	{
+                            GamerLogger.log("StateMachine", "Inconsistency between machine #" + i + " and ProverStateMachine after move " + theJointMove + " : " + theCurrentStates[0] + " vs " + theCurrentStates[i].getContents());
+                            return false;                    
+                    	}
+                    }
                     }    
                 } catch(Exception e) {
                     GamerLogger.logStackTrace("StateMachine", e);
@@ -120,6 +129,7 @@ public class StateMachineVerifier {
                 break;
             }
             
+            //System.out.println("Reached terminal position");
             // Do final consistency checks
             for(int i = 1; i < theMachines.size(); i++) {
                 if(!theMachines.get(i).isTerminal(theCurrentStates[i])) {
@@ -138,12 +148,13 @@ public class StateMachineVerifier {
                     	{
 	                        if(theMachines.get(i).getGoal(theCurrentStates[i], theRole) != theMachines.get(0).getGoal(theCurrentStates[0], theRole)) {
 	                            GamerLogger.log("StateMachine", "Inconsistency between machine #" + i + " and ProverStateMachine over goal value for " + theRole + " of state " + theCurrentStates[0] + ": " + theMachines.get(i).getGoal(theCurrentStates[i], theRole) + " vs " + theMachines.get(0).getGoal(theCurrentStates[0], theRole));
-	                            continue;//return false;
+	                            return false;
 	                        }
 	                        break;
                     	}
                     } catch(Exception e) {
                         GamerLogger.log("StateMachine", "Inconsistency between machine #" + i + " and ProverStateMachine over goal-ness of state " + theCurrentStates[0] + " vs " + theCurrentStates[i]);
+                        GamerLogger.logStackTrace("StateMachine", e);
                         return false;                        
                     }
                 }
