@@ -3,6 +3,7 @@ package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 import java.util.BitSet;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.profile.ProfileSection;
@@ -99,6 +100,23 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
 		//	methodSection.exitScope();
 		//}
 	}
+
+	/* Utility methods */
+    public int hashCode()
+    {
+        return contents.hashCode();
+    }
+
+    public boolean equals(Object o)
+    {
+        if ((o != null) && (o instanceof ForwardDeadReckonInternalMachineState))
+        {
+        	ForwardDeadReckonInternalMachineState state = (ForwardDeadReckonInternalMachineState) o;
+            return state.contents.equals(contents);
+        }
+
+        return false;
+    }
 	
 	@Override
 	public String toString()
