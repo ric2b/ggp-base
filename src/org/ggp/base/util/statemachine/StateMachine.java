@@ -106,12 +106,10 @@ public abstract class StateMachine
     // of the state machine implementation they pick.
     
     // Override this to perform some extra work (like trimming a cache) once per move.
-     * <p>
     // CONTRACT: Should be called once per move.
     public void doPerMoveWork() {}
     
     // Override this to provide memory-saving destructive-next-state functionality.
-     * <p>
     // CONTRACT: After calling this method, "state" should not be accessed.
     public MachineState getNextStateDestructively(MachineState state, List<Move> moves) throws TransitionDefinitionException {
         return getNextState(state, moves);
@@ -121,7 +119,6 @@ public abstract class StateMachine
     // This means that the state machine will only handle portions of the game tree at and below
     // the given state; it no longer needs to properly handle earlier portions of the game tree.
     // This constraint can be used to optimize certain state machine implementations.
-     * <p>
     // CONTRACT: After calling this method, the state machine never deals with a state that
     //           is not "theState" or one of its descendants in the game tree.
     public void updateRoot(MachineState theState) {

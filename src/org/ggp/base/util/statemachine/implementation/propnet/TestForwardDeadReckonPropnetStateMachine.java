@@ -1207,8 +1207,8 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	public List<Move> getLegalMoves(MachineState state, Role role)
 	throws MoveDefinitionException
 	{
-		//ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getLegalMoves");
-		//try
+		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getLegalMoves");
+		try
 		{
 			List<Move> result;
 			
@@ -1249,10 +1249,10 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			//System.out.println("legals for role " + role + ": " + result);
 			return result;
 		}
-		//finally
-		//{
-		//	methodSection.exitScope();
-		//}
+		finally
+		{
+			methodSection.exitScope();
+		}
 	}
 	
 	private void setupLegalMoveInputPropositions()
