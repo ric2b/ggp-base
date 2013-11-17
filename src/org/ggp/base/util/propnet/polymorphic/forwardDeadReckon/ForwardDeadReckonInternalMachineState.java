@@ -50,6 +50,11 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
 	public ForwardDeadReckonInternalMachineState(ForwardDeadReckonPropositionCrossReferenceInfo[] infoSet) {
 		this.infoSet = infoSet;
 	}
+	
+	public ForwardDeadReckonInternalMachineState(ForwardDeadReckonInternalMachineState copyFrom) {
+		this.infoSet = copyFrom.infoSet;
+		copy(copyFrom);
+	}
 
 	public void add(ForwardDeadReckonPropositionCrossReferenceInfo info)
 	{
@@ -69,6 +74,14 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
 	public void merge(ForwardDeadReckonInternalMachineState other)
 	{
 		contents.or(other.contents);
+	}
+	
+	public void copy(ForwardDeadReckonInternalMachineState other)
+	{
+		contents.clear();
+		contents.or(other.contents);
+		
+		isXState = other.isXState;
 	}
 	
 	public void clear()
@@ -109,6 +122,11 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
 
     public boolean equals(Object o)
     {
+    	if ( this == o )
+    	{
+    		return true;
+    	}
+    	
         if ((o != null) && (o instanceof ForwardDeadReckonInternalMachineState))
         {
         	ForwardDeadReckonInternalMachineState state = (ForwardDeadReckonInternalMachineState) o;

@@ -189,12 +189,18 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 				result.isXState |= (info.sentence == XSentence);
 			}
 			
+			//System.out.println("Created internal state: " + result + " with hash " + result.hashCode());
 			return result;
 		}
 		//finally
 		//{
 		//	methodSection.exitScope();
 		//}
+	}
+	
+	public ForwardDeadReckonInternalMachineState createInternalState(MachineState state)
+	{
+		return createInternalState(masterInfoSet, XSentence, state);
 	}
 
 	public MachineState findTerminalState()
@@ -952,18 +958,18 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     
     private void setBasePropositionsFromState(MachineState state)
     {
-    	setBasePropositionsFromState(createInternalState(masterInfoSet, XSentence, state));
+    	setBasePropositionsFromState(createInternalState(masterInfoSet, XSentence, state), false);
     }
     
-    private void setBasePropositionsFromState(ForwardDeadReckonInternalMachineState state)
+    private void setBasePropositionsFromState(ForwardDeadReckonInternalMachineState state, boolean isolate)
     {
 		//ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.setBasePropositionsInternal");
 		//try
 		{
 			//System.out.println("Last set state was: " + lastSetState);
-			if ( lastInternalSetState != state )
+			if ( lastInternalSetState != null )
 			{
-				if ( lastInternalSetState != null )
+				if ( !lastInternalSetState.equals(state) )
 				{
 					lastInternalSetState.xor(state);
 					for(ForwardDeadReckonPropositionCrossReferenceInfo info : lastInternalSetState)
@@ -996,71 +1002,44 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 							basePropChangeCounts.put(info, basePropChangeCounts.get(info)+1);
 						}
 					}
-					if ( false)
+					
+					if ( isolate )
 					{
-						for(ForwardDeadReckonPropositionCrossReferenceInfo info : state)
-						{
-							if ( !lastInternalSetState.contains(info) )
-							{
-								//System.out.println("Changing prop " + s + " to true");
-								if ( propNet == propNetX )
-								{
-									info.xNetProp.setValue(true);
-								}
-								else
-								{
-									info.oNetProp.setValue(true);
-								}
-								
-								if (measuringBasePropChanges)
-								{
-									basePropChangeCounts.put(info, basePropChangeCounts.get(info)+1);
-								}
-							}
-						}
-						for(ForwardDeadReckonPropositionCrossReferenceInfo info : lastInternalSetState)
-						{
-							if ( !state.contains(info) )
-							{
-								//System.out.println("Changing prop " + s + " to false");
-								if ( propNet == propNetX )
-								{
-									info.xNetProp.setValue(false);
-								}
-								else
-								{
-									info.oNetProp.setValue(false);
-								}
-								
-								if (measuringBasePropChanges)
-								{
-									basePropChangeCounts.put(info, basePropChangeCounts.get(info)+1);
-								}
-							}
-						}
+						lastInternalSetState = new ForwardDeadReckonInternalMachineState(state);
+					}
+					else
+					{
+						lastInternalSetState = state;
 					}
 				}
-				else
+			}
+			else
+			{
+				//System.out.println("Setting entire state");
+				for (PolymorphicProposition p : propNet.getBasePropositionsArray())
 				{
-					//System.out.println("Setting entire state");
-					for (PolymorphicProposition p : propNet.getBasePropositionsArray())
+					p.setValue(false);
+				}
+				for(ForwardDeadReckonPropositionCrossReferenceInfo s : state)
+				{
+					if ( propNet == propNetX )
 					{
-						p.setValue(false);
+						s.xNetProp.setValue(true);
 					}
-					for(ForwardDeadReckonPropositionCrossReferenceInfo s : state)
+					else
 					{
-						if ( propNet == propNetX )
-						{
-							s.xNetProp.setValue(true);
-						}
-						else
-						{
-							s.oNetProp.setValue(true);
-						}
+						s.oNetProp.setValue(true);
 					}
 				}
 				
-				lastInternalSetState = state;
+				if ( isolate )
+				{
+					lastInternalSetState = new ForwardDeadReckonInternalMachineState(state);
+				}
+				else
+				{
+					lastInternalSetState = state;
+				}
 			}
 		}
 		//finally
@@ -1069,33 +1048,56 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		//}
     }
     
-	/**
-	 * Computes if the state is terminal. Should return the value
-	 * of the terminal proposition for the state.
-	 */
-	@Override
-	public boolean isTerminal(MachineState state)
-	{
-		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.isTerminal");
-		try
-		{
-			setPropNetUsage(state);
-			setBasePropositionsFromState(state);
-			
-			PolymorphicProposition terminalProp = propNet.getTerminalProposition();
-			boolean result = terminalProp.getSingleInput().getValue();
-			//if ( result )
-			//{
-			//	System.out.println("State " + state + " is terminal");
-			//}
-			
-			return result;
-		}
-		finally
-		{
-			methodSection.exitScope();
-		}
-	}
+ 	/**
+ 	 * Computes if the state is terminal. Should return the value
+ 	 * of the terminal proposition for the state.
+ 	 */
+ 	@Override
+ 	public boolean isTerminal(MachineState state)
+ 	{
+ 		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.isTerminal");
+ 		try
+ 		{
+ 			setPropNetUsage(state);
+ 			setBasePropositionsFromState(state);
+ 			
+ 			PolymorphicProposition terminalProp = propNet.getTerminalProposition();
+ 			boolean result = terminalProp.getSingleInput().getValue();
+ 			//if ( result )
+ 			//{
+ 			//	System.out.println("State " + state + " is terminal");
+ 			//}
+ 			
+ 			return result;
+ 		}
+ 		finally
+ 		{
+ 			methodSection.exitScope();
+ 		}
+ 	}
+    
+ 	public boolean isTerminal(ForwardDeadReckonInternalMachineState state)
+ 	{
+ 		//ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.isTerminal");
+ 		//try
+ 		{
+ 			setPropNetUsage(state);
+ 			setBasePropositionsFromState(state, true);
+ 			
+ 			PolymorphicProposition terminalProp = propNet.getTerminalProposition();
+ 			boolean result = terminalProp.getSingleInput().getValue();
+ 			//if ( result )
+ 			//{
+ 			//	System.out.println("State " + state + " is terminal");
+ 			//}
+ 			
+ 			return result;
+ 		}
+ 		//finally
+ 		//{
+ 		//	methodSection.exitScope();
+ 		//}
+ 	}
 	
 	public boolean isTerminal()
 	{
@@ -1161,31 +1163,44 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		//	methodSection.exitScope();
 		//}
 	}
-
+	
+	public int getGoalNative(ForwardDeadReckonInternalMachineState state, Role role)
+	throws GoalDefinitionException
+	{
+		//ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getGoal");
+		//try
+		//{
+			if ( state != null )
+			{
+				setPropNetUsage(state);
+				setBasePropositionsFromState(state, true);
+			}
+			
+			PolymorphicProposition[] goalProps = propNet.getGoalPropositions().get(role);
+			int result = 0;
+			
+			for(PolymorphicProposition p : goalProps)
+			{
+				PolymorphicComponent goalTransition = p.getSingleInput();
+				if ( goalTransition != null && goalTransition.getValue())
+				{
+					result = Integer.parseInt(p.getName().getBody().get(1).toString());
+					break;
+				}
+			}
+			
+			return result;
+		//}
+		//finally
+		//{
+		//	methodSection.exitScope();
+		//}
+	}
+	
 	private int getGoal(Role role)
 	throws GoalDefinitionException
 	{
-		PolymorphicProposition[] goalProps = propNet.getGoalPropositions().get(role);
-		int result = 0;
-		
-		for(PolymorphicProposition p : goalProps)
-		{
-			PolymorphicComponent goalTransition = p.getSingleInput();
-			if ( goalTransition != null && goalTransition.getValue())
-			{
-				result = Integer.parseInt(p.getName().getBody().get(1).toString());
-				break;
-			}
-		}
-		
-		if ( validationMachine != null )
-		{
-			if ( validationMachine.getGoal(validationState, role) != result )
-			{
-				System.out.println("Goal mismatch");
-			}
-		}
-		return result;
+		return getGoalNative(null, role);
 	}
 	
 	/**
@@ -1214,6 +1229,57 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			
 			setPropNetUsage(state);
 			setBasePropositionsFromState(state);
+			
+			//ForwardDeadReckonComponent.numGatesPropagated = 0;
+			//ForwardDeadReckonComponent.numPropagates = 0;
+			//propNet.seq++;
+			
+			if ( useDeadReckonerForLegal )
+			{
+				result = new LinkedList<Move>();
+				for(ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps().getContents(role))
+				{
+					result.add(moveInfo.move);
+				}
+			}
+			else
+			{
+				result = new LinkedList<Move>();
+				PolymorphicComponent[] legalTransitions = legalPropositions.get(role);
+				Move[] legalPropMoves = legalPropositionMoves.get(role);
+				int numProps = legalTransitions.length;
+				
+				for(int i = 0; i < numProps; i++)
+				{
+					if ( legalTransitions[i].getValue())
+					{
+						result.add(legalPropMoves[i]);
+					}
+				}
+			}
+			
+			//totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
+			//totalNumPropagates += ForwardDeadReckonComponent.numPropagates;
+			
+			//System.out.println("legals for role " + role + ": " + result);
+			return result;
+		}
+		finally
+		{
+			methodSection.exitScope();
+		}
+	}
+	
+	public List<Move> getLegalMoves(ForwardDeadReckonInternalMachineState state, Role role)
+	throws MoveDefinitionException
+	{
+		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getLegalMoves");
+		try
+		{
+			List<Move> result;
+			
+			setPropNetUsage(state);
+			setBasePropositionsFromState(state, true);
 			
 			//ForwardDeadReckonComponent.numGatesPropagated = 0;
 			//ForwardDeadReckonComponent.numPropagates = 0;
@@ -1463,6 +1529,66 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		}
 	}
 
+	public ForwardDeadReckonInternalMachineState getNextState(ForwardDeadReckonInternalMachineState state, List<Move> moves)
+	throws TransitionDefinitionException
+	{
+		//System.out.println("Get next state after " + moves + " from: " + state);
+		//RuntimeOptimizedComponent.getCount = 0;
+		//RuntimeOptimizedComponent.dirtyCount = 0;
+		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getNextState");
+		try
+		{
+			setPropNetUsage(state);
+			//for(PolymorphicComponent c : propNet.getComponents())
+			//{
+			//	((ForwardDeadReckonComponent)c).hasQueuedForPropagation = false;
+			//}
+			//ForwardDeadReckonComponent.numGatesPropagated = 0;
+			//ForwardDeadReckonComponent.numPropagates = 0;
+			//propNet.seq++;
+			
+			Map<GdlSentence, PolymorphicProposition> inputProps = propNet.getInputPropositions();
+			int movesCount = 0;
+			
+			for(GdlSentence moveSentence : toDoes(moves))
+			{
+				PolymorphicProposition moveInputProposition = inputProps.get(moveSentence);
+				if ( moveInputProposition != null )
+				{
+					moveInputProposition.setValue(true);
+					moveProps[movesCount++] = moveInputProposition;
+				}
+			}
+			
+			setBasePropositionsFromState(state, true);
+			
+			ForwardDeadReckonInternalMachineState result = getInternalStateFromBase();
+			
+			//System.out.println("After move " + moves + " in state " + state + " resulting state is " + result);
+			//totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
+			//totalNumPropagates += ForwardDeadReckonComponent.numPropagates;
+	
+			for(int i = 0; i < movesCount; i++)
+			{
+				moveProps[i].setValue(false);
+			}
+			//for(GdlSentence moveSentence : toDoes(moves))
+			//{
+			//	PolymorphicProposition moveInputProposition = inputProps.get(moveSentence);
+			//	if ( moveInputProposition != null )
+			//	{
+			//		moveInputProposition.setValue(false);
+			//	}
+			//}
+	        //System.out.println("Return state " + result + " with hash " + result.hashCode());
+	        return result;
+		}
+		finally
+		{
+			methodSection.exitScope();
+		}
+	}
+
 	private void transitionToNextStateFromChosenMove()
 	{
 		//System.out.println("Get next state after " + moves + " from: " + state);
@@ -1564,7 +1690,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			//	}
 			//}
 			setPropNetUsage(result);
-			setBasePropositionsFromState(result);
+			setBasePropositionsFromState(result, false);
 		}
 		//finally
 		//{
@@ -1784,7 +1910,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			}
 		}
 	}
-  
+	 
     public int getDepthChargeResult(MachineState state, Role role, int sampleDepth, MachineState sampleState, final int[] theDepth) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException {  
         int nDepth = 0;
         validationState = state;
@@ -1809,6 +1935,48 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
         {
         	sampleState.getContents().clear();
         	sampleState.getContents().addAll(getInternalStateFromBase().getMachineState().getContents());
+        }
+        if(theDepth != null)
+            theDepth[0] = nDepth;
+        for(int i = 0; i < roles.size(); i++)
+        {
+        	if ( previouslyChosenJointMovePropsX[i] != null)
+        	{
+        		previouslyChosenJointMovePropsX[i].setValue(false);
+        	}
+        	if ( previouslyChosenJointMovePropsO[i] != null)
+        	{
+        		previouslyChosenJointMovePropsO[i].setValue(false);
+        	}
+        }
+        return getGoal(role);
+    }
+    
+    public int getDepthChargeResult(ForwardDeadReckonInternalMachineState state, Role role, int sampleDepth, ForwardDeadReckonInternalMachineState sampleState, final int[] theDepth) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException {  
+        int nDepth = 0;
+        if ( validationMachine != null )
+        {
+        	validationState = state.getMachineState();
+        }
+		setPropNetUsage(state);
+		setBasePropositionsFromState(state, true);
+        for(int i = 0; i < roles.size(); i++)
+        {
+        	previouslyChosenJointMovePropsX[i] = null;
+        	previouslyChosenJointMovePropsO[i] = null;
+        }
+        while(!isTerminal()) {
+            nDepth++;
+            chooseRandomJointMove();
+            transitionToNextStateFromChosenMove();
+            if ( sampleState != null && nDepth == sampleDepth)
+            {
+            	sampleState.copy(getInternalStateFromBase());
+            }
+        }
+        if ( sampleState != null && nDepth < sampleDepth)
+        {
+        	sampleState.copy(getInternalStateFromBase());
         }
         if(theDepth != null)
             theDepth[0] = nDepth;
