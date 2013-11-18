@@ -32,15 +32,15 @@ public final class ForwardDeadReckonConstant extends ForwardDeadReckonComponent 
     	return value;
     }
 
-    public void setKnownChangedState(boolean newState, ForwardDeadReckonComponent source)
+    public void setKnownChangedState(boolean newState, int instanceId, ForwardDeadReckonComponent source)
     {
     }
     
     @Override
-    public void reset()
+    public void reset(int instanceId)
     {
-    	super.reset();
-    	cachedValue = value;
+    	super.reset(instanceId);
+    	cachedValue[instanceId] = value;
     }
 
 	/**

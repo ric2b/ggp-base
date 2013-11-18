@@ -15,63 +15,77 @@ import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.Bidirectio
 @SuppressWarnings("serial")
 public final class ForwardDeadReckonOr extends ForwardDeadReckonComponent implements PolymorphicOr
 {
-	int trueInputCount = 0;
+	int[] trueInputCount;
 	
 	public ForwardDeadReckonOr(int numInputs, int numOutputs) {
 		super(numInputs, numOutputs);
+		
+		trueInputCount = new int[1];
+		trueInputCount[0] = 0;
 	}
     
-    public void reset()
+    public void reset(int instanceId)
     {
-    	super.reset();
-    	cachedValue = false;
-    	trueInputCount = 0;
+    	super.reset(instanceId);
+    	cachedValue[instanceId] = false;
+    	trueInputCount[instanceId] = 0;
     }
     
-    public void setKnownChangedState(boolean newState, ForwardDeadReckonComponent source)
+    @Override
+    public void crystalize(int numInstances)
+    {
+    	super.crystalize(numInstances);
+    	
+    	trueInputCount = new int[numInstances];
+    }
+    
+    public void setKnownChangedState(boolean newState, int instanceId, ForwardDeadReckonComponent source)
     {
     	//validate();
     	
     	if ( newState )
     	{
-    		trueInputCount++;
+    		trueInputCount[instanceId]++;
     	}
     	else
     	{
-    		trueInputCount--;
+    		trueInputCount[instanceId]--;
     	}
     	
-    	if ( cachedValue != (trueInputCount != 0) )
+    	if ( cachedValue[instanceId] != (trueInputCount[instanceId] != 0) )
     	{
-    		cachedValue = (trueInputCount != 0);
+    		cachedValue[instanceId] = (trueInputCount[instanceId] != 0);
     		
     		if ( queuePropagation )
     		{
-    			queuePropagation();
+    			queuePropagation(instanceId);
     		}
     		else
     		{
-    			propagate();
+    			propagate(instanceId);
     		}
     	}
     }
     
   	public void validate()
   	{
-  		int trueInputCount = 0;
-  		
-  		for(ForwardDeadReckonComponent c : inputsArray)
+  		for(int instanceId = 0; instanceId < cachedValue.length; instanceId++)
   		{
-  			if ( c.getLastPropagatedValue())
-  			{
-  				trueInputCount++;
-  				break;
-  			}
-  		}
-  		
-  		if ( (trueInputCount != 0) != cachedValue )
-  		{
-			System.out.println("Validation failure for " + toString());
+	  		int trueInputCount = 0;
+	  		
+	  		for(ForwardDeadReckonComponent c : inputsArray)
+	  		{
+	  			if ( c.getLastPropagatedValue(instanceId))
+	  			{
+	  				trueInputCount++;
+	  				break;
+	  			}
+	  		}
+	  		
+	  		if ( (trueInputCount != 0) != cachedValue[instanceId] )
+	  		{
+				System.out.println("Validation failure for " + toString());
+	  		}
   		}
   	}
 

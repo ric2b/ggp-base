@@ -14,28 +14,28 @@ import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.Bidirectio
 @SuppressWarnings("serial")
 public final class ForwardDeadReckonTransition extends ForwardDeadReckonComponent implements PolymorphicTransition
 {
-	private ForwardDeadReckonInternalMachineState owningTransitionInfoSet = null;
+	private ForwardDeadReckonInternalMachineState[] owningTransitionInfoSet = null;
 	private ForwardDeadReckonPropositionCrossReferenceInfo transitionInfo = null;
 	
 	public ForwardDeadReckonTransition(int numOutputs) {
 		super(1, numOutputs);
 	}
 
-    public void setKnownChangedState(boolean newState, ForwardDeadReckonComponent source)
+    public void setKnownChangedState(boolean newState, int instanceId, ForwardDeadReckonComponent source)
     {
-		cachedValue = newState;
-		if ( owningTransitionInfoSet != null )
+		cachedValue[instanceId] = newState;
+		if ( owningTransitionInfoSet[instanceId] != null )
 		{
 			//ProfileSection methodSection = new ProfileSection("ForwardDeadReckonTransition.legalStateChange");
 			//try
 			{
 				if ( newState )
 				{
-					owningTransitionInfoSet.add(transitionInfo);
+					owningTransitionInfoSet[instanceId].add(transitionInfo);
 				}
 				else
 				{
-					owningTransitionInfoSet.remove(transitionInfo);
+					owningTransitionInfoSet[instanceId].remove(transitionInfo);
 				}
 			}
 			//finally
@@ -45,10 +45,18 @@ public final class ForwardDeadReckonTransition extends ForwardDeadReckonComponen
 		}
     }
     
-    public void setTransitionSet(ForwardDeadReckonPropositionCrossReferenceInfo transitionInfo, ForwardDeadReckonInternalMachineState owningSet)
+    public void setTransitionSet(ForwardDeadReckonPropositionCrossReferenceInfo transitionInfo, int instanceId, ForwardDeadReckonInternalMachineState owningSet)
     {
-    	this.owningTransitionInfoSet = owningSet;
+    	this.owningTransitionInfoSet[instanceId] = owningSet;
     	this.transitionInfo = transitionInfo;
+    }
+    
+    @Override
+	public void crystalize(int numInstances)
+    {
+    	super.crystalize(numInstances);
+    	
+    	owningTransitionInfoSet = new ForwardDeadReckonInternalMachineState[numInstances];
     }
     
 	/**

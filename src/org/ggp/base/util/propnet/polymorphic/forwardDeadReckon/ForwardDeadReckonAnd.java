@@ -18,63 +18,74 @@ import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.Bidirectio
 @SuppressWarnings("serial")
 public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent implements PolymorphicAnd
 {
-	private int falseInputCount = 0;
+	private int[] falseInputCount;
 	
 	public ForwardDeadReckonAnd(int numInputs, int numOutput) {
 		super(numInputs, numOutput);
 	}
     
-    public void reset()
+    public void reset(int instanceId)
     {
-    	super.reset();
-    	cachedValue = false;
-    	falseInputCount = inputsArray.length;
+    	super.reset(instanceId);
+    	cachedValue[instanceId] = false;
+    	falseInputCount[instanceId] = inputsArray.length;
     }
     
-    public void setKnownChangedState(boolean newState, ForwardDeadReckonComponent source)
+    @Override
+    public void crystalize(int numInstances)
+    {
+    	super.crystalize(numInstances);
+    	
+    	falseInputCount = new int[numInstances];
+    }
+    
+    public void setKnownChangedState(boolean newState, int instanceId, ForwardDeadReckonComponent source)
     {
     	if ( newState )
     	{
-    		falseInputCount--;
+    		falseInputCount[instanceId]--;
     	}
     	else
     	{
-    		falseInputCount++;
+    		falseInputCount[instanceId]++;
     	}
     	//System.out.println("AND " + Integer.toHexString(hashCode()) + " with value " + cachedValue + " received new input " + newState + ", causing false count to become " + falseInputCount);
     	
-    	if ( cachedValue != (falseInputCount == 0) )
+    	if ( cachedValue[instanceId] != (falseInputCount[instanceId] == 0) )
     	{
-    		cachedValue = (falseInputCount == 0);
+    		cachedValue[instanceId] = (falseInputCount[instanceId] == 0);
     		//System.out.println("AND value set to "+ cachedValue);
     		
     		if ( queuePropagation )
     		{
-    			queuePropagation();
+    			queuePropagation(instanceId);
     		}
     		else
     		{
-    			propagate();
+    			propagate(instanceId);
     		}
     	}
     }
     
   	public void validate()
   	{
-  		int falseInputCount = 0;
-  		
-  		for(ForwardDeadReckonComponent c : inputsArray)
+  		for(int instanceId = 0; instanceId < cachedValue.length; instanceId++)
   		{
-  			if ( !c.getLastPropagatedValue())
-  			{
-  				falseInputCount++;
-  				break;
-  			}
-  		}
-  		
-  		if ( (falseInputCount == 0) != cachedValue )
-  		{
-			System.out.println("Validation failure for " + toString());
+	  		int falseInputCount = 0;
+	  		
+	  		for(ForwardDeadReckonComponent c : inputsArray)
+	  		{
+	  			if ( !c.getLastPropagatedValue(instanceId))
+	  			{
+	  				falseInputCount++;
+	  				break;
+	  			}
+	  		}
+	  		
+	  		if ( (falseInputCount == 0) != cachedValue[instanceId] )
+	  		{
+				System.out.println("Validation failure for " + toString());
+	  		}
   		}
   	}
 

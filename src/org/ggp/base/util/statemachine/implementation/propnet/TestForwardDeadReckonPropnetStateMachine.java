@@ -66,12 +66,11 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     private ForwardDeadReckonPropNet propNetX = null;
     private ForwardDeadReckonPropNet propNetO = null;
     private ForwardDeadReckonPropNet propNet = null;
-    private PropNet basicPropNet;
-    private Map<Role,PolymorphicComponent[]> legalPropositionsX = null;
+    private Map<Role,ForwardDeadReckonComponent[]> legalPropositionsX = null;
     private Map<Role,Move[]> legalPropositionMovesX = null;
-    private Map<Role,PolymorphicComponent[]> legalPropositionsO = null;
+    private Map<Role,ForwardDeadReckonComponent[]> legalPropositionsO = null;
     private Map<Role,Move[]> legalPropositionMovesO = null;
-    private Map<Role,PolymorphicComponent[]> legalPropositions = null;
+    private Map<Role,ForwardDeadReckonComponent[]> legalPropositions = null;
     private Map<Role,Move[]> legalPropositionMoves = null;
     /** The player roles */
     private List<Role> roles;
@@ -80,23 +79,24 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     private ForwardDeadReckonInternalMachineState lastInternalSetState = null;
     private final boolean useSampleOfKnownLegals = false;
     private boolean useDeadReckonerForLegal = false;
-    private MachineState lastPropnetSetState = null;
     private GdlSentence XSentence = null;
     private GdlSentence OSentence = null;
     private MachineState initialState = null;
-    private PolymorphicProposition[] moveProps = null;
+    private ForwardDeadReckonProposition[] moveProps = null;
     private boolean measuringBasePropChanges = false;
     private Map<ForwardDeadReckonPropositionCrossReferenceInfo, Integer> basePropChangeCounts = new HashMap<ForwardDeadReckonPropositionCrossReferenceInfo, Integer>();
-    private PolymorphicProposition[] chosenJointMoveProps = null;
+    private ForwardDeadReckonProposition[] chosenJointMoveProps = null;
     private Move[] chosenMoves = null;
-    private PolymorphicProposition[] previouslyChosenJointMovePropsX = null;
-    private PolymorphicProposition[] previouslyChosenJointMovePropsO = null;
+    private ForwardDeadReckonProposition[] previouslyChosenJointMovePropsX = null;
+    private ForwardDeadReckonProposition[] previouslyChosenJointMovePropsO = null;
     private Map<Role,MoveInputSet> legalMoveInputPropositions = null;
-    private int numLegalsFound;
     private ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet = null;
     private StateMachine validationMachine = null;
     private MachineState validationState = null;
     private ForwardDeadReckonPropNet fullPropNet = null;
+    private int instanceId;
+    private int maxInstances;
+    private int numInstances = 1;
     
 	public long totalNumGatesPropagated = 0;
 	public long totalNumPropagates = 0;
@@ -116,7 +116,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     		this.numBaseProps = numBaseProps;
     		this.numInputs = numInputs;
     		this.numLegals = numLegals;
-    	}
+     	}
 		@Override
 		public void clear() {
 			totalResets = 0;
@@ -378,6 +378,24 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		}
 	}
 	
+	public void validateStateEquality(TestForwardDeadReckonPropnetStateMachine other)
+	{
+		if (!lastInternalSetState.equals(other.lastInternalSetState))
+		{
+			System.out.println("Last set state mismtch");
+		}
+		
+		for (PolymorphicProposition p : propNet.getBasePropositionsArray())
+		{
+			ForwardDeadReckonProposition fdrp = (ForwardDeadReckonProposition)p;
+			
+			if ( fdrp.getValue(instanceId) != fdrp.getValue(other.instanceId) )
+			{
+				System.out.println("Base prop state mismatch on: " + p);
+			}
+		}
+	}
+	
 	private Set<AntecedantCursor> addPropositionAntecedants(PolymorphicPropNet pn, PolymorphicComponent p, AntecedantCursor cursor, int maxResultSet, int maxDepth, int depth)
 	{
 		if ( depth >= maxDepth )
@@ -606,13 +624,60 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		return result;
 	}
 	
+	public TestForwardDeadReckonPropnetStateMachine()
+	{
+		this.maxInstances = 1;
+	}
+	
+	public TestForwardDeadReckonPropnetStateMachine(int maxInstances)
+	{
+		this.maxInstances = maxInstances;
+	}
+	
+	private TestForwardDeadReckonPropnetStateMachine(TestForwardDeadReckonPropnetStateMachine master, int instanceId)
+	{
+		this.maxInstances = -1;
+		this.instanceId = instanceId;
+		this.propNetX = master.propNetX;
+		this.propNetO = master.propNetO;
+		this.XSentence = master.XSentence;
+		this.OSentence = master.OSentence;
+		this.legalPropositionMovesX = master.legalPropositionMovesX;
+		this.legalPropositionMovesO = master.legalPropositionMovesO;
+		this.legalPropositionsX = master.legalPropositionsX;
+		this.legalPropositionsO = master.legalPropositionsO;
+		this.initialState = master.initialState;
+		this.roles = master.roles;
+		this.legalMoveInputPropositions = master.legalMoveInputPropositions;
+		this.fullPropNet = master.fullPropNet;
+		this.masterInfoSet = master.masterInfoSet;
+		
+		moveProps = new ForwardDeadReckonProposition[roles.size()];
+		chosenJointMoveProps = new ForwardDeadReckonProposition[roles.size()];
+		chosenMoves = new Move[roles.size()];
+		previouslyChosenJointMovePropsX = new ForwardDeadReckonProposition[roles.size()];
+		previouslyChosenJointMovePropsO = new ForwardDeadReckonProposition[roles.size()];
+        stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(), fullPropNet.getInputPropositions().size(), fullPropNet.getLegalPropositions().get(getRoles().get(0)).length);
+	}
+	
+	public TestForwardDeadReckonPropnetStateMachine createInstance()
+	{
+		if ( numInstances >= maxInstances )
+		{
+			throw new RuntimeException("Too many instances");
+		}
+		
+		TestForwardDeadReckonPropnetStateMachine result = new TestForwardDeadReckonPropnetStateMachine(this, numInstances++);
+		
+		return result;
+	}
+	
     /**
      * Initializes the PropNetStateMachine. You should compute the topological
      * ordering here. Additionally you may compute the initial state here, at
      * your discretion.
      */
     @SuppressWarnings("unused")
-	@Override
     public void initialize(List<Gdl> description)
     {
 		setRandomSeed(1);
@@ -632,11 +697,11 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     		fullPropNet.renderToFile("c:\\temp\\propnetReduced.dot");
             
             roles = fullPropNet.getRoles();
-    		moveProps = new PolymorphicProposition[roles.size()];
-    		chosenJointMoveProps = new PolymorphicProposition[roles.size()];
+    		moveProps = new ForwardDeadReckonProposition[roles.size()];
+    		chosenJointMoveProps = new ForwardDeadReckonProposition[roles.size()];
     		chosenMoves = new Move[roles.size()];
-    		previouslyChosenJointMovePropsX = new PolymorphicProposition[roles.size()];
-    		previouslyChosenJointMovePropsO = new PolymorphicProposition[roles.size()];
+    		previouslyChosenJointMovePropsX = new ForwardDeadReckonProposition[roles.size()];
+    		previouslyChosenJointMovePropsO = new ForwardDeadReckonProposition[roles.size()];
     		legalMoveInputPropositions = new HashMap<Role,MoveInputSet>();
             stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(), fullPropNet.getInputPropositions().size(), fullPropNet.getLegalPropositions().get(getRoles().get(0)).length);
             //	Assess network statistics
@@ -678,20 +743,20 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 				prop.setCrossReferenceInfo(info);
             	basePropChangeCounts.put(info,  0);
 			}
-    		fullPropNet.crystalize(masterInfoSet);
+    		fullPropNet.crystalize(masterInfoSet, 1);
        		useDeadReckonerForLegal = fullPropNet.useDeadReckonerForLegal();
     		if ( !useDeadReckonerForLegal )
     		{
-	    		legalPropositions = new HashMap<Role,PolymorphicComponent[]>();
+	    		legalPropositions = new HashMap<Role,ForwardDeadReckonComponent[]>();
 	    		legalPropositionMoves = new HashMap<Role, Move[]>();
 	    		for(Role role : getRoles())
 	    		{
-		    		PolymorphicComponent legalPropositionsForRole[] = new PolymorphicComponent[fullPropNet.getLegalPropositions().get(role).length];
+	    			ForwardDeadReckonComponent legalPropositionsForRole[] = new ForwardDeadReckonComponent[fullPropNet.getLegalPropositions().get(role).length];
 		    		Move legalPropositionNamesForRole[] = new Move[fullPropNet.getLegalPropositions().get(role).length];
 		    		index = 0;
 		    		for(PolymorphicProposition p : fullPropNet.getLegalPropositions().get(role))
 		    		{
-		    			legalPropositionsForRole[index] = p;
+		    			legalPropositionsForRole[index] = (ForwardDeadReckonComponent)p;
 		    			legalPropositionNamesForRole[index++] = new Move(p.getName().getBody().get(1));
 		    		}
 		    		
@@ -711,7 +776,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 
     		fullPropNet.reset(false);
     		fullPropNet.getInitProposition().setValue(true);
-    		fullPropNet.propagate();
+    		fullPropNet.propagate(0);
     		propNet = fullPropNet;
             initialState = getInternalStateFromBase().getMachineState();
     		fullPropNet.reset(true);
@@ -894,8 +959,8 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 				oProp.setCrossReferenceInfo(info);
 			}
 			
-    		propNetX.crystalize(masterInfoSet);
-    		propNetO.crystalize(masterInfoSet);
+    		propNetX.crystalize(masterInfoSet, maxInstances);
+    		propNetO.crystalize(masterInfoSet, maxInstances);
     		
     		propNetX.reset(true);
     		propNetO.reset(true);
@@ -903,16 +968,16 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     		useDeadReckonerForLegal = propNetX.useDeadReckonerForLegal();
     		if ( !useDeadReckonerForLegal )
     		{
-	    		legalPropositionsX = new HashMap<Role,PolymorphicComponent[]>();
+	    		legalPropositionsX = new HashMap<Role,ForwardDeadReckonComponent[]>();
 	    		legalPropositionMovesX = new HashMap<Role, Move[]>();
 	    		for(Role role : getRoles())
 	    		{
-		    		PolymorphicComponent legalPropositionsForRole[] = new PolymorphicComponent[propNetX.getLegalPropositions().get(role).length];
+	    			ForwardDeadReckonComponent legalPropositionsForRole[] = new ForwardDeadReckonComponent[propNetX.getLegalPropositions().get(role).length];
 		    		Move legalPropositionNamesForRole[] = new Move[propNetX.getLegalPropositions().get(role).length];
 		    		index = 0;
 		    		for(PolymorphicProposition p : propNetX.getLegalPropositions().get(role))
 		    		{
-		    			legalPropositionsForRole[index] = p;
+		    			legalPropositionsForRole[index] = (ForwardDeadReckonComponent)p;
 		    			legalPropositionNamesForRole[index++] = new Move(p.getName().getBody().get(1));
 		    		}
 		    		
@@ -920,16 +985,16 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		    		legalPropositionMovesX.put(role, legalPropositionNamesForRole);    		
 	    		}
 	    		
-	    		legalPropositionsO = new HashMap<Role,PolymorphicComponent[]>();
+	    		legalPropositionsO = new HashMap<Role,ForwardDeadReckonComponent[]>();
 	    		legalPropositionMovesO = new HashMap<Role, Move[]>();
 	    		for(Role role : getRoles())
 	    		{
-		    		PolymorphicComponent legalPropositionsForRole[] = new PolymorphicComponent[propNetO.getLegalPropositions().get(role).length];
+	    			ForwardDeadReckonProposition legalPropositionsForRole[] = new ForwardDeadReckonProposition[propNetO.getLegalPropositions().get(role).length];
 		    		Move legalPropositionNamesForRole[] = new Move[propNetO.getLegalPropositions().get(role).length];
 		    		index = 0;
 		    		for(PolymorphicProposition p : propNetO.getLegalPropositions().get(role))
 		    		{
-		    			legalPropositionsForRole[index] = p;
+		    			legalPropositionsForRole[index] = (ForwardDeadReckonProposition)p;
 		    			legalPropositionNamesForRole[index++] = new Move(p.getName().getBody().get(1));
 		    		}
 		    		
@@ -966,7 +1031,8 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		//ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.setBasePropositionsInternal");
 		//try
 		{
-			//System.out.println("Last set state was: " + lastSetState);
+			//System.out.println("Set state for instance " + instanceId + ": " + state);
+			//System.out.println("Last set state for instance " + instanceId + " was: " + lastInternalSetState);
 			if ( lastInternalSetState != null )
 			{
 				if ( !lastInternalSetState.equals(state) )
@@ -978,22 +1044,22 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 						{
 							if ( propNet == propNetX )
 							{
-								info.xNetProp.setValue(true);
+								info.xNetProp.setValue(true, instanceId);
 							}
 							else
 							{
-								info.oNetProp.setValue(true);
+								info.oNetProp.setValue(true, instanceId);
 							}
 						}
 						else
 						{
 							if ( propNet == propNetX )
 							{
-								info.xNetProp.setValue(false);
+								info.xNetProp.setValue(false, instanceId);
 							}
 							else
 							{
-								info.oNetProp.setValue(false);
+								info.oNetProp.setValue(false, instanceId);
 							}
 						}
 						
@@ -1018,27 +1084,29 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 				//System.out.println("Setting entire state");
 				for (PolymorphicProposition p : propNet.getBasePropositionsArray())
 				{
-					p.setValue(false);
+					((ForwardDeadReckonProposition)p).setValue(false, instanceId);
 				}
 				for(ForwardDeadReckonPropositionCrossReferenceInfo s : state)
 				{
 					if ( propNet == propNetX )
 					{
-						s.xNetProp.setValue(true);
+						s.xNetProp.setValue(true, instanceId);
 					}
 					else
 					{
-						s.oNetProp.setValue(true);
+						s.oNetProp.setValue(true, instanceId);
 					}
 				}
 				
 				if ( isolate )
 				{
 					lastInternalSetState = new ForwardDeadReckonInternalMachineState(state);
+					//System.out.println("Created isolated last set state: " + lastInternalSetState);
 				}
 				else
 				{
 					lastInternalSetState = state;
+					//System.out.println("Copying to last set state: " + lastInternalSetState);
 				}
 			}
 		}
@@ -1062,7 +1130,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
  			setBasePropositionsFromState(state);
  			
  			PolymorphicProposition terminalProp = propNet.getTerminalProposition();
- 			boolean result = terminalProp.getSingleInput().getValue();
+ 			boolean result = ((ForwardDeadReckonComponent)terminalProp.getSingleInput()).getValue(instanceId);
  			//if ( result )
  			//{
  			//	System.out.println("State " + state + " is terminal");
@@ -1085,7 +1153,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
  			setBasePropositionsFromState(state, true);
  			
  			PolymorphicProposition terminalProp = propNet.getTerminalProposition();
- 			boolean result = terminalProp.getSingleInput().getValue();
+ 			boolean result = ((ForwardDeadReckonComponent)terminalProp.getSingleInput()).getValue(instanceId);
  			//if ( result )
  			//{
  			//	System.out.println("State " + state + " is terminal");
@@ -1105,7 +1173,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		//try
 		{
 			PolymorphicProposition terminalProp = propNet.getTerminalProposition();
-			boolean result = terminalProp.getSingleInput().getValue();
+			boolean result = ((ForwardDeadReckonComponent)terminalProp.getSingleInput()).getValue(instanceId);
 			//if ( result )
 			//{
 			//	System.out.println("State " + state + " is terminal");
@@ -1148,8 +1216,8 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			
 			for(PolymorphicProposition p : goalProps)
 			{
-				PolymorphicComponent goalTransition = p.getSingleInput();
-				if ( goalTransition != null && goalTransition.getValue())
+				ForwardDeadReckonComponent goalTransition = (ForwardDeadReckonComponent)p.getSingleInput();
+				if ( goalTransition != null && goalTransition.getValue(instanceId))
 				{
 					result = Integer.parseInt(p.getName().getBody().get(1).toString());
 					break;
@@ -1181,8 +1249,8 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			
 			for(PolymorphicProposition p : goalProps)
 			{
-				PolymorphicComponent goalTransition = p.getSingleInput();
-				if ( goalTransition != null && goalTransition.getValue())
+				ForwardDeadReckonComponent goalTransition = (ForwardDeadReckonComponent)p.getSingleInput();
+				if ( goalTransition != null && goalTransition.getValue(instanceId))
 				{
 					result = Integer.parseInt(p.getName().getBody().get(1).toString());
 					break;
@@ -1237,7 +1305,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			if ( useDeadReckonerForLegal )
 			{
 				result = new LinkedList<Move>();
-				for(ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps().getContents(role))
+				for(ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps(instanceId).getContents(role))
 				{
 					result.add(moveInfo.move);
 				}
@@ -1245,13 +1313,13 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			else
 			{
 				result = new LinkedList<Move>();
-				PolymorphicComponent[] legalTransitions = legalPropositions.get(role);
+				ForwardDeadReckonComponent[] legalTransitions = legalPropositions.get(role);
 				Move[] legalPropMoves = legalPropositionMoves.get(role);
 				int numProps = legalTransitions.length;
 				
 				for(int i = 0; i < numProps; i++)
 				{
-					if ( legalTransitions[i].getValue())
+					if ( legalTransitions[i].getValue(instanceId))
 					{
 						result.add(legalPropMoves[i]);
 					}
@@ -1288,7 +1356,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			if ( useDeadReckonerForLegal )
 			{
 				result = new LinkedList<Move>();
-				for(ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps().getContents(role))
+				for(ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps(instanceId).getContents(role))
 				{
 					result.add(moveInfo.move);
 				}
@@ -1296,13 +1364,13 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			else
 			{
 				result = new LinkedList<Move>();
-				PolymorphicComponent[] legalTransitions = legalPropositions.get(role);
+				ForwardDeadReckonComponent[] legalTransitions = legalPropositions.get(role);
 				Move[] legalPropMoves = legalPropositionMoves.get(role);
 				int numProps = legalTransitions.length;
 				
 				for(int i = 0; i < numProps; i++)
 				{
-					if ( legalTransitions[i].getValue())
+					if ( legalTransitions[i].getValue(instanceId))
 					{
 						result.add(legalPropMoves[i]);
 					}
@@ -1312,6 +1380,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			//totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
 			//totalNumPropagates += ForwardDeadReckonComponent.numPropagates;
 			
+			//System.out.println("Legality in state: " + state);
 			//System.out.println("legals for role " + role + ": " + result);
 			return result;
 		}
@@ -1337,7 +1406,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 				
 				if ( useDeadReckonerForLegal )
 				{
-					for(ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps().getContents(role))
+					for(ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps(instanceId).getContents(role))
 					{
 						if ( validationMachine != null )
 						{
@@ -1348,12 +1417,12 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 				}
 				else
 				{
-					PolymorphicComponent[] legalProps = legalPropositions.get(role);
+					ForwardDeadReckonComponent[] legalProps = legalPropositions.get(role);
 					int numProps = legalProps.length;
 					
 					for(int i = 0; i < numProps; i++)
 					{
-						if ( legalProps[i].getValue())
+						if ( legalProps[i].getValue(instanceId))
 						{
 							if ( validationMachine != null )
 							{
@@ -1416,7 +1485,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			PolymorphicProposition legalProp = propNet.getLegalInputMap().get(moveInputProposition);
 			if ( legalProp != null )
 			{
-				return legalProp.getSingleInput().getValue();
+				return ((ForwardDeadReckonComponent)legalProp.getSingleInput()).getValue(instanceId);
 			}
 			
 			throw new MoveDefinitionException(state,role);
@@ -1492,10 +1561,10 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			
 			for(GdlSentence moveSentence : toDoes(moves))
 			{
-				PolymorphicProposition moveInputProposition = inputProps.get(moveSentence);
+				ForwardDeadReckonProposition moveInputProposition = (ForwardDeadReckonProposition)inputProps.get(moveSentence);
 				if ( moveInputProposition != null )
 				{
-					moveInputProposition.setValue(true);
+					moveInputProposition.setValue(true, instanceId);
 					moveProps[movesCount++] = moveInputProposition;
 				}
 			}
@@ -1510,7 +1579,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	
 			for(int i = 0; i < movesCount; i++)
 			{
-				moveProps[i].setValue(false);
+				moveProps[i].setValue(false, instanceId);
 			}
 			//for(GdlSentence moveSentence : toDoes(moves))
 			//{
@@ -1552,10 +1621,10 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			
 			for(GdlSentence moveSentence : toDoes(moves))
 			{
-				PolymorphicProposition moveInputProposition = inputProps.get(moveSentence);
+				ForwardDeadReckonProposition moveInputProposition = (ForwardDeadReckonProposition)inputProps.get(moveSentence);
 				if ( moveInputProposition != null )
 				{
-					moveInputProposition.setValue(true);
+					moveInputProposition.setValue(true, instanceId);
 					moveProps[movesCount++] = moveInputProposition;
 				}
 			}
@@ -1570,7 +1639,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	
 			for(int i = 0; i < movesCount; i++)
 			{
-				moveProps[i].setValue(false);
+				moveProps[i].setValue(false, instanceId);
 			}
 			//for(GdlSentence moveSentence : toDoes(moves))
 			//{
@@ -1622,9 +1691,9 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			}
 			
 			int index = 0;
-			for(PolymorphicProposition moveProp : chosenJointMoveProps)
+			for(ForwardDeadReckonProposition moveProp : chosenJointMoveProps)
 			{
-				PolymorphicProposition previousChosenMove;
+				ForwardDeadReckonProposition previousChosenMove;
 				
 				if ( propNet == propNetX )
 				{
@@ -1636,12 +1705,12 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 				}
 				if ( moveProp != null )
 				{
-					moveProp.setValue(true);
+					moveProp.setValue(true, instanceId);
 					//System.out.println("Move: " + moveProp.getName());
 				}
 				if ( previousChosenMove != null && previousChosenMove != moveProp )
 				{
-					previousChosenMove.setValue(false);
+					previousChosenMove.setValue(false, instanceId);
 				}
 				if ( propNet == propNetX )
 				{
@@ -1738,7 +1807,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			//RuntimeOptimizedComponent.getCount = 0;
 			
 			ForwardDeadReckonInternalMachineState result = new ForwardDeadReckonInternalMachineState(masterInfoSet);
-			for(ForwardDeadReckonPropositionCrossReferenceInfo info : propNet.getActiveBaseProps())
+			for(ForwardDeadReckonPropositionCrossReferenceInfo info : propNet.getActiveBaseProps(instanceId))
 			{
 				result.add(info);
 				
@@ -1835,76 +1904,56 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 
 	private void chooseRandomJointMove() throws MoveDefinitionException
 	{
-		if ( false )
+		if ( useDeadReckonerForLegal )
 		{
-			setupLegalMoveInputPropositions();
-			
+			ForwardDeadReckonLegalMoveSet activeLegalMoves = propNet.getActiveLegalProps(instanceId);
 			int index = 0;
 	        for (Role role : getRoles())
 	        {
-	        	MoveInputSet set = legalMoveInputPropositions.get(role);
-	        	int rand = getRandom(set.numPropositions);
+	        	int rand = getRandom(activeLegalMoves.getContentSize(role));
 	        	
-	        	if ( validationMachine != null )
+	        	for(ForwardDeadReckonLegalMoveInfo info : activeLegalMoves.getContents(role))
 	        	{
-	        		chosenMoves[index] = set.correspondingMoves[rand];
+	        		if ( rand-- == 0 )
+	        		{
+	    	        	if ( validationMachine != null )
+	    	        	{
+	    	        		chosenMoves[index] = info.move;
+	    	        	}
+	        			chosenJointMoveProps[index++] = info.inputProposition;
+	        			break;
+	        		}
 	        	}
-	        	chosenJointMoveProps[index++] = set.moveInputPropositions[rand];
 	        }
-		}
+        }
 		else
 		{
-			if ( useDeadReckonerForLegal )
-			{
-				ForwardDeadReckonLegalMoveSet activeLegalMoves = propNet.getActiveLegalProps();
-				int index = 0;
-		        for (Role role : getRoles())
-		        {
-		        	int rand = getRandom(activeLegalMoves.getContentSize(role));
-		        	
-		        	for(ForwardDeadReckonLegalMoveInfo info : activeLegalMoves.getContents(role))
-		        	{
-		        		if ( rand-- == 0 )
-		        		{
-		    	        	if ( validationMachine != null )
-		    	        	{
-		    	        		chosenMoves[index] = info.move;
-		    	        	}
-		        			chosenJointMoveProps[index++] = info.inputProposition;
-		        			break;
-		        		}
-		        	}
-		        }
-	        }
-			else
-			{
-				int index = 0;
-		        for (Role role : getRoles())
-		        {
-					PolymorphicComponent[] legalProps = legalPropositions.get(role);
-					int numProps = legalProps.length;
-					int count = 0;
-					
-					for(int i = 0; i < numProps; i++)
+			int index = 0;
+	        for (Role role : getRoles())
+	        {
+	        	ForwardDeadReckonComponent[] legalProps = legalPropositions.get(role);
+				int numProps = legalProps.length;
+				int count = 0;
+				
+				for(int i = 0; i < numProps; i++)
+				{
+					if ( legalProps[i].getValue(instanceId))
 					{
-						if ( legalProps[i].getValue())
-						{
-							count++;
-						}
+						count++;
 					}
-		        	int rand = getRandom(count);
-					for(int i = 0; i < numProps; i++)
+				}
+	        	int rand = getRandom(count);
+				for(int i = 0; i < numProps; i++)
+				{
+					if ( legalProps[i].getValue(instanceId) && rand-- == 0 )
 					{
-						if ( legalProps[i].getValue() && rand-- == 0 )
+						if ( validationMachine != null )
 						{
-							if ( validationMachine != null )
-							{
-								GdlTerm legalTerm = ((PolymorphicProposition)legalProps[i]).getName().getBody().get(1);
-								
-								chosenMoves[index] = new Move(legalTerm);
-							}
-							chosenJointMoveProps[index++] = propNet.getLegalInputMap().get(legalProps[i]);
+							GdlTerm legalTerm = ((PolymorphicProposition)legalProps[i]).getName().getBody().get(1);
+							
+							chosenMoves[index] = new Move(legalTerm);
 						}
+						chosenJointMoveProps[index++] = (ForwardDeadReckonProposition)propNet.getLegalInputMap().get(legalProps[i]);
 					}
 				}
 			}
@@ -1942,11 +1991,11 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
         {
         	if ( previouslyChosenJointMovePropsX[i] != null)
         	{
-        		previouslyChosenJointMovePropsX[i].setValue(false);
+        		previouslyChosenJointMovePropsX[i].setValue(false, instanceId);
         	}
         	if ( previouslyChosenJointMovePropsO[i] != null)
         	{
-        		previouslyChosenJointMovePropsO[i].setValue(false);
+        		previouslyChosenJointMovePropsO[i].setValue(false, instanceId);
         	}
         }
         return getGoal(role);
@@ -1984,11 +2033,11 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
         {
         	if ( previouslyChosenJointMovePropsX[i] != null)
         	{
-        		previouslyChosenJointMovePropsX[i].setValue(false);
+        		previouslyChosenJointMovePropsX[i].setValue(false, instanceId);
         	}
         	if ( previouslyChosenJointMovePropsO[i] != null)
         	{
-        		previouslyChosenJointMovePropsO[i].setValue(false);
+        		previouslyChosenJointMovePropsO[i].setValue(false, instanceId);
         	}
         }
         return getGoal(role);

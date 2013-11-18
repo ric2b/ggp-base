@@ -15,32 +15,35 @@ public final class ForwardDeadReckonNot extends ForwardDeadReckonComponent imple
 		super(1, numOutput);
 	}
 
-    public void setKnownChangedState(boolean newState, ForwardDeadReckonComponent source)
+    public void setKnownChangedState(boolean newState, int instanceId, ForwardDeadReckonComponent source)
     {
-		cachedValue = !newState;
+		cachedValue[instanceId] = !newState;
 		
 		if ( queuePropagation )
 		{
-			queuePropagation();
+			queuePropagation(instanceId);
 		}
 		else
 		{
-			propagate();
+			propagate(instanceId);
 		}
     }
     
     @Override
-    public void reset()
+    public void reset(int instanceId)
     {
-    	super.reset();
-    	cachedValue = true;
+    	super.reset(instanceId);
+    	cachedValue[instanceId] = true;
     }
     
   	public void validate()
   	{
-  		if ( cachedValue != !inputsArray[0].getLastPropagatedValue())
+  		for(int instanceId = 0; instanceId < cachedValue.length; instanceId++)
   		{
-  			System.out.println("Validation failure for " + toString());
+	  		if ( cachedValue[instanceId] != !inputsArray[0].getLastPropagatedValue(instanceId))
+	  		{
+	  			System.out.println("Validation failure for " + toString());
+	  		}
   		}
   	}
 

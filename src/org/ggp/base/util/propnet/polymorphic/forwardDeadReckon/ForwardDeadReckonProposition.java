@@ -22,7 +22,7 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
 {
 	/** The name of the Proposition. */
 	private GdlSentence name;
-	private ForwardDeadReckonLegalMoveSet owningMoveSet = null;
+	private ForwardDeadReckonLegalMoveSet[] owningMoveSet = null;
 	private ForwardDeadReckonLegalMoveInfo associatedMove = null;
 	private ForwardDeadReckonPropositionCrossReferenceInfo opaqueInfo = null;
 
@@ -44,15 +44,23 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
 	{
 		return opaqueInfo;
 	}
+    
+    @Override
+	public void crystalize(int numInstances)
+    {
+    	super.crystalize(numInstances);
+    	
+    	owningMoveSet = new ForwardDeadReckonLegalMoveSet[numInstances];
+    }
 	
 	public void setCrossReferenceInfo(ForwardDeadReckonPropositionCrossReferenceInfo info)
 	{
 		opaqueInfo = info;
 	}
     
-    public void setTransitionSet(ForwardDeadReckonLegalMoveInfo associatedMove, ForwardDeadReckonLegalMoveSet activeLegalMoves)
+    public void setTransitionSet(ForwardDeadReckonLegalMoveInfo associatedMove, int instanceId, ForwardDeadReckonLegalMoveSet activeLegalMoves)
     {
-    	this.owningMoveSet = activeLegalMoves;
+    	this.owningMoveSet[instanceId] = activeLegalMoves;
     	this.associatedMove = associatedMove;
     }
 
@@ -79,22 +87,22 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
         name = newName;
     }
 
-    public void setKnownChangedState(boolean newState, ForwardDeadReckonComponent source)
+    public void setKnownChangedState(boolean newState, int instanceId, ForwardDeadReckonComponent source)
     {
-		cachedValue = newState;
+		cachedValue[instanceId] = newState;
 		
-		if ( owningMoveSet != null )
+		if ( owningMoveSet[instanceId] != null )
 		{
 			//ProfileSection methodSection = new ProfileSection("ForwardDeadReckonProposition.stateChange");
 			//try
 			{
 				if ( newState )
 				{
-					owningMoveSet.add(associatedMove);
+					owningMoveSet[instanceId].add(associatedMove);
 				}
 				else
 				{
-					owningMoveSet.remove(associatedMove);
+					owningMoveSet[instanceId].remove(associatedMove);
 				}				
 			}
 			//finally
@@ -105,11 +113,11 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
 
 		if ( queuePropagation )
 		{
-			queuePropagation();
+			queuePropagation(instanceId);
 		}
 		else
 		{
-			propagate();
+			propagate(instanceId);
 		}
     }
 
@@ -119,19 +127,19 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
 	 * @param value
 	 *            The new value of the Proposition.
 	 */
-	public void setValue(boolean value)
+	public void setValue(boolean value, int instanceId)
 	{
-		if ( cachedValue != value )
+		if ( cachedValue[instanceId] != value )
 		{
-			cachedValue = value;
+			cachedValue[instanceId] = value;
 			
     		if ( queuePropagation )
     		{
-    			queuePropagation();
+    			queuePropagation(instanceId);
     		}
     		else
     		{
-    			propagate();
+    			propagate(instanceId);
     		}
 		}
 	}
@@ -142,6 +150,11 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
 	@Override
 	public String toString()
 	{
-		return toDot("circle", cachedValue ? "red" : "white", name.toString());
+		return toDot("circle", cachedValue[0] ? "red" : "white", name.toString());
+	}
+
+	@Override
+	public void setValue(boolean value) {
+		setValue(value, 0);
 	}
 }

@@ -10,12 +10,13 @@ import java.util.List;
 import java.util.Set;
 
 import org.ggp.base.util.propnet.architecture.Component;
+import org.ggp.base.util.propnet.polymorphic.MultiInstanceComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
-public abstract class ForwardDeadReckonComponent implements PolymorphicComponent, Serializable {
+public abstract class ForwardDeadReckonComponent implements PolymorphicComponent, MultiInstanceComponent, Serializable {
 	private static final long serialVersionUID = 352527628564121134L;
     /** The inputs to the component. */
     protected ForwardDeadReckonComponent[] inputsArray = null;
@@ -37,12 +38,12 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
     protected final boolean queuePropagation = false;
     
     //protected boolean dirty;
-    protected boolean cachedValue;
-    protected boolean lastPropagatedValue;
+    protected boolean[] cachedValue;
+    protected boolean[] lastPropagatedValue;
     
     public static int numPropagates = 0;
     public static int numGatesPropagated = 0;
-    public boolean hasQueuedForPropagation = false;
+    public boolean[] hasQueuedForPropagation;
 
     /**
      * Creates a new Component with no inputs or outputs.
@@ -63,6 +64,10 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
     		outputsArray = new ForwardDeadReckonComponent[numOutputs];
     		outputsList = null;
     	}
+    	
+    	cachedValue = new boolean[1];
+    	lastPropagatedValue = new boolean[1];
+    	hasQueuedForPropagation = new boolean[1];
     }
 	
 	public void crystalize()
@@ -97,6 +102,16 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
 			outputsList = null;
 			outputIndex = index;
 		}
+	}
+	
+	@Override
+	public void crystalize(int numInstances)
+	{
+		crystalize();
+		
+		cachedValue = new boolean[numInstances];
+		lastPropagatedValue = new boolean[numInstances];
+		hasQueuedForPropagation = new boolean[numInstances];
 	}
 
 	public void removeInput(PolymorphicComponent input)
@@ -287,44 +302,58 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
      */
     public  boolean getValue()
     {
-    	return cachedValue;
+    	return cachedValue[0];
+    }
+
+    /**
+     * Gets the value of the Component.
+     * 
+     * @return The value of the Component.
+     */
+    @Override
+    public  boolean getValue(int instanceId)
+    {
+    	return cachedValue[instanceId];
     }
     
-    public boolean getLastPropagatedValue()
+    public boolean getLastPropagatedValue(int instanceId)
     {
-    	return lastPropagatedValue;
+    	return lastPropagatedValue[instanceId];
     }
   
 	public void validate()
 	{
-		if ( inputIndex == 1 && !(getSingleInput() instanceof PolymorphicTransition) )
+		for(int instanceId = 0; instanceId < cachedValue.length; instanceId++)
 		{
-			if ( cachedValue != inputsArray[0].getLastPropagatedValue())
+			if ( inputIndex == 1 && !(getSingleInput() instanceof PolymorphicTransition) )
 			{
-				System.out.println("Validation failure for " + toString());
+				if ( cachedValue[instanceId] != inputsArray[0].getLastPropagatedValue(instanceId))
+				{
+					System.out.println("Validation failure for " + toString());
+				}
 			}
 		}
 	}
 
-    public void queuePropagation()
+    public void queuePropagation(int instanceId)
     {
 		//for(ForwardDeadReckonComponent output : outputsArray)
 		//{
 		//	output.validate();
 		//}
-    	if ( lastPropagatedValue != cachedValue )
+    	if ( lastPropagatedValue[instanceId] != cachedValue[instanceId] )
     	{
-    		if ( !hasQueuedForPropagation && outputIndex > 0)
+    		if ( !hasQueuedForPropagation[instanceId] && outputIndex > 0)
     		{
-    			hasQueuedForPropagation = true;
+    			hasQueuedForPropagation[instanceId] = true;
     			//numGatesPropagated++;
     			
-    			propNet.addToPropagateQueue(this);
+    			propNet.addToPropagateQueue(this, instanceId);
     		}
     	}
     }
     
-    public void propagate()
+    public void propagate(int instanceId)
     {
  		//for(ForwardDeadReckonComponent output : outputsArray)
 		//{
@@ -332,18 +361,18 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
 		//}
 		
 		//System.out.println("Component " + Integer.toHexString(hashCode()) + " changing from " + lastPropagatedValue + " to " + cachedValue);
-    	if ( lastPropagatedValue != cachedValue )
+    	if ( lastPropagatedValue[instanceId] != cachedValue[instanceId] )
     	{
     		//numPropagates++;
 			for(ForwardDeadReckonComponent output : outputsArray)
 			{
-				output.setKnownChangedState(cachedValue, this);
+				output.setKnownChangedState(cachedValue[instanceId], instanceId, this);
 			}
 		
-			lastPropagatedValue = cachedValue;
+			lastPropagatedValue[instanceId] = cachedValue[instanceId];
     	}
     	
-		hasQueuedForPropagation = false;
+		hasQueuedForPropagation[instanceId] = false;
 		
 		//for(ForwardDeadReckonComponent output : outputsArray)
 		//{
@@ -351,13 +380,13 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
 		//}
     }
     
-    public abstract void setKnownChangedState(boolean newState, ForwardDeadReckonComponent source);
+    public abstract void setKnownChangedState(boolean newState, int instanceId, ForwardDeadReckonComponent source);
     
-    public void reset()
+    public void reset(int instanceId)
     {
-    	cachedValue = false;
-    	lastPropagatedValue = false;
-    	hasQueuedForPropagation = false;
+		cachedValue[instanceId] = false;
+    	lastPropagatedValue[instanceId] = false;
+    	hasQueuedForPropagation[instanceId] = false;
     }
     
     /**

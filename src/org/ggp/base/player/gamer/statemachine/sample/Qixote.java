@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.util.logging.GamerLogger;
@@ -44,12 +46,117 @@ public class Qixote extends SampleGamer {
     private final int transpositionTableSize = 500000;
     private final int transpositinoTableMaxDesiredSizeAtTurnEnd = transpositionTableSize - 100;
     private final int transpositionTableMaxSizeAtProbeEnd = transpositionTableSize - 100;
+    private final int maxOutstandingRolloutRequests = 4;
+    private final int numRolloutThreads = 4;
     private TreeNode[] transpositionTable = new TreeNode[transpositionTableSize];
     private int nextSeq = 0;
     private List<TreeNode> freeList = new LinkedList<TreeNode>();
     private int largestUsedIndex = -1;
     private int sweepInstance = 0;
     private List<TreeNode> completedNodeQueue = new LinkedList<TreeNode>();
+    private LinkedBlockingQueue<RolloutRequest>	queuedRollouts = new LinkedBlockingQueue<RolloutRequest>();
+    private ConcurrentLinkedQueue<RolloutRequest>	completedRollouts = new ConcurrentLinkedQueue<RolloutRequest>();
+    private int numQueuedRollouts = 0;
+    private int numCompletedRollouts = 0;
+    private RolloutProcessor[] rolloutProcessors = null;
+    
+    @SuppressWarnings("unused")
+	private class RolloutProcessor implements Runnable
+    {
+    	private boolean stop = false;
+    	private TestForwardDeadReckonPropnetStateMachine stateMachine;
+    	private Thread runningThread = null;
+    	
+    	public RolloutProcessor(TestForwardDeadReckonPropnetStateMachine stateMachine)
+    	{
+    		this.stateMachine = stateMachine;
+    	}
+    	
+    	public void start()
+    	{
+    		if ( runningThread == null )
+    		{
+    			runningThread = new Thread(this);
+    			runningThread.start();
+    		}
+    	}
+    	
+    	public void stop()
+    	{
+    		stop = true;
+    		
+    		if ( runningThread != null )
+    		{
+    			runningThread.interrupt();
+    			runningThread = null;
+    		}
+    	}
+    	
+		@Override
+		public void run()
+		{
+			try
+			{
+				while(!stop)
+				{
+					RolloutRequest request = queuedRollouts.take();
+					
+					try
+					{
+						request.process(stateMachine);
+					}
+					catch (TransitionDefinitionException e)
+					{
+						e.printStackTrace();
+					}
+					catch (MoveDefinitionException e)
+					{
+					e.printStackTrace();
+					}
+					catch (GoalDefinitionException e)
+					{
+						e.printStackTrace();
+					}
+				}
+			}
+	        catch (InterruptedException ie)
+	        {
+	             // This would be a surprise.
+	        }
+		}
+    }
+    
+    private class RolloutRequest
+    {
+    	public TreeNodeRef								node;
+    	public ForwardDeadReckonInternalMachineState	state;
+    	public double									score;
+	    
+	    public  void process(TestForwardDeadReckonPropnetStateMachine stateMachine) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
+	    {
+			ProfileSection methodSection = new ProfileSection("TreeNode.rollOut");
+			try
+			{
+				score = 0;
+				for(int i = 0; i < rolloutSampleSize; i++)
+				{
+					//System.out.println("Perform rollout from state: " + state);
+		        	numNonTerminalRollouts++;
+		        	stateMachine.getDepthChargeResult(state, ourRole, 1000, null, null);
+		        	
+		        	score += netScore(stateMachine, null);
+				}
+				
+				score /= rolloutSampleSize;
+				
+				completedRollouts.add(this);
+			}
+			finally
+			{
+				methodSection.exitScope();
+			}
+	    }
+    }
     
     private class TreeNodeRef
     {
@@ -62,7 +169,66 @@ public class Qixote extends SampleGamer {
     		this.seq = node.seq;
     	}
     }
+	
+	private int netScore(TestForwardDeadReckonPropnetStateMachine stateMachine, ForwardDeadReckonInternalMachineState state) throws GoalDefinitionException
+	{
+		ProfileSection methodSection = new ProfileSection("TreeNode.netScore");
+		try
+		{
+        	int result = 0;
+        	int enemyRoleCount = 0;
+        	int enemyScore = 0;
+        	for(Role role : stateMachine.getRoles())
+        	{
+        		if ( !role.equals(ourRole) )
+        		{
+        			enemyRoleCount++;
+        			enemyScore += stateMachine.getGoalNative(state, role);
+        		}
+        		else
+        		{
+        			result = stateMachine.getGoalNative(state, role);
+        		}
+        	}
+        	
+        	return (result - enemyScore + 100*enemyRoleCount)/(enemyRoleCount+1);
+		}
+		finally
+		{
+			methodSection.exitScope();
+		}
+	}
     
+    private void processCompletedRollouts()
+    {
+    	while(!completedRollouts.isEmpty())
+    	{
+    		RolloutRequest request = completedRollouts.remove();
+    		TreeNode 	   node = request.node.node;
+    		
+    		if ( request.node.seq == node.seq && !node.complete )
+    		{
+		        node.updateStats(request.score, false);
+	    		processNodeCompletions();
+    		}
+    		
+    		numCompletedRollouts++;
+    	}
+    }
+	
+	private void processNodeCompletions()
+	{
+		while(!completedNodeQueue.isEmpty())
+		{
+			TreeNode node = completedNodeQueue.remove(0);
+			
+			if ( !node.freed )
+			{
+				node.processCompletion();
+			}
+		}
+	}
+  
 	private TreeNode allocateNode(TestForwardDeadReckonPropnetStateMachine underlyingStateMachine, ForwardDeadReckonInternalMachineState state, Move ourMove, TreeNode parent) throws GoalDefinitionException
 	{
 		ProfileSection methodSection = new ProfileSection("allocatNode");
@@ -183,9 +349,14 @@ public class Qixote extends SampleGamer {
 			if ( ourMove == null )
 			{
 				isTerminal = underlyingStateMachine.isTerminal(state);
+				//boolean isTerminal2 = rolloutStateMachine.isTerminal(state);
+				//if ( isTerminal != isTerminal2 )
+				//{
+				//	System.out.println("Instance disagrement on terminality");
+				//}
 				if ( isTerminal )
 				{
-					averageScore = 100 - netScore(state);
+					averageScore = 100 - netScore(underlyingStateMachine, state);
 					
 					//System.out.println("Reached terminal state with score " + averageScore + " : "+ state);
 				}
@@ -193,19 +364,6 @@ public class Qixote extends SampleGamer {
 			else
 			{
 				isTerminal = false;
-			}
-		}
-		
-		private void processNodeCompletions()
-		{
-			while(!completedNodeQueue.isEmpty())
-			{
-				TreeNode node = completedNodeQueue.remove(0);
-				
-				if ( !node.freed )
-				{
-					node.processCompletion();
-				}
 			}
 		}
 		
@@ -567,35 +725,6 @@ public class Qixote extends SampleGamer {
 			freeNode();
 		}
 		
-		private int netScore(ForwardDeadReckonInternalMachineState state) throws GoalDefinitionException
-		{
-			ProfileSection methodSection = new ProfileSection("TreeNode.netScore");
-			try
-			{
-	        	int result = 0;
-	        	int enemyRoleCount = 0;
-	        	int enemyScore = 0;
-	        	for(Role role : underlyingStateMachine.getRoles())
-	        	{
-	        		if ( !role.equals(ourRole) )
-	        		{
-	        			enemyRoleCount++;
-	        			enemyScore += underlyingStateMachine.getGoalNative(state, role);
-	        		}
-	        		else
-	        		{
-	        			result = underlyingStateMachine.getGoalNative(state, role);
-	        		}
-	        	}
-	        	
-	        	return (result - enemyScore + 100*enemyRoleCount)/(enemyRoleCount+1);
-			}
-			finally
-			{
-				methodSection.exitScope();
-			}
-		}
-		
 		public TreeNode findNode(ForwardDeadReckonInternalMachineState targetState)
 		{
 			if ( state.equals(targetState) && ourMove == null )
@@ -810,17 +939,17 @@ public class Qixote extends SampleGamer {
 		        	//	from it so it's value gets a weight increase via back propagation
 		        	newNode = cur;
 		        }
-		        double value = newNode.rollOut();
-		        newNode.updateStats(value);
-	    		//validateAll();
-		        //for (TreeNode node : visited) {
-		        //    node.updateStats(value);
-		        //}
-	    		//validateAll();
-	    		
-	    		processNodeCompletions();
-	    		
-	    		//validateAll();
+		        
+		        double score = newNode.rollOut();
+		        if ( score != -Double.MAX_VALUE )
+		        {
+		        	newNode.updateStats(score, true);
+		    		processNodeCompletions();
+		        }
+		        else
+		        {
+		        	newNode.updateVisitCounts();
+		        }
 			}
 			finally
 			{
@@ -840,6 +969,11 @@ public class Qixote extends SampleGamer {
 			    	{
 			    		//System.out.println("Expand our moves from state: " + state);
 			    		List<Move> moves = underlyingStateMachine.getLegalMoves(state, ourRole);
+			    		//List<Move> moves2 = rolloutStateMachine.getLegalMoves(state, ourRole);
+			    		//if ( !moves.equals(moves2))
+			    		//{
+			    		//	System.out.println("Instance disagreement");
+			    		//}
 			    		TreeNodeRef[] newChildren = new TreeNodeRef[moves.size()];
 			    		
 			    		if ( children != null )
@@ -877,7 +1011,13 @@ public class Qixote extends SampleGamer {
 			    		{
 			    			if ( !role.equals(ourRole) )
 			    			{
-			    				legalMoves.add(underlyingStateMachine.getLegalMoves(state, role));
+					    		List<Move> moves = underlyingStateMachine.getLegalMoves(state, role);
+					    		//List<Move> moves2 = rolloutStateMachine.getLegalMoves(state, role);
+					    		//if ( !moves.equals(moves2))
+					    		//{
+					    		//	System.out.println("Instance disagreement");
+					    		//}
+			    				legalMoves.add(moves);
 			    			}
 			    			else
 			    			{
@@ -1127,6 +1267,10 @@ public class Qixote extends SampleGamer {
 	    		}
 	    	}
 	    	
+	    	if ( result == null )
+	    	{
+	    		System.out.println("No move found!");
+	    	}
 	    	return result;
 	    }
 
@@ -1151,37 +1295,43 @@ public class Qixote extends SampleGamer {
 	        	{
 	        		System.out.println("Unexpected rollout state");
 	        	}
-				ProfileSection methodSection = new ProfileSection("TreeNode.rollOut");
-				try
-				{
-					double score = 0;
-					for(int i = 0; i < rolloutSampleSize; i++)
-					{
-			        	numNonTerminalRollouts++;
-			        	underlyingStateMachine.getDepthChargeResult(state, ourRole, 1000, null, null);
-			        	
-			        	score += netScore(null);
-					}
-					
-					return score/rolloutSampleSize;
-				}
-				finally
-				{
-					methodSection.exitScope();
-				}
+	        	
+	        	RolloutRequest request = new RolloutRequest();
+	        	request.state = state;
+	        	request.node = getRef();
+	        	
+	        	numQueuedRollouts++;
+	        	queuedRollouts.add(request);
+	        	
+	        	return -Double.MAX_VALUE;
 	        }
 	    }
 
-	    public void updateStats(double value) {
+	    public void updateVisitCounts()
+	    {
+	    	numVisits++;
+	    	
+	    	for(TreeNode parent : parents)
+	    	{
+	    		parent.updateVisitCounts();
+	    	}
+	    }
+	    
+	    public void updateStats(double value, boolean updateVisitCounts) {
 	    	double oldAverageScore = averageScore;
 	    	
 	    	if ( ourMove == null )
 	    	{
-	    		averageScore = (averageScore*numVisits + 100 - value)/++numVisits;
+	    		averageScore = (averageScore*numVisits + 100 - value)/(numVisits+1);
 	    	}
 	    	else
 	    	{
-	    		averageScore = (averageScore*numVisits + value)/++numVisits;
+	    		averageScore = (averageScore*numVisits + value)/(numVisits+1);
+	    	}
+	    	
+	    	if ( updateVisitCounts)
+	    	{
+	    		numVisits++;
 	    	}
 	    	
 	    	if ( complete && averageScore != oldAverageScore )
@@ -1194,7 +1344,7 @@ public class Qixote extends SampleGamer {
 	    	
 	    	for(TreeNode parent : parents)
 	    	{
-	    		parent.updateStats(value);
+	    		parent.updateStats(value, updateVisitCounts);
 	    	}
 	    }
 	}
@@ -1244,6 +1394,10 @@ public class Qixote extends SampleGamer {
 		largestUsedIndex = -1;
 		positions.clear();
 		freeList.clear();
+		queuedRollouts.clear();
+		completedRollouts.clear();
+		numQueuedRollouts = 0;
+		numCompletedRollouts = 0;
 	}
 	
 	private TestForwardDeadReckonPropnetStateMachine underlyingStateMachine;
@@ -1251,17 +1405,26 @@ public class Qixote extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Quixote 0.22";
+		return "Quixote 0.23";
 	}
 	
 	@Override
 	public StateMachine getInitialStateMachine() {
+	    if ( rolloutProcessors != null )
+	    {
+	    	for(int i = 0; i < numRolloutThreads; i++)
+	    	{
+	    		rolloutProcessors[i].stop();
+	    	}
+	    	
+	    	rolloutProcessors = null;
+	    }
 		GamerLogger.setFileToDisplay("StateMachine");
 		//ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
-		underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine();
+		underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine(1+numRolloutThreads);
 		
 		emptyTree();
-		
+
 		return underlyingStateMachine;
 	}
 	
@@ -1275,6 +1438,17 @@ public class Qixote extends SampleGamer {
 	    numNonTerminalRollouts = 0;
 	    numTerminalRollouts = 0;
 		
+	    if ( rolloutProcessors == null )
+	    {
+	    	rolloutProcessors = new RolloutProcessor[numRolloutThreads];
+	    	
+	    	for(int i = 0; i < numRolloutThreads; i++)
+	    	{
+	    		rolloutProcessors[i] = new RolloutProcessor(underlyingStateMachine.createInstance());
+	    		rolloutProcessors[i].start();
+	    	}
+	    }
+	    
 		ourRole = getRole();
 		
 		ForwardDeadReckonInternalMachineState currentState = underlyingStateMachine.createInternalState(getCurrentState());
@@ -1318,14 +1492,30 @@ public class Qixote extends SampleGamer {
 			root.complete = false;
 			numCompletedBranches--;
 		}
-		int validationCount = 0;
+		//int validationCount = 0;
 		
 		while(System.currentTimeMillis() < finishBy)
 		{
 			//validateAll();
-			validationCount++;
-			root.selectAction();
+			//validationCount++;
+			int numOutstandingRollouts = numQueuedRollouts - numCompletedRollouts;
+			
+			if ( numOutstandingRollouts < maxOutstandingRolloutRequests )
+			{
+				root.selectAction();
+			}
+			//else
+			//{
+				// TEMP - do this on the main thread for initial debugging
+			//	while( !queuedRollouts.isEmpty() )
+			//	{
+			//		RolloutRequest request = queuedRollouts.remove();
+					
+			//		request.process(rolloutStateMachine);
+			//	}
+			//}
 			//validateAll();
+			processCompletedRollouts();
 			
 			while ( numUsedNodes > transpositinoTableMaxDesiredSizeAtTurnEnd )
 			{

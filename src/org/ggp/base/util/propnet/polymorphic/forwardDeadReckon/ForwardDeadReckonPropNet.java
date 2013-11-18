@@ -29,40 +29,44 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 	 * @param components
 	 *            A list of Components.
 	 */
-	private ForwardDeadReckonComponent[] propagationQueue = null;
-	private ForwardDeadReckonComponent[] alternatePropagationQueue = null;
-	private int propagationQueueIndex;
-	private ForwardDeadReckonLegalMoveSet activeLegalMoves;
-	private ForwardDeadReckonInternalMachineState activeBasePropositions;
+	private ForwardDeadReckonComponent[][] propagationQueue = null;
+	private ForwardDeadReckonComponent[][] alternatePropagationQueue = null;
+	private int[] propagationQueueIndex;
+	private ForwardDeadReckonLegalMoveSet[] activeLegalMoves;
+	private ForwardDeadReckonInternalMachineState[] activeBasePropositions;
 	private ForwardDeadReckonInternalMachineState alwaysTrueBasePropositions;
 	private boolean useDeadReckonerForLegal;
 	private final int legalPropsPerRoleThreasholdForDeadReckon = 20;
+	private int numInstances;
 	
 	public ForwardDeadReckonPropNet(PropNet sourcePropnet, PolymorphicComponentFactory componentFactory)
 	{
 		super(sourcePropnet, componentFactory);
 		
-		propagationQueue = new ForwardDeadReckonComponent[getComponents().size()];
-		alternatePropagationQueue = new ForwardDeadReckonComponent[getComponents().size()];
-		propagationQueueIndex = 0;
+		propagationQueue = new ForwardDeadReckonComponent[1][getComponents().size()];
+		alternatePropagationQueue = new ForwardDeadReckonComponent[1][getComponents().size()];
+		propagationQueueIndex = new int[1];
+		propagationQueueIndex[0] = 0;
 	}
 	
 	public ForwardDeadReckonPropNet(PolymorphicPropNet sourcePropnet, PolymorphicComponentFactory componentFactory)
 	{
 		super(sourcePropnet, componentFactory);
 		
-		propagationQueue = new ForwardDeadReckonComponent[getComponents().size()];
-		alternatePropagationQueue = new ForwardDeadReckonComponent[getComponents().size()];
-		propagationQueueIndex = 0;
+		propagationQueue = new ForwardDeadReckonComponent[1][getComponents().size()];
+		alternatePropagationQueue = new ForwardDeadReckonComponent[1][getComponents().size()];
+		propagationQueueIndex = new int[1];
+		propagationQueueIndex[0] = 0;
 	}
 	
 	public ForwardDeadReckonPropNet(List<Role> roles, Set<PolymorphicComponent> components, PolymorphicComponentFactory componentFactory)
 	{
 		super(roles, components, componentFactory);
 		
-		propagationQueue = new ForwardDeadReckonComponent[getComponents().size()];
-		alternatePropagationQueue = new ForwardDeadReckonComponent[getComponents().size()];
-		propagationQueueIndex = 0;
+		propagationQueue = new ForwardDeadReckonComponent[1][getComponents().size()];
+		alternatePropagationQueue = new ForwardDeadReckonComponent[1][getComponents().size()];
+		propagationQueueIndex = new int[1];
+		propagationQueueIndex[0] = 0;
 	}
 	
 	private void setUpActivePropositionSets(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet)
@@ -78,48 +82,58 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 		useDeadReckonerForLegal = (numTotalLegalProps > numRoles*legalPropsPerRoleThreasholdForDeadReckon);
 		if ( useDeadReckonerForLegal )
 		{
-			activeLegalMoves = new ForwardDeadReckonLegalMoveSet(getRoles());
-			int roleIndex = 0;
+			activeLegalMoves = new ForwardDeadReckonLegalMoveSet[numInstances];
 			
-			for(Role role : getRoles())
+			for(int instanceId = 0; instanceId < numInstances; instanceId++)
 			{
-				PolymorphicProposition[] legalProps = getLegalPropositions().get(role);
+				activeLegalMoves[instanceId] = new ForwardDeadReckonLegalMoveSet(getRoles());
+				int roleIndex = 0;
 				
-				for(PolymorphicProposition p : legalProps)
+				for(Role role : getRoles())
 				{
-					ForwardDeadReckonProposition pfdr = (ForwardDeadReckonProposition)p;
-					ForwardDeadReckonLegalMoveInfo info = new ForwardDeadReckonLegalMoveInfo();
+					PolymorphicProposition[] legalProps = getLegalPropositions().get(role);
 					
-					info.move = new Move(pfdr.getName().getBody().get(1));
-					info.inputProposition = getLegalInputMap().get(p);
-					info.roleIndex = roleIndex;
-					info.masterIndex = -1;
+					for(PolymorphicProposition p : legalProps)
+					{
+						ForwardDeadReckonProposition pfdr = (ForwardDeadReckonProposition)p;
+						ForwardDeadReckonLegalMoveInfo info = new ForwardDeadReckonLegalMoveInfo();
+						
+						info.move = new Move(pfdr.getName().getBody().get(1));
+						info.inputProposition = (ForwardDeadReckonProposition)getLegalInputMap().get(p);
+						info.roleIndex = roleIndex;
+						info.masterIndex = -1;
+						
+						pfdr.setTransitionSet(info, instanceId, activeLegalMoves[instanceId]);
+					}
 					
-					pfdr.setTransitionSet(info, activeLegalMoves);
+					roleIndex++;
 				}
-				
-				roleIndex++;
 			}
 		}
 		
-		activeBasePropositions = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+		activeBasePropositions = new ForwardDeadReckonInternalMachineState[numInstances];
 		alwaysTrueBasePropositions = new ForwardDeadReckonInternalMachineState(masterInfoSet);
 		
-		for(PolymorphicProposition p : getBasePropositions().values())
+		for(int instanceId = 0; instanceId < numInstances; instanceId++)
 		{
-			PolymorphicComponent input = p.getSingleInput();
-			
-			if ( input instanceof ForwardDeadReckonTransition)
-			{
-				ForwardDeadReckonTransition t = (ForwardDeadReckonTransition)input;
+			activeBasePropositions[instanceId] = new ForwardDeadReckonInternalMachineState(masterInfoSet);
 				
-				t.setTransitionSet(((ForwardDeadReckonProposition)p).getCrossReferenceInfo(), activeBasePropositions);
-			}
-			else if ( input instanceof PolymorphicConstant )
+			for(PolymorphicProposition p : getBasePropositions().values())
 			{
-				if ( input.getValue() )
+				PolymorphicComponent input = p.getSingleInput();
+				
+				if ( input instanceof ForwardDeadReckonTransition)
 				{
-					alwaysTrueBasePropositions.add(((ForwardDeadReckonProposition)p).getCrossReferenceInfo());
+					ForwardDeadReckonTransition t = (ForwardDeadReckonTransition)input;
+					
+					t.setTransitionSet(((ForwardDeadReckonProposition)p).getCrossReferenceInfo(), instanceId, activeBasePropositions[instanceId]);
+				}
+				else if ( instanceId == 0 && input instanceof PolymorphicConstant )
+				{
+					if ( input.getValue() )
+					{
+						alwaysTrueBasePropositions.add(((ForwardDeadReckonProposition)p).getCrossReferenceInfo());
+					}
 				}
 			}
 		}
@@ -127,14 +141,31 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 	
 	public void crystalize(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet)
 	{
-		super.crystalize();
-		
 		for(PolymorphicComponent c : getComponents())
 		{
-			((ForwardDeadReckonComponent)c).setPropnet(this);
+			ForwardDeadReckonComponent fdrc = (ForwardDeadReckonComponent)c;
+			
+			fdrc.crystalize(numInstances);
+			fdrc.setPropnet(this);
 		}
 		
 		setUpActivePropositionSets(masterInfoSet);
+		
+		propagationQueue = new ForwardDeadReckonComponent[numInstances][getComponents().size()];
+		alternatePropagationQueue = new ForwardDeadReckonComponent[numInstances][getComponents().size()];
+		propagationQueueIndex = new int[numInstances];
+		
+		for(int instanceId = 0; instanceId < numInstances; instanceId++)
+		{
+			propagationQueueIndex[instanceId] = 0;
+		}
+	}
+	
+	public void crystalize(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet, int numInstances)
+	{
+		this.numInstances = numInstances;
+		
+		crystalize(masterInfoSet);
 	}
 	
 	public boolean useDeadReckonerForLegal()
@@ -142,43 +173,47 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 		return useDeadReckonerForLegal;
 	}
 	
-	public ForwardDeadReckonLegalMoveSet getActiveLegalProps()
+	public ForwardDeadReckonLegalMoveSet getActiveLegalProps(int instanceId)
 	{
-		return activeLegalMoves;
+		return activeLegalMoves[instanceId];
 	}
 	
-	public ForwardDeadReckonInternalMachineState getActiveBaseProps()
+	public ForwardDeadReckonInternalMachineState getActiveBaseProps(int instanceId)
 	{
-		return activeBasePropositions;
+		return activeBasePropositions[instanceId];
 	}
 	
 	public void reset(boolean fullEquilibrium)
 	{
-		activeBasePropositions.clear();
-		activeBasePropositions.merge(alwaysTrueBasePropositions);
-		
-		if ( activeLegalMoves != null )
+		for(int instanceId = 0; instanceId < numInstances; instanceId++)
 		{
-			activeLegalMoves.clear();
-		}
-		for(PolymorphicComponent c : getComponents())
-		{
-			((ForwardDeadReckonComponent) c).reset();
-		}
-		//	Establish full reset state if required
-		if ( fullEquilibrium )
-		{
+			activeBasePropositions[instanceId].clear();
+			activeBasePropositions[instanceId].merge(alwaysTrueBasePropositions);
+			
+			if ( activeLegalMoves != null )
+			{
+				activeLegalMoves[instanceId].clear();
+			}
+
 			for(PolymorphicComponent c : getComponents())
 			{
-				((ForwardDeadReckonComponent) c).queuePropagation();
+				((ForwardDeadReckonComponent) c).reset(instanceId);
 			}
-			propagate();
+			//	Establish full reset state if required
+			if ( fullEquilibrium )
+			{
+				for(PolymorphicComponent c : getComponents())
+				{
+					((ForwardDeadReckonComponent) c).queuePropagation(instanceId);
+				}
+				propagate(instanceId);
+			}
 		}
 	}
 	
-	public void addToPropagateQueue(ForwardDeadReckonComponent component)
+	public void addToPropagateQueue(ForwardDeadReckonComponent component, int instanceId)
 	{
-		propagationQueue[propagationQueueIndex++] = component;
+		propagationQueue[instanceId][propagationQueueIndex[instanceId]++] = component;
 	}
 	
 	private void validate()
@@ -188,26 +223,26 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 			((ForwardDeadReckonComponent)c).validate();
 		}
 	}
-	public void propagate()
+	public void propagate(int instanceId)
 	{
 		ProfileSection methodSection = new ProfileSection("ForwardDeadReckonPropNet.propagate");
 		try
 		{
-			while(propagationQueueIndex > 0)
+			while(propagationQueueIndex[instanceId] > 0)
 			{
 				//validate();
 				
-				ForwardDeadReckonComponent[] queue = propagationQueue;
-				int queueSize = propagationQueueIndex;
+				ForwardDeadReckonComponent[] queue = propagationQueue[instanceId];
+				int queueSize = propagationQueueIndex[instanceId];
 				
-				propagationQueue = alternatePropagationQueue;
-				alternatePropagationQueue = queue;
+				propagationQueue[instanceId] = alternatePropagationQueue[instanceId];
+				alternatePropagationQueue[instanceId] = queue;
 				
-				propagationQueueIndex = 0;
+				propagationQueueIndex[instanceId] = 0;
 				
 				for(int i = 0; i < queueSize; i++)
 				{
-					queue[i].propagate();
+					queue[i].propagate(instanceId);
 				}
 			}
 		}
