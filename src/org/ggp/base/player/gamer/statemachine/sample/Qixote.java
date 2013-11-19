@@ -11,6 +11,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.util.logging.GamerLogger;
@@ -39,14 +40,18 @@ public class Qixote extends SampleGamer {
     private int numUsedNodes = 0;
     private int numIncompleteNodes = 0;
     private int numCompletedBranches = 0;
+    private int numWinningLinesSeen = 0;
+    private int numLosingLinesSeen = 0;
     
     private Map<ForwardDeadReckonInternalMachineState, TreeNode> positions = new HashMap<ForwardDeadReckonInternalMachineState,TreeNode>();
 
-    private final int rolloutSampleSize = 4;
+    private int rolloutSampleSize = 5;
+    private final int minRolloutSampleSize = 1;
+    private final int maxRolloutSampleSize = 500;
     private final int transpositionTableSize = 500000;
     private final int transpositinoTableMaxDesiredSizeAtTurnEnd = transpositionTableSize - 100;
     private final int transpositionTableMaxSizeAtProbeEnd = transpositionTableSize - 100;
-    private final int maxOutstandingRolloutRequests = 4;
+    private final int maxOutstandingRolloutRequests = 8;
     private final int numRolloutThreads = 4;
     private TreeNode[] transpositionTable = new TreeNode[transpositionTableSize];
     private int nextSeq = 0;
@@ -55,7 +60,7 @@ public class Qixote extends SampleGamer {
     private int sweepInstance = 0;
     private List<TreeNode> completedNodeQueue = new LinkedList<TreeNode>();
     private LinkedBlockingQueue<RolloutRequest>	queuedRollouts = new LinkedBlockingQueue<RolloutRequest>();
-    private ConcurrentLinkedQueue<RolloutRequest>	completedRollouts = new ConcurrentLinkedQueue<RolloutRequest>();
+    private LinkedBlockingQueue<RolloutRequest>	completedRollouts = new LinkedBlockingQueue<RolloutRequest>();
     private int numQueuedRollouts = 0;
     private int numCompletedRollouts = 0;
     private RolloutProcessor[] rolloutProcessors = null;
@@ -66,6 +71,7 @@ public class Qixote extends SampleGamer {
     	private boolean stop = false;
     	private TestForwardDeadReckonPropnetStateMachine stateMachine;
     	private Thread runningThread = null;
+    	private AtomicInteger utilization = new AtomicInteger(1000);
     	
     	public RolloutProcessor(TestForwardDeadReckonPropnetStateMachine stateMachine)
     	{
@@ -92,6 +98,11 @@ public class Qixote extends SampleGamer {
     		}
     	}
     	
+    	public int getUtilization()
+    	{
+    		return utilization.get()/10;
+    	}
+    	
 		@Override
 		public void run()
 		{
@@ -99,7 +110,22 @@ public class Qixote extends SampleGamer {
 			{
 				while(!stop)
 				{
-					RolloutRequest request = queuedRollouts.take();
+					RolloutRequest request = queuedRollouts.poll();
+					if ( request == null )
+					{
+						int util = utilization.get();
+						utilization.set((util*9)/10);
+						//System.out.println("decreased utilization to " + (util*99)/100);
+						request = queuedRollouts.take();
+					}
+					else
+					{
+						utilization.getAndAdd(100);
+						//System.out.println("increased utilization to " + utilization.get());
+						//System.out.println("Queue size is " + queuedRollouts.size());
+					}
+					
+					//System.out.println("Queue size is " + queuedRollouts.size());
 					
 					try
 					{
@@ -131,6 +157,7 @@ public class Qixote extends SampleGamer {
     	public TreeNodeRef								node;
     	public ForwardDeadReckonInternalMachineState	state;
     	public double									score;
+    	public int										sampleSize;
 	    
 	    public  void process(TestForwardDeadReckonPropnetStateMachine stateMachine) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
 	    {
@@ -138,16 +165,15 @@ public class Qixote extends SampleGamer {
 			try
 			{
 				score = 0;
-				for(int i = 0; i < rolloutSampleSize; i++)
+				for(int i = 0; i < sampleSize; i++)
 				{
 					//System.out.println("Perform rollout from state: " + state);
-		        	numNonTerminalRollouts++;
 		        	stateMachine.getDepthChargeResult(state, ourRole, 1000, null, null);
 		        	
 		        	score += netScore(stateMachine, null);
 				}
 				
-				score /= rolloutSampleSize;
+				score /= sampleSize;
 				
 				completedRollouts.add(this);
 			}
@@ -199,21 +225,31 @@ public class Qixote extends SampleGamer {
 		}
 	}
     
-    private void processCompletedRollouts()
+    private void processCompletedRollouts(boolean block) throws InterruptedException
     {
-    	while(!completedRollouts.isEmpty())
+    	RolloutRequest request;
+    	
+    	do
     	{
-    		RolloutRequest request = completedRollouts.remove();
-    		TreeNode 	   node = request.node.node;
+    		request = (block ? completedRollouts.take() : completedRollouts.poll());
     		
-    		if ( request.node.seq == node.seq && !node.complete )
+    		if ( request != null )
     		{
-		        node.updateStats(request.score, false);
-	    		processNodeCompletions();
+	    		TreeNode 	   node = request.node.node;
+	    		
+	    		if ( request.node.seq == node.seq && !node.complete )
+	    		{
+	    			numNonTerminalRollouts += request.sampleSize;
+	    			
+			        node.updateStats(request.score, request.sampleSize, false);
+		    		processNodeCompletions();
+	    		}
+	    		
+	    		numCompletedRollouts++;
     		}
     		
-    		numCompletedRollouts++;
-    	}
+    		block = false;
+    	} while(request != null);
     }
 	
 	private void processNodeCompletions()
@@ -319,7 +355,7 @@ public class Qixote extends SampleGamer {
 
 	    private int seq = -1;
 		private Move ourMove;
-		private int numVisits = 0;
+		private double numVisits = 0;
 		private double averageScore;
 		private ForwardDeadReckonInternalMachineState state;
 		private boolean isTerminal = false;
@@ -358,6 +394,14 @@ public class Qixote extends SampleGamer {
 				{
 					averageScore = 100 - netScore(underlyingStateMachine, state);
 					
+					if ( averageScore < 0.5 )
+					{
+						numWinningLinesSeen++;
+					}
+					else if ( averageScore > 99.5 )
+					{
+						numLosingLinesSeen++;
+					}
 					//System.out.println("Reached terminal state with score " + averageScore + " : "+ state);
 				}
 			}
@@ -901,12 +945,12 @@ public class Qixote extends SampleGamer {
 			{
 				completedNodeQueue.clear();
 				
-		        List<TreeNode> visited = new LinkedList<TreeNode>();
+		        //List<TreeNode> visited = new LinkedList<TreeNode>();
 		        TreeNode cur = this;
-		        visited.add(this);
+		        //visited.add(this);
 		        while (!cur.isUnexpanded()) {
 		            cur = cur.select();
-		            visited.add(cur);
+		            //visited.add(cur);
 		        }
 		        
 		        TreeNode newNode;
@@ -917,14 +961,14 @@ public class Qixote extends SampleGamer {
 			        if ( !cur.complete )
 			        {
 				        newNode = cur.select();
-				        visited.add(newNode);
+				        //visited.add(newNode);
 				        if ( newNode.ourMove != null )
 				        {
 				        	newNode.expand();
 				        	if ( !newNode.complete )
 				        	{
 					        	newNode = newNode.select();
-						        visited.add(newNode);
+						        //visited.add(newNode);
 				        	}
 				        }
 			        }
@@ -943,12 +987,12 @@ public class Qixote extends SampleGamer {
 		        double score = newNode.rollOut();
 		        if ( score != -Double.MAX_VALUE )
 		        {
-		        	newNode.updateStats(score, true);
+		        	newNode.updateStats(score, rolloutSampleSize, true);
 		    		processNodeCompletions();
 		        }
 		        else
 		        {
-		        	newNode.updateVisitCounts();
+		        	newNode.updateVisitCounts(rolloutSampleSize);
 		        }
 			}
 			finally
@@ -1179,7 +1223,7 @@ public class Qixote extends SampleGamer {
 						            	selectedIndex = -1;
 						            	break;
 						            }
-						            else
+						            else if ( !cr.node.complete )
 						            {
 							            double uctValue;
 							            if ( c.numVisits == 0 )
@@ -1214,6 +1258,10 @@ public class Qixote extends SampleGamer {
 	        	{
 	        		System.out.println("select on an unexpanded node!");
 	        	}
+	        	if ( trimmedChildren == 0 )
+	        	{
+	        		System.out.println("no selction found on untrimmed ndoe!");
+	        	}
 	        	//System.out.println("  select random");
 	        	//	pick at random.  If we pick one that has been trimmed re-expand it
 	        	//	FUTURE - can establish a bound on the trimmed UCT value to avoid
@@ -1229,6 +1277,10 @@ public class Qixote extends SampleGamer {
 		        	if ( selected.freed )
 		        	{
 		        		System.out.println("Selected freed node!");
+		        	}
+		        	if ( selected.complete )
+		        	{
+		        		System.out.println("Selected complete node from incompleete parent");
 		        	}
 	        	}
 	        }
@@ -1299,44 +1351,58 @@ public class Qixote extends SampleGamer {
 	        	RolloutRequest request = new RolloutRequest();
 	        	request.state = state;
 	        	request.node = getRef();
+	        	request.sampleSize = rolloutSampleSize;
 	        	
 	        	numQueuedRollouts++;
+	        	//System.out.println("Queue rollout request");
 	        	queuedRollouts.add(request);
 	        	
 	        	return -Double.MAX_VALUE;
 	        }
 	    }
 
-	    public void updateVisitCounts()
+	    public void updateVisitCounts(int sampleSize)
 	    {
-	    	numVisits++;
+	    	numVisits += sampleSize;
 	    	
 	    	for(TreeNode parent : parents)
 	    	{
-	    		parent.updateVisitCounts();
+	    		parent.updateVisitCounts(sampleSize);
 	    	}
 	    }
 	    
-	    public void updateStats(double value, boolean updateVisitCounts) {
-	    	double oldAverageScore = averageScore;
+	    public void updateStats(double value, int sampleSize, boolean updateVisitCounts)
+	    {
+	    	int adjustedSampleSize = sampleSize;
 	    	
-	    	if ( ourMove == null )
+	    	if ( !complete )
 	    	{
-	    		averageScore = (averageScore*numVisits + 100 - value)/(numVisits+1);
-	    	}
-	    	else
-	    	{
-	    		averageScore = (averageScore*numVisits + value)/(numVisits+1);
+	    		double weightedScore;
+	    		
+	    		if (value < 25)
+	    		{
+	    			//adjustedSampleSize *= 50;
+	    		}
+	    		
+		    	if ( ourMove == null )
+		    	{
+		    		weightedScore = (100-value)*adjustedSampleSize;
+		    		averageScore = (averageScore*numVisits + weightedScore)/(numVisits+adjustedSampleSize);
+		    	}
+		    	else
+		    	{
+		    		weightedScore = value*sampleSize;
+		    		averageScore = (averageScore*numVisits + weightedScore)/(numVisits+adjustedSampleSize);
+		    	}
 	    	}
 	    	
 	    	if ( updateVisitCounts)
 	    	{
-	    		numVisits++;
+	    		numVisits += sampleSize;
 	    	}
-	    	
-	    	if ( complete && averageScore != oldAverageScore )
+	    	else if ( adjustedSampleSize != sampleSize )
 	    	{
-	    		System.out.println("Unexpected update to complete node score");
+	    		numVisits += adjustedSampleSize - sampleSize;
 	    	}
 	    	
 	    	leastLikelyWinner = -1;
@@ -1344,7 +1410,7 @@ public class Qixote extends SampleGamer {
 	    	
 	    	for(TreeNode parent : parents)
 	    	{
-	    		parent.updateStats(value, updateVisitCounts);
+	    		parent.updateStats(value, sampleSize, updateVisitCounts);
 	    	}
 	    }
 	}
@@ -1405,7 +1471,7 @@ public class Qixote extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Quixote 0.23";
+		return "Quixote 0.24";
 	}
 	
 	@Override
@@ -1492,12 +1558,15 @@ public class Qixote extends SampleGamer {
 			root.complete = false;
 			numCompletedBranches--;
 		}
-		//int validationCount = 0;
 		
-		while(System.currentTimeMillis() < finishBy)
+		int loopCount = 0;
+		long utilizationSampleCount = 0;
+		long averageRolloutProcessorUtilization = 0;
+		
+		while(System.currentTimeMillis() < finishBy && !root.complete )
 		{
 			//validateAll();
-			//validationCount++;
+			loopCount++;
 			int numOutstandingRollouts = numQueuedRollouts - numCompletedRollouts;
 			
 			if ( numOutstandingRollouts < maxOutstandingRolloutRequests )
@@ -1515,12 +1584,53 @@ public class Qixote extends SampleGamer {
 			//	}
 			//}
 			//validateAll();
-			processCompletedRollouts();
+			try {
+				processCompletedRollouts(numOutstandingRollouts >= maxOutstandingRolloutRequests);
+			}
+			catch (InterruptedException e)
+			{
+				e.printStackTrace();
+				break;
+			}
+
+			if ( loopCount % (maxOutstandingRolloutRequests*16) == 0 )
+			{
+				int rolloutProcessorUtilization = 0;
+				for( int i = 0; i < numRolloutThreads; i++)
+				{
+					rolloutProcessorUtilization += rolloutProcessors[i].getUtilization();
+				}
+				rolloutProcessorUtilization /= numRolloutThreads;
+				if ( rolloutProcessorUtilization < 100 )
+				{
+					if ( rolloutSampleSize < maxRolloutSampleSize )
+					{
+						rolloutSampleSize++;
+						//System.out.println("Rollout process utilization " + rolloutProcessorUtilization + ": increasing sample size to " + rolloutSampleSize);
+					}
+				}
+				else if ( rolloutProcessorUtilization > 400 )
+				{
+					if ( rolloutSampleSize > minRolloutSampleSize )
+					{
+						rolloutSampleSize--;
+						//System.out.println("Rollout process utilization " + rolloutProcessorUtilization + ": decreasing sample size to " + rolloutSampleSize);
+					}
+				}
+				
+				averageRolloutProcessorUtilization += rolloutProcessorUtilization;
+				utilizationSampleCount++;
+			}
 			
 			while ( numUsedNodes > transpositinoTableMaxDesiredSizeAtTurnEnd )
 			{
 				root.disposeLeastLikelyNode();
 			}
+		}
+		
+		if ( utilizationSampleCount != 0 )
+		{
+			averageRolloutProcessorUtilization /= utilizationSampleCount;
 		}
 		
 		//validateAll();
@@ -1542,6 +1652,10 @@ public class Qixote extends SampleGamer {
 		System.out.println("Num terminal nodes revisited: " + numTerminalRollouts);
 		System.out.println("Num incomplete nodes: " + numIncompleteNodes);
 		System.out.println("Num completely explored branches: " + numCompletedBranches);
+		System.out.println("Num winning lines seen: " + numWinningLinesSeen);
+		System.out.println("Num losing lines seen: " + numLosingLinesSeen);
+		System.out.println("Average rollout utilization: " + averageRolloutProcessorUtilization );
+		System.out.println("Current rollout sample size: " + rolloutSampleSize );
 		
 		if ( ProfilerContext.getContext() != null )
 		{
