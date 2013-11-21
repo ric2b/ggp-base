@@ -63,6 +63,19 @@ public class ForwardDeadReckonLegalMoveSet {
 		
 	}
 	
+	public ForwardDeadReckonLegalMoveSet(ForwardDeadReckonLegalMoveSet master)
+	{
+		masterList = master.masterList;
+		roles = master.roles;
+		contents = new BitSet[roles.length];
+		
+		int i = 0;
+		for(Role role : roles)
+		{
+			contents[i++] = new BitSet();
+		}
+	}
+		
 	public ForwardDeadReckonLegalMoveSet(List<Role> roles)
 	{
 		masterList = new ArrayList<ForwardDeadReckonLegalMoveInfo>();
@@ -101,6 +114,14 @@ public class ForwardDeadReckonLegalMoveSet {
 		if ( info.masterIndex != -1 )
 		{
 			contents[info.roleIndex].clear(info.masterIndex);
+		}
+	}
+	
+	public void merge(ForwardDeadReckonLegalMoveSet other)
+	{
+		for(int i = 0; i < contents.length; i++)
+		{
+			contents[i].or(other.contents[i]);
 		}
 	}
 	

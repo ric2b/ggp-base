@@ -86,7 +86,7 @@ public class GamerConfiguration {
         }
         
         if(!foundProfile) {
-            nMemoryForGamer = 1000;
+            nMemoryForGamer = 8000;
             strProfileName = "Default";
         }
         

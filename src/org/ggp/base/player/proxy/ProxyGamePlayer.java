@@ -334,7 +334,9 @@ public final class ProxyGamePlayer extends Thread implements Subject
 	                // Wait the appropriate amount of time for the request.
 					proxyProcessRequest(request, receptionTime);
 				} else {
-					receivedClientMove = true;					
+					receivedClientMove = true;
+					
+					latestProxiedResponse = latestProxiedResponse.replace(theDefaultGamer.getName(), gamerName);
 				}
 					
 				// Get the latest response, and complain if it's the default response, or isn't a valid response.
@@ -459,6 +461,7 @@ public final class ProxyGamePlayer extends Thread implements Subject
 	    String theirTag = in.theMessage.substring(0,5);
 	    String theirMessage = in.theMessage.substring(5);
 	    
+	    //System.out.println("Received message: " + in.theMessage);
 	    // Ignore their message unless it has an up-to-date move code.
 	    if(!(in.messageCode == currentMoveCode)) {
 	        if(currentMoveCode > 0)

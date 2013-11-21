@@ -3,6 +3,7 @@ package org.ggp.base.player.gamer.statemachine.sample;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +15,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
+import org.ggp.base.player.proxy.WorkingResponseSelectedEvent;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.profile.ProfilerContext;
@@ -42,13 +44,15 @@ public class Qixote extends SampleGamer {
     private int numCompletedBranches = 0;
     private int numWinningLinesSeen = 0;
     private int numLosingLinesSeen = 0;
+    private int numSelectionsThroughIncompleteParent = 0;
     
     private Map<ForwardDeadReckonInternalMachineState, TreeNode> positions = new HashMap<ForwardDeadReckonInternalMachineState,TreeNode>();
 
     private int rolloutSampleSize = 5;
     private final int minRolloutSampleSize = 1;
     private final int maxRolloutSampleSize = 500;
-    private final int transpositionTableSize = 500000;
+    private final int transpositionTableSize = 2000000;
+    private final double explorationBias = 1.414;
     private final int transpositinoTableMaxDesiredSizeAtTurnEnd = transpositionTableSize - 100;
     private final int transpositionTableMaxSizeAtProbeEnd = transpositionTableSize - 100;
     private final int maxOutstandingRolloutRequests = 8;
@@ -93,7 +97,15 @@ public class Qixote extends SampleGamer {
     		
     		if ( runningThread != null )
     		{
+    			System.out.println("Stopping processor " + hashCode());
     			runningThread.interrupt();
+    			try {
+					runningThread.join();
+	    			System.out.println("Stopped processor " + hashCode());
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
     			runningThread = null;
     		}
     	}
@@ -108,6 +120,7 @@ public class Qixote extends SampleGamer {
 		{
 			try
 			{
+				System.out.println("Starting processor thread " + runningThread);
 				while(!stop)
 				{
 					RolloutRequest request = queuedRollouts.poll();
@@ -143,11 +156,15 @@ public class Qixote extends SampleGamer {
 					{
 						e.printStackTrace();
 					}
+					catch(RuntimeException e)
+					{
+						e.printStackTrace();
+					}
 				}
 			}
 	        catch (InterruptedException ie)
 	        {
-	             // This would be a surprise.
+	             //Implies stop requested
 	        }
 		}
     }
@@ -158,6 +175,7 @@ public class Qixote extends SampleGamer {
     	public ForwardDeadReckonInternalMachineState	state;
     	public double									score;
     	public int										sampleSize;
+    	public List<TreeNode>							path;
 	    
 	    public  void process(TestForwardDeadReckonPropnetStateMachine stateMachine) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
 	    {
@@ -194,6 +212,18 @@ public class Qixote extends SampleGamer {
     		this.node = node;
     		this.seq = node.seq;
     	}
+    	
+    	public TreeNode deref()
+    	{
+    		if ( seq == node.seq )
+    		{
+    			return node;
+    		}
+    		else
+    		{
+    			return null;
+    		}
+    	}
     }
 	
 	private int netScore(TestForwardDeadReckonPropnetStateMachine stateMachine, ForwardDeadReckonInternalMachineState state) throws GoalDefinitionException
@@ -225,7 +255,7 @@ public class Qixote extends SampleGamer {
 		}
 	}
     
-    private void processCompletedRollouts(boolean block) throws InterruptedException
+    private void processCompletedRollouts(boolean block) throws InterruptedException, MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
     {
     	RolloutRequest request;
     	
@@ -241,7 +271,7 @@ public class Qixote extends SampleGamer {
 	    		{
 	    			numNonTerminalRollouts += request.sampleSize;
 	    			
-			        node.updateStats(request.score, request.sampleSize, false);
+			        node.updateStats(request.score, request.sampleSize, request.path, false);
 		    		processNodeCompletions();
 	    		}
 	    		
@@ -265,7 +295,7 @@ public class Qixote extends SampleGamer {
 		}
 	}
   
-	private TreeNode allocateNode(TestForwardDeadReckonPropnetStateMachine underlyingStateMachine, ForwardDeadReckonInternalMachineState state, Move ourMove, TreeNode parent) throws GoalDefinitionException
+	private TreeNode allocateNode(TestForwardDeadReckonPropnetStateMachine underlyingStateMachine, ForwardDeadReckonInternalMachineState state, Move ourMove, TreeNode parent) throws GoalDefinitionException, MoveDefinitionException, TransitionDefinitionException
 	{
 		ProfileSection methodSection = new ProfileSection("allocatNode");
 		try
@@ -326,6 +356,11 @@ public class Qixote extends SampleGamer {
 				{
 					System.out.println("Non-null move in position cache");
 				}
+				
+				//if ( result.numVisits > 0 )
+				//{
+				//	parent.updateStats(result.averageScore, result.numVisits, true, null);
+				//}
 			}
 			
 			if ( result.ourMove != ourMove)
@@ -357,9 +392,11 @@ public class Qixote extends SampleGamer {
 		private Move ourMove;
 		private double numVisits = 0;
 		private double averageScore;
+		private double averageSquaredScore;
 		private ForwardDeadReckonInternalMachineState state;
 		private boolean isTerminal = false;
 		private TreeNodeRef[] children = null;
+		private int[] numChildVisits = null;
 		private Set<TreeNode> parents = new HashSet<TreeNode>();
 		private int trimmedChildren = 0;
 		private int sweepSeq;
@@ -411,10 +448,53 @@ public class Qixote extends SampleGamer {
 			}
 		}
 		
-		private void markComplete()
+		private void adjustPropagatedContribution(double delta, TreeNode from, List<TreeNode> path)
+		{
+			if ( Math.abs(delta) > epsilon && (path == null || !path.contains(this)) )
+			{
+				double newAverageScore = averageScore;
+				double newAverageSquaredScore = averageSquaredScore;
+
+				if ( from != this )
+				{
+					int childVisits = 0;
+					
+					for(int index = 0; index < children.length; index++)
+					{
+						TreeNodeRef cr = children[index];
+						if ( cr.node == from && cr.seq == from.seq )
+						{
+							childVisits = numChildVisits[index];
+							break;
+						}
+					}
+					
+					if ( numVisits == 0 )
+					{
+						System.out.println("Adjusting incomplete node with no visits!");
+					}
+					newAverageScore = (averageScore*numVisits + (averageScore+delta)*childVisits)/(numVisits + childVisits);
+					newAverageSquaredScore = (averageSquaredScore*numVisits + (averageScore+delta)*(averageScore+delta)*childVisits)/(numVisits + childVisits);
+				}
+				
+				for(TreeNode parent : parents)
+				{
+					parent.adjustPropagatedContribution(newAverageScore - averageScore, this, path);
+				}
+				
+				averageScore = newAverageScore;
+				averageSquaredScore = newAverageSquaredScore;
+			}
+		}
+		
+		private void markComplete(double value)
 		{
 			if ( !complete )
 			{
+				adjustPropagatedContribution(value-averageScore, this, null);
+				
+				averageScore = value;
+				averageSquaredScore = value*value;
 				complete = true;
 				numCompletedBranches++;
 				
@@ -470,6 +550,7 @@ public class Qixote extends SampleGamer {
 				if ( trimmedChildren == children.length )
 				{
 					children = null;
+					numChildVisits = null;
 				}
 				else
 				{
@@ -485,8 +566,7 @@ public class Qixote extends SampleGamer {
 				if ( averageScore > 99.5 )
 				{
 					// Win for whoever just moved after they got to choose so parent node is also decided
-					parent.averageScore = 0;
-					parent.markComplete();
+					parent.markComplete(0);
 				}
 				else
 				{
@@ -550,8 +630,7 @@ public class Qixote extends SampleGamer {
 			{
 				//	Opponent's choice which child to take, so take their
 				//	best value and crystalize as our value
-				averageScore = 100 - bestValue;
-				markComplete();
+				markComplete(100 - bestValue);
 			}
 		}
 		
@@ -840,13 +919,14 @@ public class Qixote extends SampleGamer {
 		        		if ( cr.seq == c.seq )
 		        		{
 				            double uctValue;
-				            if ( c.numVisits == 0 )
+				            int childVisitCount = numChildVisits[leastLikelyWinner];
+				            if ( childVisitCount == 0 )
 				            {
 				            	uctValue = -1000;
 				            }
 				            else
 				            {
-				            	uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,c.numVisits)+1) / c.numVisits);
+				            	uctValue = -c.averageScore/100 - explorationUCT(childVisitCount);
 				            }
 				            uctValue /= Math.log(c.descendantCount+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
 		        			
@@ -884,7 +964,8 @@ public class Qixote extends SampleGamer {
 					    	        	System.out.println("Encountered freed child node in tree walk");
 					    	        }
 						            double uctValue;
-						            if ( c.numVisits == 0 )
+						            int childVisitCount = numChildVisits[i];
+						            if ( childVisitCount == 0 )
 						            {
 						            	uctValue = -1000;
 						            }
@@ -896,7 +977,7 @@ public class Qixote extends SampleGamer {
 						            //}
 						            else
 						            {
-						            	uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,c.numVisits)+1) / c.numVisits);
+						            	uctValue = -c.averageScore/100 - explorationUCT(childVisitCount);
 						            }
 						            uctValue /= Math.log(c.descendantCount+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
 						            
@@ -943,56 +1024,48 @@ public class Qixote extends SampleGamer {
 			ProfileSection methodSection = new ProfileSection("TreeNode.selectAction");
 			try
 			{
+				List<TreeNode> path = new LinkedList<TreeNode>();
 				completedNodeQueue.clear();
 				
-		        //List<TreeNode> visited = new LinkedList<TreeNode>();
 		        TreeNode cur = this;
-		        //visited.add(this);
-		        while (!cur.isUnexpanded()) {
-		            cur = cur.select();
-		            //visited.add(cur);
-		        }
-		        
-		        TreeNode newNode;
-		        if ( !cur.complete )
+		        path.add(this);
+		        do
 		        {
-			        cur.expand();
+			        while (!cur.isUnexpanded()) {
+			            cur = cur.select();
+			            path.add(cur);
+			        }
 			        
 			        if ( !cur.complete )
 			        {
-				        newNode = cur.select();
-				        //visited.add(newNode);
-				        if ( newNode.ourMove != null )
+				        cur.expand();
+				        
+				        if ( !cur.complete )
 				        {
-				        	newNode.expand();
-				        	if ( !newNode.complete )
-				        	{
-					        	newNode = newNode.select();
-						        //visited.add(newNode);
-				        	}
+					        cur = cur.select();
+					        path.add(cur);
+					        if ( cur.ourMove != null )
+					        {
+					        	cur.expand();
+					        	if ( !cur.complete )
+					        	{
+						        	cur = cur.select();
+						        	path.add(cur);
+					        	}
+					        }
 				        }
 			        }
-			        else
-			        {
-			        	newNode = cur;
-			        }
-		        }
-		        else
-		        {
-		        	//	If we've selected a terminal node we still do a pseudo-rollout
-		        	//	from it so it's value gets a weight increase via back propagation
-		        	newNode = cur;
-		        }
+		        } while(!cur.isUnexpanded());
 		        
-		        double score = newNode.rollOut();
+		        double score = cur.rollOut(path);
 		        if ( score != -Double.MAX_VALUE )
 		        {
-		        	newNode.updateStats(score, rolloutSampleSize, true);
+		        	cur.updateStats(score, rolloutSampleSize, path, true);
 		    		processNodeCompletions();
 		        }
 		        else
 		        {
-		        	newNode.updateVisitCounts(rolloutSampleSize);
+		        	cur.updateVisitCounts(rolloutSampleSize, path);
 		        }
 			}
 			finally
@@ -1019,6 +1092,7 @@ public class Qixote extends SampleGamer {
 			    		//	System.out.println("Instance disagreement");
 			    		//}
 			    		TreeNodeRef[] newChildren = new TreeNodeRef[moves.size()];
+			    		int[] newChildVisits = new int[moves.size()];
 			    		
 			    		if ( children != null )
 			    		{
@@ -1030,6 +1104,7 @@ public class Qixote extends SampleGamer {
 			    				{
 			    					moves.remove(child.ourMove);
 			    					newChildren[index] = cr;
+			    					newChildVisits[index] = numChildVisits[index];
 			    				}
 			    				
 			    				index++;
@@ -1040,10 +1115,12 @@ public class Qixote extends SampleGamer {
 		    				if ( newChildren[index] == null )
 		    				{
 		    					newChildren[index] = allocateNode(underlyingStateMachine, state, moves.remove(0), this).getRef();
+		    					newChildVisits[index] = 0;
 		    				}
 		    			}
 		    			
 		    			children = newChildren;
+		    			numChildVisits = newChildVisits;
 			    		//validateAll();
 		    		}
 			    	else
@@ -1078,6 +1155,7 @@ public class Qixote extends SampleGamer {
 			    		flattenMoveLists(legalMoves, jointMoves);
 			    		
 			    		TreeNodeRef[] newChildren = new TreeNodeRef[jointMoves.size()];
+			    		int[] newChildVisits = new int[jointMoves.size()];
 			    		List<ForwardDeadReckonInternalMachineState> newStates = new LinkedList<ForwardDeadReckonInternalMachineState>();
 			    		
 			    		for(List<Move> jointMove : jointMoves)
@@ -1095,6 +1173,7 @@ public class Qixote extends SampleGamer {
 			    				{
 			    					newStates.remove(child.state);
 			    					newChildren[index] = cr;
+			    					newChildVisits[index] = numChildVisits[index];
 			    				}
 			    				
 			    				index++;
@@ -1105,10 +1184,12 @@ public class Qixote extends SampleGamer {
 			    			if ( newChildren[index] == null )
 			    			{
 				    			newChildren[index] = allocateNode(underlyingStateMachine, newStates.remove(0), null, this).getRef();
+				    			newChildVisits[index] = 0;
 			    			}
 			    		}
 			    		
 			    		children = newChildren;
+		    			numChildVisits = newChildVisits;
 			    		//validateAll();
 			    	}
 			    	
@@ -1126,7 +1207,7 @@ public class Qixote extends SampleGamer {
 						{
 							if ( cr.node.isTerminal )
 							{
-								cr.node.markComplete();
+								cr.node.markComplete(cr.node.averageScore);
 							}
 							if ( cr.node.complete )
 							{
@@ -1146,6 +1227,13 @@ public class Qixote extends SampleGamer {
 			{
 				methodSection.exitScope();
 			}
+	    }
+
+	    private double explorationUCT(int numChildVisits)
+	    {
+        	//double varianceBound = averageSquaredScore - averageScore*averageScore + Math.sqrt(2*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
+        	//return explorationBias*Math.sqrt(Math.min(0.25,varianceBound)*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
+	       	return explorationBias*Math.sqrt(Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
 	    }
 
 	    private TreeNode select() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException {
@@ -1179,18 +1267,19 @@ public class Qixote extends SampleGamer {
 			        	{
 			        		TreeNodeRef cr = children[mostLikelyWinner];
 			        		TreeNode c = cr.node;
-			        		if ( cr.seq == c.seq )
+			        		if ( cr.seq == c.seq && !c.complete )
 			        		{
 					            double uctValue;
+					            int childVisitCount = numChildVisits[mostLikelyWinner];
 					            
-					            if ( c.numVisits == 0 )
+					            if ( childVisitCount == 0 )
 					            {
 						            // small random number to break ties randomly in unexpanded nodes
 					            	uctValue = 1000 +  r.nextDouble() * epsilon;
 					            }
 					            else
 					            {
-					            	uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,c.numVisits)+1) / c.numVisits);
+					            	uctValue = c.averageScore/100 + explorationUCT(childVisitCount);
 					            }
 			        			
 					            if ( uctValue >= mostLikelyRunnerUpValue )
@@ -1226,14 +1315,15 @@ public class Qixote extends SampleGamer {
 						            else if ( !cr.node.complete )
 						            {
 							            double uctValue;
-							            if ( c.numVisits == 0 )
+							            int childVisitCount = numChildVisits[i];
+							            if ( childVisitCount == 0 )
 							            {
 								            // small random number to break ties randomly in unexpanded nodes
 							            	uctValue = 1000 +  r.nextDouble() * epsilon;
 							            }
 							            else
 							            {
-							            	uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,c.numVisits)+1) / c.numVisits);
+							            	uctValue = c.averageScore/100 + explorationUCT(childVisitCount);
 							            }
 
 							            if (uctValue > bestValue)
@@ -1254,35 +1344,42 @@ public class Qixote extends SampleGamer {
 	        }
 	        if ( selectedIndex == -1 )
 	        {
+	        	numSelectionsThroughIncompleteParent++;
+	        	
 	        	if ( children == null )
 	        	{
 	        		System.out.println("select on an unexpanded node!");
 	        	}
 	        	if ( trimmedChildren == 0 )
 	        	{
-	        		System.out.println("no selction found on untrimmed ndoe!");
+	        		System.out.println("no selection found on untrimmed node!");
 	        	}
 	        	//System.out.println("  select random");
 	        	//	pick at random.  If we pick one that has been trimmed re-expand it
 	        	//	FUTURE - can establish a bound on the trimmed UCT value to avoid
 	        	//	randomization for a while at least
-	        	int childIndex = r.nextInt(children.length);
-	        	TreeNodeRef cr = children[childIndex];
-	        	selected = cr.node;
-	        	if ( cr.seq != selected.seq )
+	        	int childIndex;
+	        	
+	        	do
 	        	{
-	        		expand();
-	        		selected = children[childIndex].node;
-		        	
-		        	if ( selected.freed )
+		        	childIndex = r.nextInt(children.length);
+		        	TreeNodeRef cr = children[childIndex];
+		        	selected = cr.node;
+		        	if ( cr.seq != selected.seq )
 		        	{
-		        		System.out.println("Selected freed node!");
+		        		expand();
+		        		selected = children[childIndex].node;
+			        	
+			        	if ( selected.freed )
+			        	{
+			        		System.out.println("Selected freed node!");
+			        	}
+			        	if ( selected.complete )
+			        	{
+			        		System.out.println("Selected complete node from incomplete parent");
+			        	}
 		        	}
-		        	if ( selected.complete )
-		        	{
-		        		System.out.println("Selected complete node from incompleete parent");
-		        	}
-	        	}
+	        	} while(selected.complete && !complete);
 	        }
 	        else
 	        {
@@ -1295,6 +1392,10 @@ public class Qixote extends SampleGamer {
 	        	}
 	        }
 	        
+	        if ( selected.complete )
+	        {
+	        	System.out.println("Selected complete node");
+	        }
 	        //System.out.println("  selected: " + selected.state);
 	        return selected;
 	    }
@@ -1303,7 +1404,7 @@ public class Qixote extends SampleGamer {
 	        return children == null || complete;
 	    }
 	    
-	    public Move getBestMove()
+	    public Move getBestMove(boolean trace)
 	    {
 	    	double bestScore = -1;
 	    	Move result = null;
@@ -1311,7 +1412,10 @@ public class Qixote extends SampleGamer {
 	    	for(TreeNodeRef cr : children)
 	    	{
 	    		TreeNode child = cr.node;
-	    		System.out.println("Move " + child.ourMove + " scores " + child.averageScore + " (selection count " + child.numVisits + (child.complete ? ", complete" : "") + ")");
+	    		if ( trace )
+	    		{
+	    			System.out.println("Move " + child.ourMove + " scores " + child.averageScore + " (selection count " + child.numVisits + (child.complete ? ", complete" : "") + ")");
+	    		}
 	    		if ( child.averageScore > bestScore || (child.averageScore == bestScore && child.complete))
 	    		{
 	    			bestScore = child.averageScore;
@@ -1326,12 +1430,12 @@ public class Qixote extends SampleGamer {
 	    	return result;
 	    }
 
-	    public double rollOut() throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
+	    public double rollOut(List<TreeNode> path) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
 	    {
 	        if ( complete )
 	        {
 	        	//System.out.println("Terminal state " + state + " score " + averageScore);
-	        	numTerminalRollouts++;
+	        	numTerminalRollouts += rolloutSampleSize;
 	        	if ( ourMove == null )
 	        	{
 	        		return 100 - averageScore;
@@ -1352,6 +1456,7 @@ public class Qixote extends SampleGamer {
 	        	request.state = state;
 	        	request.node = getRef();
 	        	request.sampleSize = rolloutSampleSize;
+	        	request.path = path;
 	        	
 	        	numQueuedRollouts++;
 	        	//System.out.println("Queue rollout request");
@@ -1361,56 +1466,146 @@ public class Qixote extends SampleGamer {
 	        }
 	    }
 
-	    public void updateVisitCounts(int sampleSize)
+	    public void updateVisitCounts(int numVisits2, List<TreeNode> path) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
 	    {
-	    	numVisits += sampleSize;
+	    	Iterator<TreeNode> itr = path.iterator();
+	    	boolean onPath = false;
+	    	TreeNode child = null;
 	    	
-	    	for(TreeNode parent : parents)
+	    	while(itr.hasNext())
 	    	{
-	    		parent.updateVisitCounts(sampleSize);
+	    		if (itr.next() == this)
+	    		{
+	    			onPath = true;
+	    			if ( itr.hasNext())
+	    			{
+	    				child = itr.next();
+	    			}
+	    			break;
+	    		}
+	    	}
+	    	
+	    	if ( children == null || onPath )
+	    	{
+		    	numVisits += numVisits2;
+		    	
+		    	for(TreeNode parent : parents)
+		    	{
+		    		parent.updateVisitCounts(numVisits2, path);
+		    	}
+		    	
+		    	if ( onPath )
+		    	{
+			    	if ( onPath && child != null )
+			    	{
+			    		for(int index = 0; index < children.length; index++)
+			    		{
+			    			if ( children[index].node == child )
+			    			{
+			    				numChildVisits[index] += numVisits2;
+			    				break;
+			    			}
+			    		}
+			    	}
+		    	}
 	    	}
 	    }
 	    
-	    public void updateStats(double value, int sampleSize, boolean updateVisitCounts)
+	    public void updateStats(double value, int numVisits2, List<TreeNode> path, boolean updateVisitCounts) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
 	    {
-	    	int adjustedSampleSize = sampleSize;
+	    	Iterator<TreeNode> itr = path.iterator();
+	    	boolean onPath = false;
+	    	TreeNode child = null;
 	    	
-	    	if ( !complete )
+	    	while(itr.hasNext())
 	    	{
-	    		double weightedScore;
-	    		
-	    		if (value < 25)
+	    		if (itr.next() == this)
 	    		{
-	    			//adjustedSampleSize *= 50;
+	    			onPath = true;
+	    			if ( itr.hasNext())
+	    			{
+	    				child = itr.next();
+	    			}
+	    			break;
 	    		}
-	    		
-		    	if ( ourMove == null )
+	    	}
+	    	
+	    	if ( children == null || onPath )
+	    	{
+		    	int adjustedSampleSize = numVisits2;
+		    	double delta;
+		    	
+		    	if ( !complete )
 		    	{
-		    		weightedScore = (100-value)*adjustedSampleSize;
-		    		averageScore = (averageScore*numVisits + weightedScore)/(numVisits+adjustedSampleSize);
+		    		double playerNormalizedValue = (ourMove == null ? 100 - value : value);
+		    		double weightedScore;
+		    		
+		    		if (value < 25)
+		    		{
+		    			//adjustedSampleSize *= 50;
+		    		}
+		    		
+		    		if ( adjustedSampleSize == 0 )
+		    		{
+		    			System.out.println("Unexpected 0 sample size");
+		    		}
+		    		weightedScore = playerNormalizedValue*adjustedSampleSize;
+		    		double newAverageScore = (averageScore*numVisits + weightedScore)/(numVisits+adjustedSampleSize);
+		    		averageSquaredScore = (averageSquaredScore*numVisits + playerNormalizedValue*playerNormalizedValue*adjustedSampleSize)/(numVisits+adjustedSampleSize);
+		    		
+		    		delta = newAverageScore - averageScore;
+		    		averageScore = newAverageScore;
 		    	}
 		    	else
 		    	{
-		    		weightedScore = value*sampleSize;
-		    		averageScore = (averageScore*numVisits + weightedScore)/(numVisits+adjustedSampleSize);
+		    		delta = 0;
 		    	}
-	    	}
-	    	
-	    	if ( updateVisitCounts)
-	    	{
-	    		numVisits += sampleSize;
-	    	}
-	    	else if ( adjustedSampleSize != sampleSize )
-	    	{
-	    		numVisits += adjustedSampleSize - sampleSize;
-	    	}
-	    	
-	    	leastLikelyWinner = -1;
-	    	mostLikelyWinner = -1;
-	    	
-	    	for(TreeNode parent : parents)
-	    	{
-	    		parent.updateStats(value, sampleSize, updateVisitCounts);
+		    	
+		    	int childIndex = -1;
+		    	if ( onPath && !complete && child != null )
+		    	{
+		    		for(int index = 0; index < children.length; index++)
+		    		{
+		    			if ( children[index].node == child )
+		    			{
+		    				childIndex = index;
+		    				break;
+		    			}
+		    		}
+		    	}
+		    	if ( updateVisitCounts)
+		    	{
+		    		numVisits += numVisits2;
+			    	
+			    	if ( childIndex != -1 )
+			    	{
+			    		numChildVisits[childIndex] += numVisits2;
+			    	}
+		    	}
+		    	else if ( adjustedSampleSize != numVisits2 )
+		    	{
+		    		numVisits += adjustedSampleSize - numVisits2;
+			    	
+			    	if ( childIndex != -1 )
+			    	{
+			    		numChildVisits[childIndex] += adjustedSampleSize - numVisits2;
+			    	}
+		    	}
+		    	
+		    	leastLikelyWinner = -1;
+		    	mostLikelyWinner = -1;
+		    	
+		    	for(TreeNode parent : parents)
+		    	{
+		    		if ( onPath )
+		    		{
+		    			parent.updateStats(value, numVisits2, path, updateVisitCounts);
+		    		}
+		    		else
+		    		{
+		    			parent.adjustPropagatedContribution(delta, this, path);
+		    		}
+		    	}
 	    	}
 	    }
 	}
@@ -1471,13 +1666,14 @@ public class Qixote extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Quixote 0.24";
+		return "Quixote 0.26";
 	}
 	
 	@Override
 	public StateMachine getInitialStateMachine() {
 	    if ( rolloutProcessors != null )
 	    {
+	    	System.out.println("Stop rollout processors");
 	    	for(int i = 0; i < numRolloutThreads; i++)
 	    	{
 	    		rolloutProcessors[i].stop();
@@ -1500,11 +1696,15 @@ public class Qixote extends SampleGamer {
 			GoalDefinitionException {
 		// We get the current start time
 		long start = System.currentTimeMillis();
-		long finishBy = timeout - 1000;
+		long updateAt = start + 1000;
+		long finishBy = timeout - 3000;
 	    numNonTerminalRollouts = 0;
 	    numTerminalRollouts = 0;
+	    numSelectionsThroughIncompleteParent = 0;
+	    
+		ourRole = getRole();
 		
-	    if ( rolloutProcessors == null )
+	    if ( rolloutProcessors == null && numRolloutThreads > 0 )
 	    {
 	    	rolloutProcessors = new RolloutProcessor[numRolloutThreads];
 	    	
@@ -1514,8 +1714,6 @@ public class Qixote extends SampleGamer {
 	    		rolloutProcessors[i].start();
 	    	}
 	    }
-	    
-		ourRole = getRole();
 		
 		ForwardDeadReckonInternalMachineState currentState = underlyingStateMachine.createInternalState(getCurrentState());
 		
@@ -1572,6 +1770,15 @@ public class Qixote extends SampleGamer {
 			if ( numOutstandingRollouts < maxOutstandingRolloutRequests )
 			{
 				root.selectAction();
+				if ( numRolloutThreads == 0 )
+				{
+					while( !queuedRollouts.isEmpty() )
+					{
+						RolloutRequest request = queuedRollouts.remove();
+							
+						request.process(underlyingStateMachine);
+					}
+				}
 			}
 			//else
 			//{
@@ -1593,7 +1800,7 @@ public class Qixote extends SampleGamer {
 				break;
 			}
 
-			if ( loopCount % (maxOutstandingRolloutRequests*16) == 0 )
+			if ( numRolloutThreads > 0 && loopCount % (maxOutstandingRolloutRequests*16) == 0 )
 			{
 				int rolloutProcessorUtilization = 0;
 				for( int i = 0; i < numRolloutThreads; i++)
@@ -1621,6 +1828,11 @@ public class Qixote extends SampleGamer {
 				averageRolloutProcessorUtilization += rolloutProcessorUtilization;
 				utilizationSampleCount++;
 			}
+			if ( System.currentTimeMillis() > updateAt )
+			{
+				updateAt = System.currentTimeMillis() + 1000;
+				notifyObservers(new WorkingResponseSelectedEvent(root.getBestMove(false).toString()));
+			}
 			
 			while ( numUsedNodes > transpositinoTableMaxDesiredSizeAtTurnEnd )
 			{
@@ -1635,8 +1847,8 @@ public class Qixote extends SampleGamer {
 		
 		//validateAll();
 		List<Move> moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
-		Move bestMove = root.getBestMove();
-		
+		Move bestMove = root.getBestMove(true);
+		root.selectAction();
 		while ( numUsedNodes > transpositionTableMaxSizeAtProbeEnd )
 		{
 			root.disposeLeastLikelyNode();
@@ -1651,6 +1863,7 @@ public class Qixote extends SampleGamer {
 		System.out.println("Num true rollouts added: " + numNonTerminalRollouts);
 		System.out.println("Num terminal nodes revisited: " + numTerminalRollouts);
 		System.out.println("Num incomplete nodes: " + numIncompleteNodes);
+		System.out.println("Num selections through incomplete nodes: " + numSelectionsThroughIncompleteParent);
 		System.out.println("Num completely explored branches: " + numCompletedBranches);
 		System.out.println("Num winning lines seen: " + numWinningLinesSeen);
 		System.out.println("Num losing lines seen: " + numLosingLinesSeen);

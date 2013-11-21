@@ -646,6 +646,8 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		this.legalPropositionMovesO = master.legalPropositionMovesO;
 		this.legalPropositionsX = master.legalPropositionsX;
 		this.legalPropositionsO = master.legalPropositionsO;
+		this.legalPropositions = master.legalPropositions;
+		this.useDeadReckonerForLegal = master.useDeadReckonerForLegal;
 		this.initialState = master.initialState;
 		this.roles = master.roles;
 		this.legalMoveInputPropositions = master.legalMoveInputPropositions;
@@ -964,6 +966,10 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     		
     		propNetX.reset(true);
     		propNetO.reset(true);
+    		//	Force calculation of the goal set while we're single threaded
+	    	propNetX.getGoalPropositions();
+	    	propNetO.getGoalPropositions();
+
    		
     		useDeadReckonerForLegal = propNetX.useDeadReckonerForLegal();
     		if ( !useDeadReckonerForLegal )
