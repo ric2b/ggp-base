@@ -105,7 +105,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 					info.move = new Move(pfdr.getName().getBody().get(1));
 					info.inputProposition = (ForwardDeadReckonProposition)getLegalInputMap().get(p);
 					info.roleIndex = roleIndex;
-					info.masterIndex = -1;
+					info.masterIndex = alwaysTrueLegalMoves.resolveId(info);
 					
 					PolymorphicComponent propInput = p.getSingleInput();
 					if ( propInput instanceof PolymorphicConstant )

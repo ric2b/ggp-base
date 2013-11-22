@@ -1922,6 +1922,10 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	        	{
 	        		if ( rand-- == 0 )
 	        		{
+	        			if ( info == null )
+	        			{
+	        				System.out.println("Move info is NULL!!!");
+	        			}
 	    	        	if ( validationMachine != null )
 	    	        	{
 	    	        		chosenMoves[index] = info.move;

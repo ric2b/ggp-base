@@ -98,14 +98,15 @@ public class ForwardDeadReckonLegalMoveSet {
 		}
 	}
 	
+	public int resolveId(ForwardDeadReckonLegalMoveInfo info)
+	{
+		masterList.add(info);
+		
+		return masterList.size() - 1;
+	}
+	
 	public void add(ForwardDeadReckonLegalMoveInfo info)
 	{
-		if ( info.masterIndex == -1 )
-		{
-			masterList.add(info);
-			info.masterIndex = masterList.size()-1;
-		}
-		
 		contents[info.roleIndex].set(info.masterIndex);
 	}
 	
