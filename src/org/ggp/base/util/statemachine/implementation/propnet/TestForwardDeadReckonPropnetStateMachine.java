@@ -2064,4 +2064,24 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	public GdlSentence getOSentence() {
 		return OSentence;
 	}
+
+	public int getGoal(ForwardDeadReckonInternalMachineState state, Role role) {
+		setPropNetUsage(state);
+		setBasePropositionsFromState(state,true);
+		
+		PolymorphicProposition[] goalProps = propNet.getGoalPropositions().get(role);
+		int result = 0;
+		
+		for(PolymorphicProposition p : goalProps)
+		{
+			ForwardDeadReckonComponent goalTransition = (ForwardDeadReckonComponent)p.getSingleInput();
+			if ( goalTransition != null && goalTransition.getValue(instanceId))
+			{
+				result = Integer.parseInt(p.getName().getBody().get(1).toString());
+				break;
+			}
+		}
+		
+		return result;
+	}
 }

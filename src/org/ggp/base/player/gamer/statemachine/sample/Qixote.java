@@ -247,7 +247,15 @@ public class Qixote extends SampleGamer {
         		}
         	}
         	
-        	return (result - enemyScore + 100*enemyRoleCount)/(enemyRoleCount+1);
+        	if ( result > enemyScore )
+        	{
+        		result *= 3;
+        	}
+        	else if ( result == enemyScore )
+        	{
+        		result *= 2;
+        	}
+        	return (result - enemyScore + 100*enemyRoleCount)/(enemyRoleCount+3);
 		}
 		finally
 		{
@@ -425,7 +433,7 @@ public class Qixote extends SampleGamer {
 				//boolean isTerminal2 = rolloutStateMachine.isTerminal(state);
 				//if ( isTerminal != isTerminal2 )
 				//{
-				//	System.out.println("Instance disagrement on terminality");
+				//	System.out.println("Instance disagreement on terminality");
 				//}
 				if ( isTerminal )
 				{
@@ -926,7 +934,7 @@ public class Qixote extends SampleGamer {
 				            }
 				            else
 				            {
-				            	uctValue = -c.averageScore/100 - explorationUCT(childVisitCount);
+				            	uctValue = -cr.node.exploitationUCT() - explorationUCT(childVisitCount);
 				            }
 				            uctValue /= Math.log(c.descendantCount+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
 		        			
@@ -977,7 +985,7 @@ public class Qixote extends SampleGamer {
 						            //}
 						            else
 						            {
-						            	uctValue = -c.averageScore/100 - explorationUCT(childVisitCount);
+						            	uctValue = -cr.node.exploitationUCT() - explorationUCT(childVisitCount);
 						            }
 						            uctValue /= Math.log(c.descendantCount+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
 						            
@@ -1231,9 +1239,39 @@ public class Qixote extends SampleGamer {
 
 	    private double explorationUCT(int numChildVisits)
 	    {
-        	double varianceBound = averageSquaredScore - averageScore*averageScore + Math.sqrt(2*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
-        	return explorationBias*2*Math.sqrt(Math.min(0.25,varianceBound)*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
+        	double varianceBound = (averageSquaredScore - averageScore*averageScore)/10000 + Math.sqrt(2*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
+        	return explorationBias*Math.sqrt(2*Math.min(0.5,varianceBound)*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
+        	//double stdDeviation = 0;//(averageSquaredScore - averageScore*averageScore)/10000;
+        	//return explorationBias*2*Math.sqrt((0.25+stdDeviation)*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
 	       	//return explorationBias*Math.sqrt(Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
+	    }
+	    
+	    private double heuristicValue()
+	    {
+	    	double result = 0;
+	    	
+			for(Role role : underlyingStateMachine.getRoles())
+			{
+				if ( role.equals(getRole()))
+				{
+					result += 2*underlyingStateMachine.getGoal(state, role);
+				}
+				else
+				{
+					result -= underlyingStateMachine.getGoal(state, role)/2;
+				}
+			}
+
+			return (result + 100)/300;
+	    }
+	    
+	    private double exploitationUCT()
+	    {
+	    	//double stdDeviationMeasure = Math.sqrt((averageSquaredScore - averageScore*averageScore)/10000) - 0.25;
+	    	//double stdDeviationContribution = stdDeviationMeasure - 2*averageScore*stdDeviationMeasure/100;
+	    	//final double alpha = 0.5;
+	    	
+	    	return averageScore/100;// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
 	    }
 
 	    private TreeNode select() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException {
@@ -1279,7 +1317,7 @@ public class Qixote extends SampleGamer {
 					            }
 					            else
 					            {
-					            	uctValue = c.averageScore/100 + explorationUCT(childVisitCount);
+					            	uctValue = cr.node.exploitationUCT() + explorationUCT(childVisitCount);
 					            }
 			        			
 					            if ( uctValue >= mostLikelyRunnerUpValue )
@@ -1323,7 +1361,7 @@ public class Qixote extends SampleGamer {
 							            }
 							            else
 							            {
-							            	uctValue = c.averageScore/100 + explorationUCT(childVisitCount);
+							            	uctValue = cr.node.exploitationUCT() + explorationUCT(childVisitCount);
 							            }
 
 							            if (uctValue > bestValue)
@@ -1353,6 +1391,7 @@ public class Qixote extends SampleGamer {
 	        	if ( trimmedChildren == 0 )
 	        	{
 	        		System.out.println("no selection found on untrimmed node!");
+	        		//select();
 	        	}
 	        	//System.out.println("  select random");
 	        	//	pick at random.  If we pick one that has been trimmed re-expand it
@@ -1666,7 +1705,7 @@ public class Qixote extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Quixote 0.27";
+		return "Quixote 0.29";
 	}
 	
 	@Override

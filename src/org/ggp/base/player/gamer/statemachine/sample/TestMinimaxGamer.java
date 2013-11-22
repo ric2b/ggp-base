@@ -333,14 +333,14 @@ public class TestMinimaxGamer extends SampleGamer {
 		}
 		else
 		{
-			determinePropositionWeights(start+2000, searchDepth+2);
+			//determinePropositionWeights(start+2000, searchDepth+2);
 			
 			int bestScore = -1;
 			
 			for(Move move : moves)
 			{
 				considered.clear();
-				int score = minEval(getCurrentState(), move, -1, 100000, searchDepth, HeuristicType.HEURISTIC_TYPE_INFERRED_PROPOSITION_VALUE);
+				int score = minEval(getCurrentState(), move, -1, 100000, searchDepth, HeuristicType.HEURISTIC_TYPE_GOAL_VALUE);
 				System.out.println("Move " + move + " scores " + score);
 				if ( score > bestScore )
 				{
