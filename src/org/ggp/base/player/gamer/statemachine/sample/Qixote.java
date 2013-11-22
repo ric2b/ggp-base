@@ -1231,9 +1231,9 @@ public class Qixote extends SampleGamer {
 
 	    private double explorationUCT(int numChildVisits)
 	    {
-        	//double varianceBound = averageSquaredScore - averageScore*averageScore + Math.sqrt(2*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
-        	//return explorationBias*Math.sqrt(Math.min(0.25,varianceBound)*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
-	       	return explorationBias*Math.sqrt(Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
+        	double varianceBound = averageSquaredScore - averageScore*averageScore + Math.sqrt(2*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
+        	return explorationBias*2*Math.sqrt(Math.min(0.25,varianceBound)*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
+	       	//return explorationBias*Math.sqrt(Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
 	    }
 
 	    private TreeNode select() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException {
@@ -1666,7 +1666,7 @@ public class Qixote extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Quixote 0.26";
+		return "Quixote 0.27";
 	}
 	
 	@Override
