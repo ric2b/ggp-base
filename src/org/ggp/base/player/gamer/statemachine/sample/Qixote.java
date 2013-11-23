@@ -29,6 +29,7 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
+import org.python.modules.gc;
 
 public class Qixote extends SampleGamer {
 	public Role ourRole;
@@ -331,7 +332,7 @@ public class Qixote extends SampleGamer {
 						System.out.println("Bad allocation choice");
 					}
 					
-					result.reset();
+					result.reset(false);
 					result.ourMove = ourMove;
 					result.state = state;
 				}
@@ -642,16 +643,17 @@ public class Qixote extends SampleGamer {
 			}
 		}
 		
-		public void reset()
+		public void reset(boolean freed)
 		{
 			numVisits = 0;
 			averageScore = 0;
 			state = null;
 			isTerminal = false;
 			children = null;
+			numChildVisits = null;
 			parents.clear();
 			trimmedChildren = 0;
-			freed = false;
+			this.freed = freed;
 			descendantCount = 0;
 			leastLikelyWinner = -1;
 			mostLikelyWinner = -1;
@@ -1691,9 +1693,13 @@ public class Qixote extends SampleGamer {
 		numCompletedBranches = 0;
 		numUsedNodes = 0;
 		root = null;
-		largestUsedIndex = -1;
-		positions.clear();
 		freeList.clear();
+		for(int i = 0; i <= largestUsedIndex; i++)
+		{
+			transpositionTable[i].reset(true);
+			freeList.add(transpositionTable[i]);
+		}
+		positions.clear();
 		queuedRollouts.clear();
 		completedRollouts.clear();
 		numQueuedRollouts = 0;
@@ -1725,6 +1731,7 @@ public class Qixote extends SampleGamer {
 		underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine(1+numRolloutThreads);
 		
 		emptyTree();
+		System.gc();
 
 		return underlyingStateMachine;
 	}
@@ -1756,8 +1763,8 @@ public class Qixote extends SampleGamer {
 		
 		ForwardDeadReckonInternalMachineState currentState = underlyingStateMachine.createInternalState(getCurrentState());
 		
-		emptyTree();
-		root = null;
+		//emptyTree();
+		//root = null;
 		//validateAll();
 		if ( root == null )
 		{
@@ -1887,7 +1894,7 @@ public class Qixote extends SampleGamer {
 		//validateAll();
 		List<Move> moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
 		Move bestMove = root.getBestMove(true);
-		root.selectAction();
+		//root.selectAction();
 		while ( numUsedNodes > transpositionTableMaxSizeAtProbeEnd )
 		{
 			root.disposeLeastLikelyNode();
