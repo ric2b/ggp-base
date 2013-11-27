@@ -43,11 +43,13 @@ public class Sancho extends SampleGamer {
     
     private Map<ForwardDeadReckonInternalMachineState, TreeNode> positions = new HashMap<ForwardDeadReckonInternalMachineState,TreeNode>();
 
+    private final boolean useUnbiasedRollout = false;
     private int rolloutSampleSize = 4;
     private final int transpositionTableSize = 2000000;
     private final int transpositinoTableMaxDesiredSizeAtTurnEnd = transpositionTableSize - 200;
     private final int maxOutstandingRolloutRequests = 4;
     private final int numRolloutThreads = 4;
+    private final double explorationBias = 1.414;
     private TreeNode[] transpositionTable = new TreeNode[transpositionTableSize];
     private int nextSeq = 0;
     private List<TreeNode> freeList = new LinkedList<TreeNode>();
@@ -129,7 +131,8 @@ public class Sancho extends SampleGamer {
     {
     	public TreeNodeRef								node;
     	public ForwardDeadReckonInternalMachineState	state;
-    	public double									score;
+    	public double									averageScore;
+    	public double									averageSquaredScore;
     	public int										sampleSize;
 	    public List<TreeNode>							path;
 	    
@@ -138,17 +141,20 @@ public class Sancho extends SampleGamer {
 			ProfileSection methodSection = new ProfileSection("TreeNode.rollOut");
 			try
 			{
-				score = 0;
+				averageScore = 0;
 				for(int i = 0; i < sampleSize; i++)
 				{
 					//System.out.println("Perform rollout from state: " + state);
 		        	numNonTerminalRollouts++;
 		        	stateMachine.getDepthChargeResult(state, ourRole, 1000, null, null);
 		        	
-		        	score += netScore(stateMachine, null);
+		        	int score = netScore(stateMachine, null);
+		        	averageScore += score;
+		        	averageSquaredScore += score*score;
 				}
 				
-				score /= sampleSize;
+				averageScore /= sampleSize;
+				averageSquaredScore /= sampleSize;
 				
 				completedRollouts.add(this);
 			}
@@ -214,7 +220,7 @@ public class Sancho extends SampleGamer {
     		
     		if ( request.node.seq == node.seq && !node.complete )
     		{
-		        node.updateStats(request.score, request.sampleSize, request.path, false);
+		        node.updateStats(request.averageScore, request.averageSquaredScore, request.sampleSize, request.path, false);
 	    		processNodeCompletions(timeout);
     		}
     		
@@ -328,6 +334,7 @@ public class Sancho extends SampleGamer {
 		private Move ourMove;
 		private int numVisits = 0;
 		private double averageScore;
+		private double averageSquaredScore;
 		private ForwardDeadReckonInternalMachineState state;
 		private boolean isTerminal = false;
 		private TreeNodeRef[] children = null;
@@ -388,7 +395,7 @@ public class Sancho extends SampleGamer {
 			{
 				//System.out.println("Mark complete  node seq: " + seq);
 				//validateAll();
-				adjustPropagatedContribution(value-averageScore, this, null);
+				adjustPropagatedContribution(value-averageScore, 0, this, null);
 				
 				averageScore = value;
 				numCompletedBranches++;
@@ -835,7 +842,8 @@ public class Sancho extends SampleGamer {
 				            }
 				            else
 				            {
-				            	uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[leastLikelyWinner])+1) / numChildVisits[leastLikelyWinner]);
+				            	uctValue = -explorationUCT(numChildVisits[leastLikelyWinner]) - c.exploitationUCT();
+				            	//uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[leastLikelyWinner])+1) / numChildVisits[leastLikelyWinner]);
 				            }
 				            uctValue /= Math.log(c.descendantCount+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
 		        			
@@ -885,7 +893,8 @@ public class Sancho extends SampleGamer {
 						            //}
 						            else
 						            {
-						            	uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
+						            	uctValue = -explorationUCT(numChildVisits[i]) - c.exploitationUCT();
+						            	//uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
 						            }
 						            uctValue /= Math.log(c.descendantCount+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
 						            
@@ -952,24 +961,30 @@ public class Sancho extends SampleGamer {
 			        
 			        if ( !cur.complete )
 			        {
-			        	//for(TreeNodeRef child : cur.children)
-			        	//{
-			        	//	if ( child.node.ourMove != null && child.node.isUnexpanded() )
-			        	//	{
-			        	//		child.node.expand();
-			        	//	}
-			        	//}
-			        	//newNode = cur;
-				        newNode = cur.select();
-				        visited.add(newNode);
-				        if ( newNode.ourMove != null )
-				        {
-				        	newNode.expand();
-				        	if ( !newNode.complete )
+			        	if ( useUnbiasedRollout )
+			        	{
+				        	for(TreeNodeRef child : cur.children)
 				        	{
-				        		newNode = newNode.select();
-						        visited.add(newNode);
+				        		if ( child.node.ourMove != null && child.node.isUnexpanded() )
+				        		{
+				        			child.node.expand();
+				        		}
 				        	}
+				        	newNode = cur;
+			        	}
+			        	else
+			        	{
+					        newNode = cur.select();
+					        visited.add(newNode);
+					        if ( newNode.ourMove != null )
+					        {
+					        	newNode.expand();
+					        	if ( !newNode.complete )
+					        	{
+					        		newNode = newNode.select();
+							      visited.add(newNode);
+					        	}
+					        }
 				        }
 			        }
 			        else
@@ -988,7 +1003,7 @@ public class Sancho extends SampleGamer {
 		        double score = newNode.rollOut(visited);
 		        if ( score != -Double.MAX_VALUE )
 		        {
-		        	newNode.updateStats(score, rolloutSampleSize, visited, true);
+		        	newNode.updateStats(score, score*score, rolloutSampleSize, visited, true);
 		    		processNodeCompletions(timeout);
 		        }
 		        else
@@ -1162,6 +1177,30 @@ public class Sancho extends SampleGamer {
 			}
 	    }
 
+	    private double explorationUCT(int numChildVisits)
+	    {
+        	double varianceBound = (averageSquaredScore - averageScore*averageScore)/10000 + Math.sqrt(2*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
+        	return explorationBias*Math.sqrt(2*Math.min(0.5,varianceBound)*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
+	    }
+	    
+	    private double exploitationUCT()
+	    {
+	    	//double stdDeviationMeasure = Math.sqrt((averageSquaredScore - averageScore*averageScore)/10000) - 0.25;
+	    	//double stdDeviationContribution = stdDeviationMeasure - 2*averageScore*stdDeviationMeasure/100;
+	    	//final double alpha = 0.5;
+	    	
+	    	//if ( isMultiPlayer && ourMove == null )
+	    	//{
+	    		//	For multi-player games inject noise onto enemy scores of magnitude proportional
+	    		//	to their observed non-correlation of terminal position scores
+	    	//	return Math.min(0,  Math.max(averageScore + r.nextInt(multiRoleAverageScoreDiff*2) - multiRoleAverageScoreDiff,100))/100;
+	    	//}
+	    	//else
+	    	{
+	    		return averageScore/100;// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
+	    	}
+	    }
+
 	    private TreeNode select() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException {
 	        TreeNode selected = null;
 	        int selectedIndex = -1;
@@ -1204,7 +1243,8 @@ public class Sancho extends SampleGamer {
 					            }
 					            else
 					            {
-					            	uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[mostLikelyWinner])+1) / numChildVisits[mostLikelyWinner]);
+					            	uctValue = explorationUCT(numChildVisits[mostLikelyWinner]) + c.exploitationUCT();
+					            	//uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[mostLikelyWinner])+1) / numChildVisits[mostLikelyWinner]);
 					            }
 			        			
 					            if ( uctValue >= mostLikelyRunnerUpValue )
@@ -1247,7 +1287,8 @@ public class Sancho extends SampleGamer {
 							            }
 							            else
 							            {
-							            	uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
+							            	uctValue = explorationUCT(numChildVisits[i]) + c.exploitationUCT();
+							            	//uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
 							            }
 
 							            if (uctValue > bestValue)
@@ -1375,11 +1416,12 @@ public class Sancho extends SampleGamer {
 	        }
 	    }
 		
-		private void adjustPropagatedContribution(double delta, TreeNode from, List<TreeNode> path)
+		private void adjustPropagatedContribution(double delta, double squaredDelta, TreeNode from, List<TreeNode> path)
 		{
 			if ( Math.abs(delta) > epsilon && (path == null || !path.contains(this)) )
 			{
 				double newAverageScore = averageScore;
+				double newAverageSquaredScore = averageSquaredScore;
 
 				if ( from != this )
 				{
@@ -1405,14 +1447,16 @@ public class Sancho extends SampleGamer {
 						System.out.println("Adjusting incomplete node with no visits!");
 					}
 					newAverageScore = (averageScore*numVisits + (averageScore+delta)*childVisits)/(numVisits + childVisits);
-					
+					newAverageSquaredScore = (averageSquaredScore*numVisits + (averageScore+squaredDelta)*childVisits)/(numVisits + childVisits);
+				
 					delta = newAverageScore - averageScore;
+					squaredDelta = newAverageSquaredScore - averageSquaredScore;
 				}
 				
 				for(TreeNode parent : parents)
 				{
 					//	Reverse the sign of the delta at each level as scores alternate between x and 100-x
-					parent.adjustPropagatedContribution(-delta, this, path);
+					parent.adjustPropagatedContribution(-delta, squaredDelta, this, path);
 				}
 				
 	    		//	Keep rounding errors from sending us out of range
@@ -1473,7 +1517,7 @@ public class Sancho extends SampleGamer {
 	    	}
 	    }
 	    
-	    public void updateStats(double value, int sampleSize, List<TreeNode> path, boolean updateVisitCounts)
+	    public void updateStats(double value, double squaredValue, int sampleSize, List<TreeNode> path, boolean updateVisitCounts)
 	    {
 	    	Iterator<TreeNode> itr = path.iterator();
 	    	boolean onPath = false;
@@ -1495,17 +1539,21 @@ public class Sancho extends SampleGamer {
 	    	if ( children == null || onPath )
 	    	{
 		    	double delta;
+		    	double squaredDelta;
 		    	double oldAverageScore = averageScore;
+		    	double oldAverageSquaredScore = averageSquaredScore;
 		    		    	
 		    	if ( updateVisitCounts)
 		    	{
 			    	if ( ourMove == null )
 			    	{
 			    		averageScore = (averageScore*numVisits + (100 - value))/(numVisits+1);
+			    		averageSquaredScore = (averageSquaredScore*numVisits + 10000 + squaredValue - 200*value)/(numVisits+1);
 			    	}
 			    	else
 			    	{
 			    		averageScore = (averageScore*numVisits + value)/(numVisits+1);
+			    		averageSquaredScore = (averageSquaredScore*numVisits + squaredValue)/(numVisits+1);
 			    	}
 			    	
 		    		numVisits++;
@@ -1532,14 +1580,17 @@ public class Sancho extends SampleGamer {
 			    	if ( ourMove == null )
 			    	{
 			    		averageScore = (averageScore*(numVisits-1) + (100 - value))/(numVisits);
+			    		averageSquaredScore = (averageSquaredScore*(numVisits-1) + 10000 + squaredValue - 200*value)/(numVisits);
 			    	}
 			    	else
 			    	{
 			    		averageScore = (averageScore*(numVisits-1) + value)/(numVisits);
+			    		averageSquaredScore = (averageSquaredScore*(numVisits-1) + squaredValue)/numVisits;
 			    	}
 		    	}
 		    	
 		    	delta = averageScore - oldAverageScore;
+		    	squaredDelta = averageSquaredScore - oldAverageSquaredScore;
 		    	
 		    	//if ( averageScore < 10 && numVisits > 10000 )
 		    	//{
@@ -1559,11 +1610,11 @@ public class Sancho extends SampleGamer {
 		    		{
 			    		if ( onPath )
 			    		{
-			    			parent.updateStats(value, sampleSize, path, updateVisitCounts);
+			    			parent.updateStats(value, squaredValue, sampleSize, path, updateVisitCounts);
 			    		}
 			    		else
 			    		{
-			    			parent.adjustPropagatedContribution(-delta, this, path);
+			    			parent.adjustPropagatedContribution(-delta, squaredDelta, this, path);
 			    		}
 		    		}
 		    	}
@@ -1642,7 +1693,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 0.2";
+		return "Sancho 0.3";
 	}
 	
 	@Override
