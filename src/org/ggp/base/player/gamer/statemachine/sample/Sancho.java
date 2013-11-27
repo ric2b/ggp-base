@@ -1642,7 +1642,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho";
+		return "Sancho 0.2";
 	}
 	
 	@Override
