@@ -49,7 +49,7 @@ public class Sancho extends SampleGamer {
     private final int transpositinoTableMaxDesiredSizeAtTurnEnd = transpositionTableSize - 200;
     private final int maxOutstandingRolloutRequests = 4;
     private final int numRolloutThreads = 4;
-    private final double explorationBias = 1.414;
+    private final double explorationBias = 1.2;//1.414;
     private TreeNode[] transpositionTable = new TreeNode[transpositionTableSize];
     private int nextSeq = 0;
     private List<TreeNode> freeList = new LinkedList<TreeNode>();
@@ -1693,7 +1693,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 0.3";
+		return "Sancho 0.4";
 	}
 	
 	@Override
@@ -1741,7 +1741,7 @@ public class Sancho extends SampleGamer {
 			underlyingStateMachine.getDepthChargeResult(initialState, getRole(), 1000, sampleState, null);
 		}
 		
-		rolloutSampleSize = (int) (simulationsPerformed/(10*(simulationStopTime - simulationStartTime)));
+		rolloutSampleSize = (int) (simulationsPerformed/(5*(simulationStopTime - simulationStartTime)));
 		if ( rolloutSampleSize < 1 )
 		{
 			rolloutSampleSize = 1;
