@@ -45,12 +45,11 @@ public class Sancho extends SampleGamer {
 
     private final boolean useUnbiasedRollout = false;
     private int rolloutSampleSize = 4;
-    private final int transpositionTableSize = 2000000;
-    private final int transpositinoTableMaxDesiredSizeAtTurnEnd = transpositionTableSize - 200;
+    private int transpositionTableSize = 2000000;
     private final int maxOutstandingRolloutRequests = 4;
-    private final int numRolloutThreads = 4;
+    private int numRolloutThreads = 4;
     private final double explorationBias = 1.2;//1.414;
-    private TreeNode[] transpositionTable = new TreeNode[transpositionTableSize];
+    private TreeNode[] transpositionTable = null;
     private int nextSeq = 0;
     private List<TreeNode> freeList = new LinkedList<TreeNode>();
     private int largestUsedIndex = -1;
@@ -183,14 +182,18 @@ public class Sancho extends SampleGamer {
 		try
 		{
         	int result = 0;
-        	int enemyRoleCount = 0;
+        	int enemyRoleCount = 1;
         	int enemyScore = 0;
         	for(Role role : stateMachine.getRoles())
         	{
         		if ( !role.equals(ourRole) )
         		{
-        			enemyRoleCount++;
-        			enemyScore += stateMachine.getGoalNative(state, role);
+        			//enemyRoleCount++;
+        			int score = stateMachine.getGoalNative(state, role);
+        			if ( score > enemyScore )
+        			{
+        				enemyScore = score;
+        			}
         		}
         		else
         		{
@@ -1693,11 +1696,15 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 0.4";
+		return "Sancho 0.5";
 	}
 	
 	@Override
 	public StateMachine getInitialStateMachine() {
+		if ( transpositionTable == null )
+		{
+			transpositionTable = new TreeNode[transpositionTableSize];
+		}
 	    if ( rolloutProcessors != null )
 	    {
 	    	System.out.println("Stop rollout processors");
@@ -1741,14 +1748,21 @@ public class Sancho extends SampleGamer {
 			underlyingStateMachine.getDepthChargeResult(initialState, getRole(), 1000, sampleState, null);
 		}
 		
-		rolloutSampleSize = (int) (simulationsPerformed/(5*(simulationStopTime - simulationStartTime)));
-		if ( rolloutSampleSize < 1 )
+		if (numRolloutThreads == 0)
 		{
 			rolloutSampleSize = 1;
 		}
-		else if ( rolloutSampleSize > 100)
+		else
 		{
-			rolloutSampleSize = 100;
+			rolloutSampleSize = (int) (simulationsPerformed/(5*(simulationStopTime - simulationStartTime)));
+			if ( rolloutSampleSize < 1 )
+			{
+				rolloutSampleSize = 1;
+			}
+			else if ( rolloutSampleSize > 100)
+			{
+				rolloutSampleSize = 100;
+			}
 		}
 		
 		System.out.print(simulationsPerformed + " simulations performed in " + (simulationStopTime - simulationStartTime) + "mS - setting rollout sample size to " + rolloutSampleSize);
@@ -1764,7 +1778,7 @@ public class Sancho extends SampleGamer {
 	    numNonTerminalRollouts = 0;
 	    numTerminalRollouts = 0;
 		
-	    if ( rolloutProcessors == null )
+	    if ( rolloutProcessors == null && numRolloutThreads > 0 )
 	    {
 	    	rolloutProcessors = new RolloutProcessor[numRolloutThreads];
 	    	
@@ -1825,7 +1839,7 @@ public class Sancho extends SampleGamer {
 		
 		while(System.currentTimeMillis() < finishBy && !root.complete)
 		{
-			while ( numUsedNodes > transpositinoTableMaxDesiredSizeAtTurnEnd )
+			while ( numUsedNodes > transpositionTableSize - 200 )
 			{
 				root.disposeLeastLikelyNode();
 			}
@@ -1837,16 +1851,16 @@ public class Sancho extends SampleGamer {
 			{
 				root.selectAction(finishBy);
 			}
-			//else
-			//{
-				// TEMP - do this on the main thread for initial debugging
-			//	while( !queuedRollouts.isEmpty() )
-			//	{
-			//		RolloutRequest request = queuedRollouts.remove();
+
+			if (numRolloutThreads == 0)
+			{
+				while( !queuedRollouts.isEmpty() )
+				{
+					RolloutRequest request = queuedRollouts.remove();
 					
-			//		request.process(rolloutStateMachine);
-			//	}
-			//}
+					request.process(underlyingStateMachine);
+				}
+			}
 			//validateAll();
 			processCompletedRollouts(finishBy);			
 		}
@@ -1919,6 +1933,14 @@ public class Sancho extends SampleGamer {
 		List<Move> partialJointMove = new ArrayList<Move>();
 		
 		flattenMoveSubLists(legalMoves, 0, jointMoves, partialJointMove);
+	}
+
+	public void setNumThreads(int numThreads) {
+		numRolloutThreads = numThreads;
+	}
+
+	public void setTranspositionTableSize(int tableSize) {
+		transpositionTableSize = tableSize;
 	}
 
 }
