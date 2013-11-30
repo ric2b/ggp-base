@@ -182,13 +182,11 @@ public class Sancho extends SampleGamer {
 		try
 		{
         	int result = 0;
-        	int enemyRoleCount = 1;
         	int enemyScore = 0;
         	for(Role role : stateMachine.getRoles())
         	{
         		if ( !role.equals(ourRole) )
         		{
-        			//enemyRoleCount++;
         			int score = stateMachine.getGoalNative(state, role);
         			if ( score > enemyScore )
         			{
@@ -201,7 +199,23 @@ public class Sancho extends SampleGamer {
         		}
         	}
         	
-        	return (result - enemyScore + 100*enemyRoleCount)/(enemyRoleCount+1);
+        	int rawResult = (isPuzzle ? result : (result - enemyScore + 100)/2);
+        	int normalizedResult = ((rawResult - MinRawNetScore)*100)/(MaxRawNetScore - MinRawNetScore);
+        	
+        	if ( normalizedResult > 100 && !overExpectedRangeScoreReported )
+        	{
+        		normalizedResult = 100;
+        		overExpectedRangeScoreReported = true;
+        		System.out.println("Saw score that nornmalized to > 100");
+        	}
+        	else if ( normalizedResult < 0 && !underExpectedRangeScoreReported)
+        	{
+        		normalizedResult = 0;
+        		underExpectedRangeScoreReported = true;
+        		System.out.println("Saw score that nornmalized to < 0");
+        	}
+        	
+        	return normalizedResult;
 		}
 		finally
 		{
@@ -475,7 +489,8 @@ public class Sancho extends SampleGamer {
 			
 			for(TreeNode parent : parents)
 			{
-				if ( averageScore > 99.5 )
+				//	For multi-player games do not auto-complete opponent joint move wins
+				if ( averageScore > 99.5 && (!isMultiPlayer || ourMove != null))
 				{
 					// Win for whoever just moved after they got to choose so parent node is also decided
 					parent.markComplete(0);
@@ -539,7 +554,7 @@ public class Sancho extends SampleGamer {
 				}
 			}
 			
-			if ( allChildrenComplete || bestValue > 99.5 )
+			if ( allChildrenComplete || (bestValue > 99.5 && (!isMultiPlayer || ourMove == null)) )
 			{
 				//	Opponent's choice which child to take, so take their
 				//	best value and crystalize as our value
@@ -1159,6 +1174,7 @@ public class Sancho extends SampleGamer {
 							if ( cr.node.isTerminal )
 							{
 								cr.node.markComplete(cr.node.averageScore);
+								completeChildFound = true;
 							}
 							if ( cr.node.complete )
 							{
@@ -1182,7 +1198,9 @@ public class Sancho extends SampleGamer {
 
 	    private double explorationUCT(int numChildVisits)
 	    {
-        	double varianceBound = (averageSquaredScore - averageScore*averageScore)/10000 + Math.sqrt(2*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
+	    	//	When we propagate adjustments due to completion we do not also adjust the variance contribution
+	    	//	so this can result in 'impossibly' low (aka negative) variance - take a lower bound of 0
+        	double varianceBound = Math.max(0, averageSquaredScore - averageScore*averageScore)/10000 + Math.sqrt(2*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
         	return explorationBias*Math.sqrt(2*Math.min(0.5,varianceBound)*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
 	    }
 	    
@@ -1235,7 +1253,7 @@ public class Sancho extends SampleGamer {
 			        	{
 			        		TreeNodeRef cr = children[mostLikelyWinner];
 			        		TreeNode c = cr.node;
-			        		if ( cr.seq == c.seq )
+			        		if ( cr.seq == c.seq && (!c.complete || (isMultiPlayer && ourMove!=null)))
 			        		{
 					            double uctValue;
 					            
@@ -1280,7 +1298,7 @@ public class Sancho extends SampleGamer {
 						            	selectedIndex = -1;
 						            	break;
 						            }
-						            else if ( !cr.node.complete )
+						            else if ( !c.complete || (!c.complete || (isMultiPlayer && ourMove!=null)))
 						            {
 							            double uctValue;
 							            if ( numChildVisits[i] == 0 )
@@ -1319,6 +1337,7 @@ public class Sancho extends SampleGamer {
 	        	if ( trimmedChildren == 0 )
 	        	{
 	        		System.out.println("no selection found on untrimmed node!");
+	        		//select();
 	        	}
 	        	//System.out.println("  select random");
 	        	//	pick at random.  If we pick one that has been trimmed re-expand it
@@ -1336,9 +1355,9 @@ public class Sancho extends SampleGamer {
 		        	{
 		        		System.out.println("Selected freed node!");
 		        	}
-		        	if ( selected.complete )
+		        	if ( selected.complete && !isMultiPlayer )
 		        	{
-		        		System.out.println("Selected complete node from incompleete parent");
+		        		System.out.println("Selected complete node from incomplete parent");
 		        	}
 	        	}
 	        }
@@ -1724,6 +1743,15 @@ public class Sancho extends SampleGamer {
 
 		return underlyingStateMachine;
 	}
+	
+	private boolean isPuzzle = false;
+	private boolean isMultiPlayer = false;
+	private int MinRawNetScore = 0;
+	private int MaxRawNetScore = 100;
+	private int lowerBoundCompleteNetScore = 0;
+	private int multiRoleAverageScoreDiff = 0;
+    private boolean underExpectedRangeScoreReported = false;
+    private boolean overExpectedRangeScoreReported = false;
 
 	@Override
 	public void stateMachineMetaGame(long timeout) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
@@ -1735,8 +1763,21 @@ public class Sancho extends SampleGamer {
 		long simulationStartTime = System.currentTimeMillis();
 	    
 		ourRole = getRole();
-
+		
+		isPuzzle = (underlyingStateMachine.getRoles().size() == 1);
+		isMultiPlayer = (underlyingStateMachine.getRoles().size() > 2);
+		
+		MinRawNetScore = 0;
+		MaxRawNetScore = 100;
+	    underExpectedRangeScoreReported = false;
+	    overExpectedRangeScoreReported = false;
+		
+		int observedMinNetScore = Integer.MAX_VALUE;
+		int observedMaxNetScore = Integer.MIN_VALUE;
 		int simulationsPerformed = 0;
+		int multiRoleSamples = 0;
+
+		multiRoleAverageScoreDiff = 0;
 		
 		ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine.createInternalState(getCurrentState());
 		while(System.currentTimeMillis() < simulationStopTime)
@@ -1746,7 +1787,81 @@ public class Sancho extends SampleGamer {
 			ForwardDeadReckonInternalMachineState sampleState = new ForwardDeadReckonInternalMachineState(initialState);
 
 			underlyingStateMachine.getDepthChargeResult(initialState, getRole(), 1000, sampleState, null);
+			
+	    	int netScore = netScore(underlyingStateMachine, sampleState);
+
+	    	if ( netScore < observedMinNetScore )
+	    	{
+	    		observedMinNetScore = netScore;
+	    	}
+
+	    	if ( netScore > observedMaxNetScore )
+	    	{
+	    		observedMaxNetScore = netScore;
+	    	}
+	    	
+	    	for(Role role : underlyingStateMachine.getRoles())
+    	    {
+    	    	int roleScore = underlyingStateMachine.getGoal(sampleState, role);
+    	    	
+    	    	if ( !role.equals(ourRole) && isMultiPlayer )
+    	    	{
+    	    		//	If there are several enemy players involved extract a measure
+    	    		//	of their goal correlation
+    	    		for(Role role2 : underlyingStateMachine.getRoles())
+    	    		{
+    	    			if ( !role2.equals(ourRole) && !role2.equals(role) )
+    	    			{
+    	    				int role2Score = underlyingStateMachine.getGoal(sampleState, role2);
+    	    				
+    	    				multiRoleSamples++;
+    	    				multiRoleAverageScoreDiff += Math.abs(role2Score - roleScore);
+    	    			}
+    	    		}
+    	    	}
+    	    }
 		}
+		
+		if ( simulationsPerformed > 100 )
+		{
+			if ( multiRoleSamples > 0 )
+			{
+				multiRoleAverageScoreDiff /= multiRoleSamples;
+			}
+		}
+		else
+		{
+			observedMinNetScore = 0;
+			observedMaxNetScore = 100;
+			multiRoleAverageScoreDiff = 0;
+		}
+		
+		//	Special case handling for puzzles with hard-to-find wins
+		if ( isPuzzle && observedMinNetScore == observedMaxNetScore )
+		{
+			//	8-puzzle type stuff
+		}
+		
+		if ( isPuzzle )
+		{
+			System.out.println("Game is a 1-player puzzle");
+		}
+		else if ( isMultiPlayer )
+		{
+			System.out.println("Game is a 3+-player game");
+		}
+		else
+		{
+			System.out.println("Is 2 player game");
+		}
+		
+		//	Normalize score ranges
+		MinRawNetScore = observedMinNetScore;
+		MaxRawNetScore = observedMaxNetScore;
+		multiRoleAverageScoreDiff = (multiRoleAverageScoreDiff*100)/(MaxRawNetScore - MinRawNetScore);
+		
+		System.out.println("Min raw score = " + observedMinNetScore + ", max = " + observedMaxNetScore);
+		System.out.println("multiRoleAverageScoreDiff = " + multiRoleAverageScoreDiff);
 		
 		if (numRolloutThreads == 0)
 		{
