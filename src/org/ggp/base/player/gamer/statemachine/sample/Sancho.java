@@ -1382,16 +1382,24 @@ public class Sancho extends SampleGamer {
 	    
 	    public Move getBestMove()
 	    {
-	    	double bestScore = -1;
+	    	double bestScore = -Double.MAX_VALUE;
 	    	Move result = null;
 	    	
 	    	for(TreeNodeRef cr : children)
 	    	{
 	    		TreeNode child = cr.node;
-	    		System.out.println("Move " + child.ourMove + " scores " + child.averageScore + " (selection count " + child.numVisits + (child.complete ? ", complete" : "") + ")");
-	    		if ( child.averageScore > bestScore || (child.averageScore == bestScore && child.complete))
+	    		
+	    		Double moveScore = child.averageScore;
+	    		if ( moveScore < 0.5 )
 	    		{
-	    			bestScore = child.averageScore;
+	    			//	If everything loses with perfect play go for the highest variance and make
+	    			//	the opponent work for it!
+	    			moveScore = child.averageSquaredScore/100 - 100;
+	    		}
+	    		System.out.println("Move " + child.ourMove + " scores " + moveScore + " (selection count " + child.numVisits + (child.complete ? ", complete" : "") + ")");
+	    		if ( moveScore > bestScore || (moveScore == bestScore && child.complete && moveScore > 0))
+	    		{
+	    			bestScore = moveScore;
 	    			result = child.ourMove;
 	    		}
 	    	}
@@ -1715,7 +1723,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 0.5";
+		return "Sancho 0.6";
 	}
 	
 	@Override
@@ -1855,13 +1863,21 @@ public class Sancho extends SampleGamer {
 			System.out.println("Is 2 player game");
 		}
 		
+		System.out.println("Min raw score = " + observedMinNetScore + ", max = " + observedMaxNetScore);
+		System.out.println("multiRoleAverageScoreDiff = " + multiRoleAverageScoreDiff);
+
+		if ( observedMinNetScore == observedMaxNetScore )
+		{
+			observedMinNetScore = 0;
+			observedMaxNetScore = 100;
+			
+			System.out.println("No score discrimination seen during simualtion - resetting to [0,100]");
+		}
+		
 		//	Normalize score ranges
 		MinRawNetScore = observedMinNetScore;
 		MaxRawNetScore = observedMaxNetScore;
 		multiRoleAverageScoreDiff = (multiRoleAverageScoreDiff*100)/(MaxRawNetScore - MinRawNetScore);
-		
-		System.out.println("Min raw score = " + observedMinNetScore + ", max = " + observedMaxNetScore);
-		System.out.println("multiRoleAverageScoreDiff = " + multiRoleAverageScoreDiff);
 		
 		if (numRolloutThreads == 0)
 		{
