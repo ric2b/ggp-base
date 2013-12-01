@@ -43,12 +43,18 @@ public class Sancho extends SampleGamer {
     
     private Map<ForwardDeadReckonInternalMachineState, TreeNode> positions = new HashMap<ForwardDeadReckonInternalMachineState,TreeNode>();
 
+    private final int actionHistoryMinSampleSize = 30;
+    private final int actionHistorySampleInterval = 10;
+    private final int maxActionHistoryInstancesPerAction = 20;
+    private final int minActionHistoryStateSeperation = 5;
+    private int numActionHistoryInstances = 0;
     private final boolean useUnbiasedRollout = false;
     private int rolloutSampleSize = 4;
     private int transpositionTableSize = 2000000;
     private final int maxOutstandingRolloutRequests = 4;
     private int numRolloutThreads = 4;
     private final double explorationBias = 1.2;//1.414;
+    private final double actionHistoryWeight = 1;
     private TreeNode[] transpositionTable = null;
     private int nextSeq = 0;
     private List<TreeNode> freeList = new LinkedList<TreeNode>();
@@ -175,7 +181,16 @@ public class Sancho extends SampleGamer {
     		this.seq = node.seq;
     	}
     }
-	
+    
+    private class ActionHistoryInstanceInfo
+    {
+    	public ForwardDeadReckonInternalMachineState	state;
+    	int												numSamples;
+    	double											score;
+    }
+    
+    private Map<Object, List<ActionHistoryInstanceInfo>> actionHistory = new HashMap<Object, List<ActionHistoryInstanceInfo>>();
+    
 	private int netScore(TestForwardDeadReckonPropnetStateMachine stateMachine, ForwardDeadReckonInternalMachineState state) throws GoalDefinitionException
 	{
 		ProfileSection methodSection = new ProfileSection("TreeNode.netScore");
@@ -343,6 +358,13 @@ public class Sancho extends SampleGamer {
 		}
 	}
    
+	private class TreeEdge
+	{
+		int			numChildVisits = 0;
+		TreeNodeRef	child;
+		List<Move>	theirMove = null;
+	}
+	
 	private class TreeNode
 	{
 	    static final double epsilon = 1e-6;
@@ -354,8 +376,7 @@ public class Sancho extends SampleGamer {
 		private double averageSquaredScore;
 		private ForwardDeadReckonInternalMachineState state;
 		private boolean isTerminal = false;
-		private TreeNodeRef[] children = null;
-		private int numChildVisits[] = null;
+		private TreeEdge[] children = null;
 		private Set<TreeNode> parents = new HashSet<TreeNode>();
 		private int trimmedChildren = 0;
 		private int sweepSeq;
@@ -453,8 +474,9 @@ public class Sancho extends SampleGamer {
 			{
 				int numDescendantsFreed = 0;
 				
-				for(TreeNodeRef cr : children)
+				for(TreeEdge edge : children)
 				{
+					TreeNodeRef cr = edge.child;
 					if ( cr.node.seq == cr.seq )
 					{
 						if ( !retainUsefulLine || !cr.node.complete || Math.abs(averageScore + cr.node.averageScore - 100) > 0.5 )
@@ -517,11 +539,11 @@ public class Sancho extends SampleGamer {
 			{
 				if ( children != null )
 				{
-					for(TreeNodeRef cr : children)
+					for(TreeEdge edge : children)
 					{
-						if ( cr.node.seq == cr.seq )
+						if ( edge.child.node.seq == edge.child.seq )
 						{
-							cr.node.freeFromAncestor(this);
+							edge.child.node.freeFromAncestor(this);
 						}
 					}
 				}
@@ -535,8 +557,9 @@ public class Sancho extends SampleGamer {
 			boolean allChildrenComplete = true;
 			double bestValue = 0;
 			
-			for(TreeNodeRef cr : children)
+			for(TreeEdge edge : children)
 			{
+				TreeNodeRef cr = edge.child;
 				if ( cr.node.seq == cr.seq )
 				{
 					if ( !cr.node.complete )
@@ -569,7 +592,6 @@ public class Sancho extends SampleGamer {
 			state = null;
 			isTerminal = false;
 			children = null;
-			numChildVisits = null;
 			parents.clear();
 			trimmedChildren = 0;
 			this.freed = freed;
@@ -577,6 +599,7 @@ public class Sancho extends SampleGamer {
 			leastLikelyWinner = -1;
 			mostLikelyWinner = -1;
 			complete = false;
+			ourMove = null;
 		}
 		
 		private TreeNodeRef getRef()
@@ -605,10 +628,11 @@ public class Sancho extends SampleGamer {
 			if ( children != null )
 			{
 				int missingChildren = 0;
-				for(TreeNodeRef cr : children)
+				for(TreeEdge edge : children)
 				{
-					if ( cr != null )
+					if ( edge != null )
 					{
+						TreeNodeRef cr = edge.child;
 						if ( cr.node.seq == cr.seq )
 						{
 							if ( !cr.node.parents.contains(this))
@@ -651,16 +675,16 @@ public class Sancho extends SampleGamer {
 			sweepSeq = sweepInstance;
 			if( children != null )
 			{
-				for(TreeNodeRef cr : children)
+				for(TreeEdge edge : children)
 				{
-					if ( cr.node.seq == cr.seq )
+					if ( edge.child.node.seq == edge.child.seq )
 					{
 						//if ( !cr.node.parents.contains(this))
 						//{
 						//	System.out.println("Child relation inverse missing");
 						//}
 						//cr.node.sweepParent = this;
-						cr.node.markTreeForSweep();
+						edge.child.node.markTreeForSweep();
 					}
 				}
 			}
@@ -705,20 +729,20 @@ public class Sancho extends SampleGamer {
 				
 				if ( children != null )
 				{
-					for(TreeNodeRef cr : children)
+					for(TreeEdge edge : children)
 					{
-						if ( cr != null )
+						if ( edge != null )
 						{
-							if ( cr.node.seq == cr.seq )
+							if ( edge.child.node.seq == edge.child.seq )
 							{
-								if ( cr.node.parents.size() != 0)
+								if ( edge.child.node.parents.size() != 0)
 								{
-									int numRemainingParents = cr.node.parents.size();
+									int numRemainingParents = edge.child.node.parents.size();
 									//if ( cr.node.sweepParent == this && sweepSeq == sweepInstance)
 									//{
 									//	System.out.println("Removing sweep parent");
 									//}
-									cr.node.parents.remove(this);
+									edge.child.node.parents.remove(this);
 									if ( numRemainingParents == 0)
 									{
 										System.out.println("Orphaned child node");
@@ -726,7 +750,7 @@ public class Sancho extends SampleGamer {
 									else
 									{
 										//	Best estimate of likely paths to the child node given removal of parent
-										cr.node.numVisits = (cr.node.numVisits*numRemainingParents + numRemainingParents)/(numRemainingParents+1);
+										edge.child.node.numVisits = (edge.child.node.numVisits*numRemainingParents + numRemainingParents)/(numRemainingParents+1);
 									}
 								}
 							}
@@ -769,11 +793,11 @@ public class Sancho extends SampleGamer {
 			
 			if ( children != null )
 			{
-				for(TreeNodeRef cr : children)
+				for(TreeEdge edge : children)
 				{
-					if ( cr.node.seq == cr.seq )
+					if ( edge.child.node.seq == edge.child.seq )
 					{
-						cr.node.freeAllBut(null);
+						edge.child.node.freeAllBut(null);
 					}
 				}
 			}
@@ -790,8 +814,9 @@ public class Sancho extends SampleGamer {
 			
 			if ( children != null )
 			{
-				for(TreeNodeRef cr : children)
+				for(TreeEdge edge : children)
 				{
+					TreeNodeRef cr = edge.child;
 					if( cr.node.seq == cr.seq )
 					{
 						TreeNode childResult = cr.node.findNode(targetState);
@@ -838,9 +863,9 @@ public class Sancho extends SampleGamer {
 	        {
 	        	if ( children.length == 1 )
 	        	{
-	        		TreeNodeRef cr = children[0];
+	        		TreeEdge edge = children[0];
 	        		
-	        		if ( cr.node.seq == cr.seq )
+	        		if ( edge.child.node.seq == edge.child.seq )
 	        		{
 	        			selectedIndex = 0;
 	        		}
@@ -849,18 +874,18 @@ public class Sancho extends SampleGamer {
 	        	{
 		        	if ( leastLikelyWinner != -1 )
 		        	{
-		        		TreeNodeRef cr = children[leastLikelyWinner];
-		        		TreeNode c = cr.node;
-		        		if ( cr.seq == c.seq )
+		        		TreeEdge edge = children[leastLikelyWinner];
+		        		TreeNode c = edge.child.node;
+		        		if ( edge.child.seq == c.seq )
 		        		{
 				            double uctValue;
-				            if ( numChildVisits[leastLikelyWinner] == 0 )
+				            if ( children[leastLikelyWinner].numChildVisits == 0 )
 				            {
 				            	uctValue = -1000;
 				            }
 				            else
 				            {
-				            	uctValue = -explorationUCT(numChildVisits[leastLikelyWinner]) - c.exploitationUCT();
+				            	uctValue = -explorationUCT(children[leastLikelyWinner].numChildVisits) - c.exploitationUCT();
 				            	//uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[leastLikelyWinner])+1) / numChildVisits[leastLikelyWinner]);
 				            }
 				            uctValue /= Math.log(c.descendantCount+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
@@ -877,7 +902,8 @@ public class Sancho extends SampleGamer {
 			        	leastLikelyRunnerUpValue = -Double.MAX_VALUE;
 				        for (int i = 0; i < children.length; i++)
 				        {
-				        	TreeNodeRef cr = children[i];
+				        	TreeEdge edge = children[i];
+				        	TreeNodeRef cr = edge.child;
 				        	if ( cr != null )
 				        	{
 					            TreeNode c = cr.node;
@@ -899,7 +925,7 @@ public class Sancho extends SampleGamer {
 					    	        	System.out.println("Encountered freed child node in tree walk");
 					    	        }
 						            double uctValue;
-						            if ( numChildVisits[i] == 0 )
+						            if ( children[i].numChildVisits == 0 )
 						            {
 						            	uctValue = -1000;
 						            }
@@ -911,7 +937,7 @@ public class Sancho extends SampleGamer {
 						            //}
 						            else
 						            {
-						            	uctValue = -explorationUCT(numChildVisits[i]) - c.exploitationUCT();
+						            	uctValue = -explorationUCT(children[i].numChildVisits) - c.exploitationUCT();
 						            	//uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
 						            }
 						            uctValue /= Math.log(c.descendantCount+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
@@ -943,7 +969,7 @@ public class Sancho extends SampleGamer {
 	        {
 	        	leastLikelyWinner = selectedIndex;
 		        //System.out.println("  selected: " + selected.state);
-	        	return children[selectedIndex].node.selectLeastLikelyNode(depth+1);
+	        	return children[selectedIndex].child.node.selectLeastLikelyNode(depth+1);
 	        }
 	        
 	        if ( descendantCount > 0 )
@@ -981,11 +1007,11 @@ public class Sancho extends SampleGamer {
 			        {
 			        	if ( useUnbiasedRollout )
 			        	{
-				        	for(TreeNodeRef child : cur.children)
+				        	for(TreeEdge edge : cur.children)
 				        	{
-				        		if ( child.node.ourMove != null && child.node.isUnexpanded() )
+				        		if ( edge.child.node.ourMove != null && edge.child.node.isUnexpanded() )
 				        		{
-				        			child.node.expand();
+				        			edge.child.node.expand();
 				        		}
 				        	}
 				        	newNode = cur;
@@ -1053,20 +1079,18 @@ public class Sancho extends SampleGamer {
 			    		//{
 			    		//	System.out.println("Instance disagreement");
 			    		//}
-			    		TreeNodeRef[] newChildren = new TreeNodeRef[moves.size()];
-			    		int[] newChildVisits = new int[moves.size()];
+			    		TreeEdge[] newChildren = new TreeEdge[moves.size()];
 			    		
 			    		if ( children != null )
 			    		{
 			    			int index = 0;
-			    			for(TreeNodeRef cr : children)
+			    			for(TreeEdge edge : children)
 			    			{
-			    				TreeNode child = cr.node;
-			    				if ( cr.seq == child.seq )
+			    				TreeNode child = edge.child.node;
+			    				if ( edge.child.seq == child.seq )
 			    				{
 			    					moves.remove(child.ourMove);
-			    					newChildren[index] = cr;
-			    					newChildVisits[index] = numChildVisits[index];
+			    					newChildren[index] = edge;
 			    				}
 			    				
 			    				index++;
@@ -1076,13 +1100,12 @@ public class Sancho extends SampleGamer {
 		    			{
 		    				if ( newChildren[index] == null )
 		    				{
-		    					newChildren[index] = allocateNode(underlyingStateMachine, state, moves.remove(0), this).getRef();
-		    					newChildVisits[index] = 0;
+		    					newChildren[index] = new TreeEdge();
+		    					newChildren[index].child = allocateNode(underlyingStateMachine, state, moves.remove(0), this).getRef();
 		    				}
 		    			}
 		    			
 		    			children = newChildren;
-		    			numChildVisits = newChildVisits;
 			    		//validateAll();
 		    		}
 			    	else
@@ -1116,42 +1139,56 @@ public class Sancho extends SampleGamer {
 			    		
 			    		flattenMoveLists(legalMoves, jointMoves);
 			    		
-			    		TreeNodeRef[] newChildren = new TreeNodeRef[jointMoves.size()];
-			    		int[] newChildVisits = new int[jointMoves.size()];
-			    		List<ForwardDeadReckonInternalMachineState> newStates = new LinkedList<ForwardDeadReckonInternalMachineState>();
+			    		TreeEdge[] newChildren = new TreeEdge[jointMoves.size()];
+			    		Map<ForwardDeadReckonInternalMachineState, List<Move>> newStates = new HashMap<ForwardDeadReckonInternalMachineState, List<Move>>();
 			    		
 			    		for(List<Move> jointMove : jointMoves)
 			    		{
+			    			ForwardDeadReckonInternalMachineState newState = underlyingStateMachine.getNextState(state, jointMove);
+			    			
+			    			//	Strip out our move
+			    			for(Move move : jointMove)
+			    			{
+			    				if ( move.equals(ourMove) )
+			    				{
+			    					jointMove.remove(ourMove);
+			    					break;
+			    				}
+			    			}
 			    			//System.out.println("Determine next state after joint move " + jointMove);
-			    			newStates.add(underlyingStateMachine.getNextState(state, jointMove));
+			    			newStates.put(newState, jointMove);
 			    		}
 			    		if ( children != null )
 			    		{
 				    		int index = 0;
-			    			for(TreeNodeRef cr : children)
+			    			for(TreeEdge edge : children)
 			    			{
-			    				TreeNode child = cr.node;
-			    				if ( cr.seq == child.seq )
+			    				TreeNode child = edge.child.node;
+			    				if ( edge.child.seq == child.seq )
 			    				{
 			    					newStates.remove(child.state);
-			    					newChildren[index] = cr;
-			    					newChildVisits[index] = numChildVisits[index];
+			    					newChildren[index] = edge;
 			    				}
 			    				
 			    				index++;
 			    			}
 			    		}
-		    			for(int index = 0; index < newChildren.length; index++)
-		    			{
-			    			if ( newChildren[index] == null )
+			    		
+			    		int index = 0;
+			    		for(Entry<ForwardDeadReckonInternalMachineState, List<Move>> e : newStates.entrySet())
+			    		{
+			    			while( newChildren[index] != null )
 			    			{
-				    			newChildren[index] = allocateNode(underlyingStateMachine, newStates.remove(0), null, this).getRef();
-				    			newChildVisits[index] = 0;
+			    				index++;
 			    			}
+
+			    			newChildren[index] = new TreeEdge();
+			    			newChildren[index].child = allocateNode(underlyingStateMachine, e.getKey(), null, this).getRef();
+			    			newChildren[index].numChildVisits = 0;
+			    			newChildren[index].theirMove = e.getValue();
 			    		}
 			    		
 			    		children = newChildren;
-			    		numChildVisits = newChildVisits;
 			    		//validateAll();
 			    	}
 			    	
@@ -1167,8 +1204,9 @@ public class Sancho extends SampleGamer {
 			    	
 			    	boolean completeChildFound = false;
 			    	
-					for(TreeNodeRef cr : children)
+					for(TreeEdge edge : children)
 					{
+						TreeNodeRef cr = edge.child;
 						if ( cr.node.seq == cr.seq )
 						{
 							if ( cr.node.isTerminal )
@@ -1196,6 +1234,50 @@ public class Sancho extends SampleGamer {
 			}
 	    }
 
+	    private double actionHistoryValue(TreeEdge edge)
+	    {
+	    	double result = 0;
+	    	
+	    	if ( children != null )
+	    	{
+		    	List<Move> key;
+		    	
+		    	if ( edge.theirMove != null )
+		    	{
+		    		key = edge.theirMove;
+		    	}
+		    	else
+		    	{
+		    		key = new LinkedList<Move>();
+		    		key.add(edge.child.node.ourMove);
+		    	}
+		    	List<ActionHistoryInstanceInfo> infoList = actionHistory.get(key);
+		    	
+		    	if ( infoList != null )
+		    	{
+		    		int numMatches = 0;
+		    		infoList = new LinkedList<ActionHistoryInstanceInfo>();
+
+			    	for(ActionHistoryInstanceInfo instance : infoList)
+			    	{
+			    		int stateDistance = instance.state.distance(state);
+			    		
+			    		result += (instance.score*3)/(stateDistance+3);
+			    		numMatches++;
+			    	}
+			    	
+			    	if ( numMatches > 0 )
+			    	{
+			    		result /= numMatches;
+			    	}
+			    	
+			    	result /= 100;
+		    	}
+	    	}
+	    	
+	    	return result*actionHistoryWeight*5/(edge.numChildVisits+4);
+	    }
+	    
 	    private double explorationUCT(int numChildVisits)
 	    {
 	    	//	When we propagate adjustments due to completion we do not also adjust the variance contribution
@@ -1235,7 +1317,8 @@ public class Sancho extends SampleGamer {
 		        {
 		        	if ( children.length == 1 )
 		        	{
-		        		TreeNodeRef cr = children[0];
+		        		TreeEdge edge = children[0];
+		        		TreeNodeRef cr = edge.child;
 		        		
 		        		if ( cr.node.seq == cr.seq )
 		        		{
@@ -1251,20 +1334,20 @@ public class Sancho extends SampleGamer {
 		        	{
 			        	if ( mostLikelyWinner != -1 )
 			        	{
-			        		TreeNodeRef cr = children[mostLikelyWinner];
+			        		TreeNodeRef cr = children[mostLikelyWinner].child;
 			        		TreeNode c = cr.node;
 			        		if ( cr.seq == c.seq && (!c.complete || (isMultiPlayer && ourMove!=null)))
 			        		{
 					            double uctValue;
 					            
-					            if ( numChildVisits[mostLikelyWinner] == 0 )
+					            if ( children[mostLikelyWinner].numChildVisits == 0 )
 					            {
 						            // small random number to break ties randomly in unexpanded nodes
-					            	uctValue = 1000 +  r.nextDouble() * epsilon;
+					            	uctValue = 1000 +  r.nextDouble() * epsilon + actionHistoryValue(children[mostLikelyWinner]);
 					            }
 					            else
 					            {
-					            	uctValue = explorationUCT(numChildVisits[mostLikelyWinner]) + c.exploitationUCT();
+					            	uctValue = explorationUCT(children[mostLikelyWinner].numChildVisits) + c.exploitationUCT() + actionHistoryValue(children[mostLikelyWinner]);
 					            	//uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[mostLikelyWinner])+1) / numChildVisits[mostLikelyWinner]);
 					            }
 			        			
@@ -1280,7 +1363,7 @@ public class Sancho extends SampleGamer {
 				        	mostLikelyRunnerUpValue = Double.MIN_VALUE;
 					        for (int i = 0; i < children.length; i++)
 					        {
-					        	TreeNodeRef cr = children[i];
+					        	TreeNodeRef cr = children[i].child;
 					        	if ( cr != null )
 					        	{
 						            TreeNode c = cr.node;
@@ -1301,14 +1384,14 @@ public class Sancho extends SampleGamer {
 						            else if ( !c.complete || (!c.complete || (isMultiPlayer && ourMove!=null)))
 						            {
 							            double uctValue;
-							            if ( numChildVisits[i] == 0 )
+							            if ( children[i].numChildVisits == 0 )
 							            {
 								            // small random number to break ties randomly in unexpanded nodes
-							            	uctValue = 1000 +  r.nextDouble() * epsilon;
+							            	uctValue = 1000 +  r.nextDouble() * epsilon + actionHistoryValue(children[i]);
 							            }
 							            else
 							            {
-							            	uctValue = explorationUCT(numChildVisits[i]) + c.exploitationUCT();
+							            	uctValue = explorationUCT(children[i].numChildVisits) + c.exploitationUCT() + actionHistoryValue(children[i]);
 							            	//uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
 							            }
 
@@ -1344,12 +1427,12 @@ public class Sancho extends SampleGamer {
 	        	//	FUTURE - can establish a bound on the trimmed UCT value to avoid
 	        	//	randomization for a while at least
 	        	int childIndex = r.nextInt(children.length);
-	        	TreeNodeRef cr = children[childIndex];
+	        	TreeNodeRef cr = children[childIndex].child;
 	        	selected = cr.node;
 	        	if ( cr.seq != selected.seq )
 	        	{
 	        		expand();
-	        		selected = children[childIndex].node;
+	        		selected = children[childIndex].child.node;
 		        	
 		        	if ( selected.freed )
 		        	{
@@ -1364,7 +1447,7 @@ public class Sancho extends SampleGamer {
 	        else
 	        {
 	        	mostLikelyWinner = selectedIndex;
-	        	selected = children[selectedIndex].node;
+	        	selected = children[selectedIndex].child.node;
 	        	
 	        	if ( selected.freed )
 	        	{
@@ -1385,9 +1468,9 @@ public class Sancho extends SampleGamer {
 	    	double bestScore = -Double.MAX_VALUE;
 	    	Move result = null;
 	    	
-	    	for(TreeNodeRef cr : children)
+	    	for(TreeEdge edge : children)
 	    	{
-	    		TreeNode child = cr.node;
+	    		TreeNode child = edge.child.node;
 	    		
 	    		Double moveScore = child.averageScore;
 	    		if ( moveScore < 0.5 )
@@ -1459,10 +1542,10 @@ public class Sancho extends SampleGamer {
 					
 					for(int index = 0; index < children.length; index++)
 					{
-						TreeNodeRef cr = children[index];
+						TreeNodeRef cr = children[index].child;
 						if ( cr.node == from && cr.seq == from.seq )
 						{
-							childVisits = numChildVisits[index];
+							childVisits = children[index].numChildVisits;
 							break;
 						}
 					}
@@ -1538,9 +1621,9 @@ public class Sancho extends SampleGamer {
 	    	{
 	    		for(int index = 0; index < children.length; index++)
 	    		{
-	    			if ( children[index].node == child )
+	    			if ( children[index].child.node == child )
 	    			{
-	    				numChildVisits[index]++;
+	    				children[index].numChildVisits++;
 	    				break;
 	    			}
 	    		}
@@ -1593,9 +1676,9 @@ public class Sancho extends SampleGamer {
 			    	{
 			    		for(int index = 0; index < children.length; index++)
 			    		{
-			    			if ( children[index].node == child )
+			    			if ( children[index].child.node == child )
 			    			{
-			    				numChildVisits[index]++;
+			    				children[index].numChildVisits++;
 			    				break;
 			    			}
 			    		}
@@ -1648,7 +1731,112 @@ public class Sancho extends SampleGamer {
 			    		}
 		    		}
 		    	}
+		    	
+		    	if ( numVisits > actionHistoryMinSampleSize && numVisits%actionHistorySampleInterval == 0 )
+		    	{
+		    		updateActionHistory();
+		    	}
 		    }
+	    }
+	    
+	    private void updateActionHistory()
+	    {
+	    	if ( children != null )
+	    	{
+		    	double bestScore = -Double.MAX_VALUE;
+		    	TreeEdge bestEdge = null;
+		    	
+		    	for(TreeEdge edge : children)
+		    	{
+		    		TreeNode child = edge.child.node;
+		    		
+		    		if ( edge.child.seq == child.seq )
+		    		{
+		    			if ( child.averageScore > bestScore )
+		    			{
+		    				bestScore = child.averageScore;
+		    				bestEdge = edge;
+		    			}
+		    		}
+		    	}
+		    	
+		    	if ( bestEdge != null )
+		    	{
+			    	List<Move> key;
+			    	
+			    	if ( bestEdge.theirMove != null )
+			    	{
+			    		key = bestEdge.theirMove;
+			    	}
+			    	else
+			    	{
+			    		key = new LinkedList<Move>();
+			    		key.add(bestEdge.child.node.ourMove);
+			    	}
+			    	List<ActionHistoryInstanceInfo> infoList = actionHistory.get(key);
+			    	
+			    	if ( infoList == null )
+			    	{
+			    		infoList = new LinkedList<ActionHistoryInstanceInfo>();
+			    		actionHistory.put(key, infoList);
+			    	}
+			    	
+			    	//	If an existing state is close to this one update the existing value
+			    	//	reducing the effective sample size with distance
+			    	boolean matchFound = false;
+			    	
+			    	for(ActionHistoryInstanceInfo instance : infoList)
+			    	{
+			    		int stateDistance = instance.state.distance(state);
+			    		if ( stateDistance < minActionHistoryStateSeperation )
+			    		{
+			    			int effectiveSampleSize = (bestEdge.numChildVisits*3)/(3 + stateDistance);
+			    			
+			    			instance.score = (instance.score*instance.numSamples + effectiveSampleSize*bestScore)/(instance.numSamples + effectiveSampleSize);
+			    			instance.numSamples += effectiveSampleSize;
+			    			
+			    			matchFound = true;
+			    		}
+			    	}
+			    	
+			    	if ( !matchFound )
+			    	{
+				    	if ( infoList.size() >= maxActionHistoryInstancesPerAction )
+				    	{
+				    		//	Trim least visited
+				    		int smallestSample = Integer.MAX_VALUE;
+				    		ActionHistoryInstanceInfo leastSampled = null;
+
+					    	for(ActionHistoryInstanceInfo instance : infoList)
+					    	{
+					    		if ( instance.numSamples < smallestSample )
+					    		{
+					    			leastSampled = instance;
+					    			smallestSample = instance.numSamples;
+					    		}
+					    	}
+					    	
+					    	if ( leastSampled == null )
+					    	{
+					    		System.out.println("No smallest sample apparent in action history list!");
+					    	}
+					    	
+					    	infoList.remove(leastSampled);
+					    	numActionHistoryInstances--;
+				    	}
+				    	
+			    		ActionHistoryInstanceInfo instance = new ActionHistoryInstanceInfo();
+			    		
+			    		instance.state = state;
+			    		instance.score = bestScore;
+			    		instance.numSamples = bestEdge.numChildVisits;
+			    		
+			    		infoList.add(instance);
+			    		
+			    		numActionHistoryInstances++;
+			    	}
+		    	}
+	    	}
 	    }
 	}
 	
@@ -1699,6 +1887,7 @@ public class Sancho extends SampleGamer {
 
 	private void emptyTree()
 	{
+		numActionHistoryInstances = 0;
 		numUniqueTreeNodes = 0;
 		numTotalTreeNodes = 0;
 		numFreedTreeNodes = 0;
@@ -1716,6 +1905,8 @@ public class Sancho extends SampleGamer {
 		completedRollouts.clear();
 		numQueuedRollouts = 0;
 		numCompletedRollouts = 0;
+		
+		actionHistory.clear();
 	}
 	
 	private TestForwardDeadReckonPropnetStateMachine underlyingStateMachine;
@@ -1723,7 +1914,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 0.6";
+		return "Sancho 0.7";
 	}
 	
 	@Override
@@ -2014,6 +2205,7 @@ public class Sancho extends SampleGamer {
 		System.out.println("Num winning lines seen: " + numWinningLinesSeen);
 		System.out.println("Num losing lines seen: " + numLosingLinesSeen);
 		System.out.println("Current rollout sample size: " + rolloutSampleSize );
+		System.out.println("Number of action history instances: " + numActionHistoryInstances);
 		
 		if ( ProfilerContext.getContext() != null )
 		{
