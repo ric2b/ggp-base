@@ -14,10 +14,13 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
+import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.profile.ProfilerContext;
+import org.ggp.base.util.profile.ProfilerSampleSetSimple;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.StateMachine;
@@ -46,13 +49,14 @@ public class Sancho extends SampleGamer {
     private final int actionHistoryMinSampleSize = 30;
     private final int actionHistorySampleInterval = 10;
     private final int maxActionHistoryInstancesPerAction = 20;
-    private final int minActionHistoryStateSeperation = 5;
+    private final double minActionHistoryStateSeperation = 0.1;
+    private final boolean actionHistoryEnabled = false;
     private int numActionHistoryInstances = 0;
     private final boolean useUnbiasedRollout = false;
     private int rolloutSampleSize = 4;
     private int transpositionTableSize = 2000000;
     private final int maxOutstandingRolloutRequests = 4;
-    private int numRolloutThreads = 4;
+    private int numRolloutThreads = 0;//4;
     private final double explorationBias = 1.2;//1.414;
     private final double actionHistoryWeight = 1;
     private TreeNode[] transpositionTable = null;
@@ -246,6 +250,8 @@ public class Sancho extends SampleGamer {
 		}
 	}
     
+	private double bestScoreSeen = -100;
+	
     private void processCompletedRollouts(long timeout)
     {
     	//	Process nay outstanding node completions first, as their processing may
@@ -284,7 +290,7 @@ public class Sancho extends SampleGamer {
   
 	private TreeNode allocateNode(TestForwardDeadReckonPropnetStateMachine underlyingStateMachine, ForwardDeadReckonInternalMachineState state, Move ourMove, TreeNode parent) throws GoalDefinitionException
 	{
-		ProfileSection methodSection = new ProfileSection("allocatNode");
+		ProfileSection methodSection = new ProfileSection("allocateNode");
 		try
 		{
 			TreeNode result = (ourMove == null ? positions.get(state) : null);
@@ -698,19 +704,22 @@ public class Sancho extends SampleGamer {
 		
 		private void markTreeForSweep()
 		{
-			sweepSeq = sweepInstance;
-			if( children != null )
+			if ( sweepSeq != sweepInstance )
 			{
-				for(TreeEdge edge : children)
+				sweepSeq = sweepInstance;
+				if( children != null )
 				{
-					if ( edge.child.node.seq == edge.child.seq )
+					for(TreeEdge edge : children)
 					{
-						//if ( !cr.node.parents.contains(this))
-						//{
-						//	System.out.println("Child relation inverse missing");
-						//}
-						//cr.node.sweepParent = this;
-						edge.child.node.markTreeForSweep();
+						if ( edge.child.node.seq == edge.child.seq )
+						{
+							//if ( !cr.node.parents.contains(this))
+							//{
+							//	System.out.println("Child relation inverse missing");
+							//}
+							//cr.node.sweepParent = this;
+							edge.child.node.markTreeForSweep();
+						}
 					}
 				}
 			}
@@ -831,11 +840,15 @@ public class Sancho extends SampleGamer {
 			freeNode();
 		}
 		
-		public TreeNode findNode(ForwardDeadReckonInternalMachineState targetState)
+		public TreeNode findNode(ForwardDeadReckonInternalMachineState targetState, int maxDepth)
 		{
 			if ( state.equals(targetState) && ourMove == null )
 			{
 				return this;
+			}
+			else if ( maxDepth == 0 )
+			{
+				return null;
 			}
 			
 			if ( children != null )
@@ -845,7 +858,7 @@ public class Sancho extends SampleGamer {
 					TreeNodeRef cr = edge.child;
 					if( cr.node.seq == cr.seq )
 					{
-						TreeNode childResult = cr.node.findNode(targetState);
+						TreeNode childResult = cr.node.findNode(targetState, maxDepth-1);
 						if ( childResult != null )
 						{
 							return childResult;
@@ -1071,7 +1084,7 @@ public class Sancho extends SampleGamer {
 		        	newNode = cur;
 		        }
 				//validateAll();
-		        
+		        //System.out.println("Rollout from: " + newNode.state);
 		        double score = newNode.rollOut(visited);
 		        if ( score != -Double.MAX_VALUE )
 		        {
@@ -1264,46 +1277,52 @@ public class Sancho extends SampleGamer {
 
 	    private double actionHistoryValue(TreeEdge edge)
 	    {
-	    	double result = 0;
-	    	
-	    	if ( children != null )
+	    	if ( actionHistoryEnabled )
 	    	{
-		    	List<Move> key;
+		    	double result = 0;
 		    	
-		    	if ( edge.theirMove != null )
+		    	if ( children != null )
 		    	{
-		    		key = edge.theirMove;
+			    	List<Move> key;
+			    	
+			    	if ( edge.theirMove != null )
+			    	{
+			    		key = edge.theirMove;
+			    	}
+			    	else
+			    	{
+			    		key = new LinkedList<Move>();
+			    		key.add(edge.child.node.ourMove);
+			    	}
+			    	List<ActionHistoryInstanceInfo> infoList = actionHistory.get(key);
+			    	
+			    	if ( infoList != null )
+			    	{
+			    		int numMatches = 0;
+	
+				    	for(ActionHistoryInstanceInfo instance : infoList)
+				    	{
+				    		double stateDistance = instance.state.distance(state);
+				    		
+				    		result += instance.score*3*(1-stateDistance);
+				    		numMatches++;
+				    	}
+				    	
+				    	if ( numMatches > 0 )
+				    	{
+				    		result /= numMatches;
+				    	}
+				    	
+				    	result /= 100;
+			    	}
 		    	}
-		    	else
-		    	{
-		    		key = new LinkedList<Move>();
-		    		key.add(edge.child.node.ourMove);
-		    	}
-		    	List<ActionHistoryInstanceInfo> infoList = actionHistory.get(key);
 		    	
-		    	if ( infoList != null )
-		    	{
-		    		int numMatches = 0;
-		    		infoList = new LinkedList<ActionHistoryInstanceInfo>();
-
-			    	for(ActionHistoryInstanceInfo instance : infoList)
-			    	{
-			    		int stateDistance = instance.state.distance(state);
-			    		
-			    		result += (instance.score*3)/(stateDistance+3);
-			    		numMatches++;
-			    	}
-			    	
-			    	if ( numMatches > 0 )
-			    	{
-			    		result /= numMatches;
-			    	}
-			    	
-			    	result /= 100;
-		    	}
+		    	return result*actionHistoryWeight*5/(edge.numChildVisits+4);
 	    	}
-	    	
-	    	return result*actionHistoryWeight*5/(edge.numChildVisits+4);
+	    	else
+	    	{
+	    		return 0;
+	    	}
 	    }
 	    
 	    private double explorationUCT(int numChildVisits)
@@ -1564,7 +1583,7 @@ public class Sancho extends SampleGamer {
 	    		TreeNode child = edge.child.node;
 	    		
 	    		Double moveScore = child.averageScore;
-	    		if ( moveScore < 0.5 )
+	    		if ( moveScore < 0.5 && edge.child.node.complete )
 	    		{
 	    			//	If everything loses with perfect play go for the highest variance and make
 	    			//	the opponent work for it!
@@ -1850,7 +1869,7 @@ public class Sancho extends SampleGamer {
 	    
 	    private void updateActionHistory()
 	    {
-	    	if ( children != null )
+	    	if ( actionHistoryEnabled && children != null )
 	    	{
 		    	double bestScore = -Double.MAX_VALUE;
 		    	TreeEdge bestEdge = null;
@@ -1896,10 +1915,10 @@ public class Sancho extends SampleGamer {
 			    	
 			    	for(ActionHistoryInstanceInfo instance : infoList)
 			    	{
-			    		int stateDistance = instance.state.distance(state);
+			    		double stateDistance = instance.state.distance(state);
 			    		if ( stateDistance < minActionHistoryStateSeperation )
 			    		{
-			    			int effectiveSampleSize = (bestEdge.numChildVisits*3)/(3 + stateDistance);
+			    			int effectiveSampleSize = (int)(bestEdge.numChildVisits*3*(1-stateDistance));
 			    			
 			    			instance.score = (instance.score*instance.numSamples + effectiveSampleSize*bestScore)/(instance.numSamples + effectiveSampleSize);
 			    			instance.numSamples += effectiveSampleSize;
@@ -2061,6 +2080,22 @@ public class Sancho extends SampleGamer {
 	private int multiRoleAverageScoreDiff = 0;
     private boolean underExpectedRangeScoreReported = false;
     private boolean overExpectedRangeScoreReported = false;
+    private MachineState targetState = null;
+	
+	private int unNormalizedStateDistance(MachineState queriedState, MachineState targetState)
+	{
+		int matchCount = 0;
+		
+		for(GdlSentence s : targetState.getContents())
+		{
+			if ( queriedState.getContents().contains(s))
+			{
+				matchCount++;
+			}
+		}
+		
+		return targetState.getContents().size() - matchCount;
+	}
 
 	@Override
 	public void stateMachineMetaGame(long timeout) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
@@ -2085,6 +2120,7 @@ public class Sancho extends SampleGamer {
 		int observedMaxNetScore = Integer.MIN_VALUE;
 		int simulationsPerformed = 0;
 		int multiRoleSamples = 0;
+		targetState = null;
 
 		multiRoleAverageScoreDiff = 0;
 		
@@ -2189,9 +2225,61 @@ public class Sancho extends SampleGamer {
 		}
 		
 		//	Special case handling for puzzles with hard-to-find wins
-		if ( isPuzzle && observedMinNetScore == observedMaxNetScore )
+		if ( isPuzzle && observedMinNetScore == observedMaxNetScore && observedMaxNetScore < 100 )
 		{
 			//	8-puzzle type stuff
+			System.out.println("Puzzle with no observed solution");
+		
+			MachineState terminalState;
+			Set<MachineState> goalStates = underlyingStateMachine.findGoalStates(getRole(), 90, 100, 20);
+			//Set<MachineState> goalStates = underlyingStateMachine.findTerminalStates(100,20);
+			Set<MachineState> cleanedStates = new HashSet<MachineState>();
+			
+			for(MachineState state : goalStates)
+			{
+				Set<GdlSentence> eliminatedSentences = new HashSet<GdlSentence>();
+				
+				for(GdlSentence s : state.getContents())
+				{
+					int count = 0;
+					
+					for(MachineState secondState : goalStates)
+					{
+						if ( state != secondState &&
+							 unNormalizedStateDistance(state, secondState ) == 1 &&
+							 !secondState.getContents().contains(s))
+						{
+							count++;
+						}
+					}
+					
+					if ( count > 1 )
+					{
+						eliminatedSentences.add(s);
+					}
+				}
+				
+				MachineState cleaned = new MachineState(new HashSet<GdlSentence>(state.getContents()));
+				cleaned.getContents().removeAll(eliminatedSentences);
+				
+				cleanedStates.add(cleaned);
+			}
+			
+			if ( cleanedStates.isEmpty() )
+			{
+				targetState = null;
+			}
+			else
+			{
+				terminalState = cleanedStates.iterator().next();
+				targetState = terminalState;
+				goalState = null;
+				nextGoalState = null;
+				bestScoreGoaled = -1;
+				bestSeenHeuristicValue = 0;
+				
+				System.out.println("Found target state: " + terminalState);
+			}
 		}
 		
 		if ( isPuzzle )
@@ -2218,6 +2306,14 @@ public class Sancho extends SampleGamer {
 			System.out.println("No score discrimination seen during simualtion - resetting to [0,100]");
 		}
 		
+		if ( isPuzzle )
+		{
+			observedMinNetScore = 0;
+			observedMaxNetScore = 100;
+			
+			System.out.println("Game is a puzzle so not normalizing scores");
+		}
+		
 		//	Normalize score ranges
 		MinRawNetScore = observedMinNetScore;
 		MaxRawNetScore = observedMaxNetScore;
@@ -2240,7 +2336,317 @@ public class Sancho extends SampleGamer {
 			}
 		}
 		
-		System.out.print(simulationsPerformed + " simulations performed in " + (simulationStopTime - simulationStartTime) + "mS - setting rollout sample size to " + rolloutSampleSize);
+		System.out.println(simulationsPerformed + " simulations performed in " + (simulationStopTime - simulationStartTime) + "mS - setting rollout sample size to " + rolloutSampleSize);
+	}
+	
+	private MachineState goalState = null;
+	private int goalDepth;
+	private MachineState nextGoalState = null;
+	private int bestScoreGoaled = -1;
+	private Map<GdlSentence,Integer> terminalSentenceVisitedCounts = null;
+	private HashMap<MachineState,Integer> considered = new HashMap<MachineState,Integer>();
+	private enum HeuristicType { HEURISTIC_TYPE_EXPLORE_AWAY, HEURISTIC_TYPE_EXPLORE_NEW, HEURISTIC_TYPE_GOAL_PROXIMITY, HEURISTIC_TYPE_GOAL_VALUE, HEURISTIC_TYPE_INFERRED_PROPOSITION_VALUE };
+	private HeuristicType nextExploreType = HeuristicType.HEURISTIC_TYPE_EXPLORE_AWAY;
+	private Set<GdlSentence> targetPropositions = null;
+	private int bestWeightedExplorationResult = -1;
+	private Set<MachineState> visitedStates = new HashSet<MachineState>();
+	
+	private int stateDistance(MachineState queriedState, MachineState targetState)
+	{
+		return 98*unNormalizedStateDistance(queriedState, targetState)/targetState.getContents().size();
+	}
+	
+	private int bestSeenHeuristicValue = 0;
+	private int heuristicValue(MachineState state, HeuristicType type)
+	{
+		int result = 0;
+		
+		switch(type)
+		{
+		case HEURISTIC_TYPE_GOAL_PROXIMITY:
+			result = (100 - stateDistance(state, targetState));
+			if ( result > bestSeenHeuristicValue )
+			{
+				System.out.println("Found heuristic value of " + result + " (goaled value is " + bestScoreGoaled + ") in state " + state);
+				bestSeenHeuristicValue = result;
+				if ( result > bestScoreGoaled )
+				{
+					System.out.println("Setting as next goal state");
+					nextGoalState = state;
+					goalState = null;
+					bestScoreGoaled = result;
+					nextExploreType = HeuristicType.HEURISTIC_TYPE_EXPLORE_AWAY;
+				}
+				else if ( result == bestScoreGoaled && goalState == null)
+				{
+					int explorationResult = 100;
+					
+					for(MachineState oldState : visitedStates)
+					{
+						int distance = unNormalizedStateDistance(state, oldState);
+
+						if ( distance < explorationResult )
+						{
+							explorationResult = distance;
+						}
+					}
+					
+					if ( explorationResult > 1 )
+					{
+						System.out.println("Setting as next goal state at equal value to a previous one");
+						nextGoalState = state;
+						goalState = null;
+						bestScoreGoaled = result;							
+						nextExploreType = HeuristicType.HEURISTIC_TYPE_EXPLORE_AWAY;
+					}
+					else if ( goalState != null && !state.equals(goalState) )
+					{
+						result = 0;
+					}
+				}
+				else if ( goalState != null && !state.equals(goalState) )
+				{
+					result = 0;
+				}
+			}
+			else if ( goalState != null && !state.equals(goalState) )
+			{
+				result = 0;
+			}
+			break;
+		case HEURISTIC_TYPE_EXPLORE_AWAY:
+			int matchCount = 0;
+			
+			for(GdlSentence s : targetPropositions)
+			{
+				if ( state.getContents().contains(s))
+				{
+					matchCount++;
+				}
+			}
+			
+			result = (4*(100*matchCount)/targetPropositions.size() + (100 - stateDistance(state, targetState)))/5;
+			
+			if ( result > bestWeightedExplorationResult )
+			{
+				//System.out.println("Setting goal state for new region to: " + state);
+				bestWeightedExplorationResult = result;
+				nextGoalState = state;
+				nextExploreType = HeuristicType.HEURISTIC_TYPE_EXPLORE_NEW;
+			}
+			break;
+		case HEURISTIC_TYPE_EXPLORE_NEW:
+			int weightedExplorationResult = 0;
+			
+			for(Entry<GdlSentence, Integer> e : terminalSentenceVisitedCounts.entrySet())
+			{
+				if (state.getContents().contains(e.getKey()))
+				{
+					int matchValue = (100*(visitedStates.size() - e.getValue()))/visitedStates.size();
+					
+					weightedExplorationResult += matchValue;
+				}
+			}
+			
+			if ( weightedExplorationResult > bestWeightedExplorationResult )
+			{
+				//System.out.println("Setting goal state for new region to: " + state);
+				bestWeightedExplorationResult = weightedExplorationResult;
+				nextGoalState = state;
+			}
+			result = (4*weightedExplorationResult + (100 - stateDistance(state, targetState)))/5;
+			break;
+		}
+		
+		return result;
+	}
+	
+	private int searchTree(MachineState state, Move move, int depth, HeuristicType searchType) throws TransitionDefinitionException, GoalDefinitionException, MoveDefinitionException
+	{
+		List<Move> pseudoJointMove = new LinkedList<Move>();
+		pseudoJointMove.add(move);
+		int result;
+		
+		MachineState nextState = underlyingStateMachine.getNextState(state, pseudoJointMove);
+		if ( considered.containsKey(nextState) )
+		{
+			return considered.get(nextState);
+		}
+
+		if ( underlyingStateMachine.isTerminal(nextState))
+		{
+			result = underlyingStateMachine.getGoal(nextState, getRole());
+
+			if ( result > bestScoreGoaled )
+			{
+				goalState = null;
+				nextGoalState = nextState;
+				bestScoreGoaled = result;
+			}
+			else if ( goalState != null && nextState.equals(goalState) )
+			{
+				result = bestScoreGoaled;
+			}
+			else
+			{
+				result = 0;
+			}
+		}
+		else if ( goalState != null && nextState.equals(goalState) )
+		{
+			//System.out.println("Encountered goaled node, returning score of " + bestScoreGoaled);
+			result = bestScoreGoaled;
+		}
+		else if ( depth == 0 )
+		{
+			result = heuristicValue(nextState, searchType);
+		}
+		else
+		{
+			List<Move> moves = underlyingStateMachine.getLegalMoves(nextState, getRole());
+			
+			int bestScore = -1;
+			
+			for(Move nextMove : moves)
+			{
+				int score = searchTree(nextState, nextMove, depth-1, searchType);
+				
+				if ( score > bestScore )
+				{
+					bestScore = score;
+				}
+			}
+			
+			result = bestScore;
+		}
+		
+		considered.put(nextState, result);
+		
+		return result;
+	}
+	
+	private Move selectPuzzleMove(List<Move> moves, long timeout) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
+	{
+		long totalTime = timeout - System.currentTimeMillis();
+		int bestScore = -1;
+		Move bestMove = moves.get(0);
+		visitedStates.add(getCurrentState());
+		
+		if ( getCurrentState().equals(goalState) )
+		{
+			System.out.println("Reached goal state: " + goalState);
+			goalState = null;
+			nextGoalState = null;
+		}
+		else
+		{
+			System.out.println("Current goal state is: " + goalState);
+		}
+		
+		terminalSentenceVisitedCounts = new HashMap<GdlSentence,Integer>();
+		
+		for(GdlSentence s : targetState.getContents())
+		{
+			int count = 0;
+			
+			for(MachineState state : visitedStates)
+			{
+				if ( state.getContents().contains(s))
+				{
+					count++;
+				}
+			}
+			
+			terminalSentenceVisitedCounts.put(s,  count);
+		}
+		
+		int depth = (goalState != null ? --goalDepth-1 : 0);
+		HeuristicType searchType = HeuristicType.HEURISTIC_TYPE_GOAL_PROXIMITY;
+
+		while(System.currentTimeMillis() < timeout - totalTime*3/4  && bestScore < 90)
+		{
+			bestScore = -1;
+			bestMove = null;
+			
+			depth++;
+			
+			for(Move move : moves)
+			{
+				considered.clear();
+				
+				int score = searchTree(getCurrentState(), move, depth, searchType);
+				if ( score > bestScore )
+				{
+					bestScore = score;
+					bestMove = move;
+				}
+			}
+		}
+		
+		System.out.println("Achieved search depth of " + depth);
+		System.out.println("Best move: " + bestMove + ": " + bestScore);
+		
+		if ( goalState == null && nextGoalState != null)
+		{
+			goalDepth = depth;
+			goalState = nextGoalState;
+			System.out.println("Set goal state of: " + goalState);
+		}
+		
+		if ( goalState == null && bestScore < bestScoreGoaled )
+		{		
+			targetPropositions = new HashSet<GdlSentence>();
+			for(GdlSentence s : targetState.getContents())
+			{
+				if ( !getCurrentState().getContents().contains(s))
+				{
+					targetPropositions.add(s);
+				}
+			}
+			System.out.println("Searching for a new state region with explore type " + nextExploreType);
+
+			depth = 1;
+			
+			while(System.currentTimeMillis() < timeout)
+			{
+				bestScore = -1;
+				bestMove = null;
+				bestWeightedExplorationResult = -1;
+				
+				for(Move move : moves)
+				{
+					considered.clear();
+					int score = searchTree(getCurrentState(), move, depth, nextExploreType);
+					//int heuristicScore = minEval(getCurrentState(), move, -1, 101, 1, HeuristicType.HEURISTIC_TYPE_GOAL_PROXIMITY);
+					
+					//System.out.println("Move " + move + " has exploration score: " + score + " with heuristic score " + heuristicScore);
+					if ( score > bestScore )//&& heuristicScore > 10)
+					{
+						bestScore = score;
+						bestMove = move;
+						//bestHeuristic = heuristicScore;
+					}
+					//else if ( score == bestScore )
+					//{
+					//	if ( heuristicScore > bestHeuristic )
+					//	{
+					//		bestHeuristic = heuristicScore;
+					//		bestMove = move;
+					//	}
+					//}
+					depth++;
+				}
+			}
+			
+			if ( bestMove == null )
+			{
+				bestMove = moves.get(0);
+			}
+			
+			goalState = nextGoalState;
+		}
+		
+		return bestMove;
 	}
 
 	@Override
@@ -2252,113 +2658,121 @@ public class Sancho extends SampleGamer {
 		long finishBy = timeout - 3000;
 	    numNonTerminalRollouts = 0;
 	    numTerminalRollouts = 0;
-		
-	    if ( rolloutProcessors == null && numRolloutThreads > 0 )
-	    {
-	    	rolloutProcessors = new RolloutProcessor[numRolloutThreads];
-	    	
-	    	for(int i = 0; i < numRolloutThreads; i++)
-	    	{
-	    		rolloutProcessors[i] = new RolloutProcessor(underlyingStateMachine.createInstance());
-	    		rolloutProcessors[i].start();
-	    	}
-	    }	    
-		
+	    Move bestMove;
 		ForwardDeadReckonInternalMachineState currentState = underlyingStateMachine.createInternalState(getCurrentState());
+		List<Move> moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
 		
-		//	Process anything left over from last turn's timeout
-		processCompletedRollouts(finishBy);
-		
-		//emptyTree();
-		//root = null;
-		//validateAll();
-		if ( root == null )
-		{
-			root = allocateNode(underlyingStateMachine, currentState, null, null);
-		}
-		else
-		{
-			System.out.println("Searching for new root in state: " + currentState);
-			TreeNode newRoot = root.findNode(currentState);
-			if ( newRoot == null )
+	    if ( targetState != null )
+	    {
+	    	bestMove = selectPuzzleMove(moves, timeout);
+			System.out.println("Playing best puzzle move: " + bestMove);
+	    }
+	    else
+	    {
+		    if ( rolloutProcessors == null && numRolloutThreads > 0 )
+		    {
+		    	rolloutProcessors = new RolloutProcessor[numRolloutThreads];
+		    	
+		    	for(int i = 0; i < numRolloutThreads; i++)
+		    	{
+		    		rolloutProcessors[i] = new RolloutProcessor(underlyingStateMachine.createInstance());
+		    		rolloutProcessors[i].start();
+		    	}
+		    }	    
+			
+			//	Process anything left over from last turn's timeout
+			processCompletedRollouts(finishBy);
+			
+			//emptyTree();
+			//root = null;
+			//validateAll();
+			if ( root == null )
 			{
-				System.out.println("Unexpectedly unable to find root node in existing tree");
-				emptyTree();
 				root = allocateNode(underlyingStateMachine, currentState, null, null);
 			}
 			else
 			{
-				System.out.println("Freeing unreachable nodes for new state: " + currentState);
-				root.freeAllBut(newRoot);
-				//sweepInstance++;
-				
-				root = newRoot;
-			}
-		}
-		//validateAll();
-
-		if ( underlyingStateMachine.isTerminal(currentState))
-		{
-			System.out.println("Asked to select in terminal state!");
-		}
-		
-		if ( root.complete )
-		{
-			System.out.println("Encountered complete root - must re-expand");
-			root.complete = false;
-			numCompletedBranches--;
-		}
-		//int validationCount = 0;
-		
-		Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
-		
-		while(System.currentTimeMillis() < finishBy && !root.complete)
-		{
-			while ( numUsedNodes > transpositionTableSize - 200 )
-			{
-				root.disposeLeastLikelyNode();
-			}
-			//validateAll();
-			//validationCount++;
-			int numOutstandingRollouts = numQueuedRollouts - numCompletedRollouts;
-			
-			if ( numOutstandingRollouts < maxOutstandingRolloutRequests )
-			{
-				root.selectAction(finishBy);
-			}
-
-			if (numRolloutThreads == 0)
-			{
-				while( !queuedRollouts.isEmpty() )
+				System.out.println("Searching for new root in state: " + currentState);
+				TreeNode newRoot = root.findNode(currentState, underlyingStateMachine.getRoles().size()+1);
+				if ( newRoot == null )
 				{
-					RolloutRequest request = queuedRollouts.remove();
+					System.out.println("Unexpectedly unable to find root node in existing tree");
+					emptyTree();
+					root = allocateNode(underlyingStateMachine, currentState, null, null);
+				}
+				else
+				{
+					System.out.println("Freeing unreachable nodes for new state: " + currentState);
+					root.freeAllBut(newRoot);
+					//sweepInstance++;
 					
-					request.process(underlyingStateMachine);
+					root = newRoot;
 				}
 			}
 			//validateAll();
-			processCompletedRollouts(finishBy);			
-		}
-		
-		//validateAll();
-		List<Move> moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
-		Move bestMove = root.getBestMove(false);
-		
-		//validateAll();
-		
-		System.out.println("Playing move: " + bestMove);
-		System.out.println("Num total tree node allocations: " + numTotalTreeNodes);
-		System.out.println("Num unique tree node allocations: " + numUniqueTreeNodes);
-		System.out.println("Num tree node frees: " + numFreedTreeNodes);
-		System.out.println("Num tree nodes currently in use: " + numUsedNodes);
-		System.out.println("Num true rollouts added: " + numNonTerminalRollouts);
-		System.out.println("Num terminal nodes revisited: " + numTerminalRollouts);
-		System.out.println("Num incomplete nodes: " + numIncompleteNodes);
-		System.out.println("Num completely explored branches: " + numCompletedBranches);
-		System.out.println("Num winning lines seen: " + numWinningLinesSeen);
-		System.out.println("Num losing lines seen: " + numLosingLinesSeen);
-		System.out.println("Current rollout sample size: " + rolloutSampleSize );
-		System.out.println("Number of action history instances: " + numActionHistoryInstances);
+	
+			if ( underlyingStateMachine.isTerminal(currentState))
+			{
+				System.out.println("Asked to select in terminal state!");
+			}
+			
+			if ( root.complete )
+			{
+				System.out.println("Encountered complete root - must re-expand");
+				root.complete = false;
+				numCompletedBranches--;
+			}
+			//int validationCount = 0;
+			
+			Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+			
+			while(System.currentTimeMillis() < finishBy && !root.complete)
+			{
+				while ( numUsedNodes > transpositionTableSize - 200 )
+				{
+					root.disposeLeastLikelyNode();
+				}
+				//validateAll();
+				//validationCount++;
+				int numOutstandingRollouts = numQueuedRollouts - numCompletedRollouts;
+				
+				if ( numOutstandingRollouts < maxOutstandingRolloutRequests )
+				{
+					root.selectAction(finishBy);
+				}
+	
+				if (numRolloutThreads == 0)
+				{
+					while( !queuedRollouts.isEmpty() )
+					{
+						RolloutRequest request = queuedRollouts.remove();
+						
+						request.process(underlyingStateMachine);
+					}
+				}
+				//validateAll();
+				processCompletedRollouts(finishBy);			
+			}
+			
+			//validateAll();
+			bestMove = root.getBestMove(false);
+			
+			//validateAll();
+			
+			System.out.println("Playing move: " + bestMove);
+			System.out.println("Num total tree node allocations: " + numTotalTreeNodes);
+			System.out.println("Num unique tree node allocations: " + numUniqueTreeNodes);
+			System.out.println("Num tree node frees: " + numFreedTreeNodes);
+			System.out.println("Num tree nodes currently in use: " + numUsedNodes);
+			System.out.println("Num true rollouts added: " + numNonTerminalRollouts);
+			System.out.println("Num terminal nodes revisited: " + numTerminalRollouts);
+			System.out.println("Num incomplete nodes: " + numIncompleteNodes);
+			System.out.println("Num completely explored branches: " + numCompletedBranches);
+			System.out.println("Num winning lines seen: " + numWinningLinesSeen);
+			System.out.println("Num losing lines seen: " + numLosingLinesSeen);
+			System.out.println("Current rollout sample size: " + rolloutSampleSize );
+			System.out.println("Number of action history instances: " + numActionHistoryInstances);
+	    }
 		
 		if ( ProfilerContext.getContext() != null )
 		{

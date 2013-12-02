@@ -84,12 +84,17 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
 		isXState = other.isXState;
 	}
 	
-	public int distance(ForwardDeadReckonInternalMachineState other)
+	public double distance(ForwardDeadReckonInternalMachineState other)
 	{
 		ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(other);
 		
 		temp.xor(this);
-		return temp.contents.cardinality();
+		int diff = temp.contents.cardinality();
+		temp.copy(other);
+		temp.merge(this);
+		int jointSize = temp.contents.cardinality();
+		
+		return (double)diff/jointSize;
 	}
 	
 	public void clear()

@@ -234,13 +234,13 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		return findSupportStates(terminal.getName(), maxResultSet, maxDepth);
 	}
 
-	public Set<MachineState> findGoalStates(Role role, int value, int maxResultSet, int maxDepth)
+	public Set<MachineState> findGoalStates(Role role, int minValue, int maxResultSet, int maxDepth)
 	{
 		Set<MachineState> results = new HashSet<MachineState>();
 		
 		for(PolymorphicProposition p : fullPropNet.getGoalPropositions().get(role))
 		{
-			if ( Integer.parseInt(p.getName().getBody().get(1).toString()) == value )
+			if ( Integer.parseInt(p.getName().getBody().get(1).toString()) >= minValue )
 			{
 				results.addAll(findSupportStates(p.getName(), maxResultSet, maxDepth));
 			}
