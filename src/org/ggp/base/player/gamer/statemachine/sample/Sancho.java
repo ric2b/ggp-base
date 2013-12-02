@@ -66,6 +66,8 @@ public class Sancho extends SampleGamer {
     private int numQueuedRollouts = 0;
     private int numCompletedRollouts = 0;
     private RolloutProcessor[] rolloutProcessors = null;
+    private Map<List<Move>, MoveScoreInfo> cousinMoveCache = new HashMap<List<Move>, MoveScoreInfo>();
+    private TreeNodeRef cousinMovesCachedFor = null;
     
 	private class RolloutProcessor implements Runnable
     {
@@ -180,6 +182,12 @@ public class Sancho extends SampleGamer {
     		this.node = node;
     		this.seq = node.seq;
     	}
+    }
+    
+    private class MoveScoreInfo
+    {
+    	public double	averageScore = 0;
+    	public int		sampleSize = 0;
     }
     
     private class ActionHistoryInstanceInfo
@@ -446,6 +454,10 @@ public class Sancho extends SampleGamer {
 				}
 				else
 				{
+					if ( parents.contains(root))
+					{
+						System.out.println("First level move completed");
+					}
 					completedNodeQueue.add(this);
 				}
 				
@@ -512,7 +524,7 @@ public class Sancho extends SampleGamer {
 			for(TreeNode parent : parents)
 			{
 				//	For multi-player games do not auto-complete opponent joint move wins
-				if ( averageScore > 99.5 && (!isMultiPlayer || ourMove != null))
+				if ( averageScore > 99.5 && ((!isMultiPlayer && !isSimultaneousMove) || ourMove != null))
 				{
 					// Win for whoever just moved after they got to choose so parent node is also decided
 					parent.markComplete(0);
@@ -556,6 +568,7 @@ public class Sancho extends SampleGamer {
 		{
 			boolean allChildrenComplete = true;
 			double bestValue = 0;
+			double averageValue = 0;
 			
 			for(TreeEdge edge : children)
 			{
@@ -570,6 +583,8 @@ public class Sancho extends SampleGamer {
 					{
 						bestValue = cr.node.averageScore;
 					}
+					
+					averageValue += cr.node.averageScore;
 				}
 				else
 				{
@@ -577,11 +592,22 @@ public class Sancho extends SampleGamer {
 				}
 			}
 			
-			if ( allChildrenComplete || (bestValue > 99.5 && (!isMultiPlayer || ourMove == null)) )
+			averageValue /= children.length;
+			
+			if ( allChildrenComplete || (bestValue > 99.5 && ((!isMultiPlayer && !isSimultaneousMove) || ourMove == null)) )
 			{
 				//	Opponent's choice which child to take, so take their
-				//	best value and crystalize as our value
-				markComplete(100 - bestValue);
+				//	best value and crystalize as our value.   However, if it's simultaneous
+				//	move or multiplayer complete with the average score since (individual)
+				//	opponents cannot make the pessimal (for us) choice reliably
+				if (isMultiPlayer || isSimultaneousMove)
+				{
+					markComplete(100 - averageValue);
+				}
+				else
+				{
+					markComplete(100 - bestValue);
+				}
 			}
 		}
 		
@@ -853,6 +879,8 @@ public class Sancho extends SampleGamer {
 	        int selectedIndex = -1;
 	        double bestValue = -Double.MAX_VALUE;
 	        
+			cousinMovesCachedFor = null;
+        
 			//validateAll();
 	        //System.out.println("Select LEAST in " + state);
 	        if ( freed )
@@ -885,7 +913,7 @@ public class Sancho extends SampleGamer {
 				            }
 				            else
 				            {
-				            	uctValue = -explorationUCT(children[leastLikelyWinner].numChildVisits) - c.exploitationUCT();
+				            	uctValue = -explorationUCT(children[leastLikelyWinner].numChildVisits) - exploitationUCT(children[leastLikelyWinner]);
 				            	//uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[leastLikelyWinner])+1) / numChildVisits[leastLikelyWinner]);
 				            }
 				            uctValue /= Math.log(c.descendantCount+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
@@ -937,7 +965,7 @@ public class Sancho extends SampleGamer {
 						            //}
 						            else
 						            {
-						            	uctValue = -explorationUCT(children[i].numChildVisits) - c.exploitationUCT();
+						            	uctValue = -explorationUCT(children[i].numChildVisits) - exploitationUCT(children[i]);
 						            	//uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
 						            }
 						            uctValue /= Math.log(c.descendantCount+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
@@ -1039,7 +1067,7 @@ public class Sancho extends SampleGamer {
 		        else
 		        {
 		        	//	If we've selected a terminal node we still do a pseudo-rollout
-		        	//	from it so it's value gets a weight increase via back propagation
+		        	//	from it so its value gets a weight increase via back propagation
 		        	newNode = cur;
 		        }
 				//validateAll();
@@ -1286,7 +1314,63 @@ public class Sancho extends SampleGamer {
         	return explorationBias*Math.sqrt(2*Math.min(0.5,varianceBound)*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
 	    }
 	    
-	    private double exploitationUCT()
+	    private double getAverageCousinMoveValue(TreeEdge relativeTo)
+	    {
+	    	if ( relativeTo.theirMove == null )
+	    	{
+	    		return relativeTo.child.node.averageScore/100;
+	    	}
+	    	else if ( cousinMovesCachedFor == null || cousinMovesCachedFor.node != this || cousinMovesCachedFor.seq != seq )
+	    	{
+	    		cousinMovesCachedFor = getRef();
+	    		cousinMoveCache.clear();
+	    		
+	    		for(TreeNode parent : parents)
+	    		{
+	    			for(TreeEdge edge : parent.children)
+	    			{
+	    				TreeNode child = edge.child.node;
+	    				
+	    				if ( edge.child.seq == child.seq && child.children != null )
+	    				{
+	    	    			for(TreeEdge nephewEdge : child.children)
+	    	    			{
+	    	    				TreeNode nephew = nephewEdge.child.node;
+	    	    				
+	    	    				if ( nephewEdge.child.seq == nephew.seq )
+	    	    				{
+			    					List<Move> jointMove = nephewEdge.theirMove;
+			    					
+			    					MoveScoreInfo accumulatedMoveInfo = cousinMoveCache.get(jointMove);
+			    					if ( accumulatedMoveInfo == null )
+			    					{
+			    						accumulatedMoveInfo = new MoveScoreInfo();
+			    						cousinMoveCache.put(jointMove, accumulatedMoveInfo);
+			    					}
+			    					
+			    					accumulatedMoveInfo.averageScore = (accumulatedMoveInfo.averageScore*accumulatedMoveInfo.sampleSize + nephew.averageScore)/(++accumulatedMoveInfo.sampleSize);
+	    	    				}
+	    	    			}
+	    				}
+	    			}
+	    		}
+	    	}
+	    	
+			MoveScoreInfo accumulatedMoveInfo = cousinMoveCache.get(relativeTo.theirMove);
+			if ( accumulatedMoveInfo == null )
+			{
+				System.out.println("No newphews found for search move including own child!");
+				cousinMovesCachedFor = null;
+				getAverageCousinMoveValue(relativeTo);
+				return relativeTo.child.node.averageScore/100;
+			}
+			else
+			{
+				return accumulatedMoveInfo.averageScore/100;
+			}
+	    }
+	    
+	    private double exploitationUCT(TreeEdge inboundEdge)
 	    {
 	    	//double stdDeviationMeasure = Math.sqrt((averageSquaredScore - averageScore*averageScore)/10000) - 0.25;
 	    	//double stdDeviationContribution = stdDeviationMeasure - 2*averageScore*stdDeviationMeasure/100;
@@ -1299,8 +1383,14 @@ public class Sancho extends SampleGamer {
 	    	//	return Math.min(0,  Math.max(averageScore + r.nextInt(multiRoleAverageScoreDiff*2) - multiRoleAverageScoreDiff,100))/100;
 	    	//}
 	    	//else
+	    	
+	    	if ( isSimultaneousMove && ourMove != null )
 	    	{
-	    		return averageScore/100;// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
+	    		return getAverageCousinMoveValue(inboundEdge);
+	    	}
+	    	else
+	    	{
+	    		return inboundEdge.child.node.averageScore/100;// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
 	    	}
 	    }
 
@@ -1308,6 +1398,7 @@ public class Sancho extends SampleGamer {
 	        TreeNode selected = null;
 	        int selectedIndex = -1;
 	        
+			cousinMovesCachedFor = null;
 	        //System.out.println("Select in " + state);
 	        if ( trimmedChildren == 0 )
 	        {
@@ -1336,7 +1427,7 @@ public class Sancho extends SampleGamer {
 			        	{
 			        		TreeNodeRef cr = children[mostLikelyWinner].child;
 			        		TreeNode c = cr.node;
-			        		if ( cr.seq == c.seq && (!c.complete || (isMultiPlayer && ourMove!=null)))
+			        		if ( cr.seq == c.seq && (!c.complete || ((isMultiPlayer || isSimultaneousMove) && ourMove!=null)))
 			        		{
 					            double uctValue;
 					            
@@ -1347,7 +1438,7 @@ public class Sancho extends SampleGamer {
 					            }
 					            else
 					            {
-					            	uctValue = explorationUCT(children[mostLikelyWinner].numChildVisits) + c.exploitationUCT() + actionHistoryValue(children[mostLikelyWinner]);
+					            	uctValue = explorationUCT(children[mostLikelyWinner].numChildVisits) + exploitationUCT(children[mostLikelyWinner]) + actionHistoryValue(children[mostLikelyWinner]);
 					            	//uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[mostLikelyWinner])+1) / numChildVisits[mostLikelyWinner]);
 					            }
 			        			
@@ -1381,7 +1472,7 @@ public class Sancho extends SampleGamer {
 						            	selectedIndex = -1;
 						            	break;
 						            }
-						            else if ( !c.complete || (!c.complete || (isMultiPlayer && ourMove!=null)))
+						            else if ( !c.complete || (!c.complete || ((isMultiPlayer || isSimultaneousMove) && ourMove!=null)))
 						            {
 							            double uctValue;
 							            if ( children[i].numChildVisits == 0 )
@@ -1391,7 +1482,7 @@ public class Sancho extends SampleGamer {
 							            }
 							            else
 							            {
-							            	uctValue = explorationUCT(children[i].numChildVisits) + c.exploitationUCT() + actionHistoryValue(children[i]);
+							            	uctValue = explorationUCT(children[i].numChildVisits) + exploitationUCT(children[i]) + actionHistoryValue(children[i]);
 							            	//uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
 							            }
 
@@ -1463,7 +1554,7 @@ public class Sancho extends SampleGamer {
 	        return children == null || complete;
 	    }
 	    
-	    public Move getBestMove()
+	    public Move getBestMove(boolean traceResponses)
 	    {
 	    	double bestScore = -Double.MAX_VALUE;
 	    	Move result = null;
@@ -1480,6 +1571,22 @@ public class Sancho extends SampleGamer {
 	    			moveScore = child.averageSquaredScore/100 - 100;
 	    		}
 	    		System.out.println("Move " + child.ourMove + " scores " + moveScore + " (selection count " + child.numVisits + (child.complete ? ", complete" : "") + ")");
+    			if (child.children != null && traceResponses)
+    			{
+    				for(TreeEdge edge2 : child.children)
+    				{
+    					if ( edge2.child.seq == edge2.child.node.seq )
+    					{
+    						StringBuilder sb = new StringBuilder();
+    						
+    						for(Move move : edge2.theirMove)
+    						{
+    							sb.append(move + "[selected " + edge2.numChildVisits +"]");
+    						}
+    						System.out.println("    Response " + sb + " scores " + edge2.child.node.averageScore);
+    					}
+    				}
+    			}
 	    		if ( moveScore > bestScore || (moveScore == bestScore && child.complete && moveScore > 0))
 	    		{
 	    			bestScore = moveScore;
@@ -1610,7 +1717,7 @@ public class Sancho extends SampleGamer {
 		    	
 		    	for(TreeNode parent : parents)
 		    	{
-		    		if ( !parent.complete )
+		    		if ( !parent.complete || isSimultaneousMove || isMultiPlayer )
 		    		{
 		    			parent.updateVisitCounts(sampleSize, path);
 		    		}
@@ -1672,7 +1779,7 @@ public class Sancho extends SampleGamer {
 		    		numVisits++;
 		    		//numVisits += sampleSize;
 		    		
-			    	if ( onPath && !complete && child != null )
+			    	if ( onPath && child != null && (!complete || isSimultaneousMove || isMultiPlayer))
 			    	{
 			    		for(int index = 0; index < children.length; index++)
 			    		{
@@ -1709,7 +1816,7 @@ public class Sancho extends SampleGamer {
 		    	//{
 		    	//	System.out.println("!");
 		    	//}
-		    	if ( complete && averageScore != oldAverageScore )
+		    	if ( complete && !isSimultaneousMove && !isMultiPlayer && averageScore != oldAverageScore )
 		    	{
 		    		System.out.println("Unexpected update to complete node score");
 		    	}
@@ -1719,7 +1826,9 @@ public class Sancho extends SampleGamer {
 		    	
 		    	for(TreeNode parent : parents)
 		    	{
-		    		if ( !parent.complete && parent.numVisits > 0 )
+		    		boolean parentOnPath = path.contains(parent);
+		    		
+		    		if ( (!parent.complete || isSimultaneousMove || isMultiPlayer) && (parentOnPath || parent.numVisits > 0) )
 		    		{
 			    		if ( onPath )
 			    		{
@@ -1914,7 +2023,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 0.7";
+		return "Sancho 0.8";
 	}
 	
 	@Override
@@ -1945,6 +2054,7 @@ public class Sancho extends SampleGamer {
 	
 	private boolean isPuzzle = false;
 	private boolean isMultiPlayer = false;
+	private boolean isSimultaneousMove = false;
 	private int MinRawNetScore = 0;
 	private int MaxRawNetScore = 100;
 	private int lowerBoundCompleteNetScore = 0;
@@ -1979,11 +2089,54 @@ public class Sancho extends SampleGamer {
 		multiRoleAverageScoreDiff = 0;
 		
 		ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine.createInternalState(getCurrentState());
+		ForwardDeadReckonInternalMachineState sampleState = initialState;
+		
+		//	Sample to see if multiple roles have multiple moves available
+		//	implying this must be a simultaneous move game
+		isSimultaneousMove = false;
+		
+		while(!isSimultaneousMove && !underlyingStateMachine.isTerminal(sampleState))
+		{
+			boolean	multipleChoicesSeen = false;
+			List<Move> jointMove = new LinkedList<Move>();
+			
+			for(Role role : underlyingStateMachine.getRoles())
+			{
+				List<Move> legalMoves = underlyingStateMachine.getLegalMoves(sampleState, role);
+				
+				if ( legalMoves.size() > 1 )
+				{
+					if ( multipleChoicesSeen )
+					{
+						isSimultaneousMove = true;
+						break;
+					}
+					
+					multipleChoicesSeen = true;
+				}
+				jointMove.add(legalMoves.get(r.nextInt(legalMoves.size())));
+			}
+			
+			if ( !isSimultaneousMove )
+			{
+				sampleState = underlyingStateMachine.getNextState(sampleState, jointMove);
+			}
+		}
+		
+		if ( isSimultaneousMove )
+		{
+			System.out.println("Game is a simultaneous turn game");
+		}
+		else
+		{
+			System.out.println("Game is not a simultaneous turn game");
+		}
+		
 		while(System.currentTimeMillis() < simulationStopTime)
 		{
 			simulationsPerformed++;
 			
-			ForwardDeadReckonInternalMachineState sampleState = new ForwardDeadReckonInternalMachineState(initialState);
+			sampleState = new ForwardDeadReckonInternalMachineState(initialState);
 
 			underlyingStateMachine.getDepthChargeResult(initialState, getRole(), 1000, sampleState, null);
 			
@@ -2189,7 +2342,7 @@ public class Sancho extends SampleGamer {
 		
 		//validateAll();
 		List<Move> moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
-		Move bestMove = root.getBestMove();
+		Move bestMove = root.getBestMove(false);
 		
 		//validateAll();
 		
