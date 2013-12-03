@@ -56,7 +56,7 @@ public class Sancho extends SampleGamer {
     private int rolloutSampleSize = 4;
     private int transpositionTableSize = 2000000;
     private final int maxOutstandingRolloutRequests = 4;
-    private int numRolloutThreads = 0;//4;
+    private int numRolloutThreads = 4;
     private final double explorationBias = 1.2;//1.414;
     private final double actionHistoryWeight = 1;
     private TreeNode[] transpositionTable = null;
