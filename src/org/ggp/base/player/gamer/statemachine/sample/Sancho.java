@@ -460,10 +460,10 @@ public class Sancho extends SampleGamer {
 				}
 				else
 				{
-					if ( parents.contains(root))
-					{
-						System.out.println("First level move completed");
-					}
+					//if ( parents.contains(root))
+					//{
+					//	System.out.println("First level move completed");
+					//}
 					completedNodeQueue.add(this);
 				}
 				
@@ -488,7 +488,7 @@ public class Sancho extends SampleGamer {
 			//	We suppress this for winning (or drawing) lines for us when the transposition
 			//	table is not full however, to retain known useful lines
 			boolean retainUsefulLine = false;//(ourMove != null && averageScore > 49.5) || (ourMove == null && averageScore < 50.5);
-			if ( children != null )
+			if ( children != null && (!isPuzzle || (ourMove == null && averageScore > 99.5) || (ourMove != null && averageScore < 0.5)) )
 			{
 				int numDescendantsFreed = 0;
 				
@@ -641,14 +641,22 @@ public class Sancho extends SampleGamer {
 		
 	    public void adjustDescendantCounts(int adjustment)
 	    {
-	    	if ( freed )
+	    	//	Slight hack - assume puzzles will be small enough that we won't have a strong need
+	    	//	to trim.  This helps games that are intensely transpositional (not limited to puzzles but
+	    	//	prevalent there), because the combination of paths to a node in such a game can be large
+	    	//	which makes updating the descendant counts prohibitively expensive.
+	    	//	TODO - this need a more generic solution 
+	    	if ( !isPuzzle )
 	    	{
-	    		System.out.println("Manipulating deleted node");
+		    	if ( freed )
+		    	{
+		    		System.out.println("Manipulating deleted node");
+		    	}
+				for(TreeNode parent : parents)
+				{
+					parent.adjustDescendantCounts(adjustment);
+				}
 	    	}
-			for(TreeNode parent : parents)
-			{
-				parent.adjustDescendantCounts(adjustment);
-			}
 			
 			descendantCount += adjustment;
 	    }
@@ -1013,7 +1021,7 @@ public class Sancho extends SampleGamer {
 	        	return children[selectedIndex].child.node.selectLeastLikelyNode(depth+1);
 	        }
 	        
-	        if ( descendantCount > 0 )
+	        if ( descendantCount > 0 && !isPuzzle )
 	        {
 	        	System.out.println("Selecting non-leaf for removal!");
 	        }
@@ -1122,9 +1130,9 @@ public class Sancho extends SampleGamer {
 			    		//}
 			    		TreeEdge[] newChildren = new TreeEdge[moves.size()];
 			    		
+		    			int index = 0;
 			    		if ( children != null )
 			    		{
-			    			int index = 0;
 			    			for(TreeEdge edge : children)
 			    			{
 			    				TreeNode child = edge.child.node;
@@ -1132,18 +1140,15 @@ public class Sancho extends SampleGamer {
 			    				{
 			    					moves.remove(child.ourMove);
 			    					newChildren[index] = edge;
+				    				index++;
 			    				}
-			    				
-			    				index++;
 			    			}
 			    		}
-		    			for(int index = 0; index < newChildren.length; index++)
+		    			while(index < newChildren.length)
 		    			{
-		    				if ( newChildren[index] == null )
-		    				{
-		    					newChildren[index] = new TreeEdge();
-		    					newChildren[index].child = allocateNode(underlyingStateMachine, state, moves.remove(0), this).getRef();
-		    				}
+	    					newChildren[index] = new TreeEdge();
+	    					newChildren[index].child = allocateNode(underlyingStateMachine, state, moves.remove(0), this).getRef();
+	    					index++;
 		    			}
 		    			
 		    			children = newChildren;
@@ -1181,7 +1186,7 @@ public class Sancho extends SampleGamer {
 			    		flattenMoveLists(legalMoves, jointMoves);
 			    		
 			    		TreeEdge[] newChildren = new TreeEdge[jointMoves.size()];
-			    		Map<ForwardDeadReckonInternalMachineState, List<Move>> newStates = new HashMap<ForwardDeadReckonInternalMachineState, List<Move>>();
+			    		Map<List<Move>,ForwardDeadReckonInternalMachineState> newStates = new HashMap<List<Move>, ForwardDeadReckonInternalMachineState>();
 			    		
 			    		for(List<Move> jointMove : jointMoves)
 			    		{
@@ -1197,11 +1202,12 @@ public class Sancho extends SampleGamer {
 			    				}
 			    			}
 			    			//System.out.println("Determine next state after joint move " + jointMove);
-			    			newStates.put(newState, jointMove);
+			    			newStates.put(jointMove, newState);
 			    		}
+			    		
+			    		int index = 0;
 			    		if ( children != null )
 			    		{
-				    		int index = 0;
 			    			for(TreeEdge edge : children)
 			    			{
 			    				TreeNode child = edge.child.node;
@@ -1209,14 +1215,12 @@ public class Sancho extends SampleGamer {
 			    				{
 			    					newStates.remove(child.state);
 			    					newChildren[index] = edge;
+				    				index++;
 			    				}
-			    				
-			    				index++;
 			    			}
 			    		}
 			    		
-			    		int index = 0;
-			    		for(Entry<ForwardDeadReckonInternalMachineState, List<Move>> e : newStates.entrySet())
+			    		for(Entry<List<Move>, ForwardDeadReckonInternalMachineState> e : newStates.entrySet())
 			    		{
 			    			while( newChildren[index] != null )
 			    			{
@@ -1224,9 +1228,14 @@ public class Sancho extends SampleGamer {
 			    			}
 
 			    			newChildren[index] = new TreeEdge();
-			    			newChildren[index].child = allocateNode(underlyingStateMachine, e.getKey(), null, this).getRef();
+			    			newChildren[index].child = allocateNode(underlyingStateMachine, e.getValue(), null, this).getRef();
 			    			newChildren[index].numChildVisits = 0;
-			    			newChildren[index].theirMove = e.getValue();
+			    			newChildren[index].theirMove = e.getKey();
+			    		}
+			    		
+			    		if ( index != newChildren.length - 1 )
+			    		{
+			    			System.out.println("Not all children filled in on expand!");
 			    		}
 			    		
 			    		children = newChildren;
@@ -1491,7 +1500,7 @@ public class Sancho extends SampleGamer {
 						            	selectedIndex = -1;
 						            	break;
 						            }
-						            else if ( !c.complete || (!c.complete || ((isMultiPlayer || isSimultaneousMove) && ourMove!=null)))
+						            else if ( !c.complete || ((isMultiPlayer || isSimultaneousMove) && ourMove!=null) )
 						            {
 							            double uctValue;
 							            if ( children[i].numChildVisits == 0 )
@@ -1548,7 +1557,7 @@ public class Sancho extends SampleGamer {
 		        	{
 		        		System.out.println("Selected freed node!");
 		        	}
-		        	if ( selected.complete && !isMultiPlayer )
+		        	if ( selected.complete && !isMultiPlayer && !isPuzzle )
 		        	{
 		        		System.out.println("Selected complete node from incomplete parent");
 		        	}
@@ -1600,7 +1609,7 @@ public class Sancho extends SampleGamer {
     						
     						for(Move move : edge2.theirMove)
     						{
-    							sb.append(move + "[selected " + edge2.numChildVisits +"]");
+    							sb.append(move + "[selected " + edge2.numChildVisits + (edge2.child.node.complete ? ", complete" : "") + "]");
     						}
     						System.out.println("    Response " + sb + " scores " + edge2.child.node.averageScore);
     					}
@@ -2042,7 +2051,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 0.8";
+		return "Sancho 0.9";
 	}
 	
 	@Override
@@ -2061,7 +2070,7 @@ public class Sancho extends SampleGamer {
 	    	
 	    	rolloutProcessors = null;
 	    }
-		GamerLogger.setFileToDisplay("StateMachine");
+		//GamerLogger.setFileToDisplay("StateMachine");
 		//ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
 		underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine(1+numRolloutThreads);
 		
@@ -2100,12 +2109,6 @@ public class Sancho extends SampleGamer {
 	@Override
 	public void stateMachineMetaGame(long timeout) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
 	{
-		//	Simulate and derive a few basic stats:
-		//	1) Is the game a puzzle?
-		//	2) For each role what is the largest and the smallest score that seem reachable and what are the corresponding net scores
-		long simulationStopTime = timeout - 5000;
-		long simulationStartTime = System.currentTimeMillis();
-	    
 		ourRole = getRole();
 		
 		isPuzzle = (underlyingStateMachine.getRoles().size() == 1);
@@ -2129,12 +2132,16 @@ public class Sancho extends SampleGamer {
 		
 		//	Sample to see if multiple roles have multiple moves available
 		//	implying this must be a simultaneous move game
+		//	HACK - actually only count games where both players can play the
+		//	SAME move - this gets blocker but doesn't include fully factored
+		//	games like C4-simultaneous or Chinook (but it's a hack!)
 		isSimultaneousMove = false;
 		
 		while(!isSimultaneousMove && !underlyingStateMachine.isTerminal(sampleState))
 		{
-			boolean	multipleChoicesSeen = false;
+			//boolean	simultaneousMovesSeen = false;
 			List<Move> jointMove = new LinkedList<Move>();
+			Set<Move> allMovesInState = new HashSet<Move>();
 			
 			for(Role role : underlyingStateMachine.getRoles())
 			{
@@ -2142,13 +2149,25 @@ public class Sancho extends SampleGamer {
 				
 				if ( legalMoves.size() > 1 )
 				{
-					if ( multipleChoicesSeen )
+					for(Move move : legalMoves)
 					{
-						isSimultaneousMove = true;
-						break;
+						if ( allMovesInState.contains(move) )
+						{
+							isSimultaneousMove = true;
+							break;
+						}
+						else
+						{
+							allMovesInState.add(move);
+						}
 					}
+					//if ( simultaneousMovesSeen )
+					//{
+					//	isSimultaneousMove = true;
+					//	break;
+					//}
 					
-					multipleChoicesSeen = true;
+					//simultaneousMovesSeen = true;
 				}
 				jointMove.add(legalMoves.get(r.nextInt(legalMoves.size())));
 			}
@@ -2158,7 +2177,7 @@ public class Sancho extends SampleGamer {
 				sampleState = underlyingStateMachine.getNextState(sampleState, jointMove);
 			}
 		}
-		
+
 		if ( isSimultaneousMove )
 		{
 			System.out.println("Game is a simultaneous turn game");
@@ -2168,6 +2187,12 @@ public class Sancho extends SampleGamer {
 			System.out.println("Game is not a simultaneous turn game");
 		}
 		
+		//	Simulate and derive a few basic stats:
+		//	1) Is the game a puzzle?
+		//	2) For each role what is the largest and the smallest score that seem reachable and what are the corresponding net scores
+		long simulationStopTime = timeout - 5000;
+		long simulationStartTime = System.currentTimeMillis();
+	    
 		while(System.currentTimeMillis() < simulationStopTime)
 		{
 			simulationsPerformed++;
@@ -2607,7 +2632,7 @@ public class Sancho extends SampleGamer {
 
 			depth = 1;
 			
-			while(System.currentTimeMillis() < timeout)
+			while(System.currentTimeMillis() < timeout && depth <= 6)
 			{
 				bestScore = -1;
 				bestMove = null;
@@ -2644,6 +2669,8 @@ public class Sancho extends SampleGamer {
 			}
 			
 			goalState = nextGoalState;
+			goalDepth = depth;
+			System.out.println("New goal state at depth " + goalDepth + ": " + goalState);
 		}
 		
 		return bestMove;
@@ -2655,7 +2682,7 @@ public class Sancho extends SampleGamer {
 			GoalDefinitionException {
 		// We get the current start time
 		long start = System.currentTimeMillis();
-		long finishBy = timeout - 3000;
+		long finishBy = timeout - 2500;
 	    numNonTerminalRollouts = 0;
 	    numTerminalRollouts = 0;
 	    Move bestMove;
@@ -2716,9 +2743,9 @@ public class Sancho extends SampleGamer {
 				System.out.println("Asked to select in terminal state!");
 			}
 			
-			if ( root.complete )
+			if ( root.complete && root.children == null )
 			{
-				System.out.println("Encountered complete root - must re-expand");
+				System.out.println("Encountered complete root with trimmed children - must re-expand");
 				root.complete = false;
 				numCompletedBranches--;
 			}
