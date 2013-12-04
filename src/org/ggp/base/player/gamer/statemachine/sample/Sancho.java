@@ -2070,7 +2070,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.0";
+		return "Sancho 1.01";
 	}
 	
 	@Override
@@ -2538,7 +2538,7 @@ public class Sancho extends SampleGamer {
 		}
 		else if ( goalState != null && nextState.equals(goalState) )
 		{
-			//System.out.println("Encountered goaled node, returning score of " + bestScoreGoaled);
+			System.out.println("Encountered goaled node, returning score of " + bestScoreGoaled);
 			result = bestScoreGoaled;
 		}
 		else if ( depth == 0 )
@@ -2604,14 +2604,22 @@ public class Sancho extends SampleGamer {
 			terminalSentenceVisitedCounts.put(s,  count);
 		}
 		
-		int depth = (goalState != null ? --goalDepth-1 : 0);
+		int depth = (goalState != null ? --goalDepth : 0);
 		HeuristicType searchType = HeuristicType.HEURISTIC_TYPE_GOAL_PROXIMITY;
 
+		if ( depth < 0 )
+		{
+			depth = 0;
+			goalState = null;
+			
+			System.out.println("Unexpectedly reached goal depth without encountering goal state - current state is: " + getCurrentState());
+		}
+		
+		bestScore = -1;
+		bestMove = null;
+		
 		while(System.currentTimeMillis() < timeout - totalTime*3/4  && bestScore < 90)
 		{
-			bestScore = -1;
-			bestMove = null;
-			
 			depth++;
 			
 			for(Move move : moves)
@@ -2625,6 +2633,8 @@ public class Sancho extends SampleGamer {
 					bestMove = move;
 				}
 			}
+			
+			//System.out.println("Best score at depth " + depth + ": " + bestScore);
 		}
 		
 		System.out.println("Achieved search depth of " + depth);
@@ -2637,7 +2647,7 @@ public class Sancho extends SampleGamer {
 			System.out.println("Set goal state of: " + goalState);
 		}
 		
-		if ( goalState == null && bestScore < bestScoreGoaled )
+		if ( goalState == null && bestScore <= bestScoreGoaled )
 		{		
 			targetPropositions = new HashSet<GdlSentence>();
 			for(GdlSentence s : targetState.getContents())
