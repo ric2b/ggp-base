@@ -51,6 +51,7 @@ public class Sancho extends SampleGamer {
     private final int maxActionHistoryInstancesPerAction = 20;
     private final double minActionHistoryStateSeperation = 0.1;
     private final boolean actionHistoryEnabled = false;
+    private boolean useGoalHeuristic = false;
     private int numActionHistoryInstances = 0;
     private final boolean useUnbiasedRollout = false;
     private int rolloutSampleSize = 4;
@@ -604,9 +605,9 @@ public class Sancho extends SampleGamer {
 			{
 				//	Opponent's choice which child to take, so take their
 				//	best value and crystalize as our value.   However, if it's simultaneous
-				//	move or multiplayer complete with the average score since (individual)
+				//	move complete with the average score since
 				//	opponents cannot make the pessimal (for us) choice reliably
-				if (isMultiPlayer || isSimultaneousMove)
+				if (isSimultaneousMove && ourMove != null)
 				{
 					markComplete(100 - averageValue);
 				}
@@ -1416,6 +1417,24 @@ public class Sancho extends SampleGamer {
 	    	{
 	    		return getAverageCousinMoveValue(inboundEdge);
 	    	}
+	    	else if ( useGoalHeuristic )
+	    	{
+     	    	int roleScore;
+				try {
+					roleScore = netScore(underlyingStateMachine, inboundEdge.child.node.state);
+				} catch (GoalDefinitionException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					roleScore = 0;
+				}
+				
+				if ( ourMove != null )
+				{
+					roleScore = 100 - roleScore;
+				}
+
+     	    	return inboundEdge.child.node.averageScore/100 + roleScore/(100*Math.log(inboundEdge.child.node.numVisits+2));// + averageSquaredScore/20000;
+	    	}
 	    	else
 	    	{
 	    		return inboundEdge.child.node.averageScore/100;// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
@@ -2051,7 +2070,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 0.9";
+		return "Sancho 1.0";
 	}
 	
 	@Override
