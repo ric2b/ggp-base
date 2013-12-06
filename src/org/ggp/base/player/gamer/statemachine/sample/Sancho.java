@@ -43,6 +43,7 @@ public class Sancho extends SampleGamer {
     private int numCompletedBranches = 0;
     private int numWinningLinesSeen = 0;
     private int numLosingLinesSeen = 0;
+    private boolean completeSelectionFromIncompleteParentWarned = false;
     
     private Map<ForwardDeadReckonInternalMachineState, TreeNode> positions = new HashMap<ForwardDeadReckonInternalMachineState,TreeNode>();
 
@@ -1214,7 +1215,7 @@ public class Sancho extends SampleGamer {
 			    				TreeNode child = edge.child.node;
 			    				if ( edge.child.seq == child.seq )
 			    				{
-			    					newStates.remove(child.state);
+			    					newStates.remove(edge.theirMove);
 			    					newChildren[index] = edge;
 				    				index++;
 			    				}
@@ -1578,7 +1579,11 @@ public class Sancho extends SampleGamer {
 		        	}
 		        	if ( selected.complete && !isMultiPlayer && !isPuzzle )
 		        	{
-		        		System.out.println("Selected complete node from incomplete parent");
+		        		if ( !completeSelectionFromIncompleteParentWarned )
+		        		{
+		        			completeSelectionFromIncompleteParentWarned = true;
+			        		System.out.println("Selected complete node from incomplete parent");
+		        		}
 		        	}
 	        	}
 	        }
@@ -2070,7 +2075,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.01";
+		return "Sancho 1.03";
 	}
 	
 	@Override
@@ -2137,6 +2142,7 @@ public class Sancho extends SampleGamer {
 		MaxRawNetScore = 100;
 	    underExpectedRangeScoreReported = false;
 	    overExpectedRangeScoreReported = false;
+	    completeSelectionFromIncompleteParentWarned = false;
 		
 		int observedMinNetScore = Integer.MAX_VALUE;
 		int observedMaxNetScore = Integer.MIN_VALUE;
