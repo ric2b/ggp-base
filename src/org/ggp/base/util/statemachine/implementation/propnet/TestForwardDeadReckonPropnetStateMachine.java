@@ -2123,7 +2123,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     
     public int getDepthChargeResult(ForwardDeadReckonInternalMachineState state, Role role, int sampleDepth, ForwardDeadReckonInternalMachineState sampleState, final int[] theDepth) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException {  
     	rolloutDepth = 0;
-        List<TerminalResultVector> resultVectors = new LinkedList<TerminalResultVector>();
+        List<TerminalResultVector> resultVectors = (getRoles().size() == 1 ? new LinkedList<TerminalResultVector>() : null);
         
         if ( validationMachine != null )
         {
@@ -2139,14 +2139,22 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
         while(!isTerminal()) {
             triedMoves.clear();
             
-            Role choosingRole;
-            do
+            if ( resultVectors != null )
             {
-            	choosingRole = chooseRandomJointMove();
-            } while( !transitionToNextStateFromChosenMove(choosingRole, resultVectors));
-            if ( sampleState != null && rolloutDepth == sampleDepth)
+	            Role choosingRole;
+	            do
+	            {
+	            	choosingRole = chooseRandomJointMove();
+	            } while( !transitionToNextStateFromChosenMove(choosingRole, resultVectors));
+	            if ( sampleState != null && rolloutDepth == sampleDepth)
+	            {
+	            	sampleState.copy(getInternalStateFromBase());
+	            }
+            }
+            else
             {
-            	sampleState.copy(getInternalStateFromBase());
+            	chooseRandomJointMove();
+            	transitionToNextStateFromChosenMove(null,null);
             }
         	rolloutDepth++;
         }
@@ -2168,41 +2176,48 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
         	}
         }
         
-        //	Add the final terminal result which was unavoidable
-        addResultVector(null, resultVectors);
-        
-        TerminalResultVector chosenResult = null;
-        
-        //	This needs some work for games of > 2 players
-        for(TerminalResultVector resultVector : resultVectors)
+        if ( resultVectors != null )
         {
-        	if ( chosenResult == null )
-        	{
-        		chosenResult = resultVector;
-        	}
-        	else
-        	{
-        		if ( resultVector.controllingRole == null )
-        		{
-        			//	Only select if the previous chosen vector's controller allows
-        			if ( resultVector.scores.get(chosenResult.controllingRole) >= chosenResult.scores.get(chosenResult.controllingRole))
-        			{
-        				chosenResult = resultVector;
-        			}
-        		}
-        		//	Would some player have chosen this over the previous choice
-        		//	and if so would the previous chooser allow that?
-        		else if ( resultVector.scores.get(resultVector.controllingRole) > chosenResult.scores.get(resultVector.controllingRole) &&
-        				  resultVector.scores.get(chosenResult.controllingRole) >= chosenResult.scores.get(chosenResult.controllingRole))
-        		{
-        			chosenResult = resultVector;
-        		}
-        	}
+	        //	Add the final terminal result which was unavoidable
+	        addResultVector(null, resultVectors);
+	        
+	        TerminalResultVector chosenResult = null;
+	        
+	        //	This needs some work for games of > 2 players
+	        for(TerminalResultVector resultVector : resultVectors)
+	        {
+	        	if ( chosenResult == null )
+	        	{
+	        		chosenResult = resultVector;
+	        	}
+	        	else
+	        	{
+	        		if ( resultVector.controllingRole == null )
+	        		{
+	        			//	Only select if the previous chosen vector's controller allows
+	        			if ( resultVector.scores.get(chosenResult.controllingRole) >= chosenResult.scores.get(chosenResult.controllingRole))
+	        			{
+	        				chosenResult = resultVector;
+	        			}
+	        		}
+	        		//	Would some player have chosen this over the previous choice
+	        		//	and if so would the previous chooser allow that?
+	        		else if ( resultVector.scores.get(resultVector.controllingRole) > chosenResult.scores.get(resultVector.controllingRole) &&
+	        				  resultVector.scores.get(chosenResult.controllingRole) >= chosenResult.scores.get(chosenResult.controllingRole))
+	        		{
+	        			chosenResult = resultVector;
+	        		}
+	        	}
+	        }
+	        
+	        int result = chosenResult.scores.get(role);
+	        
+	        return result;
         }
-        
-        int result = chosenResult.scores.get(role);
-        
-        return result;
+        else
+        {
+        	return getGoal(role);
+        }
     }
 
 	public Set<GdlSentence> getBasePropositions() {
