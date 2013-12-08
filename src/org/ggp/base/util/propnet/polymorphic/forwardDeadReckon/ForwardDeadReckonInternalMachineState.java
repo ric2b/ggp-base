@@ -76,6 +76,11 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
 		contents.or(other.contents);
 	}
 	
+	public void intersect(ForwardDeadReckonInternalMachineState other)
+	{
+		contents.and(other.contents);
+	}
+	
 	public void copy(ForwardDeadReckonInternalMachineState other)
 	{
 		contents.clear();
@@ -174,5 +179,13 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
 	public Iterator<ForwardDeadReckonPropositionCrossReferenceInfo> iterator() {
 		// TODO Auto-generated method stub
 		return new InternalMachineStateIterator(this);
+	}
+
+	public boolean contains(ForwardDeadReckonInternalMachineState other)
+	{
+		ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(other);
+		
+		temp.intersect(this);
+		return other.contents.cardinality() == temp.contents.cardinality();
 	}
 }

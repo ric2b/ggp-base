@@ -12,6 +12,8 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
@@ -140,6 +142,8 @@ public class Sancho extends SampleGamer {
 		}
     }
     
+	private int highestRolloutScoreSeen = -100;
+	
     private class RolloutRequest
     {
     	public TreeNodeRef								node;
@@ -164,6 +168,11 @@ public class Sancho extends SampleGamer {
 		        	int score = netScore(stateMachine, null);
 		        	averageScore += score;
 		        	averageSquaredScore += score*score;
+		        	
+		        	if ( score > highestRolloutScoreSeen )
+		        	{
+		        		highestRolloutScoreSeen = score;
+		        	}
 				}
 				
 				averageScore /= sampleSize;
@@ -379,6 +388,8 @@ public class Sancho extends SampleGamer {
 		int			numChildVisits = 0;
 		TreeNodeRef	child;
 		List<Move>	theirMove = null;
+		boolean		hasCachedPatternMatchValue = false;
+		double		cachedPatternMatchValue;
 	}
 	
 	private class TreeNode
@@ -1285,55 +1296,77 @@ public class Sancho extends SampleGamer {
 				methodSection.exitScope();
 			}
 	    }
-
-	    private double actionHistoryValue(TreeEdge edge)
+	    
+	    private double heuristicValue(TreeEdge edge)
 	    {
+	    	double result = 0;
+	    	
 	    	if ( actionHistoryEnabled )
 	    	{
-		    	double result = 0;
-		    	
-		    	if ( children != null )
-		    	{
-			    	List<Move> key;
-			    	
-			    	if ( edge.theirMove != null )
-			    	{
-			    		key = edge.theirMove;
-			    	}
-			    	else
-			    	{
-			    		key = new LinkedList<Move>();
-			    		key.add(edge.child.node.ourMove);
-			    	}
-			    	List<ActionHistoryInstanceInfo> infoList = actionHistory.get(key);
-			    	
-			    	if ( infoList != null )
-			    	{
-			    		int numMatches = 0;
-	
-				    	for(ActionHistoryInstanceInfo instance : infoList)
-				    	{
-				    		double stateDistance = instance.state.distance(state);
-				    		
-				    		result += instance.score*3*(1-stateDistance);
-				    		numMatches++;
-				    	}
-				    	
-				    	if ( numMatches > 0 )
-				    	{
-				    		result /= numMatches;
-				    	}
-				    	
-				    	result /= 100;
-			    	}
-		    	}
-		    	
-		    	return result*actionHistoryWeight*5/(edge.numChildVisits+4);
+	    		result += actionHistoryValue(edge);
 	    	}
 	    	else
 	    	{
-	    		return 0;
+	    		//	TODO - for non-puzzle this needs to see the state that will result from the decision
+	    		//	choice which requires a full joint move - could b problematic for simultaneous play
+	    		//	games (and will need slight modification to node expansion for non-simultaneous to ensure
+	    		//	expansion to next state)
+	    		if ( edge.hasCachedPatternMatchValue )
+	    		{
+	    			result += edge.cachedPatternMatchValue;
+	    		}
+	    		else
+	    		{
+	    			edge.cachedPatternMatchValue = patternMatchValue(edge.child.node.state);
+	    			edge.hasCachedPatternMatchValue = true;
+	    			result += edge.cachedPatternMatchValue;
+	    		}
 	    	}
+	    	
+	    	return result*2/Math.log(edge.numChildVisits+2);
+	    }
+
+	    private double actionHistoryValue(TreeEdge edge)
+	    {
+	    	double result = 0;
+	    	
+	    	if ( children != null )
+	    	{
+		    	List<Move> key;
+		    	
+		    	if ( edge.theirMove != null )
+		    	{
+		    		key = edge.theirMove;
+		    	}
+		    	else
+		    	{
+		    		key = new LinkedList<Move>();
+		    		key.add(edge.child.node.ourMove);
+		    	}
+		    	List<ActionHistoryInstanceInfo> infoList = actionHistory.get(key);
+		    	
+		    	if ( infoList != null )
+		    	{
+		    		int numMatches = 0;
+
+			    	for(ActionHistoryInstanceInfo instance : infoList)
+			    	{
+			    		double stateDistance = instance.state.distance(state);
+			    		
+			    		result += instance.score*3*(1-stateDistance);
+			    		numMatches++;
+			    	}
+			    	
+			    	if ( numMatches > 0 )
+			    	{
+			    		result /= numMatches;
+			    	}
+			    	
+			    	result /= 100;
+		    	}
+	    	}
+	    	
+	    	return result*actionHistoryWeight;
 	    }
 	    
 	    private double explorationUCT(int numChildVisits)
@@ -1482,11 +1515,11 @@ public class Sancho extends SampleGamer {
 					            if ( children[mostLikelyWinner].numChildVisits == 0 )
 					            {
 						            // small random number to break ties randomly in unexpanded nodes
-					            	uctValue = 1000 +  r.nextDouble() * epsilon + actionHistoryValue(children[mostLikelyWinner]);
+					            	uctValue = 1000 +  r.nextDouble() * epsilon + heuristicValue(children[mostLikelyWinner]);
 					            }
 					            else
 					            {
-					            	uctValue = explorationUCT(children[mostLikelyWinner].numChildVisits) + exploitationUCT(children[mostLikelyWinner]) + actionHistoryValue(children[mostLikelyWinner]);
+					            	uctValue = explorationUCT(children[mostLikelyWinner].numChildVisits) + exploitationUCT(children[mostLikelyWinner]) + heuristicValue(children[mostLikelyWinner]);
 					            	//uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[mostLikelyWinner])+1) / numChildVisits[mostLikelyWinner]);
 					            }
 			        			
@@ -1526,11 +1559,11 @@ public class Sancho extends SampleGamer {
 							            if ( children[i].numChildVisits == 0 )
 							            {
 								            // small random number to break ties randomly in unexpanded nodes
-							            	uctValue = 1000 +  r.nextDouble() * epsilon + actionHistoryValue(children[i]);
+							            	uctValue = 1000 +  r.nextDouble() * epsilon + heuristicValue(children[i]);
 							            }
 							            else
 							            {
-							            	uctValue = explorationUCT(children[i].numChildVisits) + exploitationUCT(children[i]) + actionHistoryValue(children[i]);
+							            	uctValue = explorationUCT(children[i].numChildVisits) + exploitationUCT(children[i]) + heuristicValue(children[i]);
 							            	//uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
 							            }
 
@@ -2046,6 +2079,29 @@ public class Sancho extends SampleGamer {
 		}
 	}
 
+	//	TODO - this will need to be per-role
+	private Map<ForwardDeadReckonInternalMachineState, Integer> patterns = null;
+	
+    private double patternMatchValue(ForwardDeadReckonInternalMachineState state)
+    {
+    	double result = 0;
+    	
+    	if ( patterns != null )
+    	{
+    		for(Entry<ForwardDeadReckonInternalMachineState, Integer> pattern : patterns.entrySet())
+    		{
+    			if ( state.contains(pattern.getKey()) )
+    			{
+    				result += pattern.getValue();
+    			}
+    		}
+    		
+    		result /= patterns.size();
+    	}
+    	
+    	return result;
+    }
+
 	private void emptyTree()
 	{
 		numActionHistoryInstances = 0;
@@ -2075,7 +2131,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.03";
+		return "Sancho 1.1";
 	}
 	
 	@Override
@@ -2143,6 +2199,7 @@ public class Sancho extends SampleGamer {
 	    underExpectedRangeScoreReported = false;
 	    overExpectedRangeScoreReported = false;
 	    completeSelectionFromIncompleteParentWarned = false;
+	    highestRolloutScoreSeen = -100;
 		
 		int observedMinNetScore = Integer.MAX_VALUE;
 		int observedMaxNetScore = Integer.MIN_VALUE;
@@ -2228,6 +2285,7 @@ public class Sancho extends SampleGamer {
 			
 	    	int netScore = netScore(underlyingStateMachine, sampleState);
 
+	    	//System.out.println("Saw score of " + netScore);
 	    	if ( netScore < observedMinNetScore )
 	    	{
 	    		observedMinNetScore = netScore;
@@ -2387,6 +2445,93 @@ public class Sancho extends SampleGamer {
 		}
 		
 		System.out.println(simulationsPerformed + " simulations performed in " + (simulationStopTime - simulationStartTime) + "mS - setting rollout sample size to " + rolloutSampleSize);
+		
+		//	TOTAL HACK FOR MAX KNIGHTS
+		if ( false )
+		{
+			patterns = new HashMap<ForwardDeadReckonInternalMachineState, Integer>();
+			GdlSentence[][] boardKnightProps = new GdlSentence[9][9];
+			
+			Pattern propParser = Pattern.compile("cell ([a-i]) ([1-9]) wn");
+			for(GdlSentence baseProp : underlyingStateMachine.getBasePropositions())
+			{
+				String propName = baseProp.toString();
+				Matcher matcher = propParser.matcher(propName);
+				
+				if ( matcher.find() )
+				{
+					int i = (int)matcher.group(1).charAt(0) - (int)'a';
+					int j = Integer.parseInt(matcher.group(2)) - 1;
+					
+					boardKnightProps[i][j] = baseProp;
+				}
+			}
+			
+			Set<GdlSentence> patternSet = new HashSet<GdlSentence>();
+			MachineState patternState = new MachineState(patternSet);
+			ForwardDeadReckonInternalMachineState internalPatternState;
+			
+			for(int i = 0; i < 7; i++)
+			{
+				for(int j = 0; j < 7; j++)
+				{
+					patternSet.add(boardKnightProps[i][j]);
+					patternSet.add(boardKnightProps[i+1][j+1]);
+					
+					internalPatternState = underlyingStateMachine.createInternalState(patternState);
+					
+					patterns.put(internalPatternState, new Integer(1));
+					
+					patternSet.clear();
+					patternSet.add(boardKnightProps[i][j]);
+					patternSet.add(boardKnightProps[i+1][j]);
+					
+					internalPatternState = underlyingStateMachine.createInternalState(patternState);
+					
+					patterns.put(internalPatternState, new Integer(-1));
+					
+					patternSet.clear();
+					patternSet.add(boardKnightProps[i][j]);
+					patternSet.add(boardKnightProps[i][j+1]);
+					
+					internalPatternState = underlyingStateMachine.createInternalState(patternState);
+					
+					patterns.put(internalPatternState, new Integer(-1));
+				}
+			}
+			
+			patternSet.clear();
+			patternSet.add(boardKnightProps[0][0]);
+			patternSet.add(boardKnightProps[7][0]);
+			
+			internalPatternState = underlyingStateMachine.createInternalState(patternState);
+			
+			patterns.put(internalPatternState, new Integer(-50));
+			
+			patternSet.clear();
+			patternSet.add(boardKnightProps[0][0]);
+			patternSet.add(boardKnightProps[0][7]);
+			
+			internalPatternState = underlyingStateMachine.createInternalState(patternState);
+			
+			patterns.put(internalPatternState, new Integer(-50));
+			
+			patternSet.clear();
+			patternSet.add(boardKnightProps[7][7]);
+			patternSet.add(boardKnightProps[7][0]);
+			
+			internalPatternState = underlyingStateMachine.createInternalState(patternState);
+			
+			patterns.put(internalPatternState, new Integer(-50));
+			
+			patternSet.clear();
+			patternSet.add(boardKnightProps[7][7]);
+			patternSet.add(boardKnightProps[0][7]);
+			
+			internalPatternState = underlyingStateMachine.createInternalState(patternState);
+			
+			patterns.put(internalPatternState, new Integer(-50));
+		}
 	}
 	
 	private MachineState goalState = null;
@@ -2834,6 +2979,7 @@ public class Sancho extends SampleGamer {
 			System.out.println("Num losing lines seen: " + numLosingLinesSeen);
 			System.out.println("Current rollout sample size: " + rolloutSampleSize );
 			System.out.println("Number of action history instances: " + numActionHistoryInstances);
+			System.out.println("Highest observed rollout score: " + highestRolloutScoreSeen);
 	    }
 		
 		if ( ProfilerContext.getContext() != null )
