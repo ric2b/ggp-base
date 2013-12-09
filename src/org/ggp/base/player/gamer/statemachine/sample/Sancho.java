@@ -88,6 +88,11 @@ public class Sancho extends SampleGamer {
     		this.stateMachine = stateMachine;
     	}
     	
+    	public void disableGreedyRollouts()
+    	{
+    		stateMachine.disableGreedyRollouts();
+    	}
+    	
     	public void start()
     	{
     		if ( runningThread == null )
@@ -2131,7 +2136,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.11";
+		return "Sancho 1.12";
 	}
 	
 	@Override
@@ -2274,6 +2279,11 @@ public class Sancho extends SampleGamer {
 		//	2) For each role what is the largest and the smallest score that seem reachable and what are the corresponding net scores
 		long simulationStopTime = timeout - 5000;
 		long simulationStartTime = System.currentTimeMillis();
+		
+		int[] rolloutStats = new int[2];
+		int maxNumTurns = 0;
+		int minNumTurns = Integer.MAX_VALUE;
+		double averageBranchingFactor = 0;
 	    
 		while(System.currentTimeMillis() < simulationStopTime)
 		{
@@ -2281,10 +2291,20 @@ public class Sancho extends SampleGamer {
 			
 			sampleState = new ForwardDeadReckonInternalMachineState(initialState);
 
-			underlyingStateMachine.getDepthChargeResult(initialState, getRole(), 1000, sampleState, null);
+			underlyingStateMachine.getDepthChargeResult(initialState, getRole(), 1000, sampleState, rolloutStats);
 			
 	    	int netScore = netScore(underlyingStateMachine, sampleState);
 
+	    	if ( rolloutStats[0] < minNumTurns)
+	    	{
+	    		minNumTurns = rolloutStats[0];
+	    	}
+	    	if ( rolloutStats[0] > maxNumTurns)
+	    	{
+	    		maxNumTurns = rolloutStats[0];
+	    	}
+	    	averageBranchingFactor = (averageBranchingFactor*(simulationsPerformed-1) + rolloutStats[1])/simulationsPerformed;
+	    	
 	    	//System.out.println("Saw score of " + netScore);
 	    	if ( netScore < observedMinNetScore )
 	    	{
@@ -2316,6 +2336,32 @@ public class Sancho extends SampleGamer {
     	    		}
     	    	}
     	    }
+		}
+		
+	    if ( rolloutProcessors == null && numRolloutThreads > 0 )
+	    {
+	    	rolloutProcessors = new RolloutProcessor[numRolloutThreads];
+	    	
+	    	for(int i = 0; i < numRolloutThreads; i++)
+	    	{
+	    		rolloutProcessors[i] = new RolloutProcessor(underlyingStateMachine.createInstance());
+	    		rolloutProcessors[i].start();
+	    	}
+	    }	    
+		
+		System.out.println("Range of lengths of sample games seen: [" + minNumTurns + "," + maxNumTurns + "], branching factor: " + averageBranchingFactor);
+		
+		if ( minNumTurns == maxNumTurns || (averageBranchingFactor > 20 && !isPuzzle) )
+		{
+			System.out.println("Disabling greedy rollouts");
+			underlyingStateMachine.disableGreedyRollouts();
+		    if ( rolloutProcessors != null )
+		    {
+		    	for(int i = 0; i < numRolloutThreads; i++)
+		    	{
+		    		rolloutProcessors[i].disableGreedyRollouts();
+		    	}
+		    }
 		}
 		
 		if ( simulationsPerformed > 100 )
@@ -2876,17 +2922,6 @@ public class Sancho extends SampleGamer {
 	    }
 	    else
 	    {
-		    if ( rolloutProcessors == null && numRolloutThreads > 0 )
-		    {
-		    	rolloutProcessors = new RolloutProcessor[numRolloutThreads];
-		    	
-		    	for(int i = 0; i < numRolloutThreads; i++)
-		    	{
-		    		rolloutProcessors[i] = new RolloutProcessor(underlyingStateMachine.createInstance());
-		    		rolloutProcessors[i].start();
-		    	}
-		    }	    
-			
 			//	Process anything left over from last turn's timeout
 			processCompletedRollouts(finishBy);
 			
