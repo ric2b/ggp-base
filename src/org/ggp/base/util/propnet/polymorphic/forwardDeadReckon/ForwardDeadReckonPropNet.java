@@ -80,7 +80,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 			numRoles++;
 			numTotalLegalProps += getLegalPropositions().get(role).length;
 		}
-		useDeadReckonerForLegal = (numTotalLegalProps > numRoles*legalPropsPerRoleThreasholdForDeadReckon);
+		useDeadReckonerForLegal = true;//(numTotalLegalProps > numRoles*legalPropsPerRoleThreasholdForDeadReckon);
 		if ( useDeadReckonerForLegal )
 		{
 			activeLegalMoves = new ForwardDeadReckonLegalMoveSet[numInstances];

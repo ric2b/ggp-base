@@ -657,6 +657,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		chosenMoves = new Move[roles.size()];
 		previouslyChosenJointMovePropsX = new ForwardDeadReckonProposition[roles.size()];
 		previouslyChosenJointMovePropsO = new ForwardDeadReckonProposition[roles.size()];
+		
         stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(), fullPropNet.getInputPropositions().size(), fullPropNet.getLegalPropositions().get(getRoles().get(0)).length);
 	}
 	
@@ -1971,141 +1972,283 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		}
     }
 
+	private class RolloutDecisionState
+	{
+		public ForwardDeadReckonProposition[]	chooserProps;
+		public ForwardDeadReckonProposition[]	nonChooserProps;
+		public int								chooserIndex;
+		public int								baseChoiceIndex;
+		public int								nextChoiceIndex;
+		public int								rolloutSeq;
+		ForwardDeadReckonInternalMachineState	state;
+		Role									choosingRole;
+	}
+	
+	private final int maxGameLength = 200;
+	private RolloutDecisionState[] rolloutDecisionStack = new RolloutDecisionState[maxGameLength];
+	private int rolloutStackDepth;
+	private int	rolloutSeq = 0;
+	
 	private List<ForwardDeadReckonProposition> triedMoves = new LinkedList<ForwardDeadReckonProposition>();
+	private int totalRoleoutChoices;
+	private int totalRoleoutNodesExamined;
 
-	private int transitionToNextStateInGreedyRollout(List<TerminalResultVector> resultVectors) throws MoveDefinitionException, GoalDefinitionException
+	private void doRecursiveGreedyRoleout(List<TerminalResultVector> resultVectors) throws MoveDefinitionException, GoalDefinitionException
+	{
+		if ( transitionToNextStateInGreedyRollout(resultVectors) )
+		{
+			//	Next player had a 1 move forced win.  Pop the stack and choose again at this level unless deciding player was
+			//	the same as for this node
+			//	TODO - this doesn't handle well games in which the same player gets to play multiple tims
+			if ( rolloutStackDepth > 0 && rolloutDecisionStack[rolloutStackDepth-1].nextChoiceIndex != rolloutDecisionStack[rolloutStackDepth-1].baseChoiceIndex )
+			{
+				if ( rolloutDecisionStack[rolloutStackDepth].chooserIndex != rolloutDecisionStack[rolloutStackDepth-1].chooserIndex )
+				{
+					rolloutDecisionStack[rolloutStackDepth].chooserProps = null;
+					
+					RolloutDecisionState poppedState = rolloutDecisionStack[--rolloutStackDepth];
+	
+					setPropNetUsage(poppedState.state);
+					setBasePropositionsFromState(poppedState.state, true);
+					
+					resultVectors.remove(resultVectors.size()-1);
+					doRecursiveGreedyRoleout(resultVectors);
+				}
+				else
+				{
+					return;
+				}
+			}
+		}
+		else if ( !isTerminal() )
+		{
+			rolloutStackDepth++;
+			doRecursiveGreedyRoleout(resultVectors);
+		}
+		else if ( rolloutDecisionStack[rolloutStackDepth].nextChoiceIndex != rolloutDecisionStack[rolloutStackDepth].baseChoiceIndex )
+		{
+			//	Having recorded the potential terminal state continue to explore another
+			//	branch given that this terminality was not a forced win for the deciding player
+			RolloutDecisionState decisionState = rolloutDecisionStack[rolloutStackDepth];
+			
+			setPropNetUsage(decisionState.state);
+			setBasePropositionsFromState(decisionState.state, true);
+			
+			doRecursiveGreedyRoleout(resultVectors);
+		}
+		else
+		{
+			return;
+		}
+	}
+	
+	private double recursiveGreedyRollout(List<TerminalResultVector> resultVectors) throws MoveDefinitionException, GoalDefinitionException
+	{
+		rolloutSeq++;
+		rolloutStackDepth = 0;
+		totalRoleoutChoices = 0;
+		totalRoleoutNodesExamined = 0;
+		
+		doRecursiveGreedyRoleout(resultVectors);
+		
+		if ( totalRoleoutNodesExamined > 0 )
+		{
+			return totalRoleoutChoices/totalRoleoutNodesExamined;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	
+	private boolean transitionToNextStateInGreedyRollout(List<TerminalResultVector> resultVectors) throws MoveDefinitionException, GoalDefinitionException
 	{
 		if ( propNet.useDeadReckonerForLegal() )
 		{
 			ForwardDeadReckonLegalMoveSet activeLegalMoves = propNet.getActiveLegalProps(instanceId);
 			int index = 0;
-			int chooserIndex = -1;
-			Role choosingRole = null;
 			boolean simultaneousMove = false;
-			ForwardDeadReckonProposition[] chooserProps = null;
 			int maxChoices = 0;
 			
-	        for (Role role : getRoles())
-	        {
-	        	int numChoices = activeLegalMoves.getContentSize(role);
-	        	
-	        	if ( numChoices > maxChoices )
-	        	{
-	        		maxChoices = numChoices;
-	        	}
-	        	
-	        	if ( numChoices > 1 )
-	        	{
-	        		if ( choosingRole == null )
-	        		{
-	        			if ( !simultaneousMove )
-	        			{
-	        				choosingRole = role;
-	        				chooserProps = new ForwardDeadReckonProposition[numChoices];
-	        			}
-	        		}
-	        		else
-	        		{
-	        			choosingRole = null;
-	        			simultaneousMove = true;
-	        		}
-	        	}
-	        	
-	        	if ( simultaneousMove )
-	        	{
-		        	int rand = getRandom(numChoices);
-	        		
-		        	for(ForwardDeadReckonLegalMoveInfo info : activeLegalMoves.getContents(role))
+			if ( rolloutDecisionStack[rolloutStackDepth] == null )
+			{
+				rolloutDecisionStack[rolloutStackDepth] = new RolloutDecisionState();
+				rolloutDecisionStack[rolloutStackDepth].nonChooserProps = new ForwardDeadReckonProposition[getRoles().size()];
+			}
+			RolloutDecisionState decisionState = rolloutDecisionStack[rolloutStackDepth];
+			if( decisionState.rolloutSeq != rolloutSeq )
+			{
+				decisionState.rolloutSeq = rolloutSeq;
+				decisionState.chooserProps = null;
+			}
+			
+			if ( decisionState.chooserProps == null )
+			{
+				decisionState.choosingRole = null;
+				decisionState.chooserIndex = -1;
+				decisionState.baseChoiceIndex = -1;
+				decisionState.nextChoiceIndex = -1;
+				
+				totalRoleoutNodesExamined++;
+				
+		        for (Role role : getRoles())
+		        {
+		        	int numChoices = activeLegalMoves.getContentSize(role);
+		        	
+		        	if ( numChoices > maxChoices )
 		        	{
-		        		if ( rand-- <= 0 )
+		        		maxChoices = numChoices;
+		        	}
+		        	
+		        	if ( numChoices > 1 )
+		        	{
+		        		totalRoleoutChoices += numChoices;
+		        		if ( decisionState.choosingRole == null )
 		        		{
-		        			chosenJointMoveProps[index++] = info.inputProposition;
-		        			break;
-	        			}
+		        			if ( !simultaneousMove )
+		        			{
+		        				decisionState.choosingRole = role;
+		        				decisionState.chooserProps = new ForwardDeadReckonProposition[numChoices];
+		        			}
+		        		}
+		        		else
+		        		{
+		    	        	int rand = getRandom(decisionState.chooserProps.length);
+		    	        	
+		    	        	chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserProps[rand];
+		    	        	
+		        			decisionState.choosingRole = null;
+		        			decisionState.chooserProps = null;
+		        			simultaneousMove = true;
+		        		}
 		        	}
-	        	}
-	        	else
-	        	{
-		        	int chooserMoveIndex = 0;
-		        	for(ForwardDeadReckonLegalMoveInfo info : activeLegalMoves.getContents(role))
+		        	
+		        	if ( simultaneousMove )
 		        	{
-	        			if ( choosingRole == role )
-	        			{
-	        				if ( chooserMoveIndex == 0 )
-	        				{
-	        					chooserIndex = index++;
-	        				}
-	        				chooserProps[chooserMoveIndex++] = info.inputProposition;
-	        			}
-	        			else
-	        			{
-		        			chosenJointMoveProps[index++] = info.inputProposition;
-		        			break;
-	        			}
+			        	int rand = getRandom(numChoices);
+		        		
+			        	for(ForwardDeadReckonLegalMoveInfo info : activeLegalMoves.getContents(role))
+			        	{
+			        		if ( rand-- <= 0 )
+			        		{
+			        			decisionState.nonChooserProps[index++] = info.inputProposition;
+			        			//chosenJointMoveProps[index++] = info.inputProposition;
+			        			break;
+		        			}
+			        	}
 		        	}
-	        	}
-	        }
+		        	else
+		        	{
+			        	int chooserMoveIndex = 0;
+			        	for(ForwardDeadReckonLegalMoveInfo info : activeLegalMoves.getContents(role))
+			        	{
+		        			if ( decisionState.choosingRole == role )
+		        			{
+		        				if ( chooserMoveIndex == 0 )
+		        				{
+		        					decisionState.chooserIndex = index++;
+		        				}
+		        				decisionState.chooserProps[chooserMoveIndex++] = info.inputProposition;
+		        			}
+		        			else
+		        			{
+			        			decisionState.nonChooserProps[index++] = info.inputProposition;
+			        			//chosenJointMoveProps[index++] = info.inputProposition;
+			        			break;
+		        			}
+			        	}
+		        	}
+		        }
+			}
 	        
     		if ( simultaneousMove )
     		{
-	        	int rand = getRandom(chooserProps.length);
-	        	
-	        	chosenJointMoveProps[chooserIndex] = chooserProps[rand];
-	        	
 	        	transitionToNextStateFromChosenMove(null, null);
-    		}
-    		else if ( choosingRole != null )
-    		{
-	        	int rand = getRandom(chooserProps.length);
-	        	int fallbackChoice = -1;
-				ForwardDeadReckonInternalMachineState currentState = new ForwardDeadReckonInternalMachineState(lastInternalSetState);
-				boolean stateChangeMade = false;
 	        	
-    			for(int i = 0; i < chooserProps.length; i++)
+				if ( isTerminal() )
+				{
+					addResultVector(null, resultVectors);
+				}
+    		}
+    		else if ( decisionState.chooserIndex != -1 )
+    		{
+    			int choiceIndex;
+    			
+    			if ( decisionState.baseChoiceIndex == -1 )
     			{
-    				int choice = (i + rand)%chooserProps.length;
+    				decisionState.baseChoiceIndex = getRandom(decisionState.chooserProps.length);
+    				choiceIndex = decisionState.baseChoiceIndex;
+    				decisionState.state = new ForwardDeadReckonInternalMachineState(lastInternalSetState);
+    			}
+    			else
+    			{
+    				choiceIndex = decisionState.nextChoiceIndex;
+    			}
+    			
+    			decisionState.nextChoiceIndex = choiceIndex;
+    			do
+    			{
+    				decisionState.nextChoiceIndex = (decisionState.nextChoiceIndex + 1)%decisionState.chooserProps.length;
+    				if ( decisionState.chooserProps[decisionState.nextChoiceIndex] != null )
+    				{
+    					break;
+    				}
+    			} while(decisionState.nextChoiceIndex != choiceIndex);
+
+ 				for(int roleIndex = 0; roleIndex < getRoles().size(); roleIndex++)
+ 				{
+ 					if ( roleIndex != decisionState.chooserIndex )
+ 					{
+ 						chosenJointMoveProps[roleIndex] = decisionState.nonChooserProps[roleIndex];
+ 					}
+ 				}
+ 				
+ 				//	First time we visit the node try them all.  After that if we're asked to reconsider
+ 				//	just take the next one from the last one we chose
+ 				int remainingMoves = (decisionState.baseChoiceIndex == choiceIndex ? decisionState.chooserProps.length : 1);
+    			for(int i = 0; i < remainingMoves; i++)
+    			{
+    				int choice = (i + choiceIndex)%decisionState.chooserProps.length;
     				
-    	        	chosenJointMoveProps[chooserIndex] = chooserProps[choice];
+    	        	chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserProps[choice];
     	        	
     	        	transitionToNextStateFromChosenMove(null, null);
-    	        	stateChangeMade = true;
-    	        	
+     	        	
     				if ( isTerminal() )
     				{
-    					TerminalResultVector resultVector = addResultVector(choosingRole, resultVectors);
+    					TerminalResultVector resultVector = addResultVector(decisionState.choosingRole, resultVectors);
     					
     					if ( resultVector.scores.get(resultVector.controllingRole) == 100 )
     					{
     						//	If we have a choosable win stop searching
-    						break;
+    						return true;
     					}
-    				}
-    				else
-    				{
-    					fallbackChoice = choice;
+    					
+    					decisionState.chooserProps[choice] = null;
     				}
 
-    				if ( i < chooserProps.length-1 || (isTerminal() && fallbackChoice != -1) )
+    				if ( i < remainingMoves-1 )
     				{
-    					setPropNetUsage(currentState);
-    					setBasePropositionsFromState(currentState, true);
-    					stateChangeMade = false;
+    					setPropNetUsage(decisionState.state);
+    					setBasePropositionsFromState(decisionState.state, true);
      				}
     			}
-    			
-    			if ( !stateChangeMade )
-    			{
-    	        	chosenJointMoveProps[chooserIndex] = chooserProps[fallbackChoice];
-    	        	
-    	        	transitionToNextStateFromChosenMove(null, null);
-    			}
-    		}
+     		}
     		else
     		{
+ 				for(int roleIndex = 0; roleIndex < getRoles().size(); roleIndex++)
+ 				{
+ 					chosenJointMoveProps[roleIndex] = decisionState.nonChooserProps[roleIndex];
+ 				}
 	        	transitionToNextStateFromChosenMove(null, null);
+	        	
+				if ( isTerminal() )
+				{
+					addResultVector(null, resultVectors);
+				}
     		}
     		
-    		return maxChoices;
+    		return false;
         }
 		else
 		{
@@ -2113,7 +2256,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			chooseRandomJointMove();
 			transitionToNextStateFromChosenMove(null,null);
 			
-			return 1;
+			return false;
 		}
 	}
 	
@@ -2275,8 +2418,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     
     public int getDepthChargeResult(ForwardDeadReckonInternalMachineState state, Role role, int sampleDepth, ForwardDeadReckonInternalMachineState sampleState, final int[] stats) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException {  
     	rolloutDepth = 0;
-        List<TerminalResultVector> resultVectors = (enableGreedyRollouts ? new LinkedList<TerminalResultVector>() : null);
-        int numMoveChoices = 0;
+        List<TerminalResultVector> resultVectors = ((enableGreedyRollouts && getRoles().size() <= 2) ? new LinkedList<TerminalResultVector>() : null);
         
         if ( validationMachine != null )
         {
@@ -2289,45 +2431,38 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
         	previouslyChosenJointMovePropsX[i] = null;
         	previouslyChosenJointMovePropsO[i] = null;
         }
-        while(!isTerminal()) {
-            if ( resultVectors != null )
-            {
-            	if ( true )
-            	{
-            		numMoveChoices += transitionToNextStateInGreedyRollout(resultVectors);
-            	}
-            	else
-            	{
-	                triedMoves.clear();
-	                
-		            Role choosingRole;
-		            do
-		            {
-		            	choosingRole = chooseRandomJointMove();
-		            } while( !transitionToNextStateFromChosenMove(choosingRole, resultVectors));
-		            if ( sampleState != null && rolloutDepth == sampleDepth)
-		            {
-		            	sampleState.copy(getInternalStateFromBase());
-		            }
-	            }
-            }
-            else
-            {
+        if ( resultVectors == null  )
+        {
+	        while(!isTerminal()) {
                 triedMoves.clear();
                 
             	chooseRandomJointMove();
             	transitionToNextStateFromChosenMove(null,null);
-            }
-        	rolloutDepth++;
+	        	rolloutDepth++;
+	        }
+	        if ( sampleState != null && rolloutDepth < sampleDepth)
+	        {
+	        	sampleState.copy(getInternalStateFromBase());
+	        }
+	        if(stats != null)
+	        {
+	            stats[0] = rolloutDepth;
+	            stats[1] = 0;
+	        }
         }
-        if ( sampleState != null && rolloutDepth < sampleDepth)
+        else
         {
-        	sampleState.copy(getInternalStateFromBase());
-        }
-        if(stats != null)
-        {
-            stats[0] = rolloutDepth;
-            stats[1] = numMoveChoices/rolloutDepth;
+        	double branchingFactor = recursiveGreedyRollout(resultVectors);
+        	
+	        if ( sampleState != null && rolloutDepth < sampleDepth)
+	        {
+	        	sampleState.copy(getInternalStateFromBase());
+	        }
+	        if(stats != null)
+	        {
+	            stats[0] = rolloutStackDepth;
+	            stats[1] = (int)(branchingFactor + 0.5);
+	        }
         }
         for(int i = 0; i < roles.size(); i++)
         {
@@ -2344,7 +2479,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
         if ( resultVectors != null )
         {
 	        //	Add the final terminal result which was unavoidable
-        	addResultVector(null, resultVectors);
+        	//addResultVector(null, resultVectors);
 	        
 	        TerminalResultVector chosenResult = null;
 	        

@@ -2136,7 +2136,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.12";
+		return "Sancho 1.13";
 	}
 	
 	@Override
@@ -2351,7 +2351,7 @@ public class Sancho extends SampleGamer {
 		
 		System.out.println("Range of lengths of sample games seen: [" + minNumTurns + "," + maxNumTurns + "], branching factor: " + averageBranchingFactor);
 		
-		if ( minNumTurns == maxNumTurns || (averageBranchingFactor > 20 && !isPuzzle) )
+		if ( minNumTurns == maxNumTurns || (averageBranchingFactor > 40 && !isPuzzle) )
 		{
 			System.out.println("Disabling greedy rollouts");
 			underlyingStateMachine.disableGreedyRollouts();
