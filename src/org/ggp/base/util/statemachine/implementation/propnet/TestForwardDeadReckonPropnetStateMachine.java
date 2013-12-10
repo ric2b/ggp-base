@@ -1999,14 +1999,16 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		{
 			//	Next player had a 1 move forced win.  Pop the stack and choose again at this level unless deciding player was
 			//	the same as for this node
-			//	TODO - this doesn't handle well games in which the same player gets to play multiple tims
+			//	TODO - this doesn't handle well games in which the same player gets to play multiple times
 			if ( rolloutStackDepth > 0 && rolloutDecisionStack[rolloutStackDepth-1].nextChoiceIndex != rolloutDecisionStack[rolloutStackDepth-1].baseChoiceIndex )
 			{
 				if ( rolloutDecisionStack[rolloutStackDepth].chooserIndex != rolloutDecisionStack[rolloutStackDepth-1].chooserIndex )
 				{
+					//System.out.println("Forced win at depth " + rolloutStackDepth);
 					rolloutDecisionStack[rolloutStackDepth].chooserProps = null;
 					
 					RolloutDecisionState poppedState = rolloutDecisionStack[--rolloutStackDepth];
+					//System.out.println("...next choice=" + poppedState.nextChoiceIndex + " (base was " + poppedState.baseChoiceIndex + ")");
 	
 					setPropNetUsage(poppedState.state);
 					setBasePropositionsFromState(poppedState.state, true);
@@ -2023,10 +2025,12 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		else if ( !isTerminal() )
 		{
 			rolloutStackDepth++;
+			//System.out.println("Non-terminal, advance to depth " + rolloutStackDepth);
 			doRecursiveGreedyRoleout(resultVectors);
 		}
 		else if ( rolloutDecisionStack[rolloutStackDepth].nextChoiceIndex != rolloutDecisionStack[rolloutStackDepth].baseChoiceIndex )
 		{
+			//System.out.println("Try another choice after finding terminal, next=" + rolloutDecisionStack[rolloutStackDepth].nextChoiceIndex);
 			//	Having recorded the potential terminal state continue to explore another
 			//	branch given that this terminality was not a forced win for the deciding player
 			RolloutDecisionState decisionState = rolloutDecisionStack[rolloutStackDepth];
@@ -2189,7 +2193,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     			do
     			{
     				decisionState.nextChoiceIndex = (decisionState.nextChoiceIndex + 1)%decisionState.chooserProps.length;
-    				if ( decisionState.chooserProps[decisionState.nextChoiceIndex] != null )
+    				if ( decisionState.chooserProps[decisionState.nextChoiceIndex] != null || decisionState.nextChoiceIndex == decisionState.baseChoiceIndex )
     				{
     					break;
     				}
