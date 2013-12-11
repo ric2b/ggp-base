@@ -2136,7 +2136,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.13";
+		return "Sancho 1.14";
 	}
 	
 	@Override
@@ -2284,6 +2284,8 @@ public class Sancho extends SampleGamer {
 		int maxNumTurns = 0;
 		int minNumTurns = Integer.MAX_VALUE;
 		double averageBranchingFactor = 0;
+		double averageNumTurns = 0;
+		double averageSquaredNumTurns = 0;
 	    
 		while(System.currentTimeMillis() < simulationStopTime)
 		{
@@ -2291,10 +2293,18 @@ public class Sancho extends SampleGamer {
 			
 			sampleState = new ForwardDeadReckonInternalMachineState(initialState);
 
-			underlyingStateMachine.getDepthChargeResult(initialState, getRole(), 1000, sampleState, rolloutStats);
+			int roleoutScore = underlyingStateMachine.getDepthChargeResult(initialState, getRole(), 1000, sampleState, rolloutStats);
 			
 	    	int netScore = netScore(underlyingStateMachine, sampleState);
 
+	    	//System.out.println("Role score = " + roleoutScore + ", netScore = " + netScore);
+	    	if ( roleoutScore != netScore )
+	    	{
+	    		System.out.println("Score mismatch in state: " + sampleState);
+	    	}
+	    	
+	    	averageNumTurns = (averageNumTurns*(simulationsPerformed-1) + rolloutStats[0])/simulationsPerformed;
+	    	averageSquaredNumTurns = (averageSquaredNumTurns*(simulationsPerformed-1) + rolloutStats[0]*rolloutStats[0])/simulationsPerformed;
 	    	if ( rolloutStats[0] < minNumTurns)
 	    	{
 	    		minNumTurns = rolloutStats[0];
@@ -2349,9 +2359,13 @@ public class Sancho extends SampleGamer {
 	    	}
 	    }	    
 		
+	    double stdDevNumTurns = Math.sqrt(averageSquaredNumTurns - averageNumTurns*averageNumTurns);
+	    
 		System.out.println("Range of lengths of sample games seen: [" + minNumTurns + "," + maxNumTurns + "], branching factor: " + averageBranchingFactor);
+		System.out.println("Average num turns: " + averageNumTurns);
+		System.out.println("Std deviation num turns: " + stdDevNumTurns);
 		
-		if ( minNumTurns == maxNumTurns || (averageBranchingFactor > 40 && !isPuzzle) )
+		if ( minNumTurns == maxNumTurns || ((averageBranchingFactor > 40 || stdDevNumTurns < 0.15*averageNumTurns) && !isPuzzle) )
 		{
 			System.out.println("Disabling greedy rollouts");
 			underlyingStateMachine.disableGreedyRollouts();
@@ -2457,7 +2471,7 @@ public class Sancho extends SampleGamer {
 			observedMinNetScore = 0;
 			observedMaxNetScore = 100;
 			
-			System.out.println("No score discrimination seen during simualtion - resetting to [0,100]");
+			System.out.println("No score discrimination seen during simulation - resetting to [0,100]");
 		}
 		
 		if ( isPuzzle )
@@ -2577,6 +2591,11 @@ public class Sancho extends SampleGamer {
 			internalPatternState = underlyingStateMachine.createInternalState(patternState);
 			
 			patterns.put(internalPatternState, new Integer(-50));
+		}
+		
+		if ( ProfilerContext.getContext() != null )
+		{
+			GamerLogger.log("GamePlayer", "Profile stats: \n" + ProfilerContext.getContext().toString());
 		}
 	}
 	
