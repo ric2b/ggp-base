@@ -168,7 +168,7 @@ public class Sancho extends SampleGamer {
 				{
 					//System.out.println("Perform rollout from state: " + state);
 		        	numNonTerminalRollouts++;
-		        	stateMachine.getDepthChargeResult(state, ourRole, 1000, null, null);
+		        	stateMachine.getDepthChargeResult(state, ourRole, null);
 		        	
 		        	int score = netScore(stateMachine, null);
 		        	averageScore += score;
@@ -2136,7 +2136,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.14";
+		return "Sancho 1.15a";
 	}
 	
 	@Override
@@ -2293,9 +2293,9 @@ public class Sancho extends SampleGamer {
 			
 			sampleState = new ForwardDeadReckonInternalMachineState(initialState);
 
-			int roleoutScore = underlyingStateMachine.getDepthChargeResult(initialState, getRole(), 1000, sampleState, rolloutStats);
+			int roleoutScore = underlyingStateMachine.getDepthChargeResult(initialState, getRole(), rolloutStats);
 			
-	    	int netScore = netScore(underlyingStateMachine, sampleState);
+	    	int netScore = netScore(underlyingStateMachine, null);
 
 	    	//System.out.println("Role score = " + roleoutScore + ", netScore = " + netScore);
 	    	if ( roleoutScore != netScore )

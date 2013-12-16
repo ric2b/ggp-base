@@ -1318,7 +1318,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		}
 	}
 	
-	private int getGoal(Role role)
+	public int getGoal(Role role)
 	throws GoalDefinitionException
 	{
 		return getGoalNative(null, role);
@@ -1792,80 +1792,9 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 				{
 					previouslyChosenJointMovePropsO[index++] = moveProp;
 				}
-			}
+			}		
 			
-			
-			//setBasePropositionsFromState(state, true);
-			
-			if ( false )
-			{
-				ForwardDeadReckonInternalMachineState result = getInternalStateFromBase();
-				//System.out.println("Transitioning to state: " + result);
-				
-				if ( validationMachine != null )
-				{
-					if ( !validationResult.equals(result.getMachineState()))
-					{
-						System.out.println("Validation next state mismatch");
-					}
-					else
-					{
-						validationState = result.getMachineState();
-					}
-				}
-				//System.out.println("After move resulting state is " + result);
-				//totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
-				//totalNumPropagates += ForwardDeadReckonComponent.numPropagates;
-		
-				//for(PolymorphicProposition moveProp : chosenJointMoveProps)
-				//{
-				//	if ( moveProp != null )
-				//	{
-				//		moveProp.setValue(false);
-				//	}
-				//}
-				//for(GdlSentence moveSentence : toDoes(moves))
-				//{
-				//	PolymorphicProposition moveInputProposition = inputProps.get(moveSentence);
-				//	if ( moveInputProposition != null )
-				//	{
-				//		moveInputProposition.setValue(false);
-				//	}
-				//}
-				
-				setPropNetUsage(result);
-				setBasePropositionsFromState(result, false);
-				
-				if ( choosingRole != null )
-				{
-					if ( isTerminal() )
-					{
-						addResultVector(choosingRole, resultVectors);
-						//System.out.println("Reverting move that lead to terminal state: " + result);
-						//try {
-						//	System.out.println("Goal value: " + getGoal(getRoles().get(0)));
-						//} catch (GoalDefinitionException e) {
-							// TODO Auto-generated catch block
-						//	e.printStackTrace();
-						//}
-						setPropNetUsage(currentState);
-						setBasePropositionsFromState(currentState, false);
-						//System.out.println("Reverted to state: " + currentState);
-						//try {
-						//	System.out.println("Goal value: " + getGoal(getRoles().get(0)));
-						//} catch (GoalDefinitionException e) {
-							// TODO Auto-generated catch block
-						//	e.printStackTrace();
-						//}
-						
-						return false;
-					}
-				}
-			}
-			else
-			{
-				propagateCalculatedNextState();
-			}
+			propagateCalculatedNextState();
 			
 			return true;
 		}
@@ -1873,21 +1802,6 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		{
 			methodSection.exitScope();
 		}
-	}
-
-	private TerminalResultVector addResultVector(Role choosingRole, List<TerminalResultVector> resultVectors) throws GoalDefinitionException
-	{
-		TerminalResultVector resultVector = new TerminalResultVector(choosingRole);
-		
-		for(Role role : getRoles())
-		{
-			resultVector.scores.put(role, new Integer(getGoal(role)));
-		}
-		
-		resultVector.atDepth = rolloutDepth;
-		resultVectors.add(resultVector);
-		
-		return resultVector;
 	}
 	
 	/* Already implemented for you */
@@ -2095,6 +2009,33 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		ForwardDeadReckonInternalMachineState	state;
 		Role									choosingRole;
 	}
+    
+    private class TerminalResultSet
+    {
+    	public TerminalResultSet(List<Role> roles)
+    	{
+    		resultVector = null;
+     	}
+
+    	public void considerResult(Role choosingRole) throws GoalDefinitionException
+    	{
+    		TerminalResultVector newResultVector = new TerminalResultVector(choosingRole);
+    		
+    		for(Role role : getRoles())
+    		{
+    			newResultVector.scores.put(role, new Integer(getGoal(role)));
+    		}
+    		
+ 			if ( resultVector == null || newResultVector.scores.get(resultVector.controllingRole) > resultVector.scores.get(resultVector.controllingRole))
+			{
+				//	Would this one be chosen over the previous
+				resultVector = newResultVector;
+				resultVector.state = new ForwardDeadReckonInternalMachineState(lastInternalSetState);
+			}
+    	}
+    	
+    	public TerminalResultVector resultVector;
+    }
 	
 	private final int maxGameLength = 500;	//	C4 larger up to 400 is largest seen
 	private RolloutDecisionState[] rolloutDecisionStack = new RolloutDecisionState[maxGameLength];
@@ -2105,7 +2046,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	private int totalRoleoutChoices;
 	private int totalRoleoutNodesExamined;
 
-	private void doRecursiveGreedyRoleout(List<TerminalResultVector> resultVectors) throws MoveDefinitionException, GoalDefinitionException
+	private void doRecursiveGreedyRoleout(TerminalResultSet results) throws MoveDefinitionException, GoalDefinitionException
 	{
 		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.doRecursiveGreedyRoleout");
 		try
@@ -2115,7 +2056,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			
 			do
 			{
-				ForwardDeadReckonProposition winningMoveProp = transitionToNextStateInGreedyRollout(resultVectors, hintMoveProp);
+				ForwardDeadReckonProposition winningMoveProp = transitionToNextStateInGreedyRollout(results, hintMoveProp);
 				if ( winningMoveProp != null )
 				{
 					hintMoveProp = winningMoveProp;
@@ -2136,16 +2077,16 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			
 							setPropNetUsage(poppedState.state);
 							setBasePropositionsFromState(poppedState.state, true);
-							
-							resultVectors.remove(resultVectors.size()-1);
 						}
 						else
 						{
-							return;
+							results.considerResult(rolloutDecisionStack[rolloutStackDepth].choosingRole);
+							break;
 						}
 					}
 					else
 					{
+						results.considerResult(rolloutDecisionStack[rolloutStackDepth].choosingRole);
 						break;
 					}
 				}
@@ -2179,14 +2120,14 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		}
 	}
 	
-	private double recursiveGreedyRollout(List<TerminalResultVector> resultVectors) throws MoveDefinitionException, GoalDefinitionException
+	private double recursiveGreedyRollout(TerminalResultSet results) throws MoveDefinitionException, GoalDefinitionException
 	{
 		rolloutSeq++;
 		rolloutStackDepth = 0;
 		totalRoleoutChoices = 0;
 		totalRoleoutNodesExamined = 0;
 		
-		doRecursiveGreedyRoleout(resultVectors);
+		doRecursiveGreedyRoleout(results);
 		
 		if ( totalRoleoutNodesExamined > 0 )
 		{
@@ -2213,7 +2154,9 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		return sb.toString();
 	}
 	
-	private ForwardDeadReckonProposition transitionToNextStateInGreedyRollout(List<TerminalResultVector> resultVectors, ForwardDeadReckonProposition hintMoveProp) throws MoveDefinitionException, GoalDefinitionException
+	private Set<ForwardDeadReckonProposition> terminatingMoveProps = new HashSet<ForwardDeadReckonProposition>();
+	
+	private ForwardDeadReckonProposition transitionToNextStateInGreedyRollout(TerminalResultSet results, ForwardDeadReckonProposition hintMoveProp) throws MoveDefinitionException, GoalDefinitionException
 	{
 		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.transitionToNextStateInGreedyRollout");
 		try
@@ -2322,19 +2265,29 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		        	
 					if ( isTerminal() )
 					{
-						addResultVector(null, resultVectors);
+						results.considerResult(null);
 					}
 	    		}
 	    		else if ( decisionState.chooserIndex != -1 )
 	    		{
 	    			//System.out.println("Specific chooser");
 	    			int choiceIndex;
+	    			boolean preEnumerate = false;
 	    			
 	    			if ( decisionState.baseChoiceIndex == -1 )
 	    			{
 	    				decisionState.baseChoiceIndex = getRandom(decisionState.chooserProps.length);
 	    				choiceIndex = decisionState.baseChoiceIndex;
 	    				decisionState.state = new ForwardDeadReckonInternalMachineState(lastInternalSetState);
+	    				
+	    				for(ForwardDeadReckonProposition chooserProp : decisionState.chooserProps)
+	    				{
+	    					if ( terminatingMoveProps.contains(chooserProp))
+	    					{
+	    						preEnumerate = true;
+	    						break;
+	    					}
+	    				}
 	    			}
 	    			else
 	    			{
@@ -2365,14 +2318,14 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	 			     	        	
 	 			    				if ( isTerminal() )
 	 			    				{
-	 			    					TerminalResultVector resultVector = addResultVector(decisionState.choosingRole, resultVectors);
-	 			    					
 	 			    					//System.out.println("Encountered terminal state with goal value: "+ resultVector.scores.get(resultVector.controllingRole));
-	 			    					if ( resultVector.scores.get(resultVector.controllingRole) == 100 )
+	 			    					if ( getGoal(decisionState.choosingRole) == 100 )
 	 			    					{
 	 			    						//	If we have a choosable win stop searching
 	 			    						return hintMoveProp;
 	 			    					}
+	 			    					
+	 			    					results.considerResult(decisionState.choosingRole);
 	 			    					
 	 			    					decisionState.chooserProps[i] = null;
 	 			    				}
@@ -2392,7 +2345,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	 				
 	 				//	First time we visit the node try them all.  After that if we're asked to reconsider
 	 				//	just take the next one from the last one we chose
-	 				int remainingMoves = (decisionState.baseChoiceIndex == choiceIndex ? decisionState.chooserProps.length : 1);
+	 				int remainingMoves = (decisionState.baseChoiceIndex == choiceIndex && preEnumerate ? decisionState.chooserProps.length : 1);
 	    			for(int i = 0; i < remainingMoves; i++)
 	    			{
 	    				int choice = (i + choiceIndex)%decisionState.chooserProps.length;
@@ -2409,15 +2362,16 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	     	        	
 	    				if ( isTerminal() )
 	    				{
-	    					TerminalResultVector resultVector = addResultVector(decisionState.choosingRole, resultVectors);
-	    					
+		    				terminatingMoveProps.add(decisionState.chooserProps[choice]);
+		    				
 	    					//System.out.println("Encountered terminal state with goal value: "+ resultVector.scores.get(resultVector.controllingRole));
-	    					if ( resultVector.scores.get(resultVector.controllingRole) == 100 )
+	    					if ( getGoal(decisionState.choosingRole) == 100 )
 	    					{
 	    						//	If we have a choosable win stop searching
 	    						return decisionState.chooserProps[choice];
 	    					}
 	    					
+		    				results.considerResult(decisionState.choosingRole);
 	    					decisionState.chooserProps[choice] = null;
 	    				}
 	
@@ -2454,7 +2408,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		        	
 					if ( isTerminal() )
 					{
-						addResultVector(null, resultVectors);
+	    				results.considerResult(decisionState.choosingRole);
 					}
 	    		}
 	    		
@@ -2615,7 +2569,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     {
     	public Map<Role,Integer> scores;
     	public Role				 controllingRole;
-    	public int				 atDepth;
+		ForwardDeadReckonInternalMachineState	state;
     	
     	public TerminalResultVector(Role controllingRole)
     	{
@@ -2632,9 +2586,10 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     	enableGreedyRollouts = false;
     }
     
-    public int getDepthChargeResult(ForwardDeadReckonInternalMachineState state, Role role, int sampleDepth, ForwardDeadReckonInternalMachineState sampleState, final int[] stats) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException {  
+    public int getDepthChargeResult(ForwardDeadReckonInternalMachineState state, Role role, final int[] stats) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException {  
+    	int result;
     	rolloutDepth = 0;
-        List<TerminalResultVector> resultVectors = ((enableGreedyRollouts && getRoles().size() <= 2) ? new LinkedList<TerminalResultVector>() : null);
+    	TerminalResultSet resultSet = ((enableGreedyRollouts && getRoles().size() <= 2) ? new TerminalResultSet(getRoles()) : null);
         
         if ( validationMachine != null )
         {
@@ -2647,7 +2602,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
         	previouslyChosenJointMovePropsX[i] = null;
         	previouslyChosenJointMovePropsO[i] = null;
         }
-        if ( resultVectors == null  )
+        if ( resultSet == null  )
         {
 	        while(!isTerminal()) {
                 triedMoves.clear();
@@ -2656,28 +2611,30 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
             	transitionToNextStateFromChosenMove(null,null);
 	        	rolloutDepth++;
 	        }
-	        if ( sampleState != null && rolloutDepth < sampleDepth)
-	        {
-	        	sampleState.copy(getInternalStateFromBase());
-	        }
 	        if(stats != null)
 	        {
 	            stats[0] = rolloutDepth;
 	            stats[1] = 0;
 	        }
+	        
+	        result = getGoal(role);
         }
         else
         {
-        	double branchingFactor = recursiveGreedyRollout(resultVectors);
+        	double branchingFactor = recursiveGreedyRollout(resultSet);
         	
-	        if ( sampleState != null && rolloutDepth < sampleDepth)
-	        {
-	        	sampleState.copy(lastInternalSetState);
-	        }
 	        if(stats != null)
 	        {
 	            stats[0] = rolloutStackDepth;
 	            stats[1] = (int)(branchingFactor + 0.5);
+	        }
+	        
+	        result = resultSet.resultVector.scores.get(role);
+			
+	        if ( resultSet.resultVector.controllingRole != null )
+	        {
+	        	setPropNetUsage(resultSet.resultVector.state);
+	        	setBasePropositionsFromState(resultSet.resultVector.state, true);
 	        }
         }
         for(int i = 0; i < roles.size(); i++)
@@ -2692,48 +2649,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
         	}
         }
         
-        if ( resultVectors != null )
-        {
-	        //	Add the final terminal result which was unavoidable
-        	//addResultVector(null, resultVectors);
-	        
-	        TerminalResultVector chosenResult = null;
-	        
-	        //	This needs some work for games of > 2 players
-	        for(TerminalResultVector resultVector : resultVectors)
-	        {
-	        	if ( chosenResult == null )
-	        	{
-	        		chosenResult = resultVector;
-	        	}
-	        	else
-	        	{
-	        		if ( resultVector.controllingRole == null )
-	        		{
-	        			//	Only select if the previous chosen vector's controller allows
-	        			if ( resultVector.scores.get(chosenResult.controllingRole) >= chosenResult.scores.get(chosenResult.controllingRole))
-	        			{
-	        				chosenResult = resultVector;
-	        			}
-	        		}
-	        		//	Would some player have chosen this over the previous choice
-	        		//	and if so would the previous chooser allow that?
-	        		else if ( resultVector.scores.get(resultVector.controllingRole) > chosenResult.scores.get(resultVector.controllingRole) &&
-	        				  resultVector.scores.get(chosenResult.controllingRole) >= chosenResult.scores.get(chosenResult.controllingRole))
-	        		{
-	        			chosenResult = resultVector;
-	        		}
-	        	}
-	        }
-	        
-	        int result = chosenResult.scores.get(role);
-	        
-	        return result;
-        }
-        else
-        {
-        	return getGoal(role);
-        }
+        return result;
     }
 
 	public Set<GdlSentence> getBasePropositions() {
