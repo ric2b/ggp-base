@@ -225,15 +225,15 @@ public class Sancho extends SampleGamer {
 		try
 		{
         	int result = 0;
-        	int enemyScore = 0;
+        	int bestEnemyScore = 0;
         	for(Role role : stateMachine.getRoles())
         	{
         		if ( !role.equals(ourRole) )
         		{
         			int score = stateMachine.getGoalNative(state, role);
-        			if ( score > enemyScore )
+        			if ( score > bestEnemyScore )
         			{
-        				enemyScore = score;
+        				bestEnemyScore = score;
         			}
         		}
         		else
@@ -242,7 +242,17 @@ public class Sancho extends SampleGamer {
         		}
         	}
         	
-        	int rawResult = (isPuzzle ? result : (result - enemyScore + 100)/2);
+        	int winBonus = 0;
+        	if ( result >= bestEnemyScore )
+        	{
+        		winBonus += 5;
+        		
+        		if ( result > bestEnemyScore )
+        		{
+        			winBonus += 5;
+        		}
+        	}
+        	int rawResult = (isPuzzle ? result : ((result + winBonus)*100)/110);
         	int normalizedResult = ((rawResult - MinRawNetScore)*100)/(MaxRawNetScore - MinRawNetScore);
         	
         	if ( normalizedResult > 100 && !overExpectedRangeScoreReported )
@@ -2136,7 +2146,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.15a";
+		return "Sancho 1.16a";
 	}
 	
 	@Override
@@ -2364,18 +2374,9 @@ public class Sancho extends SampleGamer {
 		System.out.println("Range of lengths of sample games seen: [" + minNumTurns + "," + maxNumTurns + "], branching factor: " + averageBranchingFactor);
 		System.out.println("Average num turns: " + averageNumTurns);
 		System.out.println("Std deviation num turns: " + stdDevNumTurns);
-		
-		if ( minNumTurns == maxNumTurns || ((averageBranchingFactor > 40 || stdDevNumTurns < 0.15*averageNumTurns) && !isPuzzle) )
+		if( underlyingStateMachine.numRolloutDecisionNodeExpansions > 0)
 		{
-			System.out.println("Disabling greedy rollouts");
-			underlyingStateMachine.disableGreedyRollouts();
-		    if ( rolloutProcessors != null )
-		    {
-		    	for(int i = 0; i < numRolloutThreads; i++)
-		    	{
-		    		rolloutProcessors[i].disableGreedyRollouts();
-		    	}
-		    }
+			System.out.println("Percentage expanded rollout decision nodes with discovered terminals: " + (underlyingStateMachine.numRolloutDecisionNodesWithTerminals*100)/underlyingStateMachine.numRolloutDecisionNodeExpansions);
 		}
 		
 		if ( simulationsPerformed > 100 )
@@ -2390,6 +2391,25 @@ public class Sancho extends SampleGamer {
 			observedMinNetScore = 0;
 			observedMaxNetScore = 100;
 			multiRoleAverageScoreDiff = 0;
+		}
+		
+		if ( minNumTurns == maxNumTurns ||
+			 ((averageBranchingFactor > 40 || stdDevNumTurns < 0.15*averageNumTurns || underlyingStateMachine.numRolloutDecisionNodesWithTerminals < underlyingStateMachine.numRolloutDecisionNodeExpansions/10) &&
+			  !isPuzzle) )
+		{
+			System.out.println("Disabling greedy rollouts");
+			underlyingStateMachine.disableGreedyRollouts();
+		    if ( rolloutProcessors != null )
+		    {
+		    	for(int i = 0; i < numRolloutThreads; i++)
+		    	{
+		    		rolloutProcessors[i].disableGreedyRollouts();
+		    	}
+		    }
+		    
+		    //	Scale up the estimate of simulation rate since we'll be running without the overhead
+		    //	of greedy rollouts (which is proportional to the branching factor)
+		    simulationsPerformed *= averageBranchingFactor/2;
 		}
 		
 		//	Special case handling for puzzles with hard-to-find wins

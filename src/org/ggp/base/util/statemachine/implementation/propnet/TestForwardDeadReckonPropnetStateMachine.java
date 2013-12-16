@@ -2155,6 +2155,8 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	}
 	
 	private Set<ForwardDeadReckonProposition> terminatingMoveProps = new HashSet<ForwardDeadReckonProposition>();
+	public long numRolloutDecisionNodeExpansions = 0;
+	public long numRolloutDecisionNodesWithTerminals = 0;
 	
 	private ForwardDeadReckonProposition transitionToNextStateInGreedyRollout(TerminalResultSet results, ForwardDeadReckonProposition hintMoveProp) throws MoveDefinitionException, GoalDefinitionException
 	{
@@ -2273,6 +2275,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	    			//System.out.println("Specific chooser");
 	    			int choiceIndex;
 	    			boolean preEnumerate = false;
+	    			boolean terminalReported = false;
 	    			
 	    			if ( decisionState.baseChoiceIndex == -1 )
 	    			{
@@ -2285,6 +2288,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	    					if ( terminatingMoveProps.contains(chooserProp))
 	    					{
 	    						preEnumerate = true;
+	    						numRolloutDecisionNodeExpansions++;
 	    						break;
 	    					}
 	    				}
@@ -2318,6 +2322,9 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	 			     	        	
 	 			    				if ( isTerminal() )
 	 			    				{
+	 			    					numRolloutDecisionNodesWithTerminals++;
+	 			    					terminalReported = true;
+	 			    					
 	 			    					//System.out.println("Encountered terminal state with goal value: "+ resultVector.scores.get(resultVector.controllingRole));
 	 			    					if ( getGoal(decisionState.choosingRole) == 100 )
 	 			    					{
@@ -2362,6 +2369,12 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	     	        	
 	    				if ( isTerminal() )
 	    				{
+	    					if ( !terminalReported )
+	    					{
+			    				numRolloutDecisionNodesWithTerminals++;
+			    				terminalReported = true;
+	    					}
+	    					
 		    				terminatingMoveProps.add(decisionState.chooserProps[choice]);
 		    				
 	    					//System.out.println("Encountered terminal state with goal value: "+ resultVector.scores.get(resultVector.controllingRole));
