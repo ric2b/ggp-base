@@ -61,7 +61,7 @@ public class Sancho extends SampleGamer {
     private int transpositionTableSize = 2000000;
     private final int maxOutstandingRolloutRequests = 4;
     private int numRolloutThreads = 4;
-    private final double explorationBias = 1.2;//1.414;
+    private double explorationBias = 1.0;
     private final double actionHistoryWeight = 1;
     private TreeNode[] transpositionTable = null;
     private int nextSeq = 0;
@@ -2146,7 +2146,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.16a";
+		return "Sancho 1.17";
 	}
 	
 	@Override
@@ -2374,6 +2374,18 @@ public class Sancho extends SampleGamer {
 		System.out.println("Range of lengths of sample games seen: [" + minNumTurns + "," + maxNumTurns + "], branching factor: " + averageBranchingFactor);
 		System.out.println("Average num turns: " + averageNumTurns);
 		System.out.println("Std deviation num turns: " + stdDevNumTurns);
+		
+		explorationBias = 15/(averageNumTurns - stdDevNumTurns) + 0.5;
+		if ( explorationBias < 0.5 )
+		{
+			explorationBias = 0.5;
+		}
+		else if ( explorationBias > 1.2 )
+		{
+			explorationBias = 1.2;
+		}
+		System.out.println("Set explorationBias to " + explorationBias);
+		
 		if( underlyingStateMachine.numRolloutDecisionNodeExpansions > 0)
 		{
 			System.out.println("Percentage expanded rollout decision nodes with discovered terminals: " + (underlyingStateMachine.numRolloutDecisionNodesWithTerminals*100)/underlyingStateMachine.numRolloutDecisionNodeExpansions);
@@ -2524,7 +2536,7 @@ public class Sancho extends SampleGamer {
 			}
 		}
 		
-		System.out.println(simulationsPerformed + " simulations performed in " + (simulationStopTime - simulationStartTime) + "mS - setting rollout sample size to " + rolloutSampleSize);
+		System.out.println(simulationsPerformed*1000/(simulationStopTime - simulationStartTime) + " simulations/second performed - setting rollout sample size to " + rolloutSampleSize);
 		
 		//	TOTAL HACK FOR MAX KNIGHTS
 		if ( false )
