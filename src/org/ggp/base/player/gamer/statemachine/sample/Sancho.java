@@ -2146,7 +2146,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.18";
+		return "Sancho 1.18a";
 	}
 	
 	@Override
@@ -2220,6 +2220,7 @@ public class Sancho extends SampleGamer {
 		int observedMaxNetScore = Integer.MIN_VALUE;
 		int simulationsPerformed = 0;
 		int multiRoleSamples = 0;
+		boolean hasPseudoSimultaneous = false;
 		targetState = null;
 
 		multiRoleAverageScoreDiff = 0;
@@ -2236,7 +2237,7 @@ public class Sancho extends SampleGamer {
 		
 		while(!isSimultaneousMove && !underlyingStateMachine.isTerminal(sampleState))
 		{
-			//boolean	simultaneousMovesSeen = false;
+			boolean	roleWithChoiceSeen = false;
 			List<Move> jointMove = new LinkedList<Move>();
 			Set<Move> allMovesInState = new HashSet<Move>();
 			
@@ -2258,13 +2259,13 @@ public class Sancho extends SampleGamer {
 							allMovesInState.add(move);
 						}
 					}
-					//if ( simultaneousMovesSeen )
-					//{
-					//	isSimultaneousMove = true;
-					//	break;
-					//}
 					
-					//simultaneousMovesSeen = true;
+					if ( roleWithChoiceSeen )
+					{
+						hasPseudoSimultaneous = true;
+					}
+					
+					roleWithChoiceSeen = true;
 				}
 				jointMove.add(legalMoves.get(r.nextInt(legalMoves.size())));
 			}
@@ -2278,6 +2279,10 @@ public class Sancho extends SampleGamer {
 		if ( isSimultaneousMove )
 		{
 			System.out.println("Game is a simultaneous turn game");
+		}
+		else if ( hasPseudoSimultaneous )
+		{
+			System.out.println("Game is pseudo-simultaneous (factorizable?)");
 		}
 		else
 		{
@@ -2399,7 +2404,7 @@ public class Sancho extends SampleGamer {
 			multiRoleAverageScoreDiff = 0;
 		}
 		
-		if ( minNumTurns == maxNumTurns ||
+		if ( minNumTurns == maxNumTurns || hasPseudoSimultaneous ||
 			 ((averageBranchingFactor > 40 || stdDevNumTurns < 0.15*averageNumTurns || underlyingStateMachine.greedyRolloutEffectiveness < underlyingStateMachine.numRolloutDecisionNodeExpansions/3) &&
 			  !isPuzzle) )
 		{
