@@ -2146,7 +2146,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.17";
+		return "Sancho 1.18";
 	}
 	
 	@Override
@@ -2303,15 +2303,9 @@ public class Sancho extends SampleGamer {
 			
 			sampleState = new ForwardDeadReckonInternalMachineState(initialState);
 
-			int roleoutScore = underlyingStateMachine.getDepthChargeResult(initialState, getRole(), rolloutStats);
+			underlyingStateMachine.getDepthChargeResult(initialState, getRole(), rolloutStats);
 			
 	    	int netScore = netScore(underlyingStateMachine, null);
-
-	    	//System.out.println("Role score = " + roleoutScore + ", netScore = " + netScore);
-	    	if ( roleoutScore != netScore )
-	    	{
-	    		System.out.println("Score mismatch in state: " + sampleState);
-	    	}
 	    	
 	    	averageNumTurns = (averageNumTurns*(simulationsPerformed-1) + rolloutStats[0])/simulationsPerformed;
 	    	averageSquaredNumTurns = (averageSquaredNumTurns*(simulationsPerformed-1) + rolloutStats[0]*rolloutStats[0])/simulationsPerformed;
@@ -2388,7 +2382,7 @@ public class Sancho extends SampleGamer {
 		
 		if( underlyingStateMachine.numRolloutDecisionNodeExpansions > 0)
 		{
-			System.out.println("Percentage expanded rollout decision nodes with discovered terminals: " + (underlyingStateMachine.numRolloutDecisionNodesWithTerminals*100)/underlyingStateMachine.numRolloutDecisionNodeExpansions);
+			System.out.println("Greedy rollout terminal discovery effectiveness: " + (underlyingStateMachine.greedyRolloutEffectiveness*100)/underlyingStateMachine.numRolloutDecisionNodeExpansions);
 		}
 		
 		if ( simulationsPerformed > 100 )
@@ -2406,7 +2400,7 @@ public class Sancho extends SampleGamer {
 		}
 		
 		if ( minNumTurns == maxNumTurns ||
-			 ((averageBranchingFactor > 40 || stdDevNumTurns < 0.15*averageNumTurns || underlyingStateMachine.numRolloutDecisionNodesWithTerminals < underlyingStateMachine.numRolloutDecisionNodeExpansions/10) &&
+			 ((averageBranchingFactor > 40 || stdDevNumTurns < 0.15*averageNumTurns || underlyingStateMachine.greedyRolloutEffectiveness < underlyingStateMachine.numRolloutDecisionNodeExpansions/3) &&
 			  !isPuzzle) )
 		{
 			System.out.println("Disabling greedy rollouts");

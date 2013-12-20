@@ -2008,6 +2008,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		public int								rolloutSeq;
 		ForwardDeadReckonInternalMachineState	state;
 		Role									choosingRole;
+		public boolean[]						propProcessed;
 	}
     
     private class TerminalResultSet
@@ -2071,7 +2072,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 						{
 							//System.out.println("Forced win at depth " + rolloutStackDepth);
 							rolloutDecisionStack[rolloutStackDepth].chooserProps = null;
-							
+
 							RolloutDecisionState poppedState = rolloutDecisionStack[--rolloutStackDepth];
 							//System.out.println("...next choice=" + poppedState.nextChoiceIndex + " (base was " + poppedState.baseChoiceIndex + ")");
 			
@@ -2156,7 +2157,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	
 	private Set<ForwardDeadReckonProposition> terminatingMoveProps = new HashSet<ForwardDeadReckonProposition>();
 	public long numRolloutDecisionNodeExpansions = 0;
-	public long numRolloutDecisionNodesWithTerminals = 0;
+	public double greedyRolloutEffectiveness = 0;
 	
 	private ForwardDeadReckonProposition transitionToNextStateInGreedyRollout(TerminalResultSet results, ForwardDeadReckonProposition hintMoveProp) throws MoveDefinitionException, GoalDefinitionException
 	{
@@ -2209,6 +2210,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			        			{
 			        				decisionState.choosingRole = role;
 			        				decisionState.chooserProps = new ForwardDeadReckonProposition[numChoices];
+			        				decisionState.propProcessed = new boolean[numChoices];
 			        			}
 			        		}
 			        		else
@@ -2219,6 +2221,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			    	        	
 			        			decisionState.choosingRole = null;
 			        			decisionState.chooserProps = null;
+			        			decisionState.propProcessed = null;
 			        			simultaneousMove = true;
 			        		}
 			        	}
@@ -2240,6 +2243,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			        	else
 			        	{
 				        	int chooserMoveIndex = 0;
+				        	int numNullProps = 0;
 				        	for(ForwardDeadReckonLegalMoveInfo info : activeLegalMoves.getContents(role))
 				        	{
 			        			if ( decisionState.choosingRole == role )
@@ -2275,7 +2279,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	    			//System.out.println("Specific chooser");
 	    			int choiceIndex;
 	    			boolean preEnumerate = false;
-	    			boolean terminalReported = false;
+	 				int numTerminals = 0;
 	    			
 	    			if ( decisionState.baseChoiceIndex == -1 )
 	    			{
@@ -2292,6 +2296,11 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	    						break;
 	    					}
 	    				}
+	    				
+	    				for(int i = 0; i < decisionState.chooserProps.length; i++)
+	    				{
+	    					decisionState.propProcessed[i] = false;
+	    				}
 	    			}
 	    			else
 	    			{
@@ -2306,9 +2315,11 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	 					}
 	 				}
 	 				
+	 				boolean transitioned = false;
+	 				
 	 				//	If we're given a hint move to check for a win do that first
 	 				//	the first time we look at this node
-	 				if ( hintMoveProp != null )
+	 				if ( hintMoveProp != null && decisionState.chooserProps.length > 1 )
  					{
 	 					if ( decisionState.baseChoiceIndex == choiceIndex )
 		 				{
@@ -2322,23 +2333,22 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	 			     	        	
 	 			    				if ( isTerminal() )
 	 			    				{
-	 			    					numRolloutDecisionNodesWithTerminals++;
-	 			    					terminalReported = true;
+	 			    					numTerminals++;
 	 			    					
 	 			    					//System.out.println("Encountered terminal state with goal value: "+ resultVector.scores.get(resultVector.controllingRole));
 	 			    					if ( getGoal(decisionState.choosingRole) == 100 )
 	 			    					{
+	 		    							greedyRolloutEffectiveness++;
 	 			    						//	If we have a choosable win stop searching
 	 			    						return hintMoveProp;
 	 			    					}
 	 			    					
 	 			    					results.considerResult(decisionState.choosingRole);
 	 			    					
-	 			    					decisionState.chooserProps[i] = null;
+	 			    					decisionState.propProcessed[i] = true;
 	 			    				}
 	 			    				
-	 		    					setPropNetUsage(decisionState.state);
-	 		    					setBasePropositionsFromState(decisionState.state, true);
+	 			    				transitioned = true;
 	 			    				break;
 	 							}
 	 						}
@@ -2353,58 +2363,66 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	 				//	First time we visit the node try them all.  After that if we're asked to reconsider
 	 				//	just take the next one from the last one we chose
 	 				int remainingMoves = (decisionState.baseChoiceIndex == choiceIndex && preEnumerate ? decisionState.chooserProps.length : 1);
+	 				
 	    			for(int i = 0; i < remainingMoves; i++)
 	    			{
 	    				int choice = (i + choiceIndex)%decisionState.chooserProps.length;
 	    				
 	    				//	Don't reprocess the hint move that we looked at first
-	    				if ( hintMoveProp != null && hintMoveProp == decisionState.chooserProps[choice] )
+	    				if ( decisionState.propProcessed[choice] || hintMoveProp == decisionState.chooserProps[choice] )
 	    				{
 	    					continue;
 	    				}
 	    				
+	    				if ( transitioned )
+	    				{
+	    					setPropNetUsage(decisionState.state);
+	    					setBasePropositionsFromState(decisionState.state, true);
+	     				}
+	    				
 	    	        	chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserProps[choice];
 	    	        	
 	    	        	transitionToNextStateFromChosenMove(null, null);
+	    	        	
+	    	        	transitioned = true;
 	     	        	
 	    				if ( isTerminal() )
 	    				{
-	    					if ( !terminalReported )
-	    					{
-			    				numRolloutDecisionNodesWithTerminals++;
-			    				terminalReported = true;
-	    					}
+	    					numTerminals++;
 	    					
 		    				terminatingMoveProps.add(decisionState.chooserProps[choice]);
 		    				
 	    					//System.out.println("Encountered terminal state with goal value: "+ resultVector.scores.get(resultVector.controllingRole));
 	    					if ( getGoal(decisionState.choosingRole) == 100 )
 	    					{
+	    						if ( preEnumerate )
+	    						{
+	    							greedyRolloutEffectiveness++;
+	    						}
+	    						
 	    						//	If we have a choosable win stop searching
 	    						return decisionState.chooserProps[choice];
 	    					}
 	    					
 		    				results.considerResult(decisionState.choosingRole);
-	    					decisionState.chooserProps[choice] = null;
+		    				decisionState.propProcessed[choice] = true;
 	    				}
-	
-	    				if ( i < remainingMoves-1 )
-	    				{
-	    					setPropNetUsage(decisionState.state);
-	    					setBasePropositionsFromState(decisionState.state, true);
-	     				}
 	    			}
 	    			
 	    			decisionState.nextChoiceIndex = choiceIndex;
 	    			do
 	    			{
 	    				decisionState.nextChoiceIndex = (decisionState.nextChoiceIndex + 1)%decisionState.chooserProps.length;
-	    				if ( decisionState.chooserProps[decisionState.nextChoiceIndex] != null || decisionState.nextChoiceIndex == decisionState.baseChoiceIndex )
+	    				if ( !decisionState.propProcessed[decisionState.nextChoiceIndex] || decisionState.nextChoiceIndex == decisionState.baseChoiceIndex )
 	    				{
 	    					break;
 	    				}
 	    			} while(decisionState.nextChoiceIndex != choiceIndex);
 	    			
+	    			if ( preEnumerate && numTerminals > 0 )
+	    			{
+	    				greedyRolloutEffectiveness += (decisionState.chooserProps.length - numTerminals)/decisionState.chooserProps.length;
+	    			}
 	    			//System.out.println("Transition move was: " + chosenJointMoveProps[0]);
 	    			//System.out.println("State: " + mungedState(lastInternalSetState));
 	     		}
