@@ -1711,6 +1711,66 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		}
 	}
 
+	public ForwardDeadReckonInternalMachineState getNextState(ForwardDeadReckonInternalMachineState state, Move[] moves)
+	throws TransitionDefinitionException
+	{
+		//System.out.println("Get next state after " + moves + " from: " + state);
+		//RuntimeOptimizedComponent.getCount = 0;
+		//RuntimeOptimizedComponent.dirtyCount = 0;
+		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getNextState");
+		try
+		{
+			setPropNetUsage(state);
+			//for(PolymorphicComponent c : propNet.getComponents())
+			//{
+			//	((ForwardDeadReckonComponent)c).hasQueuedForPropagation = false;
+			//}
+			//ForwardDeadReckonComponent.numGatesPropagated = 0;
+			//ForwardDeadReckonComponent.numPropagates = 0;
+			//propNet.seq++;
+			
+			Map<GdlSentence, PolymorphicProposition> inputProps = propNet.getInputPropositions();
+			int movesCount = 0;
+			
+			for(GdlSentence moveSentence : toDoes(moves))
+			{
+				ForwardDeadReckonProposition moveInputProposition = (ForwardDeadReckonProposition)inputProps.get(moveSentence);
+				if ( moveInputProposition != null )
+				{
+					moveInputProposition.setValue(true, instanceId);
+					moveProps[movesCount++] = moveInputProposition;
+				}
+			}
+			
+			setBasePropositionsFromState(state, true);
+			
+			ForwardDeadReckonInternalMachineState result = getInternalStateFromBase();
+			
+			//System.out.println("After move " + moves + " in state " + state + " resulting state is " + result);
+			//totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
+			//totalNumPropagates += ForwardDeadReckonComponent.numPropagates;
+	
+			for(int i = 0; i < movesCount; i++)
+			{
+				moveProps[i].setValue(false, instanceId);
+			}
+			//for(GdlSentence moveSentence : toDoes(moves))
+			//{
+			//	PolymorphicProposition moveInputProposition = inputProps.get(moveSentence);
+			//	if ( moveInputProposition != null )
+			//	{
+			//		moveInputProposition.setValue(false);
+			//	}
+			//}
+	        //System.out.println("Return state " + result + " with hash " + result.hashCode());
+	        return result;
+		}
+		finally
+		{
+			methodSection.exitScope();
+		}
+	}
+
 	private boolean transitionToNextStateFromChosenMove(Role choosingRole, List<TerminalResultVector> resultVectors) throws GoalDefinitionException
 	{
 		//System.out.println("Get next state after " + moves + " from: " + state);
@@ -1811,30 +1871,54 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 	}
 
 	/* Helper methods */
-		
-	/**
-	 * The Input propositions are indexed by (does ?player ?action).
-	 * 
-	 * This translates a list of Moves (backed by a sentence that is simply ?action)
-	 * into GdlSentences that can be used to get Propositions from inputPropositions.
-	 * and accordingly set their values etc.  This is a naive implementation when coupled with 
-	 * setting input values, feel free to change this for a more efficient implementation.
-	 * 
-	 * @param moves
-	 * @return
-	 */
-	private List<GdlSentence> toDoes(List<Move> moves)
+	
+/**
+ * The Input propositions are indexed by (does ?player ?action).
+ * 
+ * This translates a list of Moves (backed by a sentence that is simply ?action)
+ * into GdlSentences that can be used to get Propositions from inputPropositions.
+ * and accordingly set their values etc.  This is a naive implementation when coupled with 
+ * setting input values, feel free to change this for a more efficient implementation.
+ * 
+ * @param moves
+ * @return
+ */
+private List<GdlSentence> toDoes(Move[] moves)
+{
+	List<GdlSentence> doeses = new ArrayList<GdlSentence>(moves.length);
+	Map<Role, Integer> roleIndices = getRoleIndices();
+	
+	for (int i = 0; i < roles.size(); i++)
 	{
-		List<GdlSentence> doeses = new ArrayList<GdlSentence>(moves.size());
-		Map<Role, Integer> roleIndices = getRoleIndices();
-		
-		for (int i = 0; i < roles.size(); i++)
-		{
-			int index = roleIndices.get(roles.get(i));
-			doeses.add(ProverQueryBuilder.toDoes(roles.get(i), moves.get(index)));
-		}
-		return doeses;
+		int index = roleIndices.get(roles.get(i));
+		doeses.add(ProverQueryBuilder.toDoes(roles.get(i), moves[index]));
 	}
+	return doeses;
+}
+
+/**
+* The Input propositions are indexed by (does ?player ?action).
+* 
+* This translates a list of Moves (backed by a sentence that is simply ?action)
+* into GdlSentences that can be used to get Propositions from inputPropositions.
+* and accordingly set their values etc.  This is a naive implementation when coupled with 
+* setting input values, feel free to change this for a more efficient implementation.
+* 
+* @param moves
+* @return
+*/
+private List<GdlSentence> toDoes(List<Move> moves)
+{
+List<GdlSentence> doeses = new ArrayList<GdlSentence>(moves.size());
+Map<Role, Integer> roleIndices = getRoleIndices();
+
+for (int i = 0; i < roles.size(); i++)
+{
+	int index = roleIndices.get(roles.get(i));
+	doeses.add(ProverQueryBuilder.toDoes(roles.get(i), moves.get(index)));
+}
+return doeses;
+}
 	
 	private void propagateCalculatedNextState()
 	{
@@ -2461,30 +2545,23 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		}
 	}
 	
-	private Role chooseRandomJointMove() throws MoveDefinitionException
+	private int chooseRandomJointMove() throws MoveDefinitionException
 	{
-		Role result = null;
+		int result = 0;
 		
 		if ( propNet.useDeadReckonerForLegal() )
 		{
 			ForwardDeadReckonLegalMoveSet activeLegalMoves = propNet.getActiveLegalProps(instanceId);
 			int index = 0;
-			Role choosingRole = null;
+
 	        for (Role role : getRoles())
 	        {
 	        	int numChoices = activeLegalMoves.getContentSize(role);
 	        	int rand = getRandom(numChoices);
 	        	
-	        	if ( numChoices > 1 )
+	        	if ( numChoices > result )
 	        	{
-	        		if ( choosingRole == null )
-	        		{
-	        			choosingRole = role;
-	        		}
-	        		else
-	        		{
-	        			choosingRole = null;
-	        		}
+	        		result = numChoices;
 	        	}
 	        	
 	        	boolean chosen = false;
@@ -2494,23 +2571,11 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		        	{
 		        		if ( rand-- <= 0 && !triedMoves.contains(info.inputProposition))
 		        		{
-		        			if ( info == null )
-		        			{
-		        				System.out.println("Move info is NULL!!!");
-		        			}
 		    	        	if ( validationMachine != null )
 		    	        	{
 		    	        		chosenMoves[index] = info.move;
 		    	        	}
 		        			chosenJointMoveProps[index++] = info.inputProposition;
-		        			if ( choosingRole == role )
-		        			{
-		        				triedMoves.add(info.inputProposition);
-		        				if ( triedMoves.size() != numChoices )
-		        				{
-		        					result = choosingRole;
-		        				}
-		        			}
 		        			
 		        			chosen = true;
 		        			break;
@@ -2635,17 +2700,19 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
         }
         if ( resultSet == null  )
         {
+        	int totalChoices = 0;
+        	
 	        while(!isTerminal()) {
                 triedMoves.clear();
                 
-            	chooseRandomJointMove();
+                totalChoices += chooseRandomJointMove();
             	transitionToNextStateFromChosenMove(null,null);
 	        	rolloutDepth++;
 	        }
 	        if(stats != null)
 	        {
 	            stats[0] = rolloutDepth;
-	            stats[1] = 0;
+	            stats[1] = (totalChoices + rolloutDepth/2)/rolloutDepth;
 	        }
 	        
 	        result = getGoal(role);
