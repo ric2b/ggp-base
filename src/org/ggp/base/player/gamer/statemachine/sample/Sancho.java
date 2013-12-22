@@ -570,27 +570,40 @@ public class Sancho extends SampleGamer {
 				adjustDescendantCounts(-numDescendantsFreed);
 			}		
 			
+			boolean decidingRoleWin = false;
+			boolean mutualWin = true;
+			
 			for(int roleIndex = 0; roleIndex < numRoles; roleIndex++)
 			{
 				if (roleIndex == decidingRoleIndex )
 				{
-					for(TreeNode parent : parents)
+					//	For multi-player games do not auto-complete opponent joint move wins
+					if ( averageScore[roleIndex] > 99.5 )
 					{
-						//	For multi-player games do not auto-complete opponent joint move wins
-						if ( averageScore[roleIndex] > 99.5 && ((!isMultiPlayer && !isSimultaneousMove) || roleIndex == 0))
+						if ((!isMultiPlayer && !isSimultaneousMove) || roleIndex == 0)
 						{
-							// Win for whoever just moved after they got to choose so parent node is also decided
-							parent.markComplete(averageScore);
-						}
-						else
-						{
-							//	If all children are complete then the parent is - give it a chance to
-							//	decide
-							parent.checkChildCompletion();
+							decidingRoleWin = true;
 						}
 					}
-					
-					break;
+					else
+					{
+						mutualWin = false;
+					}
+				}
+			}
+			
+			for(TreeNode parent : parents)
+			{
+				if ( decidingRoleWin && !mutualWin )
+				{
+					// Win for whoever just moved after they got to choose so parent node is also decided
+					parent.markComplete(averageScore);
+				}
+				else
+				{
+					//	If all children are complete then the parent is - give it a chance to
+					//	decide
+					parent.checkChildCompletion();
 				}
 			}
 			//validateAll();
@@ -628,6 +641,7 @@ public class Sancho extends SampleGamer {
 			double[] bestValues = null;
 			double[] averageValues = new double[numRoles];
 			int roleIndex = (decidingRoleIndex+1)%numRoles;
+			boolean decidingRoleWin = false;
 			
 			for(TreeEdge edge : children)
 			{
@@ -642,6 +656,22 @@ public class Sancho extends SampleGamer {
 					{
 						bestValue = cr.node.averageScore[roleIndex];
 						bestValues = cr.node.averageScore;
+						
+						if ( bestValue > 99.5 )
+						{
+							//	Win for deciding role which they will choose unless it is also
+							//	a mutual win
+							boolean mutualWin = true;
+							
+							for(int i = 0; i < numRoles; i++)
+							{
+								if ( cr.node.averageScore[i] < 99.5 )
+								{
+									mutualWin = false;
+								}
+							}
+							decidingRoleWin |= !mutualWin;
+						}
 					}
 					
 					for(int i = 0; i < numRoles; i++)
@@ -655,7 +685,7 @@ public class Sancho extends SampleGamer {
 				}
 			}
 			
-			if ( allChildrenComplete || (bestValue > 99.5 && ((!isMultiPlayer && !isSimultaneousMove) || roleIndex == 0)) )
+			if ( allChildrenComplete || (decidingRoleWin && ((!isMultiPlayer && !isSimultaneousMove) || roleIndex == 0)) )
 			{
 				//	Opponent's choice which child to take, so take their
 				//	best value and crystalize as our value.   However, if it's simultaneous
@@ -1613,13 +1643,7 @@ public class Sancho extends SampleGamer {
     				{
     					if ( edge2.child.seq == edge2.child.node.seq )
     					{
-    						StringBuilder sb = new StringBuilder();
-    						
-    						for(Move move : edge2.jointPartialMove)
-    						{
-    							sb.append(move + "[selected " + edge2.numChildVisits + (edge2.child.node.complete ? ", complete" : "") + "]");
-    						}
-    						System.out.println("    Response " + sb + " scores " + edge2.child.node.averageScore[ edge2.child.node.decidingRoleIndex]);
+    						System.out.println("    Response " + edge2.jointPartialMove[edge2.child.node.decidingRoleIndex] + " scores " + edge2.child.node.averageScore[ edge2.child.node.decidingRoleIndex]);
     					}
     				}
     			}
@@ -1972,7 +1996,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.19";
+		return "Sancho 1.20";
 	}
 	
 	@Override
@@ -2027,6 +2051,19 @@ public class Sancho extends SampleGamer {
 		return targetState.getContents().size() - matchCount;
 	}
 
+	private void disableGreedyRollouts()
+	{
+		System.out.println("Disabling greedy rollouts");
+		underlyingStateMachine.disableGreedyRollouts();
+	    if ( rolloutProcessors != null )
+	    {
+	    	for(int i = 0; i < numRolloutThreads; i++)
+	    	{
+	    		rolloutProcessors[i].disableGreedyRollouts();
+	    	}
+	    }
+	}
+	
 	@Override
 	public void stateMachineMetaGame(long timeout) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
 	{
@@ -2045,11 +2082,24 @@ public class Sancho extends SampleGamer {
 	    completeSelectionFromIncompleteParentWarned = false;
 	    highestRolloutScoreSeen = -100;
 		
+	    if ( rolloutProcessors == null && numRolloutThreads > 0 )
+	    {
+	    	rolloutProcessors = new RolloutProcessor[numRolloutThreads];
+	    	
+	    	for(int i = 0; i < numRolloutThreads; i++)
+	    	{
+	    		rolloutProcessors[i] = new RolloutProcessor(underlyingStateMachine.createInstance());
+	    		rolloutProcessors[i].start();
+	    	}
+	    }	    
+		
 		int observedMinNetScore = Integer.MAX_VALUE;
 		int observedMaxNetScore = Integer.MIN_VALUE;
 		int simulationsPerformed = 0;
 		int multiRoleSamples = 0;
-		boolean hasPseudoSimultaneous = false;
+		boolean hasPseudoSimultaneous = false;	
+		boolean greedyRolloutsDisabled = false;
+
 		targetState = null;
 
 		multiRoleAverageScoreDiff = 0;
@@ -2116,6 +2166,15 @@ public class Sancho extends SampleGamer {
 		else
 		{
 			System.out.println("Game is not a simultaneous turn game");
+		}
+		
+		if ( isSimultaneousMove || hasPseudoSimultaneous )
+		{
+			if ( !greedyRolloutsDisabled )
+			{
+				greedyRolloutsDisabled = true;
+				disableGreedyRollouts();
+			}
 		}
 		
 		//	Simulate and derive a few basic stats:
@@ -2186,17 +2245,6 @@ public class Sancho extends SampleGamer {
     	    }
 		}
 		
-	    if ( rolloutProcessors == null && numRolloutThreads > 0 )
-	    {
-	    	rolloutProcessors = new RolloutProcessor[numRolloutThreads];
-	    	
-	    	for(int i = 0; i < numRolloutThreads; i++)
-	    	{
-	    		rolloutProcessors[i] = new RolloutProcessor(underlyingStateMachine.createInstance());
-	    		rolloutProcessors[i].start();
-	    	}
-	    }	    
-		
 	    double stdDevNumTurns = Math.sqrt(averageSquaredNumTurns - averageNumTurns*averageNumTurns);
 	    
 		System.out.println("Range of lengths of sample games seen: [" + minNumTurns + "," + maxNumTurns + "], branching factor: " + averageBranchingFactor);
@@ -2233,23 +2281,19 @@ public class Sancho extends SampleGamer {
 			multiRoleAverageScoreDiff = 0;
 		}
 		
-		if ( minNumTurns == maxNumTurns || hasPseudoSimultaneous ||
+		if ( minNumTurns == maxNumTurns ||
 			 ((averageBranchingFactor > 40 || stdDevNumTurns < 0.15*averageNumTurns || underlyingStateMachine.greedyRolloutEffectiveness < underlyingStateMachine.numRolloutDecisionNodeExpansions/3) &&
 			  !isPuzzle) )
 		{
-			System.out.println("Disabling greedy rollouts");
-			underlyingStateMachine.disableGreedyRollouts();
-		    if ( rolloutProcessors != null )
-		    {
-		    	for(int i = 0; i < numRolloutThreads; i++)
-		    	{
-		    		rolloutProcessors[i].disableGreedyRollouts();
-		    	}
-		    }
-		    
-		    //	Scale up the estimate of simulation rate since we'll be running without the overhead
-		    //	of greedy rollouts (which is proportional to the branching factor)
-		    simulationsPerformed *= averageBranchingFactor/2;
+			if ( !greedyRolloutsDisabled )
+			{
+				greedyRolloutsDisabled = true;
+				disableGreedyRollouts();
+			    
+			    //	Scale up the estimate of simulation rate since we'll be running without the overhead
+			    //	of greedy rollouts (which is proportional to the branching factor)
+			    simulationsPerformed *= averageBranchingFactor/2;
+			}
 		}
 		
 		//	Special case handling for puzzles with hard-to-find wins
@@ -2878,7 +2922,7 @@ public class Sancho extends SampleGamer {
 			}
 			
 			//validateAll();
-			bestMove = root.getBestMove(false);
+			bestMove = root.getBestMove(true);
 			
 			//validateAll();
 			

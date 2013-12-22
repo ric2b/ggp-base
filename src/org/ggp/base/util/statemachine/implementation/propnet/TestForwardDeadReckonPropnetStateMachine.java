@@ -2716,6 +2716,7 @@ return doeses;
 	        }
 	        
 	        result = getGoal(role);
+	        //System.out.println("Rollout result: " + result);
         }
         else
         {
