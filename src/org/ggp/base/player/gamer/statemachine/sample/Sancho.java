@@ -276,29 +276,35 @@ public class Sancho extends SampleGamer {
 			methodSection.exitScope();
 		}
 	}
-    
-	private double bestScoreSeen = -100;
 	
     private void processCompletedRollouts(long timeout)
     {
-    	//	Process nay outstanding node completions first, as their processing may
-    	//	have been interrupted due to running out of time at the end of the previous
-    	//	turn's processing
-		processNodeCompletions(timeout);
-		
-    	while(!completedRollouts.isEmpty() && System.currentTimeMillis() < timeout)
-    	{
-    		RolloutRequest request = completedRollouts.remove();
-    		TreeNode 	   node = request.node.node;
-    		
-    		if ( request.node.seq == node.seq && !node.complete )
-    		{
-		        node.updateStats(request.averageScore, request.averageSquaredScore, request.sampleSize, request.path, false);
-	    		processNodeCompletions(timeout);
-    		}
-    		
-    		numCompletedRollouts++;
-    	}
+		//ProfileSection methodSection = new ProfileSection("processCompletedRollouts");
+		//try
+		//{
+	    	//	Process nay outstanding node completions first, as their processing may
+	    	//	have been interrupted due to running out of time at the end of the previous
+	    	//	turn's processing
+			processNodeCompletions(timeout);
+			
+	    	while(!completedRollouts.isEmpty() && System.currentTimeMillis() < timeout)
+	    	{
+	    		RolloutRequest request = completedRollouts.remove();
+	    		TreeNode 	   node = request.node.node;
+	    		
+	    		if ( request.node.seq == node.seq && !node.complete )
+	    		{
+			        node.updateStats(request.averageScore, request.averageSquaredScore, request.sampleSize, request.path, false);
+		    		processNodeCompletions(timeout);
+	    		}
+	    		
+	    		numCompletedRollouts++;
+	    	}
+		//}
+		//finally
+		//{
+		//	methodSection.exitScope();
+		//}
     }
 	
 	private void processNodeCompletions(long timeout)
@@ -430,7 +436,7 @@ public class Sancho extends SampleGamer {
 			{
 				result.parents.add(parent);
 				
-				parent.adjustDescendantCounts(result.descendantCount+1);
+				//parent.adjustDescendantCounts(result.descendantCount+1);
 			}
 			
 			//validateAll();
@@ -492,7 +498,7 @@ public class Sancho extends SampleGamer {
 			{
 				//System.out.println("Mark complete  node seq: " + seq);
 				//validateAll();
-				adjustPropagatedContribution(values, averageScores, null, null, this, null);
+				//adjustPropagatedContribution(values, averageScores, null, null, this, null);
 				
 				for(int i = 0; i < numRoles; i++)
 				{
@@ -567,7 +573,7 @@ public class Sancho extends SampleGamer {
 				}
 				
 				//	Adjust descendant count
-				adjustDescendantCounts(-numDescendantsFreed);
+				//adjustDescendantCounts(-numDescendantsFreed);
 			}		
 			
 			boolean decidingRoleWin = false;
@@ -750,24 +756,32 @@ public class Sancho extends SampleGamer {
 		
 	    public void adjustDescendantCounts(int adjustment)
 	    {
-	    	//	Slight hack - assume puzzles will be small enough that we won't have a strong need
-	    	//	to trim.  This helps games that are intensely transpositional (not limited to puzzles but
-	    	//	prevalent there), because the combination of paths to a node in such a game can be large
-	    	//	which makes updating the descendant counts prohibitively expensive.
-	    	//	TODO - this need a more generic solution 
-	    	if ( !isPuzzle )
-	    	{
-		    	if ( freed )
+			ProfileSection methodSection = new ProfileSection("TreeNode.adjustDescendantCounts");
+			try
+			{
+		    	//	Slight hack - assume puzzles will be small enough that we won't have a strong need
+		    	//	to trim.  This helps games that are intensely transpositional (not limited to puzzles but
+		    	//	prevalent there), because the combination of paths to a node in such a game can be large
+		    	//	which makes updating the descendant counts prohibitively expensive.
+		    	//	TODO - this need a more generic solution 
+		    	if ( !isPuzzle )
 		    	{
-		    		System.out.println("Manipulating deleted node");
+			    	if ( freed )
+			    	{
+			    		System.out.println("Manipulating deleted node");
+			    	}
+					for(TreeNode parent : parents)
+					{
+						parent.adjustDescendantCounts(adjustment);
+					}
 		    	}
-				for(TreeNode parent : parents)
-				{
-					parent.adjustDescendantCounts(adjustment);
-				}
-	    	}
-			
-			descendantCount += adjustment;
+				
+				descendantCount += adjustment;
+			}
+			finally
+			{
+				methodSection.exitScope();
+			}
 	    }
 		
 		private int validate()
@@ -994,7 +1008,7 @@ public class Sancho extends SampleGamer {
 			{
 				TreeNode leastLikely = selectLeastLikelyNode(null, 0);
 				
-				leastLikely.adjustDescendantCounts(-1);
+				//leastLikely.adjustDescendantCounts(-1);
 				leastLikely.freeNode();
 				//validateAll();
 			}
@@ -1040,16 +1054,16 @@ public class Sancho extends SampleGamer {
 		        		if ( edge.child.seq == c.seq )
 		        		{
 				            double uctValue;
-				            if ( children[leastLikelyWinner].numChildVisits == 0 )
+				            if ( edge.numChildVisits == 0 )
 				            {
 				            	uctValue = -1000;
 				            }
 				            else
 				            {
-				            	uctValue = -explorationUCT(children[leastLikelyWinner].numChildVisits, roleIndex) - exploitationUCT(children[leastLikelyWinner], roleIndex);
+				            	uctValue = -explorationUCT(edge.numChildVisits, roleIndex) - exploitationUCT(edge, roleIndex);
 				            	//uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[leastLikelyWinner])+1) / numChildVisits[leastLikelyWinner]);
 				            }
-				            uctValue /= Math.log(c.descendantCount+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
+				            uctValue /= Math.log(c.numVisits+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
 		        			
 				            if ( uctValue >= leastLikelyRunnerUpValue )
 				            {
@@ -1086,7 +1100,7 @@ public class Sancho extends SampleGamer {
 					    	        	System.out.println("Encountered freed child node in tree walk");
 					    	        }
 						            double uctValue;
-						            if ( children[i].numChildVisits == 0 )
+						            if ( edge.numChildVisits == 0 )
 						            {
 						            	uctValue = -1000;
 						            }
@@ -1098,10 +1112,10 @@ public class Sancho extends SampleGamer {
 						            //}
 						            else
 						            {
-						            	uctValue = -explorationUCT(children[i].numChildVisits, roleIndex) - exploitationUCT(children[i], roleIndex);
+						            	uctValue = -explorationUCT(edge.numChildVisits, roleIndex) - exploitationUCT(edge, roleIndex);
 						            	//uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
 						            }
-						            uctValue /= Math.log(c.descendantCount+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
+						            uctValue /= Math.log(c.numVisits+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
 						            
 						            //if ( c.isLeaf() )
 						            //{
@@ -1131,11 +1145,6 @@ public class Sancho extends SampleGamer {
 	        	leastLikelyWinner = selectedIndex;
 		        //System.out.println("  selected: " + selected.state);
 	        	return children[selectedIndex].child.node.selectLeastLikelyNode(children[selectedIndex], depth+1);
-	        }
-	        
-	        if ( descendantCount > 0 && !isPuzzle )
-	        {
-	        	System.out.println("Selecting non-leaf for removal!");
 	        }
 	        
 	        if ( depth < 2 )
@@ -1782,71 +1791,91 @@ public class Sancho extends SampleGamer {
 		
 		private void adjustPropagatedContribution(double[] newAverageScores, double[] oldAverageScores, double[] newSquaredScores, double[] oldSquaredScores, TreeNode from, List<TreeNode> path)
 		{
-			double[] ourNewAverageScores = new double[numRoles];
-			double[] ourNewAverageSquaredScores = (newSquaredScores == null ? null : new double[numRoles]);
-			boolean anythingToPropagate = false;
-			
-			for(int roleIndex = 0; roleIndex < numRoles; roleIndex++)
+			if ( true )
 			{
-				double delta = newAverageScores[roleIndex] - oldAverageScores[roleIndex];
-				double squaredDelta = (newSquaredScores == null ? 0 : newSquaredScores[roleIndex] - oldSquaredScores[roleIndex]);
-
-				if ( Math.abs(delta) > epsilon && (path == null || !path.contains(this)) )
+			//ProfileSection methodSection = new ProfileSection("TreeNode.adjustPropagatedContribution");
+			//try
+			//{
+				double[] ourNewAverageScores = new double[numRoles];
+				double[] ourNewAverageSquaredScores = (newSquaredScores == null ? null : new double[numRoles]);
+				boolean anythingToPropagate = false;
+				
+				for(int roleIndex = 0; roleIndex < numRoles; roleIndex++)
 				{
-					double newAverageScore = averageScores[roleIndex];
-					double newAverageSquaredScore = averageSquaredScores[roleIndex];
+					double delta = newAverageScores[roleIndex] - oldAverageScores[roleIndex];
+					double squaredDelta = (newSquaredScores == null ? 0 : newSquaredScores[roleIndex] - oldSquaredScores[roleIndex]);
 	
-					if ( from != this )
+					if ( Math.abs(delta) > epsilon && (path == null || !path.contains(this)) )
 					{
-						int childVisits = 0;
-						
-						for(int index = 0; index < children.length; index++)
+						double newAverageScore = averageScores[roleIndex];
+						double newAverageSquaredScore = averageSquaredScores[roleIndex];
+		
+						if ( from != this )
 						{
-							TreeNodeRef cr = children[index].child;
-							if ( cr.node == from && cr.seq == from.seq )
+							int childVisits = 0;
+							
+							for(int index = 0; index < children.length; index++)
 							{
-								childVisits = children[index].numChildVisits;
-								break;
+								TreeNodeRef cr = children[index].child;
+								if ( cr.node == from && cr.seq == from.seq )
+								{
+									childVisits = children[index].numChildVisits;
+									break;
+								}
 							}
+							
+							if ( childVisits == 0 )
+							{
+								return;
+							}
+							
+							if ( numVisits == 0 )
+							{
+								System.out.println("Adjusting incomplete node with no visits!");
+							}
+							newAverageScore = (averageScores[roleIndex]*numVisits + (averageScores[roleIndex]+delta)*childVisits)/(numVisits + childVisits);
+							newAverageSquaredScore = (averageSquaredScores[roleIndex]*numVisits + (averageScores[roleIndex]+squaredDelta)*childVisits)/(numVisits + childVisits);
 						}
 						
-						if ( childVisits == 0 )
-						{
-							return;
-						}
-						
-						if ( numVisits == 0 )
-						{
-							System.out.println("Adjusting incomplete node with no visits!");
-						}
-						newAverageScore = (averageScores[roleIndex]*numVisits + (averageScores[roleIndex]+delta)*childVisits)/(numVisits + childVisits);
-						newAverageSquaredScore = (averageSquaredScores[roleIndex]*numVisits + (averageScores[roleIndex]+squaredDelta)*childVisits)/(numVisits + childVisits);
+			    		//	Keep rounding errors from sending us out of range
+			    		if ( newAverageScore > 100 )
+			    		{
+			    			newAverageScore = 100;
+			    		}
+			    		else if ( newAverageScore < 0 )
+			    		{
+			    			newAverageScore = 0;
+			    		}
+			    		ourNewAverageScores[roleIndex] = newAverageScore;
+			    		if ( ourNewAverageSquaredScores != null )
+			    		{
+			    			ourNewAverageSquaredScores[roleIndex] = newAverageSquaredScore;
+			    		}
+						anythingToPropagate = true;
+					}
+				}
+				
+				if ( anythingToPropagate )
+				{
+					for(TreeNode parent : parents)
+					{
+						parent.adjustPropagatedContribution(ourNewAverageScores, averageScores, ourNewAverageSquaredScores, averageSquaredScores, this, path);
 					}
 					
-		    		//	Keep rounding errors from sending us out of range
-		    		if ( newAverageScore > 100 )
-		    		{
-		    			newAverageScore = 100;
-		    		}
-		    		else if ( newAverageScore < 0 )
-		    		{
-		    			newAverageScore = 0;
-		    		}
-		    		ourNewAverageScores[roleIndex] = newAverageScore;
-		    		if ( ourNewAverageSquaredScores != null )
-		    		{
-		    			ourNewAverageSquaredScores[roleIndex] = newAverageSquaredScore;
-		    		}
-					anythingToPropagate = true;
+					for(int i = 0; i < numRoles; i++)
+					{
+						averageScores[i] = ourNewAverageScores[i];
+						if ( ourNewAverageSquaredScores != null )
+						{
+							averageSquaredScores[i] = ourNewAverageSquaredScores[i];
+						}
+					}
 				}
-			}
-			
-			if ( anythingToPropagate )
-			{
-				for(TreeNode parent : parents)
-				{
-					parent.adjustPropagatedContribution(ourNewAverageScores, averageScores, ourNewAverageSquaredScores, averageSquaredScores, this, path);
-				}
+			//}
+			//finally
+			//{
+			//	methodSection.exitScope();
+			//}
 			}
 		}
 
@@ -1980,7 +2009,7 @@ public class Sancho extends SampleGamer {
 			    		}
 			    		else
 			    		{
-			    			parent.adjustPropagatedContribution(averageScores, oldAverageScores, averageSquaredScores, oldAverageSquaredScores, this, path);
+			    			//parent.adjustPropagatedContribution(averageScores, oldAverageScores, averageSquaredScores, oldAverageSquaredScores, this, path);
 			    		}
 		    		}
 		    	}
@@ -2082,7 +2111,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.22";
+		return "Sancho 1.22a";
 	}
 	
 	@Override
