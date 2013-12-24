@@ -1620,12 +1620,16 @@ public class Sancho extends SampleGamer {
 	        return children == null || complete;
 	    }
 	    
-	    private double scoreForMostLikelyResponseRecursive(int forRoleIndex)
+	    private double scoreForMostLikelyResponseRecursive(TreeNode from, int forRoleIndex)
 	    {
-	    	//	Stop recursion at the previous role
-	    	if ( decidingRoleIndex == (forRoleIndex + numRoles - 1)%numRoles || children == null )
+	    	//	Stop recursion at the next choice
+	    	if ( children == null || complete )
 	    	{
 	    		return averageScores[forRoleIndex];
+	    	}
+	    	else if ( (decidingRoleIndex+1)%numRoles == forRoleIndex && from != null && children.length > 1 )
+	    	{
+	    		return from.averageScores[forRoleIndex];
 	    	}
 	    	
 	    	double result = 0;
@@ -1640,7 +1644,7 @@ public class Sancho extends SampleGamer {
 	    			if ( childVal > childResult )
 	    			{
 	    				childResult = childVal;
-		    			result = edge.child.node.scoreForMostLikelyResponseRecursive(forRoleIndex);
+		    			result = edge.child.node.scoreForMostLikelyResponseRecursive(this, forRoleIndex);
 	    			}
 	    		}
 	    	}
@@ -1650,19 +1654,65 @@ public class Sancho extends SampleGamer {
 	    
 	    private double scoreForMostLikelyResponse()
 	    {
-	    	return scoreForMostLikelyResponseRecursive(decidingRoleIndex);
+	    	return scoreForMostLikelyResponseRecursive(null, decidingRoleIndex);
+	    }
+	    
+	    private String stringizeScoreVector()
+	    {
+	    	StringBuilder sb = new StringBuilder();
+	    	
+	    	sb.append("[");
+	    	for(int i = 0; i < numRoles; i++)
+	    	{
+	    		if ( i > 0 )
+	    		{
+	    			sb.append(", ");
+	    		}
+	    		sb.append(averageScores[i]);
+	    	}
+	    	sb.append("]");
+	    	if ( complete )
+	    	{
+	    		sb.append(" (complete)");
+	    	}
+	    	
+	    	return sb.toString();
+	    }
+	    
+	    private void traceFirstChoiceNode()
+	    {
+	    	if ( children == null )
+	    	{
+				System.out.println("    No choice response scores " + stringizeScoreVector());
+	    	}
+	    	else if ( children.length > 1 )
+	    	{
+				for(TreeEdge edge2 : children)
+				{
+					if ( edge2.child.seq == edge2.child.node.seq )
+					{
+						System.out.println("    Response " + edge2.jointPartialMove[edge2.child.node.decidingRoleIndex] + " scores " + edge2.child.node.stringizeScoreVector());
+					}
+				}    		
+	    	}
+	    	else
+	    	{
+	    		children[0].child.node.traceFirstChoiceNode();
+	    	}
 	    }
 	    
 	    public Move getBestMove(boolean traceResponses)
 	    {
 	    	double bestScore = -Double.MAX_VALUE;
+	    	double bestRawScore = -Double.MAX_VALUE;
+	    	Move rawResult = null;
 	    	Move result = null;
 	    	
 	    	for(TreeEdge edge : children)
 	    	{
 	    		TreeNode child = edge.child.node;
 	    		
-	    		Double moveScore = child.scoreForMostLikelyResponse();
+	    		Double moveScore = isSimultaneousMove ? child.averageScores[0] : child.scoreForMostLikelyResponse();
 	    		if ( moveScore < 0.5 && edge.child.node.complete )
 	    		{
 	    			//	If everything loses with perfect play go for the highest variance and make
@@ -1670,26 +1720,29 @@ public class Sancho extends SampleGamer {
 	    			moveScore = child.averageSquaredScores[0]/100 - 100;
 	    		}
 	    		System.out.println("Move " + edge.jointPartialMove[0] + " scores " + moveScore + " (raw score " + child.averageScores[0] + ", selection count " + child.numVisits + (child.complete ? ", complete" : "") + ")");
-    			if (child.children != null && traceResponses)
+    			if (child.children != null && !child.complete && traceResponses)
     			{
-    				for(TreeEdge edge2 : child.children)
-    				{
-    					if ( edge2.child.seq == edge2.child.node.seq )
-    					{
-    						System.out.println("    Response " + edge2.jointPartialMove[edge2.child.node.decidingRoleIndex] + " scores " + edge2.child.node.averageScores[edge2.child.node.decidingRoleIndex]);
-    					}
-    				}
+    				child.traceFirstChoiceNode();
     			}
 	    		if ( moveScore > bestScore || (moveScore == bestScore && child.complete && moveScore > 0))
 	    		{
 	    			bestScore = moveScore;
 	    			result = edge.jointPartialMove[0];
 	    		}
+	    		if ( child.averageScores[0] > bestRawScore || (child.averageScores[0] == bestRawScore && child.complete && child.averageScores[0] > 0))
+	    		{
+	    			bestRawScore = child.averageScores[0];
+	    			rawResult = edge.jointPartialMove[0];
+	    		}
 	    	}
 	    	
 	    	if ( result == null )
 	    	{
 	    		System.out.println("No move found!");
+	    	}
+	    	if ( rawResult != result )
+	    	{
+	    		System.out.println("1 level minimax result differend from best raw move: " + rawResult);
 	    	}
 	    	return result;
 	    }
@@ -2029,7 +2082,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.21";
+		return "Sancho 1.22";
 	}
 	
 	@Override
@@ -2955,7 +3008,7 @@ public class Sancho extends SampleGamer {
 			}
 			
 			//validateAll();
-			bestMove = root.getBestMove(false);
+			bestMove = root.getBestMove(true);
 			
 			//validateAll();
 			
