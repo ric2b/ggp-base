@@ -187,7 +187,7 @@ public class Qixote extends SampleGamer {
 				for(int i = 0; i < sampleSize; i++)
 				{
 					//System.out.println("Perform rollout from state: " + state);
-		        	stateMachine.getDepthChargeResult(state, ourRole, 1000, null, null);
+		        	stateMachine.getDepthChargeResult(state, ourRole, null, null, null);
 		        	
 		        	score += netScore(stateMachine, null);
 				}
@@ -1728,7 +1728,7 @@ public class Qixote extends SampleGamer {
 	    }
 		GamerLogger.setFileToDisplay("StateMachine");
 		//ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
-		underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine(1+numRolloutThreads);
+		underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine(1+numRolloutThreads, getRoleName());
 		
 		emptyTree();
 		System.gc();

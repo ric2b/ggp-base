@@ -90,6 +90,11 @@ public class ForwardDeadReckonLegalMoveSet {
 		}
 	}
 	
+	public List<ForwardDeadReckonLegalMoveInfo> getMasterList()
+	{
+		return masterList;
+	}
+	
 	public void clear()
 	{
 		for(int i = 0; i < contents.length; i++)

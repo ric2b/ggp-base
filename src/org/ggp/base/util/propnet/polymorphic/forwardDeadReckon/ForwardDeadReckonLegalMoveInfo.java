@@ -7,5 +7,6 @@ public class ForwardDeadReckonLegalMoveInfo {
 	public Move	move;
 	public int roleIndex;
 	public int masterIndex;
+	public int globalMoveIndex;
 	public ForwardDeadReckonProposition inputProposition;
 }

@@ -54,14 +54,6 @@ import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBui
 import org.ggp.base.util.stats.Stats;
 
 public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
-	private class MoveInputSet
-	{
-		public PolymorphicProposition[] moveInputPropositions;
-		public Move[]					correspondingMoves;
-		int								numPropositions;
-	}
-	
-	
     /** The underlying proposition network  */
     private ForwardDeadReckonPropNet propNetX = null;
     private ForwardDeadReckonPropNet propNetO = null;
@@ -71,7 +63,6 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     private Map<Role,ForwardDeadReckonComponent[]> legalPropositionsO = null;
     private Map<Role,Move[]> legalPropositionMovesO = null;
     private Map<Role,ForwardDeadReckonComponent[]> legalPropositions = null;
-    private Map<Role,Move[]> legalPropositionMoves = null;
     /** The player roles */
     private List<Role> roles;
     private ForwardDeadReckonInternalMachineState lastInternalSetStateX = null;
@@ -90,7 +81,6 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     private Move[] chosenMoves = null;
     private ForwardDeadReckonProposition[] previouslyChosenJointMovePropsX = null;
     private ForwardDeadReckonProposition[] previouslyChosenJointMovePropsO = null;
-    private Map<Role,MoveInputSet> legalMoveInputPropositions = null;
     private ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet = null;
     private StateMachine validationMachine = null;
     private MachineState validationState = null;
@@ -98,6 +88,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     private int instanceId;
     private int maxInstances;
     private int numInstances = 1;
+    private GdlConstant roleName = null;
     
 	public long totalNumGatesPropagated = 0;
 	public long totalNumPropagates = 0;
@@ -153,18 +144,111 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			
 			return sb.toString();
 		}
-		
-		public void addResetCount(int resetCount)
-		{
-			numStateSettings++;
-			totalResets += resetCount;
-		}
-		
-		public void addGetCount(int getCount)
-		{
-			numStateFetches++;
-			totalGets += getCount;
-		}
+    }
+    
+    public class MoveWeights
+    {
+    	public double[]	weightScore;
+    	private int		numSamples = 1;
+    	private double	total = 0;
+    	private int		weightSize;
+    	private double[]	averageScores;
+    	
+    	public MoveWeights(int vectorSize, int numRoles)
+    	{
+    		weightSize = vectorSize;
+    		weightScore = new double[vectorSize];
+    		averageScores = new double[numRoles];
+    		clear();
+    	}
+    	
+    	public void clear()
+    	{
+    		total = weightSize*50;
+    		numSamples = 1;
+    		
+    		for(int i = 0; i < weightSize; i++)
+    		{
+    			weightScore[i] = 50;
+    		}
+    	}
+    	
+    	public MoveWeights copy()
+    	{
+    		MoveWeights result = new MoveWeights(weightSize, averageScores.length);
+    		
+    		for(int i = 0; i < weightScore.length; i++)
+    		{
+    			result.weightScore[i] = weightScore[i];
+    		}
+    		
+    		result.numSamples = numSamples;
+    		result.total = total;
+    		
+    		return result;
+    	}
+    	
+    	public void addSample(double[] scores, List<ForwardDeadReckonLegalMoveInfo> moves)
+    	{
+    		for(ForwardDeadReckonLegalMoveInfo move : moves)
+    		{
+    			double score = scores[move.roleIndex];
+    			
+    			double oldWeight = weightScore[move.globalMoveIndex];
+    			double newWeigth = (oldWeight*numSamples + score)/(numSamples+1);
+    			weightScore[move.globalMoveIndex] = newWeigth;
+    			
+    			total += (newWeigth - oldWeight);
+    		}    		
+       		numSamples++;
+     	}
+    	
+    	public void addResult(double[] scores, ForwardDeadReckonLegalMoveInfo move)
+    	{
+			double score = scores[move.roleIndex];
+			
+			double oldWeight = weightScore[move.globalMoveIndex];
+			double newWeigth = (oldWeight*numSamples + score)/(numSamples+1);
+			weightScore[move.globalMoveIndex] = newWeigth;
+			
+			total += (newWeigth - oldWeight);
+     	}
+    	
+    	public void noteSampleComplete()
+    	{
+    		numSamples++;
+    	}
+    	
+    	public void accumulate(MoveWeights other)
+    	{
+    		total = 0;
+    		
+    		for(int i = 0; i < weightSize; i++)
+    		{
+    			weightScore[i] = (weightScore[i]*numSamples + other.weightScore[i]*other.numSamples)/(numSamples + other.numSamples);
+    			total += weightScore[i];
+    		}
+    		
+       		numSamples += other.numSamples;
+    	}
+     	
+    	public double getAverage()
+    	{
+     		return total/weightSize;
+    	}
+     	
+    	public double getStdDeviation()
+    	{
+     		double var = 0;
+    		double mean = total/weightSize;
+  		
+    		for(int i = 0; i < weightSize; i++)
+    		{
+    			var += (weightScore[i] - mean)*(weightScore[i] - mean);
+    		}    		
+    		
+    		return Math.sqrt(var/weightSize);
+    	}
     }
     
     private TestPropnetStateMachineStats stats;
@@ -630,9 +714,10 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		this.maxInstances = 1;
 	}
 	
-	public TestForwardDeadReckonPropnetStateMachine(int maxInstances)
+	public TestForwardDeadReckonPropnetStateMachine(int maxInstances, GdlConstant roleName)
 	{
 		this.maxInstances = maxInstances;
+		this.roleName = roleName;
 	}
 	
 	private TestForwardDeadReckonPropnetStateMachine(TestForwardDeadReckonPropnetStateMachine master, int instanceId)
@@ -652,7 +737,6 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		this.legalPropositions = master.legalPropositions;
 		this.initialState = master.initialState;
 		this.roles = master.roles;
-		this.legalMoveInputPropositions = master.legalMoveInputPropositions;
 		this.fullPropNet = master.fullPropNet;
 		this.masterInfoSet = master.masterInfoSet;
 
@@ -707,12 +791,12 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     		fullPropNet.renderToFile("c:\\temp\\propnetReduced.dot");
             
             roles = fullPropNet.getRoles();
+            
     		moveProps = new ForwardDeadReckonProposition[roles.size()];
     		chosenJointMoveProps = new ForwardDeadReckonProposition[roles.size()];
     		chosenMoves = new Move[roles.size()];
     		previouslyChosenJointMovePropsX = new ForwardDeadReckonProposition[roles.size()];
     		previouslyChosenJointMovePropsO = new ForwardDeadReckonProposition[roles.size()];
-    		legalMoveInputPropositions = new HashMap<Role,MoveInputSet>();
             stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(), fullPropNet.getInputPropositions().size(), fullPropNet.getLegalPropositions().get(getRoles().get(0)).length);
             //	Assess network statistics
             int numInputs = 0;
@@ -754,35 +838,6 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
             	basePropChangeCounts.put(info,  0);
 			}
     		fullPropNet.crystalize(masterInfoSet, 1);
-       		boolean useDeadReckonerForLegal = fullPropNet.useDeadReckonerForLegal();
-    		if ( !useDeadReckonerForLegal )
-    		{
-	    		legalPropositions = new HashMap<Role,ForwardDeadReckonComponent[]>();
-	    		legalPropositionMoves = new HashMap<Role, Move[]>();
-	    		for(Role role : getRoles())
-	    		{
-	    			ForwardDeadReckonComponent legalPropositionsForRole[] = new ForwardDeadReckonComponent[fullPropNet.getLegalPropositions().get(role).length];
-		    		Move legalPropositionNamesForRole[] = new Move[fullPropNet.getLegalPropositions().get(role).length];
-		    		index = 0;
-		    		for(PolymorphicProposition p : fullPropNet.getLegalPropositions().get(role))
-		    		{
-		    			legalPropositionsForRole[index] = (ForwardDeadReckonComponent)p;
-		    			legalPropositionNamesForRole[index++] = new Move(p.getName().getBody().get(1));
-		    		}
-		    		
-		    		legalPropositions.put(role, legalPropositionsForRole);
-		    		legalPropositionMoves.put(role, legalPropositionNamesForRole);    		
-	    		}
-    		}
-
-    		for(Role role : getRoles())
-    		{
-    			MoveInputSet inputSetForRole = new MoveInputSet();
-    			inputSetForRole.moveInputPropositions = new PolymorphicProposition[fullPropNet.getLegalPropositions().get(role).length];
-    			inputSetForRole.correspondingMoves = new Move[fullPropNet.getLegalPropositions().get(role).length];
-	    		
-	    		legalMoveInputPropositions.put(role, inputSetForRole);
-    		}
 
     		stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
     		stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -985,6 +1040,25 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			
     		propNetX.crystalize(masterInfoSet, maxInstances);
     		propNetO.crystalize(masterInfoSet, maxInstances);
+			
+			List<ForwardDeadReckonLegalMoveInfo> allMoves = new ArrayList<ForwardDeadReckonLegalMoveInfo>();
+			for(ForwardDeadReckonLegalMoveInfo info : propNetX.getMasterMoveList())
+			{
+				if ( !allMoves.contains(info) )
+				{
+					info.globalMoveIndex = allMoves.size();
+					allMoves.add(info);
+				}
+			}
+			for(ForwardDeadReckonLegalMoveInfo info : propNetO.getMasterMoveList())
+			{
+				if ( !allMoves.contains(info) )
+				{
+					info.globalMoveIndex = allMoves.size();
+					allMoves.add(info);
+				}
+			}
+			allMovesInfo = allMoves.toArray(allMovesInfo);
 
     		stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
     		stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -996,51 +1070,9 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     		//	Force calculation of the goal set while we're single threaded
 	    	propNetX.getGoalPropositions();
 	    	propNetO.getGoalPropositions();
-
-   		
-    		if ( !propNetX.useDeadReckonerForLegal() )
-    		{
-	    		legalPropositionsX = new HashMap<Role,ForwardDeadReckonComponent[]>();
-	    		legalPropositionMovesX = new HashMap<Role, Move[]>();
-	    		for(Role role : getRoles())
-	    		{
-	    			ForwardDeadReckonComponent legalPropositionsForRole[] = new ForwardDeadReckonComponent[propNetX.getLegalPropositions().get(role).length];
-		    		Move legalPropositionNamesForRole[] = new Move[propNetX.getLegalPropositions().get(role).length];
-		    		index = 0;
-		    		for(PolymorphicProposition p : propNetX.getLegalPropositions().get(role))
-		    		{
-		    			legalPropositionsForRole[index] = (ForwardDeadReckonComponent)p;
-		    			legalPropositionNamesForRole[index++] = new Move(p.getName().getBody().get(1));
-		    		}
-		    		
-		    		legalPropositionsX.put(role, legalPropositionsForRole);
-		    		legalPropositionMovesX.put(role, legalPropositionNamesForRole);    		
-	    		}
-    		}
-	    		
-    		if ( !propNetO.useDeadReckonerForLegal() )
-    		{
-	    		legalPropositionsO = new HashMap<Role,ForwardDeadReckonComponent[]>();
-	    		legalPropositionMovesO = new HashMap<Role, Move[]>();
-	    		for(Role role : getRoles())
-	    		{
-	    			ForwardDeadReckonProposition legalPropositionsForRole[] = new ForwardDeadReckonProposition[propNetO.getLegalPropositions().get(role).length];
-		    		Move legalPropositionNamesForRole[] = new Move[propNetO.getLegalPropositions().get(role).length];
-		    		index = 0;
-		    		for(PolymorphicProposition p : propNetO.getLegalPropositions().get(role))
-		    		{
-		    			legalPropositionsForRole[index] = (ForwardDeadReckonProposition)p;
-		    			legalPropositionNamesForRole[index++] = new Move(p.getName().getBody().get(1));
-		    		}
-		    		
-		    		legalPropositionsO.put(role, legalPropositionsForRole);
-		    		legalPropositionMovesO.put(role, legalPropositionNamesForRole);    		
-	    		}
-    		}
     		
 			propNet = propNetX;
 		    legalPropositions = legalPropositionsX;
-		    legalPropositionMoves = legalPropositionMovesX;
    		}
     	catch (InterruptedException e)
     	{
@@ -1355,28 +1387,10 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			//ForwardDeadReckonComponent.numPropagates = 0;
 			//propNet.seq++;
 			
-			if ( propNet.useDeadReckonerForLegal() )
+			result = new LinkedList<Move>();
+			for(ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps(instanceId).getContents(role))
 			{
-				result = new LinkedList<Move>();
-				for(ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps(instanceId).getContents(role))
-				{
-					result.add(moveInfo.move);
-				}
-			}
-			else
-			{
-				result = new LinkedList<Move>();
-				ForwardDeadReckonComponent[] legalTransitions = legalPropositions.get(role);
-				Move[] legalPropMoves = legalPropositionMoves.get(role);
-				int numProps = legalTransitions.length;
-				
-				for(int i = 0; i < numProps; i++)
-				{
-					if ( legalTransitions[i].getValue(instanceId))
-					{
-						result.add(legalPropMoves[i]);
-					}
-				}
+				result.add(moveInfo.move);
 			}
 			
 			//totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
@@ -1406,28 +1420,10 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			//ForwardDeadReckonComponent.numPropagates = 0;
 			//propNet.seq++;
 			
-			if ( propNet.useDeadReckonerForLegal() )
+			result = new LinkedList<Move>();
+			for(ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps(instanceId).getContents(role))
 			{
-				result = new LinkedList<Move>();
-				for(ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps(instanceId).getContents(role))
-				{
-					result.add(moveInfo.move);
-				}
-			}
-			else
-			{
-				result = new LinkedList<Move>();
-				ForwardDeadReckonComponent[] legalTransitions = legalPropositions.get(role);
-				Move[] legalPropMoves = legalPropositionMoves.get(role);
-				int numProps = legalTransitions.length;
-				
-				for(int i = 0; i < numProps; i++)
-				{
-					if ( legalTransitions[i].getValue(instanceId))
-					{
-						result.add(legalPropMoves[i]);
-					}
-				}
+				result.add(moveInfo.move);
 			}
 			
 			//totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
@@ -1443,80 +1439,25 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		}
 	}
 	
-	private void setupLegalMoveInputPropositions()
+	public ForwardDeadReckonLegalMoveSet getLegalMoves(ForwardDeadReckonInternalMachineState state)
 	throws MoveDefinitionException
 	{
-		//ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.setupLegalMoveInputProps");
-		//try
+		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getLegalMoveInfos");
+		try
 		{
-			//setPropNetUsage(state);
-			//setBasePropositionsFromState(state, false);
+			setPropNetUsage(state);
+			setBasePropositionsFromState(state, true);
 			
-			for(Role role : getRoles())
-			{
-				MoveInputSet inputSet = legalMoveInputPropositions.get(role);
-				inputSet.numPropositions = 0;
-				
-				if ( propNet.useDeadReckonerForLegal() )
-				{
-					for(ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps(instanceId).getContents(role))
-					{
-						if ( validationMachine != null )
-						{
-							inputSet.correspondingMoves[inputSet.numPropositions] = moveInfo.move;
-						}
-						inputSet.moveInputPropositions[inputSet.numPropositions++] = moveInfo.inputProposition;
-					}
-				}
-				else
-				{
-					ForwardDeadReckonComponent[] legalProps = legalPropositions.get(role);
-					int numProps = legalProps.length;
-					
-					for(int i = 0; i < numProps; i++)
-					{
-						if ( legalProps[i].getValue(instanceId))
-						{
-							if ( validationMachine != null )
-							{
-								GdlTerm legalTerm = ((PolymorphicProposition)legalProps[i]).getName().getBody().get(1);
-								
-								inputSet.correspondingMoves[inputSet.numPropositions] = new Move(legalTerm);
-							}
-							inputSet.moveInputPropositions[inputSet.numPropositions++] = propNet.getLegalInputMap().get(legalProps[i]);
-						}
-					}
-				}
-			}
+			//ForwardDeadReckonComponent.numGatesPropagated = 0;
+			//ForwardDeadReckonComponent.numPropagates = 0;
+			//propNet.seq++;
 			
-			if ( validationMachine != null )
-			{
-				for(Role role : roles)
-				{
-					List<Move> legalMoves = validationMachine.getLegalMoves(validationState, role);
-					if ( legalMoves.size() != legalMoveInputPropositions.get(role).numPropositions)
-					{
-						System.out.println("Wrong number of legal moves");
-					}
-					else
-					{
-						for(int j = 0; j < legalMoves.size(); j++)
-						{
-							Move move = legalMoveInputPropositions.get(role).correspondingMoves[j];
-							
-							if ( !legalMoves.contains(move))
-							{
-								System.out.println("Move mismatch");
-							}
-						}
-					}
-				}
-			}
+			return propNet.getActiveLegalProps(instanceId);
 		}
-		//finally
-		//{
-		//	methodSection.exitScope();
-		//}
+		finally
+		{
+			methodSection.exitScope();
+		}
 	}
 	
 	/**
@@ -1566,7 +1507,6 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 					//System.out.println("Switching (internal) to machine X in state: " + state);
 					propNet = propNetX;
 				    legalPropositions = legalPropositionsX;
-				    legalPropositionMoves = legalPropositionMovesX;
 				    
 				    lastInternalSetStateO = lastInternalSetState;
 				    lastInternalSetState = lastInternalSetStateX;
@@ -1579,7 +1519,6 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 					//System.out.println("Switching (internal) to machine O in state: " + state);
 					propNet = propNetO;
 				    legalPropositions = legalPropositionsO;
-				    legalPropositionMoves = legalPropositionMovesO;
 				    
 				    lastInternalSetStateX = lastInternalSetState;
 				    lastInternalSetState = lastInternalSetStateO;
@@ -1735,6 +1674,65 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			for(GdlSentence moveSentence : toDoes(moves))
 			{
 				ForwardDeadReckonProposition moveInputProposition = (ForwardDeadReckonProposition)inputProps.get(moveSentence);
+				if ( moveInputProposition != null )
+				{
+					moveInputProposition.setValue(true, instanceId);
+					moveProps[movesCount++] = moveInputProposition;
+				}
+			}
+			
+			setBasePropositionsFromState(state, true);
+			
+			ForwardDeadReckonInternalMachineState result = getInternalStateFromBase();
+			
+			//System.out.println("After move " + moves + " in state " + state + " resulting state is " + result);
+			//totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
+			//totalNumPropagates += ForwardDeadReckonComponent.numPropagates;
+	
+			for(int i = 0; i < movesCount; i++)
+			{
+				moveProps[i].setValue(false, instanceId);
+			}
+			//for(GdlSentence moveSentence : toDoes(moves))
+			//{
+			//	PolymorphicProposition moveInputProposition = inputProps.get(moveSentence);
+			//	if ( moveInputProposition != null )
+			//	{
+			//		moveInputProposition.setValue(false);
+			//	}
+			//}
+	        //System.out.println("Return state " + result + " with hash " + result.hashCode());
+	        return result;
+		}
+		finally
+		{
+			methodSection.exitScope();
+		}
+	}
+
+	public ForwardDeadReckonInternalMachineState getNextState(ForwardDeadReckonInternalMachineState state, ForwardDeadReckonLegalMoveInfo[] moves)
+	throws TransitionDefinitionException
+	{
+		//System.out.println("Get next state after " + moves + " from: " + state);
+		//RuntimeOptimizedComponent.getCount = 0;
+		//RuntimeOptimizedComponent.dirtyCount = 0;
+		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getNextState");
+		try
+		{
+			setPropNetUsage(state);
+			//for(PolymorphicComponent c : propNet.getComponents())
+			//{
+			//	((ForwardDeadReckonComponent)c).hasQueuedForPropagation = false;
+			//}
+			//ForwardDeadReckonComponent.numGatesPropagated = 0;
+			//ForwardDeadReckonComponent.numPropagates = 0;
+			//propNet.seq++;
+			
+			int movesCount = 0;
+			
+			for(ForwardDeadReckonLegalMoveInfo move : moves)
+			{
+				ForwardDeadReckonProposition moveInputProposition = move.inputProposition;
 				if ( moveInputProposition != null )
 				{
 					moveInputProposition.setValue(true, instanceId);
@@ -1938,7 +1936,6 @@ return doeses;
 				    lastInternalSetState = lastInternalSetStateO;
 				    
 				    legalPropositions = legalPropositionsO;
-				    legalPropositionMoves = legalPropositionMovesO;
 				}
 			}
 			else
@@ -1951,7 +1948,6 @@ return doeses;
 				    lastInternalSetState = lastInternalSetStateX;
 				    
 				    legalPropositions = legalPropositionsX;
-				    legalPropositionMoves = legalPropositionMovesX;
 				}
 			}
 			
@@ -2084,11 +2080,12 @@ return doeses;
 
 	private class RolloutDecisionState
 	{
-		public ForwardDeadReckonProposition[]	chooserProps;
+		public ForwardDeadReckonLegalMoveInfo[]	chooserMoves;
 		public ForwardDeadReckonProposition[]	nonChooserProps;
 		public int								chooserIndex;
 		public int								baseChoiceIndex;
 		public int								nextChoiceIndex;
+		public int								prevChoiceIndex;
 		public int								rolloutSeq;
 		ForwardDeadReckonInternalMachineState	state;
 		Role									choosingRole;
@@ -2127,11 +2124,10 @@ return doeses;
 	private int rolloutStackDepth;
 	private int	rolloutSeq = 0;
 	
-	private List<ForwardDeadReckonProposition> triedMoves = new LinkedList<ForwardDeadReckonProposition>();
 	private int totalRoleoutChoices;
 	private int totalRoleoutNodesExamined;
 
-	private void doRecursiveGreedyRoleout(TerminalResultSet results) throws MoveDefinitionException, GoalDefinitionException
+	private void doRecursiveGreedyRoleout(TerminalResultSet results, MoveWeights moveWeights, List<ForwardDeadReckonLegalMoveInfo> playedMoves) throws MoveDefinitionException, GoalDefinitionException
 	{
 		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.doRecursiveGreedyRoleout");
 		try
@@ -2141,7 +2137,7 @@ return doeses;
 			
 			do
 			{
-				ForwardDeadReckonProposition winningMoveProp = transitionToNextStateInGreedyRollout(results, hintMoveProp);
+				ForwardDeadReckonProposition winningMoveProp = transitionToNextStateInGreedyRollout(results, hintMoveProp, moveWeights, playedMoves);
 				if ( winningMoveProp != null )
 				{
 					hintMoveProp = winningMoveProp;
@@ -2155,9 +2151,13 @@ return doeses;
 						if ( rolloutDecisionStack[rolloutStackDepth].chooserIndex != rolloutDecisionStack[rolloutStackDepth-1].chooserIndex )
 						{
 							//System.out.println("Forced win at depth " + rolloutStackDepth);
-							rolloutDecisionStack[rolloutStackDepth].chooserProps = null;
+							rolloutDecisionStack[rolloutStackDepth].chooserMoves = null;
 
 							RolloutDecisionState poppedState = rolloutDecisionStack[--rolloutStackDepth];
+							if ( playedMoves != null )
+							{
+								playedMoves.remove(playedMoves.size()-1);
+							}
 							//System.out.println("...next choice=" + poppedState.nextChoiceIndex + " (base was " + poppedState.baseChoiceIndex + ")");
 			
 							setPropNetUsage(poppedState.state);
@@ -2190,6 +2190,11 @@ return doeses;
 					//	branch given that this terminality was not a forced win for the deciding player
 					RolloutDecisionState decisionState = rolloutDecisionStack[rolloutStackDepth];
 					
+					if ( playedMoves != null )
+					{
+						playedMoves.remove(playedMoves.size()-1);
+					}
+        			
 					setPropNetUsage(decisionState.state);
 					setBasePropositionsFromState(decisionState.state, true);
 				}
@@ -2205,14 +2210,14 @@ return doeses;
 		}
 	}
 	
-	private double recursiveGreedyRollout(TerminalResultSet results) throws MoveDefinitionException, GoalDefinitionException
+	private double recursiveGreedyRollout(TerminalResultSet results, MoveWeights moveWeights, List<ForwardDeadReckonLegalMoveInfo> playedMoves) throws MoveDefinitionException, GoalDefinitionException
 	{
 		rolloutSeq++;
 		rolloutStackDepth = 0;
 		totalRoleoutChoices = 0;
 		totalRoleoutNodesExamined = 0;
 		
-		doRecursiveGreedyRoleout(results);
+		doRecursiveGreedyRoleout(results, moveWeights, playedMoves);
 		
 		if ( totalRoleoutNodesExamined > 0 )
 		{
@@ -2243,380 +2248,422 @@ return doeses;
 	public long numRolloutDecisionNodeExpansions = 0;
 	public double greedyRolloutEffectiveness = 0;
 	
-	private ForwardDeadReckonProposition transitionToNextStateInGreedyRollout(TerminalResultSet results, ForwardDeadReckonProposition hintMoveProp) throws MoveDefinitionException, GoalDefinitionException
+	private ForwardDeadReckonProposition transitionToNextStateInGreedyRollout(TerminalResultSet results, ForwardDeadReckonProposition hintMoveProp, MoveWeights moveWeights, List<ForwardDeadReckonLegalMoveInfo> playedMoves) throws MoveDefinitionException, GoalDefinitionException
 	{
 		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.transitionToNextStateInGreedyRollout");
 		try
 		{
-			if ( propNet.useDeadReckonerForLegal() )
+			ForwardDeadReckonLegalMoveSet activeLegalMoves = propNet.getActiveLegalProps(instanceId);
+			int index = 0;
+			boolean simultaneousMove = false;
+			int maxChoices = 0;
+			
+			if ( rolloutDecisionStack[rolloutStackDepth] == null )
 			{
-				ForwardDeadReckonLegalMoveSet activeLegalMoves = propNet.getActiveLegalProps(instanceId);
-				int index = 0;
-				boolean simultaneousMove = false;
-				int maxChoices = 0;
-				
-				if ( rolloutDecisionStack[rolloutStackDepth] == null )
-				{
-					rolloutDecisionStack[rolloutStackDepth] = new RolloutDecisionState();
-					rolloutDecisionStack[rolloutStackDepth].nonChooserProps = new ForwardDeadReckonProposition[getRoles().size()];
-				}
-				RolloutDecisionState decisionState = rolloutDecisionStack[rolloutStackDepth];
-				if( decisionState.rolloutSeq != rolloutSeq )
-				{
-					decisionState.rolloutSeq = rolloutSeq;
-					decisionState.chooserProps = null;
-				}
-				
-				if ( decisionState.chooserProps == null )
-				{
-					decisionState.choosingRole = null;
-					decisionState.chooserIndex = -1;
-					decisionState.baseChoiceIndex = -1;
-					decisionState.nextChoiceIndex = -1;
-					
-					totalRoleoutNodesExamined++;
-					
-			        for (Role role : getRoles())
-			        {
-			        	int numChoices = activeLegalMoves.getContentSize(role);
-			        	
-			        	if ( numChoices > maxChoices )
-			        	{
-			        		maxChoices = numChoices;
-			        	}
-			        	
-			        	if ( numChoices > 1 )
-			        	{
-			        		totalRoleoutChoices += numChoices;
-			        		if ( decisionState.choosingRole == null )
-			        		{
-			        			if ( !simultaneousMove )
-			        			{
-			        				decisionState.choosingRole = role;
-			        				decisionState.chooserProps = new ForwardDeadReckonProposition[numChoices];
-			        				decisionState.propProcessed = new boolean[numChoices];
-			        			}
-			        		}
-			        		else
-			        		{
-			    	        	int rand = getRandom(decisionState.chooserProps.length);
-			    	        	
-			    	        	chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserProps[rand];
-			    	        	
-			        			decisionState.choosingRole = null;
-			        			decisionState.chooserProps = null;
-			        			decisionState.propProcessed = null;
-			        			simultaneousMove = true;
-			        		}
-			        	}
-			        	
-			        	if ( simultaneousMove )
-			        	{
-				        	int rand = getRandom(numChoices);
-			        		
-				        	for(ForwardDeadReckonLegalMoveInfo info : activeLegalMoves.getContents(role))
-				        	{
-				        		if ( rand-- <= 0 )
-				        		{
-				        			decisionState.nonChooserProps[index++] = info.inputProposition;
-				        			//chosenJointMoveProps[index++] = info.inputProposition;
-				        			break;
-			        			}
-				        	}
-			        	}
-			        	else
-			        	{
-				        	int chooserMoveIndex = 0;
-				        	int numNullProps = 0;
-				        	for(ForwardDeadReckonLegalMoveInfo info : activeLegalMoves.getContents(role))
-				        	{
-			        			if ( decisionState.choosingRole == role )
-			        			{
-			        				if ( chooserMoveIndex == 0 )
-			        				{
-			        					decisionState.chooserIndex = index++;
-			        				}
-			        				decisionState.chooserProps[chooserMoveIndex++] = info.inputProposition;
-			        			}
-			        			else
-			        			{
-				        			decisionState.nonChooserProps[index++] = info.inputProposition;
-				        			//chosenJointMoveProps[index++] = info.inputProposition;
-				        			break;
-			        			}
-				        	}
-			        	}
-			        }
-				}
-		        
-	    		if ( simultaneousMove )
-	    		{
-		        	transitionToNextStateFromChosenMove(null, null);
-		        	
-					if ( isTerminal() )
-					{
-						results.considerResult(null);
-					}
-	    		}
-	    		else if ( decisionState.chooserIndex != -1 )
-	    		{
-	    			//System.out.println("Specific chooser");
-	    			int choiceIndex;
-	    			boolean preEnumerate = false;
-	 				int numTerminals = 0;
-	    			
-	    			if ( decisionState.baseChoiceIndex == -1 )
-	    			{
-	    				decisionState.baseChoiceIndex = getRandom(decisionState.chooserProps.length);
-	    				choiceIndex = decisionState.baseChoiceIndex;
-	    				decisionState.state = new ForwardDeadReckonInternalMachineState(lastInternalSetState);
-	    				
-	    				for(ForwardDeadReckonProposition chooserProp : decisionState.chooserProps)
-	    				{
-	    					if ( terminatingMoveProps.contains(chooserProp))
-	    					{
-	    						preEnumerate = true;
-	    						numRolloutDecisionNodeExpansions++;
-	    						break;
-	    					}
-	    				}
-	    				
-	    				for(int i = 0; i < decisionState.chooserProps.length; i++)
-	    				{
-	    					decisionState.propProcessed[i] = false;
-	    				}
-	    			}
-	    			else
-	    			{
-	    				choiceIndex = decisionState.nextChoiceIndex;
-	    			}
-	
-	 				for(int roleIndex = 0; roleIndex < getRoles().size(); roleIndex++)
-	 				{
-	 					if ( roleIndex != decisionState.chooserIndex )
-	 					{
-	 						chosenJointMoveProps[roleIndex] = decisionState.nonChooserProps[roleIndex];
-	 					}
-	 				}
-	 				
-	 				boolean transitioned = false;
-	 				
-	 				//	If we're given a hint move to check for a win do that first
-	 				//	the first time we look at this node
-	 				if ( hintMoveProp != null && decisionState.chooserProps.length > 1 )
- 					{
-	 					if ( decisionState.baseChoiceIndex == choiceIndex )
-		 				{
-	 						for(int i = 0; i < decisionState.chooserProps.length; i++ )
-	 						{
-	 							if ( decisionState.chooserProps[i] == hintMoveProp )
-	 							{
-	 			    	        	chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserProps[i];
-	 			    	        	
-	 			    	        	transitionToNextStateFromChosenMove(null, null);
-	 			     	        	
-	 			    				if ( isTerminal() )
-	 			    				{
-	 			    					numTerminals++;
-	 			    					
-	 			    					//System.out.println("Encountered terminal state with goal value: "+ resultVector.scores.get(resultVector.controllingRole));
-	 			    					if ( getGoal(decisionState.choosingRole) == 100 )
-	 			    					{
-	 		    							greedyRolloutEffectiveness++;
-	 			    						//	If we have a choosable win stop searching
-	 			    						return hintMoveProp;
-	 			    					}
-	 			    					
-	 			    					results.considerResult(decisionState.choosingRole);
-	 			    					
-	 			    					decisionState.propProcessed[i] = true;
-	 			    				}
-	 			    				
-	 			    				transitioned = true;
-	 			    				break;
-	 							}
-	 						}
-		 				}
-	 					else
-	 					{
-	 						//	Not the first time we've looked at this node
-	 						hintMoveProp = null;
-	 					}
-	 				}
-	 				
-	 				//	First time we visit the node try them all.  After that if we're asked to reconsider
-	 				//	just take the next one from the last one we chose
-	 				int remainingMoves = (decisionState.baseChoiceIndex == choiceIndex && preEnumerate ? decisionState.chooserProps.length : 1);
-	 				
-	    			for(int i = 0; i < remainingMoves; i++)
-	    			{
-	    				int choice = (i + choiceIndex)%decisionState.chooserProps.length;
-	    				
-	    				//	Don't reprocess the hint move that we looked at first
-	    				if ( decisionState.propProcessed[choice] || hintMoveProp == decisionState.chooserProps[choice] )
-	    				{
-	    					continue;
-	    				}
-	    				
-	    				if ( transitioned )
-	    				{
-	    					setPropNetUsage(decisionState.state);
-	    					setBasePropositionsFromState(decisionState.state, true);
-	     				}
-	    				
-	    	        	chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserProps[choice];
-	    	        	
-	    	        	transitionToNextStateFromChosenMove(null, null);
-	    	        	
-	    	        	transitioned = true;
-	     	        	
-	    				if ( isTerminal() )
-	    				{
-	    					numTerminals++;
-	    					
-		    				terminatingMoveProps.add(decisionState.chooserProps[choice]);
-		    				
-	    					//System.out.println("Encountered terminal state with goal value: "+ resultVector.scores.get(resultVector.controllingRole));
-	    					if ( getGoal(decisionState.choosingRole) == 100 )
-	    					{
-	    						if ( preEnumerate )
-	    						{
-	    							greedyRolloutEffectiveness++;
-	    						}
-	    						
-	    						//	If we have a choosable win stop searching
-	    						return decisionState.chooserProps[choice];
-	    					}
-	    					
-		    				results.considerResult(decisionState.choosingRole);
-		    				decisionState.propProcessed[choice] = true;
-	    				}
-	    			}
-	    			
-	    			decisionState.nextChoiceIndex = choiceIndex;
-	    			do
-	    			{
-	    				decisionState.nextChoiceIndex = (decisionState.nextChoiceIndex + 1)%decisionState.chooserProps.length;
-	    				if ( !decisionState.propProcessed[decisionState.nextChoiceIndex] || decisionState.nextChoiceIndex == decisionState.baseChoiceIndex )
-	    				{
-	    					break;
-	    				}
-	    			} while(decisionState.nextChoiceIndex != choiceIndex);
-	    			
-	    			if ( preEnumerate && numTerminals > 0 )
-	    			{
-	    				greedyRolloutEffectiveness += (decisionState.chooserProps.length - numTerminals)/decisionState.chooserProps.length;
-	    			}
-	    			//System.out.println("Transition move was: " + chosenJointMoveProps[0]);
-	    			//System.out.println("State: " + mungedState(lastInternalSetState));
-	     		}
-	    		else
-	    		{
-	    			//System.out.println("No chooser");
-	 				for(int roleIndex = 0; roleIndex < getRoles().size(); roleIndex++)
-	 				{
-	 					chosenJointMoveProps[roleIndex] = decisionState.nonChooserProps[roleIndex];
-	 					//System.out.println("Non chooser " + roleIndex + ": " + chosenJointMoveProps[roleIndex]);
-	 				}
-		        	transitionToNextStateFromChosenMove(null, null);
-	    			//System.out.println("State: " + mungedState(lastInternalSetState));
-		        	
-					if ( isTerminal() )
-					{
-	    				results.considerResult(decisionState.choosingRole);
-					}
-	    		}
-	    		
-	    		return null;
-	        }
-			else
-			{
-				System.out.println("Unexpectedly not using legal dead reckoner");
-				//	For now just do normal rollout randomly
-				chooseRandomJointMove();
-				transitionToNextStateFromChosenMove(null,null);
-				
-				return null;
+				rolloutDecisionStack[rolloutStackDepth] = new RolloutDecisionState();
+				rolloutDecisionStack[rolloutStackDepth].nonChooserProps = new ForwardDeadReckonProposition[getRoles().size()];
 			}
-		}
+			RolloutDecisionState decisionState = rolloutDecisionStack[rolloutStackDepth];
+			if( decisionState.rolloutSeq != rolloutSeq )
+			{
+				decisionState.rolloutSeq = rolloutSeq;
+				decisionState.chooserMoves = null;
+			}
+			
+			if ( decisionState.chooserMoves == null )
+			{
+				decisionState.choosingRole = null;
+				decisionState.chooserIndex = -1;
+				decisionState.baseChoiceIndex = -1;
+				decisionState.nextChoiceIndex = -1;
+				decisionState.prevChoiceIndex = -1;
+				
+				totalRoleoutNodesExamined++;
+				
+		        for (Role role : getRoles())
+		        {
+		        	int numChoices = activeLegalMoves.getContentSize(role);
+		        	
+		        	if ( numChoices > maxChoices )
+		        	{
+		        		maxChoices = numChoices;
+		        	}
+		        	
+		        	if ( numChoices > 1 )
+		        	{
+		        		totalRoleoutChoices += numChoices;
+		        		if ( decisionState.choosingRole == null )
+		        		{
+		        			if ( !simultaneousMove )
+		        			{
+		        				decisionState.choosingRole = role;
+		        				decisionState.chooserMoves = new ForwardDeadReckonLegalMoveInfo[numChoices];
+		        				decisionState.propProcessed = new boolean[numChoices];
+		        			}
+		        		}
+		        		else
+		        		{
+		    	        	int rand = getRandom(decisionState.chooserMoves.length);
+		    	        	
+		    	        	ForwardDeadReckonLegalMoveInfo info = decisionState.chooserMoves[rand];
+		    	        	chosenJointMoveProps[decisionState.chooserIndex] = info.inputProposition;
+	        				decisionState.prevChoiceIndex = rand;
+		        			if ( playedMoves != null )
+		        			{
+		        				playedMoves.add(info);
+		        			}
+		    	        	
+		        			decisionState.choosingRole = null;
+		        			decisionState.chooserMoves = null;
+		        			decisionState.propProcessed = null;
+		        			simultaneousMove = true;
+		        		}
+		        	}
+		        	
+		        	if ( simultaneousMove )
+		        	{
+			        	int rand = getRandom(numChoices);
+		        		
+			        	for(ForwardDeadReckonLegalMoveInfo info : activeLegalMoves.getContents(role))
+			        	{
+			        		if ( rand-- <= 0 )
+			        		{
+			        			decisionState.nonChooserProps[index++] = info.inputProposition;
+			        			//chosenJointMoveProps[index++] = info.inputProposition;
+			        			if ( playedMoves != null )
+			        			{
+			        				playedMoves.add(info);
+			        			}
+			        			break;
+		        			}
+			        	}
+		        	}
+		        	else
+		        	{
+			        	int chooserMoveIndex = 0;
+			        	for(ForwardDeadReckonLegalMoveInfo info : activeLegalMoves.getContents(role))
+			        	{
+		        			if ( decisionState.choosingRole == role )
+		        			{
+		        				if ( chooserMoveIndex == 0 )
+		        				{
+		        					decisionState.chooserIndex = index++;
+		        				}
+		        				decisionState.chooserMoves[chooserMoveIndex++] = info;
+		        			}
+		        			else
+		        			{
+			        			decisionState.nonChooserProps[index++] = info.inputProposition;
+			        			break;
+		        			}
+			        	}
+		        	}
+		        }
+			}
+	        
+    		if ( simultaneousMove )
+    		{
+	        	transitionToNextStateFromChosenMove(null, null);
+	        	
+				if ( isTerminal() )
+				{
+					results.considerResult(null);
+				}
+    		}
+    		else if ( decisionState.chooserIndex != -1 )
+    		{
+    			//System.out.println("Specific chooser");
+    			int choiceIndex;
+    			boolean preEnumerate = false;
+ 				int numTerminals = 0;
+    			
+    			if ( decisionState.baseChoiceIndex == -1 )
+    			{
+	        		double total = 0;
+	        		
+    				decisionState.state = new ForwardDeadReckonInternalMachineState(lastInternalSetState);
+    				
+    				for(ForwardDeadReckonLegalMoveInfo chooserMove : decisionState.chooserMoves)
+    				{
+    					if ( moveWeights != null )
+    					{
+    						total += moveWeights.weightScore[chooserMove.globalMoveIndex];
+    					}
+    					if ( !preEnumerate && terminatingMoveProps.contains(chooserMove.inputProposition))
+    					{
+    						preEnumerate = true;
+    						numRolloutDecisionNodeExpansions++;
+    						if ( moveWeights == null )
+    						{
+    							break;
+    						}
+    					}
+    				}
+    				
+	        		if ( moveWeights == null )
+    	        	{
+	    				decisionState.baseChoiceIndex = getRandom(decisionState.chooserMoves.length);
+    	        	}
+	        		else
+	        		{
+	        			total = getRandom((int)total);
+	        		}
+
+    				for(int i = 0; i < decisionState.chooserMoves.length; i++)
+    				{
+    					decisionState.propProcessed[i] = false;
+    					if ( decisionState.baseChoiceIndex == -1 )
+    					{
+    						total -= moveWeights.weightScore[decisionState.chooserMoves[i].globalMoveIndex];
+    						if ( total <= 0 )
+    						{
+    							decisionState.baseChoiceIndex = i;
+    						}
+    					}
+    				}
+
+    				choiceIndex = decisionState.baseChoiceIndex;
+    			}
+    			else
+    			{
+    				choiceIndex = decisionState.nextChoiceIndex;
+    			}
+
+ 				for(int roleIndex = 0; roleIndex < getRoles().size(); roleIndex++)
+ 				{
+ 					if ( roleIndex != decisionState.chooserIndex )
+ 					{
+ 						chosenJointMoveProps[roleIndex] = decisionState.nonChooserProps[roleIndex];
+ 					}
+ 				}
+ 				
+ 				boolean transitioned = false;
+ 				
+ 				//	If we're given a hint move to check for a win do that first
+ 				//	the first time we look at this node
+ 				if ( hintMoveProp != null && decisionState.chooserMoves.length > 1 )
+				{
+ 					if ( decisionState.baseChoiceIndex == choiceIndex )
+	 				{
+ 						for(int i = 0; i < decisionState.chooserMoves.length; i++ )
+ 						{
+ 							if ( decisionState.chooserMoves[i].inputProposition == hintMoveProp )
+ 							{
+ 			    	        	chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserMoves[i].inputProposition;
+ 			    	        	
+ 			    	        	transitionToNextStateFromChosenMove(null, null);
+ 			     	        	
+ 			    				if ( isTerminal() )
+ 			    				{
+ 			    					numTerminals++;
+ 			    					
+ 			    					//System.out.println("Encountered terminal state with goal value: "+ resultVector.scores.get(resultVector.controllingRole));
+ 			    					if ( getGoal(decisionState.choosingRole) == 100 )
+ 			    					{
+ 				        				decisionState.prevChoiceIndex = i;
+ 					        			if ( playedMoves != null )
+ 					        			{
+ 					        				playedMoves.add(decisionState.chooserMoves[i]);
+ 					        			}
+ 		    							greedyRolloutEffectiveness++;
+ 			    						//	If we have a choosable win stop searching
+ 			    						return hintMoveProp;
+ 			    					}
+ 			    					
+ 			    					results.considerResult(decisionState.choosingRole);
+ 			    					
+ 			    					decisionState.propProcessed[i] = true;
+ 			    				}
+ 			    				
+ 			    				transitioned = true;
+ 			    				break;
+ 							}
+ 						}
+	 				}
+ 					else
+ 					{
+ 						//	Not the first time we've looked at this node
+ 						hintMoveProp = null;
+ 					}
+ 				}
+ 				
+ 				//	First time we visit the node try them all.  After that if we're asked to reconsider
+ 				//	just take the next one from the last one we chose
+ 				int remainingMoves = (decisionState.baseChoiceIndex == choiceIndex && preEnumerate ? decisionState.chooserMoves.length : 1);
+ 				int choice = -1;
+ 				
+    			for(int i = 0; i < remainingMoves; i++)
+    			{
+    				choice = (i + choiceIndex)%decisionState.chooserMoves.length;
+    				
+    				//	Don't reprocess the hint move that we looked at first
+    				if ( decisionState.propProcessed[choice] || hintMoveProp == decisionState.chooserMoves[choice].inputProposition )
+    				{
+    					continue;
+    				}
+    				
+    				if ( transitioned )
+    				{
+    					setPropNetUsage(decisionState.state);
+    					setBasePropositionsFromState(decisionState.state, true);
+     				}
+    				
+    	        	chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserMoves[choice].inputProposition;
+    	        	
+    	        	transitionToNextStateFromChosenMove(null, null);
+    	        	
+    	        	transitioned = true;
+     	        	
+    				if ( isTerminal() )
+    				{
+    					numTerminals++;
+    					
+	    				terminatingMoveProps.add(decisionState.chooserMoves[choice].inputProposition);
+	    				
+    					//System.out.println("Encountered terminal state with goal value: "+ resultVector.scores.get(resultVector.controllingRole));
+    					if ( getGoal(decisionState.choosingRole) == 100 )
+    					{
+	        				decisionState.prevChoiceIndex = choice;
+		        			if ( playedMoves != null )
+		        			{
+			        			playedMoves.add(decisionState.chooserMoves[choice]);
+		        			}
+    						if ( preEnumerate )
+    						{
+    							greedyRolloutEffectiveness++;
+    						}
+    						
+    						//	If we have a choosable win stop searching
+    						return decisionState.chooserMoves[choice].inputProposition;
+    					}
+    					
+	    				results.considerResult(decisionState.choosingRole);
+	    				decisionState.propProcessed[choice] = true;
+    				}
+    			}
+    			
+				decisionState.prevChoiceIndex = choice;
+    			if ( playedMoves != null )
+    			{
+        			playedMoves.add(decisionState.chooserMoves[choice]);
+    			}
+   			
+    			decisionState.nextChoiceIndex = choiceIndex;
+    			do
+    			{
+    				decisionState.nextChoiceIndex = (decisionState.nextChoiceIndex + 1)%decisionState.chooserMoves.length;
+    				if ( !decisionState.propProcessed[decisionState.nextChoiceIndex] || decisionState.nextChoiceIndex == decisionState.baseChoiceIndex )
+    				{
+    					break;
+    				}
+    			} while(decisionState.nextChoiceIndex != choiceIndex);
+    			
+    			if ( preEnumerate && numTerminals > 0 )
+    			{
+    				greedyRolloutEffectiveness += (decisionState.chooserMoves.length - numTerminals)/decisionState.chooserMoves.length;
+    			}
+    			//System.out.println("Transition move was: " + chosenJointMoveProps[0]);
+    			//System.out.println("State: " + mungedState(lastInternalSetState));
+     		}
+    		else
+    		{
+    			//System.out.println("No chooser");
+ 				for(int roleIndex = 0; roleIndex < getRoles().size(); roleIndex++)
+ 				{
+ 					chosenJointMoveProps[roleIndex] = decisionState.nonChooserProps[roleIndex];
+ 					//System.out.println("Non chooser " + roleIndex + ": " + chosenJointMoveProps[roleIndex]);
+ 				}
+	        	transitionToNextStateFromChosenMove(null, null);
+    			//System.out.println("State: " + mungedState(lastInternalSetState));
+	        	
+				if ( isTerminal() )
+				{
+    				results.considerResult(decisionState.choosingRole);
+				}
+    		}
+    		
+    		return null;
+        }
 		finally
 		{
 			methodSection.exitScope();
 		}
 	}
 	
-	private int chooseRandomJointMove() throws MoveDefinitionException
+	private int chooseRandomJointMove(MoveWeights moveWeights, List<ForwardDeadReckonLegalMoveInfo> playedMoves) throws MoveDefinitionException
 	{
 		int result = 0;
 		
-		if ( propNet.useDeadReckonerForLegal() )
-		{
-			ForwardDeadReckonLegalMoveSet activeLegalMoves = propNet.getActiveLegalProps(instanceId);
-			int index = 0;
+		ForwardDeadReckonLegalMoveSet activeLegalMoves = propNet.getActiveLegalProps(instanceId);
+		int index = 0;
 
-	        for (Role role : getRoles())
-	        {
-	        	int numChoices = activeLegalMoves.getContentSize(role);
-	        	int rand = getRandom(numChoices);
-	        	
-	        	if ( numChoices > result )
+        for (Role role : getRoles())
+        {
+        	int numChoices = activeLegalMoves.getContentSize(role);
+        	int rand;
+        	
+        	if ( moveWeights == null )
+        	{
+        		rand = getRandom(numChoices);
+        	}
+        	else
+        	{
+        		double total = 0;
+
+	        	for(ForwardDeadReckonLegalMoveInfo info : activeLegalMoves.getContents(role))
 	        	{
-	        		result = numChoices;
+	        		if ( moveWeights.weightScore[info.globalMoveIndex] == 0 )
+	        		{
+	        			System.out.println("Unexpected 0 move weight");
+	        		}
+	        		total += moveWeights.weightScore[info.globalMoveIndex];
 	        	}
 	        	
-	        	boolean chosen = false;
-	        	while(!chosen)
+	        	if ( total == 0 )
 	        	{
-		        	for(ForwardDeadReckonLegalMoveInfo info : activeLegalMoves.getContents(role))
-		        	{
-		        		if ( rand-- <= 0 && !triedMoves.contains(info.inputProposition))
-		        		{
-		    	        	if ( validationMachine != null )
-		    	        	{
-		    	        		chosenMoves[index] = info.move;
-		    	        	}
-		        			chosenJointMoveProps[index++] = info.inputProposition;
-		        			
-		        			chosen = true;
-		        			break;
-		        		}
-		        	}
+	        		System.out.println("Unexpected 0 move weight total");
 	        	}
-	        }
-        }
-		else
-		{
-			int index = 0;
-	        for (Role role : getRoles())
-	        {
-	        	ForwardDeadReckonComponent[] legalProps = legalPropositions.get(role);
-				int numProps = legalProps.length;
-				int count = 0;
-				
-				for(int i = 0; i < numProps; i++)
-				{
-					if ( legalProps[i].getValue(instanceId))
-					{
-						count++;
-					}
-				}
-	        	int rand = getRandom(count);
-				for(int i = 0; i < numProps; i++)
-				{
-					if ( legalProps[i].getValue(instanceId) && rand-- == 0 )
-					{
-						if ( validationMachine != null )
-						{
-							GdlTerm legalTerm = ((PolymorphicProposition)legalProps[i]).getName().getBody().get(1);
-							
-							chosenMoves[index] = new Move(legalTerm);
-						}
-						chosenJointMoveProps[index++] = (ForwardDeadReckonProposition)propNet.getLegalInputMap().get(legalProps[i]);
-					}
-				}
+	        	rand = getRandom((int)total);
+        	}
+        	
+        	if ( numChoices > result )
+        	{
+        		result = numChoices;
+        	}
+        	
+        	ForwardDeadReckonLegalMoveInfo chosen = null;
+        	while(chosen == null)
+        	{
+	        	for(ForwardDeadReckonLegalMoveInfo info : activeLegalMoves.getContents(role))
+	        	{
+	        		if (moveWeights == null )
+	        		{
+	        			rand--;
+	        		}
+	        		else
+	        		{
+	        			rand -= moveWeights.weightScore[info.globalMoveIndex];
+	        		}
+	        		
+	        		if ( rand <= 0 )
+	        		{	        			
+	        			chosen = info;
+	        			break;
+	        		}
+	        	}
+        	}
+        	
+        	if ( validationMachine != null )
+        	{
+        		chosenMoves[index] = chosen.move;
+        	}
+			chosenJointMoveProps[index++] = chosen.inputProposition;
+			if ( playedMoves != null )
+			{
+				playedMoves.add(chosen);
 			}
-		}
-		
+        }
+ 		
 		return result;
 	}
 	 
@@ -2632,7 +2679,7 @@ return doeses;
         }
         while(!isTerminal()) {
             nDepth++;
-            chooseRandomJointMove();
+            chooseRandomJointMove(null,null);
             transitionToNextStateFromChosenMove(null, null);
             if ( sampleState != null && nDepth == sampleDepth)
             {
@@ -2682,10 +2729,17 @@ return doeses;
     	enableGreedyRollouts = false;
     }
     
-    public int getDepthChargeResult(ForwardDeadReckonInternalMachineState state, Role role, final int[] stats) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException {  
-    	int result;
+    private ForwardDeadReckonLegalMoveInfo[] allMovesInfo = new ForwardDeadReckonLegalMoveInfo[1];
+    
+    public MoveWeights createMoveWeights()
+    {
+    	return new MoveWeights(allMovesInfo.length, getRoles().size());
+    }
+    
+    public int getDepthChargeResult(ForwardDeadReckonInternalMachineState state, Role role, final int[] stats, MoveWeights moveWeights, List<ForwardDeadReckonLegalMoveInfo> playedMoves) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException {  
     	rolloutDepth = 0;
     	TerminalResultSet resultSet = ((enableGreedyRollouts && getRoles().size() <= 2) ? new TerminalResultSet(getRoles()) : null);
+    	Map<Role,Integer> scores = new HashMap<Role,Integer>();
         
         if ( validationMachine != null )
         {
@@ -2703,9 +2757,7 @@ return doeses;
         	int totalChoices = 0;
         	
 	        while(!isTerminal()) {
-                triedMoves.clear();
-                
-                totalChoices += chooseRandomJointMove();
+                totalChoices += chooseRandomJointMove(moveWeights, playedMoves);
             	transitionToNextStateFromChosenMove(null,null);
 	        	rolloutDepth++;
 	        }
@@ -2715,12 +2767,14 @@ return doeses;
 	            stats[1] = (totalChoices + rolloutDepth/2)/rolloutDepth;
 	        }
 	        
-	        result = getGoal(role);
-	        //System.out.println("Rollout result: " + result);
+	        for(Role r : roles)
+	        {
+	        	scores.put(r, getGoal(r));
+	        }
         }
         else
         {
-        	double branchingFactor = recursiveGreedyRollout(resultSet);
+        	double branchingFactor = recursiveGreedyRollout(resultSet, moveWeights, playedMoves);
         	
 	        if(stats != null)
 	        {
@@ -2728,7 +2782,10 @@ return doeses;
 	            stats[1] = (int)(branchingFactor + 0.5);
 	        }
 	        
-	        result = resultSet.resultVector.scores.get(role);
+	        for(Role r : roles)
+	        {
+	        	scores.put(r, resultSet.resultVector.scores.get(r));
+	        }
 			
 	        if ( resultSet.resultVector.controllingRole != null )
 	        {
@@ -2748,7 +2805,7 @@ return doeses;
         	}
         }
         
-        return result;
+        return scores.get(role);
     }
 
 	public Set<GdlSentence> getBasePropositions() {

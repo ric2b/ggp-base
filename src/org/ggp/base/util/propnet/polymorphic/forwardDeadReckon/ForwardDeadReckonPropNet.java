@@ -36,8 +36,6 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 	private ForwardDeadReckonLegalMoveSet alwaysTrueLegalMoves;
 	private ForwardDeadReckonInternalMachineState[] activeBasePropositions;
 	private ForwardDeadReckonInternalMachineState alwaysTrueBasePropositions;
-	private boolean useDeadReckonerForLegal;
-	private final int legalPropsPerRoleThreasholdForDeadReckon = 20;
 	private int numInstances;
 	
 	public ForwardDeadReckonPropNet(PropNet sourcePropnet, PolymorphicComponentFactory componentFactory)
@@ -72,60 +70,48 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 	
 	private void setUpActivePropositionSets(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet)
 	{
-		int numTotalLegalProps = 0;
-		int numRoles = 0;
+		activeLegalMoves = new ForwardDeadReckonLegalMoveSet[numInstances];
+		alwaysTrueLegalMoves = new ForwardDeadReckonLegalMoveSet(getRoles());
+		
+		for(int instanceId = 0; instanceId < numInstances; instanceId++)
+		{
+			activeLegalMoves[instanceId] = new ForwardDeadReckonLegalMoveSet(alwaysTrueLegalMoves);
+		}
+		
+		int roleIndex = 0;
 		
 		for(Role role : getRoles())
 		{
-			numRoles++;
-			numTotalLegalProps += getLegalPropositions().get(role).length;
-		}
-		useDeadReckonerForLegal = true;//(numTotalLegalProps > numRoles*legalPropsPerRoleThreasholdForDeadReckon);
-		if ( useDeadReckonerForLegal )
-		{
-			activeLegalMoves = new ForwardDeadReckonLegalMoveSet[numInstances];
-			alwaysTrueLegalMoves = new ForwardDeadReckonLegalMoveSet(getRoles());
+			PolymorphicProposition[] legalProps = getLegalPropositions().get(role);
 			
-			for(int instanceId = 0; instanceId < numInstances; instanceId++)
+			for(PolymorphicProposition p : legalProps)
 			{
-				activeLegalMoves[instanceId] = new ForwardDeadReckonLegalMoveSet(alwaysTrueLegalMoves);
-			}
-			
-			int roleIndex = 0;
-			
-			for(Role role : getRoles())
-			{
-				PolymorphicProposition[] legalProps = getLegalPropositions().get(role);
+				ForwardDeadReckonProposition pfdr = (ForwardDeadReckonProposition)p;
+				ForwardDeadReckonLegalMoveInfo info = new ForwardDeadReckonLegalMoveInfo();
 				
-				for(PolymorphicProposition p : legalProps)
+				info.move = new Move(pfdr.getName().getBody().get(1));
+				info.inputProposition = (ForwardDeadReckonProposition)getLegalInputMap().get(p);
+				info.roleIndex = roleIndex;
+				info.masterIndex = alwaysTrueLegalMoves.resolveId(info);
+				
+				PolymorphicComponent propInput = p.getSingleInput();
+				if ( propInput instanceof PolymorphicConstant )
 				{
-					ForwardDeadReckonProposition pfdr = (ForwardDeadReckonProposition)p;
-					ForwardDeadReckonLegalMoveInfo info = new ForwardDeadReckonLegalMoveInfo();
-					
-					info.move = new Move(pfdr.getName().getBody().get(1));
-					info.inputProposition = (ForwardDeadReckonProposition)getLegalInputMap().get(p);
-					info.roleIndex = roleIndex;
-					info.masterIndex = alwaysTrueLegalMoves.resolveId(info);
-					
-					PolymorphicComponent propInput = p.getSingleInput();
-					if ( propInput instanceof PolymorphicConstant )
+					if ( ((PolymorphicConstant)propInput).getValue() )
 					{
-						if ( ((PolymorphicConstant)propInput).getValue() )
-						{
-							alwaysTrueLegalMoves.add(info);
-						}
-					}
-					else
-					{
-						for(int instanceId = 0; instanceId < numInstances; instanceId++)
-						{
-							pfdr.setTransitionSet(info, instanceId, activeLegalMoves[instanceId]);
-						}
+						alwaysTrueLegalMoves.add(info);
 					}
 				}
-				
-				roleIndex++;
+				else
+				{
+					for(int instanceId = 0; instanceId < numInstances; instanceId++)
+					{
+						pfdr.setTransitionSet(info, instanceId, activeLegalMoves[instanceId]);
+					}
+				}
 			}
+			
+			roleIndex++;
 		}
 		
 		activeBasePropositions = new ForwardDeadReckonInternalMachineState[numInstances];
@@ -185,11 +171,6 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 		crystalize(masterInfoSet);
 	}
 	
-	public boolean useDeadReckonerForLegal()
-	{
-		return useDeadReckonerForLegal;
-	}
-	
 	public ForwardDeadReckonLegalMoveSet getActiveLegalProps(int instanceId)
 	{
 		return activeLegalMoves[instanceId];
@@ -198,6 +179,11 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet {
 	public ForwardDeadReckonInternalMachineState getActiveBaseProps(int instanceId)
 	{
 		return activeBasePropositions[instanceId];
+	}
+	
+	public List<ForwardDeadReckonLegalMoveInfo> getMasterMoveList()
+	{
+		return alwaysTrueLegalMoves.getMasterList();
 	}
 	
 	public void reset(boolean fullEquilibrium)

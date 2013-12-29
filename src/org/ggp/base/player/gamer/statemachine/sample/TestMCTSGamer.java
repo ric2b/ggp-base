@@ -1172,7 +1172,7 @@ public class TestMCTSGamer extends SampleGamer {
 	public StateMachine getInitialStateMachine() {
 		GamerLogger.setFileToDisplay("StateMachine");
 		//ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
-		underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine(2);
+		underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine(2, getRoleName());
 		
 		emptyTree();
 		
