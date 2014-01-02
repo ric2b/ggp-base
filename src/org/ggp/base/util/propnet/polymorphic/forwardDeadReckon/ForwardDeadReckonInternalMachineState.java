@@ -81,6 +81,15 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
 		contents.and(other.contents);
 	}
 	
+	public int intersectionSize(ForwardDeadReckonInternalMachineState other)
+	{
+		ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(other);
+		
+		temp.intersect(this);
+		
+		return temp.contents.cardinality();
+	}
+	
 	public void copy(ForwardDeadReckonInternalMachineState other)
 	{
 		contents.clear();
