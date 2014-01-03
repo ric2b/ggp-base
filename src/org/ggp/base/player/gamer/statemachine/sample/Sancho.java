@@ -16,7 +16,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
+import org.ggp.base.util.gdl.grammar.GdlFunction;
+import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
+import org.ggp.base.util.gdl.grammar.GdlTerm;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.profile.ProfilerContext;
@@ -297,7 +300,7 @@ public class Sancho extends SampleGamer {
 	
 	private int[] rootPieceCounts = null;
 	private double[] heuristicStateValueBuffer = null;
-	private double[] heuristicStateValue(ForwardDeadReckonInternalMachineState state)
+	private double[] heuristicStateValue(ForwardDeadReckonInternalMachineState state, TreeNode previousNode)
 	{
 		double total = 0;
 		double rootTotal = 0;
@@ -305,9 +308,23 @@ public class Sancho extends SampleGamer {
 		for(int i = 0; i < numRoles; i++)
 		{
 			int numPieces = pieceStateMaps[i].intersectionSize(state);
+			int previousNumPieces = pieceStateMaps[i].intersectionSize(previousNode.state);
 			heuristicStateValueBuffer[i] = numPieces - rootPieceCounts[i];
 			total += numPieces;
 			rootTotal += rootPieceCounts[i];
+			
+			//	Counter-weight exchange sequences slightly to remove the first-capture bias
+			//	at least to first order
+			if ( numPieces == rootPieceCounts[i] && previousNumPieces < rootPieceCounts[i] )
+			{
+				heuristicStateValueBuffer[i] += 0.1;
+				total += 0.1;
+			}
+			else if ( numPieces == rootPieceCounts[i] && previousNumPieces > rootPieceCounts[i] )
+			{
+				heuristicStateValueBuffer[i] -= 0.1;
+				total -= 0.1;
+			}
 		}
 		
 		for(int i = 0; i < numRoles; i++)
@@ -1508,7 +1525,7 @@ public class Sancho extends SampleGamer {
     					
     					if ( newChild.numVisits == 0 && heuristicSampleWeight > 0 && !newChild.isTerminal )
     					{
-							double[] heuristicScores = heuristicStateValue(newChild.state);
+							double[] heuristicScores = heuristicStateValue(newChild.state, this);
 							double heuristicSquaredDeviation = 0;
 							
 							//validateScoreVector(heuristicScores);
@@ -1519,7 +1536,7 @@ public class Sancho extends SampleGamer {
 								heuristicSquaredDeviation += (root.averageScores[i]-heuristicScores[i])*(root.averageScores[i]-heuristicScores[i]);
 							}
 							
-							if ( heuristicSquaredDeviation > 1 && root.numVisits > 50 )
+							if ( heuristicSquaredDeviation > 0.01 && root.numVisits > 50 )
 							{
 								newChild.numVisits = heuristicSampleWeight;
 							}
@@ -2349,7 +2366,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.24b";
+		return "Sancho 1.24c";
 	}
 	
 	@Override
@@ -2419,6 +2436,8 @@ public class Sancho extends SampleGamer {
 	}
 	
 	private ForwardDeadReckonInternalMachineState[] pieceStateMaps = null;
+	private final int maxPiecePropArity = 5;
+	private final int minPiecesThreshold = 6;
 	
 	@Override
 	public void stateMachineMetaGame(long timeout) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
@@ -2779,29 +2798,91 @@ public class Sancho extends SampleGamer {
 			
 			for(Role role : underlyingStateMachine.getRoles())
 			{
-				HashSet<GdlSentence> pieceProps = new HashSet<GdlSentence>();
+				List<Set<GdlSentence>> pieceProps = new ArrayList<Set<GdlSentence>>();
 				
-				Pattern propParser = Pattern.compile("([1-9]) ([1-9]) " + role.toString());
+				for(int arity = 0; arity <= maxPiecePropArity; arity++)
+				{
+					pieceProps.add(arity, new HashSet<GdlSentence>());
+				}
+				
+				Set<GdlTerm> roleTerms = new HashSet<GdlTerm>();
+				roleTerms.add(role.getName());
+				//	CHECKERS HACK
+				if ( role.toString().equals("black") )
+				{
+					roleTerms.add(GdlPool.getConstant("bp"));
+					roleTerms.add(GdlPool.getConstant("bk"));
+				}
+				else if ( role.toString().equals("red") )
+				{
+					roleTerms.add(GdlPool.getConstant("wp"));
+					roleTerms.add(GdlPool.getConstant("wk"));
+				}
+				
 				for(GdlSentence baseProp : underlyingStateMachine.getBasePropositions())
 				{
-					String propName = baseProp.toString();
-					Matcher matcher = propParser.matcher(propName);
-					
-					if ( matcher.find() )
+					if ( baseProp.arity() == 1 && baseProp.getBody().get(0) instanceof GdlFunction)
 					{
-						pieceProps.add(baseProp);
+						GdlFunction propFn = (GdlFunction)baseProp.getBody().get(0);
+						if ( propFn.arity() <= maxPiecePropArity )
+						{
+							for(GdlTerm roleTerm : roleTerms)
+							{
+								if ( propFn.getBody().contains(roleTerm))
+								{
+									pieceProps.get(propFn.arity()).add(baseProp);
+									break;
+								}
+							}
+						}
 					}
 				}
 				
-				MachineState rolePieceState = new MachineState(pieceProps);
+				//int maxCount = minPiecesThreshold;
+				Set<GdlSentence>	piecePropSet = null;
+				for(int arity = 0; arity <= maxPiecePropArity; arity++)
+				{
+					if ( pieceProps.get(arity).size() >= minPiecesThreshold )
+					{
+						piecePropSet = pieceProps.get(arity);
+						//maxCount = piecePropSet.size();
+					}
+				}
 				
+				if ( piecePropSet != null )
+				{
+					MachineState rolePieceState = new MachineState(piecePropSet);
+					
+					for(int i = 0; i < numRoles; i++)
+					{
+						if (roleIndexToRole(i).equals(role))
+						{
+							pieceStateMaps[i] = underlyingStateMachine.createInternalState(rolePieceState);
+						}
+					}
+				}
+			}
+			
+			for(int i = 0; i < numRoles; i++)
+			{
+				//	If not all roles have 'pieces' then consider that none do
+				if ( pieceStateMaps[i] == null )
+				{
+					pieceStateMaps = null;
+					break;
+				}
+			}
+			
+			if ( pieceStateMaps != null )
+			{
 				for(int i = 0; i < numRoles; i++)
 				{
-					if (roleIndexToRole(i).equals(role))
-					{
-						pieceStateMaps[i] = underlyingStateMachine.createInternalState(rolePieceState);
-					}
+					System.out.println("Piece state map for role " + roleIndexToRole(i) + ": " + pieceStateMaps[i]);
 				}
+			}
+			else
+			{
+				System.out.println("Game has no detectable piece propositions");
 			}
 		}
 		//	TOTAL HACK FOR MAX KNIGHTS
@@ -3279,24 +3360,31 @@ public class Sancho extends SampleGamer {
 				System.out.println("Asked to select in terminal state!");
 			}
 			
-			double total = 0;
-			double ourPieceCount = 0;
-			
-			for(int i = 0; i < numRoles; i++)
+			if ( pieceStateMaps != null )
 			{
-				rootPieceCounts[i] = pieceStateMaps[i].intersectionSize(root.state);
-				total += rootPieceCounts[i];
+				double total = 0;
+				double ourPieceCount = 0;
 				
-				if ( i == 0 )
+				for(int i = 0; i < numRoles; i++)
 				{
-					ourPieceCount = total;
+					rootPieceCounts[i] = pieceStateMaps[i].intersectionSize(root.state);
+					total += rootPieceCounts[i];
+					
+					if ( i == 0 )
+					{
+						ourPieceCount = total;
+					}
 				}
+				
+				double ourMaterialDivergence = ourPieceCount - total/numRoles;
+				//	Weight further material gain down the more we're already ahead/behind in material
+				//	because in either circumstance it's likely to be position that is more important
+				heuristicSampleWeight = (int)Math.max(1, 5 - Math.abs(ourMaterialDivergence)*3);
 			}
-			
-			double ourMaterialDivergence = ourPieceCount - total/numRoles;
-			//	Weight further material gain down the more we're already ahead/behind in material
-			//	because in either circumstance it's likely to be position that is more important
-			heuristicSampleWeight = (int)Math.max(0, 10 - Math.abs(ourMaterialDivergence)*6);
+			else
+			{
+				heuristicSampleWeight = 0;
+			}
 			
 			if ( root.complete && root.children == null )
 			{
