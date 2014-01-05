@@ -2736,6 +2736,11 @@ return doeses;
     	return new MoveWeights(allMovesInfo.length, getRoles().size());
     }
     
+    public ForwardDeadReckonInternalMachineState getCurrentState()
+    {
+    	return lastInternalSetState;
+    }
+    
     public int getDepthChargeResult(ForwardDeadReckonInternalMachineState state, Role role, final int[] stats, MoveWeights moveWeights, List<ForwardDeadReckonLegalMoveInfo> playedMoves) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException {  
     	rolloutDepth = 0;
     	TerminalResultSet resultSet = ((enableGreedyRollouts && getRoles().size() <= 2) ? new TerminalResultSet(getRoles()) : null);

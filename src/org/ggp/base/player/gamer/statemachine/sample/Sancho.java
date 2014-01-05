@@ -1766,7 +1766,7 @@ public class Sancho extends SampleGamer {
 	    		}
 	    	}
 	    	
-			MoveScoreInfo accumulatedMoveInfo = cousinMoveCache.get(relativeTo.jointPartialMove[relativeTo.child.node.decidingRoleIndex]);
+			MoveScoreInfo accumulatedMoveInfo = cousinMoveCache.get(relativeTo.jointPartialMove[relativeTo.child.node.decidingRoleIndex].move);
 			if ( accumulatedMoveInfo == null )
 			{
 				System.out.println("No newphews found for search move including own child!");
@@ -2435,9 +2435,131 @@ public class Sancho extends SampleGamer {
 	    }
 	}
 	
+	private class GdlFunctionInfo
+	{
+		private String 				name;
+		public List<Set<String>>	paramRanges;
+		
+		public GdlFunctionInfo(String name, int arity)
+		{
+			this.name = name;
+			paramRanges = new ArrayList<Set<String>>();
+			
+			for(int i = 0; i < arity; i++)
+			{
+				paramRanges.add(new HashSet<String>());
+			}
+		}
+		
+		public String getName()
+		{
+			return name;
+		}
+	}
+	
+	private class ScoreInfo
+	{
+		double	averageScore = 0;
+		double	averageSquaredScore = 0;
+		int		numSamples = 0;
+		
+		public void accrueSample(double value)
+		{
+			averageScore = (averageScore*numSamples + value)/(numSamples+1);
+			averageSquaredScore = (averageSquaredScore*numSamples + value*value)/(numSamples+1);
+			numSamples++;
+		}
+		
+		public double getStdDev()
+		{
+			return Math.sqrt(averageSquaredScore - averageScore*averageScore);
+		}
+	}
+	
+	private class CorrelationInfo
+	{
+		ScoreInfo valueInfo = new ScoreInfo();
+		ScoreInfo referenceValueInfo = new ScoreInfo();
+		double productSum = 0;
+		
+		public void accrueSample(double value, double referenceValue)
+		{
+			productSum += value*referenceValue;
+			valueInfo.accrueSample(value);
+			referenceValueInfo.accrueSample(referenceValue);
+		}
+		
+		public double getCorrelation()
+		{
+			double stdDev1 = valueInfo.getStdDev();
+			double stdDev2 = referenceValueInfo.getStdDev();
+			
+			if ( stdDev1 == 0 || stdDev2 == 0 )
+			{
+				return 0;
+			}
+			else
+			{
+				return (productSum - valueInfo.numSamples*valueInfo.averageScore*referenceValueInfo.averageScore)/((valueInfo.numSamples-1)*stdDev1*stdDev2);
+			}
+		}
+	}
+	
+	private class HeuristicScoreInfo
+	{
+		CorrelationInfo[] 	roleCorrelationInfos;
+		int					lastValue = -1;
+		boolean[]			hasRoleChanges;
+		boolean				hasNoChangeTurns = false;
+
+		public HeuristicScoreInfo()
+		{
+			roleCorrelationInfos = new CorrelationInfo[numRoles];
+			hasRoleChanges = new boolean[numRoles];
+			for(int i = 0; i < numRoles; i++)
+			{
+				roleCorrelationInfos[i] = new CorrelationInfo();
+			}
+		}
+		
+		public void accrueSample(double value, double[] roleValues)
+		{
+			for(int i = 0; i < numRoles; i++)
+			{
+				roleCorrelationInfos[i].accrueSample(value, roleValues[i]);
+			}
+		}
+		
+		public double[] getRoleCorrelations()
+		{
+			double[] result = new double[numRoles];
+
+			for(int i = 0; i < numRoles; i++)
+			{
+				result[i] = roleCorrelationInfos[i].getCorrelation();
+			}
+
+			return result;
+		}
+	}
+
+	private class PotentialPiecePropSet
+	{
+		String	fnName;
+		int		potentialRoleArgIndex;
+		
+		public PotentialPiecePropSet(String name, int index)
+		{
+			fnName = name;
+			potentialRoleArgIndex = index;
+		}
+	}
+	
 	private ForwardDeadReckonInternalMachineState[] pieceStateMaps = null;
-	private final int maxPiecePropArity = 5;
+	private final int minPiecePropArity = 3;	//	Assume board of at least 2 dimensions + piece type
+	private final int maxPiecePropArity = 3;	//	For now (until we can do game-specific learning) restrict to exactly 2-d boards
 	private final int minPiecesThreshold = 6;
+	private final double minHeuristicCorrelation = 0.075;
 	
 	@Override
 	public void stateMachineMetaGame(long timeout) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
@@ -2448,6 +2570,7 @@ public class Sancho extends SampleGamer {
 		bonusBuffer = new double[numRoles];
 		rootPieceCounts = new int[numRoles];
 		heuristicStateValueBuffer = new double[numRoles];
+		pieceStateMaps = null;
 		
 		initializeRoleOrdering();
 		
@@ -2483,6 +2606,98 @@ public class Sancho extends SampleGamer {
 
 		multiRoleAverageScoreDiff = 0;
 		
+		Map<String, GdlFunctionInfo> basePropFns = new HashMap<String, GdlFunctionInfo>();
+		
+		for(GdlSentence baseProp : underlyingStateMachine.getBasePropositions())
+		{
+			if ( baseProp.arity() == 1 && baseProp.getBody().get(0) instanceof GdlFunction)
+			{
+				GdlFunction propFn = (GdlFunction)baseProp.getBody().get(0);
+				
+				if ( propFn.arity() >= minPiecePropArity && propFn.arity() <= maxPiecePropArity )
+				{
+					GdlFunctionInfo fnInfo;
+					
+					if ( basePropFns.containsKey(propFn.getName().toString()))
+					{
+						fnInfo = basePropFns.get(propFn.getName().toString());
+					}
+					else
+					{
+						fnInfo = new GdlFunctionInfo(propFn.getName().toString(), propFn.arity());
+						basePropFns.put(propFn.getName().toString(), fnInfo);
+					}
+					
+					for(int i = 0; i < propFn.arity(); i++)
+					{
+						fnInfo.paramRanges.get(i).add(propFn.getBody().get(i).toString());
+					}
+				}
+			}
+		}
+		
+		Set<PotentialPiecePropSet> potentialPiecePropSets = new HashSet<PotentialPiecePropSet>();
+		
+		for(GdlFunctionInfo fnInfo : basePropFns.values())
+		{
+			int smallestFit = Integer.MAX_VALUE;
+			int smallestFitIndex = -1;
+			
+			//	Look for ranges that have cardinality of a multiple of the number of roles
+			for(int i = 0; i < fnInfo.paramRanges.size(); i++)
+			{
+				int numValues = fnInfo.paramRanges.get(i).size();
+				
+				if ( numValues < smallestFit && (numValues % numRoles == 0 || numValues % numRoles == 1) )
+				{
+					smallestFit = numValues;
+					smallestFitIndex = i;
+				}
+			}
+			
+			if ( smallestFitIndex != -1 )
+			{
+				potentialPiecePropSets.add(new PotentialPiecePropSet(fnInfo.getName(), smallestFitIndex));
+			}
+		}
+
+		Map<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> propGroupScoreSets = new HashMap<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo>();
+
+		for(PotentialPiecePropSet pieceSet : potentialPiecePropSets)
+		{
+			GdlFunctionInfo info = basePropFns.get(pieceSet.fnName);
+
+			for(String roleArgValue : info.paramRanges.get(pieceSet.potentialRoleArgIndex))
+			{
+				Set<GdlSentence> pieceSetSentences = new HashSet<GdlSentence>();
+
+				for(GdlSentence baseProp : underlyingStateMachine.getBasePropositions())
+				{
+					if ( baseProp.arity() == 1 && baseProp.getBody().get(0) instanceof GdlFunction)
+					{
+						GdlFunction propFn = (GdlFunction)baseProp.getBody().get(0);
+						
+						if ( propFn.arity() >= minPiecePropArity &&
+							 propFn.arity() <= maxPiecePropArity &&
+							 pieceSet.fnName.equals(propFn.getName().toString()) &&
+							 propFn.getBody().get(pieceSet.potentialRoleArgIndex).toString().equals(roleArgValue))
+						{
+							pieceSetSentences.add(baseProp);
+						}
+					}
+				}
+				
+				if ( pieceSetSentences.size() >= minPiecesThreshold )
+				{
+					System.out.println("Possible piece set: " + pieceSetSentences);
+					
+					ForwardDeadReckonInternalMachineState pieceMask = underlyingStateMachine.createInternalState(new MachineState(pieceSetSentences));
+					
+					propGroupScoreSets.put(pieceMask, new HeuristicScoreInfo());
+				}
+			}
+		}
+		
 		ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine.createInternalState(getCurrentState());
 		ForwardDeadReckonInternalMachineState sampleState = initialState;
 		
@@ -2493,47 +2708,74 @@ public class Sancho extends SampleGamer {
 		//	games like C4-simultaneous or Chinook (but it's a hack!)
 		isSimultaneousMove = false;
 		
-		while(!isSimultaneousMove && !underlyingStateMachine.isTerminal(sampleState))
+		//	Perform a small number of move-by-move simulations to assess how
+		//	the potential piece count heuristics behave at the granularity of
+		//	a single decision
+		for(int iteration = 0; iteration < 20; iteration++ )
 		{
-			boolean	roleWithChoiceSeen = false;
-			List<Move> jointMove = new LinkedList<Move>();
-			Set<Move> allMovesInState = new HashSet<Move>();
-			
-			for(Role role : underlyingStateMachine.getRoles())
+			while(!underlyingStateMachine.isTerminal(sampleState))
 			{
-				List<Move> legalMoves = underlyingStateMachine.getLegalMoves(sampleState, role);
-				
-				if ( legalMoves.size() > 1 )
+				boolean	roleWithChoiceSeen = false;
+				Move[] jointMove = new Move[numRoles];
+				Set<Move> allMovesInState = new HashSet<Move>();
+		    	
+				int choosingRoleIndex = -1;
+				for(int i = 0; i < numRoles; i++)
 				{
-					for(Move move : legalMoves)
-					{
-						if ( allMovesInState.contains(move) )
-						{
-							isSimultaneousMove = true;
-							break;
-						}
-						else
-						{
-							allMovesInState.add(move);
-						}
-					}
+					List<Move> legalMoves = underlyingStateMachine.getLegalMoves(sampleState, roleIndexToRole(i));
 					
-					if ( roleWithChoiceSeen )
+					if ( legalMoves.size() > 1 )
 					{
-						hasPseudoSimultaneous = true;
+						choosingRoleIndex = i;
+						for(Move move : legalMoves)
+						{
+							if ( allMovesInState.contains(move) )
+							{
+								isSimultaneousMove = true;
+								choosingRoleIndex = -1;
+								break;
+							}
+							else
+							{
+								allMovesInState.add(move);
+							}
+						}
+						
+						if ( roleWithChoiceSeen )
+						{
+							hasPseudoSimultaneous = true;
+							choosingRoleIndex = -1;
+						}
+						
+						roleWithChoiceSeen = true;
 					}
-					
-					roleWithChoiceSeen = true;
+					jointMove[roleIndexToRawRoleIndex(i)] = legalMoves.get(r.nextInt(legalMoves.size()));
 				}
-				jointMove.add(legalMoves.get(r.nextInt(legalMoves.size())));
-			}
-			
-			if ( !isSimultaneousMove )
-			{
+				
+		    	for(Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
+		    	{
+		    		int currentValue = e.getKey().intersectionSize(sampleState);
+		    		
+		    		HeuristicScoreInfo heuristicInfo = e.getValue();
+		    		if ( heuristicInfo.lastValue != -1 )
+		    		{
+		    			if ( heuristicInfo.lastValue == currentValue )
+		    			{
+		    				heuristicInfo.hasNoChangeTurns = true;
+		    			}
+		    			else if ( choosingRoleIndex != -1 )
+		    			{
+		    				heuristicInfo.hasRoleChanges[choosingRoleIndex] = true;
+		    			}
+		    		}
+		    		
+		    		heuristicInfo.lastValue = currentValue;
+		    	}
+				
 				sampleState = underlyingStateMachine.getNextState(sampleState, jointMove);
 			}
 		}
-
+ 
 		if ( isSimultaneousMove )
 		{
 			System.out.println("Game is a simultaneous turn game");
@@ -2568,6 +2810,7 @@ public class Sancho extends SampleGamer {
 		double averageBranchingFactor = 0;
 		double averageNumTurns = 0;
 		double averageSquaredNumTurns = 0;
+    	double[] roleScores = new double[numRoles];
 	    
 		while(System.currentTimeMillis() < simulationStopTime)
 		{
@@ -2578,6 +2821,36 @@ public class Sancho extends SampleGamer {
 			underlyingStateMachine.getDepthChargeResult(initialState, getRole(), rolloutStats, null, null);
 			
 	    	int netScore = netScore(underlyingStateMachine, null);
+	    	
+	    	for(int i = 0; i < numRoles; i++)
+    	    {
+	    		roleScores[i] = underlyingStateMachine.getGoal(roleIndexToRole(i));
+    	    	
+    	    	if ( i != 0 && isMultiPlayer )
+    	    	{
+    	    		//	If there are several enemy players involved extract a measure
+    	    		//	of their goal correlation
+    	    		for(Role role2 : underlyingStateMachine.getRoles())
+    	    		{
+    	    			if ( !role2.equals(ourRole) && !role2.equals(roleIndexToRole(i)) )
+    	    			{
+    	    				int role2Score = underlyingStateMachine.getGoal(role2);
+    	    				
+    	    				multiRoleSamples++;
+    	    				multiRoleAverageScoreDiff += Math.abs(role2Score - roleScores[i]);
+    	    			}
+    	    		}
+    	    	}
+    	    }
+	    	
+	    	ForwardDeadReckonInternalMachineState finalState = underlyingStateMachine.getCurrentState();
+	    	
+	    	for(Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
+	    	{
+	    		double heuristicScore = finalState.intersectionSize(e.getKey());
+	    		
+	    		e.getValue().accrueSample(heuristicScore, roleScores);
+	    	}
 	    	
 	    	averageNumTurns = (averageNumTurns*(simulationsPerformed-1) + rolloutStats[0])/simulationsPerformed;
 	    	averageSquaredNumTurns = (averageSquaredNumTurns*(simulationsPerformed-1) + rolloutStats[0]*rolloutStats[0])/simulationsPerformed;
@@ -2601,28 +2874,75 @@ public class Sancho extends SampleGamer {
 	    	{
 	    		observedMaxNetScore = netScore;
 	    	}
-	    	
-	    	for(Role role : underlyingStateMachine.getRoles())
-    	    {
-    	    	int roleScore = underlyingStateMachine.getGoal(sampleState, role);
-    	    	
-    	    	if ( !role.equals(ourRole) && isMultiPlayer )
-    	    	{
-    	    		//	If there are several enemy players involved extract a measure
-    	    		//	of their goal correlation
-    	    		for(Role role2 : underlyingStateMachine.getRoles())
-    	    		{
-    	    			if ( !role2.equals(ourRole) && !role2.equals(role) )
-    	    			{
-    	    				int role2Score = underlyingStateMachine.getGoal(sampleState, role2);
-    	    				
-    	    				multiRoleSamples++;
-    	    				multiRoleAverageScoreDiff += Math.abs(role2Score - roleScore);
-    	    			}
-    	    		}
-    	    	}
-    	    }
 		}
+		
+		
+		for(Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
+		{
+			if ( !e.getValue().hasNoChangeTurns )
+			{
+				System.out.println("Eliminating potential piece set with changes every turn: " + e.getKey());
+			}
+			else
+			{
+	    		double[] roleCorrelations = e.getValue().getRoleCorrelations();
+	    		
+	    		System.out.println("Correlations for piece set: " + e.getKey());
+	    		for(int i = 0; i < numRoles; i++)
+	    		{
+	    			System.out.println("  Role " + roleIndexToRole(i) + ": " + roleCorrelations[i]);
+	    			
+	    			if ( roleCorrelations[i] >= minHeuristicCorrelation )
+	    			{
+	    				if ( !e.getValue().hasRoleChanges[i] )
+	    				{
+	    					System.out.println("Eliminating potential piece set with no role decision changes for correlated role: " + e.getKey());
+	    				}
+	    				else
+	    				{
+		    				if ( pieceStateMaps == null )
+		    				{
+		    					pieceStateMaps = new ForwardDeadReckonInternalMachineState[numRoles];
+		    				}
+		    				
+		    				if ( pieceStateMaps[i] == null )
+		    				{
+		    					pieceStateMaps[i] = e.getKey();
+		    				}
+		    				else
+		    				{
+		    					pieceStateMaps[i].merge(e.getKey());
+		    				}
+	    				}
+	    			}
+	    		}
+	    	}
+		}
+    	
+    	if ( pieceStateMaps != null )
+    	{
+			for(int i = 0; i < numRoles; i++)
+			{
+				if ( pieceStateMaps[i] == null )
+				{
+					System.out.println("Heuristics only identified for a subset of roles - diabling");
+					pieceStateMaps = null;
+					break;
+				}
+			}
+    	}
+		
+    	if ( pieceStateMaps == null )
+    	{
+    		System.out.println("No viable piece heuristic identified");
+    	}
+    	else
+    	{
+    		for(int i = 0; i < numRoles; i++)
+    		{
+    			System.out.println("Piece heuristic mask for role " + roleIndexToRole(i) + ": " + pieceStateMaps[i]);
+    		}
+    	}
 		
 	    double stdDevNumTurns = Math.sqrt(averageSquaredNumTurns - averageNumTurns*averageNumTurns);
 	    
@@ -2792,7 +3112,7 @@ public class Sancho extends SampleGamer {
 		System.out.println(simulationsPerformed*1000/(simulationStopTime - simulationStartTime) + " simulations/second performed - setting rollout sample size to " + rolloutSampleSize);
 		
 		//	BREAKTHROUGH TEST HACK
-		if ( true )
+		if ( false )
 		{
 			pieceStateMaps = new ForwardDeadReckonInternalMachineState[numRoles];
 			
