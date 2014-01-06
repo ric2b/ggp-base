@@ -2366,7 +2366,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.24c";
+		return "Sancho 1.25";
 	}
 	
 	@Override
@@ -2711,7 +2711,7 @@ public class Sancho extends SampleGamer {
 		//	Perform a small number of move-by-move simulations to assess how
 		//	the potential piece count heuristics behave at the granularity of
 		//	a single decision
-		for(int iteration = 0; iteration < 20; iteration++ )
+		for(int iteration = 0; iteration < 50; iteration++ )
 		{
 			while(!underlyingStateMachine.isTerminal(sampleState))
 			{
@@ -2960,7 +2960,13 @@ public class Sancho extends SampleGamer {
 			explorationBias = 1.2;
 		}
 
-		explorationBias = 0.4;
+    	if ( pieceStateMaps != null )
+    	{
+    		//	Empirically games with piece count heuristics seem to like lower
+    		//	exploration bias - not entirely sure why!
+    		explorationBias = explorationBias*0.6;
+    	}
+    	
 		System.out.println("Set explorationBias to " + explorationBias);
 		
 		if( underlyingStateMachine.numRolloutDecisionNodeExpansions > 0)
