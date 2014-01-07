@@ -2367,7 +2367,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.29";
+		return "Sancho 1.30";
 	}
 	
 	@Override
@@ -2719,7 +2719,6 @@ public class Sancho extends SampleGamer {
 		}
 		
 		ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine.createInternalState(getCurrentState());
-		ForwardDeadReckonInternalMachineState sampleState = initialState;
 		
 		//	Sample to see if multiple roles have multiple moves available
 		//	implying this must be a simultaneous move game
@@ -2738,11 +2737,18 @@ public class Sancho extends SampleGamer {
 			roleMoves.add(null);
 		}
 		
+		double branchingFactorApproximation = 0;
+		
 		//	Perform a small number of move-by-move simulations to assess how
 		//	the potential piece count heuristics behave at the granularity of
 		//	a single decision
-		for(int iteration = 0; iteration < 100; iteration++ )
+		for(int iteration = 0; iteration < 50; iteration++ )
 		{
+			ForwardDeadReckonInternalMachineState sampleState = initialState;
+			
+			int numRoleMovesSimulated = 0;
+			int numBranchesTaken = 0;
+			
 			while(!underlyingStateMachine.isTerminal(sampleState))
 			{
 				boolean	roleWithChoiceSeen = false;
@@ -2757,7 +2763,7 @@ public class Sancho extends SampleGamer {
 					if ( legalMoves.size() > 1 )
 					{
 						Set<Move> previousChoices = roleMoves.get(i);
-						HashSet<Move> moveSet = new HashSet(legalMoves);
+						HashSet<Move> moveSet = new HashSet<Move>(legalMoves);
 
 						if ( previousChoices != null && !previousChoices.equals(moveSet))
 						{
@@ -2767,10 +2773,7 @@ public class Sancho extends SampleGamer {
 						{
 							roleMoves.set(i, moveSet);
 						}
-					}
-					
-					if ( legalMoves.size() > 1 )
-					{
+
 						choosingRoleIndex = i;
 						for(Move move : legalMoves)
 						{
@@ -2793,6 +2796,9 @@ public class Sancho extends SampleGamer {
 						}
 						
 						roleWithChoiceSeen = true;
+						
+						numBranchesTaken += legalMoves.size();
+						numRoleMovesSimulated++;
 					}
 					jointMove[roleIndexToRawRoleIndex(i)] = legalMoves.get(r.nextInt(legalMoves.size()));
 				}
@@ -2819,12 +2825,17 @@ public class Sancho extends SampleGamer {
 				
 				sampleState = underlyingStateMachine.getNextState(sampleState, jointMove);
 			}
+			
+			branchingFactorApproximation += (double)(numBranchesTaken/numRoleMovesSimulated);
 		}
- 
+		
+		branchingFactorApproximation /= 50;
+		
 		if ( isIteratedGame )
 		{
-			System.out.println("Game is an iterated game");
+			System.out.println("May be an iterated game");
 		}
+ 
 		if ( isSimultaneousMove )
 		{
 			System.out.println("Game is a simultaneous turn game");
@@ -2865,7 +2876,7 @@ public class Sancho extends SampleGamer {
 		{
 			simulationsPerformed++;
 			
-			sampleState = new ForwardDeadReckonInternalMachineState(initialState);
+			ForwardDeadReckonInternalMachineState sampleState = new ForwardDeadReckonInternalMachineState(initialState);
 
 			underlyingStateMachine.getDepthChargeResult(initialState, getRole(), rolloutStats, null, null);
 			
@@ -2925,6 +2936,18 @@ public class Sancho extends SampleGamer {
 	    	}
 		}
 		
+		System.out.println("branchingFactorApproximation = " + branchingFactorApproximation + ", averageBranchingFactor = " + averageBranchingFactor);
+		//	Massive hack - assume that a game longer than 30 turns is not really an iterated game unless it's of fixed length
+		if ( isIteratedGame && (Math.abs(branchingFactorApproximation - averageBranchingFactor) > 0.1 || (maxNumTurns > 30 && maxNumTurns != minNumTurns)))
+		{
+			System.out.println("Game is not an iterated game");
+			isIteratedGame = false;
+		}
+		
+		if ( isIteratedGame )
+		{
+			System.out.println("Game is an iterated game");
+		}
 		
 		for(Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
 		{
