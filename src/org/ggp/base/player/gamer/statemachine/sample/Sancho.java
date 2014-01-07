@@ -2367,7 +2367,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.27";
+		return "Sancho 1.28";
 	}
 	
 	@Override
@@ -2400,6 +2400,8 @@ public class Sancho extends SampleGamer {
 	private boolean isPuzzle = false;
 	private boolean isMultiPlayer = false;
 	private boolean isSimultaneousMove = false;
+	private boolean isPseudoSimultaneousMove = false;
+	private boolean isIteratedGame = false;
 	private int numRoles = 0;
 	private int MinRawNetScore = 0;
 	private int MaxRawNetScore = 100;
@@ -2617,7 +2619,7 @@ public class Sancho extends SampleGamer {
 		int observedMaxNetScore = Integer.MIN_VALUE;
 		int simulationsPerformed = 0;
 		int multiRoleSamples = 0;
-		boolean hasPseudoSimultaneous = false;	
+		isPseudoSimultaneousMove = false;	
 		boolean greedyRolloutsDisabled = false;
 
 		targetState = null;
@@ -2726,6 +2728,16 @@ public class Sancho extends SampleGamer {
 		//	games like C4-simultaneous or Chinook (but it's a hack!)
 		isSimultaneousMove = false;
 		
+		//	Also monitor whether any given player always has the SAME choice of move (or just a single choice)
+		//	every turn - such games are (highly probably) iterated games
+		List<Set<Move>> roleMoves = new ArrayList<Set<Move>>();
+		isIteratedGame = true;
+		
+		for(int i = 0; i < numRoles; i++)
+		{
+			roleMoves.add(null);
+		}
+		
 		//	Perform a small number of move-by-move simulations to assess how
 		//	the potential piece count heuristics behave at the granularity of
 		//	a single decision
@@ -2741,6 +2753,21 @@ public class Sancho extends SampleGamer {
 				for(int i = 0; i < numRoles; i++)
 				{
 					List<Move> legalMoves = underlyingStateMachine.getLegalMoves(sampleState, roleIndexToRole(i));
+					
+					if ( legalMoves.size() > 1 )
+					{
+						Set<Move> previousChoices = roleMoves.get(i);
+						HashSet<Move> moveSet = new HashSet(legalMoves);
+
+						if ( previousChoices != null && !previousChoices.equals(moveSet))
+						{
+							isIteratedGame = false;
+						}
+						else
+						{
+							roleMoves.set(i, moveSet);
+						}
+					}
 					
 					if ( legalMoves.size() > 1 )
 					{
@@ -2761,7 +2788,7 @@ public class Sancho extends SampleGamer {
 						
 						if ( roleWithChoiceSeen )
 						{
-							hasPseudoSimultaneous = true;
+							isPseudoSimultaneousMove = true;
 							choosingRoleIndex = -1;
 						}
 						
@@ -2794,11 +2821,15 @@ public class Sancho extends SampleGamer {
 			}
 		}
  
+		if ( isIteratedGame )
+		{
+			System.out.println("Game is an iterated game");
+		}
 		if ( isSimultaneousMove )
 		{
 			System.out.println("Game is a simultaneous turn game");
 		}
-		else if ( hasPseudoSimultaneous )
+		else if ( isPseudoSimultaneousMove )
 		{
 			System.out.println("Game is pseudo-simultaneous (factorizable?)");
 		}
@@ -2807,7 +2838,7 @@ public class Sancho extends SampleGamer {
 			System.out.println("Game is not a simultaneous turn game");
 		}
 		
-		if ( isSimultaneousMove || hasPseudoSimultaneous )
+		if ( isSimultaneousMove || isPseudoSimultaneousMove )
 		{
 			if ( !greedyRolloutsDisabled )
 			{
@@ -3644,6 +3675,196 @@ public class Sancho extends SampleGamer {
 		return bestMove;
 	}
 
+	//	Find a move to play in an iterated game - currently only supports 2 player games
+	private Move selectIteratedGameMove(List<Move> moves, long timeout) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
+	{
+		List<List<GdlTerm>> moveHistory = getMatch().getMoveHistory();
+		List<Set<GdlSentence>> stateHistory = getMatch().getStateHistory();
+		Move bestMove = null;
+		Map<Move,Map<Move,Integer>> opponentMoveSelectionCounts = new HashMap<Move,Map<Move,Integer>>();
+		Move lastPlayedOpponentChoice = null;
+		Move lastPlayedOurChoice = null;
+		Move opponentFirstMove = null;
+		
+		if ( moves.size() == 1 )
+		{
+			return moves.get(0);
+		}
+
+		boolean responderInNonSimultaneousGame = (!isPseudoSimultaneousMove && moveHistory.size()%2 == 1);
+
+		for(int i = 0; i < moveHistory.size(); i++)
+		{
+			List<GdlTerm> moveTerms = moveHistory.get(i);
+			MachineState state = new MachineState(stateHistory.get(i));
+			List<Move> historicalJointMove = new ArrayList<Move>();
+			for (GdlTerm sentence : moveTerms)
+			{
+				historicalJointMove.add(underlyingStateMachine.getMoveFromTerm(sentence));
+			}
+			
+			//	Did our opponent have a choice?
+			if ( underlyingStateMachine.getLegalMoves(state, roleIndexToRole(1)).size() > 1 )
+			{
+				lastPlayedOpponentChoice = historicalJointMove.get(roleIndexToRawRoleIndex(1));
+				
+				//	Was this following a previous move of ours?  If so bump the response counts
+				//	for that move
+				if ( lastPlayedOurChoice != null )
+				{
+					Map<Move,Integer> moveWeights = opponentMoveSelectionCounts.get(lastPlayedOurChoice);
+					if ( moveWeights == null )
+					{
+						moveWeights = new HashMap<Move,Integer>();
+						opponentMoveSelectionCounts.put(lastPlayedOurChoice, moveWeights);
+					}
+					
+					Integer val = moveWeights.get(lastPlayedOpponentChoice);
+					
+					moveWeights.put(lastPlayedOpponentChoice, (val == null ? 1 : val + 1));
+				}
+				else
+				{
+					opponentFirstMove = lastPlayedOpponentChoice;
+				}
+			}
+			
+			//	Did we have a choice?
+			if ( underlyingStateMachine.getLegalMoves(state, roleIndexToRole(0)).size() > 1 )
+			{
+				lastPlayedOurChoice = historicalJointMove.get(roleIndexToRawRoleIndex(0));
+				
+				if ( opponentFirstMove != null )
+				{
+					//	Bump for all moves we can play the count for the move the opponent played first
+					for(Move legalMove : underlyingStateMachine.getLegalMoves(state, roleIndexToRole(0)))
+					{
+						Map<Move,Integer> moveWeights = opponentMoveSelectionCounts.get(legalMove);
+						if ( moveWeights == null )
+						{
+							moveWeights = new HashMap<Move,Integer>();
+							opponentMoveSelectionCounts.put(legalMove, moveWeights);
+						}
+						
+						Integer val = moveWeights.get(lastPlayedOpponentChoice);
+						
+						moveWeights.put(opponentFirstMove, (val == null ? 1 : val + 1));
+					}
+					
+					opponentFirstMove = null;
+				}
+			}
+		}
+		
+		ForwardDeadReckonInternalMachineState currentState = underlyingStateMachine.createInternalState(getCurrentState());
+		
+		int 	bestScore = -1;
+		int		opponentScoreAtBestScore = 0;
+		for(Move move : moves)
+		{
+			ForwardDeadReckonInternalMachineState	state = new ForwardDeadReckonInternalMachineState(currentState);
+			Map<Move,Integer> moveWeights = opponentMoveSelectionCounts.get(move);
+
+			System.out.println("Considering move: " + move);
+			if ( responderInNonSimultaneousGame )
+			{
+				System.out.println("We are responder so assuming opponent continues to play " + lastPlayedOpponentChoice);
+			}
+			else if ( moveWeights != null )
+			{
+				System.out.println("Response weights: " + moveWeights.values());
+			}
+			
+			while(!underlyingStateMachine.isTerminal(state))
+			{
+				Move[] jointMove = new Move[2];
+				int roleIndex = 0;
+				
+				for(Role role : underlyingStateMachine.getRoles())
+				{
+					List<Move> roleMoves = underlyingStateMachine.getLegalMoves(state, role);
+					
+					if ( roleMoves.size() == 1 )
+					{
+						jointMove[roleIndex] = roleMoves.get(0);
+					}
+					else if ( role.equals(ourRole))
+					{
+						if ( !roleMoves.contains(move))
+						{
+							System.out.println("Unexpectedly cannot play intended move in iterated game!");
+						}
+						jointMove[roleIndex] = move;
+					}
+					else if ( responderInNonSimultaneousGame )
+					{
+						jointMove[roleIndex] = lastPlayedOpponentChoice;
+					}
+					else
+					{
+						//	Do we have opponent response stats for this move?
+						if ( moveWeights == null )
+						{
+							//	Assume flat distribution
+							moveWeights = new HashMap<Move,Integer>();
+							
+							for(Move m : roleMoves)
+							{
+								moveWeights.put(m, 1);
+							}
+						}
+						
+						int total = 0;
+						for(Integer weight : moveWeights.values())
+						{
+							total += weight;
+						}
+						
+						int rand = r.nextInt(total);
+						for(Move m : roleMoves)
+						{
+							Integer weight = moveWeights.get(m);
+							if ( weight != null)
+							{
+								rand -= weight;
+							}
+							
+							if ( rand < 0 )
+							{
+								jointMove[roleIndex] = m;
+								break;
+							}
+						}
+					}
+					
+					roleIndex++;
+				}
+				
+				state = underlyingStateMachine.getNextState(state, jointMove);
+			}
+			
+			int score = underlyingStateMachine.getGoal(ourRole);
+			int opponentScore = underlyingStateMachine.getGoal(roleIndexToRole(1));
+			
+			if ( score >= opponentScore )
+			{
+				score += competitivenessBonus;
+				if ( score > opponentScore )
+				{
+					score += competitivenessBonus;
+				}
+			}
+			if ( score > bestScore || (score == bestScore && opponentScoreAtBestScore > opponentScore))
+			{
+				bestScore = score;
+				opponentScoreAtBestScore = opponentScore;
+				bestMove = move;
+			}
+		}
+		
+		return bestMove;
+	}
+	
 	@Override
 	public Move stateMachineSelectMove(long timeout)
 			throws TransitionDefinitionException, MoveDefinitionException,
@@ -3659,7 +3880,12 @@ public class Sancho extends SampleGamer {
 		
 		masterMoveWeights = null;
 		
-	    if ( targetState != null )
+		if ( isIteratedGame && numRoles == 2 )
+		{
+	    	bestMove = selectIteratedGameMove(moves, timeout);
+			System.out.println("Playing best iterated game move: " + bestMove);
+		}
+		else if ( targetState != null )
 	    {
 	    	bestMove = selectPuzzleMove(moves, timeout);
 			System.out.println("Playing best puzzle move: " + bestMove);
