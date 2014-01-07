@@ -78,6 +78,7 @@ public class Sancho extends SampleGamer {
     private Map<Move, MoveScoreInfo> cousinMoveCache = new HashMap<Move, MoveScoreInfo>();
     private TreeNodeRef cousinMovesCachedFor = null;
     private double[] bonusBuffer = null;
+    private double[] roleRationality = null;
     
 	private class RolloutProcessor implements Runnable
     {
@@ -1722,7 +1723,7 @@ public class Sancho extends SampleGamer {
 	    	//	When we propagate adjustments due to completion we do not also adjust the variance contribution
 	    	//	so this can result in 'impossibly' low (aka negative) variance - take a lower bound of 0
         	double varianceBound = Math.max(0, averageSquaredScores[roleIndex] - averageScores[roleIndex]*averageScores[roleIndex])/10000 + Math.sqrt(2*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
-        	return explorationBias*Math.sqrt(2*Math.min(0.5,varianceBound)*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
+        	return explorationBias*Math.sqrt(2*Math.min(0.5,varianceBound)*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits)/roleRationality[roleIndex];
 	    }
 	    
 	    private double getAverageCousinMoveValue(TreeEdge relativeTo, int roleIndex)
@@ -2366,7 +2367,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.26";
+		return "Sancho 1.27";
 	}
 	
 	@Override
@@ -2570,6 +2571,8 @@ public class Sancho extends SampleGamer {
 		bonusBuffer = new double[numRoles];
 		rootPieceCounts = new int[numRoles];
 		heuristicStateValueBuffer = new double[numRoles];
+	    roleRationality = new double[numRoles];
+
 		pieceStateMaps = null;
 		
 		initializeRoleOrdering();
@@ -2595,6 +2598,21 @@ public class Sancho extends SampleGamer {
 	    	}
 	    }	    
 		
+	    //	For now assume players in muli-player games are somewhat irrational.
+	    //	FUTURE - adjust during the game based on correlations with expected
+	    //	scores
+	    for(int i = 0; i < numRoles; i++)
+	    {
+		    if ( isMultiPlayer )
+		    {
+		    	roleRationality[i] = (i == 0 ? 1 : 0.5);
+		    }
+		    else
+		    {
+		    	roleRationality[i] = 1;
+		    }
+	    }
+	    
 		int observedMinNetScore = Integer.MAX_VALUE;
 		int observedMaxNetScore = Integer.MIN_VALUE;
 		int simulationsPerformed = 0;
