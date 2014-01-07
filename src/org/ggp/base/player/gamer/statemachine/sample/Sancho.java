@@ -2367,7 +2367,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.28";
+		return "Sancho 1.29";
 	}
 	
 	@Override
@@ -3684,7 +3684,7 @@ public class Sancho extends SampleGamer {
 		Map<Move,Map<Move,Integer>> opponentMoveSelectionCounts = new HashMap<Move,Map<Move,Integer>>();
 		Move lastPlayedOpponentChoice = null;
 		Move lastPlayedOurChoice = null;
-		Move opponentFirstMove = null;
+		int  lastPlayedOurChoiceSize = 0;
 		
 		if ( moves.size() == 1 )
 		{
@@ -3721,11 +3721,7 @@ public class Sancho extends SampleGamer {
 					
 					Integer val = moveWeights.get(lastPlayedOpponentChoice);
 					
-					moveWeights.put(lastPlayedOpponentChoice, (val == null ? 1 : val + 1));
-				}
-				else
-				{
-					opponentFirstMove = lastPlayedOpponentChoice;
+					moveWeights.put(lastPlayedOpponentChoice, (val == null ? lastPlayedOurChoiceSize : val + lastPlayedOurChoiceSize));
 				}
 			}
 			
@@ -3733,10 +3729,11 @@ public class Sancho extends SampleGamer {
 			if ( underlyingStateMachine.getLegalMoves(state, roleIndexToRole(0)).size() > 1 )
 			{
 				lastPlayedOurChoice = historicalJointMove.get(roleIndexToRawRoleIndex(0));
+				lastPlayedOurChoiceSize = underlyingStateMachine.getLegalMoves(state, roleIndexToRole(0)).size();
 				
-				if ( opponentFirstMove != null )
+				if ( lastPlayedOpponentChoice != null )
 				{
-					//	Bump for all moves we can play the count for the move the opponent played first
+					//	Bump for all moves we can play the count for the move the opponent played last
 					for(Move legalMove : underlyingStateMachine.getLegalMoves(state, roleIndexToRole(0)))
 					{
 						Map<Move,Integer> moveWeights = opponentMoveSelectionCounts.get(legalMove);
@@ -3748,10 +3745,8 @@ public class Sancho extends SampleGamer {
 						
 						Integer val = moveWeights.get(lastPlayedOpponentChoice);
 						
-						moveWeights.put(opponentFirstMove, (val == null ? 1 : val + 1));
+						moveWeights.put(lastPlayedOpponentChoice, (val == null ? 1 : val + 1));
 					}
-					
-					opponentFirstMove = null;
 				}
 			}
 		}
