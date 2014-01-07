@@ -2248,6 +2248,11 @@ return doeses;
 	public long numRolloutDecisionNodeExpansions = 0;
 	public double greedyRolloutEffectiveness = 0;
 	
+	public int getNumTerminatingMoveProps()
+	{
+		return terminatingMoveProps.size();
+	}
+	
 	private ForwardDeadReckonProposition transitionToNextStateInGreedyRollout(TerminalResultSet results, ForwardDeadReckonProposition hintMoveProp, MoveWeights moveWeights, List<ForwardDeadReckonLegalMoveInfo> playedMoves) throws MoveDefinitionException, GoalDefinitionException
 	{
 		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.transitionToNextStateInGreedyRollout");

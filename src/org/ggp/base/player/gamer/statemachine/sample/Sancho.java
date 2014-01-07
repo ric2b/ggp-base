@@ -2366,7 +2366,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.25";
+		return "Sancho 1.26";
 	}
 	
 	@Override
@@ -2711,7 +2711,7 @@ public class Sancho extends SampleGamer {
 		//	Perform a small number of move-by-move simulations to assess how
 		//	the potential piece count heuristics behave at the granularity of
 		//	a single decision
-		for(int iteration = 0; iteration < 50; iteration++ )
+		for(int iteration = 0; iteration < 100; iteration++ )
 		{
 			while(!underlyingStateMachine.isTerminal(sampleState))
 			{
@@ -2972,6 +2972,7 @@ public class Sancho extends SampleGamer {
 		if( underlyingStateMachine.numRolloutDecisionNodeExpansions > 0)
 		{
 			System.out.println("Greedy rollout terminal discovery effectiveness: " + (underlyingStateMachine.greedyRolloutEffectiveness*100)/underlyingStateMachine.numRolloutDecisionNodeExpansions);
+			System.out.println("Num terminal props seen: " + underlyingStateMachine.getNumTerminatingMoveProps() + " out of " + underlyingStateMachine.getBasePropositions().size());
 		}
 		
 		if ( simulationsPerformed > 100 )
@@ -2988,8 +2989,11 @@ public class Sancho extends SampleGamer {
 			multiRoleAverageScoreDiff = 0;
 		}
 		
+		double greedyRolloutCost = (underlyingStateMachine.numRolloutDecisionNodeExpansions == 0 ? 0 : averageBranchingFactor*(1 - underlyingStateMachine.greedyRolloutEffectiveness/(underlyingStateMachine.numRolloutDecisionNodeExpansions)));
+		
+		System.out.println("Estimated greedy rollout cost: " + greedyRolloutCost);
 		if ( minNumTurns == maxNumTurns ||
-			 ((averageBranchingFactor > 40 || stdDevNumTurns < 0.15*averageNumTurns || underlyingStateMachine.greedyRolloutEffectiveness < underlyingStateMachine.numRolloutDecisionNodeExpansions/3) &&
+			 ((greedyRolloutCost > 8 || stdDevNumTurns < 0.15*averageNumTurns || underlyingStateMachine.greedyRolloutEffectiveness < underlyingStateMachine.numRolloutDecisionNodeExpansions/3) &&
 			  !isPuzzle) )
 		{
 			if ( !greedyRolloutsDisabled )
@@ -2999,7 +3003,7 @@ public class Sancho extends SampleGamer {
 			    
 			    //	Scale up the estimate of simulation rate since we'll be running without the overhead
 			    //	of greedy rollouts (which is proportional to the branching factor)
-			    simulationsPerformed *= averageBranchingFactor/2;
+			    simulationsPerformed *= (1+greedyRolloutCost);
 			}
 		}
 		
@@ -3104,12 +3108,8 @@ public class Sancho extends SampleGamer {
 		}
 		else
 		{
-			rolloutSampleSize = (int) (simulationsPerformed/(5*(simulationStopTime - simulationStartTime)));
-			if ( rolloutSampleSize < 1 )
-			{
-				rolloutSampleSize = 1;
-			}
-			else if ( rolloutSampleSize > 100)
+			rolloutSampleSize = (int) (simulationsPerformed/(4*(simulationStopTime - simulationStartTime)) + 1);
+			if ( rolloutSampleSize > 100)
 			{
 				rolloutSampleSize = 100;
 			}
