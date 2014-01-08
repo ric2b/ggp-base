@@ -2078,7 +2078,7 @@ public class Sancho extends SampleGamer {
 	    	{
 	    		TreeNode child = edge.child.node;
 	    		
-	    		Double moveScore = isSimultaneousMove ? child.averageScores[0] : child.scoreForMostLikelyResponse();
+	    		Double moveScore = (isSimultaneousMove || isMultiPlayer) ? child.averageScores[0] : child.scoreForMostLikelyResponse();
 	    		if ( moveScore < 0.5 && edge.child.node.complete )
 	    		{
 	    			//	If everything loses with perfect play go for the highest variance and make
@@ -2367,7 +2367,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.30";
+		return "Sancho 1.31";
 	}
 	
 	@Override
@@ -2607,7 +2607,7 @@ public class Sancho extends SampleGamer {
 	    {
 		    if ( isMultiPlayer )
 		    {
-		    	roleRationality[i] = (i == 0 ? 1 : 0.5);
+		    	roleRationality[i] = (i == 0 ? 1 : 0.8);
 		    }
 		    else
 		    {
