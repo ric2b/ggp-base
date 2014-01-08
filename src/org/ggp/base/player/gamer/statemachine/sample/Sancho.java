@@ -151,6 +151,7 @@ public class Sancho extends SampleGamer {
     }
     
 	private int highestRolloutScoreSeen = -100;
+	private int lowestRolloutScoreSeen = 1000;
 	
     private class RolloutRequest
     {
@@ -199,9 +200,16 @@ public class Sancho extends SampleGamer {
 			        	averageSquaredScores[roleIndex] += score*score;
 			        	scores[roleIndexToRawRoleIndex(roleIndex)] = score;
 			        	
-			        	if ( roleIndex == 0 && score > highestRolloutScoreSeen )
+			        	if ( roleIndex == 0 )
 			        	{
-			        		highestRolloutScoreSeen = score;
+			        		if ( score > highestRolloutScoreSeen )
+				        	{
+			        			highestRolloutScoreSeen = score;
+				        	}
+			        		if ( score < lowestRolloutScoreSeen )
+				        	{
+			        			lowestRolloutScoreSeen = score;
+				        	}
 			        	}
 		        	}
 		        	//int score = netScore(stateMachine, null);
@@ -2067,18 +2075,59 @@ public class Sancho extends SampleGamer {
 	    	}
 	    }
 	    
+	    private void postProcessResponseCompletion()
+	    {
+	    	if ( children != null )
+	    	{
+				if ( children.length > 1 )
+		    	{
+					for(TreeEdge edge2 : children)
+					{
+						if ( edge2.child.seq == edge2.child.node.seq )
+						{
+	    	    			if ( edge2.child.node.averageScores[0] <= lowestRolloutScoreSeen )
+	    	    			{
+	    	    				System.out.println("Post-processing completion of response node");
+    	    					markComplete(edge2.child.node.averageScores);
+    	    					processCompletion();
+	    	    			}
+						}
+					}    		
+		    	}
+		    	else
+		    	{
+		    		children[0].child.node.postProcessResponseCompletion();
+		    	}
+	    	}
+	    }
+	    
 	    public Move getBestMove(boolean traceResponses)
 	    {
 	    	double bestScore = -Double.MAX_VALUE;
 	    	double bestRawScore = -Double.MAX_VALUE;
 	    	Move rawResult = null;
 	    	Move result = null;
+	    	boolean anyComplete = false;
+	    	TreeNode bestNode = null;
 	    	
 	    	for(TreeEdge edge : children)
 	    	{
+	    		if ( edge.child.node.complete )
+	    		{
+	    			anyComplete = true;
+	    		}
+	    		else if ( edge.child.node.children != null )
+	    		{
+	    	    	//	Post-process completions of children with respect the the observed rollout score range
+	    			edge.child.node.postProcessResponseCompletion();
+	    		}
+	    	}
+	    	
+		    for(TreeEdge edge : children)
+		    {
 	    		TreeNode child = edge.child.node;
 	    		
-	    		Double moveScore = (isSimultaneousMove || isMultiPlayer) ? child.averageScores[0] : child.scoreForMostLikelyResponse();
+	    		Double moveScore = (isSimultaneousMove || isMultiPlayer || anyComplete) ? child.averageScores[0] : child.scoreForMostLikelyResponse();
 	    		if ( moveScore < 0.5 && edge.child.node.complete )
 	    		{
 	    			//	If everything loses with perfect play go for the highest variance and make
@@ -2090,8 +2139,15 @@ public class Sancho extends SampleGamer {
     			{
     				child.traceFirstChoiceNode();
     			}
-	    		if ( moveScore > bestScore || (moveScore == bestScore && child.complete && moveScore > 0))
+    			//	Don't accept a complete score which no rollout has seen worse than, if there is
+    			//	any alternative
+    			if ( bestNode != null && !bestNode.complete && child.complete && moveScore <= lowestRolloutScoreSeen)
+    			{
+    				continue;
+    			}
+	    		if ( moveScore > bestScore || (moveScore == bestScore && child.complete && moveScore > 0) || (bestNode != null && bestNode.complete && !child.complete && bestNode.averageScores[0] <= lowestRolloutScoreSeen))
 	    		{
+	    			bestNode = child;
 	    			bestScore = moveScore;
 	    			result = edge.jointPartialMove[0].move;
 	    		}
@@ -2367,7 +2423,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.31";
+		return "Sancho 1.32";
 	}
 	
 	@Override
@@ -2511,6 +2567,7 @@ public class Sancho extends SampleGamer {
 	private class HeuristicScoreInfo
 	{
 		CorrelationInfo[] 	roleCorrelationInfos;
+		CorrelationInfo[] 	roleWinLossCorrelationInfos;
 		int					lastValue = -1;
 		boolean[]			hasRoleChanges;
 		boolean				hasNoChangeTurns = false;
@@ -2518,10 +2575,12 @@ public class Sancho extends SampleGamer {
 		public HeuristicScoreInfo()
 		{
 			roleCorrelationInfos = new CorrelationInfo[numRoles];
+			roleWinLossCorrelationInfos = new CorrelationInfo[numRoles];
 			hasRoleChanges = new boolean[numRoles];
 			for(int i = 0; i < numRoles; i++)
 			{
 				roleCorrelationInfos[i] = new CorrelationInfo();
+				roleWinLossCorrelationInfos[i] = new CorrelationInfo();
 			}
 		}
 		
@@ -2530,6 +2589,11 @@ public class Sancho extends SampleGamer {
 			for(int i = 0; i < numRoles; i++)
 			{
 				roleCorrelationInfos[i].accrueSample(value, roleValues[i]);
+				
+				if ( roleValues[i] == 0 || roleValues[i] == 100 )
+				{
+					roleWinLossCorrelationInfos[i].accrueSample(value, roleValues[i]);
+				}
 			}
 		}
 		
@@ -2540,6 +2604,18 @@ public class Sancho extends SampleGamer {
 			for(int i = 0; i < numRoles; i++)
 			{
 				result[i] = roleCorrelationInfos[i].getCorrelation();
+			}
+
+			return result;
+		}
+		
+		public double[] getWinLossRoleCorrelations()
+		{
+			double[] result = new double[numRoles];
+
+			for(int i = 0; i < numRoles; i++)
+			{
+				result[i] = roleWinLossCorrelationInfos[i].getCorrelation();
 			}
 
 			return result;
@@ -2563,6 +2639,7 @@ public class Sancho extends SampleGamer {
 	private final int maxPiecePropArity = 3;	//	For now (until we can do game-specific learning) restrict to exactly 2-d boards
 	private final int minPiecesThreshold = 6;
 	private final double minHeuristicCorrelation = 0.075;
+	private final double minWinLossHeuristicCorrelation = 0.2;
 	
 	@Override
 	public void stateMachineMetaGame(long timeout) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
@@ -2587,7 +2664,6 @@ public class Sancho extends SampleGamer {
 	    underExpectedRangeScoreReported = false;
 	    overExpectedRangeScoreReported = false;
 	    completeSelectionFromIncompleteParentWarned = false;
-	    highestRolloutScoreSeen = -100;
 		
 	    if ( rolloutProcessors == null && numRolloutThreads > 0 )
 	    {
@@ -2816,7 +2892,12 @@ public class Sancho extends SampleGamer {
 		    			}
 		    			else if ( choosingRoleIndex != -1 )
 		    			{
-		    				heuristicInfo.hasRoleChanges[choosingRoleIndex] = true;
+		    				if ( !heuristicInfo.hasRoleChanges[choosingRoleIndex])
+		    				{
+		    					System.out.println("Role " + roleIndexToRole(choosingRoleIndex) + " alters piece count for: " + e.getKey());
+		    					System.out.println("Move was " + jointMove[roleIndexToRawRoleIndex(choosingRoleIndex)] + ", from " + heuristicInfo.lastValue + " to " + currentValue);
+		    					heuristicInfo.hasRoleChanges[choosingRoleIndex] = true;
+		    				}
 		    			}
 		    		}
 		    		
@@ -2958,19 +3039,20 @@ public class Sancho extends SampleGamer {
 			else
 			{
 	    		double[] roleCorrelations = e.getValue().getRoleCorrelations();
+	    		double[] roleWinLossCorrelations = e.getValue().getWinLossRoleCorrelations();
 	    		
 	    		System.out.println("Correlations for piece set: " + e.getKey());
 	    		for(int i = 0; i < numRoles; i++)
 	    		{
-	    			System.out.println("  Role " + roleIndexToRole(i) + ": " + roleCorrelations[i]);
+	    			System.out.println("  Role " + roleIndexToRole(i) + ": " + roleCorrelations[i] + ", win-loss-filtered: " + roleWinLossCorrelations[i]);
 	    			
-	    			if ( roleCorrelations[i] >= minHeuristicCorrelation )
+	    			if ( roleCorrelations[i] >= minHeuristicCorrelation || roleWinLossCorrelations[i] >= minWinLossHeuristicCorrelation )
 	    			{
-	    				if ( !e.getValue().hasRoleChanges[i] )
-	    				{
-	    					System.out.println("Eliminating potential piece set with no role decision changes for correlated role: " + e.getKey());
-	    				}
-	    				else
+//	    				if ( !e.getValue().hasRoleChanges[i] )
+//	    				{
+//	    					System.out.println("Eliminating potential piece set with no role decision changes for correlated role: " + e.getKey());
+//	    				}
+//	    				else
 	    				{
 		    				if ( pieceStateMaps == null )
 		    				{
@@ -3897,6 +3979,8 @@ public class Sancho extends SampleGamer {
 		List<Move> moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
 		
 		masterMoveWeights = null;
+	    lowestRolloutScoreSeen = 1000;
+	    highestRolloutScoreSeen = -100;
 		
 		if ( isIteratedGame && numRoles == 2 )
 		{
@@ -3965,6 +4049,7 @@ public class Sancho extends SampleGamer {
 				}
 				
 				double ourMaterialDivergence = ourPieceCount - total/numRoles;
+				
 				//	Weight further material gain down the more we're already ahead/behind in material
 				//	because in either circumstance it's likely to be position that is more important
 				heuristicSampleWeight = (int)Math.max(1, 5 - Math.abs(ourMaterialDivergence)*3);
@@ -4029,7 +4114,7 @@ public class Sancho extends SampleGamer {
 			System.out.println("Num winning lines seen: " + numWinningLinesSeen);
 			System.out.println("Num losing lines seen: " + numLosingLinesSeen);
 			System.out.println("Current rollout sample size: " + rolloutSampleSize );
-			System.out.println("Highest observed rollout score: " + highestRolloutScoreSeen);
+			System.out.println("Current observed rollout score range: [" + lowestRolloutScoreSeen + ", " + highestRolloutScoreSeen + "]");
 			System.out.println("Move weight average: " + masterMoveWeights.getAverage());
 			System.out.println("Move weight std dev.: " + masterMoveWeights.getStdDeviation());
 	    }
