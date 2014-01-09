@@ -2085,7 +2085,7 @@ public class Sancho extends SampleGamer {
 					{
 						if ( edge2.child.seq == edge2.child.node.seq )
 						{
-	    	    			if ( edge2.child.node.averageScores[0] <= lowestRolloutScoreSeen )
+	    	    			if ( edge2.child.node.averageScores[0] <= lowestRolloutScoreSeen && edge2.child.node.complete )
 	    	    			{
 	    	    				System.out.println("Post-processing completion of response node");
     	    					markComplete(edge2.child.node.averageScores);
@@ -2116,7 +2116,7 @@ public class Sancho extends SampleGamer {
 	    		{
 	    			anyComplete = true;
 	    		}
-	    		else if ( edge.child.node.children != null )
+	    		else if ( edge.child.node.children != null && lowestRolloutScoreSeen < 100 && !isMultiPlayer )
 	    		{
 	    	    	//	Post-process completions of children with respect the the observed rollout score range
 	    			edge.child.node.postProcessResponseCompletion();
@@ -2141,11 +2141,11 @@ public class Sancho extends SampleGamer {
     			}
     			//	Don't accept a complete score which no rollout has seen worse than, if there is
     			//	any alternative
-    			if ( bestNode != null && !bestNode.complete && child.complete && moveScore <= lowestRolloutScoreSeen)
+    			if ( bestNode != null && !bestNode.complete && child.complete && moveScore <= lowestRolloutScoreSeen && lowestRolloutScoreSeen < 100 )
     			{
     				continue;
     			}
-	    		if ( moveScore > bestScore || (moveScore == bestScore && child.complete && moveScore > 0) || (bestNode != null && bestNode.complete && !child.complete && bestNode.averageScores[0] <= lowestRolloutScoreSeen))
+	    		if ( moveScore > bestScore || (moveScore == bestScore && child.complete && moveScore > 0) || (bestNode != null && bestNode.complete && !child.complete && bestNode.averageScores[0] <= lowestRolloutScoreSeen && lowestRolloutScoreSeen < 100))
 	    		{
 	    			bestNode = child;
 	    			bestScore = moveScore;
@@ -2423,7 +2423,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.32";
+		return "Sancho 1.33";
 	}
 	
 	@Override
