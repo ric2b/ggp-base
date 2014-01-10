@@ -789,6 +789,10 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     		OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(fullPropNet);
             
     		fullPropNet.renderToFile("c:\\temp\\propnetReduced.dot");
+
+    		OptimizingPolymorphicPropNetFactory.refactorLargeGates(fullPropNet);
+            
+    		fullPropNet.renderToFile("c:\\temp\\propnetFactored.dot");
             
             roles = fullPropNet.getRoles();
             

@@ -1990,6 +1990,202 @@ public class OptimizingPolymorphicPropNetFactory {
 	    System.out.println("Removed " + removedRedundantComponentCount + " redundant components");
 	}
 	
+	private static final int largeGateThreshold = 5;
+	
+	public static void refactorLargeGates(PolymorphicPropNet pn)
+	{
+		Set<PolymorphicComponent> newComponents = new HashSet<PolymorphicComponent>();
+		Set<PolymorphicComponent> removedComponents = new HashSet<PolymorphicComponent>();
+		
+		for(PolymorphicComponent c : pn.getComponents())
+		{
+			if ( (c instanceof PolymorphicOr) && c.getInputs().size() > largeGateThreshold )			
+			{
+				//	Can we find a common factor across input ANDs?
+				Set<PolymorphicComponent> inputANDinputs = new HashSet<PolymorphicComponent>();
+				boolean nonAndsPresent = false;
+				int numFactorInstances = 0;
+				int numPotentiallyRemovableComponents = 0;
+				
+				for(PolymorphicComponent input : c.getInputs())
+				{
+					if ( !(input instanceof PolymorphicAnd) )
+					{
+						//	Not unform
+						nonAndsPresent = true;
+						continue;
+					}
+
+					if ( input.getOutputs().size() != 1 )
+					{
+						//	If the output is used for other purposes too we cannot factor it
+						inputANDinputs.clear();
+						break;
+					}
+					
+					numFactorInstances++;
+					
+					if ( inputANDinputs.isEmpty() )
+					{
+						inputANDinputs.addAll(input.getInputs());
+					}
+					else
+					{
+						Collection<? extends PolymorphicComponent> testInputs = input.getInputs();
+						
+						for(Iterator<PolymorphicComponent> itr = inputANDinputs.iterator(); itr.hasNext(); )
+						{						
+							if ( !testInputs.contains(itr.next()))
+							{
+								itr.remove();
+							}
+						}
+						
+						if ( inputANDinputs.isEmpty() )
+						{
+							break;
+						}
+						
+						if ( testInputs.size() <= inputANDinputs.size()+1 )
+						{
+							numPotentiallyRemovableComponents++;
+						}
+					}
+				}
+				
+				if ( !inputANDinputs.isEmpty() && numFactorInstances > 1 && numPotentiallyRemovableComponents > 1 )
+				{
+					PolymorphicComponent factoredOr;
+					
+					System.out.println("Found factorable OR of size " + c.getInputs().size() + ", with " + inputANDinputs.size() + " factors");
+					int removedCount = 0;
+					int addedCount = 0;
+					
+					if ( nonAndsPresent )
+					{
+						factoredOr = pn.getComponentFactory().createOr(-1, -1);
+						newComponents.add(factoredOr);
+						addedCount++;
+					}
+					else
+					{
+						factoredOr = c;
+					}
+					
+					Set<PolymorphicComponent> removedOrInputs = new HashSet<PolymorphicComponent>();
+					Set<PolymorphicComponent> addedOrInputs = new HashSet<PolymorphicComponent>();
+					
+					//	We have one or more common factors - move them past the OR
+					for(PolymorphicComponent input : c.getInputs())
+					{
+						if ( input instanceof PolymorphicAnd )
+						{
+							for(PolymorphicComponent factoredInput : inputANDinputs)
+							{
+								input.removeInput(factoredInput);
+								factoredInput.removeOutput(input);
+							}
+							
+							switch ( input.getInputs().size() )
+							{
+							case 0:
+								removedComponents.add(input);
+								removedOrInputs.add(input);
+								removedCount++;
+								break;
+							case 1:
+								removedComponents.add(input);
+								removedOrInputs.add(input);
+								removedCount++;
+								
+								PolymorphicComponent source = input.getSingleInput();
+								
+								if ( c == factoredOr )
+								{
+									addedOrInputs.add(source);
+								}
+								else
+								{
+									factoredOr.addInput(source);
+								}
+								source.removeOutput(input);
+								source.addOutput(factoredOr);
+								break;
+							default:
+								if ( c != factoredOr )
+								{
+									removedOrInputs.add(input);
+									input.removeOutput(c);
+									factoredOr.addInput(input);
+									input.addOutput(factoredOr);
+								}
+								break;
+							}
+						}
+					}
+
+					for(PolymorphicComponent removed : removedOrInputs)
+					{
+						c.removeInput(removed);
+					}
+
+					for(PolymorphicComponent added : addedOrInputs)
+					{
+						c.addInput(added);
+					}
+
+					PolymorphicAnd newAnd = pn.getComponentFactory().createAnd(-1, -1);
+					newComponents.add(newAnd);
+					addedCount++;
+					
+					if ( c == factoredOr )
+					{
+						for(PolymorphicComponent output : c.getOutputs())
+						{
+							newAnd.addOutput(output);
+							output.removeInput(c);
+							output.addInput(newAnd);
+						}
+						
+						c.removeAllOutputs();
+					}
+					else
+					{
+						newAnd.addOutput(c);
+						c.addInput(newAnd);
+					}
+					
+					factoredOr.addOutput(newAnd);
+					newAnd.addInput(factoredOr);
+					
+					for(PolymorphicComponent input : inputANDinputs)
+					{
+						input.addOutput(newAnd);
+						newAnd.addInput(input);
+					}
+					System.out.println(removedCount + " components removed and " + addedCount + " added for this factorization");
+				}
+			}
+		}
+		
+		int netRemovedCount = removedComponents.size() - newComponents.size();
+		System.out.println("Net components removed by factorization: " + netRemovedCount);
+		if ( netRemovedCount < 0 )
+		{
+			System.out.println("Unexpected growth in size from factorization");
+		}
+		
+		for(PolymorphicComponent c : newComponents)
+		{
+			pn.addComponent(c);
+		}
+		
+		for(PolymorphicComponent c : removedComponents)
+		{
+			pn.removeComponent(c);
+		}
+	}
+	
 	/**
 	 * Potentially optimizes an already-existing propnet by removing propositions
 	 * with no special meaning. The inputs and outputs of those propositions

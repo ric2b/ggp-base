@@ -807,7 +807,7 @@ public class PolymorphicPropNet
 		//c.removeAllOutputs();
 	}
 
-	public void addComponent(PolymorphicConstant c) {
+	public void addComponent(PolymorphicComponent c) {
 		components.add(c);
 		if (c instanceof PolymorphicProposition) propositions.add((PolymorphicProposition)c);
 	}
