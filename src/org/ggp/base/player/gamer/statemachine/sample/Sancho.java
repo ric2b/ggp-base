@@ -1512,7 +1512,7 @@ public class Sancho extends SampleGamer {
     							
     							for(int i = 0; i < numRoles; i++)
     							{
-    								newChild.averageScores[i] = ((newChild.averageScores[i] + bonusBuffer[i])*100)/(100+2*competitivenessBonus);
+    								newChild.averageScores[i] = ((newChild.averageScores[i] + bonusBuffer[i])*100)/(100+2*(numRoles-1)*competitivenessBonus);
     							}
     						}
     						else
@@ -2081,16 +2081,19 @@ public class Sancho extends SampleGamer {
 	    	{
 				if ( children.length > 1 )
 		    	{
-					for(TreeEdge edge2 : children)
+					if ( decidingRoleIndex != (numRoles-1)%numRoles )
 					{
-						if ( edge2.child.seq == edge2.child.node.seq )
+						for(TreeEdge edge2 : children)
 						{
-	    	    			if ( edge2.child.node.averageScores[0] <= lowestRolloutScoreSeen && edge2.child.node.complete )
-	    	    			{
-	    	    				System.out.println("Post-processing completion of response node");
-    	    					markComplete(edge2.child.node.averageScores);
-    	    					processCompletion();
-	    	    			}
+							if ( edge2.child.seq == edge2.child.node.seq )
+							{
+		    	    			if ( edge2.child.node.averageScores[0] <= lowestRolloutScoreSeen && edge2.child.node.complete )
+		    	    			{
+		    	    				System.out.println("Post-processing completion of response node");
+	    	    					markComplete(edge2.child.node.averageScores);
+	    	    					processCompletion();
+		    	    			}
+							}
 						}
 					}    		
 		    	}
@@ -2423,7 +2426,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.34";
+		return "Sancho 1.35";
 	}
 	
 	@Override
