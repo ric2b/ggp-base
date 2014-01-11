@@ -44,6 +44,8 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
     public static int numPropagates = 0;
     public static int numGatesPropagated = 0;
     public boolean[] hasQueuedForPropagation;
+    
+    private long signature = 0;
 
     /**
      * Creates a new Component with no inputs or outputs.
@@ -412,4 +414,14 @@ public abstract class ForwardDeadReckonComponent implements PolymorphicComponent
 
         return sb.toString();
     }
+	
+	public void setSignature(long signature)
+	{
+		this.signature = signature;
+	}
+	
+	public long getSignature()
+	{
+		return signature;
+	}
 }

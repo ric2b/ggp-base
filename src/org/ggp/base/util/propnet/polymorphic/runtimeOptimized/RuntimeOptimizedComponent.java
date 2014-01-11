@@ -33,7 +33,8 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
     
     protected boolean dirty;
     protected boolean cachedValue;
-
+    
+    private long signature = 0;
 
     /**
      * Creates a new Component with no inputs or outputs.
@@ -366,4 +367,14 @@ public abstract class RuntimeOptimizedComponent extends BidirectionalPropagation
 
         return sb.toString();
     }
+	
+	public void setSignature(long signature)
+	{
+		this.signature = signature;
+	}
+	
+	public long getSignature()
+	{
+		return signature;
+	}
 }

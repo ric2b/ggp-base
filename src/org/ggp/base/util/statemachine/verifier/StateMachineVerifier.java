@@ -134,6 +134,7 @@ public class StateMachineVerifier {
             for(int i = 1; i < theMachines.size(); i++) {
                 if(!theMachines.get(i).isTerminal(theCurrentStates[i])) {
                     GamerLogger.log("StateMachine", "Inconsistency between machine #" + i + " and ProverStateMachine over terminal-ness of state " + theCurrentStates[0] + " vs " + theCurrentStates[i]);
+                    System.out.println(theMachines.get(i).isTerminal(theCurrentStates[i]));
                     return false;
                 }
                 for(Role theRole : theMachines.get(0).getRoles()) {

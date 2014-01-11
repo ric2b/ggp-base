@@ -12,8 +12,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
+import java.util.Random;
 import java.util.Set;
 import java.util.Stack;
+import java.util.zip.Adler32;
+import java.util.zip.CRC32;
 
 import org.ggp.base.util.concurrency.ConcurrencyUtils;
 import org.ggp.base.util.gdl.GdlUtils;
@@ -67,6 +70,10 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.statemachine.Role;
+
+
+
+
 
 
 
@@ -2311,5 +2318,234 @@ public class OptimizingPolymorphicPropNetFactory {
 	        
 			numEndComponents = propNet.getComponents().size();
 		} while(numEndComponents != numStartComponents);
+	}
+	
+	public static void removeDuplicateLogic(PolymorphicPropNet pn)
+	{
+		Map<Long, List<PolymorphicComponent>> componentSignatureMap = new HashMap<Long, List<PolymorphicComponent>>();
+		
+		for(PolymorphicComponent c : pn.getComponents())
+		{
+			calculateSignature(c, componentSignatureMap);
+		}
+		
+		int duplicateCount = 0;
+		
+		for(Entry<Long, List<PolymorphicComponent>> e : componentSignatureMap.entrySet())
+		{
+			if ( e.getValue().size() > 1 )
+			{
+				//	Replace each instance with the first
+				PolymorphicComponent keeper = null;
+				
+				for(PolymorphicComponent c : e.getValue())
+				{
+					if ( keeper == null )
+					{
+						keeper = c;
+					}
+					else
+					{
+						duplicateCount++;
+						
+						for(PolymorphicComponent output : c.getOutputs())
+						{
+							output.removeInput(c);
+							if ( !output.getInputs().contains(keeper))
+							{
+								output.addInput(keeper);
+								keeper.addOutput(output);
+							}
+						}
+						
+						pn.removeComponent(c);
+					}
+				}
+			}
+		}
+		
+		System.out.println("Removed " + duplicateCount + " duplicate components");
+	}
+	
+	private static Map<Class<?>, Long> componentTypeBaseSignatures = new HashMap<Class<?>, Long>();
+	
+	private static class FastHasher
+	{
+		private final long m = ((long)0x880355f2)<<32 + 0x1e6d1965;
+		private final long mixMult = ((long)0x2127599b)<<32 + 0xf4325c37;
+		private long h = m;
+		
+		private long mix(long x)
+		{
+			x ^= (x >> 23);
+			x *= mixMult;
+			x ^= (x >> 47);
+			
+			return x;
+		}
+		
+		public void addLong(long value)
+		{
+			h ^= mix(value);
+			h *= m;
+		}
+		
+		public long getValue()
+		{
+			return h;
+		}
+	}
+	private static class Checksummer
+	{
+		private CRC32  chks1 = new CRC32();
+		private CRC32  chks2 = new CRC32();
+		
+		public void addLong(long value)
+		{
+			int int1 = (int) (value & 0xFFFFFFFF);
+			int int2 = (int) (value >> 32);
+			
+			chks1.update(int1);
+			chks2.update(int2);
+
+			long interimResult = getValue();
+			
+			chks2.update((int) (interimResult & 0xFFFFFFFF));
+			chks1.update((int) (interimResult >> 32));
+		}
+		
+		public long getValue()
+		{
+			return chks1.getValue() ^ (chks2.getValue() << 32);
+		}
+	}
+	
+	private static Random rand = new Random();
+	
+	private static long calculateSignature(PolymorphicComponent c, Map<Long, List<PolymorphicComponent>> componentSignatureMap)
+	{
+		if ( c.getSignature() == 0 )
+		{
+			c.setSignature(2);
+			
+			FastHasher chks = new FastHasher();
+			Long componentTypeSignature = componentTypeBaseSignatures.get(c.getClass());
+			
+			if ( componentTypeSignature == null )
+			{
+				componentTypeSignature = new Long(rand.nextLong());
+				componentTypeBaseSignatures.put(c.getClass(), componentTypeSignature);
+			}
+			
+			chks.addLong(componentTypeSignature);
+			
+			long inputsSig = 0;
+			int numNonTransitionalInputs = 0;
+			
+			for(PolymorphicComponent input : c.getInputs())
+			{
+				if ( !(input instanceof PolymorphicTransition) )
+				{
+					numNonTransitionalInputs++;
+					inputsSig += calculateSignature(input, componentSignatureMap);
+				}
+			}
+			
+			if ( numNonTransitionalInputs == 0 )
+			{
+				//	Effectively a logic root - needs a unique id
+				inputsSig = rand.nextLong();
+			}
+			
+			chks.addLong(inputsSig);
+			
+			//	Always set lowest order bit to ensure 0 cannot result
+			c.setSignature(chks.getValue() | 1);
+			
+			//	Propositions are never removed for representing the same logical value as another
+			//	component, nor are they used as a source
+			if ( !(c instanceof PolymorphicProposition) && !(c instanceof PolymorphicTransition))
+			{
+				List<PolymorphicComponent> sigMatchList = componentSignatureMap.get(c.getSignature());
+				if ( sigMatchList == null )
+				{
+					sigMatchList = new LinkedList<PolymorphicComponent>();
+					componentSignatureMap.put(c.getSignature(), sigMatchList);
+				}
+				else
+				{
+					//	Sanity check match with first instance
+					PolymorphicComponent first = sigMatchList.get(0);
+					
+					if ( first.getClass() != c.getClass() )
+					{
+						System.out.println("Signature mismatch (class)");
+					}
+					if ( first.getInputs().size() != c.getInputs().size() )
+					{
+						System.out.println("Signature mismatch (input arity)");
+					}
+					for(PolymorphicComponent input : c.getInputs())
+					{
+						boolean found = false;
+						for(PolymorphicComponent other : first.getInputs())
+						{
+							if ( other.getSignature() == input.getSignature() )
+							{
+								found = true;
+								break;
+							}
+						}
+						
+						if ( !found )
+						{
+							System.out.println("Signature mismatch (input mismatch)");
+							
+							long otherChk = 0;
+							for(PolymorphicComponent other : first.getInputs())
+							{
+								System.out.println("...first instance input sig: " + Long.toHexString(other.getSignature()));
+								otherChk += other.getSignature();
+							}
+							long thisChk = 0;
+							for(PolymorphicComponent cInput : c.getInputs())
+							{
+								System.out.println("...this instance input sig: " + Long.toHexString(cInput.getSignature()));
+								thisChk += cInput.getSignature();
+							}
+							System.out.println("Aggregate inputs sigs: " + Long.toHexString(otherChk) + " and " + Long.toHexString(thisChk));
+							
+							FastHasher validateChk = new FastHasher();
+							
+							validateChk.addLong(componentTypeSignature);
+							validateChk.addLong(otherChk);
+							if ( first.getSignature() != (validateChk.getValue() | 1))
+							{
+								System.out.println("First instance's signatuer does not match");
+							}
+	
+							validateChk = new FastHasher();
+							
+							validateChk.addLong(componentTypeSignature);
+							validateChk.addLong(thisChk);
+							if ( c.getSignature() != (validateChk.getValue() | 1))
+							{
+								System.out.println("This instance's signatuer does not match");
+							}
+							System.out.println("All fucked up");
+							break;
+						}
+					}
+				}
+				
+				sigMatchList.add(c);
+			}
+		}
+		else if ( c.getSignature() == 2 )
+		{
+			System.out.println("LOOP!!!");
+		}
+		
+		return c.getSignature();
 	}
 }

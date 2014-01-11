@@ -1,6 +1,7 @@
 package org.ggp.base.util.propnet.polymorphic;
 
 import java.util.Collection;
+import java.util.zip.Checksum;
 
 /**
  * The root class of the PolymorphicComponent hierarchy, which is designed to represent
@@ -85,5 +86,8 @@ public abstract interface PolymorphicComponent
 	public abstract void removeOutput(PolymorphicComponent output);
 	
 	public abstract void crystalize();
+	
+	public abstract void setSignature(long signature);
+	public abstract long getSignature();
 
 }
