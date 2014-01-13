@@ -771,7 +771,6 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
      * ordering here. Additionally you may compute the initial state here, at
      * your discretion.
      */
-    @SuppressWarnings("unused")
     public void initialize(List<Gdl> description)
     {
 		setRandomSeed(1);
@@ -785,14 +784,24 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 			fullPropNet.renderToFile("c:\\temp\\propnet.dot");
             
     		OptimizingPolymorphicPropNetFactory.removeAnonymousPropositions(fullPropNet);
+      		System.out.println("Num components after anon prop removal: " + fullPropNet.getComponents().size());
     		OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(fullPropNet);
-    		OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(fullPropNet);
+      		System.out.println("Num components after unreachable removal: " + fullPropNet.getComponents().size());
+    		OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(fullPropNet, false);
+      		System.out.println("Num components after first pass redundant componets removal: " + fullPropNet.getComponents().size());
     		OptimizingPolymorphicPropNetFactory.refactorLargeGates(fullPropNet);
-            
+      		System.out.println("Num components after large gate refactoring: " + fullPropNet.getComponents().size());          
+    		OptimizingPolymorphicPropNetFactory.removeDuplicateLogic(fullPropNet);     		
+      		System.out.println("Num components after duplicate removal: " + fullPropNet.getComponents().size());
+    		//OptimizingPolymorphicPropNetFactory.optimizeInputSets(fullPropNet);     		
+      		//System.out.println("Num components after inpu set optimization: " + fullPropNet.getComponents().size());
+      		OptimizingPolymorphicPropNetFactory.OptimizeInvertedInputs(fullPropNet);
+      		System.out.println("Num components after inverted input optimization: " + fullPropNet.getComponents().size());
+       		OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(fullPropNet);
+      		System.out.println("Num components after further removal of redundant components: " + fullPropNet.getComponents().size());
+
     		fullPropNet.renderToFile("c:\\temp\\propnetReduced.dot");
-    		OptimizingPolymorphicPropNetFactory.removeDuplicateLogic(fullPropNet);
-      		fullPropNet.renderToFile("c:\\temp\\propnetDeDuped.dot");
-            
+
             roles = fullPropNet.getRoles();
             
     		moveProps = new ForwardDeadReckonProposition[roles.size()];
@@ -2653,7 +2662,7 @@ return doeses;
 	        			rand -= moveWeights.weightScore[info.globalMoveIndex];
 	        		}
 	        		
-	        		if ( rand <= 0 )
+	        		if ( rand < 0 )
 	        		{	        			
 	        			chosen = info;
 	        			break;

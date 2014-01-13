@@ -2426,7 +2426,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.36";
+		return "Sancho 1.38";
 	}
 	
 	@Override
@@ -2575,6 +2575,8 @@ public class Sancho extends SampleGamer {
 		int					lastValue = -1;
 		boolean[]			hasRoleChanges;
 		boolean				hasNoChangeTurns = false;
+		double				totalValue = 0;
+		int					numSamples = 0;
 
 		public HeuristicScoreInfo()
 		{
@@ -2599,6 +2601,9 @@ public class Sancho extends SampleGamer {
 					roleWinLossCorrelationInfos[i].accrueSample(value, roleValues[i]);
 				}
 			}
+			
+			totalValue += value;
+			numSamples++;
 		}
 		
 		public double[] getRoleCorrelations()
@@ -2624,6 +2629,11 @@ public class Sancho extends SampleGamer {
 
 			return result;
 		}
+		
+		public double getAverageValue()
+		{
+			return totalValue/numSamples;
+		}
 	}
 
 	private class PotentialPiecePropSet
@@ -2640,7 +2650,7 @@ public class Sancho extends SampleGamer {
 	
 	private ForwardDeadReckonInternalMachineState[] pieceStateMaps = null;
 	private final int minPiecePropArity = 3;	//	Assume board of at least 2 dimensions + piece type
-	private final int maxPiecePropArity = 3;	//	For now (until we can do game-specific learning) restrict to exactly 2-d boards
+	private final int maxPiecePropArity = 4;	//	For now (until we can do game-specific learning) restrict to exactly 2-d boards
 	private final int minPiecesThreshold = 6;
 	private final double minHeuristicCorrelation = 0.075;
 	private final double minWinLossHeuristicCorrelation = 0.2;
@@ -3045,7 +3055,7 @@ public class Sancho extends SampleGamer {
 	    		double[] roleCorrelations = e.getValue().getRoleCorrelations();
 	    		double[] roleWinLossCorrelations = e.getValue().getWinLossRoleCorrelations();
 	    		
-	    		System.out.println("Correlations for piece set: " + e.getKey());
+	    		System.out.println("Correlations for piece set (average value " + e.getValue().getAverageValue() + "): " + e.getKey());
 	    		for(int i = 0; i < numRoles; i++)
 	    		{
 	    			System.out.println("  Role " + roleIndexToRole(i) + ": " + roleCorrelations[i] + ", win-loss-filtered: " + roleWinLossCorrelations[i]);
@@ -3124,8 +3134,8 @@ public class Sancho extends SampleGamer {
     		//	exploration bias - not entirely sure why!
     		explorationBias = explorationBias*0.6;
     	}
-    	
-		System.out.println("Set explorationBias to " + explorationBias);
+
+    	System.out.println("Set explorationBias to " + explorationBias);
 		
 		if( underlyingStateMachine.numRolloutDecisionNodeExpansions > 0)
 		{
