@@ -790,6 +790,9 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
     		OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(fullPropNet, false);
       		System.out.println("Num components after first pass redundant componets removal: " + fullPropNet.getComponents().size());
     		OptimizingPolymorphicPropNetFactory.refactorLargeGates(fullPropNet);
+    		fullPropNet.renderToFile("c:\\temp\\propnetBeforeLargeFanout.dot");
+    		OptimizingPolymorphicPropNetFactory.refactorLargeFanouts(fullPropNet);
+    		fullPropNet.renderToFile("c:\\temp\\propnetAfterLargeFanout.dot");
       		System.out.println("Num components after large gate refactoring: " + fullPropNet.getComponents().size());          
     		OptimizingPolymorphicPropNetFactory.removeDuplicateLogic(fullPropNet);     		
       		System.out.println("Num components after duplicate removal: " + fullPropNet.getComponents().size());
