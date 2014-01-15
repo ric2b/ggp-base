@@ -1829,21 +1829,21 @@ public class OptimizingPolymorphicPropNetFactory {
 		    	{
 		    		if ( c instanceof PolymorphicAnd )
 		    		{
-		    			if ( c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicAnd)
+		    			if ( c.getInputs().isEmpty() || c.getOutputs().isEmpty() || (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicAnd) )
 	    				{
 		    	    		redundantComponents.add(c);
 	    				}
 		    		}
 		    		else if ( c instanceof PolymorphicOr )
 		    		{
-		    			if ( c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicOr)
+		    			if ( c.getInputs().isEmpty() || c.getOutputs().isEmpty() || (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicOr) )
 	    				{
 		    	    		redundantComponents.add(c);
 	    				}
 		    		}
 		    		else if ( c instanceof PolymorphicNot )
 		    		{
-		    			if ( c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicNot)
+		    			if ( c.getInputs().isEmpty() || c.getOutputs().isEmpty() || (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicNot) )
 	    				{
 		    	    		redundantComponents.add(c);
 	    				}
@@ -1853,7 +1853,12 @@ public class OptimizingPolymorphicPropNetFactory {
 		    
 		    for(PolymorphicComponent c : redundantComponents)
 		    {
-		    	if (c instanceof PolymorphicConstant)
+		    	if ( (c.getInputs().isEmpty() || c.getOutputs().isEmpty()) &&
+		    		 (c instanceof PolymorphicAnd || c instanceof PolymorphicOr || c instanceof PolymorphicNot) )
+		    	{
+		    		//	Nothing further to do
+		    	}
+		    	else if (c instanceof PolymorphicConstant)
 		    	{
 		    		for(PolymorphicComponent output : c.getOutputs())
 		    		{
@@ -2370,16 +2375,14 @@ public class OptimizingPolymorphicPropNetFactory {
 	{
 		Set<PolymorphicComponent> newComponents = new HashSet<PolymorphicComponent>();
 		Set<PolymorphicComponent> removedComponents = new HashSet<PolymorphicComponent>();
-		int outputToInputFactorizationRemovedCount = 0;
-		int outputToInputFactorizationAddedCount = 0;
-		int outputToInputFactorizationFanoutReduction = 0;		
+		int outputFanoutFactorizationRemovedCount = 0;
+		int outputFanoutFactorizationAddedCount = 0;
+		int outputFactorizationFanoutReduction = 0;		
 		
 		for(PolymorphicComponent c : pn.getComponents())
 		{
-			if ( c.getOutputs().size() > largeGateThreshold && c.getOutputs().size() >= c.getInputs().size()*2 )
+			if ( c.getOutputs().size() > largeGateThreshold )
 			{
-				Set<PolymorphicComponent> nonANDOutputs = new HashSet<PolymorphicComponent>();
-				
 				if ( (c instanceof PolymorphicOr) )			
 				{
 					//	Can we find a common factor across output ANDs?
@@ -2390,7 +2393,6 @@ public class OptimizingPolymorphicPropNetFactory {
 						if ( !(output instanceof PolymorphicAnd) )
 						{
 							//	Not uniform
-							nonANDOutputs.add(output);
 							continue;
 						}
 												
@@ -2420,92 +2422,68 @@ public class OptimizingPolymorphicPropNetFactory {
 					
 					if ( !outputANDinputs.isEmpty() )
 					{
-						System.out.println("Found large output OR with refactorable output ANDs - " + c.getOutputs().size() + " reduced to " + c.getInputs().size());
-						outputToInputFactorizationFanoutReduction += c.getOutputs().size() - c.getInputs().size();
+						//System.out.println("Found large output OR with refactorable output ANDs of size " + c.getOutputs().size());
+						outputFactorizationFanoutReduction += c.getOutputs().size() - 1;
 						
-						//	If there are non-factored outputs also we need to split those off to a new separate OR
-						if ( !nonANDOutputs.isEmpty())
-						{
-							PolymorphicOr newOr = pn.getComponentFactory().createOr(-1,-1);
-							newComponents.add(newOr);
-							outputToInputFactorizationAddedCount++;
-							
-							for(PolymorphicComponent input : c.getInputs())
-							{
-								input.addOutput(newOr);
-								newOr.addInput(input);
-							}
-							
-							for(PolymorphicComponent output : nonANDOutputs)
-							{
-								output.addInput(newOr);
-								newOr.addOutput(output);
-								
-								output.removeInput(c);
-								c.removeOutput(output);
-							}
-						}
+						PolymorphicAnd newAnd = pn.getComponentFactory().createAnd(-1, -1);
+						newComponents.add(newAnd);
+						outputFanoutFactorizationAddedCount++;
 						
-						//	Add the factors into the inputs
-						Set<PolymorphicComponent> inputs = new HashSet<PolymorphicComponent>(c.getInputs());
-						for(PolymorphicComponent input : inputs)
+						for(PolymorphicComponent factor : outputANDinputs)
 						{
-							PolymorphicAnd newAnd = pn.getComponentFactory().createAnd(-1, -1);
-							newComponents.add(newAnd);
-							outputToInputFactorizationAddedCount++;
-							
-							for(PolymorphicComponent factor : outputANDinputs)
-							{
-								newAnd.addInput(factor);
-								factor.addOutput(newAnd);
-							}
-							
-							newAnd.addInput(input);
-							input.addOutput(newAnd);
-							input.removeOutput(c);
-							c.removeInput(input);
-							c.addInput(newAnd);
-							newAnd.addOutput(c);
+							newAnd.addInput(factor);
+							factor.addOutput(newAnd);
 						}
 						
 						//	Remove the factors from the outputs
 						Set<PolymorphicComponent> outputs = new HashSet<PolymorphicComponent>(c.getOutputs());
 						for(PolymorphicComponent output : outputs)
 						{
-							for(PolymorphicComponent factor : outputANDinputs)
+							if ( output instanceof PolymorphicAnd )
 							{
-								output.removeInput(factor);
-								factor.removeOutput(output);
-							}
-							
-							//	If just c is left collapse the gate out altogether
-							if ( output.getInputs().size() == 1 )
-							{
-								c.removeOutput(output);
-								removedComponents.add(output);
-								outputToInputFactorizationRemovedCount++;
-								
-								for(PolymorphicComponent outputOutput : output.getOutputs())
+								for(PolymorphicComponent factor : outputANDinputs)
 								{
-									c.addOutput(outputOutput);
-									outputOutput.addInput(c);
+									output.removeInput(factor);
+									factor.removeOutput(output);
+								}
+								
+								output.removeInput(c);
+								c.removeOutput(output);
+								
+								//	If it was everything just collapse it out entirely
+								if ( output.getInputs().isEmpty() )
+								{
+									removedComponents.add(output);
+									outputFanoutFactorizationRemovedCount++;
+									
+									for(PolymorphicComponent outputOutput : output.getOutputs())
+									{
+										newAnd.addOutput(outputOutput);
+										outputOutput.addInput(newAnd);
+									}
+								}
+								else
+								{
+									newAnd.addOutput(output);
+									output.addInput(newAnd);
 								}
 							}
 						}
+						
+						newAnd.addInput(c);
+						c.addOutput(newAnd);
 					}
 				}
 				else if ( (c instanceof PolymorphicAnd) )			
 				{
 					//	Can we find a common factor across output ORs?
 					Set<PolymorphicComponent> outputORinputs = new HashSet<PolymorphicComponent>();
-					Set<PolymorphicComponent> nonOROutputs = new HashSet<PolymorphicComponent>();				
 					
 					for(PolymorphicComponent output : c.getOutputs())
 					{
 						if ( !(output instanceof PolymorphicOr) )
 						{
 							//	Not uniform
-							nonOROutputs.add(output);
 							continue;
 						}
 												
@@ -2535,78 +2513,56 @@ public class OptimizingPolymorphicPropNetFactory {
 					
 					if ( !outputORinputs.isEmpty() )
 					{
-						System.out.println("Found large output AND with refactorable output ORs - " + c.getOutputs().size() + " reduced to " + c.getInputs().size());
-						outputToInputFactorizationFanoutReduction += c.getOutputs().size() - c.getInputs().size();
+						//System.out.println("Found large output AND with refactorable output ORs of size " + c.getOutputs().size());
+						outputFactorizationFanoutReduction += c.getOutputs().size() - 1;
 						
-						//	If there are non-factored outputs also we need to split those off to a new separate AND
-						if ( !nonOROutputs.isEmpty())
-						{
-							PolymorphicAnd newAnd = pn.getComponentFactory().createAnd(-1,-1);
-							newComponents.add(newAnd);
-							outputToInputFactorizationAddedCount++;
-							
-							for(PolymorphicComponent input : c.getInputs())
-							{
-								input.addOutput(newAnd);
-								newAnd.addInput(input);
-							}
-							
-							for(PolymorphicComponent output : nonOROutputs)
-							{
-								output.addInput(newAnd);
-								newAnd.addOutput(output);
-								
-								output.removeInput(c);
-								c.removeOutput(output);
-							}
-						}
+						PolymorphicOr newOr = pn.getComponentFactory().createOr(-1, -1);
+						newComponents.add(newOr);
+						outputFanoutFactorizationAddedCount++;
 						
-						//	Add the factors into the inputs
-						Set<PolymorphicComponent> inputs = new HashSet<PolymorphicComponent>(c.getInputs());
-						for(PolymorphicComponent input : inputs)
+						for(PolymorphicComponent factor : outputORinputs)
 						{
-							PolymorphicOr newOr = pn.getComponentFactory().createOr(-1, -1);
-							newComponents.add(newOr);
-							outputToInputFactorizationAddedCount++;
-							
-							for(PolymorphicComponent factor : outputORinputs)
-							{
-								newOr.addInput(factor);
-								factor.addOutput(newOr);
-							}
-							
-							newOr.addInput(input);
-							input.addOutput(newOr);
-							input.removeOutput(c);
-							c.removeInput(input);
-							c.addInput(newOr);
-							newOr.addOutput(c);
+							newOr.addInput(factor);
+							factor.addOutput(newOr);
 						}
 						
 						//	Remove the factors from the outputs
 						Set<PolymorphicComponent> outputs = new HashSet<PolymorphicComponent>(c.getOutputs());
 						for(PolymorphicComponent output : outputs)
 						{
-							for(PolymorphicComponent factor : outputORinputs)
+							if ( output instanceof PolymorphicOr )
 							{
-								output.removeInput(factor);
-								factor.removeOutput(output);
-							}
-							
-							//	If just c is left collapse the gate out altogether
-							if ( output.getInputs().size() == 1 )
-							{
-								c.removeOutput(output);
-								removedComponents.add(output);
-								outputToInputFactorizationRemovedCount++;
-								
-								for(PolymorphicComponent outputOutput : output.getOutputs())
+								for(PolymorphicComponent factor : outputORinputs)
 								{
-									c.addOutput(outputOutput);
-									outputOutput.addInput(c);
+									output.removeInput(factor);
+									factor.removeOutput(output);
+								}
+								
+								output.removeInput(c);
+								c.removeOutput(output);
+								
+								//	If it was everything just collapse it out entirely
+								if ( output.getInputs().isEmpty() )
+								{
+									removedComponents.add(output);
+									outputFanoutFactorizationRemovedCount++;
+									
+									for(PolymorphicComponent outputOutput : output.getOutputs())
+									{
+										newOr.addOutput(outputOutput);
+										outputOutput.addInput(newOr);
+									}
+								}
+								else
+								{
+									newOr.addOutput(output);
+									output.addInput(newOr);
 								}
 							}
 						}
+						
+						newOr.addInput(c);
+						c.addOutput(newOr);
 					}
 				}
 			}
@@ -2622,8 +2578,8 @@ public class OptimizingPolymorphicPropNetFactory {
 			pn.removeComponent(c);
 		}
 		
-		int outputToInputFactorizationNetRemovedCount = outputToInputFactorizationRemovedCount - outputToInputFactorizationAddedCount;
-		System.out.println("Fanout reduction from output->input factorization: " + outputToInputFactorizationFanoutReduction + " at a cost of " + -outputToInputFactorizationNetRemovedCount + " gates");
+		int outputToInputFactorizationNetRemovedCount = outputFanoutFactorizationRemovedCount - outputFanoutFactorizationAddedCount;
+		System.out.println("Fanout reduction by factorization of size: " + outputFactorizationFanoutReduction + " at a cost of " + -outputToInputFactorizationNetRemovedCount + " gates");
 	}
 	
 	/**
@@ -2720,10 +2676,108 @@ public class OptimizingPolymorphicPropNetFactory {
 		}
 	}
 	
+	public static void removeGoalPropositions(PolymorphicPropNet propNet)
+	{
+		List<PolymorphicComponent> removedComponents = new LinkedList<PolymorphicComponent>();
+		
+		for(PolymorphicProposition[] roleGoals : propNet.getGoalPropositions().values())
+		{
+			for(PolymorphicProposition c : roleGoals)
+			{
+				propNet.removeComponent(c);
+			}
+		}
+	}
+	
+	public static void removeAllButGoalPropositions(PolymorphicPropNet propNet)
+	{
+		List<PolymorphicComponent> removedComponents = new LinkedList<PolymorphicComponent>();
+		
+		for(PolymorphicComponent c : propNet.getComponents())
+		{
+			boolean remove = false;
+			
+			if ( c instanceof PolymorphicProposition )
+			{
+				GdlConstant name = ((PolymorphicProposition)c).getName().getName();
+				
+				if ( name != TRUE && name != BASE && name != GOAL && name != TERMINAL )
+				{
+					remove = true;
+				}
+			}
+			else if ( c instanceof PolymorphicTransition )
+			{
+				remove = true;
+			}
+			
+			if ( remove )
+			{
+				if ( c.getInputs().size() > 0 )
+				{
+					c.getSingleInput().removeOutput(c);
+				}
+				for(PolymorphicComponent output : c.getOutputs())
+				{
+					output.removeInput(c);
+				}
+				
+				removedComponents.add(c);
+			}
+		}
+		
+		for(PolymorphicComponent c : removedComponents)
+		{
+			propNet.removeComponent(c);
+		}
+		
+		removedComponents.clear();
+
+		int numStartComponents;
+		int numEndComponents;
+		
+		do
+		{
+			numStartComponents = propNet.getComponents().size();
+
+	        OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(propNet);
+	        
+			numEndComponents = propNet.getComponents().size();
+		} while(numEndComponents != numStartComponents);
+		
+		//	Now we can trim any base props which don't feed into other logic
+		for(PolymorphicComponent c : propNet.getComponents())
+		{
+			if ( c instanceof PolymorphicProposition )
+			{
+				GdlConstant name = ((PolymorphicProposition)c).getName().getName();
+				
+				if ( (name == TRUE || name == BASE) && c.getOutputs().isEmpty() )
+				{
+					removedComponents.add(c);
+				}
+			}
+		}
+		
+		for(PolymorphicComponent c : removedComponents)
+		{
+			propNet.removeComponent(c);
+		}
+		
+		do
+		{
+			numStartComponents = propNet.getComponents().size();
+
+	        //OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(propNet, true);
+	        OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(propNet);
+	        
+			numEndComponents = propNet.getComponents().size();
+		} while(numEndComponents != numStartComponents);
+	}
+	
+	
 	public static void fixBaseProposition(PolymorphicPropNet propNet, GdlSentence propName, boolean value)
 	{
-		GdlSentence result = null;
-		
 		System.out.println("Hardwire base prop " + propName + " to value: " + value);
 		PolymorphicProposition prop = propNet.getBasePropositions().get(propName);
 		PolymorphicConstant replacement = propNet.getComponentFactory().createConstant(-1, value);
@@ -2739,6 +2793,11 @@ public class OptimizingPolymorphicPropNetFactory {
 
 		prop.removeAllOutputs();
 
+		minimizeNetwork(propNet);
+	}
+	
+	public static void minimizeNetwork(PolymorphicPropNet propNet)
+	{
 		int numStartComponents;
 		int numEndComponents;
 		

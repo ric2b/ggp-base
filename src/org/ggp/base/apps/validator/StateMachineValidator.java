@@ -28,7 +28,7 @@ public class StateMachineValidator {
 		Set<String> exceptedGames = new HashSet<String>(); 
             
         // Set of games to omit from tests - e.g. - due to known GDL issues
-        //exceptedGames.add("merrills");
+        exceptedGames.add("merrills");
 	    exceptedGames.add("alexChess");
 	    exceptedGames.add("chess");
 	    exceptedGames.add("amazons");
@@ -52,7 +52,7 @@ public class StateMachineValidator {
 	    exceptedGames.add("wallmaze");
 	    exceptedGames.add("ad_game_2x2");
 	    
-        String startGame = "quad_5x5";        // Game to begin with if desired
+        String startGame = "reversi";        // Game to begin with if desired
         boolean foundStartGame = true;      // Set to true to just start at the beginning
         boolean stopOnError = true;         // Whether to stop on first failing game or continue
         
@@ -69,7 +69,7 @@ public class StateMachineValidator {
                 //  Instantiate the statemachine to be tested here as per the following commented out
                 //  line in place of the basic prover
                 //TestPropnetStateMachine theMachine = new TestPropnetStateMachine(new LearningComponentFactory());
-                StateMachine theMachine = new TestForwardDeadReckonPropnetStateMachine();            
+                TestForwardDeadReckonPropnetStateMachine theMachine = new TestForwardDeadReckonPropnetStateMachine();            
                 //StateMachine theMachine = new ProverStateMachine(); // Replace this line with your state machine instantiation           
                     
                 System.out.println("Precheck game " + gameKey + ".");
@@ -84,12 +84,13 @@ public class StateMachineValidator {
                 List<Gdl> description = theRepository.getGame(gameKey).getRules();
                 theReference.initialize(description);
                 theMachine.initialize(description);
+                theMachine.disableGreedyRollouts();
 	
 	            boolean result = false;
 	            
 	            try
 	            {
-	            	result = StateMachineVerifier.checkMachineConsistency(theReference, theMachine, 5000);
+	            	result = StateMachineVerifier.checkMachineConsistency(theReference, theMachine, 10000);
 	            }
 	            catch (Exception e)
 	            {

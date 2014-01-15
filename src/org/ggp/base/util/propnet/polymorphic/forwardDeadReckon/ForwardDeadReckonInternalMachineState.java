@@ -66,6 +66,11 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
 		return contents.get(info.index);
 	}
 	
+	public int size()
+	{
+		return contents.cardinality();
+	}
+	
 	public void xor(ForwardDeadReckonInternalMachineState other)
 	{
 		contents.xor(other.contents);

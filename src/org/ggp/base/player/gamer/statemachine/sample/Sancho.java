@@ -261,7 +261,7 @@ public class Sancho extends SampleGamer {
         	{
         		if ( !role.equals(ourRole) )
         		{
-        			int score = stateMachine.getGoalNative(state, role);
+        			int score = stateMachine.getGoal(state, role);
         			if ( score > bestEnemyScore )
         			{
         				bestEnemyScore = score;
@@ -269,7 +269,7 @@ public class Sancho extends SampleGamer {
         		}
         		else
         		{
-        			result = stateMachine.getGoalNative(state, role);
+        			result = stateMachine.getGoal(state, role);
         		}
         	}
         	
@@ -2426,7 +2426,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.39";
+		return "Sancho 1.40";
 	}
 	
 	@Override
@@ -2574,7 +2574,7 @@ public class Sancho extends SampleGamer {
 		CorrelationInfo[] 	roleWinLossCorrelationInfos;
 		int					lastValue = -1;
 		boolean[]			hasRoleChanges;
-		boolean				hasNoChangeTurns = false;
+		double				noChangeTurnRate = 0;
 		double				totalValue = 0;
 		int					numSamples = 0;
 
@@ -2828,6 +2828,7 @@ public class Sancho extends SampleGamer {
 		}
 		
 		double branchingFactorApproximation = 0;
+		int totalSimulatedTurns = 0;
 		
 		//	Perform a small number of move-by-move simulations to assess how
 		//	the potential piece count heuristics behave at the granularity of
@@ -2893,6 +2894,8 @@ public class Sancho extends SampleGamer {
 					jointMove[roleIndexToRawRoleIndex(i)] = legalMoves.get(r.nextInt(legalMoves.size()));
 				}
 				
+				totalSimulatedTurns++;
+				
 		    	for(Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
 		    	{
 		    		int currentValue = e.getKey().intersectionSize(sampleState);
@@ -2902,7 +2905,7 @@ public class Sancho extends SampleGamer {
 		    		{
 		    			if ( heuristicInfo.lastValue == currentValue )
 		    			{
-		    				heuristicInfo.hasNoChangeTurns = true;
+		    				heuristicInfo.noChangeTurnRate++;
 		    			}
 		    			else if ( choosingRoleIndex != -1 )
 		    			{
@@ -2925,7 +2928,14 @@ public class Sancho extends SampleGamer {
 		}
 		
 		branchingFactorApproximation /= 50;
-		
+    	
+		for(Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
+    	{
+    		HeuristicScoreInfo heuristicInfo = e.getValue();
+    		
+    		heuristicInfo.noChangeTurnRate /= totalSimulatedTurns;
+    	}
+    	
 		if ( isIteratedGame )
 		{
 			System.out.println("May be an iterated game");
@@ -3046,9 +3056,9 @@ public class Sancho extends SampleGamer {
 		
 		for(Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
 		{
-			if ( !e.getValue().hasNoChangeTurns )
+			if ( e.getValue().noChangeTurnRate < 0.02 )
 			{
-				System.out.println("Eliminating potential piece set with changes every turn: " + e.getKey());
+				System.out.println("Eliminating potential piece set with change rate: " + e.getValue().noChangeTurnRate + ": " + e.getKey());
 			}
 			else
 			{
@@ -3989,6 +3999,12 @@ public class Sancho extends SampleGamer {
 	    numNonTerminalRollouts = 0;
 	    numTerminalRollouts = 0;
 	    Move bestMove;
+	    
+		if ( ProfilerContext.getContext() != null )
+		{
+			ProfilerContext.getContext().resetStats();
+		}
+		
 		ForwardDeadReckonInternalMachineState currentState = underlyingStateMachine.createInternalState(getCurrentState());
 		List<Move> moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
 		

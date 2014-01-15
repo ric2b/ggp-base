@@ -240,11 +240,11 @@ public class Qixote extends SampleGamer {
         		if ( !role.equals(ourRole) )
         		{
         			enemyRoleCount++;
-        			enemyScore += stateMachine.getGoalNative(state, role);
+        			enemyScore += stateMachine.getGoal(state, role);
         		}
         		else
         		{
-        			result = stateMachine.getGoalNative(state, role);
+        			result = stateMachine.getGoal(state, role);
         		}
         	}
         	

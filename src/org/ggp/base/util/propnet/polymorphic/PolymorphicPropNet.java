@@ -651,6 +651,17 @@ public class PolymorphicPropNet
 		
 		initProposition = null;
 	}
+	
+	public void RemoveGoals()
+	{
+		OptimizingPolymorphicPropNetFactory.removeGoalPropositions(this);
+	}
+	
+	public void RemoveAllButGoals()
+	{
+		RemoveInits();
+		OptimizingPolymorphicPropNetFactory.removeAllButGoalPropositions(this);
+	}
 
 	/**
 	 * Getter method.
