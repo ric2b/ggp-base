@@ -662,7 +662,7 @@ public class Sancho extends SampleGamer {
 		private int sweepSeq;
 		//private TreeNode sweepParent = null;
 		boolean freed = false;
-		int descendantCount = 0;
+		int trimCount = 0;
 	    private int leastLikelyWinner = -1;
 	    private double leastLikelyRunnerUpValue;
 	    private int mostLikelyWinner = -1;
@@ -919,7 +919,7 @@ public class Sancho extends SampleGamer {
 			parents.clear();
 			trimmedChildren = 0;
 			this.freed = freed;
-			descendantCount = 0;
+			trimCount = 0;
 			leastLikelyWinner = -1;
 			mostLikelyWinner = -1;
 			complete = false;
@@ -1227,7 +1227,7 @@ public class Sancho extends SampleGamer {
 				            	uctValue = -explorationUCT(edge.numChildVisits, roleIndex) - exploitationUCT(edge, roleIndex);
 				            	//uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[leastLikelyWinner])+1) / numChildVisits[leastLikelyWinner]);
 				            }
-				            uctValue /= Math.log(c.numVisits+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
+				            uctValue /= Math.log(Math.max(1, c.numVisits+2-c.trimCount));	//	utcVal is negative so this makes larger subtrees score higher (less negative)
 		        			
 				            if ( uctValue >= leastLikelyRunnerUpValue )
 				            {
@@ -1307,6 +1307,7 @@ public class Sancho extends SampleGamer {
 	        if ( selectedIndex != -1 )
 	        {
 	        	leastLikelyWinner = selectedIndex;
+	        	trimCount++;
 		        //System.out.println("  selected: " + selected.state);
 	        	return children[selectedIndex].child.node.selectLeastLikelyNode(children[selectedIndex], depth+1);
 	        }
@@ -2426,7 +2427,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.40";
+		return "Sancho 1.41";
 	}
 	
 	@Override
@@ -3128,7 +3129,7 @@ public class Sancho extends SampleGamer {
 		System.out.println("Average num turns: " + averageNumTurns);
 		System.out.println("Std deviation num turns: " + stdDevNumTurns);
 		
-		explorationBias = 15/(averageNumTurns - stdDevNumTurns) + 0.5;
+		explorationBias = 18/(averageNumTurns + ((maxNumTurns+minNumTurns)/2 - averageNumTurns)*stdDevNumTurns/averageNumTurns) + 0.4;
 		if ( explorationBias < 0.5 )
 		{
 			explorationBias = 0.5;

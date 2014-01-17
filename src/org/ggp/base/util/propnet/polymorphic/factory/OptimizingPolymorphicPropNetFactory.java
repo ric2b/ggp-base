@@ -2887,30 +2887,6 @@ public class OptimizingPolymorphicPropNetFactory {
 			return h;
 		}
 	}
-	private static class Checksummer
-	{
-		private CRC32  chks1 = new CRC32();
-		private CRC32  chks2 = new CRC32();
-		
-		public void addLong(long value)
-		{
-			int int1 = (int) (value & 0xFFFFFFFF);
-			int int2 = (int) (value >> 32);
-			
-			chks1.update(int1);
-			chks2.update(int2);
-
-			long interimResult = getValue();
-			
-			chks2.update((int) (interimResult & 0xFFFFFFFF));
-			chks1.update((int) (interimResult >> 32));
-		}
-		
-		public long getValue()
-		{
-			return chks1.getValue() ^ (chks2.getValue() << 32);
-		}
-	}
 	
 	private static Random rand = new Random();
 	
