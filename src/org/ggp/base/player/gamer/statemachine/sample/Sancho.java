@@ -63,6 +63,8 @@ public class Sancho extends SampleGamer {
     private final int maxOutstandingRolloutRequests = 4;
     private int numRolloutThreads = 4;
     private double explorationBias = 1.0;
+    private double minExplorationBias = 0.5;
+    private double maxExplorationBias = 1.2;
     private final double competitivenessBonus = 2;
     private TreeNode[] transpositionTable = null;
     private int nextSeq = 0;
@@ -2427,7 +2429,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.41";
+		return "Sancho 1.42";
 	}
 	
 	@Override
@@ -3146,7 +3148,10 @@ public class Sancho extends SampleGamer {
     		explorationBias = explorationBias*0.6;
     	}
 
-    	System.out.println("Set explorationBias to " + explorationBias);
+    	minExplorationBias = explorationBias*0.8;
+    	maxExplorationBias = explorationBias*1.2;
+    	
+    	System.out.println("Set explorationBias range to [" + minExplorationBias + ", " + maxExplorationBias + "]");
 		
 		if( underlyingStateMachine.numRolloutDecisionNodeExpansions > 0)
 		{
@@ -4100,8 +4105,15 @@ public class Sancho extends SampleGamer {
 			
 			Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
 			
-			while(System.currentTimeMillis() < finishBy && !root.complete)
+			long time;
+			long startTime = System.currentTimeMillis();
+			
+			while((time = System.currentTimeMillis()) < finishBy && !root.complete)
 			{
+				double percentThroughTurn = (time - startTime)*100/(finishBy - startTime);
+
+				explorationBias = maxExplorationBias - percentThroughTurn*(maxExplorationBias - minExplorationBias)/100;
+				
 				while ( numUsedNodes > transpositionTableSize - 200 )
 				{
 					root.disposeLeastLikelyNode();
