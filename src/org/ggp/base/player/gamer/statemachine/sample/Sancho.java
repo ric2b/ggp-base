@@ -20,6 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
+import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.gdl.grammar.GdlFunction;
 import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
@@ -85,6 +86,7 @@ public class Sancho extends SampleGamer {
     private TreeNodeRef cousinMovesCachedFor = null;
     private double[] bonusBuffer = null;
     private double[] roleRationality = null;
+    private Object treeLock = new Object();
     
 	private class RolloutProcessor implements Runnable
     {
@@ -378,7 +380,7 @@ public class Sancho extends SampleGamer {
 	
 	private int heuristicSampleWeight = 10;
 	
-    private void processCompletedRollouts(long timeout)
+    private void processCompletedRollouts()
     {
 		//ProfileSection methodSection = new ProfileSection("processCompletedRollouts");
 		//try
@@ -386,14 +388,17 @@ public class Sancho extends SampleGamer {
 	    	//	Process nay outstanding node completions first, as their processing may
 	    	//	have been interrupted due to running out of time at the end of the previous
 	    	//	turn's processing
-			processNodeCompletions(timeout);
+			processNodeCompletions();
 			
-			if ( masterMoveWeights == null )
+			synchronized(treeLock)
 			{
-				masterMoveWeights = underlyingStateMachine.createMoveWeights();
+				if ( masterMoveWeights == null )
+				{
+					masterMoveWeights = underlyingStateMachine.createMoveWeights();
+				}
 			}
 			
-	    	while(!completedRollouts.isEmpty() && System.currentTimeMillis() < timeout)
+	    	while(!completedRollouts.isEmpty())
 	    	{
 	    		RolloutRequest request = completedRollouts.remove();
 	    		TreeNode 	   node = request.node.node;
@@ -404,10 +409,13 @@ public class Sancho extends SampleGamer {
 	    		{
 	    			request.path.resetCursor();
 					//validateAll();
-			        node.updateStats(request.averageScores, request.averageSquaredScores, request.sampleSize, request.path, false, null);//heuristicStateValue(request.state));
-			        masterMoveWeights.noteSampleComplete();
+	    			synchronized(treeLock)
+	    			{
+	    				node.updateStats(request.averageScores, request.averageSquaredScores, request.sampleSize, request.path, false, null);//heuristicStateValue(request.state));
+				        masterMoveWeights.noteSampleComplete();
+	    			}
 					//validateAll();
-		    		processNodeCompletions(timeout);
+		    		processNodeCompletions();
 					//validateAll();
 	    		}
 	    		
@@ -420,16 +428,19 @@ public class Sancho extends SampleGamer {
 		//}
     }
 	
-	private void processNodeCompletions(long timeout)
+	private void processNodeCompletions()
 	{
-		while(!completedNodeQueue.isEmpty() && System.currentTimeMillis() < timeout)
+		while(!completedNodeQueue.isEmpty())
 		{
 			//validateAll();
 			TreeNode node = completedNodeQueue.remove(0);
 			
-			if ( !node.freed )
+			synchronized(treeLock)
 			{
-				node.processCompletion();
+				if ( !node.freed )
+				{
+					node.processCompletion();
+				}
 			}
 		}
 	}
@@ -1522,7 +1533,7 @@ public class Sancho extends SampleGamer {
 	        return this;
 		}
 		
-	    public void selectAction(long timeout) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException {
+	    public void selectAction() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException {
 			ProfileSection methodSection = new ProfileSection("TreeNode.selectAction");
 			try
 			{
@@ -1586,7 +1597,6 @@ public class Sancho extends SampleGamer {
 		        {
 		        	newNode.updateStats(rollout.averageScores, rollout.averageSquaredScores, rolloutSampleSize, visited, true, null);
 		        	masterMoveWeights.noteSampleComplete();
-		    		processNodeCompletions(timeout);
 		        }
 		        else
 		        {
@@ -2391,7 +2401,7 @@ public class Sancho extends SampleGamer {
 	    		else if ( edge.child.node.children != null && lowestRolloutScoreSeen < 100 && !isMultiPlayer && !isSimultaneousMove)
 	    		{
 	    	    	//	Post-process completions of children with respect the the observed rollout score range
-	    			edge.child.node.postProcessResponseCompletion();
+	    			//edge.child.node.postProcessResponseCompletion();
 	    		}
 	    	}
 	    	
@@ -2542,10 +2552,20 @@ public class Sancho extends SampleGamer {
     				{
     					System.out.println("Unexpected edge strength greater than total child strength");
     				}
+    				
+    				//
+    				//	The following appears to be a failed experiment.  The intuition was that the existing score estimate
+    				//	built up on the child node has not been propagated along this pathway fully, and therefore the
+    				//	update along this path should be a blend of the existing estimate (reflecting updates that used other
+    				//	transpositional paths) and the latest rollout.
+    				//	Empirically this doesn't work (BTTT10 provides the most graphic example test case).  I assume this
+    				//	is because later rollouts are better estimates than earlier ones due to being 'steered' by lower
+    				//	level selection, but I'm not sure.
     				//	Propagate a value that is a blend of this rollout value and the current score for the child node
     				//	being propagated from, according to how much of that child's value was accrued through this path
-    				int childWeight = childEdge.child.node.numVisits - numChildVisits;//Math.max(childEdge.child.node.numVisits - numChildVisits - heuristicSampleWeight, 0);
-    				//values[roleIndex] = (values[roleIndex]*numChildVisits + childEdge.child.node.averageScores[roleIndex]*childWeight)/(numChildVisits+childWeight);
+    				//double childWeight = Math.log(childEdge.child.node.numVisits - numChildVisits + 1);//Math.max(childEdge.child.node.numVisits - numChildVisits - heuristicSampleWeight, 0);
+    				//double rolloutWeight = Math.log(numChildVisits+1);
+    				//values[roleIndex] = (values[roleIndex]*rolloutWeight + childEdge.child.node.averageScores[roleIndex]*childWeight)/(rolloutWeight+childWeight);
 		    	}
 		    	
 		    	double scoreToApply = (sampleWeight == 0 ? values[roleIndex] : (values[roleIndex] + heuristicEstimate[roleIndex]*sampleWeight)/(sampleWeight+1));
@@ -2697,11 +2717,27 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.43";
+		return "Sancho 1.43a";
 	}
 	
 	@Override
-	public StateMachine getInitialStateMachine() {
+	public StateMachine getInitialStateMachine()
+	{
+		if ( searchProcessor == null )
+		{
+			searchProcessor = new TreeSearcher();
+			(new Thread(searchProcessor)).start();
+		}
+		else
+		{
+			try {
+				searchProcessor.stop();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
 		if ( transpositionTable == null )
 		{
 			transpositionTable = new TreeNode[transpositionTableSize];
@@ -2724,7 +2760,7 @@ public class Sancho extends SampleGamer {
 		emptyTree();
 		System.gc();
 
-		return underlyingStateMachine;
+		return new StateMachineProxy(underlyingStateMachine);
 	}
 	
 	private final boolean disableOnelevelMinimax = false;
@@ -3569,190 +3605,20 @@ public class Sancho extends SampleGamer {
 		
 		System.out.println(simulationsPerformed*1000/(simulationStopTime - simulationStartTime) + " simulations/second performed - setting rollout sample size to " + rolloutSampleSize);
 		
-		//	BREAKTHROUGH TEST HACK
-		if ( false )
-		{
-			pieceStateMaps = new ForwardDeadReckonInternalMachineState[numRoles];
-			
-			for(Role role : underlyingStateMachine.getRoles())
-			{
-				List<Set<GdlSentence>> pieceProps = new ArrayList<Set<GdlSentence>>();
-				
-				for(int arity = 0; arity <= maxPiecePropArity; arity++)
-				{
-					pieceProps.add(arity, new HashSet<GdlSentence>());
-				}
-				
-				Set<GdlTerm> roleTerms = new HashSet<GdlTerm>();
-				roleTerms.add(role.getName());
-				//	CHECKERS HACK
-				if ( role.toString().equals("black") )
-				{
-					roleTerms.add(GdlPool.getConstant("bp"));
-					roleTerms.add(GdlPool.getConstant("bk"));
-				}
-				else if ( role.toString().equals("red") )
-				{
-					roleTerms.add(GdlPool.getConstant("wp"));
-					roleTerms.add(GdlPool.getConstant("wk"));
-				}
-				
-				for(GdlSentence baseProp : underlyingStateMachine.getBasePropositions())
-				{
-					if ( baseProp.arity() == 1 && baseProp.getBody().get(0) instanceof GdlFunction)
-					{
-						GdlFunction propFn = (GdlFunction)baseProp.getBody().get(0);
-						if ( propFn.arity() <= maxPiecePropArity )
-						{
-							for(GdlTerm roleTerm : roleTerms)
-							{
-								if ( propFn.getBody().contains(roleTerm))
-								{
-									pieceProps.get(propFn.arity()).add(baseProp);
-									break;
-								}
-							}
-						}
-					}
-				}
-				
-				//int maxCount = minPiecesThreshold;
-				Set<GdlSentence>	piecePropSet = null;
-				for(int arity = 0; arity <= maxPiecePropArity; arity++)
-				{
-					if ( pieceProps.get(arity).size() >= minPiecesThreshold )
-					{
-						piecePropSet = pieceProps.get(arity);
-						//maxCount = piecePropSet.size();
-					}
-				}
-				
-				if ( piecePropSet != null )
-				{
-					MachineState rolePieceState = new MachineState(piecePropSet);
-					
-					for(int i = 0; i < numRoles; i++)
-					{
-						if (roleIndexToRole(i).equals(role))
-						{
-							pieceStateMaps[i] = underlyingStateMachine.createInternalState(rolePieceState);
-						}
-					}
-				}
-			}
-			
-			for(int i = 0; i < numRoles; i++)
-			{
-				//	If not all roles have 'pieces' then consider that none do
-				if ( pieceStateMaps[i] == null )
-				{
-					pieceStateMaps = null;
-					break;
-				}
-			}
-			
-			if ( pieceStateMaps != null )
-			{
-				for(int i = 0; i < numRoles; i++)
-				{
-					System.out.println("Piece state map for role " + roleIndexToRole(i) + ": " + pieceStateMaps[i]);
-				}
-			}
-			else
-			{
-				System.out.println("Game has no detectable piece propositions");
-			}
-		}
-		//	TOTAL HACK FOR MAX KNIGHTS
-		if ( false )
-		{
-			patterns = new HashMap<ForwardDeadReckonInternalMachineState, Integer>();
-			GdlSentence[][] boardKnightProps = new GdlSentence[9][9];
-			
-			Pattern propParser = Pattern.compile("cell ([a-i]) ([1-9]) wn");
-			for(GdlSentence baseProp : underlyingStateMachine.getBasePropositions())
-			{
-				String propName = baseProp.toString();
-				Matcher matcher = propParser.matcher(propName);
-				
-				if ( matcher.find() )
-				{
-					int i = (int)matcher.group(1).charAt(0) - (int)'a';
-					int j = Integer.parseInt(matcher.group(2)) - 1;
-					
-					boardKnightProps[i][j] = baseProp;
-				}
-			}
-			
-			Set<GdlSentence> patternSet = new HashSet<GdlSentence>();
-			MachineState patternState = new MachineState(patternSet);
-			ForwardDeadReckonInternalMachineState internalPatternState;
-			
-			for(int i = 0; i < 7; i++)
-			{
-				for(int j = 0; j < 7; j++)
-				{
-					patternSet.add(boardKnightProps[i][j]);
-					patternSet.add(boardKnightProps[i+1][j+1]);
-					
-					internalPatternState = underlyingStateMachine.createInternalState(patternState);
-					
-					patterns.put(internalPatternState, new Integer(1));
-					
-					patternSet.clear();
-					patternSet.add(boardKnightProps[i][j]);
-					patternSet.add(boardKnightProps[i+1][j]);
-					
-					internalPatternState = underlyingStateMachine.createInternalState(patternState);
-					
-					patterns.put(internalPatternState, new Integer(-1));
-					
-					patternSet.clear();
-					patternSet.add(boardKnightProps[i][j]);
-					patternSet.add(boardKnightProps[i][j+1]);
-					
-					internalPatternState = underlyingStateMachine.createInternalState(patternState);
-					
-					patterns.put(internalPatternState, new Integer(-1));
-				}
-			}
-			
-			patternSet.clear();
-			patternSet.add(boardKnightProps[0][0]);
-			patternSet.add(boardKnightProps[7][0]);
-			
-			internalPatternState = underlyingStateMachine.createInternalState(patternState);
-			
-			patterns.put(internalPatternState, new Integer(-50));
-			
-			patternSet.clear();
-			patternSet.add(boardKnightProps[0][0]);
-			patternSet.add(boardKnightProps[0][7]);
-			
-			internalPatternState = underlyingStateMachine.createInternalState(patternState);
-			
-			patterns.put(internalPatternState, new Integer(-50));
-			
-			patternSet.clear();
-			patternSet.add(boardKnightProps[7][7]);
-			patternSet.add(boardKnightProps[7][0]);
-			
-			internalPatternState = underlyingStateMachine.createInternalState(patternState);
-			
-			patterns.put(internalPatternState, new Integer(-50));
-			
-			patternSet.clear();
-			patternSet.add(boardKnightProps[7][7]);
-			patternSet.add(boardKnightProps[0][7]);
-			
-			internalPatternState = underlyingStateMachine.createInternalState(patternState);
-			
-			patterns.put(internalPatternState, new Integer(-50));
-		}
-		
 		if ( ProfilerContext.getContext() != null )
 		{
 			GamerLogger.log("GamePlayer", "Profile stats: \n" + ProfilerContext.getContext().toString());
+		}
+		
+	    numNonTerminalRollouts = 0;
+	    numTerminalRollouts = 0;
+	    
+		if ( (!isIteratedGame || numRoles != 2) && targetState == null )
+		{
+			root = allocateNode(underlyingStateMachine, initialState, null);
+			root.decidingRoleIndex = numRoles-1;
+			
+			searchProcessor.StartSearch(System.currentTimeMillis() + 60000, new ForwardDeadReckonInternalMachineState(initialState));
 		}
 	}
 	
@@ -4263,6 +4129,235 @@ public class Sancho extends SampleGamer {
 		return bestMove;
 	}
 	
+	private class TreeSearcher implements Runnable
+	{
+		private ForwardDeadReckonInternalMachineState	currentState;
+		private long									moveTime;
+		private long									startTime;
+		private int										searchSeqRequested = 0;
+		private int										searchSeqProcessing = 0;
+		private boolean									stopRequested = true;
+		private boolean									running = false;
+		@Override
+		public void run()
+		{
+			// TODO Auto-generated method stub
+			try
+			{
+				while(SearchAvailable())
+				{
+					try
+					{
+						System.out.println("Move search started");
+						
+						if ( underlyingStateMachine.isTerminal(currentState))
+						{
+							System.out.println("Asked to search in terminal state!");
+						}
+						
+						if ( pieceStateMaps != null )
+						{
+							double total = 0;
+							double ourPieceCount = 0;
+							
+							for(int i = 0; i < numRoles; i++)
+							{
+								rootPieceCounts[i] = pieceStateMaps[i].intersectionSize(root.state);
+								total += rootPieceCounts[i];
+								
+								if ( i == 0 )
+								{
+									ourPieceCount = total;
+								}
+							}
+							
+							double ourMaterialDivergence = ourPieceCount - total/numRoles;
+							
+							//	Weight further material gain down the more we're already ahead/behind in material
+							//	because in either circumstance it's likely to be position that is more important
+							heuristicSampleWeight = (int)Math.max(1, 5 - Math.abs(ourMaterialDivergence)*3);
+						}
+						else
+						{
+							heuristicSampleWeight = 0;
+						}
+						
+						if ( root.complete && root.children == null )
+						{
+							System.out.println("Encountered complete root with trimmed children - must re-expand");
+							root.complete = false;
+							numCompletedBranches--;
+						}
+						//int validationCount = 0;
+						
+						Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+						
+						while(!root.complete && !stopRequested)
+						{
+							long time = System.currentTimeMillis();
+							double percentThroughTurn = (time - startTime)*100/(moveTime - startTime);
+	
+							explorationBias = maxExplorationBias - percentThroughTurn*(maxExplorationBias - minExplorationBias)/100;
+							
+							synchronized(treeLock)
+							{
+								while ( numUsedNodes > transpositionTableSize - 200 )
+								{
+									root.disposeLeastLikelyNode();
+								}
+								//validateAll();
+								//validationCount++;
+								int numOutstandingRollouts = numQueuedRollouts - numCompletedRollouts;
+								
+								if ( numOutstandingRollouts < maxOutstandingRolloutRequests )
+								{
+									root.selectAction();
+								}
+							}
+				
+							if (numRolloutThreads == 0)
+							{
+								while( !queuedRollouts.isEmpty() )
+								{
+									RolloutRequest request = queuedRollouts.remove();
+									
+									request.process(underlyingStateMachine);
+								}
+							}
+							//validateAll();
+							synchronized(treeLock)
+							{
+								processCompletedRollouts();
+							}
+						}
+						
+						System.out.println("Move search complete");
+					} catch (TransitionDefinitionException | MoveDefinitionException | GoalDefinitionException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		private boolean SearchAvailable() throws InterruptedException
+		{
+			synchronized(this)
+			{
+				if ( searchSeqRequested == searchSeqProcessing || stopRequested )
+				{
+					running = false;
+					this.wait();
+				}
+				
+				searchSeqProcessing = searchSeqRequested;
+				running = true;
+			}
+			
+			return true;
+		}
+		
+		public void StartSearch(long moveTimeout, ForwardDeadReckonInternalMachineState startState)
+		{
+			System.out.println("Start move search...");
+			synchronized(this)
+			{
+				currentState = startState;
+				moveTime	 = moveTimeout;
+				startTime	 = System.currentTimeMillis();
+				searchSeqRequested++;
+				stopRequested = false;
+				
+				this.notify();
+			}
+		}
+		
+		public void stop() throws InterruptedException
+		{
+			stopRequested = true;
+			
+			synchronized(this)
+			{
+				if ( running )
+				{
+					wait();
+				}
+			}
+		}
+	}
+	
+	private class StateMachineProxy extends StateMachine
+	{
+		private StateMachine machineToProxy;
+		
+		public StateMachineProxy(StateMachine proxyTo)
+		{
+			machineToProxy = proxyTo;
+		}
+		
+		@Override
+		public void initialize(List<Gdl> description)
+		{
+			machineToProxy.initialize(description);
+		}
+
+		@Override
+		public int getGoal(MachineState state, Role role)
+				throws GoalDefinitionException
+		{
+			synchronized(treeLock)
+			{
+				return machineToProxy.getGoal(state,  role);
+			}
+		}
+
+		@Override
+		public boolean isTerminal(MachineState state)
+		{
+			synchronized(treeLock)
+			{
+				return machineToProxy.isTerminal(state);
+			}
+		}
+
+		@Override
+		public List<Role> getRoles()
+		{
+			return machineToProxy.getRoles();
+		}
+
+		@Override
+		public MachineState getInitialState()
+		{
+			return machineToProxy.getInitialState();
+		}
+
+		@Override
+		public List<Move> getLegalMoves(MachineState state, Role role)
+				throws MoveDefinitionException
+		{
+			synchronized(treeLock)
+			{
+				return machineToProxy.getLegalMoves(state, role);
+			}
+		}
+
+		@Override
+		public MachineState getNextState(MachineState state, List<Move> moves)
+				throws TransitionDefinitionException
+		{
+			synchronized(treeLock)
+			{
+				return machineToProxy.getNextState(state, moves);
+			}
+		}
+	}
+	
+	private TreeSearcher searchProcessor = null;
+	
 	@Override
 	public Move stateMachineSelectMove(long timeout)
 			throws TransitionDefinitionException, MoveDefinitionException,
@@ -4270,21 +4365,28 @@ public class Sancho extends SampleGamer {
 		// We get the current start time
 		long start = System.currentTimeMillis();
 		long finishBy = timeout - 2500;
-	    numNonTerminalRollouts = 0;
-	    numTerminalRollouts = 0;
 	    Move bestMove;
+		List<Move> moves;
 	    
 		if ( ProfilerContext.getContext() != null )
 		{
 			ProfilerContext.getContext().resetStats();
 		}
 		
-		ForwardDeadReckonInternalMachineState currentState = underlyingStateMachine.createInternalState(getCurrentState());
-		List<Move> moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
+		ForwardDeadReckonInternalMachineState currentState;
 		
-		masterMoveWeights = null;
-	    lowestRolloutScoreSeen = 1000;
-	    highestRolloutScoreSeen = -100;
+		synchronized(treeLock)
+		{
+			currentState = underlyingStateMachine.createInternalState(getCurrentState());
+			moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
+			
+			System.out.println("Received current state: " + getCurrentState());
+			System.out.println("Using current state: " + currentState);
+			
+			masterMoveWeights = null;
+		    lowestRolloutScoreSeen = 1000;
+		    highestRolloutScoreSeen = -100;
+		}
 		
 		if ( isIteratedGame && numRoles == 2 )
 		{
@@ -4298,136 +4400,78 @@ public class Sancho extends SampleGamer {
 	    }
 	    else
 	    {
-			//	Process anything left over from last turn's timeout
-			processCompletedRollouts(finishBy);
-			
 			//emptyTree();
 			//root = null;
 			//validateAll();
-			if ( root == null )
+			synchronized(treeLock)
 			{
-				root = allocateNode(underlyingStateMachine, currentState, null);
-				root.decidingRoleIndex = numRoles-1;
-			}
-			else
-			{
-				System.out.println("Searching for new root in state: " + currentState);
-				TreeNode newRoot = root.findNode(currentState, underlyingStateMachine.getRoles().size()+1);
-				if ( newRoot == null )
+				//	Process anything left over from last turn's timeout
+				processCompletedRollouts();
+				
+				if ( root == null )
 				{
-					System.out.println("Unexpectedly unable to find root node in existing tree");
-					emptyTree();
 					root = allocateNode(underlyingStateMachine, currentState, null);
 					root.decidingRoleIndex = numRoles-1;
 				}
 				else
 				{
-					System.out.println("Freeing unreachable nodes for new state: " + currentState);
-					root.freeAllBut(newRoot);
-					//sweepInstance++;
-					
-					root = newRoot;
-				}
-			}
-			//validateAll();
-	
-			if ( underlyingStateMachine.isTerminal(currentState))
-			{
-				System.out.println("Asked to select in terminal state!");
-			}
-			
-			if ( pieceStateMaps != null )
-			{
-				double total = 0;
-				double ourPieceCount = 0;
-				
-				for(int i = 0; i < numRoles; i++)
-				{
-					rootPieceCounts[i] = pieceStateMaps[i].intersectionSize(root.state);
-					total += rootPieceCounts[i];
-					
-					if ( i == 0 )
+					System.out.println("Searching for new root in state: " + currentState);
+					TreeNode newRoot = root.findNode(currentState, underlyingStateMachine.getRoles().size()+1);
+					if ( newRoot == null )
 					{
-						ourPieceCount = total;
+						System.out.println("Unexpectedly unable to find root node in existing tree");
+						emptyTree();
+						root = allocateNode(underlyingStateMachine, currentState, null);
+						root.decidingRoleIndex = numRoles-1;
 					}
-				}
-				
-				double ourMaterialDivergence = ourPieceCount - total/numRoles;
-				
-				//	Weight further material gain down the more we're already ahead/behind in material
-				//	because in either circumstance it's likely to be position that is more important
-				heuristicSampleWeight = (int)Math.max(1, 5 - Math.abs(ourMaterialDivergence)*3);
-			}
-			else
-			{
-				heuristicSampleWeight = 0;
-			}
-			
-			if ( root.complete && root.children == null )
-			{
-				System.out.println("Encountered complete root with trimmed children - must re-expand");
-				root.complete = false;
-				numCompletedBranches--;
-			}
-			//int validationCount = 0;
-			
-			Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
-			
-			long time;
-			long startTime = System.currentTimeMillis();
-			
-			while((time = System.currentTimeMillis()) < finishBy && !root.complete)
-			{
-				double percentThroughTurn = (time - startTime)*100/(finishBy - startTime);
-
-				explorationBias = maxExplorationBias - percentThroughTurn*(maxExplorationBias - minExplorationBias)/100;
-				
-				while ( numUsedNodes > transpositionTableSize - 200 )
-				{
-					root.disposeLeastLikelyNode();
-				}
-				//validateAll();
-				//validationCount++;
-				int numOutstandingRollouts = numQueuedRollouts - numCompletedRollouts;
-				
-				if ( numOutstandingRollouts < maxOutstandingRolloutRequests )
-				{
-					root.selectAction(finishBy);
-				}
-	
-				if (numRolloutThreads == 0)
-				{
-					while( !queuedRollouts.isEmpty() )
+					else
 					{
-						RolloutRequest request = queuedRollouts.remove();
-						
-						request.process(underlyingStateMachine);
+						System.out.println("Freeing unreachable nodes for new state: " + currentState);
+						if ( newRoot != root )
+						{
+							root.freeAllBut(newRoot);
+							
+							root = newRoot;
+						}
 					}
 				}
 				//validateAll();
-				processCompletedRollouts(finishBy);			
+			}
+			
+			searchProcessor.StartSearch(finishBy, currentState);
+			
+			try {
+				Thread.sleep(Math.max(0,finishBy - System.currentTimeMillis()));
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			//validateAll();
+			synchronized(treeLock)
+			{
+				bestMove = root.getBestMove(true);
+				
+				System.out.println("Playing move: " + bestMove);
+				System.out.println("Num total tree node allocations: " + numTotalTreeNodes);
+				System.out.println("Num unique tree node allocations: " + numUniqueTreeNodes);
+				System.out.println("Num tree node frees: " + numFreedTreeNodes);
+				System.out.println("Num tree nodes currently in use: " + numUsedNodes);
+				System.out.println("Num true rollouts added: " + numNonTerminalRollouts);
+				System.out.println("Num terminal nodes revisited: " + numTerminalRollouts);
+				System.out.println("Num incomplete nodes: " + numIncompleteNodes);
+				System.out.println("Num completely explored branches: " + numCompletedBranches);
+				System.out.println("Num winning lines seen: " + numWinningLinesSeen);
+				System.out.println("Num losing lines seen: " + numLosingLinesSeen);
+				System.out.println("Current rollout sample size: " + rolloutSampleSize );
+				System.out.println("Current observed rollout score range: [" + lowestRolloutScoreSeen + ", " + highestRolloutScoreSeen + "]");
+				System.out.println("Move weight average: " + masterMoveWeights.getAverage());
+				System.out.println("Move weight std dev.: " + masterMoveWeights.getStdDeviation());
+				
+			    numNonTerminalRollouts = 0;
+			    numTerminalRollouts = 0;
 			}
 			
 			//validateAll();
-			bestMove = root.getBestMove(true);
-			
-			//validateAll();
-			
-			System.out.println("Playing move: " + bestMove);
-			System.out.println("Num total tree node allocations: " + numTotalTreeNodes);
-			System.out.println("Num unique tree node allocations: " + numUniqueTreeNodes);
-			System.out.println("Num tree node frees: " + numFreedTreeNodes);
-			System.out.println("Num tree nodes currently in use: " + numUsedNodes);
-			System.out.println("Num true rollouts added: " + numNonTerminalRollouts);
-			System.out.println("Num terminal nodes revisited: " + numTerminalRollouts);
-			System.out.println("Num incomplete nodes: " + numIncompleteNodes);
-			System.out.println("Num completely explored branches: " + numCompletedBranches);
-			System.out.println("Num winning lines seen: " + numWinningLinesSeen);
-			System.out.println("Num losing lines seen: " + numLosingLinesSeen);
-			System.out.println("Current rollout sample size: " + rolloutSampleSize );
-			System.out.println("Current observed rollout score range: [" + lowestRolloutScoreSeen + ", " + highestRolloutScoreSeen + "]");
-			System.out.println("Move weight average: " + masterMoveWeights.getAverage());
-			System.out.println("Move weight std dev.: " + masterMoveWeights.getStdDeviation());
 	    }
 		
 		if ( ProfilerContext.getContext() != null )
@@ -4441,6 +4485,12 @@ public class Sancho extends SampleGamer {
 		
 		Thread.currentThread().setPriority(Thread.NORM_PRIORITY);
 		
+		try {
+			Thread.sleep(2000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		/**
 		 * These are functions used by other parts of the GGP codebase
 		 * You shouldn't worry about them, just make sure that you have
