@@ -411,7 +411,7 @@ public class Sancho extends SampleGamer {
 					//validateAll();
 	    			synchronized(treeLock)
 	    			{
-	    				node.updateStats(request.averageScores, request.averageSquaredScores, request.sampleSize, request.path, false, null);//heuristicStateValue(request.state));
+	    				node.updateStats(request.averageScores, request.averageSquaredScores, request.sampleSize, request.path, false);
 				        masterMoveWeights.noteSampleComplete();
 	    			}
 					//validateAll();
@@ -1595,7 +1595,7 @@ public class Sancho extends SampleGamer {
 		        RolloutRequest rollout = newNode.rollOut(visited);
 		        if ( rollout != null )
 		        {
-		        	newNode.updateStats(rollout.averageScores, rollout.averageSquaredScores, rolloutSampleSize, visited, true, null);
+		        	newNode.updateStats(rollout.averageScores, rollout.averageSquaredScores, rolloutSampleSize, visited, true);
 		        	masterMoveWeights.noteSampleComplete();
 		        }
 		        else
@@ -2524,13 +2524,12 @@ public class Sancho extends SampleGamer {
 	    	}
 	    }
 	    
-	    public void updateStats(double[] values, double[] squaredValues, int sampleSize, TreePath path, boolean updateVisitCounts, double[] heuristicEstimate)
+	    public void updateStats(double[] values, double[] squaredValues, int sampleSize, TreePath path, boolean isCompletePseudoRollout)
 	    {
 	    	TreeEdge childEdge = path.getCurrentEdge();
 
 			double[]	oldAverageScores = new double[numRoles];
 			double[]	oldAverageSquaredScores = new double[numRoles];
-	    	int sampleWeight = (heuristicEstimate == null ? 0 : heuristicSampleWeight);
 			
 			for(int roleIndex = 0; roleIndex < numRoles; roleIndex++)
 			{
@@ -2539,16 +2538,9 @@ public class Sancho extends SampleGamer {
 		    	
 		    	if ( (!complete || isSimultaneousMove) && childEdge != null )
 		    	{
-    				//	Increment child visit count if required before calculating as child's own numVisits
-    				//	will have already been incremented in the previous stage of the recursion
-			    	if ( updateVisitCounts && roleIndex == 0 )
-			    	{
-			    		childEdge.numChildVisits++;
-			    	}
-			    	
-    				int numChildVisits = childEdge.numChildVisits;
+     				int visitsViaEdge = childEdge.numChildVisits;
     				
-    				if ( numChildVisits > childEdge.child.node.numVisits)
+    				if ( visitsViaEdge > childEdge.child.node.numVisits)
     				{
     					System.out.println("Unexpected edge strength greater than total child strength");
     				}
@@ -2566,13 +2558,15 @@ public class Sancho extends SampleGamer {
     				//double childWeight = Math.log(childEdge.child.node.numVisits - numChildVisits + 1);//Math.max(childEdge.child.node.numVisits - numChildVisits - heuristicSampleWeight, 0);
     				//double rolloutWeight = Math.log(numChildVisits+1);
     				//values[roleIndex] = (values[roleIndex]*rolloutWeight + childEdge.child.node.averageScores[roleIndex]*childWeight)/(rolloutWeight+childWeight);
+    				//if ( isCompletePseudoRollout )
+    				{
+    					values[roleIndex] = (values[roleIndex]*visitsViaEdge + childEdge.child.node.averageScores[roleIndex]*(childEdge.child.node.numVisits-visitsViaEdge))/childEdge.child.node.numVisits;
+    				}
 		    	}
 		    	
-		    	double scoreToApply = (sampleWeight == 0 ? values[roleIndex] : (values[roleIndex] + heuristicEstimate[roleIndex]*sampleWeight)/(sampleWeight+1));
-		    	
-		    	if ( updateVisitCounts)
+		    	if ( isCompletePseudoRollout)
 		    	{
-		    		averageScores[roleIndex] = (averageScores[roleIndex]*numVisits + (sampleWeight+1)*scoreToApply)/(numVisits+sampleWeight+1);
+		    		averageScores[roleIndex] = (averageScores[roleIndex]*numVisits + values[roleIndex])/(numVisits+1);
 		    		averageSquaredScores[roleIndex] = (averageSquaredScores[roleIndex]*numVisits + squaredValues[roleIndex])/(numVisits+1);
 		    	}
 		    	else
@@ -2582,7 +2576,7 @@ public class Sancho extends SampleGamer {
 		    			System.out.println("Updating stats for unvisited node");
 		    		}
 	
-		    		averageScores[roleIndex] = (averageScores[roleIndex]*(numVisits-1) + (sampleWeight+1)*scoreToApply)/(numVisits+sampleWeight);
+		    		averageScores[roleIndex] = (averageScores[roleIndex]*(numVisits-1) + values[roleIndex])/(numVisits);
 		    		averageSquaredScores[roleIndex] = (averageSquaredScores[roleIndex]*(numVisits-1) + squaredValues[roleIndex])/numVisits;
 		    	}
 		    	
@@ -2601,23 +2595,22 @@ public class Sancho extends SampleGamer {
 			
 			//validateScoreVector(averageScores);
 	    	
-	    	numVisits += sampleWeight;
-	    	if ( updateVisitCounts )
+	    	if ( isCompletePseudoRollout )
 	    	{
-	    		numVisits++;
+	    		numVisits += 2;
+		    	
+		    	if ( (!complete || isSimultaneousMove) && childEdge != null )
+		    	{
+					childEdge.numChildVisits += 2;
+			    }
 	    	}
-			
-			if ( childEdge != null )
-			{
-				//masterMoveWeights.addResult(values, childEdge.jointPartialMove[childEdge.child.node.decidingRoleIndex]);
-			}
     	
 			if ( path.hasMore() )
 			{
 				TreeNode node = path.getNextNode();
 				if ( node != null )
 				{
-					node.updateStats(values, squaredValues, sampleSize, path, updateVisitCounts, (decidingRoleIndex == 0 ? null : heuristicEstimate));
+					node.updateStats(values, squaredValues, sampleSize, path, isCompletePseudoRollout);
 				}
 			}
     	}
@@ -2710,6 +2703,7 @@ public class Sancho extends SampleGamer {
 		completedRollouts.clear();
 		numQueuedRollouts = 0;
 		numCompletedRollouts = 0;
+		numIncompleteNodes = 0;
 	}
 	
 	private TestForwardDeadReckonPropnetStateMachine underlyingStateMachine;
@@ -4441,11 +4435,17 @@ public class Sancho extends SampleGamer {
 			searchProcessor.StartSearch(finishBy, currentState);
 			
 			try {
-				Thread.sleep(Math.max(0,finishBy - System.currentTimeMillis()));
+				while(System.currentTimeMillis() < finishBy && !root.complete )
+				{
+					Thread.sleep(500);
+				}
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			
+			boolean rootComplete;
+			
 			//validateAll();
 			synchronized(treeLock)
 			{
@@ -4469,9 +4469,20 @@ public class Sancho extends SampleGamer {
 				
 			    numNonTerminalRollouts = 0;
 			    numTerminalRollouts = 0;
+			    rootComplete = root.complete;
 			}
 			
 			//validateAll();
+			
+			if ( !rootComplete )
+			{
+				try {
+					Thread.sleep(2000);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
 	    }
 		
 		if ( ProfilerContext.getContext() != null )
@@ -4485,12 +4496,6 @@ public class Sancho extends SampleGamer {
 		
 		Thread.currentThread().setPriority(Thread.NORM_PRIORITY);
 		
-		try {
-			Thread.sleep(2000);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
 		/**
 		 * These are functions used by other parts of the GGP codebase
 		 * You shouldn't worry about them, just make sure that you have
