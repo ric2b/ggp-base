@@ -12,6 +12,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.PriorityQueue;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -32,6 +33,7 @@ import org.ggp.base.util.profile.ProfilerSampleSetSimple;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionCrossReferenceInfo;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
@@ -2225,7 +2227,7 @@ public class Sancho extends SampleGamer {
 	    	}
 	    	else if ( (decidingRoleIndex+1)%numRoles == forRoleIndex && from != null && children.length > 1 )
 	    	{
-	    		return averageScores[forRoleIndex];
+	    		return from.averageScores[forRoleIndex];	//	TEMP TEMP TEMP
 	    	}
 	    	
 	    	double result = 0;
@@ -2530,6 +2532,7 @@ public class Sancho extends SampleGamer {
 
 			double[]	oldAverageScores = new double[numRoles];
 			double[]	oldAverageSquaredScores = new double[numRoles];
+			boolean		countsUpdated = false;
 			
 			for(int roleIndex = 0; roleIndex < numRoles; roleIndex++)
 			{
@@ -2538,6 +2541,11 @@ public class Sancho extends SampleGamer {
 		    	
 		    	if ( (!complete || isSimultaneousMove) && childEdge != null )
 		    	{
+			    	if ( isCompletePseudoRollout )
+			    	{
+			    		childEdge.numChildVisits++;
+			    	}
+			    	
      				int visitsViaEdge = childEdge.numChildVisits;
     				
     				if ( visitsViaEdge > childEdge.child.node.numVisits)
@@ -2568,6 +2576,8 @@ public class Sancho extends SampleGamer {
 		    	{
 		    		averageScores[roleIndex] = (averageScores[roleIndex]*numVisits + values[roleIndex])/(numVisits+1);
 		    		averageSquaredScores[roleIndex] = (averageSquaredScores[roleIndex]*numVisits + squaredValues[roleIndex])/(numVisits+1);
+		    		
+		    		numVisits++;
 		    	}
 		    	else
 		    	{
@@ -2591,20 +2601,22 @@ public class Sancho extends SampleGamer {
 		    	
 		    	leastLikelyWinner = -1;
 		    	mostLikelyWinner = -1;
-			}
+		    	
+//		    	if ( isCompletePseudoRollout && !countsUpdated )
+//		    	{
+//		    		numVisits++;
+//			    	
+//			    	if ( (!complete || isSimultaneousMove) && childEdge != null )
+//			    	{
+//						childEdge.numChildVisits++;
+//				    }
+//			    	
+//			    	countsUpdated = true;
+//		    	}
+	 		}
 			
 			//validateScoreVector(averageScores);
-	    	
-	    	if ( isCompletePseudoRollout )
-	    	{
-	    		numVisits += 2;
-		    	
-		    	if ( (!complete || isSimultaneousMove) && childEdge != null )
-		    	{
-					childEdge.numChildVisits += 2;
-			    }
-	    	}
-    	
+   	
 			if ( path.hasMore() )
 			{
 				TreeNode node = path.getNextNode();
@@ -2725,7 +2737,9 @@ public class Sancho extends SampleGamer {
 		else
 		{
 			try {
+				System.out.println("Stop search processor...");
 				searchProcessor.stop();
+				System.out.println("...stopped");
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -2757,7 +2771,7 @@ public class Sancho extends SampleGamer {
 		return new StateMachineProxy(underlyingStateMachine);
 	}
 	
-	private final boolean disableOnelevelMinimax = false;
+	private final boolean disableOnelevelMinimax = false;	//	TEMP TEMP TEMP
 	private boolean isPuzzle = false;
 	private boolean isMultiPlayer = false;
 	private boolean isSimultaneousMove = false;
@@ -2979,6 +2993,10 @@ public class Sancho extends SampleGamer {
 	    underExpectedRangeScoreReported = false;
 	    overExpectedRangeScoreReported = false;
 	    completeSelectionFromIncompleteParentWarned = false;
+	    
+	    AStarSolutionPath = null;
+	    AStarFringe = null;
+	    targetStateAsInternal = null;
 		
 	    if ( rolloutProcessors == null && numRolloutThreads > 0 )
 	    {
@@ -3490,7 +3508,7 @@ public class Sancho extends SampleGamer {
 		}
 		
 		//	Special case handling for puzzles with hard-to-find wins
-		if ( isPuzzle && observedMinNetScore == observedMaxNetScore && observedMaxNetScore < 100 )
+		if ( isPuzzle )//&& observedMinNetScore == observedMaxNetScore && observedMaxNetScore < 100 )
 		{
 			//	8-puzzle type stuff
 			System.out.println("Puzzle with no observed solution");
@@ -3544,6 +3562,12 @@ public class Sancho extends SampleGamer {
 				bestSeenHeuristicValue = 0;
 				
 				System.out.println("Found target state: " + terminalState);
+				
+				if ( targetState.getContents().size() < initialState.size()/2 )
+				{
+					System.out.println("Unsuitable target state based on state elimination - ignoring");
+					//targetState = null;
+				}
 			}
 		}
 		
@@ -3802,6 +3826,184 @@ public class Sancho extends SampleGamer {
 		return result;
 	}
 	
+	private class AStarNode implements Comparable<AStarNode>
+	{
+		private ForwardDeadReckonInternalMachineState	state;
+		private AStarNode		parent;
+		private Move			move;
+		private int				pathLength;
+		private int				heuristicCost = -1;
+		
+		public AStarNode(ForwardDeadReckonInternalMachineState state, AStarNode parent, Move move)
+		{
+			this.state = state;
+			this.parent = parent;
+			this.move = move;
+			
+			pathLength = (parent == null ? 0 : parent.pathLength+1);
+		}
+		
+		public AStarNode getParent()
+		{
+			return parent;
+		}
+		
+		public Move getMove()
+		{
+			return move;
+		}
+		
+		public ForwardDeadReckonInternalMachineState getState()
+		{
+			return state;
+		}
+		
+		public int getPriority()
+		{
+			return pathLength + heuristicCost();
+		}
+		
+		private int heuristicCost()
+		{
+			return 0;
+//			if ( heuristicCost == -1 )
+//			{
+//				ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(state);
+//				
+//				temp.intersect(targetStateAsInternal);
+//				
+//				heuristicCost = targetStateAsInternal.size() - temp.size();
+//			}
+//			
+//			return heuristicCost;
+		}
+
+		@Override
+		public int compareTo(AStarNode o)
+		{
+			return getPriority() - o.getPriority();
+		}
+	}
+	
+	private PriorityQueue<AStarNode> AStarFringe = null;
+	private ForwardDeadReckonInternalMachineState targetStateAsInternal = null;
+	private List<Move> AStarSolutionPath = null;
+	ForwardDeadReckonInternalMachineState stepStateMask = null;
+	
+	private Move selectAStarMove(List<Move> moves, long timeout) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
+	{
+		Move bestMove = moves.get(0);
+		int[] numAtDistance = new int[50];
+		
+		for(int i = 0; i < 50; i++)
+		{
+			numAtDistance[i] = 0;
+		}
+		
+		if ( AStarSolutionPath == null )
+		{
+			if ( AStarFringe == null )
+			{
+				AStarFringe = new PriorityQueue<AStarNode>();
+				
+				AStarFringe.add(new AStarNode(underlyingStateMachine.createInternalState(getCurrentState()), null, null));
+			}
+			
+			stepStateMask = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+			
+			stepStateMask.clear();
+			for(ForwardDeadReckonPropositionCrossReferenceInfo info : underlyingStateMachine.getInfoSet())
+			{
+				if ( info.sentence.toString().contains("step") )
+				{
+					stepStateMask.add(info);
+				}
+			}
+			stepStateMask.invert();
+			
+			if ( targetStateAsInternal == null )
+			{
+				targetStateAsInternal = underlyingStateMachine.createInternalState(targetState);
+				targetStateAsInternal.intersect(stepStateMask);
+			}
+			
+			int largestDequeuePriority = -1;
+			int bestGoalFound = -1;
+			
+			Set<ForwardDeadReckonInternalMachineState> visitedStates = new HashSet<ForwardDeadReckonInternalMachineState>();
+			
+			while(!AStarFringe.isEmpty())
+			{
+				AStarNode node = AStarFringe.remove();
+				
+				if ( node.getPriority() > largestDequeuePriority )
+				{
+					largestDequeuePriority = node.getPriority();
+					
+					System.out.println("Now dequeuing estimated cost " + largestDequeuePriority + " (fringe size " + AStarFringe.size() + ")");
+				}
+				
+				if ( underlyingStateMachine.isTerminal(node.getState()))
+				{
+					int goalValue = underlyingStateMachine.getGoal(node.getState(), ourRole);
+					
+					if ( goalValue > bestGoalFound )
+					{
+						AStarSolutionPath = new LinkedList<Move>();
+	
+						//	Construct solution path
+						while(node != null && node.getMove() != null)
+						{
+							AStarSolutionPath.add(0,node.getMove());
+							node = node.getParent();
+						}
+						
+						if ( goalValue == 100 )
+						{
+							//break;
+						}
+					}
+				}
+				
+				//	Expand the node and add children to the fringe
+				List<Move> childMoves = underlyingStateMachine.getLegalMoves(node.getState(), ourRole);
+				
+				if ( childMoves.size() == 0 )
+				{
+					System.out.println("No child moves found from state: " + node.getState());
+				}
+				for(Move move : childMoves)
+				{
+					List<Move> jointMove = new LinkedList<Move>();
+					jointMove.add(move);
+					
+					ForwardDeadReckonInternalMachineState newState = underlyingStateMachine.getNextState(node.getState(), jointMove);
+					ForwardDeadReckonInternalMachineState steplessState = new ForwardDeadReckonInternalMachineState(newState);
+					steplessState.intersect(stepStateMask);
+					
+					if ( !visitedStates.contains(steplessState) )
+					{
+						AStarNode newChild = new AStarNode(newState, node, move);
+						AStarFringe.add(newChild);
+						
+						visitedStates.add(steplessState);
+						
+						numAtDistance[newChild.pathLength]++;
+					}
+				}
+			}
+		}
+		
+		for(int i = 0; i < 50; i++)
+		{
+			System.out.println("Num states at distance " + i + ": " + numAtDistance[i]);
+		}
+
+		bestMove = AStarSolutionPath.remove(0);
+		
+		return bestMove;
+	}
+
 	private Move selectPuzzleMove(List<Move> moves, long timeout) throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
 	{
 		long totalTime = timeout - System.currentTimeMillis();
@@ -4175,13 +4377,6 @@ public class Sancho extends SampleGamer {
 						{
 							heuristicSampleWeight = 0;
 						}
-						
-						if ( root.complete && root.children == null )
-						{
-							System.out.println("Encountered complete root with trimmed children - must re-expand");
-							root.complete = false;
-							numCompletedBranches--;
-						}
 						//int validationCount = 0;
 						
 						Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
@@ -4191,7 +4386,7 @@ public class Sancho extends SampleGamer {
 							long time = System.currentTimeMillis();
 							double percentThroughTurn = (time - startTime)*100/(moveTime - startTime);
 	
-							explorationBias = maxExplorationBias - percentThroughTurn*(maxExplorationBias - minExplorationBias)/100;
+							explorationBias = 1.2;//maxExplorationBias - percentThroughTurn*(maxExplorationBias - minExplorationBias)/100;
 							
 							synchronized(treeLock)
 							{
@@ -4244,6 +4439,7 @@ public class Sancho extends SampleGamer {
 				if ( searchSeqRequested == searchSeqProcessing || stopRequested )
 				{
 					running = false;
+					this.notify();
 					this.wait();
 				}
 				
@@ -4271,10 +4467,10 @@ public class Sancho extends SampleGamer {
 		
 		public void stop() throws InterruptedException
 		{
-			stopRequested = true;
-			
 			synchronized(this)
 			{
+				stopRequested = true;
+				
 				if ( running )
 				{
 					wait();
@@ -4389,7 +4585,8 @@ public class Sancho extends SampleGamer {
 		}
 		else if ( targetState != null )
 	    {
-	    	bestMove = selectPuzzleMove(moves, timeout);
+	    	bestMove = selectAStarMove(moves, timeout);
+	    	//bestMove = selectPuzzleMove(moves, timeout);
 			System.out.println("Playing best puzzle move: " + bestMove);
 	    }
 	    else
@@ -4430,6 +4627,13 @@ public class Sancho extends SampleGamer {
 					}
 				}
 				//validateAll();
+				
+				if ( root.complete && root.children == null )
+				{
+					System.out.println("Encountered complete root with trimmed children - must re-expand");
+					root.complete = false;
+					numCompletedBranches--;
+				}
 			}
 			
 			searchProcessor.StartSearch(finishBy, currentState);
@@ -4474,15 +4678,15 @@ public class Sancho extends SampleGamer {
 			
 			//validateAll();
 			
-			if ( !rootComplete )
-			{
-				try {
-					Thread.sleep(2000);
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
+//			if ( !rootComplete )
+//			{
+//				try {
+//					Thread.sleep(2000);
+//				} catch (InterruptedException e) {
+//					// TODO Auto-generated catch block
+//					e.printStackTrace();
+//				}
+//			}
 	    }
 		
 		if ( ProfilerContext.getContext() != null )
@@ -4496,6 +4700,11 @@ public class Sancho extends SampleGamer {
 		
 		Thread.currentThread().setPriority(Thread.NORM_PRIORITY);
 		
+		if ( bestMove == null )
+		{
+			System.out.println("NO MOVE FOUND!");
+			System.exit(0);
+		}
 		/**
 		 * These are functions used by other parts of the GGP codebase
 		 * You shouldn't worry about them, just make sure that you have
@@ -4543,5 +4752,4 @@ public class Sancho extends SampleGamer {
 	public void setTranspositionTableSize(int tableSize) {
 		transpositionTableSize = tableSize;
 	}
-
 }

@@ -76,6 +76,11 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
 		contents.xor(other.contents);
 	}
 	
+	public void invert()
+	{
+		contents.flip(0, infoSet.length-1);
+	}
+	
 	public void merge(ForwardDeadReckonInternalMachineState other)
 	{
 		contents.or(other.contents);

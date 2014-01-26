@@ -286,6 +286,11 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine {
 		//}
 	}
 	
+	public ForwardDeadReckonPropositionCrossReferenceInfo[] getInfoSet()
+	{
+		return masterInfoSet;
+	}
+	
 	public ForwardDeadReckonInternalMachineState createInternalState(MachineState state)
 	{
 		return createInternalState(masterInfoSet, XSentence, state);
