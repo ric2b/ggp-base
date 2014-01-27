@@ -2532,52 +2532,39 @@ public class Sancho extends SampleGamer {
 
 			double[]	oldAverageScores = new double[numRoles];
 			double[]	oldAverageSquaredScores = new double[numRoles];
-			boolean		countsUpdated = false;
+			boolean		visitCountsUpdated = false;
 			
 			for(int roleIndex = 0; roleIndex < numRoles; roleIndex++)
 			{
 		    	oldAverageScores[roleIndex] = averageScores[roleIndex];
 		    	oldAverageSquaredScores[roleIndex] = averageSquaredScores[roleIndex];
 		    	
-		    	if ( (!complete || isSimultaneousMove) && childEdge != null )
+		    	if ( (!complete || isSimultaneousMove || isMultiPlayer) && childEdge != null )
 		    	{
-			    	if ( isCompletePseudoRollout )
-			    	{
-			    		childEdge.numChildVisits++;
-			    	}
+    				//	Increment child visit count if required before calculating as child's own numVisits
+    				//	will have already been incremented in the previous stage of the recursion
+//				    	if ( updateVisitCounts )
+//				    	{
+//				    		childEdge.numChildVisits++;
+//				    	}
 			    	
-     				int visitsViaEdge = childEdge.numChildVisits;
+    				int numChildVisits = childEdge.numChildVisits;
     				
-    				if ( visitsViaEdge > childEdge.child.node.numVisits)
+    				if ( numChildVisits > childEdge.child.node.numVisits)
     				{
     					System.out.println("Unexpected edge strength greater than total child strength");
     				}
-    				
-    				//
-    				//	The following appears to be a failed experiment.  The intuition was that the existing score estimate
-    				//	built up on the child node has not been propagated along this pathway fully, and therefore the
-    				//	update along this path should be a blend of the existing estimate (reflecting updates that used other
-    				//	transpositional paths) and the latest rollout.
-    				//	Empirically this doesn't work (BTTT10 provides the most graphic example test case).  I assume this
-    				//	is because later rollouts are better estimates than earlier ones due to being 'steered' by lower
-    				//	level selection, but I'm not sure.
     				//	Propagate a value that is a blend of this rollout value and the current score for the child node
     				//	being propagated from, according to how much of that child's value was accrued through this path
-    				//double childWeight = Math.log(childEdge.child.node.numVisits - numChildVisits + 1);//Math.max(childEdge.child.node.numVisits - numChildVisits - heuristicSampleWeight, 0);
-    				//double rolloutWeight = Math.log(numChildVisits+1);
-    				//values[roleIndex] = (values[roleIndex]*rolloutWeight + childEdge.child.node.averageScores[roleIndex]*childWeight)/(rolloutWeight+childWeight);
-    				//if ( isCompletePseudoRollout )
-    				{
-    					values[roleIndex] = (values[roleIndex]*visitsViaEdge + childEdge.child.node.averageScores[roleIndex]*(childEdge.child.node.numVisits-visitsViaEdge))/childEdge.child.node.numVisits;
-    				}
+    				values[roleIndex] = (values[roleIndex]*numChildVisits + childEdge.child.node.averageScores[roleIndex]*(childEdge.child.node.numVisits - numChildVisits))/childEdge.child.node.numVisits;
 		    	}
 		    	
 		    	if ( isCompletePseudoRollout)
 		    	{
 		    		averageScores[roleIndex] = (averageScores[roleIndex]*numVisits + values[roleIndex])/(numVisits+1);
 		    		averageSquaredScores[roleIndex] = (averageSquaredScores[roleIndex]*numVisits + squaredValues[roleIndex])/(numVisits+1);
-		    		
-		    		numVisits++;
+			    	
+		    		//numVisits++;
 		    	}
 		    	else
 		    	{
@@ -2601,22 +2588,30 @@ public class Sancho extends SampleGamer {
 		    	
 		    	leastLikelyWinner = -1;
 		    	mostLikelyWinner = -1;
-		    	
-//		    	if ( isCompletePseudoRollout && !countsUpdated )
-//		    	{
-//		    		numVisits++;
-//			    	
-//			    	if ( (!complete || isSimultaneousMove) && childEdge != null )
-//			    	{
-//						childEdge.numChildVisits++;
-//				    }
-//			    	
-//			    	countsUpdated = true;
-//		    	}
-	 		}
+				
+				if ( isCompletePseudoRollout && !visitCountsUpdated )
+				{
+					numVisits++;
+					
+			    	if ( (!complete || isSimultaneousMove || isMultiPlayer) && childEdge != null )
+			    	{
+			    		childEdge.numChildVisits++;
+			    	}
+			    	
+			    	visitCountsUpdated = true;
+				}
+			}
 			
-			//validateScoreVector(averageScores);
-   	
+//				if ( updateVisitCounts )
+//				{
+//					numVisits++;
+//					
+//			    	if ( (!complete || isSimultaneousMove || isMultiPlayer) && childEdge != null )
+//			    	{
+//			    		childEdge.numChildVisits++;
+//			    	}
+//				}
+  	
 			if ( path.hasMore() )
 			{
 				TreeNode node = path.getNextNode();
@@ -2771,7 +2766,7 @@ public class Sancho extends SampleGamer {
 		return new StateMachineProxy(underlyingStateMachine);
 	}
 	
-	private final boolean disableOnelevelMinimax = false;	//	TEMP TEMP TEMP
+	private final boolean disableOnelevelMinimax = true;//false;	//	TEMP TEMP TEMP
 	private boolean isPuzzle = false;
 	private boolean isMultiPlayer = false;
 	private boolean isSimultaneousMove = false;
@@ -4585,8 +4580,8 @@ public class Sancho extends SampleGamer {
 		}
 		else if ( targetState != null )
 	    {
-	    	bestMove = selectAStarMove(moves, timeout);
-	    	//bestMove = selectPuzzleMove(moves, timeout);
+	    	//bestMove = selectAStarMove(moves, timeout);
+	    	bestMove = selectPuzzleMove(moves, timeout);
 			System.out.println("Playing best puzzle move: " + bestMove);
 	    }
 	    else
