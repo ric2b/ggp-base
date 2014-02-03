@@ -62,8 +62,6 @@ public class Sancho extends SampleGamer {
     
     private Map<ForwardDeadReckonInternalMachineState, TreeNode> positions = new HashMap<ForwardDeadReckonInternalMachineState,TreeNode>();
 
-    private MoveWeights masterMoveWeights = null;
-    
     private boolean useGoalHeuristic = false;
     private int rolloutSampleSize = 4;
     private int transpositionTableSize = 2000000;
@@ -392,14 +390,6 @@ public class Sancho extends SampleGamer {
 	    	//	turn's processing
 			processNodeCompletions();
 			
-			synchronized(treeLock)
-			{
-				if ( masterMoveWeights == null )
-				{
-					masterMoveWeights = underlyingStateMachine.createMoveWeights();
-				}
-			}
-			
 	    	while(!completedRollouts.isEmpty())
 	    	{
 	    		RolloutRequest request = completedRollouts.remove();
@@ -414,7 +404,6 @@ public class Sancho extends SampleGamer {
 	    			synchronized(treeLock)
 	    			{
 	    				node.updateStats(request.averageScores, request.averageSquaredScores, request.sampleSize, request.path, false);
-				        masterMoveWeights.noteSampleComplete();
 	    			}
 					//validateAll();
 		    		processNodeCompletions();
@@ -1598,7 +1587,6 @@ public class Sancho extends SampleGamer {
 		        if ( rollout != null )
 		        {
 		        	newNode.updateStats(rollout.averageScores, rollout.averageSquaredScores, rolloutSampleSize, visited, true);
-		        	masterMoveWeights.noteSampleComplete();
 		        }
 		        else
 		        {
@@ -2403,7 +2391,7 @@ public class Sancho extends SampleGamer {
 	    		else if ( edge.child.node.children != null && lowestRolloutScoreSeen < 100 && !isMultiPlayer && !isSimultaneousMove)
 	    		{
 	    	    	//	Post-process completions of children with respect the the observed rollout score range
-	    			//edge.child.node.postProcessResponseCompletion();
+	    			edge.child.node.postProcessResponseCompletion();
 	    		}
 	    	}
 	    	
@@ -2556,7 +2544,12 @@ public class Sancho extends SampleGamer {
     				}
     				//	Propagate a value that is a blend of this rollout value and the current score for the child node
     				//	being propagated from, according to how much of that child's value was accrued through this path
-    				values[roleIndex] = (values[roleIndex]*numChildVisits + childEdge.child.node.averageScores[roleIndex]*(childEdge.child.node.numVisits - numChildVisits))/childEdge.child.node.numVisits;
+    				//	Note - we disable this for simultaneous turn games since it empirically causes issues there, probably
+    				//	due to introducing incorrect biases over choices between moves with imperfect information
+    				if ( !isSimultaneousMove )
+    				{
+    					values[roleIndex] = (values[roleIndex]*numChildVisits + childEdge.child.node.averageScores[roleIndex]*(childEdge.child.node.numVisits - numChildVisits))/childEdge.child.node.numVisits;
+    				}
 		    	}
 		    	
 		    	if ( isCompletePseudoRollout)
@@ -2601,16 +2594,16 @@ public class Sancho extends SampleGamer {
 			    	visitCountsUpdated = true;
 				}
 			}
-			
-//				if ( updateVisitCounts )
-//				{
-//					numVisits++;
-//					
-//			    	if ( (!complete || isSimultaneousMove || isMultiPlayer) && childEdge != null )
-//			    	{
-//			    		childEdge.numChildVisits++;
-//			    	}
-//				}
+		
+//			if ( isCompletePseudoRollout )
+//			{
+//				numVisits++;
+//				
+//		    	if ( (!complete || isSimultaneousMove || isMultiPlayer) && childEdge != null )
+//		    	{
+//		    		childEdge.numChildVisits++;
+//		    	}
+//			}
   	
 			if ( path.hasMore() )
 			{
@@ -2759,14 +2752,13 @@ public class Sancho extends SampleGamer {
 		//ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
 		underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine(1+numRolloutThreads, getRoleName());
 		
-		masterMoveWeights = null;
 		emptyTree();
 		System.gc();
 
 		return new StateMachineProxy(underlyingStateMachine);
 	}
 	
-	private final boolean disableOnelevelMinimax = true;//false;	//	TEMP TEMP TEMP
+	private final boolean disableOnelevelMinimax = true;//false;
 	private boolean isPuzzle = false;
 	private boolean isMultiPlayer = false;
 	private boolean isSimultaneousMove = false;
@@ -3149,7 +3141,7 @@ public class Sancho extends SampleGamer {
 		//	a single decision
 		for(int iteration = 0; iteration < 50; iteration++ )
 		{
-			ForwardDeadReckonInternalMachineState sampleState = initialState;
+			ForwardDeadReckonInternalMachineState sampleState = new ForwardDeadReckonInternalMachineState(initialState);
 			
 			int numRoleMovesSimulated = 0;
 			int numBranchesTaken = 0;
@@ -3295,8 +3287,6 @@ public class Sancho extends SampleGamer {
 		{
 			simulationsPerformed++;
 			
-			ForwardDeadReckonInternalMachineState sampleState = new ForwardDeadReckonInternalMachineState(initialState);
-
 			underlyingStateMachine.getDepthChargeResult(initialState, getRole(), rolloutStats, null, null);
 			
 	    	int netScore = netScore(underlyingStateMachine, null);
@@ -3368,73 +3358,7 @@ public class Sancho extends SampleGamer {
 			System.out.println("Game is an iterated game");
 		}
 		
-		for(Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
-		{
-			if ( e.getValue().noChangeTurnRate < 0.02 )
-			{
-				System.out.println("Eliminating potential piece set with change rate: " + e.getValue().noChangeTurnRate + ": " + e.getKey());
-			}
-			else
-			{
-	    		double[] roleCorrelations = e.getValue().getRoleCorrelations();
-	    		double[] roleWinLossCorrelations = e.getValue().getWinLossRoleCorrelations();
-	    		
-	    		System.out.println("Correlations for piece set (average value " + e.getValue().getAverageValue() + "): " + e.getKey());
-	    		for(int i = 0; i < numRoles; i++)
-	    		{
-	    			System.out.println("  Role " + roleIndexToRole(i) + ": " + roleCorrelations[i] + ", win-loss-filtered: " + roleWinLossCorrelations[i]);
-	    			
-	    			if ( roleCorrelations[i] >= minHeuristicCorrelation || roleWinLossCorrelations[i] >= minWinLossHeuristicCorrelation )
-	    			{
-//	    				if ( !e.getValue().hasRoleChanges[i] )
-//	    				{
-//	    					System.out.println("Eliminating potential piece set with no role decision changes for correlated role: " + e.getKey());
-//	    				}
-//	    				else
-	    				{
-		    				if ( pieceStateMaps == null )
-		    				{
-		    					pieceStateMaps = new ForwardDeadReckonInternalMachineState[numRoles];
-		    				}
-		    				
-		    				if ( pieceStateMaps[i] == null )
-		    				{
-		    					pieceStateMaps[i] = e.getKey();
-		    				}
-		    				else
-		    				{
-		    					pieceStateMaps[i].merge(e.getKey());
-		    				}
-	    				}
-	    			}
-	    		}
-	    	}
-		}
-    	
-    	if ( pieceStateMaps != null )
-    	{
-			for(int i = 0; i < numRoles; i++)
-			{
-				if ( pieceStateMaps[i] == null )
-				{
-					System.out.println("Heuristics only identified for a subset of roles - diabling");
-					pieceStateMaps = null;
-					break;
-				}
-			}
-    	}
-		
-    	if ( pieceStateMaps == null )
-    	{
-    		System.out.println("No viable piece heuristic identified");
-    	}
-    	else
-    	{
-    		for(int i = 0; i < numRoles; i++)
-    		{
-    			System.out.println("Piece heuristic mask for role " + roleIndexToRole(i) + ": " + pieceStateMaps[i]);
-    		}
-    	}
+    	pieceStateMaps = findViablePieceSets(propGroupScoreSets);
 		
 	    double stdDevNumTurns = Math.sqrt(averageSquaredNumTurns - averageNumTurns*averageNumTurns);
 	    
@@ -3561,7 +3485,7 @@ public class Sancho extends SampleGamer {
 				if ( targetState.getContents().size() < initialState.size()/2 )
 				{
 					System.out.println("Unsuitable target state based on state elimination - ignoring");
-					//targetState = null;
+					targetState = null;
 				}
 			}
 		}
@@ -3633,6 +3557,68 @@ public class Sancho extends SampleGamer {
 			
 			searchProcessor.StartSearch(System.currentTimeMillis() + 60000, new ForwardDeadReckonInternalMachineState(initialState));
 		}
+	}
+	
+	private ForwardDeadReckonInternalMachineState[] findViablePieceSets(Map<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> scoreMap)
+	{
+		ForwardDeadReckonInternalMachineState[] result = null;
+		
+		for(Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : scoreMap.entrySet())
+		{
+			if ( e.getValue().noChangeTurnRate < 0.02 )
+			{
+				System.out.println("Eliminating potential piece set with change rate: " + e.getValue().noChangeTurnRate + ": " + e.getKey());
+			}
+			else
+			{
+	    		double[] roleCorrelations = e.getValue().getRoleCorrelations();
+	    		
+	    		System.out.println("Correlations for piece set: " + e.getKey());
+	    		for(int i = 0; i < numRoles; i++)
+	    		{
+	    			System.out.println("  Role " + roleIndexToRole(i) + ": " + roleCorrelations[i]);
+	    			
+	    			if ( roleCorrelations[i] >= minHeuristicCorrelation )
+	    			{
+	    				if ( !e.getValue().hasRoleChanges[i] )
+	    				{
+	    					System.out.println("Eliminating potential piece set with no role decision changes for correlated role: " + e.getKey());
+	    				}
+	    				else
+	    				{
+		    				if ( result == null )
+		    				{
+		    					result = new ForwardDeadReckonInternalMachineState[numRoles];
+		    				}
+		    				
+		    				if ( result[i] == null )
+		    				{
+		    					result[i] = new ForwardDeadReckonInternalMachineState(e.getKey());
+		    				}
+		    				else
+		    				{
+		    					result[i].merge(e.getKey());
+		    				}
+	    				}
+	    			}
+	    		}
+	    	}
+		}
+    	
+    	if ( result != null )
+    	{
+			for(int i = 0; i < numRoles; i++)
+			{
+				if ( result[i] == null )
+				{
+					System.out.println("Heuristics only identified for a subset of roles - disabling");
+					result = null;
+					break;
+				}
+			}
+    	}
+
+    	return result;
 	}
 	
 	private MachineState goalState = null;
@@ -4381,10 +4367,10 @@ public class Sancho extends SampleGamer {
 							long time = System.currentTimeMillis();
 							double percentThroughTurn = (time - startTime)*100/(moveTime - startTime);
 	
-							explorationBias = 1.2;//maxExplorationBias - percentThroughTurn*(maxExplorationBias - minExplorationBias)/100;
-							
 							synchronized(treeLock)
 							{
+								explorationBias = maxExplorationBias - percentThroughTurn*(maxExplorationBias - minExplorationBias)/100;
+								
 								while ( numUsedNodes > transpositionTableSize - 200 )
 								{
 									root.disposeLeastLikelyNode();
@@ -4568,7 +4554,6 @@ public class Sancho extends SampleGamer {
 			System.out.println("Received current state: " + getCurrentState());
 			System.out.println("Using current state: " + currentState);
 			
-			masterMoveWeights = null;
 		    lowestRolloutScoreSeen = 1000;
 		    highestRolloutScoreSeen = -100;
 		}
@@ -4663,8 +4648,6 @@ public class Sancho extends SampleGamer {
 				System.out.println("Num losing lines seen: " + numLosingLinesSeen);
 				System.out.println("Current rollout sample size: " + rolloutSampleSize );
 				System.out.println("Current observed rollout score range: [" + lowestRolloutScoreSeen + ", " + highestRolloutScoreSeen + "]");
-				System.out.println("Move weight average: " + masterMoveWeights.getAverage());
-				System.out.println("Move weight std dev.: " + masterMoveWeights.getStdDeviation());
 				
 			    numNonTerminalRollouts = 0;
 			    numTerminalRollouts = 0;
