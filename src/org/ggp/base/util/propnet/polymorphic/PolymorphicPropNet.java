@@ -587,16 +587,19 @@ public class PolymorphicPropNet
 	
 	public PolymorphicProposition[] getBasePropositionsArray()
 	{
-		if ( basePropositionsArray == null )
+		synchronized(this)
 		{
-			basePropositionsArray = new PolymorphicProposition[basePropositions.size()];
-			int index = 0;
-			for(PolymorphicProposition p : basePropositions.values())
+			if ( basePropositionsArray == null )
 			{
-				basePropositionsArray[index++] = p;
+				basePropositionsArray = new PolymorphicProposition[basePropositions.size()];
+				int index = 0;
+				for(PolymorphicProposition p : basePropositions.values())
+				{
+					basePropositionsArray[index++] = p;
+				}
 			}
+			return basePropositionsArray;
 		}
-		return basePropositionsArray;
 	}
 
 	/**
