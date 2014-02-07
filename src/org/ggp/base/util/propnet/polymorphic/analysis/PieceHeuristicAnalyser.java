@@ -209,7 +209,7 @@ public class PieceHeuristicAnalyser extends Analyser
 		
 		for(Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
 		{
-			if ( e.getValue().noChangeTurnRate < 0.02 )
+			if ( e.getValue().noChangeTurnRate < 0.5 )
 			{
 				System.out.println("Eliminating potential piece set with change rate: " + e.getValue().noChangeTurnRate + ": " + e.getKey());
 			}
