@@ -64,6 +64,7 @@ public class Sancho extends SampleGamer {
     
     private Map<ForwardDeadReckonInternalMachineState, TreeNode> positions = new HashMap<ForwardDeadReckonInternalMachineState,TreeNode>();
 
+    private final boolean freeCompletedNodeChildren = true;
     private boolean useGoalHeuristic = false;
     private int rolloutSampleSize = 4;
     private int transpositionTableSize = 2000000;
@@ -600,6 +601,7 @@ public class Sancho extends SampleGamer {
 		int			numChildVisits = 0;
 		TreeNodeRef	child;
 		private 	ForwardDeadReckonLegalMoveInfo[] jointPartialMove;
+		TreeEdge	selectAs;
 		boolean		hasCachedPatternMatchValue = false;
 		double		cachedPatternMatchValue;
 	}
@@ -709,6 +711,7 @@ public class Sancho extends SampleGamer {
 
 	    private int seq = -1;
 		private int numVisits = 0;
+		private int numUpdates = 0;
 		private double[] averageScores;
 		private double[] averageSquaredScores;
 		private int[] numChoices;
@@ -727,6 +730,7 @@ public class Sancho extends SampleGamer {
 	    private int mostLikelyWinner = -1;
 	    private double mostLikelyRunnerUpValue;
 	    private boolean complete = false;
+	    private boolean allChildrenComplete = false;
 		
 		private TreeNode() throws GoalDefinitionException
 		{
@@ -734,17 +738,191 @@ public class Sancho extends SampleGamer {
 			averageSquaredScores = new double[numRoles];
 		}
 		
+		private void correctParentsForCompletion(double values[])
+		{		
+			TreeNode primaryPathParent = null;
+			int		 mostSelectedRouteCount = 0;
+			
+			for(TreeNode parent : parents)
+			{
+				if ( parent.numUpdates > 0 )
+				{
+					for(TreeEdge child : parent.children)
+					{
+						if ( child.child.node == this )
+						{
+							if ( child.numChildVisits > mostSelectedRouteCount )
+							{
+								mostSelectedRouteCount = child.numChildVisits;
+								primaryPathParent = parent;
+							}
+							break;
+						}
+					}
+				}
+			}
+			
+			if ( primaryPathParent != null && !primaryPathParent.complete )
+			{
+				double[] correctedAverageScores = new double[numRoles];
+				boolean propagate = true;
+				boolean isDeciderCorrelated = (values[primaryPathParent.decidingRoleIndex] > averageScores[primaryPathParent.decidingRoleIndex]);
+				double correctionFactor;
+
+				//validateScoreVector(primaryPathParent.averageScores);
+
+				double totalWeight = 0;
+				
+				for(int i = 0; i < numRoles; i++)
+				{
+					correctedAverageScores[i] = 0;
+				}
+				
+				for(TreeEdge edge : primaryPathParent.children)
+				{
+					if ( edge.selectAs == edge && edge.child.seq == edge.child.node.seq )
+					{
+						double exploitationUct = primaryPathParent.exploitationUCT(edge, edge.child.node.decidingRoleIndex);
+						
+						//double weight = (exploitationUCT(edge, edge.child.node.decidingRoleIndex) + epsilon)*Math.log(edge.child.node.numVisits+1);
+						//double weight = Math.exp(Math.log(primaryPathParent.numVisits)*primaryPathParent.exploitationUCT(edge, edge.child.node.decidingRoleIndex)) - 1 + epsilon;
+						//double weight = exploitationUct*exploitationUct + epsilon;
+						//double weight = 1/((1-exploitationUct)*(1-exploitationUct) + epsilon) - 1;
+						double weight = (exploitationUct+1/Math.log(primaryPathParent.numVisits+1))*edge.child.node.numVisits + epsilon;
+						
+						totalWeight += weight;
+						for(int i = 0; i < numRoles; i++)
+						{
+							correctedAverageScores[i] += weight*edge.child.node.averageScores[i];
+						}
+					}
+				}
+				
+				for(int i = 0; i < numRoles; i++)
+				{
+					correctedAverageScores[i] /= totalWeight;
+				}
+//				for(int i = 0; i < numRoles; i++)
+//				{
+//					//correctedAverageScores[i] = (primaryPathParent.averageScores[i]*(primaryPathParent.numVisits - mostSelectedRouteCount) + values[i]*correctionFactor*mostSelectedRouteCount)/(primaryPathParent.numVisits+(correctionFactor-1)*mostSelectedRouteCount);
+//					double correctedValue;
+//					
+//					if ( isDeciderCorrelated || primaryPathParent.numVisits == mostSelectedRouteCount)
+//					{
+//						//	Assume it would still have been selected and change the contribution to the correct complete one
+//						correctionFactor = 1.2;
+//					}
+//					else
+//					{
+//						//	Assume it would have been (far) less selected and just remove the contribution from this child if there are other contributors
+//						correctionFactor = 0.5;
+//					}
+//					
+//					correctedValue = (primaryPathParent.numVisits*primaryPathParent.averageScores[i] - mostSelectedRouteCount*averageScores[i] + mostSelectedRouteCount*correctionFactor*values[i])/(primaryPathParent.numVisits + (correctionFactor-1)*mostSelectedRouteCount);
+//					
+//					if ( correctedValue < 0 )
+//					{
+//						correctedValue = 0;
+//					}
+//					else if ( correctedValue > 100 )
+//					{
+//						correctedValue = 100;
+//					}
+//						
+//					correctedAverageScores[i] = correctedValue;
+//				}
+				
+				//validateScoreVector(correctedAverageScores);
+							
+				if (propagate)
+				{
+					//if ( correctedAverageScores[decidingRoleIndex] > average)
+					primaryPathParent.correctParentsForCompletion(correctedAverageScores);
+				}
+				
+				for(int i = 0; i < numRoles; i++)
+				{
+					primaryPathParent.averageScores[i] = correctedAverageScores[i];
+				}
+				//validateScoreVector(primaryPathParent.averageScores);
+			}
+		}
+		
+		private void validateCompletionValues(double[] values)
+		{
+			boolean matchesAll = true;
+			boolean	matchesDecider = false;
+			
+			if ( children != null )
+			{
+				for(TreeEdge edge : children)
+				{
+					if ( edge.selectAs == edge && edge.child.seq == edge.child.node.seq )
+					{
+						if ( edge.child.node.complete)
+						{
+							if ( edge.child.node.averageScores[decidingRoleIndex] == values[decidingRoleIndex] )
+							{
+								matchesDecider = true;
+							}
+							else
+							{
+								matchesAll = false;
+							}
+						}
+						else
+						{
+							matchesAll = false;
+						}
+					}
+				}
+			}
+			
+			if ( !matchesAll && !matchesDecider )
+			{
+				System.out.println("Inexplicable completion!");
+			}
+		}
+		
 		private void markComplete(double[] values)
 		{
 			if ( !complete )
 			{
+				//validateCompletionValues(values);
 //				if ( values[1] > 99.5 && state.toString().contains("1 1 b") && state.toString().contains("1 2 b") && state.toString().contains("1 3 b") && state.toString().contains("1 4 b"))
 //				{
 //					System.out.println("Impossible completion!");
 //				}
 				//System.out.println("Mark complete  node seq: " + seq);
 				//validateAll();
+				if ( numUpdates > 0 )
+				{
+					//validateScoreVector(averageScores);
+					correctParentsForCompletion(values);
+					//validateScoreVector(averageScores);
+				}
 				
+//				if ( children != null )
+//				{
+//					boolean valid = false;
+//					
+//					for(TreeEdge edge : children)
+//					{
+//						if ( edge.selectAs == edge )
+//						{
+//							if ( edge.child.node.complete && edge.child.node.averageScores[0] == values[0] )
+//							{
+//								valid = true;
+//								break;
+//							}
+//						}
+//					}
+//					
+//					if ( !valid )
+//					{
+//						System.out.println("Invalid ndoe completion");
+//					}
+//				}
 				for(int i = 0; i < numRoles; i++)
 				{
 					averageScores[i] = values[i];
@@ -763,6 +941,11 @@ public class Sancho extends SampleGamer {
 //					if ( parents.contains(root))
 //					{
 //						System.out.println("First level move completed");
+//						if ( Math.abs(values[0] - 50) > 0.1 )
+//						{
+//						    //root.dumpTree("C:\\temp\\mctsTree.txt");
+//							System.out.println("Bad completion");
+//						}
 //					}
 //					else
 //					{
@@ -792,10 +975,11 @@ public class Sancho extends SampleGamer {
 		
 		private void processCompletion()
 		{
+			//validateCompletionValues(averageScores);
 			//System.out.println("Process completion of node seq: " + seq);
 			//validateAll();
 			//	Children can all be freed, at least from this parentage
-			if ( children != null )
+			if ( children != null && freeCompletedNodeChildren )
 			{
 				for(TreeEdge edge : children)
 				{
@@ -854,7 +1038,7 @@ public class Sancho extends SampleGamer {
 				{
 					//	If all children are complete then the parent is - give it a chance to
 					//	decide
-					parent.checkChildCompletion();
+					parent.checkChildCompletion(true);
 				}
 			}
 			//validateAll();
@@ -885,10 +1069,41 @@ public class Sancho extends SampleGamer {
 			}
 		}
 		
+		private boolean hasSiblings()
+		{
+			for(TreeNode parent : parents)
+			{
+				int numChildren = 0;
+				
+				if ( parent.children != null )
+				{
+					for(TreeEdge edge : parent.children)
+					{
+						if ( edge.selectAs == edge )
+						{
+							numChildren++;
+						}
+					}
+				}
+				
+				if ( numChildren > 1 )
+				{
+					return true;
+				}
+			}
+			
+			return false;
+		}
+		
 		private boolean hasSiblinglessParents()
 		{
 			for(TreeNode parent : parents)
 			{
+				if ( parent == root )
+				{
+					return false;
+				}
+				
 				for(TreeNode grandParent : parent.parents)
 				{
 					if ( grandParent.children.length > 1 )
@@ -909,30 +1124,45 @@ public class Sancho extends SampleGamer {
     			{
     				TreeNode child = edge.child.node;
     				
-    				if ( edge.child.seq == child.seq && child.children != null )
-    				{
-    	    			for(TreeEdge nephewEdge : child.children)
-    	    			{
-    	    				TreeNode nephew = nephewEdge.child.node;
-    	    				
-    	    				if ( nephewEdge.child.seq != nephew.seq || !nephew.complete )
-	    					{
-	    						return false;
-	    					}
-    	    			}
-    				}
-    				else
-    				{
-    					return false;
-    				}
+     				if ( edge.selectAs == edge )
+     				{
+     					if ( edge.child.seq == child.seq )
+	    				{
+	     					if ( !child.complete )
+	     					{
+		    					if ( child.children != null )
+			     				{
+			    	    			for(TreeEdge nephewEdge : child.children)
+			    	    			{
+			    	    				TreeNode nephew = nephewEdge.child.node;
+			    	    				
+			    	    				if ( nephewEdge.child.seq != nephew.seq || !nephew.complete )
+				    					{
+				    						return false;
+				    					}
+			    	    			}
+			     				}
+		    					else
+		    					{
+		    						return false;
+		    					}
+	     					}
+	    				}
+	    				else
+	    				{
+	    					return false;
+	    				}
+     				}
     			}
     		}
     		
     		return true;
 		}
 		
-		private void completeSiblings()
+		private void checkSiblingCompletion(double[] floorDeciderScore)
 		{
+			int roleIndex = (decidingRoleIndex+1)%numRoles;
+			
     		for(TreeNode parent : parents)
     		{
     			for(TreeEdge edge : parent.children)
@@ -941,44 +1171,53 @@ public class Sancho extends SampleGamer {
     				
     				if ( child != this && edge.child.seq == child.seq && child.children != null && !child.complete )
     				{
-    					double[] averageValues = new double[numRoles];
-    					boolean  allChildrenComplete = true;
-    					int		 childCount = 0;
-    					
-    	    			for(TreeEdge nephewEdge : child.children)
-    	    			{
-    	    				TreeNode nephew = nephewEdge.child.node;
-    	    				
-    	    				if ( nephewEdge.child.seq == nephew.seq )
-    	    				{
-    	    					if ( !nephew.complete )
-    	    					{
-    	    						allChildrenComplete = false;
-    	    						break;
-    	    					}
-    	    					
-    	    					childCount++;
-    	    					for(int i = 0; i < numRoles; i++)
-    	    					{
-    	    						averageValues[i] += nephew.averageScores[i];
-    	    					}
-     	    				}
-    	    			}
-    	    			
-    	    			if ( allChildrenComplete )
-    	    			{
-	    					for(int i = 0; i < numRoles; i++)
-	    					{
-	    						averageValues[i] /= childCount;
-	    					}
-    	    				markComplete(averageValues);
-    	    			}
+    					child.checkChildCompletion(false);
+//    					double[] worstValues = null;
+//    					double[] averageValues = new double[numRoles];
+//    					boolean  allChildrenComplete = true;
+//    					int		 childCount = 0;
+//    					
+//    	    			for(TreeEdge nephewEdge : child.children)
+//    	    			{
+//    	    				TreeNode nephew = nephewEdge.child.node;
+//    	    				
+//    	    				if ( nephewEdge.child.seq == nephew.seq && nephewEdge.selectAs == nephewEdge )
+//    	    				{
+//    	    					if ( !nephew.complete )
+//    	    					{
+//    	    						allChildrenComplete = false;
+//    	    						break;
+//    	    					}
+//    	    					
+//    	    					childCount++;
+//    	    					for(int i = 0; i < numRoles; i++)
+//    	    					{
+//    	    						averageValues[i] += nephew.averageScores[i];
+//    	    					}
+//    	    					
+//    	    					if ( worstValues == null || nephew.averageScores[nephew.decidingRoleIndex] < worstValues[nephew.decidingRoleIndex] )
+//    	    					{
+//    	    						worstValues = nephew.averageScores;
+//    	    					}
+//     	    				}
+//    	    			}
+//    	    			
+//    	    			if ( allChildrenComplete )
+//    	    			{
+//	    					for(int i = 0; i < numRoles; i++)
+//	    					{
+//	    						averageValues[i] /= childCount;
+//	    					}
+//
+//	   	    				child.markComplete((floorDeciderScore != null && floorDeciderScore[roleIndex] > worstValues[roleIndex]) ? floorDeciderScore : worstValues);
+//	   	    				//child.markComplete(averageValues);
+//    	    			}
     				}
     			}
     		}
  		}
 		
-		private boolean allCousinsCompleteWins(TreeEdge withRespectTo, int roleIndex)
+		private boolean allCousinsExceed(TreeEdge withRespectTo, int roleIndex, double threshold)
 		{
     		for(TreeNode parent : parents)
     		{
@@ -1001,11 +1240,72 @@ public class Sancho extends SampleGamer {
 	    	    				
 	    	    				if ( nephewEdge.child.seq == nephew.seq &&
 	    	    					 nephewEdge.jointPartialMove[nephew.decidingRoleIndex] == withRespectTo.jointPartialMove[nephew.decidingRoleIndex] &&
-	    	    					 (!nephew.complete || nephew.averageScores[roleIndex] < 99.5))
+	    	    					 nephew.averageScores[roleIndex] < threshold)
 	    	    				{
 	    	    					return false;
 	    	    				}
       	    				}
+    	    			}
+    					else if ( child.averageScores[roleIndex] < threshold )
+    					{
+    						return false;
+    					}
+     				}
+    			}
+    		}
+    		
+    		return true;
+		}
+		
+		private boolean isBestMoveInAllUncles(Set<Move> moves, int roleIndex)
+		{
+    		for(TreeNode parent : parents)
+    		{
+    			for(TreeEdge edge : parent.children)
+    			{
+    				TreeNode child = edge.child.node;
+    				
+    				if ( child != this )
+    				{
+    					if ( edge.child.seq != child.seq || (child.children == null && !child.complete))
+    					{
+    						return false;
+    					}
+    					
+    					if ( !child.complete )
+    					{
+    						double bestOtherMoveScore = 0;
+    						double thisMoveScore = -Double.MAX_VALUE;
+    						TreeEdge bestEdge = null;
+    						
+	    	    			for(TreeEdge nephewEdge : child.children)
+	    	    			{
+	    	    				TreeNode nephew = nephewEdge.child.node;
+	    	    				
+	    	    				if ( nephewEdge.child.seq == nephew.seq )
+	    	    				{
+	    	    					if ( moves.contains(nephewEdge.jointPartialMove[nephew.decidingRoleIndex].move) )
+		    	    				{
+	    	    						if ( nephew.averageScores[roleIndex] > thisMoveScore )
+	    	    						{
+	    	    							thisMoveScore = nephew.averageScores[roleIndex];
+	    	    						}
+		    	    				}
+	    	    					else
+	    	    					{
+	    	    						if ( nephew.averageScores[roleIndex] > bestOtherMoveScore )
+	    	    						{
+	    	    							bestOtherMoveScore = nephew.averageScores[roleIndex];
+	    	    							bestEdge = nephewEdge;
+	    	    						}
+	    	    					}
+	    	    				}
+      	    				}
+	    	    			
+	    	    			if ( bestOtherMoveScore > thisMoveScore && thisMoveScore != -Double.MAX_VALUE )
+	    	    			{
+	    	    				return false;
+	    	    			}
     	    			}
     					else if ( child.averageScores[roleIndex] < 99.5 )
     					{
@@ -1017,6 +1317,70 @@ public class Sancho extends SampleGamer {
     		
     		return true;
 		}
+
+		private double[] worstCompleteCousinValues(Move move, int roleIndex)
+		{
+			double[] result = null;
+			
+    		for(TreeNode parent : parents)
+    		{
+    			for(TreeEdge edge : parent.children)
+    			{
+    				TreeNode child = edge.child.node;
+    				
+    				if ( edge.selectAs == edge )
+    				{
+    					if ( edge.child.seq != child.seq || (child.children == null && !child.complete))
+    					{
+    						return null;
+    					}
+    					
+    					if ( !child.complete )
+    					{
+	    	    			for(TreeEdge nephewEdge : child.children)
+	    	    			{
+	    	    				TreeNode nephew = nephewEdge.child.node;
+	    	    				
+	    	    				if ( nephewEdge.child.seq == nephew.seq &&
+	    	    					 move == nephewEdge.jointPartialMove[nephew.decidingRoleIndex].move )
+	    	    				{
+	    	    					if ( !nephew.complete )
+	    	    					{
+	    	    						return null;
+	    	    					}
+	    	    					if (result == null || nephew.averageScores[roleIndex] < result[roleIndex])
+		    	    				{
+		    	    					result = nephew.averageScores;
+		    	    				}
+	      	    				}
+	    	    			}
+    	    			}
+    					else if ( result == null || child.averageScores[roleIndex] < result[roleIndex] )
+    					{
+    						result = child.averageScores;
+    					}
+     				}
+    			}
+    		}
+    		
+    		return result;
+		}
+		
+		private void checkSiblingCompletion(TreeEdge withRespectTo)
+		{
+    		for(TreeNode parent : parents)
+    		{
+    			for(TreeEdge edge : parent.children)
+    			{
+    				TreeNode child = edge.child.node;
+    				
+    				if ( child != this && edge.child.seq == child.seq && child.children != null && !child.complete )
+    				{
+    					child.checkChildCompletion(false);
+      				}
+    			}
+    		}
+ 		}
 		
 		private void propagateCousinWins(TreeEdge withRespectTo)
 		{
@@ -1044,107 +1408,222 @@ public class Sancho extends SampleGamer {
     		}
  		}
 		
-		private void checkChildCompletion()
+		private void checkChildCompletion(boolean checkConsequentialSiblingCompletion)
 		{
-			boolean allChildrenComplete = true;
+			boolean allImmediateChildrenComplete = true;
 			double bestValue = -1000;
 			double[] bestValues = null;
 			double[] averageValues = new double[numRoles];
 			int roleIndex = (decidingRoleIndex+1)%numRoles;
 			boolean decidingRoleWin = false;
+			int numPotentialDecidingRoleWins = 0;
+			double[] worstDeciderScore = null;
+			double[] floorDeciderScore = null;
+			
+			int numUniqueChildren = 0;
+
+//			double bestIncompleteDecidingRoleVal = 0;
+//			if ( isSimultaneousMove )
+//			{
+//				for(TreeEdge edge : children)
+//				{
+//					TreeNodeRef cr = edge.child;
+//					if ( cr.node.seq == cr.seq && edge.selectAs == edge && !cr.node.complete )
+//					{
+//						if ( cr.node.averageScores[roleIndex] > bestIncompleteDecidingRoleVal )
+//						{
+//							bestIncompleteDecidingRoleVal = cr.node.averageScores[roleIndex];
+//						}
+//					}
+//				}
+//			}
 			
 			for(TreeEdge edge : children)
 			{
 				TreeNodeRef cr = edge.child;
 				if ( cr.node.seq == cr.seq )
 				{
-					if ( !cr.node.complete )
+					if ( edge.selectAs == edge )
 					{
-						allChildrenComplete = false;
-					}
-					else if ( cr.node.averageScores[roleIndex] >= bestValue )
-					{
-						bestValue = cr.node.averageScores[roleIndex];
-						bestValues = cr.node.averageScores;
-						
-						if ( bestValue > 99.5 )
+						numUniqueChildren++;
+
+						if ( !cr.node.complete )
 						{
-							//	Win for deciding role which they will choose unless it is also
-							//	a mutual win
-							boolean mutualWin = true;
-							
-							for(int i = 0; i < numRoles; i++)
+							allImmediateChildrenComplete = false;
+						}
+						else
+						{
+							if ( worstDeciderScore == null || cr.node.averageScores[roleIndex] < worstDeciderScore[roleIndex] )
 							{
-								if ( cr.node.averageScores[i] < 99.5 )
-								{
-									mutualWin = false;
-									break;
-								}
+								worstDeciderScore = cr.node.averageScores;
 							}
 							
-							if ( !decidingRoleWin )
+							if ( cr.node.averageScores[roleIndex] >= bestValue )
 							{
-								decidingRoleWin |= !mutualWin;
+								bestValue = cr.node.averageScores[roleIndex];
+								bestValues = cr.node.averageScores;
 								
-								if ( decidingRoleWin && isSimultaneousMove )
+								if ( bestValue > 99.5 )
 								{
-									//	Only complete on this basis if this move is our choice (complete info)
-									//	or wins in ALL cousin states also
-									if ( roleIndex != 0 )
+									numPotentialDecidingRoleWins++;
+									
+									//	Win for deciding role which they will choose unless it is also
+									//	a mutual win
+									boolean mutualWin = true;
+									
+									for(int i = 0; i < numRoles; i++)
 									{
-										//double averageCousinValue = 100*getAverageCousinMoveValue(edge, roleIndex);
-										
-										if ( !allCousinsCompleteWins(edge, roleIndex) )
+										if ( cr.node.averageScores[i] < 99.5 )
 										{
-											decidingRoleWin = false;
+											mutualWin = false;
+											break;
 										}
-										else
+									}
+									
+									if ( !decidingRoleWin )
+									{
+										decidingRoleWin |= !mutualWin;
+										
+										if ( decidingRoleWin && isSimultaneousMove )
 										{
-											propagateCousinWins(edge);
+											//	Only complete on this basis if this move is our choice (complete info)
+											//	or wins in ALL cousin states also
+											if ( roleIndex != 0 && hasSiblings() )
+											{
+												//double averageCousinValue = 100*getAverageCousinMoveValue(edge, roleIndex);
+		//											double cousinThreshold = worstCousinValue(edge, roleIndex);
+		//											if( parents.contains(root))
+		//											{
+		//												System.out.println("Worst cousin val: " + cousinThreshold);
+		//												System.out.println("Incomplete threshold: " + bestIncompleteDecidingRoleVal);
+		//											}
+		//											if ( cousinThreshold < bestIncompleteDecidingRoleVal )
+		//											{
+		//												decidingRoleWin = false;
+		//											}
+		//											else
+		//											{
+		//												if ( checkConsequentialSiblingCompletion )
+		//												{
+		//													checkSiblingCompletion(edge);
+		//												}
+		//												//propagateCousinWins(edge);
+		//											}
+												Set<Move> equivalentMoves = new HashSet<Move>();
+												for(TreeEdge siblingEdge : children)
+												{
+													if ( siblingEdge.selectAs == edge )
+													{
+														equivalentMoves.add(siblingEdge.jointPartialMove[roleIndex].move);
+													}
+												}
+												if ( !isBestMoveInAllUncles(equivalentMoves, roleIndex))
+												{
+													decidingRoleWin = false;
+												}
+												else
+												{
+													if ( checkConsequentialSiblingCompletion )
+													{
+														checkSiblingCompletion(edge);
+													}
+												}
+											}
 										}
 									}
 								}
 							}
+							
+							if ( isSimultaneousMove && !decidingRoleWin && roleIndex != 0 &&
+								 (floorDeciderScore == null || floorDeciderScore[roleIndex] < edge.child.node.averageScores[roleIndex]))
+							{
+								//	Find the highest supported floor score for any of the moves equivalent to this one
+								double[] worstCousinValues = null;
+								for(TreeEdge siblingEdge : children)
+								{
+									if ( siblingEdge.selectAs == edge )
+									{
+										double[] moveFloor = worstCompleteCousinValues(siblingEdge.jointPartialMove[roleIndex].move, roleIndex);
+										
+										if ( moveFloor != null )
+										{
+											if ( worstCousinValues == null || worstCousinValues[roleIndex] < moveFloor[roleIndex])
+											{
+												worstCousinValues = moveFloor;
+											}
+										}
+									}
+								}
+								
+								if ( worstCousinValues != null && (floorDeciderScore == null || floorDeciderScore[roleIndex] < worstCousinValues[roleIndex]) )
+								{
+									floorDeciderScore = worstCousinValues;
+								}
+							}
 						}
-					}
-					
-					for(int i = 0; i < numRoles; i++)
-					{
-						averageValues[i] += cr.node.averageScores[i];
+						
+						for(int i = 0; i < numRoles; i++)
+						{
+							averageValues[i] += cr.node.averageScores[i];
+						}
 					}
 				}
 				else
 				{
-					allChildrenComplete = false;
+					allImmediateChildrenComplete = false;
 				}
 			}
 						
 			for(int i = 0; i < numRoles; i++)
 			{
-				averageValues[i] /= children.length;
+				averageValues[i] /= numUniqueChildren;
 			}
 			
-			if ( allChildrenComplete && !decidingRoleWin && isSimultaneousMove && decidingRoleIndex == 0 )
+			//	Experimental for simultaneous turn games - complete if a majority of
+			//	options win for the deciding role regardless of cousin states
+//			if ( numPotentialDecidingRoleWins >= 2)//Math.max(2, numUniqueChildren/4) )
+//			{
+//				decidingRoleWin = true;
+//			}
+			
+			if ( allImmediateChildrenComplete && !decidingRoleWin && isSimultaneousMove && decidingRoleIndex == 0 )
 			{
-				//	To auto complete with simultaneous turn and no deciding role win
-				//	we require that all nephews be complete or that all alternatives
-				//	are anyway equivalent
-				for(int i = 0; i < numRoles; i++)
+				allChildrenComplete = true;
+				
+				//	If the best we can do from this node is no better than the supported floor we
+				//	don't require all nephews to be complete to complete this node at the floor
+				if ( !hasSiblings() || (floorDeciderScore != null && floorDeciderScore[roleIndex] + epsilon >= bestValues[roleIndex]) )
 				{
-					if ( Math.abs(averageValues[i] - bestValues[i]) > epsilon )
+					//	There was only one opponent choice so this is not after all
+					//	incomplete information, so complete with the best choice for
+					//	the decider
+					decidingRoleWin = true;
+				}
+				else
+				{
+					//	To auto complete with simultaneous turn and no deciding role win
+					//	we require that all nephews be complete or that all alternatives
+					//	are anyway equivalent
+					boolean allNephewsComplete = allNephewsComplete();
+					
+					for(int i = 0; i < numRoles; i++)
 					{
-						allChildrenComplete = allNephewsComplete();
-						
-						if ( allChildrenComplete )
+						if ( Math.abs(averageValues[i] - bestValues[i]) > epsilon )
 						{
-							completeSiblings();
+							allImmediateChildrenComplete = allNephewsComplete;
+							
+							break;
 						}
-						break;
 					}
+				}
+				
+				if ( allImmediateChildrenComplete && checkConsequentialSiblingCompletion )
+				{
+					checkSiblingCompletion(floorDeciderScore);
 				}
 			}
 			
-			if ( allChildrenComplete || decidingRoleWin )
+			if ( allImmediateChildrenComplete || decidingRoleWin )
 			{
 				//	Opponent's choice which child to take, so take their
 				//	best value and crystalize as our value.   However, if it's simultaneous
@@ -1152,7 +1631,12 @@ public class Sancho extends SampleGamer {
 				//	opponents cannot make the pessimal (for us) choice reliably
 				if (isSimultaneousMove && !decidingRoleWin && decidingRoleIndex == 0)
 				{				
-					markComplete(averageValues);
+					if ( floorDeciderScore != null && floorDeciderScore[roleIndex] > worstDeciderScore[roleIndex] )
+					{
+						worstDeciderScore = floorDeciderScore;
+					}
+					markComplete(worstDeciderScore);
+					//markComplete(averageValues);
 				}
 				else
 				{
@@ -1166,6 +1650,7 @@ public class Sancho extends SampleGamer {
 		public void reset(boolean freed)
 		{
 			numVisits = 0;
+			numUpdates = 0;
 			if ( averageScores != null )
 			{
 				if ( freed )
@@ -1197,6 +1682,7 @@ public class Sancho extends SampleGamer {
 			leastLikelyWinner = -1;
 			mostLikelyWinner = -1;
 			complete = false;
+			allChildrenComplete = false;
 			numChoices = null;
 			seq = -1;
 		}
@@ -1708,6 +2194,7 @@ public class Sancho extends SampleGamer {
 		    				}
 		    			}
 		    		}
+		    		
 	    			while(index < newChildren.length)
 	    			{
 	    				TreeEdge newEdge = new TreeEdge();
@@ -1723,9 +2210,20 @@ public class Sancho extends SampleGamer {
 			    			newState = underlyingStateMachine.getNextState(state, newEdge.jointPartialMove);
 	    				}
 	    				
-    					newChildren[index] = newEdge;
     					newEdge.child = allocateNode(underlyingStateMachine, newState, this).getRef();
+    					newEdge.selectAs = newEdge;
     					
+    					//	Check for multiple moves that all transition to the same state
+    					for(int i = 0; i < index; i++)
+    					{
+    						if ( newChildren[i] != null && newChildren[i].child.node == newEdge.child.node )
+    						{
+    							newEdge.selectAs = newChildren[i];
+    							break;
+    						}
+    					}
+    					
+    					newChildren[index] = newEdge;
     					TreeNode newChild = newEdge.child.node;
     					
     					newChild.decidingRoleIndex = roleIndex;
@@ -1825,10 +2323,12 @@ public class Sancho extends SampleGamer {
 								newChild.numVisits = heuristicSampleWeight;
 							}
     					}
-    					index++;
+    					
+     					index++;
 	    			}
-	    			
-	    			children = newChildren;
+
+  					children = newChildren;
+   					
 		    		//validateAll();
 		    	
 	        		if ( trimmedChildren > 0 )
@@ -1862,7 +2362,7 @@ public class Sancho extends SampleGamer {
 					
 					if ( completeChildFound && !complete )
 					{
-						checkChildCompletion();
+						checkChildCompletion(true);
 					}
 		    		//validateAll();
 		    	}
@@ -1882,9 +2382,29 @@ public class Sancho extends SampleGamer {
 	    		total += scores[i];
 	    	}
 	    	
-	    	if ( Math.abs(total-100) > epsilon)
+	    	if ( total > 0 && Math.abs(total-100) > epsilon)
 	    	{
 	    		System.out.println("Bad score vector");
+	    	}
+	    	
+	    	if ( total > 0 && children != null )
+	    	{
+	    		total = 0;
+	    		int visitTotal = 0;
+	    		
+	    		for(TreeEdge edge : children)
+	    		{
+	    			if ( edge == edge.selectAs)
+	    			{
+	    				total += edge.child.node.averageScores[0]*edge.numChildVisits;
+	    				visitTotal += edge.numChildVisits;
+	    			}
+	    		}
+	    		
+	    		if ( visitTotal > 200 && Math.abs(averageScores[0] - total/visitTotal) > 10 )
+	    		{
+	    			System.out.println("Parent stats do not match chikdren");
+	    		}
 	    	}
 	    }
 	    
@@ -2114,7 +2634,14 @@ public class Sancho extends SampleGamer {
 	    	//else
 	    	if ( isSimultaneousMove )
 	    	{
-	    		return getAverageCousinMoveValue(inboundEdge, roleIndex);
+	    		if ( roleIndex == 0 )
+	    		{
+	    			return inboundEdge.child.node.averageScores[roleIndex]/100;
+	    		}
+	    		else
+	    		{
+	    			return Math.min(inboundEdge.child.node.averageScores[roleIndex]/100, getAverageCousinMoveValue(inboundEdge, roleIndex));
+	    		}
 	    	}
 	    	else if ( useGoalHeuristic )
 	    	{
@@ -2131,7 +2658,7 @@ public class Sancho extends SampleGamer {
 	    	}
 	    	else
 	    	{
-	    		return inboundEdge.child.node.averageScores[roleIndex]/100;// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
+	    		return inboundEdge.child.node.averageScores[roleIndex]/100;// + getAverageCousinMoveValue(inboundEdge, roleIndex)/Math.log(inboundEdge.child.node.numVisits+2);// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
 	    	}
 	    }
 
@@ -2173,18 +2700,19 @@ public class Sancho extends SampleGamer {
 			        		TreeNodeRef cr = children[mostLikelyWinner].child;
 			        		TreeNode c = cr.node;
 			        		//if ( cr.seq == c.seq && (!c.complete || (isSimultaneousMove && decidingRoleIndex == 0)))
-				        	if ( cr.seq == c.seq && (!c.complete || isMultiPlayer || (isSimultaneousMove && decidingRoleIndex == 0 && !allCousinsComplete(children[mostLikelyWinner]))))
+				        	if ( cr.seq == c.seq && (!c.complete) && !c.allChildrenComplete)// || isMultiPlayer || (isSimultaneousMove && decidingRoleIndex == 0 && !allCousinsComplete(children[mostLikelyWinner]))))
 			        		{
 					            double uctValue;
 					            
-					            if ( children[mostLikelyWinner].numChildVisits == 0 )
+					            if ( c.numVisits == 0 && !c.complete )
 					            {
 						            // small random number to break ties randomly in unexpanded nodes
 					            	uctValue = 1000 +  r.nextDouble() * epsilon + heuristicValue(children[mostLikelyWinner]);
 					            }
 					            else
 					            {
-					            	uctValue = explorationUCT(children[mostLikelyWinner].numChildVisits, roleIndex) + exploitationUCT(children[mostLikelyWinner], roleIndex) + heuristicValue(children[mostLikelyWinner]);
+					            	uctValue = explorationUCT(c.numVisits, roleIndex) + exploitationUCT(children[mostLikelyWinner], roleIndex) + heuristicValue(children[mostLikelyWinner]);
+					            	//uctValue = explorationUCT(children[mostLikelyWinner].numChildVisits, roleIndex) + exploitationUCT(children[mostLikelyWinner], roleIndex) + heuristicValue(children[mostLikelyWinner]);
 					            	//uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[mostLikelyWinner])+1) / numChildVisits[mostLikelyWinner]);
 					            }
 			        			
@@ -2218,22 +2746,23 @@ public class Sancho extends SampleGamer {
 						            	selectedIndex = -1;
 						            	break;
 						            }
-						            else 
+						            else if ( children[i].selectAs == children[i] )	//	Only select one move that is state-equivalent
 						            {
 							            double uctValue;
-							            if ( children[i].numChildVisits == 0 )
+							            if ( c.numVisits == 0 && !c.complete )
 							            {
 								            // small random number to break ties randomly in unexpanded nodes
 							            	uctValue = 1000 +  r.nextDouble() * epsilon + heuristicValue(children[i]);
 							            }
 							            else
 							            {
-							            	uctValue = explorationUCT(children[i].numChildVisits, roleIndex) + exploitationUCT(children[i], roleIndex) + heuristicValue(children[i]);
+							            	uctValue = (c.complete ? 0 : explorationUCT(c.numVisits, roleIndex)) + exploitationUCT(children[i], roleIndex) + heuristicValue(children[i]);
+							            	//uctValue = explorationUCT(children[i].numChildVisits, roleIndex) + exploitationUCT(children[i], roleIndex) + heuristicValue(children[i]);
 							            	//uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
 							            }
 
 						            	//if ( !c.complete || (isSimultaneousMove && decidingRoleIndex == 0) )
-								        if ( !c.complete || isMultiPlayer || (isSimultaneousMove && decidingRoleIndex == 0 && !allCousinsComplete(children[i])) )
+								        if ( !c.complete && !c.allChildrenComplete)// || isMultiPlayer || (isSimultaneousMove && decidingRoleIndex == 0 && !allCousinsComplete(children[i])) )
 							            {
 								            if (uctValue > bestValue)
 								            {
@@ -2315,10 +2844,12 @@ public class Sancho extends SampleGamer {
 	        }
 	        
 	        TreePathElement result = new TreePathElement(selected);
-	        if ( bestCompleteNode != null && bestCompleteValue > bestValue )
+	        //if ( bestCompleteNode != null && bestCompleteNode.averageScores[roleIndex] > selected.child.node.averageScores[roleIndex] )
+		    if ( bestCompleteNode != null && bestCompleteValue > bestValue )
 	        {
-	        	//result.setScoreOverrides(bestCompleteNode.averageScores);
-	        	//mostLikelyWinner = -1;
+	        	result.setScoreOverrides(bestCompleteNode.averageScores);
+	        	bestCompleteNode.numVisits++;
+	        	mostLikelyWinner = -1;
 	        }
 	        
 //        	if ( parents.contains(root))
@@ -2510,6 +3041,7 @@ public class Sancho extends SampleGamer {
 	    {
 	    	double bestScore = -Double.MAX_VALUE;
 	    	double bestRawScore = -Double.MAX_VALUE;
+	    	int mostSelected = -Integer.MAX_VALUE;
 	    	Move rawResult = null;
 	    	Move result = null;
 	    	boolean anyComplete = false;
@@ -2532,12 +3064,16 @@ public class Sancho extends SampleGamer {
 		    {
 	    		TreeNode child = edge.child.node;
 	    		
-	    		Double moveScore = (isSimultaneousMove || isMultiPlayer || anyComplete || disableOnelevelMinimax) ? child.averageScores[0] : child.scoreForMostLikelyResponse();
-	    		if ( moveScore < 0.5 && edge.child.node.complete )
+	    		double moveScore = (isSimultaneousMove || isMultiPlayer || anyComplete || disableOnelevelMinimax) ? child.averageScores[0] : child.scoreForMostLikelyResponse();
+    			//	If we have complete nodes with equal scores choose the one with the highest variance
+	    		if ( edge.child.node.complete )
 	    		{
-	    			//	If everything loses with perfect play go for the highest variance and make
-	    			//	the opponent work for it!
-	    			moveScore = child.averageSquaredScores[0]/100 - 100;
+	    			double varianceMeasure = child.averageSquaredScores[0]/100;
+
+	    			if ( moveScore < 0.1 )
+	    			{
+	    				moveScore = varianceMeasure - 100;
+	    			}
 	    		}
 	    		System.out.println("Move " + edge.jointPartialMove[0].move + " scores " + moveScore + " (raw score " + child.averageScores[0] + ", selection count " + child.numVisits + ", seq " + child.seq + (child.complete ? ", complete" : "") + ")");
     			if (child.children != null && !child.complete && traceResponses)
@@ -2550,10 +3086,13 @@ public class Sancho extends SampleGamer {
     			{
     				continue;
     			}
-	    		if ( moveScore > bestScore || (moveScore == bestScore && child.complete && moveScore > 0) || (bestNode != null && bestNode.complete && !child.complete && bestNode.averageScores[0] <= lowestRolloutScoreSeen && lowestRolloutScoreSeen < 100))
+	    		if ( moveScore > bestScore ||
+	    			 (moveScore == bestScore && child.complete && (child.numVisits > mostSelected || !bestNode.complete)) ||
+	    			 (bestNode != null && bestNode.complete && !child.complete && bestNode.averageScores[0] <= lowestRolloutScoreSeen && lowestRolloutScoreSeen < 100))
 	    		{
 	    			bestNode = child;
 	    			bestScore = moveScore;
+	    			mostSelected = child.numVisits;
 	    			result = edge.jointPartialMove[0].move;
 	    		}
 	    		if ( child.averageScores[0] > bestRawScore || (child.averageScores[0] == bestRawScore && child.complete && child.averageScores[0] > 0))
@@ -2666,6 +3205,8 @@ public class Sancho extends SampleGamer {
 				values = overrides;
 			}
 			
+			//validateScoreVector(averageScores);
+			//validateScoreVector(values);
 //			boolean debugNode = false;
 //			if ( parents.contains(root))
 //			{
@@ -2716,7 +3257,7 @@ public class Sancho extends SampleGamer {
     				//	being propagated from, according to how much of that child's value was accrued through this path
     				//	Note - we disable this for simultaneous turn games since it empirically causes issues there, probably
     				//	due to introducing incorrect biases over choices between moves with imperfect information
-    				if ( !isSimultaneousMove && values != overrides )
+    				if ( /*!isSimultaneousMove &&*/ values != overrides )
     				{
 //    					if ( debugNode && isCompletePseudoRollout && dumpCount > 100 )
 //    					{
@@ -2726,22 +3267,25 @@ public class Sancho extends SampleGamer {
     				}
 		    	}
 		    	
-		    	if ( isCompletePseudoRollout)
+//		    	if ( isCompletePseudoRollout)
+//		    	{
+//		    		averageScores[roleIndex] = (averageScores[roleIndex]*numVisits + values[roleIndex])/(numVisits+1);
+//		    		averageSquaredScores[roleIndex] = (averageSquaredScores[roleIndex]*numVisits + squaredValues[roleIndex])/(numVisits+1);
+//			    	
+//		    		//numVisits++;
+//		    	}
+//		    	else
 		    	{
-		    		averageScores[roleIndex] = (averageScores[roleIndex]*numVisits + values[roleIndex])/(numVisits+1);
-		    		averageSquaredScores[roleIndex] = (averageSquaredScores[roleIndex]*numVisits + squaredValues[roleIndex])/(numVisits+1);
-			    	
-		    		//numVisits++;
-		    	}
-		    	else
-		    	{
-		    		if ( numVisits == 0 )
-		    		{
-		    			System.out.println("Updating stats for unvisited node");
-		    		}
+//		    		if ( numVisits == 0 )
+//		    		{
+//		    			System.out.println("Updating stats for unvisited node");
+//		    		}
 	
-		    		averageScores[roleIndex] = (averageScores[roleIndex]*(numVisits-1) + values[roleIndex])/(numVisits);
-		    		averageSquaredScores[roleIndex] = (averageSquaredScores[roleIndex]*(numVisits-1) + squaredValues[roleIndex])/numVisits;
+		    		if ( !complete )
+		    		{
+			    		averageScores[roleIndex] = (averageScores[roleIndex]*numUpdates + values[roleIndex])/(numUpdates+1);
+			    		averageSquaredScores[roleIndex] = (averageSquaredScores[roleIndex]*numUpdates + squaredValues[roleIndex])/(numUpdates+1);
+		    		}
 		    	}
 //				if ( debugNode && dumpCount > 100 )
 //				{
@@ -2764,28 +3308,31 @@ public class Sancho extends SampleGamer {
 		    	leastLikelyWinner = -1;
 		    	mostLikelyWinner = -1;
 				
-				if ( isCompletePseudoRollout && !visitCountsUpdated )
-				{
-					numVisits++;
-					
-			    	if ( (!complete || isSimultaneousMove || isMultiPlayer) && childEdge != null )
-			    	{
-			    		childEdge.numChildVisits++;
-			    	}
-			    	
-			    	visitCountsUpdated = true;
-				}
+//				if ( isCompletePseudoRollout && !visitCountsUpdated )
+//				{
+//					numVisits++;
+//					
+//			    	if ( (!complete || isSimultaneousMove || isMultiPlayer) && childEdge != null )
+//			    	{
+//			    		childEdge.numChildVisits++;
+//			    	}
+//			    	
+//			    	visitCountsUpdated = true;
+//				}
 			}
 		
-//			if ( isCompletePseudoRollout )
-//			{
-//				numVisits++;
-//				
-//		    	if ( (!complete || isSimultaneousMove || isMultiPlayer) && childEdge != null )
-//		    	{
-//		    		childEdge.numChildVisits++;
-//		    	}
-//			}
+			if ( isCompletePseudoRollout )
+			{
+				numVisits++;
+				
+		    	if ( (!complete || isSimultaneousMove || isMultiPlayer) && childEdge != null )
+		    	{
+		    		childEdge.numChildVisits++;
+		    	}
+			}
+			
+			//validateScoreVector(averageScores);
+			numUpdates++;
   	
 			if ( path.hasMore() )
 			{
@@ -2889,7 +3436,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.47";
+		return "Sancho 1.49";
 	}
 	
 	@Override
@@ -3188,8 +3735,8 @@ public class Sancho extends SampleGamer {
 		//	Simulate and derive a few basic stats:
 		//	1) Is the game a puzzle?
 		//	2) For each role what is the largest and the smallest score that seem reachable and what are the corresponding net scores
-		long simulationStopTime = timeout - 5000;
 		long simulationStartTime = System.currentTimeMillis();
+		long simulationStopTime = Math.min(timeout - 5000, simulationStartTime + 10000);
 		
 		int[] rolloutStats = new int[2];
 		int maxNumTurns = 0;
@@ -3295,6 +3842,7 @@ public class Sancho extends SampleGamer {
 			explorationBias = 1.2;
 		}
 
+		//explorationBias /= 1.5;
     	if ( pieceStateMaps != null )
     	{
     		//	Empirically games with piece count heuristics seem to like lower
@@ -3478,6 +4026,13 @@ public class Sancho extends SampleGamer {
 			root.decidingRoleIndex = numRoles-1;
 			
 			searchProcessor.StartSearch(System.currentTimeMillis() + 60000, new ForwardDeadReckonInternalMachineState(initialState));
+			
+			try {
+				Thread.sleep(Math.max(timeout - 3000 - System.currentTimeMillis(), 0));
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	}
 	
