@@ -945,12 +945,17 @@ public class Sancho extends SampleGamer {
 				{
 //					if ( parents.contains(root))
 //					{
-//						System.out.println("First level move completed");
-//						if ( Math.abs(values[0] - 50) > 0.1 )
+//						for(TreeEdge edge : root.children)
 //						{
-//						    //root.dumpTree("C:\\temp\\mctsTree.txt");
-//							System.out.println("Bad completion");
+//							if ( edge.child.node == this &&
+//								 edge.jointPartialMove[0].move.toString().contains("bid 1 no_tiebreaker") &&
+//								 values[0] > 0.1 )
+//							{
+//							    root.dumpTree("C:\\temp\\mctsTree.txt");
+//								System.out.println("Bad completion");
+//							}
 //						}
+//						//System.out.println("First level move completed");
 //					}
 //					else
 //					{
@@ -1635,7 +1640,21 @@ public class Sancho extends SampleGamer {
 				//	move complete with the average score since
 				//	opponents cannot make the pessimal (for us) choice reliably
 				if (isSimultaneousMove && !decidingRoleWin && decidingRoleIndex == 0)
-				{				
+				{	
+					//	This feels a bit of a hack, but it seems to work - in general when the outcome
+					//	is complete for all choices but varies we err on the pessimistic side.
+					//	However, if we just choose the worst result then a move with many bad results
+					//	looks the same as one with a single bad result (with respect to opponent choices),
+					//	so shade the score up slightly by the average (the 100:1 ratio is arbitrary)
+					//	Note that just using the average also doesn't work, and will cause massive
+					//	over-optimism.
+					for(int i = 0; i < numRoles; i++)
+					{
+						worstDeciderScore[i] = (worstDeciderScore[i]*100 + averageValues[i])/101;
+					}
+					//	If a move provides a better-than-worst case in all uncles it provides a support
+					//	floor the the worst that we can do with perfect play, so use that if its larger than
+					//	what we would otherwise use
 					if ( floorDeciderScore != null && floorDeciderScore[roleIndex] > worstDeciderScore[roleIndex] )
 					{
 						worstDeciderScore = floorDeciderScore;
@@ -3442,7 +3461,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.50";
+		return "Sancho 1.51";
 	}
 	
 	@Override
