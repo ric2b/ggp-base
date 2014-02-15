@@ -739,112 +739,117 @@ public class Sancho extends SampleGamer {
 		}
 		
 		private void correctParentsForCompletion(double values[])
-		{		
-			TreeNode primaryPathParent = null;
-			int		 mostSelectedRouteCount = 0;
-			
-			for(TreeNode parent : parents)
+		{
+			//	Cannot do an a-priori correction of scores based on known child scores
+			//	if heuristics are in use (at least not simply, so for now, just not)
+			//if ( pieceStateMaps == null )
 			{
-				if ( parent.numUpdates > 0 )
+				TreeNode primaryPathParent = null;
+				int		 mostSelectedRouteCount = 0;
+				
+				for(TreeNode parent : parents)
 				{
-					for(TreeEdge child : parent.children)
+					if ( parent.numUpdates > 0 )
 					{
-						if ( child.child.node == this )
+						for(TreeEdge child : parent.children)
 						{
-							if ( child.numChildVisits > mostSelectedRouteCount )
+							if ( child.child.node == this )
 							{
-								mostSelectedRouteCount = child.numChildVisits;
-								primaryPathParent = parent;
+								if ( child.numChildVisits > mostSelectedRouteCount )
+								{
+									mostSelectedRouteCount = child.numChildVisits;
+									primaryPathParent = parent;
+								}
+								break;
 							}
-							break;
 						}
 					}
 				}
-			}
-			
-			if ( primaryPathParent != null && !primaryPathParent.complete )
-			{
-				double[] correctedAverageScores = new double[numRoles];
-				boolean propagate = true;
-				boolean isDeciderCorrelated = (values[primaryPathParent.decidingRoleIndex] > averageScores[primaryPathParent.decidingRoleIndex]);
-				double correctionFactor;
-
-				//validateScoreVector(primaryPathParent.averageScores);
-
-				double totalWeight = 0;
 				
-				for(int i = 0; i < numRoles; i++)
+				if ( primaryPathParent != null && !primaryPathParent.complete )
 				{
-					correctedAverageScores[i] = 0;
-				}
-				
-				for(TreeEdge edge : primaryPathParent.children)
-				{
-					if ( edge.selectAs == edge && edge.child.seq == edge.child.node.seq )
+					double[] correctedAverageScores = new double[numRoles];
+					boolean propagate = true;
+					boolean isDeciderCorrelated = (values[primaryPathParent.decidingRoleIndex] > averageScores[primaryPathParent.decidingRoleIndex]);
+					double correctionFactor;
+	
+					//validateScoreVector(primaryPathParent.averageScores);
+	
+					double totalWeight = 0;
+					
+					for(int i = 0; i < numRoles; i++)
 					{
-						double exploitationUct = primaryPathParent.exploitationUCT(edge, edge.child.node.decidingRoleIndex);
-						
-						//double weight = (exploitationUCT(edge, edge.child.node.decidingRoleIndex) + epsilon)*Math.log(edge.child.node.numVisits+1);
-						//double weight = Math.exp(Math.log(primaryPathParent.numVisits)*primaryPathParent.exploitationUCT(edge, edge.child.node.decidingRoleIndex)) - 1 + epsilon;
-						//double weight = exploitationUct*exploitationUct + epsilon;
-						//double weight = 1/((1-exploitationUct)*(1-exploitationUct) + epsilon) - 1;
-						double weight = (exploitationUct+1/Math.log(primaryPathParent.numVisits+1))*edge.child.node.numVisits + epsilon;
-						
-						totalWeight += weight;
-						for(int i = 0; i < numRoles; i++)
+						correctedAverageScores[i] = 0;
+					}
+					
+					for(TreeEdge edge : primaryPathParent.children)
+					{
+						if ( edge.selectAs == edge && edge.child.seq == edge.child.node.seq )
 						{
-							correctedAverageScores[i] += weight*edge.child.node.averageScores[i];
+							double exploitationUct = primaryPathParent.exploitationUCT(edge, edge.child.node.decidingRoleIndex);
+							
+							//double weight = (exploitationUCT(edge, edge.child.node.decidingRoleIndex) + epsilon)*Math.log(edge.child.node.numVisits+1);
+							//double weight = Math.exp(Math.log(primaryPathParent.numVisits)*primaryPathParent.exploitationUCT(edge, edge.child.node.decidingRoleIndex)) - 1 + epsilon;
+							//double weight = exploitationUct*exploitationUct + epsilon;
+							//double weight = 1/((1-exploitationUct)*(1-exploitationUct) + epsilon) - 1;
+							double weight = (exploitationUct+1/Math.log(primaryPathParent.numVisits+1))*edge.child.node.numVisits + epsilon;
+							
+							totalWeight += weight;
+							for(int i = 0; i < numRoles; i++)
+							{
+								correctedAverageScores[i] += weight*edge.child.node.averageScores[i];
+							}
 						}
 					}
+					
+					for(int i = 0; i < numRoles; i++)
+					{
+						correctedAverageScores[i] /= totalWeight;
+					}
+	//				for(int i = 0; i < numRoles; i++)
+	//				{
+	//					//correctedAverageScores[i] = (primaryPathParent.averageScores[i]*(primaryPathParent.numVisits - mostSelectedRouteCount) + values[i]*correctionFactor*mostSelectedRouteCount)/(primaryPathParent.numVisits+(correctionFactor-1)*mostSelectedRouteCount);
+	//					double correctedValue;
+	//					
+	//					if ( isDeciderCorrelated || primaryPathParent.numVisits == mostSelectedRouteCount)
+	//					{
+	//						//	Assume it would still have been selected and change the contribution to the correct complete one
+	//						correctionFactor = 1.2;
+	//					}
+	//					else
+	//					{
+	//						//	Assume it would have been (far) less selected and just remove the contribution from this child if there are other contributors
+	//						correctionFactor = 0.5;
+	//					}
+	//					
+	//					correctedValue = (primaryPathParent.numVisits*primaryPathParent.averageScores[i] - mostSelectedRouteCount*averageScores[i] + mostSelectedRouteCount*correctionFactor*values[i])/(primaryPathParent.numVisits + (correctionFactor-1)*mostSelectedRouteCount);
+	//					
+	//					if ( correctedValue < 0 )
+	//					{
+	//						correctedValue = 0;
+	//					}
+	//					else if ( correctedValue > 100 )
+	//					{
+	//						correctedValue = 100;
+	//					}
+	//						
+	//					correctedAverageScores[i] = correctedValue;
+	//				}
+					
+					//validateScoreVector(correctedAverageScores);
+								
+					if (propagate)
+					{
+						//if ( correctedAverageScores[decidingRoleIndex] > average)
+						primaryPathParent.correctParentsForCompletion(correctedAverageScores);
+					}
+					
+					for(int i = 0; i < numRoles; i++)
+					{
+						primaryPathParent.averageScores[i] = correctedAverageScores[i];
+					}
+					//validateScoreVector(primaryPathParent.averageScores);
 				}
-				
-				for(int i = 0; i < numRoles; i++)
-				{
-					correctedAverageScores[i] /= totalWeight;
-				}
-//				for(int i = 0; i < numRoles; i++)
-//				{
-//					//correctedAverageScores[i] = (primaryPathParent.averageScores[i]*(primaryPathParent.numVisits - mostSelectedRouteCount) + values[i]*correctionFactor*mostSelectedRouteCount)/(primaryPathParent.numVisits+(correctionFactor-1)*mostSelectedRouteCount);
-//					double correctedValue;
-//					
-//					if ( isDeciderCorrelated || primaryPathParent.numVisits == mostSelectedRouteCount)
-//					{
-//						//	Assume it would still have been selected and change the contribution to the correct complete one
-//						correctionFactor = 1.2;
-//					}
-//					else
-//					{
-//						//	Assume it would have been (far) less selected and just remove the contribution from this child if there are other contributors
-//						correctionFactor = 0.5;
-//					}
-//					
-//					correctedValue = (primaryPathParent.numVisits*primaryPathParent.averageScores[i] - mostSelectedRouteCount*averageScores[i] + mostSelectedRouteCount*correctionFactor*values[i])/(primaryPathParent.numVisits + (correctionFactor-1)*mostSelectedRouteCount);
-//					
-//					if ( correctedValue < 0 )
-//					{
-//						correctedValue = 0;
-//					}
-//					else if ( correctedValue > 100 )
-//					{
-//						correctedValue = 100;
-//					}
-//						
-//					correctedAverageScores[i] = correctedValue;
-//				}
-				
-				//validateScoreVector(correctedAverageScores);
-							
-				if (propagate)
-				{
-					//if ( correctedAverageScores[decidingRoleIndex] > average)
-					primaryPathParent.correctParentsForCompletion(correctedAverageScores);
-				}
-				
-				for(int i = 0; i < numRoles; i++)
-				{
-					primaryPathParent.averageScores[i] = correctedAverageScores[i];
-				}
-				//validateScoreVector(primaryPathParent.averageScores);
 			}
 		}
 		
@@ -2320,6 +2325,7 @@ public class Sancho extends SampleGamer {
 							
 							if ( heuristicSquaredDeviation > 0.01 && root.numVisits > 50 )
 							{
+								newChild.numUpdates = heuristicSampleWeight;
 								newChild.numVisits = heuristicSampleWeight;
 							}
     					}
@@ -3436,7 +3442,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.49";
+		return "Sancho 1.50";
 	}
 	
 	@Override
@@ -4893,7 +4899,7 @@ public class Sancho extends SampleGamer {
 					
 					//	Weight further material gain down the more we're already ahead/behind in material
 					//	because in either circumstance it's likely to be position that is more important
-					heuristicSampleWeight = (int)Math.max(1, 5 - Math.abs(ourMaterialDivergence)*3);
+					heuristicSampleWeight = (int)Math.max(2, 6 - Math.abs(ourMaterialDivergence)*3);
 				}
 				else
 				{
