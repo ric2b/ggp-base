@@ -173,9 +173,14 @@ public class PieceHeuristicAnalyser extends Analyser
     			}
     			else if ( choosingRoleIndex != -1 )
     			{
-    				if ( !heuristicInfo.hasRoleChanges[choosingRoleIndex])
+ 					heuristicInfo.hasRoleChanges[choosingRoleIndex] = true;
+    			}
+    			else
+    			{
+    				//	In a simultaneous turn game all roles choose
+    				for(int i = 0; i < numRoles; i++)
     				{
-    					heuristicInfo.hasRoleChanges[choosingRoleIndex] = true;
+        				heuristicInfo.hasRoleChanges[i] = true;
     				}
     			}
     		}
@@ -211,7 +216,7 @@ public class PieceHeuristicAnalyser extends Analyser
 		{
 			if ( e.getValue().noChangeTurnRate < 0.5 )
 			{
-				System.out.println("Eliminating potential piece set with change rate: " + e.getValue().noChangeTurnRate + ": " + e.getKey());
+				System.out.println("Eliminating potential piece set with no-change rate: " + e.getValue().noChangeTurnRate + ": " + e.getKey());
 			}
 			else
 			{

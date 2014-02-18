@@ -64,7 +64,7 @@ public class Sancho extends SampleGamer {
     
     private Map<ForwardDeadReckonInternalMachineState, TreeNode> positions = new HashMap<ForwardDeadReckonInternalMachineState,TreeNode>();
 
-    private final boolean freeCompletedNodeChildren = true;
+    private final boolean freeCompletedNodeChildren = false;//true;
     private boolean useGoalHeuristic = false;
     private int rolloutSampleSize = 4;
     private int transpositionTableSize = 2000000;
@@ -89,6 +89,8 @@ public class Sancho extends SampleGamer {
     private TreeNodeRef cousinMovesCachedFor = null;
     private double[] bonusBuffer = null;
     private double[] roleRationality = null;
+    private double[] decisiveCompletionRatio = null;
+    private long	numCompletionsProcessed = 0;
     private Object treeLock = new Object();
     
 	private class RolloutProcessor implements Runnable
@@ -888,7 +890,7 @@ public class Sancho extends SampleGamer {
 				System.out.println("Inexplicable completion!");
 			}
 		}
-		
+
 		private void markComplete(double[] values)
 		{
 			if ( !complete )
@@ -948,7 +950,7 @@ public class Sancho extends SampleGamer {
 //						for(TreeEdge edge : root.children)
 //						{
 //							if ( edge.child.node == this &&
-//								 edge.jointPartialMove[0].move.toString().contains("bid 1 no_tiebreaker") &&
+//								 edge.jointPartialMove[0].move.toString().contains("bid 0 no_tiebreaker") &&
 //								 values[0] > 0.1 )
 //							{
 //							    root.dumpTree("C:\\temp\\mctsTree.txt");
@@ -963,7 +965,8 @@ public class Sancho extends SampleGamer {
 //						{
 //							if ( parent.parents.contains(root))
 //							{
-//								System.out.println("Second level move completed");
+//								//System.out.println("Complete seq " + seq + " at value " + values[0]);
+//								//System.out.println("decidingRoleIndex=" + decidingRoleIndex + ", State="+state);
 //							}
 //						}
 //					}
@@ -1634,13 +1637,20 @@ public class Sancho extends SampleGamer {
 			}
 			
 			if ( allImmediateChildrenComplete || decidingRoleWin )
-			{
+			{				
+				if ( bestValues[roleIndex] > epsilon && (decidingRoleWin || bestValues[roleIndex] == worstDeciderScore[roleIndex] || (floorDeciderScore != null && floorDeciderScore[roleIndex] > epsilon)))
+				{
+				    decisiveCompletionRatio[roleIndex] = (decisiveCompletionRatio[roleIndex]*numCompletionsProcessed + 1)/(numCompletionsProcessed+1);
+				}
+				numCompletionsProcessed++;
+				
 				//	Opponent's choice which child to take, so take their
 				//	best value and crystalize as our value.   However, if it's simultaneous
 				//	move complete with the average score since
 				//	opponents cannot make the pessimal (for us) choice reliably
 				if (isSimultaneousMove && !decidingRoleWin && decidingRoleIndex == 0)
-				{	
+				{
+					double[] blendedCompletionScore = new double[numRoles];
 					//	This feels a bit of a hack, but it seems to work - in general when the outcome
 					//	is complete for all choices but varies we err on the pessimistic side.
 					//	However, if we just choose the worst result then a move with many bad results
@@ -1650,16 +1660,16 @@ public class Sancho extends SampleGamer {
 					//	over-optimism.
 					for(int i = 0; i < numRoles; i++)
 					{
-						worstDeciderScore[i] = (worstDeciderScore[i]*100 + averageValues[i])/101;
+						blendedCompletionScore[i] = (worstDeciderScore[i]*100 + averageValues[i])/101;
 					}
 					//	If a move provides a better-than-worst case in all uncles it provides a support
 					//	floor the the worst that we can do with perfect play, so use that if its larger than
 					//	what we would otherwise use
 					if ( floorDeciderScore != null && floorDeciderScore[roleIndex] > worstDeciderScore[roleIndex] )
 					{
-						worstDeciderScore = floorDeciderScore;
+						blendedCompletionScore = floorDeciderScore;
 					}
-					markComplete(worstDeciderScore);
+					markComplete(blendedCompletionScore);
 					//markComplete(averageValues);
 				}
 				else
@@ -2995,7 +3005,7 @@ public class Sancho extends SampleGamer {
 	    	}
 	    	else
 	    	{
-	    		indentedPrint(writer, depth*2, "@" + depth + ": Move " + arrivalPath.jointPartialMove[decidingRoleIndex].move + " scores " + stringizeScoreVector() + (complete ? " (complete)" : "") + " - visits: " + numVisits + " (" + arrivalPath.numChildVisits + ")");
+	    		indentedPrint(writer, depth*2, "@" + depth + ": Move " + arrivalPath.jointPartialMove[decidingRoleIndex].move + " scores " + stringizeScoreVector() + "(seq " + seq + ") - visits: " + numVisits + " (" + arrivalPath.numChildVisits + ")");
 	    	}
 	    	
 	    	if ( sweepSeq == sweepInstance )
@@ -3461,7 +3471,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.51";
+		return "Sancho 1.52";
 	}
 	
 	@Override
@@ -3568,6 +3578,8 @@ public class Sancho extends SampleGamer {
 		rootPieceCounts = new int[numRoles];
 		heuristicStateValueBuffer = new double[numRoles];
 	    roleRationality = new double[numRoles];
+	    decisiveCompletionRatio = new double[numRoles];
+	    numCompletionsProcessed = 0;
 
 		pieceStateMaps = null;
 		
@@ -5159,6 +5171,10 @@ public class Sancho extends SampleGamer {
 				System.out.println("Num completely explored branches: " + numCompletedBranches);
 				System.out.println("Current rollout sample size: " + rolloutSampleSize );
 				System.out.println("Current observed rollout score range: [" + lowestRolloutScoreSeen + ", " + highestRolloutScoreSeen + "]");
+				for(int i = 0; i < numRoles; i++)
+				{
+					System.out.println("decisiveCompletionRatio[" + roleIndexToRole(i) + "] = " + decisiveCompletionRatio[i]);
+				}
 
 				numSelectionsThroughIncompleteNodes = 0;
 				numReExpansions = 0;

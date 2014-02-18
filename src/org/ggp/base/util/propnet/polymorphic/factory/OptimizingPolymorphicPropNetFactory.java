@@ -2689,9 +2689,69 @@ public class OptimizingPolymorphicPropNetFactory {
 		}
 	}
 	
+	private static boolean componentInputDependsOnLegal(PolymorphicComponent c, Set<PolymorphicComponent> inputClosure)
+	{
+		if ( inputClosure == null )
+		{
+			inputClosure = new HashSet<PolymorphicComponent>();
+		}
+		
+		for(PolymorphicComponent input : c.getInputs())
+		{
+			if ( !inputClosure.contains(input))
+			{
+				inputClosure.add(input);
+				
+				if ( input instanceof PolymorphicProposition )
+				{
+					GdlConstant name = ((PolymorphicProposition)input).getName().getName();
+					
+					if ( name == LEGAL )
+					{
+						return true;
+					}
+					else if ( name == TERMINAL )
+					{
+						if ( componentInputDependsOnLegal(input, inputClosure) )
+						{
+							return true;
+						}					
+					}
+				}
+				else if ( !(input instanceof PolymorphicTransition) )
+				{
+					if ( componentInputDependsOnLegal(input, inputClosure) )
+					{
+						return true;
+					}
+				}
+			}
+		}
+		
+		return false;
+	}
+	
 	public static void removeAllButGoalPropositions(PolymorphicPropNet propNet)
 	{
 		List<PolymorphicComponent> removedComponents = new LinkedList<PolymorphicComponent>();
+		
+		boolean goalsRequireLegals = false;
+		for(PolymorphicComponent c : propNet.getComponents())
+		{
+			if ( c instanceof PolymorphicProposition )
+			{
+				GdlConstant name = ((PolymorphicProposition)c).getName().getName();
+				
+				if ( name == GOAL )
+				{
+					if ( componentInputDependsOnLegal(c, null) )
+					{
+						goalsRequireLegals = true;
+						break;
+					}
+				}
+			}
+		}
 		
 		for(PolymorphicComponent c : propNet.getComponents())
 		{
@@ -2701,7 +2761,7 @@ public class OptimizingPolymorphicPropNetFactory {
 			{
 				GdlConstant name = ((PolymorphicProposition)c).getName().getName();
 				
-				if ( name != TRUE && name != BASE && name != GOAL && name != TERMINAL )
+				if ( name != TRUE && name != BASE && name != GOAL && name != TERMINAL && (name != LEGAL || !goalsRequireLegals) )
 				{
 					remove = true;
 				}
