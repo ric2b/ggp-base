@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +62,8 @@ public class Sancho extends SampleGamer {
     private boolean completeSelectionFromIncompleteParentWarned = false;
 	private int numSelectionsThroughIncompleteNodes = 0;
 	private int numReExpansions = 0;
+	private int priorityMarkCount = 0;
+	private int prioritySelectionCount = 0;
     
     private Map<ForwardDeadReckonInternalMachineState, TreeNode> positions = new HashMap<ForwardDeadReckonInternalMachineState,TreeNode>();
 
@@ -71,6 +74,7 @@ public class Sancho extends SampleGamer {
     private final int maxOutstandingRolloutRequests = 4;
     private int numRolloutThreads = 4;
     private double explorationBias = 1.0;
+    private double moveActionHistoryBias = 3.3;
     private double minExplorationBias = 0.5;
     private double maxExplorationBias = 1.2;
     private final double competitivenessBonus = 2;
@@ -92,6 +96,108 @@ public class Sancho extends SampleGamer {
     private double[] decisiveCompletionRatio = null;
     private long	numCompletionsProcessed = 0;
     private Object treeLock = new Object();
+    private LRUNodeMoveWeightsCache nodeMoveWeightsCache = null;
+    
+    private class MoveWeight
+    {
+    	public double	value;
+    	public int		numSamples;
+    }
+    
+    private class MoveWeights extends HashMap<Move,MoveWeight>
+    {
+		/*
+		 * 
+		 */
+		private static final long serialVersionUID = 1L; 
+    };
+    
+    private class NodeMoveWeights
+    {
+    	public final static double decayRate = 0.8;
+    	
+    	MoveWeights[] roleMoveWeights = null;
+    	
+    	public NodeMoveWeights()
+    	{
+    		roleMoveWeights = new MoveWeights[numRoles];
+    		
+    		for(int i = 0; i < numRoles; i++)
+    		{
+    			roleMoveWeights[i] = new MoveWeights();
+    		}
+    	}
+    	
+    	public void addMove(Move move, int roleIndex, double weight)
+    	{
+    		MoveWeight existingValue = roleMoveWeights[roleIndex].get(move);
+    		if ( existingValue == null )
+    		{
+    			existingValue = new MoveWeight();
+    			roleMoveWeights[roleIndex].put(move, existingValue);
+    		}
+    		
+    		existingValue.value = (existingValue.value*existingValue.numSamples + weight)/++existingValue.numSamples;
+    	}
+    	
+    	public double getMoveWeight(Move move, int roleIndex)
+    	{
+    		MoveWeight existingValue = roleMoveWeights[roleIndex].get(move);
+    		
+    		return (existingValue == null ? 0 : existingValue.value);
+    	}
+    	
+    	public void accrue(NodeMoveWeights other)
+    	{
+    		for(int i = 0; i < numRoles; i++)
+    		{
+    			for(Entry<Move,MoveWeight> e : other.roleMoveWeights[i].entrySet())
+    			{
+    	    		MoveWeight existingValue = roleMoveWeights[i].get(e.getKey());
+    	    		if ( existingValue == null )
+    	    		{
+    	    			existingValue = new MoveWeight();
+    	    			roleMoveWeights[i].put(e.getKey(), existingValue);
+    	    		}
+    	    		if ( e.getValue().value > existingValue.value )
+    	    		{
+    	    			existingValue.value = e.getValue().value;
+    	    		}
+    			}
+    		}
+    	}
+    	
+    	public void decay()
+    	{
+    		for(int i = 0; i < numRoles; i++)
+    		{
+     			for(MoveWeight val : roleMoveWeights[i].values())
+    			{
+    				val.value *= decayRate;
+    			}
+    		}
+    	}
+    }
+    
+    private class LRUNodeMoveWeightsCache extends LinkedHashMap<TreeNode,NodeMoveWeights>
+    {
+    	/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+		private int maxEntries;
+    	
+    	public LRUNodeMoveWeightsCache(int capacity)
+    	{
+    		super(capacity + 1, 1.0f, true);
+    		maxEntries = capacity;
+    	}
+    	
+    	@Override
+    	protected boolean removeEldestEntry(final Map.Entry<TreeNode,NodeMoveWeights> eldest) {
+            return super.size() > maxEntries;
+        }
+    }
     
 	private class RolloutProcessor implements Runnable
     {
@@ -649,6 +755,7 @@ public class Sancho extends SampleGamer {
 		private TreeNode root;
 		private List<TreePathElement> elements = new ArrayList<TreePathElement>();
 		private int index = 0;
+		public NodeMoveWeights propagatedMoveWeights = new NodeMoveWeights();
 		
 		public TreePath(TreeNode root)
 		{
@@ -727,6 +834,7 @@ public class Sancho extends SampleGamer {
 		//private TreeNode sweepParent = null;
 		boolean freed = false;
 		int trimCount = 0;
+		int	forceSelectCount = 0;
 	    private int leastLikelyWinner = -1;
 	    private double leastLikelyRunnerUpValue;
 	    private int mostLikelyWinner = -1;
@@ -1046,6 +1154,10 @@ public class Sancho extends SampleGamer {
 				{
 					// Win for whoever just moved after they got to choose so parent node is also decided
 					parent.markComplete(averageScores);
+					
+					//	Force win in this state means a very likely good move in sibling states
+					//	so note that their selection probabilities should be increased
+					//markCousinsAsPriorityToSelect();
 				}
 				else
 				{
@@ -1711,6 +1823,7 @@ public class Sancho extends SampleGamer {
 			children = null;
 			parents.clear();
 			trimmedChildren = 0;
+			forceSelectCount = 0;
 			this.freed = freed;
 			trimCount = 0;
 			leastLikelyWinner = -1;
@@ -1838,6 +1951,8 @@ public class Sancho extends SampleGamer {
 				//{
 				//	System.out.println("Node still referenced!");
 				//}
+				
+				nodeMoveWeightsCache.remove(this);
 				
 				if ( trimmedChildren > 0 && !complete )
 				{
@@ -2116,6 +2231,8 @@ public class Sancho extends SampleGamer {
 			ProfileSection methodSection = new ProfileSection("TreeNode.selectAction");
 			try
 			{
+				NodeMoveWeights moveWeights = new NodeMoveWeights();
+				
 				//validateAll();
 				completedNodeQueue.clear();
 				
@@ -2125,7 +2242,7 @@ public class Sancho extends SampleGamer {
 		        TreePathElement selected = null;
 		        //visited.add(this);
 		        while (!cur.isUnexpanded()) {
-		        	selected = cur.select(selected == null ? null : selected.getEdge());
+		        	selected = cur.select(selected == null ? null : selected.getEdge(), moveWeights);
 
 		            cur = selected.getChildNode();
 		            //visited.add(cur);
@@ -2140,7 +2257,7 @@ public class Sancho extends SampleGamer {
 			        
 			        if ( !cur.complete )
 			        {
-				        selected = cur.select(selected == null ? null : selected.getEdge());
+				        selected = cur.select(selected == null ? null : selected.getEdge(), moveWeights);
 				        newNode = selected.getChildNode();
 				        //visited.add(newNode);
 				        visited.push(selected);
@@ -2149,7 +2266,7 @@ public class Sancho extends SampleGamer {
 				        	newNode.expand(selected.getEdge());
 				        	if ( !newNode.complete )
 				        	{
-				        		selected = newNode.select(selected.getEdge());
+				        		selected = newNode.select(selected.getEdge(), moveWeights);
 				        		newNode = selected.getChildNode();
 				        		//visited.add(newNode);
 						        visited.push(selected);
@@ -2564,6 +2681,136 @@ public class Sancho extends SampleGamer {
         	return explorationBias*Math.sqrt(2*Math.min(0.5,varianceBound)*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits)/roleRationality[roleIndex];
 	    }
 	    
+	    private void addMoveWeightsToAncestors(Move move, int roleIndex, double weight)
+	    {
+			TreeNode primaryPathParent = null;
+			int		 mostSelectedRouteCount = 0;
+			
+			for(TreeNode parent : parents)
+			{
+				if ( parent.numUpdates > 0 )
+				{
+					for(TreeEdge child : parent.children)
+					{
+						if ( child.child.node == this )
+						{
+							if ( child.numChildVisits > mostSelectedRouteCount )
+							{
+								mostSelectedRouteCount = child.numChildVisits;
+								primaryPathParent = parent;
+							}
+							break;
+						}
+					}
+				}
+			}
+			
+			if ( primaryPathParent != null )
+			{
+				NodeMoveWeights weights = nodeMoveWeightsCache.get(primaryPathParent);
+				
+				if ( weights == null )
+				{
+					weights = new NodeMoveWeights();
+					nodeMoveWeightsCache.put(primaryPathParent, weights);
+				}
+				
+				weights.addMove(move, roleIndex, weight);
+				
+				primaryPathParent.mostLikelyWinner = -1;
+				primaryPathParent.addMoveWeightsToAncestors(move, roleIndex, weight*NodeMoveWeights.decayRate);
+			}
+	    }
+	    
+		private void markCousinsAsPriorityToSelect()
+		{
+			for(TreeNode parent : parents)
+			{
+				Move priorityMove = null;
+				
+				for(TreeEdge edge : parent.children)
+				{
+					if ( edge.child.node == this )
+					{
+						priorityMove = edge.jointPartialMove[decidingRoleIndex].move;
+						break;
+					}
+				}
+				
+				if ( priorityMove != null )
+				{
+					addMoveWeightsToAncestors(priorityMove, decidingRoleIndex, 10);
+					//System.out.println("Mark move " + priorityMove + " as priority select");
+					
+					//	Backtrack up to the next ancestor decision node
+//					int depth = 0;
+//					TreeNode ancestor = parent;
+//					boolean found = false;
+//					int numPriorityBoosts = 0;
+//					
+//					do
+//					{
+//						depth++;
+//						for(TreeNode nextAncestor : ancestor.parents)
+//						{
+//							if ( nextAncestor.children.length > 1 )
+//							{
+//								//	Descend from here (up to depth layers)
+//								//System.out.println("Mark move " + priorityMove + " as priority select for " + roleIndexToRole(decidingRoleIndex) + ", with depth " + depth);
+//								numPriorityBoosts = nextAncestor.markMoveAsPrioritySelect(priorityMove, depth, decidingRoleIndex);
+//								found = true;
+//							}
+//							else
+//							{
+//								//	Strictly we're assuming a degree of symmetry whereby one parent having
+//								//	no choices implies all will - this should be fine for most games
+//								//	TODO - write a proper ancestor enumerator
+//								ancestor = nextAncestor;
+//								break;
+//							}
+//						}
+//					} while(ancestor != null && !found && ancestor != root);
+//					
+//					priorityMarkCount += numPriorityBoosts;
+				}
+			}
+		}
+		
+		private int markMoveAsPrioritySelect(Move move, int depth, int roleIndex)
+		{
+			int result = 0;
+			
+			forceSelectCount++;
+			mostLikelyWinner = -1;
+			
+			if ( depth >= 0 )
+			{
+				if ( children != null )
+				{
+					for(TreeEdge edge : children)
+					{
+						if ( (decidingRoleIndex+1)%numRoles == roleIndex && edge.jointPartialMove[roleIndex].move.equals(move) )
+						{
+							edge.child.node.forceSelectCount++;
+							mostLikelyWinner = -1;
+							result++;
+							break;
+						}
+						else
+						{
+							if ( edge.selectAs == edge && edge.child.seq == edge.child.node.seq )
+							{
+								result += edge.child.node.markMoveAsPrioritySelect(move, depth-1, roleIndex);
+							}
+						}
+					}
+				}
+			}
+			
+			return result;
+		}
+		
+
 	    private boolean allCousinsComplete(TreeEdge relativeTo)
 	    {
     		for(TreeNode parent : parents)
@@ -2693,11 +2940,47 @@ public class Sancho extends SampleGamer {
 	    	}
 	    	else
 	    	{
-	    		return inboundEdge.child.node.averageScores[roleIndex]/100;// + getAverageCousinMoveValue(inboundEdge, roleIndex)/Math.log(inboundEdge.child.node.numVisits+2);// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
+	    		double result = inboundEdge.child.node.averageScores[roleIndex]/100;// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
+	    		return result;
+				//return inboundEdge.child.node.averageScores[roleIndex]/100;
+				//return inboundEdge.child.node.averageScores[roleIndex]/100 + getAverageCousinMoveValue(inboundEdge, roleIndex)/Math.log(inboundEdge.child.node.numVisits+2);// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
 	    	}
 	    }
 
-	    private TreePathElement select(TreeEdge from) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException {
+	    //	Weighted average of available responses (RMS currently)
+	    private double getDescendantMoveWeight(NodeMoveWeights weights, int roleIndex)
+	    {
+	    	double result = 0;
+	    	NodeMoveWeights ourWeights = nodeMoveWeightsCache.get(this);
+	    	
+	    	if ( children != null )
+	    	{
+	    		if ( children.length > 1 )
+	    		{
+	    			if ( (decidingRoleIndex+1)%numRoles == roleIndex )
+	    			{
+			    		for(TreeEdge edge : children)
+			    		{
+			    			double ancestorVal = weights.getMoveWeight(edge.jointPartialMove[roleIndex].move, roleIndex);
+			    			double ourVal = (ourWeights == null ? 0 : ourWeights.getMoveWeight(edge.jointPartialMove[roleIndex].move, roleIndex));
+			    			double maxVal = Math.max(ancestorVal, ourVal);
+			    			
+			    			result += maxVal*maxVal;
+			    		}
+	    			}
+	    			
+	    			result = Math.sqrt(result/children.length);
+	    		}
+	    		else
+	    		{
+	    			return children[0].child.node.getDescendantMoveWeight(weights, roleIndex);
+	    		}
+	    	}
+	    	
+	    	return result;
+	    }
+	    
+	    private TreePathElement select(TreeEdge from, NodeMoveWeights weights) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException {
 	        TreeEdge selected = null;
 	        int selectedIndex = -1;
 	        double bestCompleteValue = Double.MIN_VALUE;
@@ -2730,6 +3013,14 @@ public class Sancho extends SampleGamer {
 		        	}
 		        	else
 		        	{
+		    			NodeMoveWeights ourWeights = nodeMoveWeightsCache.get(this);
+
+	    				weights.decay();
+	    				if ( ourWeights != null )
+		    			{
+		    				weights.accrue(ourWeights);
+		    			}
+		    			
 			        	if ( mostLikelyWinner != -1 )
 			        	{
 			        		TreeNodeRef cr = children[mostLikelyWinner].child;
@@ -2794,7 +3085,23 @@ public class Sancho extends SampleGamer {
 							            	uctValue = (c.complete ? 0 : explorationUCT(c.numVisits, roleIndex)) + exploitationUCT(children[i], roleIndex) + heuristicValue(children[i]);
 							            	//uctValue = explorationUCT(children[i].numChildVisits, roleIndex) + exploitationUCT(children[i], roleIndex) + heuristicValue(children[i]);
 							            	//uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
+								    		if ( c.forceSelectCount > 0 )
+								    		{
+								    			c.forceSelectCount--;
+								    			uctValue += 10;
+								    			prioritySelectionCount++;
+								    			//System.out.println("Priority selected move: " + children[i].jointPartialMove[c.decidingRoleIndex].move);
+								    		}
 							            }
+										
+										double moveWeight = 0;
+										double opponentEnabledMoveWeight = c.getDescendantMoveWeight(weights, roleIndex);
+										if ( !c.complete && weights != null )
+										{
+											 moveWeight = weights.getMoveWeight(children[i].jointPartialMove[roleIndex].move, roleIndex);
+										}
+										//uctValue += (moveWeight - opponentEnabledMoveWeight)/(5*Math.log(numVisits+1));
+										uctValue += (moveWeight - opponentEnabledMoveWeight)*Math.sqrt(Math.log(numVisits)/(c.numVisits+1))*moveActionHistoryBias;
 
 						            	//if ( !c.complete || (isSimultaneousMove && decidingRoleIndex == 0) )
 								        if ( !c.complete && !c.allChildrenComplete)// || isMultiPlayer || (isSimultaneousMove && decidingRoleIndex == 0 && !allCousinsComplete(children[i])) )
@@ -2942,7 +3249,7 @@ public class Sancho extends SampleGamer {
 	    	return scoreForMostLikelyResponseRecursive(null, decidingRoleIndex);
 	    }
 	    
-	    private String stringizeScoreVector()
+	    private String stringizeScoreVector(double[] averageScores, boolean complete)
 	    {
 	    	StringBuilder sb = new StringBuilder();
 	    	
@@ -2962,6 +3269,11 @@ public class Sancho extends SampleGamer {
 	    	}
 	    	
 	    	return sb.toString();
+	    }
+	    
+	    private String stringizeScoreVector()
+	    {
+	    	return stringizeScoreVector(averageScores, complete);
 	    }
 	    
 	    private void traceFirstChoiceNode()
@@ -3072,6 +3384,101 @@ public class Sancho extends SampleGamer {
 	    	}
 	    }
 	    
+	    private class MoveFrequencyInfo
+	    {
+	    	public int 		numSamples;
+	    	public int		selectionFrequency;
+	    	public double[] weightedAverageScores;
+	    	public double   averageWeight;
+	    	
+	    	public MoveFrequencyInfo()
+	    	{
+	    		weightedAverageScores = new double[numRoles];
+	    	}
+	    }
+	    
+	    private void addResponseStats(Map<Move,MoveFrequencyInfo> responseInfo, NodeMoveWeights weights)
+	    {
+	    	weights.decay();
+	    	
+	    	if ( children != null )
+	    	{
+				if ( children.length > 1 )
+		    	{
+					NodeMoveWeights ourWeights = nodeMoveWeightsCache.get(this);
+					if ( ourWeights != null )
+					{
+						weights.accrue(ourWeights);
+					}
+					
+					for(TreeEdge edge2 : children)
+					{
+						if ( edge2.child.seq == edge2.child.node.seq )
+						{
+							MoveFrequencyInfo moveInfo = responseInfo.get(edge2.jointPartialMove[edge2.child.node.decidingRoleIndex].move);
+							
+							if ( moveInfo == null )
+							{
+								moveInfo = new MoveFrequencyInfo();
+								responseInfo.put(edge2.jointPartialMove[edge2.child.node.decidingRoleIndex].move, moveInfo);
+							}
+							
+							for(int i = 0; i < numRoles; i++)
+							{
+								moveInfo.weightedAverageScores[i] = (moveInfo.weightedAverageScores[i]*moveInfo.selectionFrequency + edge2.child.node.averageScores[i]*edge2.child.node.numVisits)/(moveInfo.selectionFrequency + edge2.child.node.numVisits);
+							}
+							moveInfo.selectionFrequency += edge2.child.node.numVisits;
+							
+							moveInfo.averageWeight = (moveInfo.averageWeight*moveInfo.numSamples + weights.getMoveWeight(edge2.jointPartialMove[edge2.child.node.decidingRoleIndex].move, edge2.child.node.decidingRoleIndex))/(moveInfo.numSamples+1);
+							moveInfo.numSamples++;
+						}
+					}    		
+		    	}
+		    	else
+		    	{
+		    		children[0].child.node.addResponseStats(responseInfo, weights);
+		    	}
+	    	}
+	    }
+	    
+	    private void dumpStats()
+	    {
+	    	Map<Move,MoveFrequencyInfo>	moveChoices = new HashMap<Move,MoveFrequencyInfo>();
+	    	Map<Move,MoveFrequencyInfo>	responseChoices = new HashMap<Move,MoveFrequencyInfo>();
+	    	NodeMoveWeights ourWeights = nodeMoveWeightsCache.get(this);
+	    	
+	    	if ( children != null )
+	    	{
+		    	for(TreeEdge edge : children)
+		    	{
+		    		MoveFrequencyInfo info = new MoveFrequencyInfo();
+		    		
+		    		info.selectionFrequency = edge.numChildVisits;
+		    		info.weightedAverageScores = edge.child.node.averageScores;
+		    		info.numSamples = 1;
+		    		info.averageWeight = (ourWeights == null ? 0 : ourWeights.getMoveWeight(edge.jointPartialMove[0].move, 0));
+		    		moveChoices.put(edge.jointPartialMove[0].move, info);
+		    		
+		    		NodeMoveWeights weights = new NodeMoveWeights();
+		    		if ( ourWeights != null )
+		    		{
+		    			weights.accrue(ourWeights);
+		    		}
+		    		edge.child.node.addResponseStats(responseChoices, weights);
+		    	}
+	    	}
+	    	
+	    	for(Entry<Move, MoveFrequencyInfo> e : moveChoices.entrySet())
+	    	{
+	    		System.out.println("Move " + e.getKey() + " weight " + e.getValue().averageWeight + ", frequency " + e.getValue().selectionFrequency + ", score: " + stringizeScoreVector(e.getValue().weightedAverageScores, false));
+	    	}
+	    	
+	    	for(Entry<Move, MoveFrequencyInfo> e : responseChoices.entrySet())
+	    	{
+	    		System.out.println("Response " + e.getKey() + " weight " + e.getValue().averageWeight + ", frequency " + e.getValue().selectionFrequency + ", score: " + stringizeScoreVector(e.getValue().weightedAverageScores, false));
+	    	}
+	    }
+	    
 	    public Move getBestMove(boolean traceResponses)
 	    {
 	    	double bestScore = -Double.MAX_VALUE;
@@ -3099,6 +3506,7 @@ public class Sancho extends SampleGamer {
 		    {
 	    		TreeNode child = edge.child.node;
 	    		
+	    		double selectionScore;
 	    		double moveScore = (isSimultaneousMove || isMultiPlayer || anyComplete || disableOnelevelMinimax) ? child.averageScores[0] : child.scoreForMostLikelyResponse();
     			//	If we have complete nodes with equal scores choose the one with the highest variance
 	    		if ( edge.child.node.complete )
@@ -3109,8 +3517,14 @@ public class Sancho extends SampleGamer {
 	    			{
 	    				moveScore = varianceMeasure - 100;
 	    			}
+	    			
+	    			selectionScore = moveScore;
 	    		}
-	    		System.out.println("Move " + edge.jointPartialMove[0].move + " scores " + moveScore + " (raw score " + child.averageScores[0] + ", selection count " + child.numVisits + ", seq " + child.seq + (child.complete ? ", complete" : "") + ")");
+	    		else
+	    		{
+	    			selectionScore = moveScore*(1 - 20*Math.log(numVisits)/(20*Math.log(numVisits)+child.numVisits));
+	    		}
+	    		System.out.println("Move " + edge.jointPartialMove[0].move + " scores " + moveScore + " (selectionScore score " + selectionScore + ", selection count " + child.numVisits + ", seq " + child.seq + (child.complete ? ", complete" : "") + ")");
     			if (child.children != null && !child.complete && traceResponses)
     			{
     				child.traceFirstChoiceNode();
@@ -3121,12 +3535,12 @@ public class Sancho extends SampleGamer {
     			{
     				continue;
     			}
-	    		if ( moveScore > bestScore ||
+	    		if ( selectionScore > bestScore ||
 	    			 (moveScore == bestScore && child.complete && (child.numVisits > mostSelected || !bestNode.complete)) ||
 	    			 (bestNode != null && bestNode.complete && !child.complete && bestNode.averageScores[0] <= lowestRolloutScoreSeen && lowestRolloutScoreSeen < 100))
 	    		{
 	    			bestNode = child;
-	    			bestScore = moveScore;
+	    			bestScore = selectionScore;
 	    			mostSelected = child.numVisits;
 	    			result = edge.jointPartialMove[0].move;
 	    		}
@@ -3136,6 +3550,8 @@ public class Sancho extends SampleGamer {
 	    			rawResult = edge.jointPartialMove[0].move;
 	    		}
 	    	}
+		    
+		    dumpStats();
 		    
 		    //dumpTree("C:\\temp\\mctsTree.txt");
 	    	
@@ -3238,6 +3654,29 @@ public class Sancho extends SampleGamer {
 			if ( overrides != null )
 			{
 				values = overrides;
+			}
+			else if ( childEdge != null && children.length > 1 )
+			{
+				//	Sigmoid response to score in move weight, biased around a score of 75
+				double newWeight = 1/(1+Math.exp((75-childEdge.child.node.averageScores[childEdge.child.node.decidingRoleIndex])/5));
+				
+				if ( !childEdge.child.node.complete )
+				{
+					newWeight *= (1 - Math.exp(-childEdge.child.node.numVisits/10));
+				}
+				
+				path.propagatedMoveWeights.decay();
+				path.propagatedMoveWeights.addMove(childEdge.jointPartialMove[childEdge.child.node.decidingRoleIndex].move, childEdge.child.node.decidingRoleIndex, newWeight);
+				
+				NodeMoveWeights ourWeights = nodeMoveWeightsCache.get(this);
+				
+				if ( ourWeights == null )
+				{
+					ourWeights = new NodeMoveWeights();
+					nodeMoveWeightsCache.put(this, ourWeights);
+				}
+				
+				ourWeights.accrue(path.propagatedMoveWeights);
 			}
 			
 			//validateScoreVector(averageScores);
@@ -3464,6 +3903,10 @@ public class Sancho extends SampleGamer {
 		}
 		positions.clear();
 		numIncompleteNodes = 0;
+		if ( nodeMoveWeightsCache != null )
+		{
+			nodeMoveWeightsCache.clear();
+		}
 	}
 	
 	private TestForwardDeadReckonPropnetStateMachine underlyingStateMachine;
@@ -3471,7 +3914,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.52";
+		return "Sancho 1.52a";
 	}
 	
 	@Override
@@ -3579,6 +4022,7 @@ public class Sancho extends SampleGamer {
 		heuristicStateValueBuffer = new double[numRoles];
 	    roleRationality = new double[numRoles];
 	    decisiveCompletionRatio = new double[numRoles];
+	    nodeMoveWeightsCache = new LRUNodeMoveWeightsCache(5000);
 	    numCompletionsProcessed = 0;
 
 		pieceStateMaps = null;
@@ -3892,6 +4336,10 @@ public class Sancho extends SampleGamer {
     	
     	System.out.println("Set explorationBias range to [" + minExplorationBias + ", " + maxExplorationBias + "]");
 		
+    	moveActionHistoryBias = 0;//averageBranchingFactor/10;
+    	
+    	System.out.println("Set moveActionHistoryBias to " + moveActionHistoryBias);
+    	
 		if( underlyingStateMachine.numRolloutDecisionNodeExpansions > 0)
 		{
 			System.out.println("Greedy rollout terminal discovery effectiveness: " + (underlyingStateMachine.greedyRolloutEffectiveness*100)/underlyingStateMachine.numRolloutDecisionNodeExpansions);
@@ -5170,6 +5618,7 @@ public class Sancho extends SampleGamer {
 				System.out.println("Num node re-expansions: " + numReExpansions);
 				System.out.println("Num completely explored branches: " + numCompletedBranches);
 				System.out.println("Current rollout sample size: " + rolloutSampleSize );
+				System.out.println("Priority mark:select counts: " + priorityMarkCount + " : " + prioritySelectionCount );
 				System.out.println("Current observed rollout score range: [" + lowestRolloutScoreSeen + ", " + highestRolloutScoreSeen + "]");
 				for(int i = 0; i < numRoles; i++)
 				{
@@ -5180,6 +5629,8 @@ public class Sancho extends SampleGamer {
 				numReExpansions = 0;
 			    numNonTerminalRollouts = 0;
 			    numTerminalRollouts = 0;
+				priorityMarkCount = 0;
+				prioritySelectionCount = 0;
 			}
 			
 			searchProcessor.requestYield = false;
