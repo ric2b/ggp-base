@@ -72,7 +72,8 @@ public class Sancho extends SampleGamer {
     private int rolloutSampleSize = 4;
     private int transpositionTableSize = 2000000;
     private final int maxOutstandingRolloutRequests = 4;
-    private int numRolloutThreads = 4;
+    private final boolean runSynchronously = false;	//	Set to run everything on one thread to eliminate concurrency issues when debugging
+    private int numRolloutThreads = (runSynchronously ? 0 : 4);
     private double explorationBias = 1.0;
     private double moveActionHistoryBias = 0;
     private double minExplorationBias = 0.5;
@@ -115,6 +116,7 @@ public class Sancho extends SampleGamer {
     private class NodeMoveWeights
     {
     	public final static double decayRate = 0.8;
+    	public final static double selectThroughDecayRate = 0.0;
     	
     	MoveWeights[] roleMoveWeights = null;
     	
@@ -175,6 +177,16 @@ public class Sancho extends SampleGamer {
     			{
     				val.value *= decayRate;
     			}
+    		}
+    	}    	
+    	
+    	public void decayForSelectionThrough(Move move, int roleIndex)
+    	{
+    		MoveWeight existingValue = roleMoveWeights[roleIndex].get(move);
+    		
+    		if ( existingValue != null )
+    		{
+    			existingValue.value *= selectThroughDecayRate;
     		}
     	}
     }
@@ -2134,7 +2146,7 @@ public class Sancho extends SampleGamer {
 				            }
 				            else
 				            {
-				            	uctValue = -explorationUCT(edge.numChildVisits, roleIndex) - exploitationUCT(edge, roleIndex);
+				            	uctValue = -explorationUCT(numVisits, edge.numChildVisits, roleIndex) - exploitationUCT(edge, roleIndex);
 				            	//uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[leastLikelyWinner])+1) / numChildVisits[leastLikelyWinner]);
 				            }
 				            uctValue /= Math.log(Math.max(1, c.numVisits+2-c.trimCount));	//	utcVal is negative so this makes larger subtrees score higher (less negative)
@@ -2186,7 +2198,7 @@ public class Sancho extends SampleGamer {
 						            //}
 						            else
 						            {
-						            	uctValue = -explorationUCT(edge.numChildVisits, roleIndex) - exploitationUCT(edge, roleIndex);
+						            	uctValue = -explorationUCT(numVisits, edge.numChildVisits, roleIndex) - exploitationUCT(edge, roleIndex);
 						            	//uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
 						            }
 						            uctValue /= Math.log(c.numVisits+2);	//	utcVal is negative so this makes larger subtrees score higher (less negative)
@@ -2673,12 +2685,12 @@ public class Sancho extends SampleGamer {
 	    	return result;
 	    }
 	    
-	    private double explorationUCT(int numChildVisits, int roleIndex)
+	    private double explorationUCT(int effectiveTotalVists, int numChildVisits, int roleIndex)
 	    {
 	    	//	When we propagate adjustments due to completion we do not also adjust the variance contribution
 	    	//	so this can result in 'impossibly' low (aka negative) variance - take a lower bound of 0
-        	double varianceBound = Math.max(0, averageSquaredScores[roleIndex] - averageScores[roleIndex]*averageScores[roleIndex])/10000 + Math.sqrt(2*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits);
-        	return explorationBias*Math.sqrt(2*Math.min(0.5,varianceBound)*Math.log(Math.max(numVisits,numChildVisits)+1) / numChildVisits)/roleRationality[roleIndex];
+        	double varianceBound = Math.max(0, averageSquaredScores[roleIndex] - averageScores[roleIndex]*averageScores[roleIndex])/10000 + Math.sqrt(2*Math.log(Math.max(effectiveTotalVists,numChildVisits)+1) / numChildVisits);
+        	return explorationBias*Math.sqrt(2*Math.min(0.5,varianceBound)*Math.log(Math.max(effectiveTotalVists,numChildVisits)+1) / numChildVisits)/roleRationality[roleIndex];
 	    }
 	    
 	    private void addMoveWeightsToAncestors(Move move, int roleIndex, double weight)
@@ -3040,6 +3052,18 @@ public class Sancho extends SampleGamer {
 		        	}
 		        	else
 		        	{
+		        		int totalNumChildVisits = 0;
+		        		
+			        	mostLikelyRunnerUpValue = Double.MIN_VALUE;
+				        for (int i = 0; i < children.length; i++)
+				        {
+				        	TreeEdge edge = children[i];
+				        	if ( edge.selectAs == edge && edge.child != null && edge.child.seq == edge.child.node.seq )
+				        	{
+				        		totalNumChildVisits += edge.child.node.numVisits;
+				        	}
+				        }
+				        
 		        		if ( moveActionHistoryBias != 0 )
 		        		{
 			    			NodeMoveWeights ourWeights = nodeMoveWeightsCache.get(this);
@@ -3067,7 +3091,7 @@ public class Sancho extends SampleGamer {
 					            }
 					            else
 					            {
-					            	uctValue = explorationUCT(c.numVisits, roleIndex) + exploitationUCT(children[mostLikelyWinner], roleIndex) + heuristicValue(children[mostLikelyWinner]);
+					            	uctValue = explorationUCT(totalNumChildVisits, c.numVisits, roleIndex) + exploitationUCT(children[mostLikelyWinner], roleIndex) + heuristicValue(children[mostLikelyWinner]);
 					            	//uctValue = explorationUCT(children[mostLikelyWinner].numChildVisits, roleIndex) + exploitationUCT(children[mostLikelyWinner], roleIndex) + heuristicValue(children[mostLikelyWinner]);
 					            	//uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[mostLikelyWinner])+1) / numChildVisits[mostLikelyWinner]);
 					            }
@@ -3082,6 +3106,7 @@ public class Sancho extends SampleGamer {
 			        	if ( selectedIndex == -1 )
 			        	{
 				        	mostLikelyRunnerUpValue = Double.MIN_VALUE;
+
 					        for (int i = 0; i < children.length; i++)
 					        {
 					        	TreeNodeRef cr = children[i].child;
@@ -3112,7 +3137,7 @@ public class Sancho extends SampleGamer {
 							            }
 							            else
 							            {
-							            	uctValue = (c.complete ? 0 : explorationUCT(c.numVisits, roleIndex)) + exploitationUCT(children[i], roleIndex) + heuristicValue(children[i]);
+							            	uctValue = (c.complete ? 0 : explorationUCT(totalNumChildVisits, c.numVisits, roleIndex)) + exploitationUCT(children[i], roleIndex) + heuristicValue(children[i]);
 							            	//uctValue = explorationUCT(children[i].numChildVisits, roleIndex) + exploitationUCT(children[i], roleIndex) + heuristicValue(children[i]);
 							            	//uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
 								    		if ( c.forceSelectCount > 0 )
@@ -3222,11 +3247,17 @@ public class Sancho extends SampleGamer {
 	        //if ( bestCompleteNode != null && bestCompleteNode.averageScores[roleIndex] > selected.child.node.averageScores[roleIndex] )
 		    if ( bestCompleteNode != null && bestCompleteValue > bestValue )
 	        {
+		    	System.out.println("Selection override enacted");
 	        	result.setScoreOverrides(bestCompleteNode.averageScores);
 	        	bestCompleteNode.numVisits++;
 	        	mostLikelyWinner = -1;
 	        }
 	        
+            if ( moveActionHistoryBias != 0 && weights != null )
+			{
+				 weights.decayForSelectionThrough(selected.jointPartialMove[roleIndex].move, roleIndex);
+			}
+
 //        	if ( parents.contains(root))
 //        	{
 //        		System.out.println("Select through response " + result.getEdge().jointPartialMove[1].move + " with score " + result.getChildNode().averageScores[1] + " (uct " + bestValue + ")");
@@ -3947,7 +3978,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.53";
+		return "Sancho 1.54";
 	}
 	
 	@Override
@@ -4356,7 +4387,6 @@ public class Sancho extends SampleGamer {
 			explorationBias = 1.2;
 		}
 
-		//explorationBias /= 1.5;
     	if ( pieceStateMaps != null )
     	{
     		//	Empirically games with piece count heuristics seem to like lower
@@ -4550,6 +4580,10 @@ public class Sancho extends SampleGamer {
 			root = allocateNode(underlyingStateMachine, initialState, null);
 			root.decidingRoleIndex = numRoles-1;
 			
+			if ( runSynchronously )
+			{
+				explorationBias = (maxExplorationBias + minExplorationBias)/2;
+			}
 			searchProcessor.StartSearch(System.currentTimeMillis() + 60000, new ForwardDeadReckonInternalMachineState(initialState));
 			
 			try {
@@ -5261,6 +5295,11 @@ public class Sancho extends SampleGamer {
 		@Override
 		public void run()
 		{
+			if ( runSynchronously )
+			{
+				return;
+			}
+			
 			// TODO Auto-generated method stub
 			try
 			{
@@ -5299,53 +5338,7 @@ public class Sancho extends SampleGamer {
 									{
 										explorationBias = maxExplorationBias - percentThroughTurn*(maxExplorationBias - minExplorationBias)/100;
 										
-										while ( numUsedNodes > transpositionTableSize - 200 )
-										{
-											root.disposeLeastLikelyNode();
-										}
-										//validateAll();
-										//validationCount++;
-										int numOutstandingRollouts = numQueuedRollouts - numCompletedRollouts;
-										
-										if ( numOutstandingRollouts < maxOutstandingRolloutRequests )
-										{
-											numIterations++;
-											root.selectAction();
-										}
-										else
-										{
-											Thread.yield();
-										}
-										
-										if (numRolloutThreads == 0)
-										{
-											while( !queuedRollouts.isEmpty() )
-											{
-												RolloutRequest request = queuedRollouts.remove();
-												
-												request.process(underlyingStateMachine);
-											}
-										}
-		
-	//									if ( numIterations == 0 )
-	//									{
-	//										int queuedSize = queuedRollouts.size();
-	//										int completedSize = completedRollouts.size();
-	//										System.out.println("Completing rollouts. numQueuedRollouts="+numQueuedRollouts+", numCompletedRollouts="+numCompletedRollouts);
-	//										System.out.println("queuedRollouts.size()="+queuedSize);
-	//										System.out.println("completedRollouts.size()="+completedSize);
-	//										if ( numCompletedRollouts <= numQueuedRollouts+4 && queuedSize == 0 && completedSize == 0 )
-	//										{
-	//											System.out.println("Uh oh!");
-	//											System.out.println("dequeuedRollouts="+dequeuedRollouts);
-	//											System.out.println("enqueuedCompletedRollouts="+enqueuedCompletedRollouts);
-	//											if ( ++uhohCount > 1 )
-	//											{
-	//												System.out.println("Persistent issue");
-	//											}
-	//										}
-	//									}
-										processCompletedRollouts();
+										runLoopIteration();
 									}
 								}
 							}
@@ -5361,6 +5354,39 @@ public class Sancho extends SampleGamer {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+		}
+		
+		public void runLoopIteration() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException, InterruptedException
+		{
+			while ( numUsedNodes > transpositionTableSize - 200 )
+			{
+				root.disposeLeastLikelyNode();
+			}
+			//validateAll();
+			//validationCount++;
+			int numOutstandingRollouts = numQueuedRollouts - numCompletedRollouts;
+			
+			if ( numOutstandingRollouts < maxOutstandingRolloutRequests )
+			{
+				numIterations++;
+				root.selectAction();
+			}
+			else
+			{
+				Thread.yield();
+			}
+			
+			if (numRolloutThreads == 0)
+			{
+				while( !queuedRollouts.isEmpty() )
+				{
+					RolloutRequest request = queuedRollouts.remove();
+					
+					request.process(underlyingStateMachine);
+				}
+			}
+
+			processCompletedRollouts();
 		}
 		
 		public int getNumIterations()
@@ -5623,7 +5649,14 @@ public class Sancho extends SampleGamer {
 			try {
 				while(System.currentTimeMillis() < finishBy && !root.complete )
 				{
-					Thread.sleep(250);
+					if ( runSynchronously )
+					{
+						searchProcessor.runLoopIteration();
+					}
+					else
+					{
+						Thread.sleep(250);
+					}
 				}
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
