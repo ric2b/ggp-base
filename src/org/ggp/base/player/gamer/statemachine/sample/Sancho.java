@@ -3247,7 +3247,6 @@ public class Sancho extends SampleGamer {
 	        //if ( bestCompleteNode != null && bestCompleteNode.averageScores[roleIndex] > selected.child.node.averageScores[roleIndex] )
 		    if ( bestCompleteNode != null && bestCompleteValue > bestValue )
 	        {
-		    	System.out.println("Selection override enacted");
 	        	result.setScoreOverrides(bestCompleteNode.averageScores);
 	        	bestCompleteNode.numVisits++;
 	        	mostLikelyWinner = -1;
