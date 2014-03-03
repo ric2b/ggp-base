@@ -74,7 +74,7 @@ public class Sancho extends SampleGamer {
     private final int maxOutstandingRolloutRequests = 4;
     private int numRolloutThreads = 4;
     private double explorationBias = 1.0;
-    private double moveActionHistoryBias = 3.3;
+    private double moveActionHistoryBias = 0;
     private double minExplorationBias = 0.5;
     private double maxExplorationBias = 1.2;
     private final double competitivenessBonus = 2;
@@ -2231,7 +2231,7 @@ public class Sancho extends SampleGamer {
 			ProfileSection methodSection = new ProfileSection("TreeNode.selectAction");
 			try
 			{
-				NodeMoveWeights moveWeights = new NodeMoveWeights();
+				NodeMoveWeights moveWeights = (moveActionHistoryBias != 0 ? new NodeMoveWeights() : null);
 				
 				//validateAll();
 				completedNodeQueue.clear();
@@ -2947,7 +2947,10 @@ public class Sancho extends SampleGamer {
 	    	}
 	    }
 
-	    //	Weighted average of available responses (RMS currently)
+    	private final int orderStatistic = 3;
+    	private double[] orderBuffer = new double[orderStatistic];
+    	
+	    //	Weighted average of available responses (modified (RMS) third-order statistic currently)
 	    private double getDescendantMoveWeight(NodeMoveWeights weights, int roleIndex)
 	    {
 	    	double result = 0;
@@ -2959,17 +2962,41 @@ public class Sancho extends SampleGamer {
 	    		{
 	    			if ( (decidingRoleIndex+1)%numRoles == roleIndex )
 	    			{
+	    				int maxOrderIndex = Math.min(children.length, orderStatistic);
+	    				
+		    			for(int order = 0; order < maxOrderIndex; order++)
+		    			{
+		    				orderBuffer[order] = 0;
+		    			}
+		    			
 			    		for(TreeEdge edge : children)
 			    		{
 			    			double ancestorVal = weights.getMoveWeight(edge.jointPartialMove[roleIndex].move, roleIndex);
 			    			double ourVal = (ourWeights == null ? 0 : ourWeights.getMoveWeight(edge.jointPartialMove[roleIndex].move, roleIndex));
 			    			double maxVal = Math.max(ancestorVal, ourVal);
 			    			
-			    			result += maxVal*maxVal;
+			    			for(int order = 0; order < maxOrderIndex; order++)
+			    			{
+			    				if ( maxVal > orderBuffer[order] )
+			    				{
+			    					for(int i = order+1; i < maxOrderIndex; i++)
+			    					{
+			    						orderBuffer[i] = orderBuffer[i-1];
+			    					}
+			    					
+			    					orderBuffer[order] = maxVal;
+			    					break;
+			    				}
+			    			}
 			    		}
+		    			
+		    			for(int order = 0; order < maxOrderIndex; order++)
+		    			{
+		    				result += orderBuffer[order]*orderBuffer[order];
+		    			}
+		    			
+		    			result = Math.sqrt(result/maxOrderIndex);
 	    			}
-	    			
-	    			result = Math.sqrt(result/children.length);
 	    		}
 	    		else
 	    		{
@@ -3013,14 +3040,17 @@ public class Sancho extends SampleGamer {
 		        	}
 		        	else
 		        	{
-		    			NodeMoveWeights ourWeights = nodeMoveWeightsCache.get(this);
-
-	    				weights.decay();
-	    				if ( ourWeights != null )
-		    			{
-		    				weights.accrue(ourWeights);
-		    			}
-		    			
+		        		if ( moveActionHistoryBias != 0 )
+		        		{
+			    			NodeMoveWeights ourWeights = nodeMoveWeightsCache.get(this);
+	
+		    				weights.decay();
+		    				if ( ourWeights != null )
+			    			{
+			    				weights.accrue(ourWeights);
+			    			}
+		        		}
+		        		
 			        	if ( mostLikelyWinner != -1 )
 			        	{
 			        		TreeNodeRef cr = children[mostLikelyWinner].child;
@@ -3094,15 +3124,18 @@ public class Sancho extends SampleGamer {
 								    		}
 							            }
 										
-										double moveWeight = 0;
-										double opponentEnabledMoveWeight = c.getDescendantMoveWeight(weights, roleIndex);
-										if ( !c.complete && weights != null )
-										{
-											 moveWeight = weights.getMoveWeight(children[i].jointPartialMove[roleIndex].move, roleIndex);
-										}
-										//uctValue += (moveWeight - opponentEnabledMoveWeight)/(5*Math.log(numVisits+1));
-										uctValue += (moveWeight - opponentEnabledMoveWeight)*Math.sqrt(Math.log(numVisits)/(c.numVisits+1))*moveActionHistoryBias;
-
+							            if ( moveActionHistoryBias != 0 )
+							            {
+											double moveWeight = 0;
+											double opponentEnabledMoveWeight = c.getDescendantMoveWeight(weights, roleIndex);
+											if ( !c.complete && weights != null )
+											{
+												 moveWeight = weights.getMoveWeight(children[i].jointPartialMove[roleIndex].move, roleIndex);
+											}
+											//uctValue += (moveWeight - opponentEnabledMoveWeight)/(5*Math.log(numVisits+1));
+											uctValue += (moveWeight - opponentEnabledMoveWeight)*Math.sqrt(Math.log(numVisits)/(c.numVisits+1))*moveActionHistoryBias;
+							            }
+							            
 						            	//if ( !c.complete || (isSimultaneousMove && decidingRoleIndex == 0) )
 								        if ( !c.complete && !c.allChildrenComplete)// || isMultiPlayer || (isSimultaneousMove && decidingRoleIndex == 0 && !allCousinsComplete(children[i])) )
 							            {
@@ -3655,7 +3688,7 @@ public class Sancho extends SampleGamer {
 			{
 				values = overrides;
 			}
-			else if ( childEdge != null && children.length > 1 )
+			else if ( childEdge != null && children.length > 1 && moveActionHistoryBias > 0 )
 			{
 				//	Sigmoid response to score in move weight, biased around a score of 75
 				double newWeight = 1/(1+Math.exp((75-childEdge.child.node.averageScores[childEdge.child.node.decidingRoleIndex])/5));
@@ -3914,7 +3947,7 @@ public class Sancho extends SampleGamer {
 		
 	@Override
 	public String getName() {
-		return "Sancho 1.52a";
+		return "Sancho 1.53";
 	}
 	
 	@Override
@@ -4336,8 +4369,15 @@ public class Sancho extends SampleGamer {
     	
     	System.out.println("Set explorationBias range to [" + minExplorationBias + ", " + maxExplorationBias + "]");
 		
-    	moveActionHistoryBias = 0;//averageBranchingFactor/10;
-    	
+    	if ( (maxNumTurns - minNumTurns) > averageNumTurns/10 )
+    	{
+    		moveActionHistoryBias = averageBranchingFactor/5;
+    	}
+    	else
+    	{
+    		moveActionHistoryBias = 0;
+    	}
+
     	System.out.println("Set moveActionHistoryBias to " + moveActionHistoryBias);
     	
 		if( underlyingStateMachine.numRolloutDecisionNodeExpansions > 0)
@@ -4488,7 +4528,7 @@ public class Sancho extends SampleGamer {
 		}
 		else
 		{
-			rolloutSampleSize = (int) (simulationsPerformed/(4*(simulationStopTime - simulationStartTime)) + 1);
+			rolloutSampleSize = (int) (simulationsPerformed/(2.5*(simulationStopTime - simulationStartTime)) + 1);
 			if ( rolloutSampleSize > 100)
 			{
 				rolloutSampleSize = 100;
