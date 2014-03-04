@@ -14,31 +14,37 @@ public class BiddingTicTacToeCanvas extends GameCanvas_FancyGrid
 {
   private static final long serialVersionUID = 1L;
 
+  @Override
   public String getGameName()
   {
     return "Tic-Tac-Toe (Bidding)";
   }
 
+  @Override
   protected String getGameKey()
   {
     return "biddingTicTacToe";
   }
 
+  @Override
   protected int getGridHeight()
   {
     return 5;
   }
 
+  @Override
   protected int getGridWidth()
   {
     return 7;
   }
 
+  @Override
   protected boolean coordinatesStartAtOne()
   {
     return false;
   }
 
+  @Override
   protected boolean useGridVisualization()
   {
     return false;

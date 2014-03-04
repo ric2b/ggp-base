@@ -62,6 +62,7 @@ public final class MatchPanel extends JPanel implements Observer
                                     5));
   }
 
+  @Override
   public void observe(Event event)
   {
     if (event instanceof GamerCompletedMatchEvent)

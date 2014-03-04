@@ -19,6 +19,7 @@ public final class HumanNewMovesEvent extends Event
   {
     Collections.sort(moves, new Comparator<Move>()
     {
+      @Override
       public int compare(Move o1, Move o2)
       {
         return o1.toString().compareTo(o2.toString());

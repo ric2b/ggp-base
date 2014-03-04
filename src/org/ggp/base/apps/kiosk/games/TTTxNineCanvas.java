@@ -13,26 +13,31 @@ public class TTTxNineCanvas extends GameCanvas_SimpleGrid
 {
   private static final long serialVersionUID = 1L;
 
+  @Override
   public String getGameName()
   {
     return "Nine Board Tic Tac Toe";
   }
 
+  @Override
   protected String getGameKey()
   {
     return "nineBoardTicTacToe";
   }
 
+  @Override
   protected int getGridHeight()
   {
     return 9;
   }
 
+  @Override
   protected int getGridWidth()
   {
     return 9;
   }
 
+  @Override
   protected boolean coordinatesStartAtOne()
   {
     return false;
@@ -43,6 +48,7 @@ public class TTTxNineCanvas extends GameCanvas_SimpleGrid
   private int xSelectedSpot  = 0;
   private int ySelectedSpot  = 0;
 
+  @Override
   protected void handleClickOnCell(int xCell,
                                    int yCell,
                                    int xWithin,

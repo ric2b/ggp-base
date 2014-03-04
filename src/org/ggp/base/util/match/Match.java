@@ -469,6 +469,7 @@ public final class Match
     return getGame().getRepositoryURL();
   }
 
+  @Override
   public String toString()
   {
     return toJSON();

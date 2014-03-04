@@ -50,6 +50,7 @@ public abstract class GameCanvas extends JPanel implements Subject
     // Fiddle with Mouse Settings       
     addMouseListener(new MouseAdapter()
     {
+      @Override
       public void mousePressed(MouseEvent e)
       {
         requestFocusInWindow();
@@ -62,6 +63,7 @@ public abstract class GameCanvas extends JPanel implements Subject
         repaint();
       }
 
+      @Override
       public void mouseReleased(MouseEvent e)
       {
         lastClickX = -1;
@@ -71,6 +73,7 @@ public abstract class GameCanvas extends JPanel implements Subject
 
     addMouseMotionListener(new MouseMotionAdapter()
     {
+      @Override
       public void mouseDragged(MouseEvent e)
       {
         if (lastClickX == -1)
@@ -98,6 +101,7 @@ public abstract class GameCanvas extends JPanel implements Subject
     myRole = r;
   }
 
+  @Override
   public void paintComponent(Graphics g)
   {
     super.paintComponent(g);

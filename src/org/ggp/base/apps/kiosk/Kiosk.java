@@ -77,6 +77,7 @@ public final class Kiosk extends JPanel implements ActionListener,
     final Kiosk serverPanel = new Kiosk();
     javax.swing.SwingUtilities.invokeLater(new Runnable()
     {
+      @Override
       public void run()
       {
         createAndShowGUI(serverPanel);
@@ -406,6 +407,7 @@ public final class Kiosk extends JPanel implements ActionListener,
       this.theCanvasClass = theCanvasClass;
     }
 
+    @Override
     public String toString()
     {
       return gameName;

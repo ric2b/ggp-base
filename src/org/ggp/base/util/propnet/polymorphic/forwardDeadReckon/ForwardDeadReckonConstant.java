@@ -32,11 +32,13 @@ public final class ForwardDeadReckonConstant extends
    * 
    * @return The value of the Component.
    */
+  @Override
   public boolean getValue()
   {
     return value;
   }
 
+  @Override
   public void setKnownChangedState(boolean newState,
                                    int instanceId,
                                    ForwardDeadReckonComponent source)

@@ -116,6 +116,7 @@ public abstract class GameCanvas_FancyGrid extends GameCanvas_SimpleGrid
   private String           currentSelectedMove;
   private Iterator<String> possibleSelectedMoves = null;
 
+  @Override
   protected final void handleClickOnCell(int xCell,
                                          int yCell,
                                          int xWithin,
@@ -155,12 +156,14 @@ public abstract class GameCanvas_FancyGrid extends GameCanvas_SimpleGrid
   }
 
   // When the game state changes, clear our cache of known facts.
+  @Override
   public void updateGameState(MachineState gameState)
   {
     factsCache.clear();
     super.updateGameState(gameState);
   }
 
+  @Override
   protected final void renderCell(Graphics g, int xCell, int yCell)
   {
     renderCellBackground(g, xCell, yCell);
@@ -176,6 +179,7 @@ public abstract class GameCanvas_FancyGrid extends GameCanvas_SimpleGrid
     }
   }
 
+  @Override
   public final void clearMoveSelection()
   {
     submitWorkingMove(null);

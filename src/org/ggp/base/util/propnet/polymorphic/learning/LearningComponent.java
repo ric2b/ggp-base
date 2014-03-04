@@ -52,6 +52,7 @@ public abstract class LearningComponent extends
    * @param input
    *          A new input.
    */
+  @Override
   public void addInput(PolymorphicComponent input)
   {
     if (!inputs.contains(input))
@@ -66,6 +67,7 @@ public abstract class LearningComponent extends
    * @param output
    *          A new output.
    */
+  @Override
   public void addOutput(PolymorphicComponent output)
   {
     outputs.add((LearningComponent)output);
@@ -76,31 +78,37 @@ public abstract class LearningComponent extends
    * 
    * @return The inputs to the component.
    */
+  @Override
   public Collection<? extends PolymorphicComponent> getInputs()
   {
     return inputs;
   }
 
+  @Override
   public void removeInput(PolymorphicComponent input)
   {
     inputs.remove(input);
   }
 
+  @Override
   public void removeAllInputs()
   {
     inputs.clear();
   }
 
+  @Override
   public void removeAllOutputs()
   {
     outputs.clear();
   }
 
+  @Override
   public void removeOutput(PolymorphicComponent output)
   {
     outputs.remove(output);
   }
 
+  @Override
   public void crystalize()
   {
   }
@@ -111,6 +119,7 @@ public abstract class LearningComponent extends
    * 
    * @return The single input to the component.
    */
+  @Override
   public PolymorphicComponent getSingleInput()
   {
     assert inputs.size() == 1;
@@ -122,6 +131,7 @@ public abstract class LearningComponent extends
    * 
    * @return The outputs of the component.
    */
+  @Override
   public Collection<? extends PolymorphicComponent> getOutputs()
   {
     return outputs;
@@ -133,6 +143,7 @@ public abstract class LearningComponent extends
    * 
    * @return The single output to the component.
    */
+  @Override
   public PolymorphicComponent getSingleOutput()
   {
     assert outputs.size() == 1;
@@ -144,6 +155,7 @@ public abstract class LearningComponent extends
    * 
    * @return The value of the Component.
    */
+  @Override
   public boolean getValue()
   {
     getCount++;
@@ -157,11 +169,13 @@ public abstract class LearningComponent extends
     return cachedValue;
   }
 
+  @Override
   public boolean isDirty()
   {
     return dirty;
   }
 
+  @Override
   public void setDirty(boolean from, BidirectionalPropagationComponent source)
   {
     dirtyCount++;
@@ -180,6 +194,7 @@ public abstract class LearningComponent extends
     }
   }
 
+  @Override
   public void reset(boolean disable)
   {
     if (this instanceof PolymorphicConstant)
@@ -223,6 +238,7 @@ public abstract class LearningComponent extends
    * 
    * @return The value of the Component.
    */
+  @Override
   protected abstract boolean getValueInternal();
 
   public void Optimize()
@@ -256,11 +272,13 @@ public abstract class LearningComponent extends
     return sb.toString();
   }
 
+  @Override
   public void setSignature(long signature)
   {
     this.signature = signature;
   }
 
+  @Override
   public long getSignature()
   {
     return signature;

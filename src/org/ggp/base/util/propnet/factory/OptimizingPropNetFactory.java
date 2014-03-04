@@ -1548,6 +1548,7 @@ public class OptimizingPropNetFactory
       contents.remove(c);
     }
 
+    @Override
     public Iterator<Component> iterator()
     {
       return contents.iterator();

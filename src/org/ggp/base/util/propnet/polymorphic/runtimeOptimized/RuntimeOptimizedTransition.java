@@ -30,11 +30,13 @@ public final class RuntimeOptimizedTransition extends
     return singleInput.getValue();
   }
 
+  @Override
   public void setDirty(boolean from, BidirectionalPropagationComponent source)
   {
     dirty = true;
   }
 
+  @Override
   public void setKnownChangedState(boolean newState,
                                    BidirectionalPropagationComponent source)
   {

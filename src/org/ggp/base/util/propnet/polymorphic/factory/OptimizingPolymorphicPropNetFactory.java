@@ -1600,6 +1600,7 @@ public class OptimizingPolymorphicPropNetFactory
       contents.remove(c);
     }
 
+    @Override
     public Iterator<PolymorphicComponent> iterator()
     {
       return contents.iterator();

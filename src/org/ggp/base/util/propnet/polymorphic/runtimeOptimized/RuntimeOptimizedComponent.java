@@ -60,6 +60,7 @@ public abstract class RuntimeOptimizedComponent extends
     }
   }
 
+  @Override
   public void crystalize()
   {
     if (inputsList != null)
@@ -94,6 +95,7 @@ public abstract class RuntimeOptimizedComponent extends
     }
   }
 
+  @Override
   public void removeInput(PolymorphicComponent input)
   {
     if (inputsList != null)
@@ -106,6 +108,7 @@ public abstract class RuntimeOptimizedComponent extends
     }
   }
 
+  @Override
   public void removeAllInputs()
   {
     if (inputsList != null)
@@ -118,6 +121,7 @@ public abstract class RuntimeOptimizedComponent extends
     }
   }
 
+  @Override
   public void removeAllOutputs()
   {
     if (outputsList != null)
@@ -130,6 +134,7 @@ public abstract class RuntimeOptimizedComponent extends
     }
   }
 
+  @Override
   public void removeOutput(PolymorphicComponent output)
   {
     if (outputsList != null)
@@ -148,6 +153,7 @@ public abstract class RuntimeOptimizedComponent extends
    * @param input
    *          A new input.
    */
+  @Override
   public void addInput(PolymorphicComponent input)
   {
     if (inputsArray == null)
@@ -175,6 +181,7 @@ public abstract class RuntimeOptimizedComponent extends
    * @param output
    *          A new output.
    */
+  @Override
   public void addOutput(PolymorphicComponent output)
   {
     if (outputsArray == null)
@@ -193,6 +200,7 @@ public abstract class RuntimeOptimizedComponent extends
    * @return The inputs to the component. Note this should be rarely used in
    *         the finalized state of the propnet
    */
+  @Override
   public Collection<? extends PolymorphicComponent> getInputs()
   {
     if (inputsArray == null)
@@ -215,6 +223,7 @@ public abstract class RuntimeOptimizedComponent extends
    *
    * @return The single input to the component.
    */
+  @Override
   public PolymorphicComponent getSingleInput()
   {
     return singleInput;
@@ -225,6 +234,7 @@ public abstract class RuntimeOptimizedComponent extends
    *
    * @return The outputs of the component.
    */
+  @Override
   public Collection<? extends PolymorphicComponent> getOutputs()
   {
     if (outputsArray == null)
@@ -247,6 +257,7 @@ public abstract class RuntimeOptimizedComponent extends
    *
    * @return The single output to the component.
    */
+  @Override
   public PolymorphicComponent getSingleOutput()
   {
     if (outputsArray == null)
@@ -262,6 +273,7 @@ public abstract class RuntimeOptimizedComponent extends
    *
    * @return The value of the Component.
    */
+  @Override
   public boolean getValue()
   {
     if (dirty)
@@ -273,11 +285,13 @@ public abstract class RuntimeOptimizedComponent extends
     return cachedValue;
   }
 
+  @Override
   public boolean isDirty()
   {
     return dirty;
   }
 
+  @Override
   public void setDirty(boolean from, BidirectionalPropagationComponent source)
   {
     if (!dirty)
@@ -305,6 +319,7 @@ public abstract class RuntimeOptimizedComponent extends
     }
   }
 
+  @Override
   public void reset(boolean disable)
   {
     if (this instanceof PolymorphicConstant)
@@ -331,6 +346,7 @@ public abstract class RuntimeOptimizedComponent extends
    *
    * @return The value of the Component.
    */
+  @Override
   protected abstract boolean getValueInternal();
 
   /**
@@ -360,11 +376,13 @@ public abstract class RuntimeOptimizedComponent extends
     return sb.toString();
   }
 
+  @Override
   public void setSignature(long signature)
   {
     this.signature = signature;
   }
 
+  @Override
   public long getSignature()
   {
     return signature;

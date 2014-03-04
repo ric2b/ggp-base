@@ -31,6 +31,7 @@ public class EmptyDetailPanel extends DetailPanel
                                     5));
   }
 
+  @Override
   public void observe(Event event)
   {
     // Do nothing when notified about events

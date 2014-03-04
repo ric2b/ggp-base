@@ -509,6 +509,7 @@ public class JSONTokener
    * 
    * @return " at {index} [character {character} line {line}]"
    */
+  @Override
   public String toString()
   {
     return " at " + index + " [character " + this.character + " line " +

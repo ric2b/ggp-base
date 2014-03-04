@@ -163,11 +163,13 @@ public class ForwardDeadReckonInternalMachineState
   }
 
   /* Utility methods */
+  @Override
   public int hashCode()
   {
     return contents.hashCode();
   }
 
+  @Override
   public boolean equals(Object o)
   {
     if (this == o)

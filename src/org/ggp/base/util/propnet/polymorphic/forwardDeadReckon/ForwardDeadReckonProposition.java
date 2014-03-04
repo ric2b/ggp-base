@@ -75,6 +75,7 @@ public final class ForwardDeadReckonProposition extends
    * 
    * @return The name of the Proposition.
    */
+  @Override
   public GdlSentence getName()
   {
     return name;
@@ -86,11 +87,13 @@ public final class ForwardDeadReckonProposition extends
    * 
    * @return The name of the Proposition.
    */
+  @Override
   public void setName(GdlSentence newName)
   {
     name = newName;
   }
 
+  @Override
   public void setKnownChangedState(boolean newState,
                                    int instanceId,
                                    ForwardDeadReckonComponent source)

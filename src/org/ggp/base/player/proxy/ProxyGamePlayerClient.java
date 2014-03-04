@@ -117,11 +117,13 @@ public final class ProxyGamePlayerClient extends Thread implements Subject,
     gamer.addObserver(this);
   }
 
+  @Override
   public void addObserver(Observer observer)
   {
     observers.add(observer);
   }
 
+  @Override
   public void notifyObservers(Event event)
   {
     for (Observer observer : observers)
@@ -186,6 +188,7 @@ public final class ProxyGamePlayerClient extends Thread implements Subject,
     GamerLogger.log("Proxy", "[ProxyClient] Got interrupted, shutting down.");
   }
 
+  @Override
   public void observe(Event event)
   {
     if (event instanceof WorkingResponseSelectedEvent)

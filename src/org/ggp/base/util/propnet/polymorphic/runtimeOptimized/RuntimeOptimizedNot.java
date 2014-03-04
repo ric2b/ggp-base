@@ -30,6 +30,7 @@ public final class RuntimeOptimizedNot extends RuntimeOptimizedComponent
     return !singleInput.getValue();
   }
 
+  @Override
   public void setDirty(boolean from, BidirectionalPropagationComponent source)
   {
     if (!dirty)
@@ -43,6 +44,7 @@ public final class RuntimeOptimizedNot extends RuntimeOptimizedComponent
     }
   }
 
+  @Override
   public void setKnownChangedState(boolean newState,
                                    BidirectionalPropagationComponent source)
   {

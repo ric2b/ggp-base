@@ -103,6 +103,7 @@ public final class CloudGameRepository extends GameRepository
     }
   }
 
+  @Override
   protected Set<String> getUncachedGameKeys()
   {
     Set<String> theKeys = new HashSet<String>();
@@ -113,6 +114,7 @@ public final class CloudGameRepository extends GameRepository
     return theKeys;
   }
 
+  @Override
   protected Game getUncachedGame(String theKey)
   {
     Game cachedGame = loadGameFromCache(theKey);

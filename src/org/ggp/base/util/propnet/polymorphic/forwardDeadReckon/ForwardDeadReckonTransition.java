@@ -26,6 +26,7 @@ public final class ForwardDeadReckonTransition extends
     super(1, numOutputs);
   }
 
+  @Override
   public void setKnownChangedState(boolean newState,
                                    int instanceId,
                                    ForwardDeadReckonComponent source)

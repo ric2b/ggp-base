@@ -42,6 +42,7 @@ public final class RuntimeOptimizedProposition extends
    *
    * @return The name of the Proposition.
    */
+  @Override
   public GdlSentence getName()
   {
     return name;
@@ -53,6 +54,7 @@ public final class RuntimeOptimizedProposition extends
    *
    * @return The name of the Proposition.
    */
+  @Override
   public void setName(GdlSentence newName)
   {
     name = newName;
@@ -102,6 +104,7 @@ public final class RuntimeOptimizedProposition extends
    * @param value
    *          The new value of the Proposition.
    */
+  @Override
   public void setValue(boolean value)
   {
     if (this.value != value)
@@ -117,6 +120,7 @@ public final class RuntimeOptimizedProposition extends
     }
   }
 
+  @Override
   public void setKnownChangedState(boolean newState,
                                    BidirectionalPropagationComponent source)
   {

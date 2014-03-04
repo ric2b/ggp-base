@@ -13,11 +13,13 @@ public class KnightthroughCanvas extends GameCanvas_Chessboard
 {
   private static final long serialVersionUID = 1L;
 
+  @Override
   public String getGameName()
   {
     return "Knightthrough";
   }
 
+  @Override
   protected String getGameKey()
   {
     return "knightthrough";
@@ -38,6 +40,7 @@ public class KnightthroughCanvas extends GameCanvas_Chessboard
   }
 
 
+  @Override
   protected void renderCellContent(Graphics g, String theFact)
   {
     String[] cellFacts = theFact.split(" ");

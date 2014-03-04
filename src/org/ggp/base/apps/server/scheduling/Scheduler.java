@@ -207,6 +207,7 @@ public final class Scheduler implements Observer
   {
     return new AbstractAction("x")
     {
+      @Override
       public void actionPerformed(ActionEvent evt)
       {
         for (int i = 0; i < matchesTabbedPane.getTabCount(); i++)
@@ -222,6 +223,7 @@ public final class Scheduler implements Observer
 
   class SchedulingThread extends Thread
   {
+    @Override
     public void run()
     {
       while (true)

@@ -23,11 +23,13 @@ public class TicTacToeCanvas_Reference extends GameCanvas
 {
   public static final long serialVersionUID = 0x1;
 
+  @Override
   public String getGameName()
   {
     return "Tic-Tac-Toe (Old Version)";
   }
 
+  @Override
   protected String getGameKey()
   {
     return "ticTacToe";
@@ -35,6 +37,7 @@ public class TicTacToeCanvas_Reference extends GameCanvas
 
   private Graphics mostRecentG;
 
+  @Override
   protected void paintGame(Graphics g)
   {
     int width = g.getClipBounds().width;
@@ -150,6 +153,7 @@ public class TicTacToeCanvas_Reference extends GameCanvas
     }
   }
 
+  @Override
   protected void handleDragEvent(int dx, int dy)
   {
     ;
@@ -157,6 +161,7 @@ public class TicTacToeCanvas_Reference extends GameCanvas
 
   private int xSelectedCell, ySelectedCell;
 
+  @Override
   protected void handleClickEvent(int x, int y)
   {
     int width = mostRecentG.getClipBounds().width;
@@ -189,6 +194,7 @@ public class TicTacToeCanvas_Reference extends GameCanvas
     }
   }
 
+  @Override
   public void clearMoveSelection()
   {
     xSelectedCell = ySelectedCell = 0;

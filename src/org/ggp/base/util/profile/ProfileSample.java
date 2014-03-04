@@ -68,6 +68,7 @@ public class ProfileSample
     return String.format("%3.3f ms", valueInMilliseconds);
   }
 
+  @Override
   public String toString()
   {
     return name + "\t" + String.valueOf(count) + "\t" +

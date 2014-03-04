@@ -35,17 +35,20 @@ public class MachineState
     return contents;
   }
 
+  @Override
   public MachineState clone()
   {
     return new MachineState(new HashSet<GdlSentence>(contents));
   }
 
   /* Utility methods */
+  @Override
   public int hashCode()
   {
     return getContents().hashCode();
   }
 
+  @Override
   public String toString()
   {
     Set<GdlSentence> contents = getContents();
@@ -54,6 +57,7 @@ public class MachineState
     return contents.toString();
   }
 
+  @Override
   public boolean equals(Object o)
   {
     if ((o != null) && (o instanceof MachineState))

@@ -85,6 +85,7 @@ public final class LocalGameRepository extends GameRepository
 
   class LocalRepoServer implements HttpHandler
   {
+    @Override
     public void handle(HttpExchange t) throws IOException
     {
       String theURI = t.getRequestURI().toString();
