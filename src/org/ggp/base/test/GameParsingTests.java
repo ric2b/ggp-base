@@ -1,7 +1,7 @@
 
 package org.ggp.base.test;
 
-import junit.framework.Assert;
+import static org.junit.Assert.assertEquals;
 
 import org.ggp.base.util.game.Game;
 import org.junit.Test;
@@ -20,10 +20,10 @@ public class GameParsingTests
     theRulesheet.append("(c d e) ; comment three\n");
     theRulesheet.append("(f g)\n");
     theRulesheet.append("(h i j)\n");
-    Assert.assertEquals(4,
-                        Game.createEphemeralGame(Game
-                            .preprocessRulesheet(theRulesheet.toString()))
-                            .getRules().size());
+    assertEquals(4,
+                 Game.createEphemeralGame(Game
+                     .preprocessRulesheet(theRulesheet.toString()))
+                     .getRules().size());
   }
 
 }

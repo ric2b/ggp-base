@@ -1,9 +1,10 @@
 
 package org.ggp.base.test;
 
-import java.util.List;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
-import junit.framework.Assert;
+import java.util.List;
 
 import org.ggp.base.util.game.TestGameRepository;
 import org.ggp.base.util.gdl.grammar.Gdl;
@@ -30,12 +31,12 @@ public class GdlCleanerTests
     StateMachine sm = new ProverStateMachine();
     sm.initialize(description);
     MachineState state = sm.getInitialState();
-    Assert.assertEquals(1, sm.getRoles().size());
+    assertEquals(1, sm.getRoles().size());
     Role player = sm.getRoles().get(0);
-    Assert.assertEquals(1, sm.getLegalMoves(state, player).size());
+    assertEquals(1, sm.getLegalMoves(state, player).size());
     state = sm.getNextStates(state).get(0);
-    Assert.assertTrue(sm.isTerminal(state));
-    Assert.assertEquals(100, sm.getGoal(state, player));
+    assertTrue(sm.isTerminal(state));
+    assertEquals(100, sm.getGoal(state, player));
   }
 
 }
