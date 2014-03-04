@@ -1,10 +1,6 @@
 
 package org.ggp.base.util.gdl.transforms;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -58,7 +54,7 @@ import com.google.common.collect.Sets;
  * each combination of ?y and ?z, but there will not be a cross-product of the
  * domains of all three. "Condensation" refers to the type of rule generated,
  * in which we simply ignore certain variables.
- * 
+ *
  * @author Alex Landau
  */
 public class CondensationIsolator
@@ -191,7 +187,7 @@ public class CondensationIsolator
     return newDescription;
   }
 
-  @SuppressWarnings("unused")
+/*
   private static void saveKif(List<Gdl> description)
   {
     //Save the description in a new file
@@ -234,6 +230,7 @@ public class CondensationIsolator
       }
     }
   }
+*/
 
   private static boolean isRecursive(GdlRule rule)
   {

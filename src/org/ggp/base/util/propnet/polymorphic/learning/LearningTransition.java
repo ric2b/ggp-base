@@ -51,14 +51,6 @@ public final class LearningTransition extends LearningComponent implements
     else if (!dirty)
     {
       dirty = true;
-
-      if (!(this instanceof PolymorphicTransition))
-      {
-        for (LearningComponent output : outputs)
-        {
-          output.setDirty(cachedValue, this);
-        }
-      }
     }
   }
 

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
@@ -27,7 +28,6 @@ import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.border.TitledBorder;
 
-import com.google.common.collect.Lists;
 import org.ggp.base.player.GamePlayer;
 import org.ggp.base.player.gamer.Gamer;
 import org.ggp.base.player.gamer.exception.AbortingException;
@@ -48,12 +48,14 @@ import org.ggp.base.util.symbol.grammar.SymbolPool;
 import org.ggp.base.util.ui.NativeUI;
 import org.ggp.base.util.ui.PublishButton;
 
+import com.google.common.collect.Lists;
+
 /**
  * Kiosk is a program for running two-player human-vs-computer matches with
  * clean visualizations and intuitive human interfaces. Originally designed for
  * running matches against players implemented using the standard Java stack,
  * it can also connect to remote players as need be.
- * 
+ *
  * @author Sam
  */
 @SuppressWarnings("serial")
@@ -321,7 +323,7 @@ public final class Kiosk extends JPanel implements ActionListener,
                                             new Insets(5, 5, 5, 5),
                                             5,
                                             5));
-    //managerPanel.add(new ConsolePanel(), new GridBagConstraints(0, nRowCount++, 2, 1, 0.0, 1.0, GridBagConstraints.CENTER, GridBagConstraints.BOTH, new Insets(5, 5, 5, 5), 5, 5));        
+    //managerPanel.add(new ConsolePanel(), new GridBagConstraints(0, nRowCount++, 2, 1, 0.0, 1.0, GridBagConstraints.CENTER, GridBagConstraints.BOTH, new Insets(5, 5, 5, 5), 5, 5));
     managerPanel.add(runButton,
                      new GridBagConstraints(1,
                                             nRowCount++,
@@ -478,8 +480,7 @@ public final class Kiosk extends JPanel implements ActionListener,
         GdlPool.drainPool();
         SymbolPool.drainPool();
 
-        AvailableGame theGame = (AvailableGame)(selectedGame
-            .getSelectedValue());
+        AvailableGame theGame = (selectedGame.getSelectedValue());
         Game game = theRepository.getGame(theGame.kifFile);
 
         if (game == null)
