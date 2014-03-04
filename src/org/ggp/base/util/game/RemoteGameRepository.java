@@ -26,6 +26,7 @@ public final class RemoteGameRepository extends GameRepository
     theRepoURL = properlyFormatURL(theURL);
   }
 
+  @Override
   protected Set<String> getUncachedGameKeys()
   {
     Set<String> theGameKeys = new HashSet<String>();
@@ -45,6 +46,7 @@ public final class RemoteGameRepository extends GameRepository
     return theGameKeys;
   }
 
+  @Override
   protected Game getUncachedGame(String theKey)
   {
     return loadSingleGame(getGameURL(theKey));

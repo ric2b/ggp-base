@@ -28,6 +28,7 @@ public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
     super(numInputs, numOutput);
   }
 
+  @Override
   public void reset(int instanceId)
   {
     super.reset(instanceId);
@@ -43,6 +44,7 @@ public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
     falseInputCount = new int[numInstances];
   }
 
+  @Override
   public void setKnownChangedState(boolean newState,
                                    int instanceId,
                                    ForwardDeadReckonComponent source)
@@ -73,6 +75,7 @@ public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
     }
   }
 
+  @Override
   public void validate()
   {
     for (int instanceId = 0; instanceId < cachedValue.length; instanceId++)

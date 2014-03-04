@@ -112,6 +112,7 @@ public final class RuntimeOptimizedOr extends RuntimeOptimizedComponent
     }
   }
 
+  @Override
   public void setKnownChangedState(boolean newState,
                                    BidirectionalPropagationComponent source)
   {

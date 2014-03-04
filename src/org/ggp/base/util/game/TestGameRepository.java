@@ -16,6 +16,7 @@ import org.ggp.base.util.files.FileUtils;
  */
 public final class TestGameRepository extends GameRepository
 {
+  @Override
   protected Set<String> getUncachedGameKeys()
   {
     Set<String> theKeys = new HashSet<String>();
@@ -28,6 +29,7 @@ public final class TestGameRepository extends GameRepository
     return theKeys;
   }
 
+  @Override
   protected Game getUncachedGame(String theKey)
   {
     try

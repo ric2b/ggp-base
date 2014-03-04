@@ -59,6 +59,7 @@ public class SimpleDetailPanel extends DetailPanel
                                     5));
   }
 
+  @Override
   public void observe(Event event)
   {
     if (event instanceof GamerNewMatchEvent)

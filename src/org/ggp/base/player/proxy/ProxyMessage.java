@@ -24,6 +24,7 @@ public class ProxyMessage implements Serializable
     this.receptionTime = receptionTime;
   }
 
+  @Override
   public String toString()
   {
     return "ProxyMessage<" + messageCode + ", " + receptionTime + ">[\"" +

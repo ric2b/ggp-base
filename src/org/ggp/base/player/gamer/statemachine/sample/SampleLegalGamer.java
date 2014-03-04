@@ -21,6 +21,7 @@ public final class SampleLegalGamer extends SampleGamer
    * This function is called at the start of each round You are required to
    * return the Move your player will play before the timeout.
    */
+  @Override
   public Move stateMachineSelectMove(long timeout)
       throws TransitionDefinitionException, MoveDefinitionException,
       GoalDefinitionException

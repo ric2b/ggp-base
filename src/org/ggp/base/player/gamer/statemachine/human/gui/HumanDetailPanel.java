@@ -108,6 +108,7 @@ public final class HumanDetailPanel extends DetailPanel
                                               5));
   }
 
+  @Override
   public void observe(Event event)
   {
     if (event instanceof HumanNewMovesEvent)
@@ -152,6 +153,7 @@ public final class HumanDetailPanel extends DetailPanel
     return new AbstractAction("Select")
     {
 
+      @Override
       public void actionPerformed(ActionEvent evt)
       {
         int row = moveTable.getSelectedRow();

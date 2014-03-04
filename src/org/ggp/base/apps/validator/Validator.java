@@ -50,6 +50,7 @@ public final class Validator extends JPanel implements ActionListener
     javax.swing.SwingUtilities.invokeLater(new Runnable()
     {
 
+      @Override
       public void run()
       {
         createAndShowGUI(validatorPanel);
@@ -291,6 +292,7 @@ public final class Validator extends JPanel implements ActionListener
   {
     return new AbstractAction("Validate")
     {
+      @Override
       public void actionPerformed(ActionEvent evt)
       {
         try

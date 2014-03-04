@@ -52,6 +52,7 @@ public class PlayerPresenceManager implements Subject
 
   class PresenceMonitor extends Thread
   {
+    @Override
     public void run()
     {
       while (true)

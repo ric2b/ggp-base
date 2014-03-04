@@ -15,6 +15,7 @@ import external.JSON.JSONObject;
 
 public class TiltyardRequestFarm_Test extends TestCase
 {
+  @Override
   public void setUp()
   {
     new RequestFarmLoopThread().start();

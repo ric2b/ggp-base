@@ -73,6 +73,7 @@ public final class HistoryPanel extends JPanel implements Observer
                                               5));
   }
 
+  @Override
   public void observe(Event event)
   {
     if (event instanceof ServerNewMatchEvent)

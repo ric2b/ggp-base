@@ -19,6 +19,7 @@ public final class ForwardDeadReckonNot extends ForwardDeadReckonComponent
     super(1, numOutput);
   }
 
+  @Override
   public void setKnownChangedState(boolean newState,
                                    int instanceId,
                                    ForwardDeadReckonComponent source)
@@ -42,6 +43,7 @@ public final class ForwardDeadReckonNot extends ForwardDeadReckonComponent
     cachedValue[instanceId] = true;
   }
 
+  @Override
   public void validate()
   {
     for (int instanceId = 0; instanceId < cachedValue.length; instanceId++)

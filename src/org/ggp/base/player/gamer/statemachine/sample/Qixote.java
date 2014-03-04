@@ -68,7 +68,6 @@ public class Qixote extends SampleGamer
   private int                                                  numCompletedRollouts                      = 0;
   private RolloutProcessor[]                                   rolloutProcessors                         = null;
 
-  @SuppressWarnings("unused")
   private class RolloutProcessor implements Runnable
   {
     private boolean                                  stop          = false;
@@ -215,15 +214,6 @@ public class Qixote extends SampleGamer
     {
       this.node = node;
       this.seq = node.seq;
-    }
-
-    public TreeNode deref()
-    {
-      if (seq == node.seq)
-      {
-        return node;
-      }
-      return null;
     }
   }
 

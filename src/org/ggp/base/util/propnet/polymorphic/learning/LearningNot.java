@@ -22,6 +22,7 @@ public final class LearningNot extends LearningComponent implements
     return !getSingleInput().getValue();
   }
 
+  @Override
   protected boolean getValueAndCost(EncapsulatedCost aggregatedCost)
   {
     aggregatedCost.incrementCost();
@@ -34,6 +35,7 @@ public final class LearningNot extends LearningComponent implements
     return cachedValue;
   }
 
+  @Override
   public void setDirty(boolean from, BidirectionalPropagationComponent source)
   {
     if (!source.isDirty())

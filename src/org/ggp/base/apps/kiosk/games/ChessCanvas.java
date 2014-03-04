@@ -13,11 +13,13 @@ public class ChessCanvas extends GameCanvas_Chessboard
 {
   private static final long serialVersionUID = 1L;
 
+  @Override
   public String getGameName()
   {
     return "Chess";
   }
 
+  @Override
   protected String getGameKey()
   {
     return "chess";

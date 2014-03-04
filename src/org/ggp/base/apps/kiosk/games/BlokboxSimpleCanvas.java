@@ -20,11 +20,13 @@ public class BlokboxSimpleCanvas extends GameCanvas_SimpleGrid
 {
   private static final long serialVersionUID = 1L;
 
+  @Override
   public String getGameName()
   {
     return "Blokbox Simple";
   }
 
+  @Override
   protected String getGameKey()
   {
     return "blokbox_simple";
@@ -39,11 +41,13 @@ public class BlokboxSimpleCanvas extends GameCanvas_SimpleGrid
   }
 
   // ========================================================================
+  @Override
   protected int getGridHeight()
   {
     return 20;
   }
 
+  @Override
   protected int getGridWidth()
   {
     return 20;
@@ -217,6 +221,7 @@ public class BlokboxSimpleCanvas extends GameCanvas_SimpleGrid
   private String           currentSelectedMove;
   private Iterator<String> possibleSelectedMoves = null;
 
+  @Override
   protected final void handleClickOnCell(int xCell,
                                          int yCell,
                                          int xWithin,
@@ -275,12 +280,14 @@ public class BlokboxSimpleCanvas extends GameCanvas_SimpleGrid
   }
 
   // When the game state changes, clear our cache of known facts.
+  @Override
   public void updateGameState(MachineState gameState)
   {
     factsCache.clear();
     super.updateGameState(gameState);
   }
 
+  @Override
   protected final void renderCell(Graphics g, int xCell, int yCell)
   {
     renderCellBackground(g, xCell, yCell);
@@ -288,6 +295,7 @@ public class BlokboxSimpleCanvas extends GameCanvas_SimpleGrid
     renderMoveSelectionForCell(g, xCell, yCell, currentSelectedMove);
   }
 
+  @Override
   public final void clearMoveSelection()
   {
     submitWorkingMove(null);

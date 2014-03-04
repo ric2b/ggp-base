@@ -12,6 +12,7 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.ListCellRenderer;
 import javax.swing.ListSelectionModel;
+import javax.swing.SwingConstants;
 
 import org.ggp.base.util.observer.Event;
 import org.ggp.base.util.observer.Observer;
@@ -41,13 +42,14 @@ public class PlayerSelector
       this.maxLabelLength = maxLabelLength;
     }
 
+    @Override
     public Component getListCellRendererComponent(JList<? extends String> list,
                                                   String value,
                                                   int index,
                                                   boolean isSelected,
                                                   boolean cellHasFocus)
     {
-      setHorizontalAlignment(JLabel.LEFT);
+      setHorizontalAlignment(SwingConstants.LEFT);
       if (isSelected)
       {
         setBackground(list.getSelectionBackground());

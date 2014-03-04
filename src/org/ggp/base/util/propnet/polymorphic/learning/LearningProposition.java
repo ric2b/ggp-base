@@ -35,6 +35,7 @@ public final class LearningProposition extends LearningComponent implements
    *
    * @return The name of the Proposition.
    */
+  @Override
   public GdlSentence getName()
   {
     return name;
@@ -46,6 +47,7 @@ public final class LearningProposition extends LearningComponent implements
    *
    * @return The name of the Proposition.
    */
+  @Override
   public void setName(GdlSentence newName)
   {
     name = newName;
@@ -72,6 +74,7 @@ public final class LearningProposition extends LearningComponent implements
     return predecessor.getValue();
   }
 
+  @Override
   protected boolean getValueAndCost(EncapsulatedCost aggregatedCost)
   {
     aggregatedCost.incrementCost();
@@ -110,6 +113,7 @@ public final class LearningProposition extends LearningComponent implements
    * @param value
    *          The new value of the Proposition.
    */
+  @Override
   public void setValue(boolean value)
   {
     if (this.value != value)

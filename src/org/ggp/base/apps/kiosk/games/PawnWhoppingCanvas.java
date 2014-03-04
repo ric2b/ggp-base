@@ -13,11 +13,13 @@ public class PawnWhoppingCanvas extends GameCanvas_Chessboard
 {
   private static final long serialVersionUID = 1L;
 
+  @Override
   public String getGameName()
   {
     return "Pawn Whopping";
   }
 
+  @Override
   protected String getGameKey()
   {
     return "pawnWhopping";

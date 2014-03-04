@@ -13,21 +13,25 @@ public class BreakthroughSmallCanvas extends GameCanvas_Chessboard
 {
   private static final long serialVersionUID = 1L;
 
+  @Override
   public String getGameName()
   {
     return "Breakthrough (Small)";
   }
 
+  @Override
   protected String getGameKey()
   {
     return "breakthroughSmall";
   }
 
+  @Override
   protected int getGridHeight()
   {
     return 6;
   }
 
+  @Override
   protected int getGridWidth()
   {
     return 6;
@@ -48,6 +52,7 @@ public class BreakthroughSmallCanvas extends GameCanvas_Chessboard
   }
 
 
+  @Override
   protected void renderCellContent(Graphics g, String theFact)
   {
     String[] cellFacts = theFact.split(" ");

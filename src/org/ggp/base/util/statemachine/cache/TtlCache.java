@@ -37,6 +37,7 @@ public final class TtlCache<K, V> implements Map<K, V>
       this.ttl = ttl;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public boolean equals(Object o)
     {
@@ -57,11 +58,13 @@ public final class TtlCache<K, V> implements Map<K, V>
     this.ttl = ttl;
   }
 
+  @Override
   public synchronized boolean containsKey(Object key)
   {
     return contents.containsKey(key);
   }
 
+  @Override
   public synchronized V get(Object key)
   {
     Entry entry = contents.get(key);
@@ -92,6 +95,7 @@ public final class TtlCache<K, V> implements Map<K, V>
     }
   }
 
+  @Override
   public synchronized V put(K key, V value)
   {
     Entry x = contents.put(key, new Entry(value, ttl));
@@ -100,31 +104,37 @@ public final class TtlCache<K, V> implements Map<K, V>
     return x.value;
   }
 
+  @Override
   public synchronized int size()
   {
     return contents.size();
   }
 
+  @Override
   public synchronized void clear()
   {
     contents.clear();
   }
 
+  @Override
   public synchronized boolean containsValue(Object value)
   {
     return contents.containsValue(value);
   }
 
+  @Override
   public synchronized boolean isEmpty()
   {
     return contents.isEmpty();
   }
 
+  @Override
   public synchronized Set<K> keySet()
   {
     return contents.keySet();
   }
 
+  @Override
   public synchronized void putAll(Map<? extends K, ? extends V> m)
   {
     for (Map.Entry<? extends K, ? extends V> anEntry : m.entrySet())
@@ -133,11 +143,13 @@ public final class TtlCache<K, V> implements Map<K, V>
     }
   }
 
+  @Override
   public synchronized V remove(Object key)
   {
     return contents.remove(key).value;
   }
 
+  @Override
   public synchronized Collection<V> values()
   {
     Collection<V> theValues = new HashSet<V>();
@@ -157,22 +169,26 @@ public final class TtlCache<K, V> implements Map<K, V>
       value = v;
     }
 
+    @Override
     public K getKey()
     {
       return key;
     }
 
+    @Override
     public V getValue()
     {
       return value;
     }
 
+    @Override
     public V setValue(V value)
     {
       return (this.value = value);
     }
   }
 
+  @Override
   public synchronized Set<java.util.Map.Entry<K, V>> entrySet()
   {
     Set<Map.Entry<K, V>> theEntries = new HashSet<Map.Entry<K, V>>();

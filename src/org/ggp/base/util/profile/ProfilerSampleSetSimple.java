@@ -16,11 +16,13 @@ public class ProfilerSampleSetSimple extends ProfileSampleSet
     profileStack.set(new Stack<ProfileSample>());
   }
 
+  @Override
   public void resetStats()
   {
     sampleSet.clear();
   }
 
+  @Override
   public void beginSection(ProfileSection section)
   {
     ProfileSample masterSample = sampleSet.get(section.getName());
@@ -35,6 +37,7 @@ public class ProfilerSampleSetSimple extends ProfileSampleSet
     masterSample.enterInstance();
   }
 
+  @Override
   public void endSection(ProfileSection section)
   {
     Stack<ProfileSample> stack = profileStack.get();
@@ -50,6 +53,7 @@ public class ProfilerSampleSetSimple extends ProfileSampleSet
     }
   }
 
+  @Override
   public String toString()
   {
     StringBuilder result = new StringBuilder();

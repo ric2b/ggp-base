@@ -36,6 +36,7 @@ public final class LearningConstant extends LearningComponent implements
     return value;
   }
 
+  @Override
   protected boolean getValueAndCost(EncapsulatedCost aggregatedCost)
   {
     aggregatedCost.incrementCost();

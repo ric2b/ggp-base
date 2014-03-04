@@ -113,6 +113,7 @@ public final class LearningOr extends LearningComponent implements
     }
   }
 
+  @Override
   protected boolean getValueAndCost(EncapsulatedCost aggregatedCost)
   {
     boolean dirtyFound = false;

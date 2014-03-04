@@ -71,6 +71,7 @@ public abstract class ForwardDeadReckonComponent implements
     hasQueuedForPropagation = new boolean[1];
   }
 
+  @Override
   public void crystalize()
   {
     if (inputsList != null)
@@ -115,6 +116,7 @@ public abstract class ForwardDeadReckonComponent implements
     hasQueuedForPropagation = new boolean[numInstances];
   }
 
+  @Override
   public void removeInput(PolymorphicComponent input)
   {
     if (inputsList != null)
@@ -132,6 +134,7 @@ public abstract class ForwardDeadReckonComponent implements
     }
   }
 
+  @Override
   public void removeAllInputs()
   {
     if (inputsList != null)
@@ -145,6 +148,7 @@ public abstract class ForwardDeadReckonComponent implements
     }
   }
 
+  @Override
   public void removeAllOutputs()
   {
     if (outputsList != null)
@@ -157,6 +161,7 @@ public abstract class ForwardDeadReckonComponent implements
     }
   }
 
+  @Override
   public void removeOutput(PolymorphicComponent output)
   {
     if (outputsList != null)
@@ -180,6 +185,7 @@ public abstract class ForwardDeadReckonComponent implements
    * @param input
    *          A new input.
    */
+  @Override
   public void addInput(PolymorphicComponent input)
   {
     if (inputsArray == null)
@@ -207,6 +213,7 @@ public abstract class ForwardDeadReckonComponent implements
    * @param output
    *          A new output.
    */
+  @Override
   public void addOutput(PolymorphicComponent output)
   {
     if (outputsArray == null)
@@ -225,6 +232,7 @@ public abstract class ForwardDeadReckonComponent implements
    * @return The inputs to the component. Note this should be rarely used in
    *         the finalized state of the propnet
    */
+  @Override
   public Collection<? extends PolymorphicComponent> getInputs()
   {
     if (inputsArray == null)
@@ -247,6 +255,7 @@ public abstract class ForwardDeadReckonComponent implements
    *
    * @return The single input to the component.
    */
+  @Override
   public PolymorphicComponent getSingleInput()
   {
     return singleInput;
@@ -257,6 +266,7 @@ public abstract class ForwardDeadReckonComponent implements
    *
    * @return The outputs of the component.
    */
+  @Override
   public Collection<? extends PolymorphicComponent> getOutputs()
   {
     if (outputsArray == null)
@@ -280,6 +290,7 @@ public abstract class ForwardDeadReckonComponent implements
    *
    * @return The single output to the component.
    */
+  @Override
   public PolymorphicComponent getSingleOutput()
   {
     if (outputsArray == null)
@@ -295,6 +306,7 @@ public abstract class ForwardDeadReckonComponent implements
    *
    * @return The value of the Component.
    */
+  @Override
   public boolean getValue()
   {
     return cachedValue[0];
@@ -415,11 +427,13 @@ public abstract class ForwardDeadReckonComponent implements
     return sb.toString();
   }
 
+  @Override
   public void setSignature(long signature)
   {
     this.signature = signature;
   }
 
+  @Override
   public long getSignature()
   {
     return signature;

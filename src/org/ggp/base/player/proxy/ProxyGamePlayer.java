@@ -155,6 +155,7 @@ public final class ProxyGamePlayer extends Thread implements Subject
         return true;
       }
 
+      @Override
       public void run()
       {
         try
@@ -195,6 +196,7 @@ public final class ProxyGamePlayer extends Thread implements Subject
       }
     }
 
+    @Override
     public void run()
     {
       while (theInput != null)
@@ -308,11 +310,13 @@ public final class ProxyGamePlayer extends Thread implements Subject
     return myPort;
   }
 
+  @Override
   public void addObserver(Observer observer)
   {
     observers.add(observer);
   }
 
+  @Override
   public void notifyObservers(Event event)
   {
     for (Observer observer : observers)
@@ -600,6 +604,7 @@ public final class ProxyGamePlayer extends Thread implements Subject
 
   private class QueueListenerThread extends Thread
   {
+    @Override
     public void run()
     {
       while (true)

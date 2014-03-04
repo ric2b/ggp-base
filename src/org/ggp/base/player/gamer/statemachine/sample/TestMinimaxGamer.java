@@ -43,6 +43,7 @@ public class TestMinimaxGamer extends SampleGamer
   };
 
   // This is the default State Machine
+  @Override
   public StateMachine getInitialStateMachine()
   {
     GamerLogger.setFileToDisplay("StateMachine");
@@ -326,6 +327,7 @@ public class TestMinimaxGamer extends SampleGamer
     return bestMove;
   }
 
+  @Override
   public Move stateMachineSelectMove(long timeout)
       throws TransitionDefinitionException, MoveDefinitionException,
       GoalDefinitionException

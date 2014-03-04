@@ -68,6 +68,7 @@ public final class Server extends JPanel implements ActionListener
     javax.swing.SwingUtilities.invokeLater(new Runnable()
     {
 
+      @Override
       public void run()
       {
         createAndShowGUI(serverPanel, "Game Server");
@@ -595,6 +596,7 @@ public final class Server extends JPanel implements ActionListener
   {
     return new AbstractAction("Start a new match!")
     {
+      @Override
       public void actionPerformed(ActionEvent evt)
       {
         int startClock = (Integer)startClockSpinner.getValue();
@@ -642,6 +644,7 @@ public final class Server extends JPanel implements ActionListener
   {
     return new AbstractAction("Test")
     {
+      @Override
       public void actionPerformed(ActionEvent evt)
       {
         if (playerSelectorList.getSelectedValue() != null)
@@ -672,6 +675,7 @@ public final class Server extends JPanel implements ActionListener
   {
     return new AbstractAction("Add")
     {
+      @Override
       public void actionPerformed(ActionEvent evt)
       {
         String hostport = JOptionPane
@@ -702,6 +706,7 @@ public final class Server extends JPanel implements ActionListener
   {
     return new AbstractAction("Remove")
     {
+      @Override
       public void actionPerformed(ActionEvent evt)
       {
         if (playerSelectorList.getSelectedValue() != null)

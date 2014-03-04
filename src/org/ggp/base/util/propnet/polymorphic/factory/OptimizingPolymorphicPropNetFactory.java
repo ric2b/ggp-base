@@ -16,8 +16,6 @@ import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 import java.util.Stack;
-import java.util.zip.Adler32;
-import java.util.zip.CRC32;
 
 import org.ggp.base.util.concurrency.ConcurrencyUtils;
 import org.ggp.base.util.gdl.GdlUtils;
@@ -54,13 +52,7 @@ import org.ggp.base.util.gdl.transforms.Relationizer;
 import org.ggp.base.util.gdl.transforms.VariableConstrainer;
 import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.architecture.PropNet;
-import org.ggp.base.util.propnet.architecture.components.And;
-import org.ggp.base.util.propnet.architecture.components.Constant;
-import org.ggp.base.util.propnet.architecture.components.Not;
-import org.ggp.base.util.propnet.architecture.components.Or;
 import org.ggp.base.util.propnet.architecture.components.Proposition;
-import org.ggp.base.util.propnet.architecture.components.Transition;
-import org.ggp.base.util.propnet.factory.OptimizingPropNetFactory;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponentFactory;
@@ -119,7 +111,7 @@ public class OptimizingPolymorphicPropNetFactory
 
   /**
    * Creates a PropNet for the game with the given description.
-   * 
+   *
    * @throws InterruptedException
    *           if the thread is interrupted during PropNet creation.
    */
@@ -353,7 +345,7 @@ public class OptimizingPolymorphicPropNetFactory
    * to the outputs of the PropNetFactory. This is for consistency and for
    * backwards compatibility with respect to state machines designed for the
    * old propnet factory. Feel free to remove this for your player.
-   * 
+   *
    * @param componentSet
    */
   private static void normalizePropositions(Set<PolymorphicComponent> componentSet)
@@ -476,7 +468,7 @@ public class OptimizingPolymorphicPropNetFactory
    * TrueComponent and falseComponent are required. Doesn't actually work that
    * way... shoot. Need something that will remove the component from the
    * propnet entirely.
-   * 
+   *
    * @throws InterruptedException
    */
   private static void optimizeAwayTrueAndFalse(Map<GdlSentence, PolymorphicComponent> components,
@@ -1530,7 +1522,7 @@ public class OptimizingPolymorphicPropNetFactory
 
   /**
    * Currently requires the init propositions to be left in the graph.
-   * 
+   *
    * @param pn
    */
   static enum Type {
@@ -1600,6 +1592,7 @@ public class OptimizingPolymorphicPropNetFactory
       contents.remove(c);
     }
 
+    @Override
     public Iterator<PolymorphicComponent> iterator()
     {
       return contents.iterator();
@@ -2105,7 +2098,7 @@ public class OptimizingPolymorphicPropNetFactory
    * Optimizes an already-existing propnet by removing useless leaves. These
    * are components that have no outputs, but have no special meaning in GDL
    * that requires them to stay. TODO: Currently fails on propnets with cycles.
-   * 
+   *
    * @param pn
    */
   public static void lopUselessLeaves(PropNet pn)
@@ -2143,7 +2136,7 @@ public class OptimizingPolymorphicPropNetFactory
   /**
    * Optimizes an already-existing propnet by removing propositions of the form
    * (init ?x). Does NOT remove the proposition "INIT".
-   * 
+   *
    * @param pn
    */
   public static void removeInits(PropNet pn)
@@ -2374,7 +2367,7 @@ public class OptimizingPolymorphicPropNetFactory
           if (!isEssentialProposition(c, c.getInputs().size() == 0) &&
               (!(c instanceof PolymorphicProposition) || !pn
                   .getBasePropositions().values()
-                  .contains((PolymorphicProposition)c)))
+                  .contains(c)))
           {
             if (allowRemovalOfInputProps ||
                 !pn.getInputPropositions().values().contains(c))
@@ -2996,7 +2989,7 @@ public class OptimizingPolymorphicPropNetFactory
    * with no special meaning. The inputs and outputs of those propositions are
    * connected to one another. This is unlikely to improve performance unless
    * values of every single component are stored (outside the propnet).
-   * 
+   *
    * @param pn
    */
   public static void removeAnonymousPropositions(PolymorphicPropNet pn)

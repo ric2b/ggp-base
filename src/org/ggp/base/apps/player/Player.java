@@ -54,6 +54,7 @@ public final class Player extends JPanel
     javax.swing.SwingUtilities.invokeLater(new Runnable()
     {
 
+      @Override
       public void run()
       {
         createAndShowGUI(playerPanel);
@@ -210,6 +211,7 @@ public final class Player extends JPanel
     return new AbstractAction("Create")
     {
 
+      @Override
       public void actionPerformed(ActionEvent evt)
       {
         try

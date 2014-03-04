@@ -13,21 +13,25 @@ public class KnightFightCanvas extends GameCanvas_Chessboard
 {
   private static final long serialVersionUID = 1L;
 
+  @Override
   public String getGameName()
   {
     return "Knight Fight";
   }
 
+  @Override
   protected String getGameKey()
   {
     return "knightfight";
   }
 
+  @Override
   protected int getGridHeight()
   {
     return 10;
   }
 
+  @Override
   protected int getGridWidth()
   {
     return 10;
@@ -51,6 +55,7 @@ public class KnightFightCanvas extends GameCanvas_Chessboard
     return theMoves;
   }
 
+  @Override
   protected void renderCellContent(Graphics g, String theFact)
   {
     String[] cellFacts = theFact.split(" ");

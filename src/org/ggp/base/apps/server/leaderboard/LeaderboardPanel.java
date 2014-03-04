@@ -68,6 +68,7 @@ public final class LeaderboardPanel extends JPanel implements Observer
     sorter = new TableRowSorter<TableModel>(model);
     sorter.setComparator(1, new Comparator<Integer>()
     {
+      @Override
       public int compare(Integer a, Integer b)
       {
         return a - b;
@@ -84,6 +85,7 @@ public final class LeaderboardPanel extends JPanel implements Observer
         BorderLayout.CENTER);
   }
 
+  @Override
   public void observe(Event event)
   {
     if (!(event instanceof ServerMatchUpdatedEvent))

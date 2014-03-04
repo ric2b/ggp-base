@@ -13,11 +13,13 @@ public class ConnectFiveCanvas extends GameCanvas_Chessboard
 {
   public static final long serialVersionUID = 0x1;
 
+  @Override
   public String getGameName()
   {
     return "Connect Five";
   }
 
+  @Override
   protected String getGameKey()
   {
     return "connect5";

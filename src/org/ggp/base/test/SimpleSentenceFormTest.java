@@ -1,9 +1,10 @@
 
 package org.ggp.base.test;
 
-import java.util.List;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
-import junit.framework.Assert;
+import java.util.List;
 
 import org.ggp.base.util.gdl.GdlUtils;
 import org.ggp.base.util.gdl.factory.GdlFactory;
@@ -21,11 +22,11 @@ public class SimpleSentenceFormTest
     GdlSentence sentence = (GdlSentence)GdlFactory
         .create("(does player (combine foo (bar b b)))");
     SimpleSentenceForm form = SimpleSentenceForm.create(sentence);
-    Assert.assertEquals(GdlPool.DOES, form.getName());
-    Assert.assertEquals(4, form.getTupleSize());
-    Assert.assertTrue(form.matches(sentence));
+    assertEquals(GdlPool.DOES, form.getName());
+    assertEquals(4, form.getTupleSize());
+    assertTrue(form.matches(sentence));
 
     List<GdlTerm> tuple = GdlUtils.getTupleFromSentence(sentence);
-    Assert.assertEquals(sentence, form.getSentenceFromTuple(tuple));
+    assertEquals(sentence, form.getSentenceFromTuple(tuple));
   }
 }

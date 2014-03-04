@@ -9,7 +9,6 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.google.common.collect.Lists;
 import org.ggp.base.player.event.PlayerDroppedPacketEvent;
 import org.ggp.base.player.event.PlayerReceivedMessageEvent;
 import org.ggp.base.player.event.PlayerSentMessageEvent;
@@ -25,6 +24,8 @@ import org.ggp.base.util.observer.Event;
 import org.ggp.base.util.observer.Observer;
 import org.ggp.base.util.observer.Subject;
 import org.ggp.base.util.reflection.ProjectSearcher;
+
+import com.google.common.collect.Lists;
 
 public final class ProxyGamePlayerClient extends Thread implements Subject,
                                                        Observer
@@ -86,7 +87,7 @@ public final class ProxyGamePlayerClient extends Thread implements Subject,
 
     try
     {
-      gamer = (Gamer)(gamers.get(idx).newInstance());
+      gamer = (gamers.get(idx).newInstance());
     }
     catch (Exception ex)
     {
@@ -117,11 +118,13 @@ public final class ProxyGamePlayerClient extends Thread implements Subject,
     gamer.addObserver(this);
   }
 
+  @Override
   public void addObserver(Observer observer)
   {
     observers.add(observer);
   }
 
+  @Override
   public void notifyObservers(Event event)
   {
     for (Observer observer : observers)
@@ -186,6 +189,7 @@ public final class ProxyGamePlayerClient extends Thread implements Subject,
     GamerLogger.log("Proxy", "[ProxyClient] Got interrupted, shutting down.");
   }
 
+  @Override
   public void observe(Event event)
   {
     if (event instanceof WorkingResponseSelectedEvent)
