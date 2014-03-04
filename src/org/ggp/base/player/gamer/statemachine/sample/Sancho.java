@@ -105,7 +105,7 @@ public class Sancho extends SampleGamer
 		 *
 		 */
     private static final long serialVersionUID = 1L;
-  };
+  }
 
   private class NodeMoveWeights
   {
@@ -4514,7 +4514,7 @@ public class Sancho extends SampleGamer
                                                           jointMove);
       }
 
-      branchingFactorApproximation += (double)(numBranchesTaken / numRoleMovesSimulated);
+      branchingFactorApproximation += (numBranchesTaken / numRoleMovesSimulated);
     }
 
     branchingFactorApproximation /= 50;
@@ -4922,7 +4922,7 @@ public class Sancho extends SampleGamer
 
   private enum HeuristicType {
     HEURISTIC_TYPE_EXPLORE_AWAY, HEURISTIC_TYPE_EXPLORE_NEW, HEURISTIC_TYPE_GOAL_PROXIMITY, HEURISTIC_TYPE_GOAL_VALUE, HEURISTIC_TYPE_INFERRED_PROPOSITION_VALUE
-  };
+  }
 
   private HeuristicType     nextExploreType               = HeuristicType.HEURISTIC_TYPE_EXPLORE_AWAY;
   private Set<GdlSentence>  targetPropositions            = null;

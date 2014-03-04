@@ -8,7 +8,6 @@ import java.util.Random;
 import org.ggp.base.apps.player.detail.DetailPanel;
 import org.ggp.base.apps.player.detail.SimpleDetailPanel;
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
-import org.ggp.base.player.gamer.exception.GamePreviewException;
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.statemachine.MachineState;
@@ -34,7 +33,7 @@ import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
  * zero-sum game, where its opponent will always force it to lose if given that
  * option. This player is fairly good at games like Tic-Tac-Toe, Knight Fight,
  * and Connect Four. This player is pretty terrible at most games.
- * 
+ *
  * @author Sam Schreiber
  */
 public final class SampleSearchLightGamer extends StateMachineGamer
@@ -218,7 +217,7 @@ public final class SampleSearchLightGamer extends StateMachineGamer
   }
 
   @Override
-  public void preview(Game g, long timeout) throws GamePreviewException
+  public void preview(Game g, long timeout)
   {
     // Do nothing.
   }

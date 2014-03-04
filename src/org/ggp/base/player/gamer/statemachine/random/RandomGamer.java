@@ -7,7 +7,6 @@ import java.util.Random;
 import org.ggp.base.apps.player.detail.DetailPanel;
 import org.ggp.base.apps.player.detail.SimpleDetailPanel;
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
-import org.ggp.base.player.gamer.exception.GamePreviewException;
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.statemachine.Move;
@@ -54,7 +53,7 @@ public final class RandomGamer extends StateMachineGamer
   }
 
   @Override
-  public void preview(Game g, long timeout) throws GamePreviewException
+  public void preview(Game g, long timeout)
   {
     // Random gamer does no game previewing.
   }

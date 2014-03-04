@@ -2,21 +2,15 @@
 package org.ggp.base.apps.player;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 import org.ggp.base.player.GamePlayer;
-import org.ggp.base.player.gamer.Gamer;
 import org.ggp.base.player.gamer.statemachine.sample.Sancho;
-import org.ggp.base.util.reflection.ProjectSearcher;
 
 public class SanchoPlayer
 {
   private static Sancho thePlayer = new Sancho();
 
-  public static void main(String[] args)
-      throws IOException, InstantiationException, IllegalAccessException
+  public static void main(String[] args) throws IOException
   {
     int port = 9147;
     int numThreads = 0;

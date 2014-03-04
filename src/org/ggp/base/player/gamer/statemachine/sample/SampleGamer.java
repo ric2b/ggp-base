@@ -3,7 +3,6 @@ package org.ggp.base.player.gamer.statemachine.sample;
 
 import org.ggp.base.apps.player.detail.DetailPanel;
 import org.ggp.base.apps.player.detail.SimpleDetailPanel;
-import org.ggp.base.player.gamer.exception.GamePreviewException;
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.statemachine.StateMachine;
@@ -69,7 +68,7 @@ public abstract class SampleGamer extends StateMachineGamer
   }
 
   @Override
-  public void preview(Game g, long timeout) throws GamePreviewException
+  public void preview(Game g, long timeout)
   {
     // Sample gamers do no game previewing.
   }
