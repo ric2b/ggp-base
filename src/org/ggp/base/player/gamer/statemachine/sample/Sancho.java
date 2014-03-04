@@ -4997,6 +4997,7 @@ public class Sancho extends SampleGamer
           result = 0;
         }
         break;
+
       case HEURISTIC_TYPE_EXPLORE_AWAY:
         int matchCount = 0;
 
@@ -5019,6 +5020,7 @@ public class Sancho extends SampleGamer
           nextExploreType = HeuristicType.HEURISTIC_TYPE_EXPLORE_NEW;
         }
         break;
+
       case HEURISTIC_TYPE_EXPLORE_NEW:
         int weightedExplorationResult = 0;
 
@@ -5043,6 +5045,18 @@ public class Sancho extends SampleGamer
         result = (4 * weightedExplorationResult + (100 - stateDistance(state,
                                                                        targetState))) / 5;
         break;
+
+      case HEURISTIC_TYPE_GOAL_VALUE:
+        // !! ARR -> SD: This case was missing.
+        break;
+
+      case HEURISTIC_TYPE_INFERRED_PROPOSITION_VALUE:
+        // !! ARR -> SD: This case was missing.
+        break;
+
+      default:
+        break;
+
     }
 
     return result;

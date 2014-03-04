@@ -1,28 +1,19 @@
 
 package org.ggp.base.player.gamer.statemachine.sample;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStreamWriter;
 import java.util.List;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfilerContext;
-import org.ggp.base.util.profile.ProfilerSampleSetSimple;
 import org.ggp.base.util.propnet.polymorphic.learning.LearningComponent;
-import org.ggp.base.util.propnet.polymorphic.learning.LearningComponentFactory;
-import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponent;
-import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponentFactory;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.StateMachine;
-import org.ggp.base.util.statemachine.cache.CachedStateMachine;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
-import org.ggp.base.util.statemachine.implementation.propnet.TestPropnetStateMachine;
 
 public class MonteCarloTestGamer extends SampleGamer
 {
@@ -34,7 +25,8 @@ public class MonteCarloTestGamer extends SampleGamer
       throws TransitionDefinitionException, MoveDefinitionException,
       GoalDefinitionException
   {
-    if (false)
+    boolean lDummy = false;
+    if (lDummy)
     {
       //underlyingStateMachine.recreate(new LearningComponentFactory());
       MachineState initial = underlyingStateMachine.getInitialState();

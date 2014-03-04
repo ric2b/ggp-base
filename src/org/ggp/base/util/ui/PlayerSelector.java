@@ -12,6 +12,7 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.ListCellRenderer;
 import javax.swing.ListSelectionModel;
+import javax.swing.SwingConstants;
 
 import org.ggp.base.util.observer.Event;
 import org.ggp.base.util.observer.Observer;
@@ -48,7 +49,7 @@ public class PlayerSelector
                                                   boolean isSelected,
                                                   boolean cellHasFocus)
     {
-      setHorizontalAlignment(JLabel.LEFT);
+      setHorizontalAlignment(SwingConstants.LEFT);
       if (isSelected)
       {
         setBackground(list.getSelectionBackground());
