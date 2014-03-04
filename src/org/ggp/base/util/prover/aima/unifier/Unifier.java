@@ -18,8 +18,7 @@ public final class Unifier
 
     if (isGood)
       return theta;
-    else
-      return null;
+    return null;
   }
 
   private static boolean unifyTerm(GdlTerm x, GdlTerm y, Substitution theta)

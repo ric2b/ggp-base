@@ -167,10 +167,7 @@ public final class GdlFactory
     {
       return createProposition((SymbolAtom)symbol);
     }
-    else
-    {
-      return createRelation((SymbolList)symbol);
-    }
+    return createRelation((SymbolList)symbol);
   }
 
   public static GdlTerm createTerm(String string) throws SymbolFormatException
@@ -187,15 +184,9 @@ public final class GdlFactory
       {
         return createVariable(atom);
       }
-      else
-      {
-        return createConstant(atom);
-      }
+      return createConstant(atom);
     }
-    else
-    {
-      return createFunction((SymbolList)symbol);
-    }
+    return createFunction((SymbolList)symbol);
   }
 
   private static GdlVariable createVariable(SymbolAtom atom)

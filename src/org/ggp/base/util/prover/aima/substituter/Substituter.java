@@ -51,13 +51,10 @@ public final class Substituter
     {
       return distinct;
     }
-    else
-    {
-      GdlTerm arg1 = substituteTerm(distinct.getArg1(), theta);
-      GdlTerm arg2 = substituteTerm(distinct.getArg2(), theta);
+    GdlTerm arg1 = substituteTerm(distinct.getArg1(), theta);
+    GdlTerm arg2 = substituteTerm(distinct.getArg2(), theta);
 
-      return GdlPool.getDistinct(arg1, arg2);
-    }
+    return GdlPool.getDistinct(arg1, arg2);
   }
 
   private static GdlFunction substituteFunction(GdlFunction function,
@@ -67,18 +64,15 @@ public final class Substituter
     {
       return function;
     }
-    else
+    GdlConstant name = substituteConstant(function.getName(), theta);
+
+    List<GdlTerm> body = new ArrayList<GdlTerm>();
+    for (int i = 0; i < function.arity(); i++)
     {
-      GdlConstant name = substituteConstant(function.getName(), theta);
-
-      List<GdlTerm> body = new ArrayList<GdlTerm>();
-      for (int i = 0; i < function.arity(); i++)
-      {
-        body.add(substituteTerm(function.get(i), theta));
-      }
-
-      return GdlPool.getFunction(name, body);
+      body.add(substituteTerm(function.get(i), theta));
     }
+
+    return GdlPool.getFunction(name, body);
   }
 
   private static GdlLiteral substituteLiteral(GdlLiteral literal,
@@ -108,11 +102,8 @@ public final class Substituter
     {
       return not;
     }
-    else
-    {
-      GdlLiteral body = substituteLiteral(not.getBody(), theta);
-      return GdlPool.getNot(body);
-    }
+    GdlLiteral body = substituteLiteral(not.getBody(), theta);
+    return GdlPool.getNot(body);
   }
 
   private static GdlOr substituteOr(GdlOr or, Substitution theta)
@@ -121,16 +112,13 @@ public final class Substituter
     {
       return or;
     }
-    else
+    List<GdlLiteral> disjuncts = new ArrayList<GdlLiteral>();
+    for (int i = 0; i < or.arity(); i++)
     {
-      List<GdlLiteral> disjuncts = new ArrayList<GdlLiteral>();
-      for (int i = 0; i < or.arity(); i++)
-      {
-        disjuncts.add(substituteLiteral(or.get(i), theta));
-      }
-
-      return GdlPool.getOr(disjuncts);
+      disjuncts.add(substituteLiteral(or.get(i), theta));
     }
+
+    return GdlPool.getOr(disjuncts);
   }
 
   private static GdlProposition substituteProposition(GdlProposition proposition,
@@ -146,18 +134,15 @@ public final class Substituter
     {
       return relation;
     }
-    else
+    GdlConstant name = substituteConstant(relation.getName(), theta);
+
+    List<GdlTerm> body = new ArrayList<GdlTerm>();
+    for (int i = 0; i < relation.arity(); i++)
     {
-      GdlConstant name = substituteConstant(relation.getName(), theta);
-
-      List<GdlTerm> body = new ArrayList<GdlTerm>();
-      for (int i = 0; i < relation.arity(); i++)
-      {
-        body.add(substituteTerm(relation.get(i), theta));
-      }
-
-      return GdlPool.getRelation(name, body);
+      body.add(substituteTerm(relation.get(i), theta));
     }
+
+    return GdlPool.getRelation(name, body);
   }
 
   private static GdlSentence substituteSentence(GdlSentence sentence,
@@ -167,10 +152,7 @@ public final class Substituter
     {
       return substituteProposition((GdlProposition)sentence, theta);
     }
-    else
-    {
-      return substituteRelation((GdlRelation)sentence, theta);
-    }
+    return substituteRelation((GdlRelation)sentence, theta);
   }
 
   private static GdlTerm substituteTerm(GdlTerm term, Substitution theta)
@@ -196,19 +178,16 @@ public final class Substituter
     {
       return variable;
     }
-    else
+    GdlTerm result = theta.get(variable);
+    GdlTerm betterResult = null;
+
+    while (!(betterResult = substituteTerm(result, theta)).equals(result))
     {
-      GdlTerm result = theta.get(variable);
-      GdlTerm betterResult = null;
-
-      while (!(betterResult = substituteTerm(result, theta)).equals(result))
-      {
-        result = betterResult;
-      }
-
-      theta.put(variable, result);
-      return result;
+      result = betterResult;
     }
+
+    theta.put(variable, result);
+    return result;
   }
 
   private static GdlRule substituteRule(GdlRule rule, Substitution theta)

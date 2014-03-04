@@ -48,10 +48,7 @@ public class CanonicalJSON
     {
       return renderSimpleCanonicalJSON(x);
     }
-    else
-    {
-      throw new RuntimeException("Canonicalization strategy not recognized.");
-    }
+    throw new RuntimeException("Canonicalization strategy not recognized.");
   }
 
   /*

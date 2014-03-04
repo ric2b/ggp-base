@@ -3,7 +3,6 @@ package org.ggp.base.util.propnet.polymorphic.learning;
 
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
-import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponent;
 
 /**
  * The Transition class is designed to represent pass-through gates.
@@ -14,7 +13,7 @@ public final class LearningTransition extends LearningComponent implements
 {
   /**
    * Returns the value of the input to the transition.
-   * 
+   *
    * @see org.ggp.base.util.propnet.architecture.Component#getValueInternal()
    */
   @Override
@@ -32,10 +31,7 @@ public final class LearningTransition extends LearningComponent implements
       return ((LearningComponent)getSingleInput())
           .getValueAndCost(aggregatedCost);
     }
-    else
-    {
-      return cachedValue;
-    }
+    return cachedValue;
   }
 
   public void setDirty(boolean from, BidirectionalPropagationComponent source)

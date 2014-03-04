@@ -52,18 +52,15 @@ public class BiddingTicTacToeCanvas extends GameCanvas_FancyGrid
       return gameStateHasFactsMatching("\\( cell " + xCell + " " + yCell +
                                        " (.*) \\)");
     }
-    else
+    int nScore = onScoreboard(xCell, yCell);
+    if (nScore == -2)
     {
-      int nScore = onScoreboard(xCell, yCell);
-      if (nScore == -2)
-      {
-        return gameStateHasFactsMatching("\\( tiebreaker " + myRole + " \\)");
-      }
-      else if (nScore != -1)
-      {
-        return gameStateHasFactsMatching("\\( coins " + myRole + " " + nScore +
-                                         " \\)");
-      }
+      return gameStateHasFactsMatching("\\( tiebreaker " + myRole + " \\)");
+    }
+    else if (nScore != -1)
+    {
+      return gameStateHasFactsMatching("\\( coins " + myRole + " " + nScore +
+                                       " \\)");
     }
     return new HashSet<String>();
   }
@@ -76,14 +73,11 @@ public class BiddingTicTacToeCanvas extends GameCanvas_FancyGrid
       return gameStateHasLegalMovesMatching("\\( mark " + xCell + " " + yCell +
                                             " \\)");
     }
-    else
+    int nScore = onScoreboard(xCell, yCell);
+    if (nScore >= 0)
     {
-      int nScore = onScoreboard(xCell, yCell);
-      if (nScore >= 0)
-      {
-        return gameStateHasLegalMovesMatching("\\( bid " + nScore +
-                                              " (.*) \\)");
-      }
+      return gameStateHasLegalMovesMatching("\\( bid " + nScore +
+                                            " (.*) \\)");
     }
     return new HashSet<String>();
   }

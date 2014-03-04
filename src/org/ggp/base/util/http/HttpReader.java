@@ -1,12 +1,12 @@
 
 package org.ggp.base.util.http;
 
-import java.net.URLDecoder;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.net.URLDecoder;
 
 public final class HttpReader
 {
@@ -110,10 +110,7 @@ public final class HttpReader
           }
           return theContent.toString().trim();
         }
-        else
-        {
-          throw new IOException("Could not find Content-Length header.");
-        }
+        throw new IOException("Could not find Content-Length header.");
       }
     }
     throw new IOException("Could not find content in POST request.");

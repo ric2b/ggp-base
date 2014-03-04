@@ -270,10 +270,7 @@ public class GdlCleaner
     {
       return GdlPool.getProposition(sentence.getName());
     }
-    else
-    {
-      return GdlPool.getRelation(sentence.getName(), cleanedBody);
-    }
+    return GdlPool.getRelation(sentence.getName(), cleanedBody);
   }
 
   private static GdlTerm cleanParentheses(GdlTerm term)

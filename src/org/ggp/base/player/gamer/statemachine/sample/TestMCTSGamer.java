@@ -12,10 +12,10 @@ import java.util.Random;
 import java.util.Set;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
+import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.profile.ProfilerContext;
-import org.ggp.base.util.profile.ProfilerSampleSetSimple;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
@@ -24,7 +24,6 @@ import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
-import org.ggp.base.util.gdl.grammar.GdlSentence;
 
 public class TestMCTSGamer extends SampleGamer
 {
@@ -1008,32 +1007,29 @@ public class TestMCTSGamer extends SampleGamer
                     selectedIndex = -1;
                     break;
                   }
+                  double uctValue;
+                  if (c.numVisits == 0)
+                  {
+                    // small random number to break ties randomly in unexpanded nodes
+                    uctValue = 1000 + r.nextDouble() * epsilon;
+                  }
                   else
                   {
-                    double uctValue;
-                    if (c.numVisits == 0)
-                    {
-                      // small random number to break ties randomly in unexpanded nodes
-                      uctValue = 1000 + r.nextDouble() * epsilon;
-                    }
-                    else
-                    {
-                      uctValue = c.averageScore /
-                                 100 +
-                                 Math.sqrt(Math.log(Math.max(numVisits,
-                                                             c.numVisits) + 1) /
-                                           c.numVisits);
-                    }
+                    uctValue = c.averageScore /
+                               100 +
+                               Math.sqrt(Math.log(Math.max(numVisits,
+                                                           c.numVisits) + 1) /
+                                         c.numVisits);
+                  }
 
-                    if (uctValue > bestValue)
+                  if (uctValue > bestValue)
+                  {
+                    selectedIndex = i;
+                    if (bestValue != Double.MIN_VALUE)
                     {
-                      selectedIndex = i;
-                      if (bestValue != Double.MIN_VALUE)
-                      {
-                        mostLikelyRunnerUpValue = bestValue;
-                      }
-                      bestValue = uctValue;
+                      mostLikelyRunnerUpValue = bestValue;
                     }
+                    bestValue = uctValue;
                   }
                 }
               }
@@ -1125,34 +1121,28 @@ public class TestMCTSGamer extends SampleGamer
         {
           return 100 - averageScore;
         }
-        else
-        {
-          return averageScore;
-        }
+        return averageScore;
       }
-      else
+      if (ourMove != null)
       {
-        if (ourMove != null)
-        {
-          System.out.println("Unexpected rollout state");
-        }
-        ProfileSection methodSection = new ProfileSection("TreeNode.rollOut");
-        try
-        {
-          MachineState finalState = new MachineState(new HashSet<GdlSentence>());
-          numNonTerminalRollouts++;
-          underlyingStateMachine.getDepthChargeResult(state,
-                                                      ourRole,
-                                                      1000,
-                                                      finalState,
-                                                      null);
+        System.out.println("Unexpected rollout state");
+      }
+      ProfileSection methodSection = new ProfileSection("TreeNode.rollOut");
+      try
+      {
+        MachineState finalState = new MachineState(new HashSet<GdlSentence>());
+        numNonTerminalRollouts++;
+        underlyingStateMachine.getDepthChargeResult(state,
+                                                    ourRole,
+                                                    1000,
+                                                    finalState,
+                                                    null);
 
-          return netScore(finalState);
-        }
-        finally
-        {
-          methodSection.exitScope();
-        }
+        return netScore(finalState);
+      }
+      finally
+      {
+        methodSection.exitScope();
       }
     }
 

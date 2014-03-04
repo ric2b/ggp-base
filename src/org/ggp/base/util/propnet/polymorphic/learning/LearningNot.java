@@ -3,7 +3,6 @@ package org.ggp.base.util.propnet.polymorphic.learning;
 
 import org.ggp.base.util.propnet.polymorphic.PolymorphicNot;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
-import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponent;
 
 /**
  * The Not class is designed to represent logical NOT gates.
@@ -14,7 +13,7 @@ public final class LearningNot extends LearningComponent implements
 {
   /**
    * Returns the inverse of the input to the not.
-   * 
+   *
    * @see org.ggp.base.util.propnet.architecture.Component#getValueInternal()
    */
   @Override
@@ -32,10 +31,7 @@ public final class LearningNot extends LearningComponent implements
       return !((LearningComponent)getSingleInput())
           .getValueAndCost(aggregatedCost);
     }
-    else
-    {
-      return cachedValue;
-    }
+    return cachedValue;
   }
 
   public void setDirty(boolean from, BidirectionalPropagationComponent source)

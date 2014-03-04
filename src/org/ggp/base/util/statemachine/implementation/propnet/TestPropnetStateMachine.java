@@ -1,41 +1,29 @@
 
 package org.ggp.base.util.statemachine.implementation.propnet;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlRelation;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.architecture.PropNet;
 import org.ggp.base.util.propnet.architecture.components.Proposition;
-import org.ggp.base.util.propnet.architecture.components.Transition;
 import org.ggp.base.util.propnet.factory.OptimizingPropNetFactory;
-import org.ggp.base.util.propnet.factory.PropNetFactory;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponentFactory;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 import org.ggp.base.util.propnet.polymorphic.learning.LearningComponent;
-import org.ggp.base.util.propnet.polymorphic.learning.LearningComponentFactory;
-import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponentFactory;
-import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedProposition;
-import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedTransition;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
@@ -45,9 +33,6 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBuilder;
 import org.ggp.base.util.stats.Stats;
-import org.python.antlr.PythonParser.return_stmt_return;
-import org.python.antlr.ast.Num;
-import org.xml.sax.InputSource;
 
 
 @SuppressWarnings("unused")
@@ -516,7 +501,7 @@ public class TestPropnetStateMachine extends StateMachine
    * inputPropositions. and accordingly set their values etc. This is a naive
    * implementation when coupled with setting input values, feel free to change
    * this for a more efficient implementation.
-   * 
+   *
    * @param moves
    * @return
    */
@@ -536,7 +521,7 @@ public class TestPropnetStateMachine extends StateMachine
   /**
    * Takes in a Legal Proposition and returns the appropriate corresponding
    * Move
-   * 
+   *
    * @param p
    * @return a PropNetMove
    */
@@ -547,7 +532,7 @@ public class TestPropnetStateMachine extends StateMachine
 
   /**
    * Helper method for parsing the value of a goal proposition
-   * 
+   *
    * @param goalProposition
    * @return the integer value of the goal proposition
    */
@@ -562,7 +547,7 @@ public class TestPropnetStateMachine extends StateMachine
    * A Naive implementation that computes a PropNetMachineState from the true
    * BasePropositions. This is correct but slower than more advanced
    * implementations You need not use this method!
-   * 
+   *
    * @return PropNetMachineState
    */
   public MachineState getStateFromBase()
@@ -650,12 +635,9 @@ public class TestPropnetStateMachine extends StateMachine
 
       return candidates.get(getRandom(candidates.size()));
     }
-    else
-    {
-      List<Move> legals = getLegalMoves(state, role);
+    List<Move> legals = getLegalMoves(state, role);
 
-      int randIndex = getRandom(legals.size());
-      return legals.get(randIndex);
-    }
+    int randIndex = getRandom(legals.size());
+    return legals.get(randIndex);
   }
 }

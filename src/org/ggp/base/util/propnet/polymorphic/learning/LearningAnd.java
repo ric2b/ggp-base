@@ -8,8 +8,6 @@ import java.util.Map;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
-import org.ggp.base.util.propnet.polymorphic.learning.LearningComponent.EncapsulatedCost;
-import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponent;
 
 
 /**
@@ -29,7 +27,7 @@ public final class LearningAnd extends LearningComponent implements
 
   /**
    * Returns true if and only if every input to the and is true.
-   * 
+   *
    * @see org.ggp.base.util.propnet.architecture.Component#getValueInternal()
    */
   @Override
@@ -140,10 +138,7 @@ public final class LearningAnd extends LearningComponent implements
 
       return true;
     }
-    else
-    {
-      return cachedValue;
-    }
+    return cachedValue;
   }
 
   @Override

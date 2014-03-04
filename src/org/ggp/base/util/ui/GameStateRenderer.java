@@ -31,7 +31,7 @@ import org.xml.sax.InputSource;
  * such. For example, when rendering games that don't take up the full 600x600
  * image, there's an empty black space on the final image, which looks bad.
  * That could be fixed.
- * 
+ *
  * @author Ethan Dreyfuss and Sam Schreiber
  */
 public class GameStateRenderer
@@ -137,10 +137,7 @@ public class GameStateRenderer
         {
           return buf.charAt(position++);
         }
-        else
-        {
-          return -1;
-        }
+        return -1;
       }
     }
 

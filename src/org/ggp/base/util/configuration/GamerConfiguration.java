@@ -11,7 +11,7 @@
  * it can be called upon to provide information. If you want to add a default
  * profile, add an entry with (system name) equal to "*", and when none of the
  * earlier profiles match, that profile will be used.
- * 
+ *
  * @author Sam Schreiber
  */
 
@@ -138,10 +138,7 @@ public class GamerConfiguration
     {
       return "/System/Library/Frameworks/JavaVM.framework/Versions/1.6.0/Commands/java";
     }
-    else
-    {
-      return "java";
-    }
+    return "java";
   }
 
   public static String getCommandForJavac()
@@ -150,10 +147,7 @@ public class GamerConfiguration
     {
       return "/System/Library/Frameworks/JavaVM.framework/Versions/1.6.0/Commands/javac";
     }
-    else
-    {
-      return "javac";
-    }
+    return "javac";
   }
 
   // Accessors

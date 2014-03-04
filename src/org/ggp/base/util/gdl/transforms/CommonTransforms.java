@@ -135,10 +135,7 @@ public class CommonTransforms
       {
         return theReplacement;
       }
-      else
-      {
-        return gdl;
-      }
+      return gdl;
     }
     else
     {
@@ -203,8 +200,7 @@ public class CommonTransforms
     {
       if (assignment.containsKey(gdl))
         return assignment.get(gdl);
-      else
-        return gdl;
+      return gdl;
     }
     else if (gdl instanceof GdlFunction)
     {

@@ -33,7 +33,7 @@ import org.ggp.base.util.logging.GamerLogger;
  * games, but can fail on very large games. To use this class: PropNetFlattener
  * PF = new PropNetFlattener(description); List<GdlRule> flatDescription =
  * PF.flatten(); return converter.convert(flatDescription);
- * 
+ *
  * @author Ethan Dreyfuss
  * @author Sam Schreiber (comments)
  */
@@ -561,8 +561,7 @@ public class PropNetFlattener
 
     if (!expandedSomething)
       return rhsList;
-    else
-      return deOr2(rval);
+    return deOr2(rval);
   }
 
   private List<Gdl> expandFirstOr(Gdl gdl)

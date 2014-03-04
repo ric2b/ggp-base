@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -21,7 +20,6 @@ import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.profile.ProfilerContext;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
-import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.StateMachine;
@@ -29,8 +27,6 @@ import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
-import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.python.modules.gc;
 
 public class Qixote extends SampleGamer
 {
@@ -227,10 +223,7 @@ public class Qixote extends SampleGamer
       {
         return node;
       }
-      else
-      {
-        return null;
-      }
+      return null;
     }
   }
 
@@ -1560,30 +1553,24 @@ public class Qixote extends SampleGamer
         {
           return 100 - averageScore;
         }
-        else
-        {
-          return averageScore;
-        }
+        return averageScore;
       }
-      else
+      if (ourMove != null)
       {
-        if (ourMove != null)
-        {
-          System.out.println("Unexpected rollout state");
-        }
-
-        RolloutRequest request = new RolloutRequest();
-        request.state = state;
-        request.node = getRef();
-        request.sampleSize = rolloutSampleSize;
-        request.path = path;
-
-        numQueuedRollouts++;
-        //System.out.println("Queue rollout request");
-        queuedRollouts.add(request);
-
-        return -Double.MAX_VALUE;
+        System.out.println("Unexpected rollout state");
       }
+
+      RolloutRequest request = new RolloutRequest();
+      request.state = state;
+      request.node = getRef();
+      request.sampleSize = rolloutSampleSize;
+      request.path = path;
+
+      numQueuedRollouts++;
+      //System.out.println("Queue rollout request");
+      queuedRollouts.add(request);
+
+      return -Double.MAX_VALUE;
     }
 
     public void updateVisitCounts(int numVisits2, List<TreeNode> path)

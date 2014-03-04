@@ -27,7 +27,7 @@ public final class GdlValidator
    * Note that as implemented, this method is incomplete: it only verifies a
    * subset of the correctness properties of well-formed Gdl. A more thorough
    * implementation is advisable.
-   * 
+   *
    * @param symbol
    *          The Symbol to validate.
    * @return True if the Symbol passes validation; false otherwise.
@@ -55,7 +55,7 @@ public final class GdlValidator
   /**
    * A recursive method that checks whether a Symbol contains SymbolList that
    * does not begin with a SymbolAtom.
-   * 
+   *
    * @param symbol
    *          The Symbol to validate.
    * @return True if the Symbol passes validation; false otherwise.
@@ -66,31 +66,25 @@ public final class GdlValidator
     {
       return false;
     }
-    else
+    if (symbol instanceof SymbolList)
     {
-      if (symbol instanceof SymbolList)
+      return true;
+    }
+    for (int i = 1; i < ((SymbolList)symbol).size(); i++)
+    {
+      if (containsAnonymousList(((SymbolList)symbol).get(i)))
       {
         return true;
       }
-      else
-      {
-        for (int i = 1; i < ((SymbolList)symbol).size(); i++)
-        {
-          if (containsAnonymousList(((SymbolList)symbol).get(i)))
-          {
-            return true;
-          }
-        }
-
-        return false;
-      }
     }
+
+    return false;
   }
 
   /**
    * A recursive method that checks whether a Symbol contains the deprecated
    * 'or' keyword.
-   * 
+   *
    * @param symbol
    *          The Symbol to validate.
    * @return True if the Symbol passes validation; false otherwise.
@@ -101,20 +95,17 @@ public final class GdlValidator
     {
       return false;
     }
-    else
+    if (symbol.toString().toLowerCase().equals("or"))
     {
-      if (symbol.toString().toLowerCase().equals("or"))
+      return true;
+    }
+    else if (symbol instanceof SymbolList)
+    {
+      for (int i = 1; i < ((SymbolList)symbol).size(); i++)
       {
-        return true;
-      }
-      else if (symbol instanceof SymbolList)
-      {
-        for (int i = 1; i < ((SymbolList)symbol).size(); i++)
+        if (containsOr(((SymbolList)symbol).get(i)))
         {
-          if (containsOr(((SymbolList)symbol).get(i)))
-          {
-            return true;
-          }
+          return true;
         }
       }
     }

@@ -25,7 +25,7 @@ import org.ggp.base.util.gdl.grammar.GdlVariable;
  * rules from the GDL. Technically, these rules shouldn't be in the GDL in the
  * first place, but it's very straightforward to remove them, so we do that so
  * that we can handle GDL descriptions that use OR.
- * 
+ *
  * @author Ethan Dreyfuss
  */
 public class DeORer
@@ -100,8 +100,7 @@ public class DeORer
 
     if (!expandedSomething)
       return rhsList;
-    else
-      return deOr2(rval);
+    return deOr2(rval);
   }
 
   private static List<Gdl> expandFirstOr(Gdl gdl)

@@ -36,10 +36,7 @@ public final class SymbolFactory
     {
       return convertList(tokens);
     }
-    else
-    {
-      return convertAtom(tokens);
-    }
+    return convertAtom(tokens);
   }
 
   private static SymbolAtom convertAtom(LinkedList<String> tokens)

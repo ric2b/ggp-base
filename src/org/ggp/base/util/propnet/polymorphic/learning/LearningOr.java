@@ -5,11 +5,9 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 
-import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicOr;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
-import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponent;
 
 /**
  * The Or class is designed to represent logical OR gates.
@@ -28,7 +26,7 @@ public final class LearningOr extends LearningComponent implements
 
   /**
    * Returns true if and only if at least one of the inputs to the or is true.
-   * 
+   *
    * @see org.ggp.base.util.propnet.architecture.Component#getValueInternal()
    */
   @Override
@@ -153,10 +151,7 @@ public final class LearningOr extends LearningComponent implements
 
       return false;
     }
-    else
-    {
-      return cachedValue;
-    }
+    return cachedValue;
   }
 
   @Override

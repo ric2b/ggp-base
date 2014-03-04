@@ -7,9 +7,9 @@ import java.util.List;
 import org.ggp.base.player.gamer.Gamer;
 import org.ggp.base.player.request.factory.exceptions.RequestFormatException;
 import org.ggp.base.player.request.grammar.AbortRequest;
-import org.ggp.base.player.request.grammar.PreviewRequest;
 import org.ggp.base.player.request.grammar.InfoRequest;
 import org.ggp.base.player.request.grammar.PlayRequest;
+import org.ggp.base.player.request.grammar.PreviewRequest;
 import org.ggp.base.player.request.grammar.Request;
 import org.ggp.base.player.request.grammar.StartRequest;
 import org.ggp.base.player.request.grammar.StopRequest;
@@ -184,17 +184,14 @@ public final class RequestFactory
     {
       return null;
     }
-    else
+    List<GdlTerm> moves = new ArrayList<GdlTerm>();
+    SymbolList list = (SymbolList)symbol;
+
+    for (int i = 0; i < list.size(); i++)
     {
-      List<GdlTerm> moves = new ArrayList<GdlTerm>();
-      SymbolList list = (SymbolList)symbol;
-
-      for (int i = 0; i < list.size(); i++)
-      {
-        moves.add(GdlFactory.createTerm(list.get(i)));
-      }
-
-      return moves;
+      moves.add(GdlFactory.createTerm(list.get(i)));
     }
+
+    return moves;
   }
 }

@@ -19,19 +19,16 @@ public final class RequestBuilder
     {
       return "( PLAY " + matchId + " NIL )";
     }
-    else
+    StringBuilder sb = new StringBuilder();
+
+    sb.append("( PLAY " + matchId + " (");
+    for (Move move : moves)
     {
-      StringBuilder sb = new StringBuilder();
-
-      sb.append("( PLAY " + matchId + " (");
-      for (Move move : moves)
-      {
-        sb.append(scrambler.scramble(move.getContents()) + " ");
-      }
-      sb.append(") )");
-
-      return sb.toString();
+      sb.append(scrambler.scramble(move.getContents()) + " ");
     }
+    sb.append(") )");
+
+    return sb.toString();
   }
 
   public static String getStartRequest(String matchId,
@@ -78,19 +75,16 @@ public final class RequestBuilder
     {
       return "( STOP " + matchId + " NIL )";
     }
-    else
+    StringBuilder sb = new StringBuilder();
+
+    sb.append("( STOP " + matchId + " (");
+    for (Move move : moves)
     {
-      StringBuilder sb = new StringBuilder();
-
-      sb.append("( STOP " + matchId + " (");
-      for (Move move : moves)
-      {
-        sb.append(scrambler.scramble(move.getContents()) + " ");
-      }
-      sb.append(") )");
-
-      return sb.toString();
+      sb.append(scrambler.scramble(move.getContents()) + " ");
     }
+    sb.append(") )");
+
+    return sb.toString();
   }
 
   public static String getAbortRequest(String matchId)

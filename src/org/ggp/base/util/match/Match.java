@@ -8,8 +8,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
-import org.ggp.base.util.crypto.SignableJSON;
 import org.ggp.base.util.crypto.BaseCryptography.EncodedKeyPair;
+import org.ggp.base.util.crypto.SignableJSON;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.game.RemoteGameRepository;
 import org.ggp.base.util.gdl.factory.GdlFactory;
@@ -46,7 +46,7 @@ import external.JSON.JSONObject;
  * been observed, because (somehow) they are representing games without using
  * state machines. In general, these player-created Match objects shouldn't be
  * sent out into the ecosystem.
- * 
+ *
  * @author Sam
  */
 public final class Match
@@ -736,13 +736,10 @@ public final class Match
       {
         return "<fact>" + renderGdlToXML(f.get(0)) + "</fact>";
       }
-      else
-      {
-        rval += "<relation>" + f.getName() + "</relation>";
-        for (int i = 0; i < f.arity(); i++)
-          rval += "<argument>" + renderGdlToXML(f.get(i)) + "</argument>";
-        return rval;
-      }
+      rval += "<relation>" + f.getName() + "</relation>";
+      for (int i = 0; i < f.arity(); i++)
+        rval += "<argument>" + renderGdlToXML(f.get(i)) + "</argument>";
+      return rval;
     }
     else if (gdl instanceof GdlRelation)
     {
@@ -753,14 +750,11 @@ public final class Match
           rval += "<fact>" + renderGdlToXML(relation.get(i)) + "</fact>";
         return rval;
       }
-      else
-      {
-        rval += "<relation>" + relation.getName() + "</relation>";
-        for (int i = 0; i < relation.arity(); i++)
-          rval += "<argument>" + renderGdlToXML(relation.get(i)) +
-                  "</argument>";
-        return rval;
-      }
+      rval += "<relation>" + relation.getName() + "</relation>";
+      for (int i = 0; i < relation.arity(); i++)
+        rval += "<argument>" + renderGdlToXML(relation.get(i)) +
+                "</argument>";
+      return rval;
     }
     else
     {

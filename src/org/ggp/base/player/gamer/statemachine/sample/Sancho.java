@@ -2,13 +2,10 @@
 package org.ggp.base.player.gamer.statemachine.sample;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -19,19 +16,14 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.util.gdl.grammar.Gdl;
-import org.ggp.base.util.gdl.grammar.GdlFunction;
-import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.profile.ProfilerContext;
-import org.ggp.base.util.profile.ProfilerSampleSetSimple;
 import org.ggp.base.util.propnet.polymorphic.analysis.Analyser;
 import org.ggp.base.util.propnet.polymorphic.analysis.PieceHeuristicAnalyser;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -46,7 +38,6 @@ import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
-import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine.MoveWeights;
 
 public class Sancho extends SampleGamer
 {
@@ -111,7 +102,7 @@ public class Sancho extends SampleGamer
   private class MoveWeights extends HashMap<Move, MoveWeight>
   {
     /*
-		 * 
+		 *
 		 */
     private static final long serialVersionUID = 1L;
   };
@@ -200,7 +191,7 @@ public class Sancho extends SampleGamer
                                        LinkedHashMap<TreeNode, NodeMoveWeights>
   {
     /**
-		 * 
+		 *
 		 */
     private static final long serialVersionUID = 1L;
     private int               maxEntries;
@@ -835,15 +826,9 @@ public class Sancho extends SampleGamer
         {
           return node;
         }
-        else
-        {
-          return null;
-        }
+        return null;
       }
-      else
-      {
-        return root;
-      }
+      return root;
     }
 
     public TreePathElement getCurrentElement()
@@ -852,10 +837,7 @@ public class Sancho extends SampleGamer
       {
         return null;
       }
-      else
-      {
-        return elements.get(index);
-      }
+      return elements.get(index);
     }
   }
 
@@ -969,7 +951,7 @@ public class Sancho extends SampleGamer
           //				{
           //					//correctedAverageScores[i] = (primaryPathParent.averageScores[i]*(primaryPathParent.numVisits - mostSelectedRouteCount) + values[i]*correctionFactor*mostSelectedRouteCount)/(primaryPathParent.numVisits+(correctionFactor-1)*mostSelectedRouteCount);
           //					double correctedValue;
-          //					
+          //
           //					if ( isDeciderCorrelated || primaryPathParent.numVisits == mostSelectedRouteCount)
           //					{
           //						//	Assume it would still have been selected and change the contribution to the correct complete one
@@ -980,9 +962,9 @@ public class Sancho extends SampleGamer
           //						//	Assume it would have been (far) less selected and just remove the contribution from this child if there are other contributors
           //						correctionFactor = 0.5;
           //					}
-          //					
+          //
           //					correctedValue = (primaryPathParent.numVisits*primaryPathParent.averageScores[i] - mostSelectedRouteCount*averageScores[i] + mostSelectedRouteCount*correctionFactor*values[i])/(primaryPathParent.numVisits + (correctionFactor-1)*mostSelectedRouteCount);
-          //					
+          //
           //					if ( correctedValue < 0 )
           //					{
           //						correctedValue = 0;
@@ -991,7 +973,7 @@ public class Sancho extends SampleGamer
           //					{
           //						correctedValue = 100;
           //					}
-          //						
+          //
           //					correctedAverageScores[i] = correctedValue;
           //				}
 
@@ -1070,7 +1052,7 @@ public class Sancho extends SampleGamer
         //				if ( children != null )
         //				{
         //					boolean valid = false;
-        //					
+        //
         //					for(TreeEdge edge : children)
         //					{
         //						if ( edge.selectAs == edge )
@@ -1082,7 +1064,7 @@ public class Sancho extends SampleGamer
         //							}
         //						}
         //					}
-        //					
+        //
         //					if ( !valid )
         //					{
         //						System.out.println("Invalid ndoe completion");
@@ -1354,11 +1336,11 @@ public class Sancho extends SampleGamer
             //    					double[] averageValues = new double[numRoles];
             //    					boolean  allChildrenComplete = true;
             //    					int		 childCount = 0;
-            //    					
+            //
             //    	    			for(TreeEdge nephewEdge : child.children)
             //    	    			{
             //    	    				TreeNode nephew = nephewEdge.child.node;
-            //    	    				
+            //
             //    	    				if ( nephewEdge.child.seq == nephew.seq && nephewEdge.selectAs == nephewEdge )
             //    	    				{
             //    	    					if ( !nephew.complete )
@@ -1366,20 +1348,20 @@ public class Sancho extends SampleGamer
             //    	    						allChildrenComplete = false;
             //    	    						break;
             //    	    					}
-            //    	    					
+            //
             //    	    					childCount++;
             //    	    					for(int i = 0; i < numRoles; i++)
             //    	    					{
             //    	    						averageValues[i] += nephew.averageScores[i];
             //    	    					}
-            //    	    					
+            //
             //    	    					if ( worstValues == null || nephew.averageScores[nephew.decidingRoleIndex] < worstValues[nephew.decidingRoleIndex] )
             //    	    					{
             //    	    						worstValues = nephew.averageScores;
             //    	    					}
             //     	    				}
             //    	    			}
-            //    	    			
+            //
             //    	    			if ( allChildrenComplete )
             //    	    			{
             //	    					for(int i = 0; i < numRoles; i++)
@@ -2896,7 +2878,7 @@ public class Sancho extends SampleGamer
           //					TreeNode ancestor = parent;
           //					boolean found = false;
           //					int numPriorityBoosts = 0;
-          //					
+          //
           //					do
           //					{
           //						depth++;
@@ -2919,7 +2901,7 @@ public class Sancho extends SampleGamer
           //							}
           //						}
           //					} while(ancestor != null && !found && ancestor != root);
-          //					
+          //
           //					priorityMarkCount += numPriorityBoosts;
         }
       }
@@ -2946,15 +2928,12 @@ public class Sancho extends SampleGamer
               result++;
               break;
             }
-            else
+            if (edge.selectAs == edge &&
+                edge.child.seq == edge.child.node.seq)
             {
-              if (edge.selectAs == edge &&
-                  edge.child.seq == edge.child.node.seq)
-              {
-                result += edge.child.node.markMoveAsPrioritySelect(move,
-                                                                   depth - 1,
-                                                                   roleIndex);
-              }
+              result += edge.child.node.markMoveAsPrioritySelect(move,
+                                                                 depth - 1,
+                                                                 roleIndex);
             }
           }
         }
@@ -3056,10 +3035,7 @@ public class Sancho extends SampleGamer
         //getAverageCousinMoveValue(relativeTo);
         return relativeTo.child.node.averageScores[roleIndex] / 100;
       }
-      else
-      {
-        return accumulatedMoveInfo.averageScore / 100;
-      }
+      return accumulatedMoveInfo.averageScore / 100;
     }
 
     private double exploitationUCT(TreeEdge inboundEdge, int roleIndex)
@@ -3081,12 +3057,9 @@ public class Sancho extends SampleGamer
         {
           return inboundEdge.child.node.averageScores[roleIndex] / 100;
         }
-        else
-        {
-          return Math
-              .min(inboundEdge.child.node.averageScores[roleIndex] / 100,
-                   getAverageCousinMoveValue(inboundEdge, roleIndex));
-        }
+        return Math
+            .min(inboundEdge.child.node.averageScores[roleIndex] / 100,
+                 getAverageCousinMoveValue(inboundEdge, roleIndex));
       }
       else if (useGoalHeuristic)
       {
@@ -3911,24 +3884,21 @@ public class Sancho extends SampleGamer
 
         return request;
       }
-      else
+      if (decidingRoleIndex != numRoles - 1)
       {
-        if (decidingRoleIndex != numRoles - 1)
-        {
-          System.out.println("Unexpected rollout state");
-        }
-
-        request.state = state;
-        request.node = getRef();
-        request.sampleSize = rolloutSampleSize;
-        request.path = path;
-        //request.moveWeights = masterMoveWeights.copy();
-
-        numQueuedRollouts++;
-        queuedRollouts.put(request);
-
-        return null;
+        System.out.println("Unexpected rollout state");
       }
+
+      request.state = state;
+      request.node = getRef();
+      request.sampleSize = rolloutSampleSize;
+      request.path = path;
+      //request.moveWeights = masterMoveWeights.copy();
+
+      numQueuedRollouts++;
+      queuedRollouts.put(request);
+
+      return null;
     }
 
     public void updateVisitCounts(int sampleSize, TreePath path)
@@ -4035,7 +4005,7 @@ public class Sancho extends SampleGamer
       //								System.out.println("!");
       //							}
       //							debugNode = true;
-      //							
+      //
       //							if ( averageScores[0] > lastDebugNodeScore )
       //							{
       //								System.out.println("Scores rose unexpectedly!");
@@ -4087,7 +4057,7 @@ public class Sancho extends SampleGamer
         //		    	{
         //		    		averageScores[roleIndex] = (averageScores[roleIndex]*numVisits + values[roleIndex])/(numVisits+1);
         //		    		averageSquaredScores[roleIndex] = (averageSquaredScores[roleIndex]*numVisits + squaredValues[roleIndex])/(numVisits+1);
-        //			    	
+        //
         //		    		//numVisits++;
         //		    	}
         //		    	else
@@ -4131,12 +4101,12 @@ public class Sancho extends SampleGamer
         //				if ( isCompletePseudoRollout && !visitCountsUpdated )
         //				{
         //					numVisits++;
-        //					
+        //
         //			    	if ( (!complete || isSimultaneousMove || isMultiPlayer) && childEdge != null )
         //			    	{
         //			    		childEdge.numChildVisits++;
         //			    	}
-        //			    	
+        //
         //			    	visitCountsUpdated = true;
         //				}
       }
@@ -4517,10 +4487,7 @@ public class Sancho extends SampleGamer
                 choosingRoleIndex = -1;
                 break;
               }
-              else
-              {
-                allMovesInState.add(move);
-              }
+              allMovesInState.add(move);
             }
 
             if (roleWithChoiceSeen)
@@ -5198,12 +5165,12 @@ public class Sancho extends SampleGamer
       //			if ( heuristicCost == -1 )
       //			{
       //				ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(state);
-      //				
+      //
       //				temp.intersect(targetStateAsInternal);
-      //				
+      //
       //				heuristicCost = targetStateAsInternal.size() - temp.size();
       //			}
-      //			
+      //
       //			return heuristicCost;
     }
 

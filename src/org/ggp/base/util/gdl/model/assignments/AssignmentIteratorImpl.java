@@ -281,13 +281,10 @@ public class AssignmentIteratorImpl implements AssignmentIterator
         done = true;
         return;
       }
-      else
-      {
-        //Something currently constant is false
-        //The assignment is done
-        done = true;
-        return;
-      }
+      //Something currently constant is false
+      //The assignment is done
+      done = true;
+      return;
     }
     if (plan.getVarsToAssign() == null)
       System.out.println("headOnly: " + headOnly);

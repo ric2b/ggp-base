@@ -3,6 +3,7 @@ package org.ggp.base.util.statemachine;
 
 import java.util.HashSet;
 import java.util.Set;
+
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 
 public class MachineState
@@ -50,8 +51,7 @@ public class MachineState
     Set<GdlSentence> contents = getContents();
     if (contents == null)
       return "(MachineState with null contents)";
-    else
-      return contents.toString();
+    return contents.toString();
   }
 
   public boolean equals(Object o)

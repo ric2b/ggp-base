@@ -35,7 +35,7 @@ public class Relationizer
    * don't need this distinction, and can reduce the costs in time and memory
    * of processing the game if these statements are instead transformed into
    * sentences.
-   * 
+   *
    * @throws InterruptedException
    */
   public static List<Gdl> run(List<Gdl> description)
@@ -158,10 +158,7 @@ public class Relationizer
         //Replace with the sentence contained in the true sentence...
         return sentence.get(0).toSentence();
       }
-      else
-      {
-        return literal;
-      }
+      return literal;
     }
     else if (literal instanceof GdlNot)
     {

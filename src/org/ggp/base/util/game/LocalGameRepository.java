@@ -19,7 +19,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
-import external.JSON.*;
+import external.JSON.JSONException;
+import external.JSON.JSONObject;
 
 /**
  * Local game repositories provide access to game resources stored on the local
@@ -27,7 +28,7 @@ import external.JSON.*;
  * GGP.org infrastructure, this starts a simple HTTP server that provides
  * access to the local game resources, and then uses the standard
  * RemoteGameRepository interface to read from that server.
- * 
+ *
  * @author Sam
  */
 public final class LocalGameRepository extends GameRepository
@@ -290,11 +291,8 @@ public final class LocalGameRepository extends GameRepository
       {
         return getBytesForFile(new File("games", thePrefix + "/" + theSuffix));
       }
-      else
-      {
-        return getBytesForFile(new File("games", thePrefix + "/v" +
-                                                 theVersion + "/" + theSuffix));
-      }
+      return getBytesForFile(new File("games", thePrefix + "/v" +
+                                               theVersion + "/" + theSuffix));
     }
 
     private static byte[] getBytesForFile(File theFile)
@@ -335,7 +333,7 @@ public final class LocalGameRepository extends GameRepository
 
     private static String transformXSL(String theContent)
     {
-      // Special case override for XSLT        
+      // Special case override for XSLT
       return "<!DOCTYPE stylesheet [<!ENTITY ROOT \"" +
              repositoryRootDirectory + "\">]>\n\n" + theContent;
     }
@@ -379,7 +377,7 @@ public final class LocalGameRepository extends GameRepository
 
     public static String readFile(File rootFile) throws IOException
     {
-      // Show contents of the file.                                        
+      // Show contents of the file.
       FileReader fr = new FileReader(rootFile);
       BufferedReader br = new BufferedReader(fr);
       try
@@ -424,7 +422,7 @@ public final class LocalGameRepository extends GameRepository
      * list containing the names of all of the roles. Applications which read
      * the game metadata can use these without also having to process the
      * rulesheet.
-     * 
+     *
      * @param theMetaJSON
      * @param theRulesheet
      * @throws JSONException

@@ -54,13 +54,10 @@ public class VariableRenamer
     {
       return distinct;
     }
-    else
-    {
-      GdlTerm arg1 = renameTerm(distinct.getArg1(), renamings);
-      GdlTerm arg2 = renameTerm(distinct.getArg2(), renamings);
+    GdlTerm arg1 = renameTerm(distinct.getArg1(), renamings);
+    GdlTerm arg2 = renameTerm(distinct.getArg2(), renamings);
 
-      return GdlPool.getDistinct(arg1, arg2);
-    }
+    return GdlPool.getDistinct(arg1, arg2);
   }
 
   private GdlFunction renameFunction(GdlFunction function,
@@ -70,18 +67,15 @@ public class VariableRenamer
     {
       return function;
     }
-    else
+    GdlConstant name = renameConstant(function.getName(), renamings);
+
+    List<GdlTerm> body = new ArrayList<GdlTerm>();
+    for (int i = 0; i < function.arity(); i++)
     {
-      GdlConstant name = renameConstant(function.getName(), renamings);
-
-      List<GdlTerm> body = new ArrayList<GdlTerm>();
-      for (int i = 0; i < function.arity(); i++)
-      {
-        body.add(renameTerm(function.get(i), renamings));
-      }
-
-      return GdlPool.getFunction(name, body);
+      body.add(renameTerm(function.get(i), renamings));
     }
+
+    return GdlPool.getFunction(name, body);
   }
 
   private GdlLiteral renameLiteral(GdlLiteral literal,
@@ -111,11 +105,8 @@ public class VariableRenamer
     {
       return not;
     }
-    else
-    {
-      GdlLiteral body = renameLiteral(not.getBody(), renamings);
-      return GdlPool.getNot(body);
-    }
+    GdlLiteral body = renameLiteral(not.getBody(), renamings);
+    return GdlPool.getNot(body);
   }
 
   private GdlOr renameOr(GdlOr or, Map<GdlVariable, GdlVariable> renamings)
@@ -124,16 +115,13 @@ public class VariableRenamer
     {
       return or;
     }
-    else
+    List<GdlLiteral> disjuncts = new ArrayList<GdlLiteral>();
+    for (int i = 0; i < or.arity(); i++)
     {
-      List<GdlLiteral> disjuncts = new ArrayList<GdlLiteral>();
-      for (int i = 0; i < or.arity(); i++)
-      {
-        disjuncts.add(renameLiteral(or.get(i), renamings));
-      }
-
-      return GdlPool.getOr(disjuncts);
+      disjuncts.add(renameLiteral(or.get(i), renamings));
     }
+
+    return GdlPool.getOr(disjuncts);
   }
 
   private GdlProposition renameProposition(GdlProposition proposition,
@@ -149,18 +137,15 @@ public class VariableRenamer
     {
       return relation;
     }
-    else
+    GdlConstant name = renameConstant(relation.getName(), renamings);
+
+    List<GdlTerm> body = new ArrayList<GdlTerm>();
+    for (int i = 0; i < relation.arity(); i++)
     {
-      GdlConstant name = renameConstant(relation.getName(), renamings);
-
-      List<GdlTerm> body = new ArrayList<GdlTerm>();
-      for (int i = 0; i < relation.arity(); i++)
-      {
-        body.add(renameTerm(relation.get(i), renamings));
-      }
-
-      return GdlPool.getRelation(name, body);
+      body.add(renameTerm(relation.get(i), renamings));
     }
+
+    return GdlPool.getRelation(name, body);
   }
 
   private GdlRule renameRule(GdlRule rule,
@@ -170,18 +155,15 @@ public class VariableRenamer
     {
       return rule;
     }
-    else
+    GdlSentence head = renameSentence(rule.getHead(), renamings);
+
+    List<GdlLiteral> body = new ArrayList<GdlLiteral>();
+    for (int i = 0; i < rule.arity(); i++)
     {
-      GdlSentence head = renameSentence(rule.getHead(), renamings);
-
-      List<GdlLiteral> body = new ArrayList<GdlLiteral>();
-      for (int i = 0; i < rule.arity(); i++)
-      {
-        body.add(renameLiteral(rule.get(i), renamings));
-      }
-
-      return GdlPool.getRule(head, body);
+      body.add(renameLiteral(rule.get(i), renamings));
     }
+
+    return GdlPool.getRule(head, body);
   }
 
   private GdlSentence renameSentence(GdlSentence sentence,
@@ -191,10 +173,7 @@ public class VariableRenamer
     {
       return renameProposition((GdlProposition)sentence, renamings);
     }
-    else
-    {
-      return renameRelation((GdlRelation)sentence, renamings);
-    }
+    return renameRelation((GdlRelation)sentence, renamings);
   }
 
   private GdlTerm renameTerm(GdlTerm term,

@@ -71,10 +71,7 @@ public class SentenceDomainModels
       return Iterables
           .concat(ImmutableList.of(rule.getHead()), rule.getBody());
     }
-    else
-    {
-      return rule.getBody();
-    }
+    return rule.getBody();
   }
 
   private static Map<GdlVariable, Set<GdlConstant>> combineDomains(Multimap<GdlVariable, Set<GdlConstant>> varDomainsByVar)

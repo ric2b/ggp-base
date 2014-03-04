@@ -2,7 +2,6 @@
 package org.ggp.base.util.propnet.polymorphic.runtimeOptimized;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
@@ -25,7 +24,7 @@ public final class RuntimeOptimizedProposition extends
 
   /**
    * Creates a new Proposition with name <tt>name</tt>.
-   * 
+   *
    * @param numOutputs
    * @param name
    *          The name of the Proposition.
@@ -40,7 +39,7 @@ public final class RuntimeOptimizedProposition extends
 
   /**
    * Getter method.
-   * 
+   *
    * @return The name of the Proposition.
    */
   public GdlSentence getName()
@@ -51,7 +50,7 @@ public final class RuntimeOptimizedProposition extends
   /**
    * Setter method. This should only be rarely used; the name of a proposition
    * is usually constant over its entire lifetime.
-   * 
+   *
    * @return The name of the Proposition.
    */
   public void setName(GdlSentence newName)
@@ -72,7 +71,7 @@ public final class RuntimeOptimizedProposition extends
 
   /**
    * Returns the current value of the Proposition.
-   * 
+   *
    * @see org.ggp.base.util.propnet.architecture.Component#getValueInternal()
    */
   @Override
@@ -83,10 +82,7 @@ public final class RuntimeOptimizedProposition extends
     {
       return value;
     }
-    else
-    {
-      return inputsArray[0].getValue();
-    }
+    return inputsArray[0].getValue();
   }
 
   @Override
@@ -102,7 +98,7 @@ public final class RuntimeOptimizedProposition extends
 
   /**
    * Setter method.
-   * 
+   *
    * @param value
    *          The new value of the Proposition.
    */

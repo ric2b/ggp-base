@@ -59,7 +59,7 @@ public class VariableConstrainer
    * often result in exceptions.) Not guaranteed to finish in a reasonable
    * amount of time in pathological cases, where the number of possible
    * functional structures is prohibitively large.
-   * 
+   *
    * @param description
    *          A GDL game description.
    * @return A modified version of the same game.
@@ -290,10 +290,7 @@ public class VariableConstrainer
                                           replacementsByOriginalTupleIndex,
                                           replacement));
     }
-    else
-    {
-      return Optional.absent();
-    }
+    return Optional.absent();
   }
 
   private static boolean findAmbiguity(List<GdlTerm> originalBody,
@@ -521,7 +518,7 @@ public class VariableConstrainer
   /**
    * Removes rules with sentences with empty domains. These simply won't have
    * sentence forms in the generated sentence model, so this is fairly easy.
-   * 
+   *
    * @throws InterruptedException
    */
   private static List<Gdl> cleanUpIrrelevantRules(List<Gdl> expandedRules)

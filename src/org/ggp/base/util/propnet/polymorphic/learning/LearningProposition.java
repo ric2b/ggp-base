@@ -2,11 +2,9 @@
 package org.ggp.base.util.propnet.polymorphic.learning;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
-import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponent;
 
 /**
  * The Proposition class is designed to represent named latches.
@@ -22,7 +20,7 @@ public final class LearningProposition extends LearningComponent implements
 
   /**
    * Creates a new Proposition with name <tt>name</tt>.
-   * 
+   *
    * @param name
    *          The name of the Proposition.
    */
@@ -34,7 +32,7 @@ public final class LearningProposition extends LearningComponent implements
 
   /**
    * Getter method.
-   * 
+   *
    * @return The name of the Proposition.
    */
   public GdlSentence getName()
@@ -45,7 +43,7 @@ public final class LearningProposition extends LearningComponent implements
   /**
    * Setter method. This should only be rarely used; the name of a proposition
    * is usually constant over its entire lifetime.
-   * 
+   *
    * @return The name of the Proposition.
    */
   public void setName(GdlSentence newName)
@@ -55,7 +53,7 @@ public final class LearningProposition extends LearningComponent implements
 
   /**
    * Returns the current value of the Proposition.
-   * 
+   *
    * @see org.ggp.base.util.propnet.architecture.Component#getValueInternal()
    */
   @Override
@@ -66,18 +64,12 @@ public final class LearningProposition extends LearningComponent implements
     {
       return value;
     }
-    else
+    PolymorphicComponent predecessor = getSingleInput();
+    if (predecessor instanceof PolymorphicTransition)
     {
-      PolymorphicComponent predecessor = getSingleInput();
-      if (predecessor instanceof PolymorphicTransition)
-      {
-        return value;
-      }
-      else
-      {
-        return predecessor.getValue();
-      }
+      return value;
     }
+    return predecessor.getValue();
   }
 
   protected boolean getValueAndCost(EncapsulatedCost aggregatedCost)
@@ -90,24 +82,15 @@ public final class LearningProposition extends LearningComponent implements
       {
         return value;
       }
-      else
+      PolymorphicComponent predecessor = getSingleInput();
+      if (predecessor instanceof PolymorphicTransition)
       {
-        PolymorphicComponent predecessor = getSingleInput();
-        if (predecessor instanceof PolymorphicTransition)
-        {
-          return value;
-        }
-        else
-        {
-          return ((LearningComponent)predecessor)
-              .getValueAndCost(aggregatedCost);
-        }
+        return value;
       }
+      return ((LearningComponent)predecessor)
+          .getValueAndCost(aggregatedCost);
     }
-    else
-    {
-      return cachedValue;
-    }
+    return cachedValue;
   }
 
   @Override
@@ -123,7 +106,7 @@ public final class LearningProposition extends LearningComponent implements
 
   /**
    * Setter method.
-   * 
+   *
    * @param value
    *          The new value of the Proposition.
    */

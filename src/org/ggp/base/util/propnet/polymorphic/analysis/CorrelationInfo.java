@@ -23,11 +23,8 @@ public class CorrelationInfo
     {
       return 0;
     }
-    else
-    {
-      return (productSum - valueInfo.numSamples * valueInfo.averageScore *
-                           referenceValueInfo.averageScore) /
-             ((valueInfo.numSamples - 1) * stdDev1 * stdDev2);
-    }
+    return (productSum - valueInfo.numSamples * valueInfo.averageScore *
+                         referenceValueInfo.averageScore) /
+           ((valueInfo.numSamples - 1) * stdDev1 * stdDev2);
   }
 }

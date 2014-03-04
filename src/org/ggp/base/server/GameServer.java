@@ -22,8 +22,8 @@ import org.ggp.base.server.event.ServerNewMovesEvent;
 import org.ggp.base.server.event.ServerTimeEvent;
 import org.ggp.base.server.event.ServerTimeoutEvent;
 import org.ggp.base.server.threads.AbortRequestThread;
-import org.ggp.base.server.threads.PreviewRequestThread;
 import org.ggp.base.server.threads.PlayRequestThread;
+import org.ggp.base.server.threads.PreviewRequestThread;
 import org.ggp.base.server.threads.RandomPlayRequestThread;
 import org.ggp.base.server.threads.StartRequestThread;
 import org.ggp.base.server.threads.StopRequestThread;
@@ -222,10 +222,7 @@ public final class GameServer extends Thread implements Subject
       {
         return;
       }
-      else
-      {
-        ie.printStackTrace();
-      }
+      ie.printStackTrace();
     }
     catch (Exception e)
     {
@@ -504,9 +501,6 @@ public final class GameServer extends Thread implements Subject
     {
       return match.getPlayerNamesFromHost().get(i);
     }
-    else
-    {
-      return "";
-    }
+    return "";
   }
 }

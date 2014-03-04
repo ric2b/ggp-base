@@ -2,46 +2,35 @@
 package org.ggp.base.util.statemachine.implementation.propnet;
 
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
-import org.ggp.base.util.gdl.grammar.GdlPool;
-import org.ggp.base.util.gdl.grammar.GdlRelation;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.gdl.grammar.GdlTerm;
 import org.ggp.base.util.profile.ProfileSection;
-import org.ggp.base.util.propnet.architecture.Component;
-import org.ggp.base.util.propnet.architecture.PropNet;
-import org.ggp.base.util.propnet.architecture.components.Proposition;
-import org.ggp.base.util.propnet.factory.OptimizingPropNetFactory;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicComponentFactory;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicNot;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicOr;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
-import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 import org.ggp.base.util.propnet.polymorphic.factory.OptimizingPolymorphicPropNetFactory;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonComponent;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonComponentFactory;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionCrossReferenceInfo;
-import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.learning.LearningComponent;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
@@ -50,7 +39,6 @@ import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBuilder;
 import org.ggp.base.util.stats.Stats;
 
@@ -556,26 +544,23 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
             return null;
           }
         }
+        if (!cursor.positiveProps.contains(p))
+        {
+          newCursor.negativeProps.add(prop);
+          Set<AntecedantCursor> result = new HashSet<AntecedantCursor>();
+          result.add(newCursor);
+          return result;
+        }
+        else if (!cursor.negativeProps.contains(p))
+        {
+          newCursor.positiveProps.add(prop);
+          Set<AntecedantCursor> result = new HashSet<AntecedantCursor>();
+          result.add(newCursor);
+          return result;
+        }
         else
         {
-          if (!cursor.positiveProps.contains(p))
-          {
-            newCursor.negativeProps.add(prop);
-            Set<AntecedantCursor> result = new HashSet<AntecedantCursor>();
-            result.add(newCursor);
-            return result;
-          }
-          else if (!cursor.negativeProps.contains(p))
-          {
-            newCursor.positiveProps.add(prop);
-            Set<AntecedantCursor> result = new HashSet<AntecedantCursor>();
-            result.add(newCursor);
-            return result;
-          }
-          else
-          {
-            return null;
-          }
+          return null;
         }
       }
 
@@ -878,7 +863,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
       OptimizingPolymorphicPropNetFactory.removeDuplicateLogic(fullPropNet);
       System.out.println("Num components after duplicate removal: " +
                          fullPropNet.getComponents().size());
-      //OptimizingPolymorphicPropNetFactory.optimizeInputSets(fullPropNet);     		
+      //OptimizingPolymorphicPropNetFactory.optimizeInputSets(fullPropNet);
       //System.out.println("Num components after input set optimization: " + fullPropNet.getComponents().size());
       OptimizingPolymorphicPropNetFactory.OptimizeInvertedInputs(fullPropNet);
       System.out.println("Num components after inverted input optimization: " +
@@ -2065,7 +2050,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
    * inputPropositions. and accordingly set their values etc. This is a naive
    * implementation when coupled with setting input values, feel free to change
    * this for a more efficient implementation.
-   * 
+   *
    * @param moves
    * @return
    */
@@ -2089,7 +2074,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
    * inputPropositions. and accordingly set their values etc. This is a naive
    * implementation when coupled with setting input values, feel free to change
    * this for a more efficient implementation.
-   * 
+   *
    * @param moves
    * @return
    */
@@ -2262,13 +2247,10 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
 
       return candidates.get(getRandom(candidates.size()));
     }
-    else
-    {
-      List<Move> legals = getLegalMoves(state, role);
+    List<Move> legals = getLegalMoves(state, role);
 
-      int randIndex = getRandom(legals.size());
-      return legals.get(randIndex);
-    }
+    int randIndex = getRandom(legals.size());
+    return legals.get(randIndex);
   }
 
   private class RolloutDecisionState
@@ -2432,10 +2414,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
     {
       return totalRoleoutChoices / totalRoleoutNodesExamined;
     }
-    else
-    {
-      return 0;
-    }
+    return 0;
   }
 
   private String mungedState(ForwardDeadReckonInternalMachineState state)

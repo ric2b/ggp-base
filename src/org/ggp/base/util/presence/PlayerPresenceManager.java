@@ -100,7 +100,7 @@ public class PlayerPresenceManager implements Subject
       try
       {
         // When starting from a blank slate, add some initial players to the
-        // monitoring list just so that it's clear how it works.				
+        // monitoring list just so that it's clear how it works.
         addPlayer("127.0.0.1:9147");
         addPlayer("127.0.0.1:9148");
       }
@@ -130,10 +130,7 @@ public class PlayerPresenceManager implements Subject
         monitoredPlayers.put(hostport, presence);
         return presence;
       }
-      else
-      {
-        return monitoredPlayers.get(hostport);
-      }
+      return monitoredPlayers.get(hostport);
     }
     catch (ArrayIndexOutOfBoundsException e)
     {

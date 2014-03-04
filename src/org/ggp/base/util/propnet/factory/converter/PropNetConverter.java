@@ -48,7 +48,7 @@ public final class PropNetConverter
    * <li>Adds or gates to Propositions with more than one input.</li>
    * <li>Adds inputs that are implicitly specified by <tt>description</tt>.</li>
    * </ol>
-   * 
+   *
    * @param description
    *          A game description.
    * @return An equivalent PropNet.
@@ -106,7 +106,7 @@ public final class PropNetConverter
   /**
    * Converts a literal to equivalent PropNet Components and returns a
    * reference to the last of those components.
-   * 
+   *
    * @param literal
    *          The literal to convert to equivalent PropNet Components.
    * @return The last of those components.
@@ -161,7 +161,7 @@ public final class PropNetConverter
   /**
    * Converts a sentence to equivalent PropNet Components and returns the first
    * of those components.
-   * 
+   *
    * @param sentence
    *          The sentence to convert to equivalent PropNet Components.
    * @return The first of those Components.
@@ -185,13 +185,10 @@ public final class PropNetConverter
 
       return preTransition;
     }
-    else
-    {
-      Proposition proposition = getProposition(sentence);
-      components.add(proposition);
+    Proposition proposition = getProposition(sentence);
+    components.add(proposition);
 
-      return proposition;
-    }
+    return proposition;
   }
 
   /**
@@ -199,7 +196,7 @@ public final class PropNetConverter
    * <tt>convertHead()</tt> method on the head, and the
    * <tt>convertConjunct</tt> method on every literal in the body and joining
    * the results by an and gate.
-   * 
+   *
    * @param rule
    *          The rule to convert.
    */
@@ -222,7 +219,7 @@ public final class PropNetConverter
 
   /**
    * Converts a sentence to equivalent PropNet Components.
-   * 
+   *
    * @param sentence
    *          The sentence to convert to equivalent PropNet Components.
    */
@@ -309,7 +306,7 @@ public final class PropNetConverter
   /**
    * Returns a Proposition with name <tt>term</tt>, creating one if none
    * already exists.
-   * 
+   *
    * @param sentence
    *          The name of the Proposition.
    * @return A Proposition with name <tt>term</tt>.
@@ -326,7 +323,7 @@ public final class PropNetConverter
   /**
    * Adds inputs and outputs to <tt>source</tt> and <tt>target</tt> such that
    * <tt>source becomes an input to <tt>target</tt>.
-   * 
+   *
    * @param source
    *          A component.
    * @param target

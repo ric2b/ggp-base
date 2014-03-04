@@ -111,15 +111,10 @@ public class PentagoCanvas extends GameCanvas_FancyGrid
     {
       if (yCell > 3)
         return 1;
-      else
-        return 4;
+      return 4;
     }
-    else
-    {
-      if (yCell > 3)
-        return 2;
-      else
-        return 3;
-    }
+    if (yCell > 3)
+      return 2;
+    return 3;
   }
 }

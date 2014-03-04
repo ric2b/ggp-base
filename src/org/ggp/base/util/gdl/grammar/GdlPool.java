@@ -112,7 +112,7 @@ public final class GdlPool
    * that the pool doesn't contain the key, you still shouldn't assume that
    * this method actually inserts the given value, since this class is accessed
    * by multiple threads simultaneously.
-   * 
+   *
    * @return the value mapped to by key in the pool
    */
   private static <K, V> V addToPool(K key, V value, ConcurrentMap<K, V> pool)
@@ -120,8 +120,7 @@ public final class GdlPool
     V prevValue = pool.putIfAbsent(key, value);
     if (prevValue == null)
       return value;
-    else
-      return prevValue;
+    return prevValue;
   }
 
   public static GdlConstant getConstant(String value)

@@ -1,22 +1,14 @@
 
 package org.ggp.base.util.propnet.polymorphic.runtimeOptimized;
 
-import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
 
-import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
-import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonComponent;
-import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
 
 public abstract class RuntimeOptimizedComponent extends
                                                BidirectionalPropagationComponent
@@ -152,7 +144,7 @@ public abstract class RuntimeOptimizedComponent extends
 
   /**
    * Adds a new input.
-   * 
+   *
    * @param input
    *          A new input.
    */
@@ -179,7 +171,7 @@ public abstract class RuntimeOptimizedComponent extends
 
   /**
    * Adds a new output.
-   * 
+   *
    * @param output
    *          A new output.
    */
@@ -197,7 +189,7 @@ public abstract class RuntimeOptimizedComponent extends
 
   /**
    * Getter method.
-   * 
+   *
    * @return The inputs to the component. Note this should be rarely used in
    *         the finalized state of the propnet
    */
@@ -207,23 +199,20 @@ public abstract class RuntimeOptimizedComponent extends
     {
       return inputsList;
     }
-    else
+    LinkedList<RuntimeOptimizedComponent> result = new LinkedList<RuntimeOptimizedComponent>();
+
+    for (int i = 0; i < inputIndex; i++)
     {
-      LinkedList<RuntimeOptimizedComponent> result = new LinkedList<RuntimeOptimizedComponent>();
-
-      for (int i = 0; i < inputIndex; i++)
-      {
-        result.add(inputsArray[i]);
-      }
-
-      return result;
+      result.add(inputsArray[i]);
     }
+
+    return result;
   }
 
   /**
    * A convenience method, to get a single input. To be used only when the
    * component is known to have exactly one input.
-   * 
+   *
    * @return The single input to the component.
    */
   public PolymorphicComponent getSingleInput()
@@ -233,7 +222,7 @@ public abstract class RuntimeOptimizedComponent extends
 
   /**
    * Getter method.
-   * 
+   *
    * @return The outputs of the component.
    */
   public Collection<? extends PolymorphicComponent> getOutputs()
@@ -242,23 +231,20 @@ public abstract class RuntimeOptimizedComponent extends
     {
       return outputsList;
     }
-    else
+    LinkedList<RuntimeOptimizedComponent> result = new LinkedList<RuntimeOptimizedComponent>();
+
+    for (RuntimeOptimizedComponent c : outputsArray)
     {
-      LinkedList<RuntimeOptimizedComponent> result = new LinkedList<RuntimeOptimizedComponent>();
-
-      for (RuntimeOptimizedComponent c : outputsArray)
-      {
-        result.add(c);
-      }
-
-      return result;
+      result.add(c);
     }
+
+    return result;
   }
 
   /**
    * A convenience method, to get a single output. To be used only when the
    * component is known to have exactly one output.
-   * 
+   *
    * @return The single output to the component.
    */
   public PolymorphicComponent getSingleOutput()
@@ -267,16 +253,13 @@ public abstract class RuntimeOptimizedComponent extends
     {
       return outputsList.get(0);
     }
-    else
-    {
-      return outputsArray[0];
-    }
+    return outputsArray[0];
   }
 
 
   /**
    * Gets the value of the Component.
-   * 
+   *
    * @return The value of the Component.
    */
   public boolean getValue()
@@ -345,14 +328,14 @@ public abstract class RuntimeOptimizedComponent extends
 
   /**
    * Calculates the value of the Component.
-   * 
+   *
    * @return The value of the Component.
    */
   protected abstract boolean getValueInternal();
 
   /**
    * Returns a configurable representation of the Component in .dot format.
-   * 
+   *
    * @param shape
    *          The value to use as the <tt>shape</tt> attribute.
    * @param fillcolor

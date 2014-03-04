@@ -40,7 +40,7 @@ public class IterationOrderCandidate implements
   /**
    * This constructor is for creating the start node of the search. No part of
    * the ordering is specified.
-   * 
+   *
    * @param sourceConjunctCandidates
    * @param sourceConjunctSizes
    * @param functionalSentences
@@ -136,7 +136,7 @@ public class IterationOrderCandidate implements
 
   /**
    * This constructor is for adding a source conjunct to an ordering.
-   * 
+   *
    * @param i
    *          The index of the source conjunct being added.
    */
@@ -475,72 +475,68 @@ public class IterationOrderCandidate implements
       return Collections.singletonList(new IterationOrderCandidate(this));
 
     }
-    else
+    //Let's try a new technique for restricting the space of possibilities...
+    //We already have an ordering on the functions
+    //Let's try to constrain things to that order
+    //Namely, if i<j and constant form j is already used as a function,
+    //we cannot use constant form i UNLESS constant form j supplies
+    //as its variable something used by constant form i.
+    //We might also try requiring that c.f. i NOT provide a variable
+    //used by c.f. j, though there may be multiple possibilities as
+    //to what it could provide.
+    int lastFunctionUsedIndex = -1;
+    if (!functionalConjunctIndices.isEmpty())
     {
-
-      //Let's try a new technique for restricting the space of possibilities...
-      //We already have an ordering on the functions
-      //Let's try to constrain things to that order
-      //Namely, if i<j and constant form j is already used as a function,
-      //we cannot use constant form i UNLESS constant form j supplies
-      //as its variable something used by constant form i.
-      //We might also try requiring that c.f. i NOT provide a variable
-      //used by c.f. j, though there may be multiple possibilities as
-      //to what it could provide.
-      int lastFunctionUsedIndex = -1;
-      if (!functionalConjunctIndices.isEmpty())
+      lastFunctionUsedIndex = Collections.max(functionalConjunctIndices);
+    }
+    Set<GdlVariable> varsProducedByFunctions = new HashSet<GdlVariable>();
+    for (int i = 0; i < functionalConjunctIndices.size(); i++)
+    {
+      if (functionalConjunctIndices.get(i) != -1)
       {
-        lastFunctionUsedIndex = Collections.max(functionalConjunctIndices);
+        varsProducedByFunctions.add(varOrdering.get(i));
       }
-      Set<GdlVariable> varsProducedByFunctions = new HashSet<GdlVariable>();
-      for (int i = 0; i < functionalConjunctIndices.size(); i++)
-      {
-        if (functionalConjunctIndices.get(i) != -1)
-        {
-          varsProducedByFunctions.add(varOrdering.get(i));
-        }
-      }
-      for (int i = 0; i < functionalSentencesInfo.size(); i++)
-      {
-        GdlSentence functionalSentence = functionalSentences.get(i);
-        FunctionInfo functionInfo = functionalSentencesInfo.get(i);
+    }
+    for (int i = 0; i < functionalSentencesInfo.size(); i++)
+    {
+      GdlSentence functionalSentence = functionalSentences.get(i);
+      FunctionInfo functionInfo = functionalSentencesInfo.get(i);
 
-        if (i < lastFunctionUsedIndex)
-        {
-          //We need to figure out whether i could use any of the
-          //vars we're producing with functions
-          //TODO: Try this with a finer grain
-          //i.e., see if i needs a var from a function that is after
-          //it, not one that might be before it
-          List<GdlVariable> varsInSentence = GdlUtils
-              .getVariables(functionalSentence);
-          if (Collections.disjoint(varsInSentence, varsProducedByFunctions))
-          {
-            continue;
-          }
-        }
-
-        //What is the best variable to grab from this form, if there are any?
-        GdlVariable bestVariable = getBestVariable(functionalSentence,
-                                                   functionInfo);
-        if (bestVariable == null)
+      if (i < lastFunctionUsedIndex)
+      {
+        //We need to figure out whether i could use any of the
+        //vars we're producing with functions
+        //TODO: Try this with a finer grain
+        //i.e., see if i needs a var from a function that is after
+        //it, not one that might be before it
+        List<GdlVariable> varsInSentence = GdlUtils
+            .getVariables(functionalSentence);
+        if (Collections.disjoint(varsInSentence, varsProducedByFunctions))
         {
           continue;
         }
-        IterationOrderCandidate newCandidate = new IterationOrderCandidate(this,
-                                                                           functionalSentence,
-                                                                           i,
-                                                                           bestVariable);
-        children.add(newCandidate);
       }
 
-      //If there are no more functions to add, add the completed version
-      if (children.isEmpty())
+      //What is the best variable to grab from this form, if there are any?
+      GdlVariable bestVariable = getBestVariable(functionalSentence,
+                                                 functionInfo);
+      if (bestVariable == null)
       {
-        children.add(new IterationOrderCandidate(this));
+        continue;
       }
-      return children;
+      IterationOrderCandidate newCandidate = new IterationOrderCandidate(this,
+                                                                         functionalSentence,
+                                                                         i,
+                                                                         bestVariable);
+      children.add(newCandidate);
     }
+
+    //If there are no more functions to add, add the completed version
+    if (children.isEmpty())
+    {
+      children.add(new IterationOrderCandidate(this));
+    }
+    return children;
   }
 
   private GdlVariable getBestVariable(GdlSentence functionalSentence,

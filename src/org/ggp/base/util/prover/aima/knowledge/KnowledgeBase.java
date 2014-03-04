@@ -43,9 +43,6 @@ public final class KnowledgeBase
     {
       return contents.get(key);
     }
-    else
-    {
-      return new ArrayList<GdlRule>();
-    }
+    return new ArrayList<GdlRule>();
   }
 }

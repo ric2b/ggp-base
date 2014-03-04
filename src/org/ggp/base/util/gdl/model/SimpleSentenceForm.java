@@ -218,10 +218,7 @@ public class SimpleSentenceForm extends AbstractSentenceForm
     {
       return GdlPool.getProposition(name);
     }
-    else
-    {
-      return GdlPool.getRelation(name, sentenceBody);
-    }
+    return GdlPool.getRelation(name, sentenceBody);
   }
 
   private GdlFunction getFunctionFromTuple(List<? extends GdlTerm> tuple,

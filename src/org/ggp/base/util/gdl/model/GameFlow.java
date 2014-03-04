@@ -39,7 +39,7 @@ import com.google.common.collect.Multimap;
  * GameFlow describes the behavior of the sentences in sentence forms that
  * depend on which turn it is, but not on the actions of the player (past or
  * present). These include step counters and control markers.
- * 
+ *
  * @author Alex Landau
  */
 public class GameFlow
@@ -250,8 +250,7 @@ public class GameFlow
             trueFlowSentences.add(transformedHead);
             if (varsInHead.isEmpty())
               break; //out of the assignments for this rule
-            else
-              asnItr.changeOneInNext(varsInHead, assignment);
+            asnItr.changeOneInNext(varsInHead, assignment);
           }
         }
       }
@@ -334,7 +333,7 @@ public class GameFlow
     Set<Integer> turnsPossible = new HashSet<Integer>(getCompleteTurnSet());
 
     //For each of the relevant literals, we need to see if there are assignments
-    //such that 
+    //such that
     for (GdlLiteral literal : relevantLiterals)
     {
       List<Integer> turns = new ArrayList<Integer>();

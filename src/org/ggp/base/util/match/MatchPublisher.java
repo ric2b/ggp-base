@@ -21,12 +21,9 @@ public class MatchPublisher
       throw new IOException("Match doesn't have appropriate metadata for publication to a spectator server: " +
                             theMatch);
     }
-    else
-    {
-      return performPOST(spectatorURL,
-                         theMatch.getSpectatorAuthToken(),
-                         theMatch.toJSON());
-    }
+    return performPOST(spectatorURL,
+                       theMatch.getSpectatorAuthToken(),
+                       theMatch.toJSON());
   }
 
   public static String performPOST(String theURL,
@@ -51,21 +48,18 @@ public class MatchPublisher
         return new BufferedReader(new InputStreamReader(connection.getInputStream()))
             .readLine();
       }
-      else
+      String errorDescription = "?";
+      try
       {
-        String errorDescription = "?";
-        try
-        {
-          errorDescription = new BufferedReader(new InputStreamReader(connection
-              .getInputStream())).readLine();
-        }
-        catch (Exception q)
-        {
-        }
-        ;
-        throw new IOException(connection.getResponseCode() + ": " +
-                              errorDescription);
+        errorDescription = new BufferedReader(new InputStreamReader(connection
+            .getInputStream())).readLine();
       }
+      catch (Exception q)
+      {
+      }
+      ;
+      throw new IOException(connection.getResponseCode() + ": " +
+                            errorDescription);
     }
     catch (MalformedURLException e)
     {
