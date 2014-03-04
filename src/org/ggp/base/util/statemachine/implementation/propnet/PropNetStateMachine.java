@@ -1,5 +1,6 @@
+
 package org.ggp.base.util.statemachine.implementation.propnet;
- 
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -7,9 +8,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
- 
-
-
 
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
@@ -30,34 +28,34 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBuilder;
 import org.ggp.base.util.statemachine.verifier.StateMachineVerifier;
- 
+
 public class PropNetStateMachine extends StateMachine
 {
   // !! ARR Debug variable for mark sequencing
-  private static int sUniqueRenderID;
- 
+  private static int                    sUniqueRenderID;
+
   /**
    * The underlying PropNet.
    */
-  private PropNet mNet;
- 
+  private PropNet                       mNet;
+
   /**
-   * Propositions in the order that their values should be computed.  By
+   * Propositions in the order that their values should be computed. By
    * following this order, it is guaranteed that all the input values for
    * proposition p are computed before the value of p.
    */
   private List<Proposition>             mOrderedProps;
- 
+
   /**
    * Convenience variable (for mNet.getBasePropositions()).
    */
   private Map<GdlSentence, Proposition> mBasePropositions;
- 
+
   /**
    * Convenience variable (for mNet.getRoles()).
    */
   private List<Role>                    mRoles;
- 
+
   /**
    * Initialise the PropNetStateMachine.
    */
@@ -67,7 +65,7 @@ public class PropNetStateMachine extends StateMachine
     //-------------------------------------------------------------------------
     // Create the underlying PropNet.
     //-------------------------------------------------------------------------
- 
+
     //--------------------------------------------------------------------------
     // !!  ARR OPNF doesn't work for now because computePropOrder relies on
     //         the graph being bipartite, but I don't think OFPN makes bipartite
@@ -89,15 +87,15 @@ public class PropNetStateMachine extends StateMachine
     {
       mNet = PropNetFactory.create(xiGDL);
     }
- 
+
     debugRender(mNet);
- 
+
     //-------------------------------------------------------------------------
     // Set up the convenience variables.
     //-------------------------------------------------------------------------
     mBasePropositions = mNet.getBasePropositions();
     mRoles = mNet.getRoles();
- 
+
     //-------------------------------------------------------------------------
     // Compute the order in which proposition values should be calculated.
     //-------------------------------------------------------------------------
@@ -109,41 +107,38 @@ public class PropNetStateMachine extends StateMachine
     {
       mOrderedProps = computePropOrdering();
     }
- 
+
     //--------------------------------------------------------------------------
     // !! ARR Verify the state machine we've produced against the supplied one.
     //--------------------------------------------------------------------------
     // debugVerify(xiGDL);
   }
- 
+
   private void debugVerify(List<Gdl> xiGDL)
   {
     System.out.println("Verifying...");
     final StateMachine lReference = new ProverStateMachine();
     lReference.initialize(xiGDL);
-    StateMachineVerifier.checkMachineConsistency(lReference,
-                                                 this,
-                                                 5000);
+    StateMachineVerifier.checkMachineConsistency(lReference, this, 5000);
     System.out.println("Verification complete");
   }
- 
+
   /**
    * @return a list of propositions in the order that their values should be
-   * computed.  By following this order, it is guaranteed that all the input
-   * values for proposition p are computed before the value of p.
+   *         computed. By following this order, it is guaranteed that all the
+   *         input values for proposition p are computed before the value of p.
    */
   private List<Proposition> computePropOrdering()
   {
     final List<Proposition> lOrdered = new LinkedList<Proposition>();
- 
+
     //--------------------------------------------------------------------------
     // Take a copy of the list of all propositions.  We modify this list in
     // this function and don't want to destroy the underlying list.  A shallow
     // copy suffices.  (We don't change the underlying propositions.)
     //--------------------------------------------------------------------------
-    final List<Proposition> lUnordered = new LinkedList<Proposition>(
-                                                        mNet.getPropositions());
- 
+    final List<Proposition> lUnordered = new LinkedList<Proposition>(mNet.getPropositions());
+
     //--------------------------------------------------------------------------
     // Compute the ordered list.
     //
@@ -165,7 +160,7 @@ public class PropNetStateMachine extends StateMachine
       // Remove the item at the head of the unordered list.
       //------------------------------------------------------------------------
       final Proposition lProp = lUnordered.remove(0);
- 
+
       //------------------------------------------------------------------------
       // We don't want fundamental propositions (base/input/init props) to
       // appear in the final output.
@@ -174,7 +169,7 @@ public class PropNetStateMachine extends StateMachine
       {
         continue;
       }
- 
+
       //------------------------------------------------------------------------
       // Get the (immediate) input propositions that affect this one.
       //
@@ -182,8 +177,9 @@ public class PropNetStateMachine extends StateMachine
       // component that isn't a proposition.  Get the inputs to that component.
       // (They're all propositions because this is a bipartite graph.)
       //------------------------------------------------------------------------
-      final Collection<Component> lPropsToCheck = lProp.getSingleInput().getInputs();
- 
+      final Collection<Component> lPropsToCheck = lProp.getSingleInput()
+          .getInputs();
+
       //------------------------------------------------------------------------
       // All propositions have a single input - from a component that isn't a
       // proposition.  Get the inputs to that component.  (They're all
@@ -196,8 +192,7 @@ public class PropNetStateMachine extends StateMachine
       List<Proposition> lListToAdd = lOrdered;
       for (final Component lComponent : lPropsToCheck)
       {
-        if (!((lOrdered.contains(lComponent)) ||
-              (isFundmentalProposition((Proposition)lComponent))))
+        if (!((lOrdered.contains(lComponent)) || (isFundmentalProposition((Proposition)lComponent))))
         {
           lListToAdd = lUnordered;
           break;
@@ -205,27 +200,26 @@ public class PropNetStateMachine extends StateMachine
       }
       lListToAdd.add(lProp);
     }
- 
+
     return lOrdered;
   }
- 
+
   /**
    * @return a list of propositions in the order that their values should be
-   * computed.  By following this order, it is guaranteed that all the input
-   * values for proposition p are computed before the value of p.
+   *         computed. By following this order, it is guaranteed that all the
+   *         input values for proposition p are computed before the value of p.
    */
   private List<Proposition> computePropOrderingForOPN()
   {
     final List<Proposition> lOrdered = new LinkedList<Proposition>();
- 
+
     //--------------------------------------------------------------------------
     // Take a copy of the list of all propositions.  We modify this list in
     // this function and don't want to destroy the underlying list.  A shallow
     // copy suffices.  (We don't change the underlying propositions.)
     //--------------------------------------------------------------------------
-    final List<Proposition> lUnordered = new LinkedList<Proposition>(
-                                                        mNet.getPropositions());
- 
+    final List<Proposition> lUnordered = new LinkedList<Proposition>(mNet.getPropositions());
+
     //--------------------------------------------------------------------------
     // Compute the ordered list.
     //
@@ -244,7 +238,7 @@ public class PropNetStateMachine extends StateMachine
       // Remove the item at the head of the unordered list.
       //------------------------------------------------------------------------
       final Proposition lProp = lUnordered.remove(0);
- 
+
       //------------------------------------------------------------------------
       // We don't want fundamental propositions (base/input/init props) to
       // appear in the final output.
@@ -253,12 +247,12 @@ public class PropNetStateMachine extends StateMachine
       {
         continue;
       }
- 
+
       //------------------------------------------------------------------------
       // Get the (immediate) input propositions that affect this one.
       //------------------------------------------------------------------------
       final Set<Proposition> lPropsToCheck = getImmediateInputs(lProp);
- 
+
       //------------------------------------------------------------------------
       // We hope to be able to add the proposition to the end of the ordered
       // list.  If we can't (because one of the inputs isn't yet on the ordered
@@ -267,8 +261,7 @@ public class PropNetStateMachine extends StateMachine
       List<Proposition> lListToAdd = lOrdered;
       for (final Proposition lInput : lPropsToCheck)
       {
-        if (!((lOrdered.contains(lInput)) ||
-              (isFundmentalProposition(lInput))))
+        if (!((lOrdered.contains(lInput)) || (isFundmentalProposition(lInput))))
         {
           lListToAdd = lUnordered;
           break;
@@ -276,10 +269,10 @@ public class PropNetStateMachine extends StateMachine
       }
       lListToAdd.add(lProp);
     }
- 
+
     return lOrdered;
   }
- 
+
   private static Set<Proposition> getImmediateInputs(Proposition xiProposition)
   {
     final Set<Proposition> lInputs = new HashSet<Proposition>();
@@ -288,7 +281,7 @@ public class PropNetStateMachine extends StateMachine
     while (!lToConsider.isEmpty())
     {
       final Component lComponent = lToConsider.remove(0);
- 
+
       if (lComponent instanceof Proposition)
       {
         lInputs.add((Proposition)lComponent);
@@ -300,23 +293,24 @@ public class PropNetStateMachine extends StateMachine
     }
     return lInputs;
   }
- 
+
   /**
    * @return whether the specified proposition is a base or input proposition.
-   *
-   * @param xiProp - the proposition.
+   * @param xiProp
+   *          - the proposition.
    */
   private boolean isFundmentalProposition(Proposition xiProp)
   {
     return ((mBasePropositions.containsValue(xiProp)) ||
-            (mNet.getInputPropositions().containsValue(xiProp)) ||
-            (mNet.getInitProposition().equals(xiProp)));
+            (mNet.getInputPropositions().containsValue(xiProp)) || (mNet
+        .getInitProposition().equals(xiProp)));
   }
- 
+
   /**
    * Mark the network with the specified state.
-   *
-   * @param xiState - the state.
+   * 
+   * @param xiState
+   *          - the state.
    */
   private void markNetwork(MachineState xiState, List<Move> xiMoves)
   {
@@ -332,7 +326,7 @@ public class PropNetStateMachine extends StateMachine
       lProp.setValue(false);
     }
     mNet.getInitProposition().setValue(false);
- 
+
     //-------------------------------------------------------------------------
     // Set base markings (if any).
     //-------------------------------------------------------------------------
@@ -354,26 +348,26 @@ public class PropNetStateMachine extends StateMachine
         mBasePropositions.get(lSentence).setValue(true);
       }
     }
- 
+
     //-------------------------------------------------------------------------
     // Set input markings (if any).
     //-------------------------------------------------------------------------
     if (xiMoves != null)
     {
-      final Map<GdlSentence, Proposition> lInputProps =
-                                                   mNet.getInputPropositions();
+      final Map<GdlSentence, Proposition> lInputProps = mNet
+          .getInputPropositions();
       for (final GdlTerm lTerm : toDoes(xiMoves))
       {
         lInputProps.get(lTerm.toSentence()).setValue(true);
       }
     }
- 
+
     //-------------------------------------------------------------------------
     // Propagate the markings throughout the network.
     //-------------------------------------------------------------------------
     propagateMarkings();
   }
- 
+
   /**
    * Propagate a network which has its initial markings.
    */
@@ -386,7 +380,7 @@ public class PropNetStateMachine extends StateMachine
     }
     // debugRender(mNet);
   }
- 
+
   /**
    * @return the initial state.
    */
@@ -394,7 +388,7 @@ public class PropNetStateMachine extends StateMachine
   public MachineState getInitialState()
   {
     markNetwork(null, null);
- 
+
     //-------------------------------------------------------------------------
     // For each proposition that is now true, get the GdlSentence
     // representation.  Use these to construct the initial machine state.
@@ -408,30 +402,31 @@ public class PropNetStateMachine extends StateMachine
         lSentences.add(lSentence);
       }
     }
- 
+
     return new MachineState(lSentences);
   }
- 
+
   @Override
   public List<Role> getRoles()
   {
     return mRoles;
   }
- 
+
   /**
    * @return the legal moves for the specified role in the specified state.
-   *
-   * @param xiState - the state.
-   * @param xiRole  - the role.
+   * @param xiState
+   *          - the state.
+   * @param xiRole
+   *          - the role.
    */
   @Override
   public List<Move> getLegalMoves(MachineState xiState, Role xiRole)
   {
     markNetwork(xiState, null);
- 
+
     final List<Move> lLegalMoves = new ArrayList<Move>();
-    final Set<Proposition> lPotentialMoves =
-                                       mNet.getLegalPropositions().get(xiRole);
+    final Set<Proposition> lPotentialMoves = mNet.getLegalPropositions()
+        .get(xiRole);
     for (final Proposition lProp : lPotentialMoves)
     {
       if (lProp.getValue())
@@ -439,16 +434,17 @@ public class PropNetStateMachine extends StateMachine
         lLegalMoves.add(getMoveFromProposition(lProp));
       }
     }
- 
+
     return lLegalMoves;
   }
- 
+
   /**
    * @return the next state when the specified moves are executed in the
-   * specified state.
-   *
-   * @param xiState - the state.
-   * @param xiMoves - the moves.
+   *         specified state.
+   * @param xiState
+   *          - the state.
+   * @param xiMoves
+   *          - the moves.
    */
   @Override
   public MachineState getNextState(MachineState xiState, List<Move> xiMoves)
@@ -456,7 +452,7 @@ public class PropNetStateMachine extends StateMachine
   {
     markNetwork(xiState, xiMoves);
     advance();
- 
+
     final Set<GdlSentence> sentences = new HashSet<GdlSentence>();
     for (final GdlSentence lSentence : mBasePropositions.keySet())
     {
@@ -466,10 +462,10 @@ public class PropNetStateMachine extends StateMachine
         sentences.add(lSentence);
       }
     }
- 
+
     return new MachineState(sentences);
   }
- 
+
   private void advance()
   {
     for (final Proposition lProp : mBasePropositions.values())
@@ -478,11 +474,11 @@ public class PropNetStateMachine extends StateMachine
     }
     propagateMarkings();
   }
- 
+
   /**
    * @return whether the specified state is terminal.
-   *
-   * @param xiState - the state.
+   * @param xiState
+   *          - the state.
    */
   @Override
   public boolean isTerminal(MachineState xiState)
@@ -490,24 +486,24 @@ public class PropNetStateMachine extends StateMachine
     markNetwork(xiState, null);
     return mNet.getTerminalProposition().getValue();
   }
- 
+
   /**
    * @return the goal value for the specified role in the specified state.
-   *
-   * @param xiState - the state.
-   * @param xiRole - the role.
-   *
-   * @throws GoalDefinitionException if the state isn't terminal or if the
-   * game is poorly defined.
+   * @param xiState
+   *          - the state.
+   * @param xiRole
+   *          - the role.
+   * @throws GoalDefinitionException
+   *           if the state isn't terminal or if the game is poorly defined.
    */
   @Override
   public int getGoal(MachineState xiState, Role xiRole)
-    throws GoalDefinitionException
+      throws GoalDefinitionException
   {
     markNetwork(xiState, null);
- 
+
     Integer lValue = null;
- 
+
     final Set<Proposition> lGoalProps = mNet.getGoalPropositions().get(xiRole);
     for (final Proposition lProp : lGoalProps)
     {
@@ -520,24 +516,24 @@ public class PropNetStateMachine extends StateMachine
         lValue = getGoalValue(lProp);
       }
     }
- 
+
     if (lValue == null)
     {
       throw new GoalDefinitionException(xiState, xiRole);
     }
- 
+
     return lValue;
   }
- 
+
   /* Helper methods */
   /**
    * The Input propositions are indexed by (does ?player ?action) This
-   * translates a List of Moves (backed by a sentence that is simply ?action) to
-   * GdlTerms that can be used to get Propositions from inputPropositions and
-   * accordingly set their values etc. This is a naive implementation when
+   * translates a List of Moves (backed by a sentence that is simply ?action)
+   * to GdlTerms that can be used to get Propositions from inputPropositions
+   * and accordingly set their values etc. This is a naive implementation when
    * coupled with setting input values, feel free to change this for a more
    * efficient implementation.
-   *
+   * 
    * @param moves
    * @return
    */
@@ -545,7 +541,7 @@ public class PropNetStateMachine extends StateMachine
   {
     final List<GdlTerm> doeses = new ArrayList<GdlTerm>(moves.size());
     final Map<Role, Integer> roleIndices = getRoleIndices();
- 
+
     for (int i = 0; i < mRoles.size(); i++)
     {
       final int index = roleIndices.get(mRoles.get(i));
@@ -554,10 +550,11 @@ public class PropNetStateMachine extends StateMachine
     }
     return doeses;
   }
- 
+
   /**
-   * Takes in a Legal Proposition and returns the appropriate corresponding Move
-   *
+   * Takes in a Legal Proposition and returns the appropriate corresponding
+   * Move
+   * 
    * @param p
    * @return a PropNetMove
    */
@@ -565,10 +562,10 @@ public class PropNetStateMachine extends StateMachine
   {
     return new Move(p.getName().get(1));
   }
- 
+
   /**
    * Helper method for parsing the value of a goal proposition
-   *
+   * 
    * @param goalProposition
    * @return the integer value of the goal proposition
    */
@@ -578,7 +575,7 @@ public class PropNetStateMachine extends StateMachine
     final GdlConstant constant = (GdlConstant)relation.get(1);
     return Integer.parseInt(constant.toString());
   }
- 
+
   /**
    * Debugging function to render the specified network to file.
    */

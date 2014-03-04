@@ -1,3 +1,4 @@
+
 package org.ggp.base.server.event;
 
 import java.io.Serializable;
@@ -7,19 +8,20 @@ import org.ggp.base.util.statemachine.Role;
 
 
 @SuppressWarnings("serial")
-public final class ServerConnectionErrorEvent extends Event implements Serializable
+public final class ServerConnectionErrorEvent extends Event implements
+                                                           Serializable
 {
 
-	private final Role role;
+  private final Role role;
 
-	public ServerConnectionErrorEvent(Role role)
-	{
-		this.role = role;
-	}
+  public ServerConnectionErrorEvent(Role role)
+  {
+    this.role = role;
+  }
 
-	public Role getRole()
-	{
-		return role;
-	}
+  public Role getRole()
+  {
+    return role;
+  }
 
 }

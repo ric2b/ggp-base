@@ -1,3 +1,4 @@
+
 package org.ggp.base.player.gamer.python;
 
 import org.ggp.base.player.gamer.Gamer;
@@ -14,19 +15,25 @@ import junit.framework.TestCase;
  * 
  * @author Sam
  */
-public class PythonGamer_Test extends TestCase {	
-    public void testPythonGamer() {
-        try {
-            Gamer g = new SamplePythonGamerStub();
-            assertEquals("SamplePythonGamer", g.getName());
+public class PythonGamer_Test extends TestCase
+{
+  public void testPythonGamer()
+  {
+    try
+    {
+      Gamer g = new SamplePythonGamerStub();
+      assertEquals("SamplePythonGamer", g.getName());
 
-            Match m = new Match("", -1, 1000, 1000, GameRepository.getDefaultRepository().getGame("ticTacToe"));
-            g.setMatch(m);
-            g.setRoleName(GdlPool.getConstant("xplayer"));
-            g.metaGame(1000);
-            assertTrue(g.selectMove(1000) != null);
-        } catch(Exception e) {
-            e.printStackTrace();
-        }
+      Match m = new Match("", -1, 1000, 1000, GameRepository
+          .getDefaultRepository().getGame("ticTacToe"));
+      g.setMatch(m);
+      g.setRoleName(GdlPool.getConstant("xplayer"));
+      g.metaGame(1000);
+      assertTrue(g.selectMove(1000) != null);
     }
+    catch (Exception e)
+    {
+      e.printStackTrace();
+    }
+  }
 }

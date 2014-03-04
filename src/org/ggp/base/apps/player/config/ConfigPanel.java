@@ -1,3 +1,4 @@
+
 package org.ggp.base.apps.player.config;
 
 import java.awt.LayoutManager;
@@ -8,9 +9,9 @@ import javax.swing.JPanel;
 public abstract class ConfigPanel extends JPanel
 {
 
-	public ConfigPanel(LayoutManager layoutManager)
-	{
-		super(layoutManager);
-	}
+  public ConfigPanel(LayoutManager layoutManager)
+  {
+    super(layoutManager);
+  }
 
 }

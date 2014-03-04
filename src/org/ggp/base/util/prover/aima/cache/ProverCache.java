@@ -1,3 +1,4 @@
+
 package org.ggp.base.util.prover.aima.cache;
 
 import java.util.ArrayList;
@@ -17,38 +18,39 @@ import org.ggp.base.util.prover.aima.unifier.Unifier;
 public final class ProverCache
 {
 
-	private final Map<GdlSentence, Set<GdlSentence>> contents;
+  private final Map<GdlSentence, Set<GdlSentence>> contents;
 
-	public ProverCache()
-	{
-		contents = new HashMap<GdlSentence, Set<GdlSentence>>();
-	}
+  public ProverCache()
+  {
+    contents = new HashMap<GdlSentence, Set<GdlSentence>>();
+  }
 
-	public boolean contains(GdlSentence sentence)
-	{
-		return contents.containsKey(new VariableRenamer().rename(sentence));
-	}
+  public boolean contains(GdlSentence sentence)
+  {
+    return contents.containsKey(new VariableRenamer().rename(sentence));
+  }
 
-	public List<Substitution> get(GdlSentence sentence)
-	{
-		Set<Substitution> results = new HashSet<Substitution>();
-		for (GdlSentence answer : contents.get(new VariableRenamer().rename(sentence)))
-		{
-			results.add(Unifier.unify(sentence, answer));
-		}
+  public List<Substitution> get(GdlSentence sentence)
+  {
+    Set<Substitution> results = new HashSet<Substitution>();
+    for (GdlSentence answer : contents.get(new VariableRenamer()
+        .rename(sentence)))
+    {
+      results.add(Unifier.unify(sentence, answer));
+    }
 
-		return new ArrayList<Substitution>(results);
-	}
+    return new ArrayList<Substitution>(results);
+  }
 
-	public void put(GdlSentence sentence, Set<Substitution> answers)
-	{
-		Set<GdlSentence> results = new HashSet<GdlSentence>();
-		for (Substitution answer : answers)
-		{
-			results.add(Substituter.substitute(sentence, answer));
-		}
+  public void put(GdlSentence sentence, Set<Substitution> answers)
+  {
+    Set<GdlSentence> results = new HashSet<GdlSentence>();
+    for (Substitution answer : answers)
+    {
+      results.add(Substituter.substitute(sentence, answer));
+    }
 
-		contents.put(new VariableRenamer().rename(sentence), results);
-	}
+    contents.put(new VariableRenamer().rename(sentence), results);
+  }
 
 }

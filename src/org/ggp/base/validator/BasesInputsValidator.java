@@ -1,3 +1,4 @@
+
 package org.ggp.base.validator;
 
 import java.util.ArrayList;
@@ -24,107 +25,153 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 
 
-public class BasesInputsValidator implements GameValidator {
-	private static final GdlConstant BASE = GdlPool.getConstant("base");
-	private static final GdlConstant INPUT = GdlPool.getConstant("input");
-	private static final GdlConstant TRUE = GdlPool.getConstant("true");
-	private static final GdlConstant LEGAL = GdlPool.getConstant("legal");
-	private static final GdlVariable X = GdlPool.getVariable("?x");
-	private static final GdlVariable Y = GdlPool.getVariable("?y");
+public class BasesInputsValidator implements GameValidator
+{
+  private static final GdlConstant BASE  = GdlPool.getConstant("base");
+  private static final GdlConstant INPUT = GdlPool.getConstant("input");
+  private static final GdlConstant TRUE  = GdlPool.getConstant("true");
+  private static final GdlConstant LEGAL = GdlPool.getConstant("legal");
+  private static final GdlVariable X     = GdlPool.getVariable("?x");
+  private static final GdlVariable Y     = GdlPool.getVariable("?y");
 
-	private int millisecondsToTest;
-	public BasesInputsValidator(int millisecondsToTest) {
-		this.millisecondsToTest = millisecondsToTest;
-	}
+  private int                      millisecondsToTest;
 
-	@Override
-	public void checkValidity(Game theGame) throws ValidatorException {
-		try {
-			StateMachine sm = new ProverStateMachine();
-			sm.initialize(theGame.getRules());
+  public BasesInputsValidator(int millisecondsToTest)
+  {
+    this.millisecondsToTest = millisecondsToTest;
+  }
 
-			AimaProver prover = new AimaProver(theGame.getRules());
-			GdlSentence basesQuery = GdlPool.getRelation(BASE, new GdlTerm[] {X});
-			Set<GdlSentence> bases = prover.askAll(basesQuery, Collections.<GdlSentence>emptySet());
-			GdlSentence inputsQuery = GdlPool.getRelation(INPUT, new GdlTerm[] {X, Y});
-			Set<GdlSentence> inputs = prover.askAll(inputsQuery, Collections.<GdlSentence>emptySet());
-			Set<GdlSentence> truesFromBases = new HashSet<GdlSentence>();
-			for (GdlSentence base : bases) {
-				truesFromBases.add(GdlPool.getRelation(TRUE, base.getBody()));
-			}
-			Set<GdlSentence> legalsFromInputs = new HashSet<GdlSentence>();
-			for (GdlSentence input : inputs) {
-				legalsFromInputs.add(GdlPool.getRelation(LEGAL, input.getBody()));
-			}
+  @Override
+  public void checkValidity(Game theGame) throws ValidatorException
+  {
+    try
+    {
+      StateMachine sm = new ProverStateMachine();
+      sm.initialize(theGame.getRules());
 
-			if (truesFromBases.isEmpty() && legalsFromInputs.isEmpty()) {
-				return;
-			}
+      AimaProver prover = new AimaProver(theGame.getRules());
+      GdlSentence basesQuery = GdlPool.getRelation(BASE, new GdlTerm[] {X});
+      Set<GdlSentence> bases = prover.askAll(basesQuery, Collections
+          .<GdlSentence> emptySet());
+      GdlSentence inputsQuery = GdlPool.getRelation(INPUT,
+                                                    new GdlTerm[] {X, Y});
+      Set<GdlSentence> inputs = prover.askAll(inputsQuery, Collections
+          .<GdlSentence> emptySet());
+      Set<GdlSentence> truesFromBases = new HashSet<GdlSentence>();
+      for (GdlSentence base : bases)
+      {
+        truesFromBases.add(GdlPool.getRelation(TRUE, base.getBody()));
+      }
+      Set<GdlSentence> legalsFromInputs = new HashSet<GdlSentence>();
+      for (GdlSentence input : inputs)
+      {
+        legalsFromInputs.add(GdlPool.getRelation(LEGAL, input.getBody()));
+      }
 
-			MachineState initialState = sm.getInitialState();
-			MachineState state = initialState;
-			long startTime = System.currentTimeMillis();
-			while (System.currentTimeMillis() < startTime + millisecondsToTest) {
-				//Check state against bases, inputs
-				if (!truesFromBases.isEmpty()) {
-					if (!truesFromBases.containsAll(state.getContents())) {
-						Set<GdlSentence> missingBases = new HashSet<GdlSentence>();
-						missingBases.addAll(state.getContents());
-						missingBases.removeAll(truesFromBases);
-						throw new ValidatorException("Found missing bases: " + missingBases);
-					}
-				}
+      if (truesFromBases.isEmpty() && legalsFromInputs.isEmpty())
+      {
+        return;
+      }
 
-				if (!legalsFromInputs.isEmpty()) {
-					List<GdlSentence> legalSentences = new ArrayList<GdlSentence>();
-					for (Role role : sm.getRoles()) {
-						List<Move> legalMoves = sm.getLegalMoves(state, role);
-						for (Move move : legalMoves) {
-							legalSentences.add(GdlPool.getRelation(LEGAL, new GdlTerm[] {role.getName(), move.getContents()}));
-						}
-					}
-					if (!legalsFromInputs.containsAll(legalSentences)) {
-						Set<GdlSentence> missingInputs = new HashSet<GdlSentence>();
-						missingInputs.addAll(legalSentences);
-						missingInputs.removeAll(legalsFromInputs);
-						throw new ValidatorException("Found missing inputs: " + missingInputs);
-					}
-				}
+      MachineState initialState = sm.getInitialState();
+      MachineState state = initialState;
+      long startTime = System.currentTimeMillis();
+      while (System.currentTimeMillis() < startTime + millisecondsToTest)
+      {
+        //Check state against bases, inputs
+        if (!truesFromBases.isEmpty())
+        {
+          if (!truesFromBases.containsAll(state.getContents()))
+          {
+            Set<GdlSentence> missingBases = new HashSet<GdlSentence>();
+            missingBases.addAll(state.getContents());
+            missingBases.removeAll(truesFromBases);
+            throw new ValidatorException("Found missing bases: " +
+                                         missingBases);
+          }
+        }
 
-				state = sm.getRandomNextState(state);
-				if (sm.isTerminal(state)) {
-					state = initialState;
-				}
-			}
-		} catch (MoveDefinitionException mde) {
-			throw new ValidatorException("Could not find legal moves while simulating: " + mde);
-		} catch (TransitionDefinitionException tde) {
-			throw new ValidatorException("Could not find transition definition while simulating: " + tde);
-		} catch (RuntimeException e) {
-			throw new ValidatorException("Ran into a runtime exception while simulating: " + e);
-		} catch (StackOverflowError e) {
-			throw new ValidatorException("Ran into a stack overflow while simulating: " + e);
-		} catch (OutOfMemoryError e) {
-			throw new ValidatorException("Ran out of memory while simulating: " + e);
-		}
-	}
+        if (!legalsFromInputs.isEmpty())
+        {
+          List<GdlSentence> legalSentences = new ArrayList<GdlSentence>();
+          for (Role role : sm.getRoles())
+          {
+            List<Move> legalMoves = sm.getLegalMoves(state, role);
+            for (Move move : legalMoves)
+            {
+              legalSentences.add(GdlPool.getRelation(LEGAL, new GdlTerm[] {
+                  role.getName(), move.getContents()}));
+            }
+          }
+          if (!legalsFromInputs.containsAll(legalSentences))
+          {
+            Set<GdlSentence> missingInputs = new HashSet<GdlSentence>();
+            missingInputs.addAll(legalSentences);
+            missingInputs.removeAll(legalsFromInputs);
+            throw new ValidatorException("Found missing inputs: " +
+                                         missingInputs);
+          }
+        }
 
-	/**
-	 * @param args
-	 */
-	public static void main(String[] args) throws Exception {
-		GameRepository gameRepo = new CloudGameRepository("http://games.ggp.org/stanford/");
+        state = sm.getRandomNextState(state);
+        if (sm.isTerminal(state))
+        {
+          state = initialState;
+        }
+      }
+    }
+    catch (MoveDefinitionException mde)
+    {
+      throw new ValidatorException("Could not find legal moves while simulating: " +
+                                   mde);
+    }
+    catch (TransitionDefinitionException tde)
+    {
+      throw new ValidatorException("Could not find transition definition while simulating: " +
+                                   tde);
+    }
+    catch (RuntimeException e)
+    {
+      throw new ValidatorException("Ran into a runtime exception while simulating: " +
+                                   e);
+    }
+    catch (StackOverflowError e)
+    {
+      throw new ValidatorException("Ran into a stack overflow while simulating: " +
+                                   e);
+    }
+    catch (OutOfMemoryError e)
+    {
+      throw new ValidatorException("Ran out of memory while simulating: " + e);
+    }
+  }
 
-		for (String gameKey : gameRepo.getGameKeys()) {
-			if (!gameKey.equals("amazons") //Skip games that currently result in out-of-memory errors
-					&& !gameKey.equals("alexChess")) {
-				try {
-					new BasesInputsValidator(20000).checkValidity(gameRepo.getGame(gameKey));
-					System.out.println("Game " + gameKey + " has valid base/input propositions.");
-				} catch (ValidatorException ve) {
-					System.out.println("Game " + gameKey + " is invalid: " + ve.getMessage());
-				}
-			}
-		}
-	}
+  /**
+   * @param args
+   */
+  public static void main(String[] args) throws Exception
+  {
+    GameRepository gameRepo = new CloudGameRepository("http://games.ggp.org/stanford/");
+
+    for (String gameKey : gameRepo.getGameKeys())
+    {
+      if (!gameKey.equals("amazons") //Skip games that currently result in out-of-memory errors
+          &&
+          !gameKey.equals("alexChess"))
+      {
+        try
+        {
+          new BasesInputsValidator(20000).checkValidity(gameRepo
+              .getGame(gameKey));
+          System.out.println("Game " + gameKey +
+                             " has valid base/input propositions.");
+        }
+        catch (ValidatorException ve)
+        {
+          System.out.println("Game " + gameKey + " is invalid: " +
+                             ve.getMessage());
+        }
+      }
+    }
+  }
 }

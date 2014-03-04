@@ -1,3 +1,4 @@
+
 package org.ggp.base.util.gdl.grammar;
 
 import java.util.List;
@@ -6,80 +7,80 @@ import java.util.List;
 public final class GdlFunction extends GdlTerm
 {
 
-	private final List<GdlTerm> body;
-	private transient Boolean ground;
-	private final GdlConstant name;
+  private final List<GdlTerm> body;
+  private transient Boolean   ground;
+  private final GdlConstant   name;
 
-	GdlFunction(GdlConstant name, List<GdlTerm> body)
-	{
-		this.name = name;
-		this.body = body;
-		ground = null;
-	}
+  GdlFunction(GdlConstant name, List<GdlTerm> body)
+  {
+    this.name = name;
+    this.body = body;
+    ground = null;
+  }
 
-	public int arity()
-	{
-		return body.size();
-	}
+  public int arity()
+  {
+    return body.size();
+  }
 
-	private boolean computeGround()
-	{
-		for (GdlTerm term : body)
-		{
-			if (!term.isGround())
-			{
-				return false;
-			}
-		}
+  private boolean computeGround()
+  {
+    for (GdlTerm term : body)
+    {
+      if (!term.isGround())
+      {
+        return false;
+      }
+    }
 
-		return true;
-	}
+    return true;
+  }
 
-	public GdlTerm get(int index)
-	{
-		return body.get(index);
-	}
+  public GdlTerm get(int index)
+  {
+    return body.get(index);
+  }
 
-	public GdlConstant getName()
-	{
-		return name;
-	}
-	
-	public List<GdlTerm> getBody()
-	{
-		return body;
-	}
+  public GdlConstant getName()
+  {
+    return name;
+  }
 
-	@Override
-	public boolean isGround()
-	{
-		if (ground == null)
-		{
-			ground = computeGround();
-		}
+  public List<GdlTerm> getBody()
+  {
+    return body;
+  }
 
-		return ground;
-	}
+  @Override
+  public boolean isGround()
+  {
+    if (ground == null)
+    {
+      ground = computeGround();
+    }
 
-	@Override
-	public GdlSentence toSentence()
-	{
-		return GdlPool.getRelation(name, body);
-	}
+    return ground;
+  }
 
-	@Override
-	public String toString()
-	{
-		StringBuilder sb = new StringBuilder();
+  @Override
+  public GdlSentence toSentence()
+  {
+    return GdlPool.getRelation(name, body);
+  }
 
-		sb.append("( " + name + " ");
-		for (GdlTerm term : body)
-		{
-			sb.append(term + " ");
-		}
-		sb.append(")");
+  @Override
+  public String toString()
+  {
+    StringBuilder sb = new StringBuilder();
 
-		return sb.toString();
-	}
+    sb.append("( " + name + " ");
+    for (GdlTerm term : body)
+    {
+      sb.append(term + " ");
+    }
+    sb.append(")");
+
+    return sb.toString();
+  }
 
 }

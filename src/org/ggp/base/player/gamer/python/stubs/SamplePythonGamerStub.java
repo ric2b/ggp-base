@@ -1,4 +1,6 @@
+
 package org.ggp.base.player.gamer.python.stubs;
+
 import org.ggp.base.player.gamer.python.PythonGamer;
 
 /**
@@ -11,6 +13,13 @@ import org.ggp.base.player.gamer.python.PythonGamer;
  */
 public final class SamplePythonGamerStub extends PythonGamer
 {
-    protected String getPythonGamerModule() { return "sample_gamer"; }
-    protected String getPythonGamerName() { return "SamplePythonGamer"; }
+  protected String getPythonGamerModule()
+  {
+    return "sample_gamer";
+  }
+
+  protected String getPythonGamerName()
+  {
+    return "SamplePythonGamer";
+  }
 }
