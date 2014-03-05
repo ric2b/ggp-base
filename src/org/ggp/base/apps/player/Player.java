@@ -20,7 +20,6 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.border.TitledBorder;
 
-import com.google.common.collect.Lists;
 import org.ggp.base.apps.player.config.ConfigPanel;
 import org.ggp.base.apps.player.detail.DetailPanel;
 import org.ggp.base.apps.player.match.MatchPanel;
@@ -29,6 +28,8 @@ import org.ggp.base.player.GamePlayer;
 import org.ggp.base.player.gamer.Gamer;
 import org.ggp.base.util.reflection.ProjectSearcher;
 import org.ggp.base.util.ui.NativeUI;
+
+import com.google.common.collect.Lists;
 
 
 @SuppressWarnings("serial")
@@ -100,7 +101,7 @@ public final class Player extends JPanel
         gamers.remove(gamer);
       }
     }
-    typeComboBox.setSelectedItem("Random");
+    typeComboBox.setSelectedItem("ScriptedPlayer");
 
     JPanel managerPanel = new JPanel(new GridBagLayout());
     managerPanel.setBorder(new TitledBorder("Manager"));

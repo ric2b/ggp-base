@@ -124,7 +124,7 @@ public final class Server extends JPanel implements ActionListener
     playerFields = new ArrayList<JComboBox<String>>();
     theGame = null;
 
-    shouldScramble = new JCheckBox("Scramble GDL?", true);
+    shouldScramble = new JCheckBox("Scramble GDL?", false);
     shouldQueue = new JCheckBox("Queue match?", true);
     shouldDetail = new JCheckBox("Show match details?", true);
     shouldSave = new JCheckBox("Save match to disk?", false);
