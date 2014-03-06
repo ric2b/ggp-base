@@ -23,7 +23,7 @@ import org.ggp.base.util.game.LocalGameRepository;
  * and could use some polish, but it provides all of the important
  * functionality: you can load games both from local storage and from game
  * repositories on the web.
- * 
+ *
  * @author Sam Schreiber
  */
 public class GameSelector implements ActionListener
@@ -143,6 +143,36 @@ public class GameSelector implements ActionListener
     catch (Exception e)
     {
       return null;
+    }
+  }
+
+  /**
+   * Select a repository.
+   *
+   * @param xiRepo - the repository.
+   */
+  public void selectRepository(String xiRepo)
+  {
+    theRepositoryList.setSelectedItem(xiRepo);
+    repopulateGameList();
+  }
+
+  /**
+   * Select a game.
+   *
+   * @param xiGame - the game.
+   */
+  public void selectGame(String xiGame)
+  {
+    // Find the game
+    for (int ii = 0; ii < theGameList.getItemCount(); ii++)
+    {
+      NamedItem lItem = theGameList.getItemAt(ii);
+      if (lItem.theName.equals(xiGame))
+      {
+        theGameList.setSelectedIndex(ii);
+        break;
+      }
     }
   }
 }

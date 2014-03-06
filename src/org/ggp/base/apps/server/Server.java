@@ -89,6 +89,7 @@ public final class Server extends JPanel implements ActionListener
   private final List<JComboBox<String>> playerFields;
   private final List<JLabel>            roleLabels;
   private final JButton                 runButton;
+  private final JButton                 scriptButton;
 
   private final JSpinner                startClockSpinner;
   private final JSpinner                playClockSpinner;
@@ -111,6 +112,7 @@ public final class Server extends JPanel implements ActionListener
     super(new GridBagLayout());
 
     runButton = new JButton(runButtonMethod());
+    scriptButton = new JButton(scriptButtonMethod());
     startClockSpinner = new JSpinner(new SpinnerNumberModel(30, 5, 600, 1));
     playClockSpinner = new JSpinner(new SpinnerNumberModel(15, 5, 300, 1));
     repetitionsSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 1000, 1));
@@ -331,7 +333,19 @@ public final class Server extends JPanel implements ActionListener
                                          0));
     gamePanel.add(runButton,
                   new GridBagConstraints(1,
-                                         nRowCount,
+                                         nRowCount++,
+                                         1,
+                                         1,
+                                         0.0,
+                                         1.0,
+                                         GridBagConstraints.SOUTH,
+                                         GridBagConstraints.HORIZONTAL,
+                                         new Insets(5, 5, 5, 5),
+                                         0,
+                                         0));
+    gamePanel.add(scriptButton,
+                  new GridBagConstraints(1,
+                                         nRowCount++,
                                          1,
                                          1,
                                          0.0,
@@ -576,7 +590,19 @@ public final class Server extends JPanel implements ActionListener
       }
       gamePanel.add(runButton,
                     new GridBagConstraints(1,
-                                           newRowCount,
+                                           newRowCount++,
+                                           1,
+                                           1,
+                                           0.0,
+                                           1.0,
+                                           GridBagConstraints.SOUTH,
+                                           GridBagConstraints.HORIZONTAL,
+                                           new Insets(5, 5, 5, 5),
+                                           0,
+                                           0));
+      gamePanel.add(scriptButton,
+                    new GridBagConstraints(1,
+                                           newRowCount++,
                                            1,
                                            1,
                                            0.0,
@@ -635,6 +661,45 @@ public final class Server extends JPanel implements ActionListener
               ;
             }
           }
+        }
+      }
+    };
+  }
+
+  private AbstractAction scriptButtonMethod()
+  {
+    return new AbstractAction("Run a script")
+    {
+      @Override
+      public void actionPerformed(ActionEvent evt)
+      {
+        // Set the game
+        gameSelector.selectRepository("games.ggp.org/stanford");
+        gameSelector.selectGame("Tic Tac Toe");
+
+        // Set the game parameters
+        startClockSpinner.setValue(90);
+        playClockSpinner.setValue(45);
+        repetitionsSpinner.setValue(1);
+
+        // Set the flags (fixed - we want this for all games)
+        fixCheckbox(shouldScramble, false);
+        fixCheckbox(shouldQueue, true);
+        fixCheckbox(shouldDetail, true);
+        fixCheckbox(shouldSave, false);
+        fixCheckbox(shouldPublish, false);
+
+        // !! ARR Choose the roles
+
+        // Start the match
+        runButton.doClick();
+      }
+
+      private void fixCheckbox(JCheckBox xiBox, boolean xiDesired)
+      {
+        if (xiBox.isSelected() != xiDesired)
+        {
+          xiBox.doClick();
         }
       }
     };
