@@ -19,7 +19,6 @@ import org.ggp.base.util.statemachine.Move;
 public class ScriptedPlayer extends SampleGamer
 {
   private static final String PLAN_DIR = "data\\ScriptedPlayer";
-  private static final String PLAN_FILE = "plan.txt";
 
   private Queue<Move> mPlan = new LinkedList<>();
 
@@ -30,8 +29,11 @@ public class ScriptedPlayer extends SampleGamer
     mPlan.clear();
 
     // Load the script of moves that we're to play
-    final String lOldPlanFlat = readStringFromFile(
-                                                new File(PLAN_DIR, PLAN_FILE));
+    String lFilename = "plan." + getRole() + ".txt";
+    File lPlanFile = new File(PLAN_DIR, lFilename);
+    System.out.println("Loading plan from " + lPlanFile.getAbsolutePath());
+
+    final String lOldPlanFlat = readStringFromFile(lPlanFile);
     final String[] lPlanParts = lOldPlanFlat.split(",");
 
     // Convert the plan to Moves
@@ -74,7 +76,7 @@ public class ScriptedPlayer extends SampleGamer
     }
     catch (final IOException lEx)
     {
-      // Never mind
+      // Never mind, we'll just return null.
     }
 
     return lResult;
