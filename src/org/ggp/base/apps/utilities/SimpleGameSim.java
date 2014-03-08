@@ -11,8 +11,8 @@ import org.ggp.base.server.GameServer;
 import org.ggp.base.server.event.ServerCompletedMatchEvent;
 import org.ggp.base.server.event.ServerNewGameStateEvent;
 import org.ggp.base.server.event.ServerNewMovesEvent;
-import org.ggp.base.util.crypto.SignableJSON;
 import org.ggp.base.util.crypto.BaseCryptography.EncodedKeyPair;
+import org.ggp.base.util.crypto.SignableJSON;
 import org.ggp.base.util.files.FileUtils;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.game.GameRepository;
@@ -34,7 +34,7 @@ import external.JSON.JSONObject;
  * counter / control proposition, though this is done in a very naive way, by
  * just looking for (step ?x) and (control ?x) propositions. None the less,
  * it's still useful to have.
- * 
+ *
  * @author Sam Schreiber
  */
 public class SimpleGameSim
@@ -50,6 +50,7 @@ public class SimpleGameSim
     final Match theMatch = new Match("simpleGameSim." +
                                          Match.getRandomString(5),
                                      -1,
+                                     0,
                                      0,
                                      0,
                                      theGame);
@@ -88,7 +89,7 @@ public class SimpleGameSim
     }
 
     // TODO: Allow a custom state machine to be plugged into the GameServer so that we can
-    // simulate games using this tool with custom state machines, to verify they're sane.        
+    // simulate games using this tool with custom state machines, to verify they're sane.
 
     final Set<GdlSentence> oldContents = new HashSet<GdlSentence>();
     final int[] nState = new int[1];

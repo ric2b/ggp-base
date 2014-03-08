@@ -85,6 +85,17 @@ public class ScriptedPlayer extends SampleGamer
   @Override
   public Move stateMachineSelectMove(long xiTimeout)
   {
+    // !! ARR Slow things for debugging
+    try
+    {
+      Thread.sleep(500);
+    }
+    catch (InterruptedException lEx)
+    {
+      // TODO Auto-generated catch block
+      lEx.printStackTrace();
+    }
+
     // Simply return the next item in the plan.
     return mPlan.remove();
   }

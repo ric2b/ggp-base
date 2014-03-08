@@ -9,6 +9,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import javax.swing.AbstractAction;
 import javax.swing.JButton;
@@ -227,7 +229,7 @@ public final class SchedulingPanel extends JPanel implements Observer,
       if (state.equals("pending"))
       {
         remove.setEnabled(false);
-        // TODO: Add support for canceling pending matches.				
+        // TODO: Add support for canceling pending matches.
       }
       else if (state.equals("active"))
       {
@@ -324,6 +326,20 @@ public final class SchedulingPanel extends JPanel implements Observer,
                                 event.getExternalFilename());
         }
 
+        if (match.isMoveLimitExceeded() && !match.isAborted())
+        {
+          final int lRow = i;
+          new Timer().schedule(new TimerTask()
+          {
+             @Override
+             public void run()
+             {
+               queueTable.setRowSelectionInterval(lRow, lRow);
+               remove.doClick();
+             }
+           }, 100);
+
+        }
         return;
       }
     }
