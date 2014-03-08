@@ -94,6 +94,7 @@ public final class Server extends JPanel implements ActionListener
   private final JSpinner                startClockSpinner;
   private final JSpinner                playClockSpinner;
   private final JSpinner                repetitionsSpinner;
+  private final JSpinner                moveLimitSpinner;
 
   private final JCheckBox               shouldScramble;
   private final JCheckBox               shouldQueue;
@@ -116,6 +117,7 @@ public final class Server extends JPanel implements ActionListener
     startClockSpinner = new JSpinner(new SpinnerNumberModel(30, 5, 600, 1));
     playClockSpinner = new JSpinner(new SpinnerNumberModel(15, 5, 300, 1));
     repetitionsSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 1000, 1));
+    moveLimitSpinner = new JSpinner(new SpinnerNumberModel(0, 0, 1000, 1));
     matchesTabbedPane = new JTabbedPane();
 
     managerPanel = new JPanel(new GridBagLayout());
@@ -260,6 +262,30 @@ public final class Server extends JPanel implements ActionListener
                                          5,
                                          5));
     gamePanel.add(repetitionsSpinner,
+                  new GridBagConstraints(1,
+                                         nRowCount++,
+                                         1,
+                                         1,
+                                         0.0,
+                                         0.0,
+                                         GridBagConstraints.EAST,
+                                         GridBagConstraints.HORIZONTAL,
+                                         new Insets(1, 5, 5, 5),
+                                         5,
+                                         5));
+    gamePanel.add(new JLabel("Move limit:"),
+                  new GridBagConstraints(0,
+                                         nRowCount,
+                                         1,
+                                         1,
+                                         0.0,
+                                         0.0,
+                                         GridBagConstraints.EAST,
+                                         GridBagConstraints.NONE,
+                                         new Insets(1, 5, 5, 5),
+                                         5,
+                                         5));
+    gamePanel.add(moveLimitSpinner,
                   new GridBagConstraints(1,
                                          nRowCount++,
                                          1,
@@ -554,7 +580,7 @@ public final class Server extends JPanel implements ActionListener
       stateMachine.initialize(theGame.getRules());
       List<Role> roles = stateMachine.getRoles();
 
-      int newRowCount = 11;
+      int newRowCount = 12;
       for (int i = 0; i < roles.size(); i++)
       {
         roleLabels.add(new JLabel(roles.get(i).getName().toString() + ":"));
@@ -627,6 +653,7 @@ public final class Server extends JPanel implements ActionListener
       {
         int startClock = (Integer)startClockSpinner.getValue();
         int playClock = (Integer)playClockSpinner.getValue();
+        int moveLimit = (Integer)moveLimitSpinner.getValue();
 
         List<PlayerPresence> thePlayers = new ArrayList<PlayerPresence>();
         for (JComboBox<String> playerField : playerFields)
@@ -646,6 +673,7 @@ public final class Server extends JPanel implements ActionListener
                                                   -1,
                                                   startClock,
                                                   playClock,
+                                                  moveLimit,
                                                   shouldScramble.isSelected(),
                                                   shouldQueue.isSelected(),
                                                   shouldDetail.isSelected(),
@@ -673,26 +701,81 @@ public final class Server extends JPanel implements ActionListener
       @Override
       public void actionPerformed(ActionEvent evt)
       {
-        // Set the game
-        gameSelector.selectRepository("games.ggp.org/stanford");
-        gameSelector.selectGame("Tic Tac Toe");
-
-        // Set the game parameters
-        startClockSpinner.setValue(90);
-        playClockSpinner.setValue(45);
+        // Ensure all the fixed values are set correctly.
         repetitionsSpinner.setValue(1);
-
-        // Set the flags (fixed - we want this for all games)
         fixCheckbox(shouldScramble, false);
         fixCheckbox(shouldQueue, true);
         fixCheckbox(shouldDetail, true);
         fixCheckbox(shouldSave, false);
         fixCheckbox(shouldPublish, false);
 
+        // Set all variable parameters to their default values.
+        startClockSpinner.setValue(90);
+        playClockSpinner.setValue(45);
+        moveLimitSpinner.setValue(0);
+
+        // !! ARR Really load from disk
+        String lScript = "Repo:  games.ggp.org/stanford\n" +
+                         "Game:  Tic Tac Toe\n" +
+                         "Start: 30\n" +
+                         "Play:  10\n" +
+                         "Limit: 5\n";
+
+        // Load the script
+        loadScript(lScript);
+
         // !! ARR Choose the roles
 
         // Start the match
         runButton.doClick();
+      }
+
+      private void loadScript(String xiScript)
+      {
+        for (String lLine : xiScript.split("\\n"))
+        {
+          String[] lParts = lLine.split(": +", 2);
+          if (lParts.length == 2)
+          {
+            switch (lParts[0].toLowerCase())
+            {
+              case "repo":
+              {
+                gameSelector.selectRepository(lParts[1]);
+              }
+              break;
+
+              case "game":
+              {
+                gameSelector.selectGame(lParts[1]);
+              }
+              break;
+
+              case "start":
+              {
+                startClockSpinner.setValue(Integer.parseInt(lParts[1]));
+              }
+              break;
+
+              case "play":
+              {
+                playClockSpinner.setValue(Integer.parseInt(lParts[1]));
+              }
+              break;
+
+              case "limit":
+              {
+                moveLimitSpinner.setValue(Integer.parseInt(lParts[1]));
+              }
+              break;
+
+              default:
+              {
+                System.out.println("Ignoring line: " + lLine);
+              }
+            }
+          }
+        }
       }
 
       private void fixCheckbox(JCheckBox xiBox, boolean xiDesired)
@@ -726,6 +809,7 @@ public final class Server extends JPanel implements ActionListener
                                                      -1,
                                                      10,
                                                      5,
+                                                     0,
                                                      false,
                                                      false,
                                                      true,
