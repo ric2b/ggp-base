@@ -18,7 +18,7 @@ import org.ggp.base.util.statemachine.Move;
  */
 public class ScriptedPlayer extends SampleGamer
 {
-  private static final String PLAN_DIR = "data\\ScriptedPlayer";
+  private static final String PLAN_DIR = "..\\data\\ScriptedPlayer";
 
   private Queue<Move> mPlan = new LinkedList<>();
 
