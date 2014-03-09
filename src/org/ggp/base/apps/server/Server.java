@@ -89,7 +89,6 @@ public final class Server extends JPanel implements ActionListener
   private final List<JComboBox<String>> playerFields;
   private final List<JLabel>            roleLabels;
   private final JButton                 runButton;
-  private final JButton                 scriptButton;
 
   private final JSpinner                startClockSpinner;
   private final JSpinner                playClockSpinner;
@@ -113,7 +112,6 @@ public final class Server extends JPanel implements ActionListener
     super(new GridBagLayout());
 
     runButton = new JButton(runButtonMethod());
-    scriptButton = new JButton(scriptButtonMethod());
     startClockSpinner = new JSpinner(new SpinnerNumberModel(30, 5, 600, 1));
     playClockSpinner = new JSpinner(new SpinnerNumberModel(15, 5, 300, 1));
     repetitionsSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 1000, 1));
@@ -358,18 +356,6 @@ public final class Server extends JPanel implements ActionListener
                                          5,
                                          0));
     gamePanel.add(runButton,
-                  new GridBagConstraints(1,
-                                         nRowCount++,
-                                         1,
-                                         1,
-                                         0.0,
-                                         1.0,
-                                         GridBagConstraints.SOUTH,
-                                         GridBagConstraints.HORIZONTAL,
-                                         new Insets(5, 5, 5, 5),
-                                         0,
-                                         0));
-    gamePanel.add(scriptButton,
                   new GridBagConstraints(1,
                                          nRowCount++,
                                          1,
@@ -626,18 +612,6 @@ public final class Server extends JPanel implements ActionListener
                                            new Insets(5, 5, 5, 5),
                                            0,
                                            0));
-      gamePanel.add(scriptButton,
-                    new GridBagConstraints(1,
-                                           newRowCount++,
-                                           1,
-                                           1,
-                                           0.0,
-                                           1.0,
-                                           GridBagConstraints.SOUTH,
-                                           GridBagConstraints.HORIZONTAL,
-                                           new Insets(5, 5, 5, 5),
-                                           0,
-                                           0));
 
       validate();
       runButton.setEnabled(true);
@@ -689,100 +663,6 @@ public final class Server extends JPanel implements ActionListener
               ;
             }
           }
-        }
-      }
-    };
-  }
-
-  private AbstractAction scriptButtonMethod()
-  {
-    return new AbstractAction("Run a script")
-    {
-      @Override
-      public void actionPerformed(ActionEvent evt)
-      {
-        // Ensure all the fixed values are set correctly.
-        repetitionsSpinner.setValue(1);
-        fixCheckbox(shouldScramble, false);
-        fixCheckbox(shouldQueue, true);
-        fixCheckbox(shouldDetail, true);
-        fixCheckbox(shouldSave, false);
-        fixCheckbox(shouldPublish, false);
-
-        // Set all variable parameters to their default values.
-        startClockSpinner.setValue(90);
-        playClockSpinner.setValue(45);
-        moveLimitSpinner.setValue(0);
-
-        // !! ARR Really load from disk
-        String lScript = "Repo:  games.ggp.org/stanford\n" +
-                         "Game:  Tic Tac Toe\n" +
-                         "Start: 30\n" +
-                         "Play:  10\n" +
-                         "Limit: 5\n";
-
-        // Load the script
-        loadScript(lScript);
-
-        // !! ARR Choose the roles
-
-        // Start the match
-        runButton.doClick();
-      }
-
-      private void loadScript(String xiScript)
-      {
-        for (String lLine : xiScript.split("\\n"))
-        {
-          String[] lParts = lLine.split(": +", 2);
-          if (lParts.length == 2)
-          {
-            switch (lParts[0].toLowerCase())
-            {
-              case "repo":
-              {
-                gameSelector.selectRepository(lParts[1]);
-              }
-              break;
-
-              case "game":
-              {
-                gameSelector.selectGame(lParts[1]);
-              }
-              break;
-
-              case "start":
-              {
-                startClockSpinner.setValue(Integer.parseInt(lParts[1]));
-              }
-              break;
-
-              case "play":
-              {
-                playClockSpinner.setValue(Integer.parseInt(lParts[1]));
-              }
-              break;
-
-              case "limit":
-              {
-                moveLimitSpinner.setValue(Integer.parseInt(lParts[1]));
-              }
-              break;
-
-              default:
-              {
-                System.out.println("Ignoring line: " + lLine);
-              }
-            }
-          }
-        }
-      }
-
-      private void fixCheckbox(JCheckBox xiBox, boolean xiDesired)
-      {
-        if (xiBox.isSelected() != xiDesired)
-        {
-          xiBox.doClick();
         }
       }
     };

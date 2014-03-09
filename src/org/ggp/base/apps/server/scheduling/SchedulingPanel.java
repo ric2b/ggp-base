@@ -9,8 +9,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import javax.swing.AbstractAction;
 import javax.swing.JButton;
@@ -324,21 +322,6 @@ public final class SchedulingPanel extends JPanel implements Observer,
         {
           matchIdToFilename.put(match.getMatchId(),
                                 event.getExternalFilename());
-        }
-
-        if (match.isMoveLimitExceeded() && !match.isAborted())
-        {
-          final int lRow = i;
-          new Timer().schedule(new TimerTask()
-          {
-             @Override
-             public void run()
-             {
-               queueTable.setRowSelectionInterval(lRow, lRow);
-               remove.doClick();
-             }
-           }, 100);
-
         }
         return;
       }
