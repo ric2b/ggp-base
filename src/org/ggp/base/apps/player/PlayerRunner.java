@@ -8,6 +8,10 @@ import java.util.List;
 
 import org.ggp.base.player.GamePlayer;
 import org.ggp.base.player.gamer.Gamer;
+import org.ggp.base.server.event.ServerAbortedMatchEvent;
+import org.ggp.base.server.event.ServerCompletedMatchEvent;
+import org.ggp.base.util.observer.Event;
+import org.ggp.base.util.observer.Observer;
 import org.ggp.base.util.reflection.ProjectSearcher;
 
 /**
@@ -35,7 +39,7 @@ public final class PlayerRunner
 
     // Create the player
     Class<?> chosenGamerClass = null;
-    List<String> availableGamers = new ArrayList<String>();
+    List<String> availableGamers = new ArrayList<>();
     for (Class<?> gamerClass : ProjectSearcher.GAMERS.getConcreteClasses())
     {
       availableGamers.add(gamerClass.getSimpleName());
@@ -59,7 +63,36 @@ public final class PlayerRunner
       gamer.configure(ii - NUM_FIXED_ARGS, args[ii]);
     }
 
-    // Start the player
-    new GamePlayer(port, gamer).start();
+    // Create the player wrapper and register an observer.
+    GamePlayer lGamePlayer = new GamePlayer(port, gamer);
+    lGamePlayer.addObserver(new TerminationListener(lGamePlayer));
+
+    // Start the player.
+    lGamePlayer.start();
+  }
+
+  /**
+   * Listener for game termination events.
+   */
+  private static class TerminationListener implements Observer
+  {
+    private final GamePlayer mGamePlayer;
+
+    public TerminationListener(GamePlayer xiGamePlayer)
+    {
+      mGamePlayer = xiGamePlayer;
+    }
+
+    @Override
+    public void observe(Event xiEvent)
+    {
+      // If the event is a termination event, interrupt the gamer thread (which
+      // will cause it to quit).
+      if ((xiEvent instanceof ServerAbortedMatchEvent) ||
+          (xiEvent instanceof ServerCompletedMatchEvent))
+      {
+        mGamePlayer.interrupt();
+      }
+    }
   }
 }
