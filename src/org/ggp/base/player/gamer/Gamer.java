@@ -89,12 +89,26 @@ public abstract class Gamer implements Subject
     return new EmptyConfigPanel();
   }
 
+  /**
+   * Configure the player.
+   *
+   * Players wishing to receive command-line configuration should override this
+   * method.
+   *
+   * @param xiParamIndex - index of the parameter (starting at 0).
+   * @param xiParameter  - value of the parameter.
+   */
+  public void configure(int xiParamIndex, String xiParameter)
+  {
+    // Base implementation does nothing.
+  }
+
   public DetailPanel getDetailPanel()
   {
     return new EmptyDetailPanel();
   }
 
-  // ==== Accessors ====	
+  // ==== Accessors ====
   public final Match getMatch()
   {
     return match;
