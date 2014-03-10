@@ -3,6 +3,7 @@ package org.ggp.base.player.gamer.statemachine.sample;
 
 import java.io.File;
 import java.io.PrintWriter;
+import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.PriorityQueue;
+import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -92,6 +94,20 @@ public class Sancho extends SampleGamer
   private long                                                 numCompletionsProcessed                     = 0;
   private Object                                               treeLock                                    = new Object();
   private LRUNodeMoveWeightsCache                              nodeMoveWeightsCache                        = null;
+  private String                                               planString                                  = null;
+  private Queue<Move>                                          plan                                        = null;
+
+  @Override
+  public void configure(int xiParamIndex, String xiParam)
+  {
+    // At the moment, Sancho can only be configured with a "plan" of initial
+    // moves that it should play - used for testing.
+    if (!xiParam.startsWith("plan="))
+    {
+      throw new InvalidParameterException();
+    }
+    planString = xiParam.substring(5);
+  }
 
   private class MoveWeight
   {
@@ -4346,6 +4362,15 @@ public class Sancho extends SampleGamer
       throws TransitionDefinitionException, MoveDefinitionException,
       GoalDefinitionException
   {
+    // If have been configured with a plan (for test purposes), load it now.
+    // We'll still do everything else as normal, but whilst there are moves in
+    // the plan, when it comes to play, we'll just play the specified move.
+    plan = null;
+    if (planString != null)
+    {
+      plan = convertPlanString(planString);
+    }
+
     ourRole = getRole();
 
     numRoles = underlyingStateMachine.getRoles().size();
@@ -6003,7 +6028,13 @@ public class Sancho extends SampleGamer
     System.out.println("Setting search root, current time: " +
                        System.currentTimeMillis());
 
-    if (isIteratedGame && numRoles == 2)
+    if ((plan != null) && (!plan.isEmpty()))
+    {
+      // We have a pre-prepared plan.  Simply play the next move.
+      bestMove = plan.remove();
+      System.out.println("Playing pre-planned move: " + bestMove);
+    }
+    else if (isIteratedGame && numRoles == 2)
     {
       bestMove = selectIteratedGameMove(moves, timeout);
       System.out.println("Playing best iterated game move: " + bestMove);
@@ -6178,6 +6209,53 @@ public class Sancho extends SampleGamer
      */
     notifyObservers(new GamerSelectedMoveEvent(moves, bestMove, stop - start));
     return bestMove;
+  }
+
+  @Override
+  public void stateMachineStop()
+  {
+    tidyUp();
+  }
+
+  @Override
+  public void stateMachineAbort()
+  {
+    tidyUp();
+  }
+
+  /**
+   * Tidy up all resources related to the completed game.
+   */
+  private void tidyUp()
+  {
+    // Stop all threads
+    if (searchProcessor != null)
+    {
+      try
+      {
+        System.out.println("Stop search processor...");
+        searchProcessor.stop();
+        System.out.println("...stopped");
+      }
+      catch (InterruptedException lEx)
+      {
+        // Never mind
+      }
+      searchProcessor = null;
+    }
+
+    if (rolloutProcessors != null)
+    {
+      System.out.println("Stop rollout processors");
+      for (int i = 0; i < numRolloutThreads; i++)
+      {
+        rolloutProcessors[i].stop();
+      }
+
+      rolloutProcessors = null;
+    }
+
+    // !! ARR Null out state
   }
 
   private void flattenMoveSubLists(List<List<Move>> legalMoves,

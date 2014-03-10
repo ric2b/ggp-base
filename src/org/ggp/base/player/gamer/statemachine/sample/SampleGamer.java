@@ -1,10 +1,18 @@
 
 package org.ggp.base.player.gamer.statemachine.sample;
 
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
+
 import org.ggp.base.apps.player.detail.DetailPanel;
 import org.ggp.base.apps.player.detail.SimpleDetailPanel;
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
 import org.ggp.base.util.game.Game;
+import org.ggp.base.util.gdl.grammar.GdlConstant;
+import org.ggp.base.util.gdl.grammar.GdlPool;
+import org.ggp.base.util.gdl.grammar.GdlTerm;
+import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.cache.CachedStateMachine;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
@@ -74,5 +82,43 @@ public abstract class SampleGamer extends StateMachineGamer
   public void preview(Game g, long timeout)
   {
     // Sample gamers do no game previewing.
+  }
+
+  /**
+   * Utility method to convert a plan, in string representation into a list of
+   * Move objects.
+   *
+   * @param xiPlanString - the plan string.
+   *
+   * @return the corresponding list of moves.
+   */
+  public final Queue<Move> convertPlanString(String xiPlanString)
+  {
+    Queue<Move> lPlan = new LinkedList<>();
+
+    // Convert the plan to Moves
+    final String[] lPlanParts = xiPlanString.split(",");
+    for (final String lPlanPart : lPlanParts)
+    {
+      final String[] lMoveParts = lPlanPart.split(" ");
+      final GdlConstant lHead = GdlPool.getConstant(lMoveParts[0]);
+      final List<GdlTerm> lBody = new LinkedList<>();
+      for (int lii = 1; lii < lMoveParts.length; lii++)
+      {
+        lBody.add(GdlPool.getConstant(lMoveParts[lii]));
+      }
+
+      if (lBody.size() == 0)
+      {
+        lPlan.add(getStateMachine().getMoveFromTerm(lHead));
+      }
+      else
+      {
+        lPlan.add(getStateMachine().getMoveFromTerm(
+                                           GdlPool.getFunction(lHead, lBody)));
+      }
+    }
+
+    return lPlan;
   }
 }
