@@ -14,6 +14,7 @@ public final class PendingMatch
   public final int                  previewClock;
   public final int                  startClock;
   public final int                  playClock;
+  public final int                  moveLimit;
   public final boolean              shouldScramble;
   public final boolean              shouldQueue;
   public final boolean              shouldDetail;
@@ -26,6 +27,7 @@ public final class PendingMatch
                       int previewClock,
                       int startClock,
                       int playClock,
+                      int moveLimit,
                       boolean shouldScramble,
                       boolean shouldQueue,
                       boolean shouldDetail,
@@ -39,6 +41,7 @@ public final class PendingMatch
     this.previewClock = previewClock;
     this.startClock = startClock;
     this.playClock = playClock;
+    this.moveLimit = moveLimit;
     this.shouldScramble = shouldScramble;
     this.shouldQueue = shouldQueue;
     this.shouldDetail = shouldDetail;

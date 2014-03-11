@@ -108,6 +108,7 @@ public final class Scheduler implements Observer
                               spec.previewClock,
                               spec.startClock,
                               spec.playClock,
+                              spec.moveLimit,
                               spec.theGame);
 
       List<String> hosts = new ArrayList<String>(spec.thePlayers.size());

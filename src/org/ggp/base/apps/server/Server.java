@@ -93,6 +93,7 @@ public final class Server extends JPanel implements ActionListener
   private final JSpinner                startClockSpinner;
   private final JSpinner                playClockSpinner;
   private final JSpinner                repetitionsSpinner;
+  private final JSpinner                moveLimitSpinner;
 
   private final JCheckBox               shouldScramble;
   private final JCheckBox               shouldQueue;
@@ -114,6 +115,7 @@ public final class Server extends JPanel implements ActionListener
     startClockSpinner = new JSpinner(new SpinnerNumberModel(30, 5, 600, 1));
     playClockSpinner = new JSpinner(new SpinnerNumberModel(15, 5, 300, 1));
     repetitionsSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 1000, 1));
+    moveLimitSpinner = new JSpinner(new SpinnerNumberModel(0, 0, 1000, 1));
     matchesTabbedPane = new JTabbedPane();
 
     managerPanel = new JPanel(new GridBagLayout());
@@ -124,7 +126,7 @@ public final class Server extends JPanel implements ActionListener
     playerFields = new ArrayList<JComboBox<String>>();
     theGame = null;
 
-    shouldScramble = new JCheckBox("Scramble GDL?", true);
+    shouldScramble = new JCheckBox("Scramble GDL?", false);
     shouldQueue = new JCheckBox("Queue match?", true);
     shouldDetail = new JCheckBox("Show match details?", true);
     shouldSave = new JCheckBox("Save match to disk?", false);
@@ -269,6 +271,30 @@ public final class Server extends JPanel implements ActionListener
                                          new Insets(1, 5, 5, 5),
                                          5,
                                          5));
+    gamePanel.add(new JLabel("Move limit:"),
+                  new GridBagConstraints(0,
+                                         nRowCount,
+                                         1,
+                                         1,
+                                         0.0,
+                                         0.0,
+                                         GridBagConstraints.EAST,
+                                         GridBagConstraints.NONE,
+                                         new Insets(1, 5, 5, 5),
+                                         5,
+                                         5));
+    gamePanel.add(moveLimitSpinner,
+                  new GridBagConstraints(1,
+                                         nRowCount++,
+                                         1,
+                                         1,
+                                         0.0,
+                                         0.0,
+                                         GridBagConstraints.EAST,
+                                         GridBagConstraints.HORIZONTAL,
+                                         new Insets(1, 5, 5, 5),
+                                         5,
+                                         5));
     gamePanel.add(shouldScramble,
                   new GridBagConstraints(1,
                                          nRowCount++,
@@ -331,7 +357,7 @@ public final class Server extends JPanel implements ActionListener
                                          0));
     gamePanel.add(runButton,
                   new GridBagConstraints(1,
-                                         nRowCount,
+                                         nRowCount++,
                                          1,
                                          1,
                                          0.0,
@@ -540,7 +566,7 @@ public final class Server extends JPanel implements ActionListener
       stateMachine.initialize(theGame.getRules());
       List<Role> roles = stateMachine.getRoles();
 
-      int newRowCount = 11;
+      int newRowCount = 12;
       for (int i = 0; i < roles.size(); i++)
       {
         roleLabels.add(new JLabel(roles.get(i).getName().toString() + ":"));
@@ -576,7 +602,7 @@ public final class Server extends JPanel implements ActionListener
       }
       gamePanel.add(runButton,
                     new GridBagConstraints(1,
-                                           newRowCount,
+                                           newRowCount++,
                                            1,
                                            1,
                                            0.0,
@@ -601,6 +627,7 @@ public final class Server extends JPanel implements ActionListener
       {
         int startClock = (Integer)startClockSpinner.getValue();
         int playClock = (Integer)playClockSpinner.getValue();
+        int moveLimit = (Integer)moveLimitSpinner.getValue();
 
         List<PlayerPresence> thePlayers = new ArrayList<PlayerPresence>();
         for (JComboBox<String> playerField : playerFields)
@@ -620,6 +647,7 @@ public final class Server extends JPanel implements ActionListener
                                                   -1,
                                                   startClock,
                                                   playClock,
+                                                  moveLimit,
                                                   shouldScramble.isSelected(),
                                                   shouldQueue.isSelected(),
                                                   shouldDetail.isSelected(),
@@ -661,6 +689,7 @@ public final class Server extends JPanel implements ActionListener
                                                      -1,
                                                      10,
                                                      5,
+                                                     0,
                                                      false,
                                                      false,
                                                      true,

@@ -227,7 +227,7 @@ public final class SchedulingPanel extends JPanel implements Observer,
       if (state.equals("pending"))
       {
         remove.setEnabled(false);
-        // TODO: Add support for canceling pending matches.				
+        // TODO: Add support for canceling pending matches.
       }
       else if (state.equals("active"))
       {
@@ -323,7 +323,6 @@ public final class SchedulingPanel extends JPanel implements Observer,
           matchIdToFilename.put(match.getMatchId(),
                                 event.getExternalFilename());
         }
-
         return;
       }
     }

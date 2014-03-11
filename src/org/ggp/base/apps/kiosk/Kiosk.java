@@ -497,7 +497,7 @@ public final class Kiosk extends JPanel implements ActionListener,
                          System.currentTimeMillis();
         int startClock = Integer.valueOf(startClockTextField.getText());
         int playClock = Integer.valueOf(playClockTextField.getText());
-        Match match = new Match(matchId, -1, startClock, playClock, game);
+        Match match = new Match(matchId, -1, startClock, playClock, 0, game);
         theHumanGamer.setCanvas(theGame.getCanvas());
 
         // Stop old player if it's not the right type

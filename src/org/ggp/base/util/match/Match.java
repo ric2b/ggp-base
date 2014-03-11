@@ -57,6 +57,7 @@ public final class Match
   private final int                    playClock;
   private final int                    startClock;
   private final int                    previewClock;
+  private final int                    moveLimit;
   private final Date                   startTime;
   private final Game                   theGame;
   private final List<List<GdlTerm>>    moveHistory;
@@ -78,12 +79,14 @@ public final class Match
                int previewClock,
                int startClock,
                int playClock,
+               int moveLimit,
                Game theGame)
   {
     this.matchId = matchId;
     this.previewClock = previewClock;
     this.startClock = startClock;
     this.playClock = playClock;
+    this.moveLimit = moveLimit;
     this.theGame = theGame;
 
     this.startTime = new Date();
@@ -110,6 +113,7 @@ public final class Match
     this.matchId = theMatchObject.getString("matchId");
     this.startClock = theMatchObject.getInt("startClock");
     this.playClock = theMatchObject.getInt("playClock");
+    this.moveLimit = 0;
     if (theGame == null)
     {
       this.theGame = RemoteGameRepository.loadSingleGame(theMatchObject
@@ -762,5 +766,13 @@ public final class Match
       System.err.println("gdlToXML Error: could not handle " + gdl.toString());
       return null;
     }
+  }
+
+  /**
+   * @return whether the move limit for this match has been exceedd.
+   */
+  public boolean isMoveLimitExceeded()
+  {
+    return ((moveLimit != 0) && (getMoveHistory().size() + 1 > moveLimit));
   }
 }

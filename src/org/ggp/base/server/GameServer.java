@@ -203,6 +203,11 @@ public final class GameServer extends Thread implements Subject
         match.appendState(currentState.getContents());
         appendErrorsToMatchDescription();
 
+        if (match.isMoveLimitExceeded())
+        {
+          abort();
+        }
+
         if (match.isAborted())
         {
           return;
