@@ -2,53 +2,102 @@ use strict;
 
 use JSON;
 
-my $lSuite = do {local $/; decode_json <>};
+#*****************************************************************************#
+#* Create a directory for recording the results.                             *#
+#*****************************************************************************#
+my $gResultsDir = '..\\data\\tests\\results\\' . sprintf "%d-%02d-%02d.%02d%02d%02d", map { $$_[5]+1900, $$_[4]+1, $$_[3], $$_[2], $$_[1], $$_[0]} [localtime];
+system("md", $gResultsDir);
+open(SUMMARY, ">$gResultsDir\\summary.txt") || die "Failed to create results summary: $!\n";
 
-foreach my $lCase (@{$lSuite->{cases}})
+print "Results will be written to $gResultsDir\n";
+
+#*****************************************************************************#
+#* Overall results.                                                          *#
+#*****************************************************************************#
+my $gNumSuites = 0;
+my $gNumCases  = 0;
+my $gNumPasses = 0;
+
+#*****************************************************************************#
+#* Process all the test suites.                                              *#
+#*****************************************************************************#
+my @lSuites = glob('..\data\tests\suites\*.json');
+foreach my $lSuiteFile (@lSuites)
 {
-  print "Testing: $lCase->{case}...";
+  $gNumSuites++;
 
   #***************************************************************************#
-  #* Make sure there isn't anything left lying around from the last run.     *#
+  #* Read the test suite.                                                    *#
   #***************************************************************************#
-  unlink('record.json');
+  open(SUITE, $lSuiteFile) or die "Failed to open suite $lSuiteFile: $!\n";
+  summarize("Suite: $lSuiteFile\n");
+  my $lSuite = do {local $/; decode_json <SUITE>};
+  close(SUITE);
 
   #***************************************************************************#
-  #* Start the players.                                                      *#
+  #* Run all the cases in the suite.                                         *#
   #***************************************************************************#
-  my $lPort = 9147;
-  foreach my $lPlayer (@{$lCase->{players}})
+  foreach my $lCase (@{$lSuite->{cases}})
   {
-    $lPlayer->{port} = $lPort++;
-    my @lSysArgs = ("player", $lPlayer->{port}, $lPlayer->{type});
-    defined($lPlayer->{args}) && push(@lSysArgs, @{$lPlayer->{args}});
+    $gNumCases++;
+    summarize("  Case: $lCase->{case}...");
+
+    #*************************************************************************#
+    #* Make sure there isn't anything left lying around from the last run.   *#
+    #*************************************************************************#
+    unlink('record.json');
+
+    #*************************************************************************#
+    #* Start the players.                                                    *#
+    #*************************************************************************#
+    my $lPort = 9147;
+    foreach my $lPlayer (@{$lCase->{players}})
+    {
+      $lPlayer->{port} = $lPort++;
+      my @lSysArgs = ("player", $lPlayer->{port}, $lPlayer->{type});
+      defined($lPlayer->{args}) && push(@lSysArgs, @{$lPlayer->{args}});
+      system(@lSysArgs);
+    }
+
+    #*************************************************************************#
+    #* Start the server.                                                     *#
+    #*************************************************************************#
+    my @lSysArgs = ("server",
+                    $lCase->{repo},
+                    $lCase->{game},
+                    $lCase->{start},
+                    $lCase->{play},
+                    $lCase->{limit});
+    foreach my $lPlayer (@{$lCase->{players}})
+    {
+      push(@lSysArgs, "127.0.0.1", $lPlayer->{port}, $lPlayer->{type});
+    }
     system(@lSysArgs);
-  }
 
-  #***************************************************************************#
-  #* Start the server.                                                       *#
-  #***************************************************************************#
-  my @lSysArgs = ("server",
-                  $lCase->{repo},
-                  $lCase->{game},
-                  $lCase->{start},
-                  $lCase->{play},
-                  $lCase->{limit});
-  foreach my $lPlayer (@{$lCase->{players}})
-  {
-    push(@lSysArgs, "127.0.0.1", $lPlayer->{port}, $lPlayer->{type});
+    #*************************************************************************#
+    #* Check the result.                                                     *#
+    #*************************************************************************#
+    my @lRecords = glob('..\bin\oneshot\*.json');
+    my $lResult = checkAcceptable($lCase->{check}->{player},
+                                  $lCase->{check}->{acceptable},
+                                  $lRecords[0]);
+    summarize("$lResult\n");
   }
-  system(@lSysArgs);
-
-  #***************************************************************************#
-  #* Display the result.                                                     *#
-  #***************************************************************************#
-  my @lRecords = glob('..\bin\oneshot\*.json');
-  my $lResult = checkAcceptable($lCase->{check}->{player},
-                                $lCase->{check}->{acceptable},
-                                $lRecords[0]);
-  print "$lResult\n";
 }
+
+#*****************************************************************************#
+#* Print a summary of the results.                                           *#
+#*****************************************************************************#
+my $lSummary =
+    "\nSummary: Passed $gNumPasses / $gNumCases cases in $gNumSuites suites\n";
+summarize($lSummary);
+
+#*****************************************************************************#
+#* Tidy up.                                                                  *#
+#*****************************************************************************#
+close(SUMMARY);
+exit(0);
+
 
 #*****************************************************************************#
 #* Check that the move played was acceptable.                                *#
@@ -76,9 +125,20 @@ sub checkAcceptable
   #***************************************************************************#
   if (index(",$xiAcceptable,", ",$lLastMove,") == -1)
   {
-    return "FAILED - Unacceptable move: $lLastMove";
+    my $lFailure = "$gResultsDir\\$gNumCases.json";
+    system("copy", $xiFilename, $lFailure, ">NUL");
+    return "FAILED - Unacceptable move: $lLastMove, see $lFailure";
   }
 
+  $gNumPasses++;
   return "OK";
+}
+
+sub summarize
+{
+  my ($lMessage) = @_;
+
+  print $lMessage;
+  print SUMMARY $lMessage;
 }
 
