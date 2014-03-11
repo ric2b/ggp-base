@@ -1,3 +1,7 @@
+# Simple script to check that a chosen move is acceptable.
+#
+# check_move.pl <Player Index> <;ok move 1;ok move 2;...;> <JSON match record filename>
+#
 use strict;
 
 use JSON;

@@ -245,7 +245,8 @@ public class Sancho extends SampleGamer
     {
       if (runningThread == null)
       {
-        runningThread = new Thread(this);
+        runningThread = new Thread(this, "Rollout Processor");
+        runningThread.setDaemon(true);
         runningThread.start();
       }
     }
@@ -4264,7 +4265,10 @@ public class Sancho extends SampleGamer
     if (searchProcessor == null)
     {
       searchProcessor = new TreeSearcher();
-      (new Thread(searchProcessor)).start();
+      Thread lSearchProcessorThread = new Thread(searchProcessor,
+                                                 "Search Processor");
+      lSearchProcessorThread.setDaemon(true);
+      lSearchProcessorThread.start();
     }
     else
     {
@@ -6209,53 +6213,6 @@ public class Sancho extends SampleGamer
      */
     notifyObservers(new GamerSelectedMoveEvent(moves, bestMove, stop - start));
     return bestMove;
-  }
-
-  @Override
-  public void stateMachineStop()
-  {
-    tidyUp();
-  }
-
-  @Override
-  public void stateMachineAbort()
-  {
-    tidyUp();
-  }
-
-  /**
-   * Tidy up all resources related to the completed game.
-   */
-  private void tidyUp()
-  {
-    // Stop all threads
-    if (searchProcessor != null)
-    {
-      try
-      {
-        System.out.println("Stop search processor...");
-        searchProcessor.stop();
-        System.out.println("...stopped");
-      }
-      catch (InterruptedException lEx)
-      {
-        // Never mind
-      }
-      searchProcessor = null;
-    }
-
-    if (rolloutProcessors != null)
-    {
-      System.out.println("Stop rollout processors");
-      for (int i = 0; i < numRolloutThreads; i++)
-      {
-        rolloutProcessors[i].stop();
-      }
-
-      rolloutProcessors = null;
-    }
-
-    // !! ARR Null out state
   }
 
   private void flattenMoveSubLists(List<List<Move>> legalMoves,
