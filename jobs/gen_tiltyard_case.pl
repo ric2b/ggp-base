@@ -4,11 +4,39 @@ use JSON;
 use LWP::Simple;
 
 #*****************************************************************************#
+#* Order in which keys should appear.                                        *#
+#*****************************************************************************#
+my %gKeyOrder = (
+                  # In the top level case
+                  case => 0,
+                  repo => 1,
+                  game => 2,
+                  start => 3,
+                  play => 4,
+                  limit => 5,
+                  players => 6,
+                  check => 7,
+
+                  # Within a player
+                  type => 0,
+                  args => 1,
+
+                  # Within the check
+                  player => 0,
+                  acceptable => 1
+                 );
+
+#*****************************************************************************#
 #* Get a match ID.                                                           *#
 #*****************************************************************************#
 print "Match ID: ";
 my $lMatchID = <STDIN>;
 chomp($lMatchID);
+
+if ($lMatchID !~ /^[0-9a-f]{30,50}$/)
+{
+  die "Match ID should be the ID part of the URL when viewing on Tiltyard.\n";
+}
 
 #*****************************************************************************#
 #* Load the match record.                                                    *#
@@ -97,10 +125,27 @@ my $lAcceptable = <STDIN>;
 chomp($lAcceptable);
 
 #*****************************************************************************#
+#* Get the linked bug number.                                                *#
+#*****************************************************************************#
+my $lBugNum = -1;
+while (($lBugNum < 0) || ($lBugNum !~ /^[0-9]+$/))
+{
+  print 'Enter the bug number for this test case, or 0 for none: ';
+  $lBugNum = <STDIN>;
+  chomp($lBugNum);
+}
+
+my $lBugStr = "";
+if ($lBugNum > 0)
+{
+  $lBugStr = "Bug #$lBugNum, ";
+}
+
+#*****************************************************************************#
 #* Generate a test case.                                                     *#
 #*****************************************************************************#
 my $lCase = {};
-$lCase->{case} = "Tiltyard $lMatchID, player $lPlayerIndex, move " . ($lMoveIndex + 1);
+$lCase->{case} = "${lBugStr}Tiltyard $lMatchID, player $lPlayerIndex, move " . ($lMoveIndex + 1);
 $lCase->{repo} = $lRepo;
 $lCase->{game} = $lGame;
 $lCase->{start} = $lRecord->{startClock};
@@ -163,7 +208,28 @@ $lSuite->{cases}->[0] = $lCase;
 #*****************************************************************************#
 my $lSuiteFile = "..\\data\\tests\\suites\\Tiltyard.$lMatchID.$lPlayerIndex." . ($lMoveIndex + 1) . ".json";
 open(SUITE, ">$lSuiteFile") or die "Failed to open $lSuiteFile: $!\n";
-print SUITE to_json($lSuite, {pretty => 1});
+print SUITE JSON::PP->new->pretty->indent_length(2)->sort_by('customSort')->encode($lSuite);
 close(SUITE);
 
 print "Test case saved to $lSuiteFile\n";
+exit 0;
+
+sub JSON::PP::customSort
+{
+  #***************************************************************************#
+  #* Find the key order for the two keys.                                    *#
+  #***************************************************************************#
+  my $lAOrder = $gKeyOrder{$JSON::PP::a};
+  my $lBOrder = $gKeyOrder{$JSON::PP::b};
+
+  #***************************************************************************#
+  #* Shove anything we've forgotten at the end.                              *#
+  #***************************************************************************#
+  $lAOrder = 100 if not defined $lAOrder;
+  $lBOrder = 100 if not defined $lBOrder;
+
+  #***************************************************************************#
+  #* Compare the keys.                                                       *#
+  #***************************************************************************#
+  return $lAOrder <=> $lBOrder;
+}
