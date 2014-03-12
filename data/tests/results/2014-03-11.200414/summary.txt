@@ -1,8 +1,0 @@
-Suite: ..\data\tests\suites\optimal_ttt.json
-  Case: Takes a forced win...OK
-  Case: Perfect initial move...FAILED - Unacceptable move: mark 2 2, see ..\data\tests\results\2014-03-11.200414\2.json
-Suite: ..\data\tests\suites\optimal_ttt_2.json
-  Case: Takes a forced win...OK
-  Case: Perfect initial move...FAILED - Unacceptable move: mark 2 2, see ..\data\tests\results\2014-03-11.200414\4.json
-
-Summary: Passed 2 / 4 cases in 2 suites

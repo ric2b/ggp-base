@@ -49,7 +49,7 @@ foreach my $lSuiteFile (@lSuites)
   foreach my $lCase (@{$lSuite->{cases}})
   {
     $gNumCases++;
-    summarize("  Case: $lCase->{case}...");
+    summarize("  Case $gNumCases: $lCase->{case}...");
 
     #*************************************************************************#
     #* Make sure there isn't anything left lying around from the last run.   *#
@@ -65,6 +65,9 @@ foreach my $lSuiteFile (@lSuites)
       $lPlayer->{port} = $lPort++;
       my @lSysArgs = ("player", $lPlayer->{port}, $lPlayer->{type});
       defined($lPlayer->{args}) && push(@lSysArgs, @{$lPlayer->{args}});
+      #my $lPlayerIndex = $lPlayer->{port} - 9147;
+      #my $lPlayerDiags = "$gResultsDir\\$gNumCases.p$lPlayerIndex.log";
+      #push(@lSysArgs, ">$lPlayerDiags");
       system(@lSysArgs);
     }
 
@@ -84,12 +87,18 @@ foreach my $lSuiteFile (@lSuites)
     system(@lSysArgs);
 
     #*************************************************************************#
-    #* Check the result.                                                     *#
+    #* Copy the match record for posterity.                                  *#
     #*************************************************************************#
     my @lRecords = glob('..\bin\oneshot\*.json');
+    my $lSavedRecord = "$gResultsDir\\$gNumCases.json";
+    system("copy", $lRecords[0], $lSavedRecord, ">NUL");
+
+    #*************************************************************************#
+    #* Check the result.                                                     *#
+    #*************************************************************************#
     my $lResult = checkAcceptable($lCase->{check}->{player},
                                   $lCase->{check}->{acceptable},
-                                  $lRecords[0]);
+                                  $lSavedRecord);
     summarize("$lResult\n");
   }
 }
@@ -134,9 +143,7 @@ sub checkAcceptable
   #***************************************************************************#
   if (index(",$xiAcceptable,", ",$lLastMove,") == -1)
   {
-    my $lFailure = "$gResultsDir\\$gNumCases.json";
-    system("copy", $xiFilename, $lFailure, ">NUL");
-    return "FAILED - Unacceptable move: $lLastMove, see $lFailure";
+    return "FAILED - Unacceptable move: $lLastMove, see $xiFilename";
   }
 
   $gNumPasses++;
