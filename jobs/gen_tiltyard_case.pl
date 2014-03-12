@@ -1,10 +1,7 @@
 use strict;
 
 use JSON;
-use Data::Dumper; # !! ARR Remove me
 use LWP::Simple;
-
-# f2a734a9519a4ab089e04463d2f711728b4ea4e6
 
 #*****************************************************************************#
 #* Get a match ID.                                                           *#
@@ -103,7 +100,7 @@ chomp($lAcceptable);
 #* Generate a test case.                                                     *#
 #*****************************************************************************#
 my $lCase = {};
-$lCase->{case} = "Regression for Tiltyard match $lMatchID, move " . ($lMoveIndex + 1);
+$lCase->{case} = "Tiltyard $lMatchID, player $lPlayerIndex, move " . ($lMoveIndex + 1);
 $lCase->{repo} = $lRepo;
 $lCase->{game} = $lGame;
 $lCase->{start} = $lRecord->{startClock};
@@ -154,5 +151,19 @@ $lCase->{check} = {};
 $lCase->{check}->{player} = $lPlayerIndex;
 $lCase->{check}->{acceptable} = $lAcceptable;
 
-print to_json($lCase, {pretty => 1});
+#*****************************************************************************#
+#* Wrap the test case in a test suite.                                       *#
+#*****************************************************************************#
+my $lSuite = {};
+$lSuite->{cases} = ();
+$lSuite->{cases}->[0] = $lCase;
 
+#*****************************************************************************#
+#* Write the suite to file.                                                  *#
+#*****************************************************************************#
+my $lSuiteFile = "..\\data\\tests\\suites\\Tiltyard.$lMatchID.$lPlayerIndex." . ($lMoveIndex + 1) . ".json";
+open(SUITE, ">$lSuiteFile") or die "Failed to open $lSuiteFile: $!\n";
+print SUITE to_json($lSuite, {pretty => 1});
+close(SUITE);
+
+print "Test case saved to $lSuiteFile\n";
