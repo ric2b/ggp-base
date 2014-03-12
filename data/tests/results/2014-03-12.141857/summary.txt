@@ -1,0 +1,4 @@
+Suite: ..\data\tests\suites\checkers_king_pin.json
+  Case: Regression for Tiltyard match f2a734a9519a4ab089e04463d2f711728b4ea4e6, move 55...FAILED - Unacceptable move: move wp e 6 f 7, see ..\data\tests\results\2014-03-12.141857\1.json
+
+Summary: Passed 0 / 1 cases in 1 suites

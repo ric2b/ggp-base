@@ -19,9 +19,18 @@ my $gNumCases  = 0;
 my $gNumPasses = 0;
 
 #*****************************************************************************#
-#* Process all the test suites.                                              *#
+#* Process all the test suites, unless one was provided on the command line. *#
 #*****************************************************************************#
-my @lSuites = glob('..\data\tests\suites\*.json');
+my @lSuites;
+if (scalar(@ARGV) >= 1)
+{
+  @lSuites = ($ARGV[0]);
+}
+else
+{
+  @lSuites = glob('..\data\tests\suites\*.json');
+}
+
 foreach my $lSuiteFile (@lSuites)
 {
   $gNumSuites++;
