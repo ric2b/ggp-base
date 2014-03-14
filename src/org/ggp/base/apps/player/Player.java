@@ -1,4 +1,3 @@
-
 package org.ggp.base.apps.player;
 
 import java.awt.Dimension;
@@ -31,11 +30,18 @@ import org.ggp.base.util.ui.NativeUI;
 
 import com.google.common.collect.Lists;
 
-
+/**
+ * GUI for launching players.
+ */
 @SuppressWarnings("serial")
 public final class Player extends JPanel
 {
-  private static void createAndShowGUI(Player playerPanel)
+  /**
+   * Create and show the GUI in the specified panel.
+   *
+   * @param playerPanel - the panel.
+   */
+  static void createAndShowGUI(Player playerPanel)
   {
     JFrame frame = new JFrame("Game Player");
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -47,6 +53,12 @@ public final class Player extends JPanel
     frame.setVisible(true);
   }
 
+  /**
+   * Main routine.  Just fire up and run the GUI.
+   *
+   * @param args - ignored.
+   * @throws IOException
+   */
   public static void main(String[] args) throws IOException
   {
     NativeUI.setNativeUI();
@@ -54,7 +66,6 @@ public final class Player extends JPanel
     final Player playerPanel = new Player();
     javax.swing.SwingUtilities.invokeLater(new Runnable()
     {
-
       @Override
       public void run()
       {
@@ -76,32 +87,48 @@ public final class Player extends JPanel
                                                        .newArrayList(ProjectSearcher.GAMERS
                                                            .getConcreteClasses());
 
+  /**
+   * Create a Player.
+   */
   public Player()
   {
     super(new GridBagLayout());
 
     portTextField = new JTextField(defaultPort.toString());
-    typeComboBox = new JComboBox<String>();
+    typeComboBox = new JComboBox<>();
     createButton = new JButton(createButtonMethod());
     playersTabbedPane = new JTabbedPane();
 
     portTextField.setColumns(15);
 
-    List<Class<? extends Gamer>> gamersCopy = new ArrayList<Class<? extends Gamer>>(gamers);
+    // Sancho's name varies (with a version number).  Grab it on the way
+    // through because we want to select it in the list.
+    String lSanchoName = null;
+    List<Class<? extends Gamer>> gamersCopy = new ArrayList<>(gamers);
     for (Class<? extends Gamer> gamer : gamersCopy)
     {
-      Gamer g;
+      Gamer lGamer;
       try
       {
-        g = gamer.newInstance();
-        typeComboBox.addItem(g.getName());
+        lGamer = gamer.newInstance();
+        String lName = lGamer.getName();
+        typeComboBox.addItem(lName);
+        if (lName.startsWith("Sancho"))
+        {
+          lSanchoName = lName;
+        }
       }
       catch (Exception ex)
       {
         gamers.remove(gamer);
       }
     }
-    typeComboBox.setSelectedItem("ScriptedPlayer");
+
+    // Select Sancho (assuming we found it) - it's what we'll usually want.
+    if (lSanchoName != null)
+    {
+      typeComboBox.setSelectedItem(lSanchoName);
+    }
 
     JPanel managerPanel = new JPanel(new GridBagLayout());
     managerPanel.setBorder(new TitledBorder("Manager"));
@@ -211,8 +238,8 @@ public final class Player extends JPanel
   {
     return new AbstractAction("Create")
     {
-
       @Override
+      @SuppressWarnings("synthetic-access")
       public void actionPerformed(ActionEvent evt)
       {
         try
