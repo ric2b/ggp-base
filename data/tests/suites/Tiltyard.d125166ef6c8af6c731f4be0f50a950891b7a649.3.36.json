@@ -1,0 +1,42 @@
+{
+  "cases" : [
+    {
+      "case" : "Bug #15, Tiltyard d125166ef6c8af6c731f4be0f50a950891b7a649, player 3, move 36",
+      "repo" : "games.ggp.org/base",
+      "game" : "4pffa",
+      "start" : 180,
+      "play" : 45,
+      "limit" : 36,
+      "players" : [
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "move 1 4 3 3,noop,noop,noop,move 1 4 2 2,noop,noop,noop,move 3 3 2 5,noop,noop,noop,move 1 4 2 6,noop,noop,noop,move 2 2 3 4,noop,noop,noop,move 1 4 3 3,noop,noop,noop,move 3 3 4 3,noop,noop,noop,move 4 3 6 2,noop,noop,noop,move 2 6 4 5,noop,noop,noop"
+          ]
+        },
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "noop,move 4 1 6 2,noop,noop,noop,move 6 2 4 3,noop,noop,noop,move 4 3 3 5,noop,noop,noop,move 4 1 3 3,noop,noop,noop,move 3 3 3 4,noop,noop,noop,move 4 1 2 2,noop,noop,noop,move 4 1 5 3,noop,noop,noop,move 5 3 3 2,noop,noop,noop,move 4 1 3 3,noop,noop"
+          ]
+        },
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "noop,noop,move 7 4 5 5,noop,noop,noop,move 5 5 3 4,noop,noop,noop,move 7 4 5 3,noop,noop,noop,move 5 3 6 5,noop,noop,noop,move 7 4 5 5,noop,noop,noop,move 5 5 4 3,noop,noop,noop,move 7 4 5 5,noop,noop,noop,move 5 5 3 4,noop,noop,noop,move 6 5 5 3,noop"
+          ]
+        },
+        {
+          "type" : "Sancho",
+          "args" : [
+            "plan=noop,noop,noop,move 4 7 3 5,noop,noop,noop,move 3 5 3 4,noop,noop,noop,move 3 4 2 5,noop,noop,noop,move 2 5 3 5,noop,noop,noop,move 3 5 3 4,noop,noop,noop,move 3 4 4 3,noop,noop,noop,move 4 7 3 5,noop,noop,noop,move 3 5 3 4,noop,noop,noop"
+          ]
+        }
+      ],
+      "check" : {
+        "player" : "3",
+        "acceptable" : "move 3 4 3 2,move 3 4 4 5"
+      }
+    }
+  ]
+}
