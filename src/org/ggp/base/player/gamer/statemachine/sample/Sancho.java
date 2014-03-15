@@ -70,6 +70,7 @@ public class Sancho extends SampleGamer
   private final boolean                                        runSynchronously                            = false;                                                         //	Set to run everything on one thread to eliminate concurrency issues when debugging
   private int                                                  numRolloutThreads                           = (runSynchronously ? 0
                                                                                                                               : 4);
+  private final boolean                                        enableMoveActionHistory                     = false;
   private double                                               explorationBias                             = 1.0;
   private double                                               moveActionHistoryBias                       = 0;
   private double                                               minExplorationBias                          = 0.5;
@@ -3178,6 +3179,7 @@ public class Sancho extends SampleGamer
     {
       TreeEdge selected = null;
       int selectedIndex = -1;
+      int bestSelectedIndex = -1;
       double bestCompleteValue = Double.MIN_VALUE;
       TreeNode bestCompleteNode = null;
       double bestValue = Double.MIN_VALUE;
@@ -3249,12 +3251,18 @@ public class Sancho extends SampleGamer
                 }
                 else
                 {
-                  uctValue = explorationUCT(totalNumChildVisits,
-                                            c.numVisits,
+                  uctValue = explorationUCT(numVisits,
+                                            children[mostLikelyWinner].numChildVisits,
                                             roleIndex) +
                              exploitationUCT(children[mostLikelyWinner],
                                              roleIndex) +
                              heuristicValue(children[mostLikelyWinner]);
+//                  uctValue = explorationUCT(totalNumChildVisits,
+//                                            c.numVisits,
+//                                            roleIndex) +
+//                             exploitationUCT(children[mostLikelyWinner],
+//                                             roleIndex) +
+//                             heuristicValue(children[mostLikelyWinner]);
                   //uctValue = explorationUCT(children[mostLikelyWinner].numChildVisits, roleIndex) + exploitationUCT(children[mostLikelyWinner], roleIndex) + heuristicValue(children[mostLikelyWinner]);
                   //uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[mostLikelyWinner])+1) / numChildVisits[mostLikelyWinner]);
                 }
@@ -3293,7 +3301,7 @@ public class Sancho extends SampleGamer
                   else if (children[i].selectAs == children[i]) //	Only select one move that is state-equivalent
                   {
                     double uctValue;
-                    if (c.numVisits == 0 && !c.complete)
+                    if (children[i].numChildVisits == 0 && !c.complete)
                     {
                       // small random number to break ties randomly in unexpanded nodes
                       uctValue = 1000 + r.nextDouble() * epsilon +
@@ -3301,12 +3309,30 @@ public class Sancho extends SampleGamer
                     }
                     else
                     {
-                      uctValue = (c.complete ? 0
-                                            : explorationUCT(totalNumChildVisits,
-                                                             c.numVisits,
-                                                             roleIndex)) +
-                                 exploitationUCT(children[i], roleIndex) +
-                                 heuristicValue(children[i]);
+//                      uctValue = explorationUCT(totalNumChildVisits,
+//                                                c.numVisits,
+//                                                roleIndex) +
+//                                  exploitationUCT(children[i], roleIndex) +
+//                                  heuristicValue(children[i]);
+//                      uctValue = explorationUCT(numVisits,
+//                                                children[i].numChildVisits,
+//                                                roleIndex) +
+//                                    exploitationUCT(children[i], roleIndex) +
+//                                    heuristicValue(children[i]);
+                      uctValue = (c.complete ? explorationUCT(numVisits,
+                                                              children[i].numChildVisits,
+                                                              roleIndex)/2
+                                             : explorationUCT(numVisits,
+                                                              children[i].numChildVisits,
+                                                              roleIndex)) +
+                                  exploitationUCT(children[i], roleIndex) +
+                                  heuristicValue(children[i]);
+//                      uctValue = (c.complete ? 0
+//                                             : explorationUCT(totalNumChildVisits,
+//                                                              c.numVisits,
+//                                                              roleIndex)) +
+//                                  exploitationUCT(children[i], roleIndex) +
+//                                  heuristicValue(children[i]);
                       //uctValue = explorationUCT(children[i].numChildVisits, roleIndex) + exploitationUCT(children[i], roleIndex) + heuristicValue(children[i]);
                       //uctValue = c.averageScore/100 + Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
                       if (c.forceSelectCount > 0)
@@ -3355,6 +3381,7 @@ public class Sancho extends SampleGamer
                       {
                         bestCompleteValue = uctValue;
                         bestCompleteNode = c;
+                        bestSelectedIndex = i;
                       }
                     }
                   }
@@ -3425,6 +3452,7 @@ public class Sancho extends SampleGamer
       {
         result.setScoreOverrides(bestCompleteNode.averageScores);
         bestCompleteNode.numVisits++;
+        children[bestSelectedIndex].numChildVisits++;
         mostLikelyWinner = -1;
       }
 
@@ -4256,7 +4284,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.54";
+    return "Sancho 1.55";
   }
 
   @Override
@@ -4718,7 +4746,7 @@ public class Sancho extends SampleGamer
     System.out.println("Set explorationBias range to [" + minExplorationBias +
                        ", " + maxExplorationBias + "]");
 
-    if ((maxNumTurns - minNumTurns) > averageNumTurns / 10)
+    if ( enableMoveActionHistory && (maxNumTurns - minNumTurns) > averageNumTurns / 10)
     {
       moveActionHistoryBias = averageBranchingFactor / 5;
     }
