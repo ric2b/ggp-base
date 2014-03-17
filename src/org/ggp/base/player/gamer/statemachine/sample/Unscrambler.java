@@ -15,6 +15,9 @@ import org.ggp.base.util.symbol.factory.exceptions.SymbolFormatException;
 import org.ggp.base.util.symbol.grammar.Symbol;
 import org.ggp.base.util.symbol.grammar.SymbolList;
 
+/**
+ * Class to unscramble GDL that has been scrambled by the Tiltyard.
+ */
 public class Unscrambler
 {
   private static final String LEARNING_DIR = "data\\games";
