@@ -2,10 +2,12 @@ use strict;
 
 use JSON;
 
+chdir('..');
+
 #*****************************************************************************#
 #* Create a directory for recording the results.                             *#
 #*****************************************************************************#
-my $gResultsDir = '..\\data\\tests\\results\\' . sprintf "%d-%02d-%02d.%02d%02d%02d", map { $$_[5]+1900, $$_[4]+1, $$_[3], $$_[2], $$_[1], $$_[0]} [localtime];
+my $gResultsDir = 'data\\tests\\results\\' . sprintf "%d-%02d-%02d.%02d%02d%02d", map { $$_[5]+1900, $$_[4]+1, $$_[3], $$_[2], $$_[1], $$_[0]} [localtime];
 system("md", $gResultsDir);
 open(SUMMARY, ">$gResultsDir\\summary.txt") || die "Failed to create results summary: $!\n";
 
@@ -59,22 +61,29 @@ foreach my $lSuiteFile (@lSuites)
     #*************************************************************************#
     #* Start the players.                                                    *#
     #*************************************************************************#
-    my $lPort = 9147;
+    my $lRoleIndex = 0;
     foreach my $lPlayer (@{$lCase->{players}})
     {
-      $lPlayer->{port} = $lPort++;
-      my @lSysArgs = ("player", $lPlayer->{port}, $lPlayer->{type});
+      $lPlayer->{port} = 9147 + $lRoleIndex;
+      my $lPlayerDiags = "$gResultsDir\\$gNumCases.role$lRoleIndex.log";
+      my @lSysArgs = ('jobs\player',
+                      $lPlayerDiags,
+                      $lPlayer->{port},
+                      $lPlayer->{type});
       defined($lPlayer->{args}) && push(@lSysArgs, @{$lPlayer->{args}});
-      #my $lPlayerIndex = $lPlayer->{port} - 9147;
-      #my $lPlayerDiags = "$gResultsDir\\$gNumCases.p$lPlayerIndex.log";
-      #push(@lSysArgs, ">$lPlayerDiags");
       system(@lSysArgs);
+      $lRoleIndex++;
     }
+
+    #*************************************************************************#
+    #* Give all the players a moment to start.                               *#
+    #*************************************************************************#
+    sleep(5);
 
     #*************************************************************************#
     #* Start the server.                                                     *#
     #*************************************************************************#
-    my @lSysArgs = ("server",
+    my @lSysArgs = ('jobs\server',
                     $lCase->{repo},
                     $lCase->{game},
                     $lCase->{start},
@@ -89,9 +98,10 @@ foreach my $lSuiteFile (@lSuites)
     #*************************************************************************#
     #* Copy the match record for posterity.                                  *#
     #*************************************************************************#
-    my @lRecords = glob('..\bin\oneshot\*.json');
+    my @lRecords = glob('oneshot\*.json');
     my $lSavedRecord = "$gResultsDir\\$gNumCases.json";
-    system("copy", $lRecords[0], $lSavedRecord, ">NUL");
+    system('copy', $lRecords[0], $lSavedRecord, ">NUL");
+    system('copy', 'server.log', "$gResultsDir\\$gNumCases.server.log", ">NUL");
 
     #*************************************************************************#
     #* Check the result.                                                     *#
