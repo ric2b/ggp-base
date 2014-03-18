@@ -20,7 +20,7 @@ public final class SymbolFactory
     {
       String preprocessed = preprocess(string);
       List<String> tokens = lex(preprocessed);
-      return convert(new LinkedList<String>(tokens));
+      return convert(new LinkedList<>(tokens));
     }
     catch (Exception e)
     {
@@ -46,7 +46,7 @@ public final class SymbolFactory
 
   private static SymbolList convertList(LinkedList<String> tokens)
   {
-    List<Symbol> contents = new ArrayList<Symbol>();
+    List<Symbol> contents = new ArrayList<>();
 
     tokens.removeFirst();
     while (!tokens.getFirst().equals(")"))
@@ -60,7 +60,7 @@ public final class SymbolFactory
 
   private static List<String> lex(String string)
   {
-    List<String> tokens = new ArrayList<String>();
+    List<String> tokens = new ArrayList<>();
     for (String token : string.split(" "))
     {
       tokens.add(token);

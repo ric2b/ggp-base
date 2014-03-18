@@ -34,7 +34,7 @@ public final class StopRequest extends Request
   {
     // First, check to ensure that this stop request is for the match
     // we're currently playing. If we're not playing a match, or we're
-    // playing a different match, send back "busy".	    
+    // playing a different match, send back "busy".
     if (gamer.getMatch() == null ||
         !gamer.getMatch().getMatchId().equals(matchId))
     {
@@ -65,6 +65,9 @@ public final class StopRequest extends Request
     // to NULL to indicate that we're ready to begin a new match.
     gamer.setRoleName(null);
     gamer.setMatch(null);
+
+    // Clear the translator
+    gamer.setGDLTranslator(null);
 
     return "done";
   }

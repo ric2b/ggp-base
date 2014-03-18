@@ -13,6 +13,7 @@ import org.ggp.base.player.request.grammar.PreviewRequest;
 import org.ggp.base.player.request.grammar.Request;
 import org.ggp.base.player.request.grammar.StartRequest;
 import org.ggp.base.player.request.grammar.StopRequest;
+import org.ggp.base.util.game.GDLTranslator;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.gdl.factory.GdlFactory;
 import org.ggp.base.util.gdl.factory.exceptions.GdlFormatException;
@@ -34,13 +35,26 @@ public final class RequestFactory
       SymbolAtom head = (SymbolAtom)list.get(0);
 
       String type = head.getValue().toLowerCase();
-      if (type.equals("play"))
+      if (type.equals("info"))
       {
-        return createPlay(gamer, list);
+        return createInfo(gamer, list);
+      }
+      else if (type.equals("preview"))
+      {
+        // !!ARR No longer used.  Can be removed?
+        return createPreview(gamer, list);
       }
       else if (type.equals("start"))
       {
+        // This is the first we've seen of the GDL.  Create a translator
+        // between the network and internal formats.
+        gamer.setGDLTranslator(new GDLTranslator((SymbolList)list.get(3)));
+
         return createStart(gamer, list);
+      }
+      else if (type.equals("play"))
+      {
+        return createPlay(gamer, list);
       }
       else if (type.equals("stop"))
       {
@@ -49,14 +63,6 @@ public final class RequestFactory
       else if (type.equals("abort"))
       {
         return createAbort(gamer, list);
-      }
-      else if (type.equals("info"))
-      {
-        return createInfo(gamer, list);
-      }
-      else if (type.equals("preview"))
-      {
-        return createPreview(gamer, list);
       }
       else
       {
@@ -78,7 +84,7 @@ public final class RequestFactory
     }
 
     SymbolAtom arg1 = (SymbolAtom)list.get(1);
-    Symbol arg2 = list.get(2);
+    Symbol arg2 = gamer.networkToInternal(list.get(2));
 
     String matchId = arg1.getValue();
     List<GdlTerm> moves = parseMoves(arg2);
@@ -95,8 +101,8 @@ public final class RequestFactory
     }
 
     SymbolAtom arg1 = (SymbolAtom)list.get(1);
-    SymbolAtom arg2 = (SymbolAtom)list.get(2);
-    SymbolList arg3 = (SymbolList)list.get(3);
+    SymbolAtom arg2 = (SymbolAtom)(gamer.networkToInternal(list.get(2)));
+    SymbolList arg3 = (SymbolList)(gamer.networkToInternal(list.get(3)));
     SymbolAtom arg4 = (SymbolAtom)list.get(4);
     SymbolAtom arg5 = (SymbolAtom)list.get(5);
 
@@ -127,7 +133,7 @@ public final class RequestFactory
     }
 
     SymbolAtom arg1 = (SymbolAtom)list.get(1);
-    Symbol arg2 = list.get(2);
+    Symbol arg2 = gamer.networkToInternal(list.get(2));
 
     String matchId = arg1.getValue();
     List<GdlTerm> moves = parseMoves(arg2);

@@ -1,6 +1,7 @@
 
 package org.ggp.base.player.gamer;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,6 +14,7 @@ import org.ggp.base.player.gamer.exception.GamePreviewException;
 import org.ggp.base.player.gamer.exception.MetaGamingException;
 import org.ggp.base.player.gamer.exception.MoveSelectionException;
 import org.ggp.base.player.gamer.exception.StoppingException;
+import org.ggp.base.util.game.GDLTranslator;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
@@ -20,6 +22,7 @@ import org.ggp.base.util.match.Match;
 import org.ggp.base.util.observer.Event;
 import org.ggp.base.util.observer.Observer;
 import org.ggp.base.util.observer.Subject;
+import org.ggp.base.util.symbol.grammar.Symbol;
 
 
 /**
@@ -31,6 +34,7 @@ public abstract class Gamer implements Subject
 {
   private Match       match;
   private GdlConstant roleName;
+  private GDLTranslator mGDLTranslator;
 
   public Gamer()
   {
@@ -127,6 +131,34 @@ public abstract class Gamer implements Subject
   public final void setRoleName(GdlConstant roleName)
   {
     this.roleName = roleName;
+  }
+
+  // ==== GDL Translation ====
+  /**
+   * @param xiGDLTranslator - the GDL translator
+   */
+  public void setGDLTranslator(GDLTranslator xiGDLTranslator)
+  {
+    mGDLTranslator = xiGDLTranslator;
+  }
+
+  public Symbol networkToInternal(Symbol xiNetworkSymbol)
+  {
+    return mGDLTranslator.networkToInternal(xiNetworkSymbol);
+  }
+
+  public Symbol internalToNetwork(Symbol xiInternalSymbol)
+  {
+    return mGDLTranslator.internalToNetwork(xiInternalSymbol);
+  }
+
+  /**
+   * @return a directory for storing information about the current <b>game</b>
+   * (not the current match).
+   */
+  public File getGameDir()
+  {
+    return mGDLTranslator.getGameDir();
   }
 
   // ==== Observer Stuff ====

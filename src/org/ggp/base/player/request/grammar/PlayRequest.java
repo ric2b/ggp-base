@@ -9,7 +9,8 @@ import org.ggp.base.player.gamer.event.GamerUnrecognizedMatchEvent;
 import org.ggp.base.player.gamer.exception.MoveSelectionException;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
 import org.ggp.base.util.logging.GamerLogger;
-
+import org.ggp.base.util.symbol.factory.SymbolFactory;
+import org.ggp.base.util.symbol.factory.exceptions.SymbolFormatException;
 
 public final class PlayRequest extends Request
 {
@@ -55,12 +56,16 @@ public final class PlayRequest extends Request
     {
       gamer.notifyObservers(new PlayerTimeEvent(gamer.getMatch()
           .getPlayClock() * 1000));
-      return gamer.selectMove(gamer.getMatch().getPlayClock() * 1000 +
-                              receptionTime).toString();
+      String lInternalMove =
+                      gamer.selectMove(gamer.getMatch().getPlayClock() * 1000 +
+                                       receptionTime).toString();
+      String lNetworkMove = gamer.internalToNetwork(
+                               SymbolFactory.create(lInternalMove)).toString();
+      return lNetworkMove;
     }
-    catch (MoveSelectionException e)
+    catch (SymbolFormatException|MoveSelectionException lEx)
     {
-      GamerLogger.logStackTrace("GamePlayer", e);
+      GamerLogger.logStackTrace("GamePlayer", lEx);
       return "nil";
     }
   }

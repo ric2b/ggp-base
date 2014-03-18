@@ -8,7 +8,7 @@ public final class SymbolList extends Symbol
 
   private final List<Symbol> contents;
 
-  SymbolList(List<Symbol> contents)
+  public SymbolList(List<Symbol> contents)
   {
     this.contents = contents;
   }

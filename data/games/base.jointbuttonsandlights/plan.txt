@@ -1,0 +1,1 @@
+move b a a,move a b b,move a a a,move a a c
