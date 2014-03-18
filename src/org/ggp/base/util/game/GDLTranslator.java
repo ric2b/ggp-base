@@ -243,6 +243,7 @@ public class GDLTranslator
     if (xiFlatGDL.size() != lStoredAtoms.length)
     {
       debug("Not " + lGameName + ": GDL has wrong number of terms");
+      return null;
     }
 
     for (int lii = 0; lii < lStoredAtoms.length; lii++)
