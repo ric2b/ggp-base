@@ -1,4 +1,4 @@
-package org.ggp.base.player.gamer.statemachine.sample;
+package org.ggp.base.util.game;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -9,19 +9,108 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
-import org.ggp.base.util.symbol.factory.SymbolFactory;
-import org.ggp.base.util.symbol.factory.exceptions.SymbolFormatException;
 import org.ggp.base.util.symbol.grammar.Symbol;
+import org.ggp.base.util.symbol.grammar.SymbolAtom;
 import org.ggp.base.util.symbol.grammar.SymbolList;
+import org.ggp.base.util.symbol.grammar.SymbolPool;
 
 /**
  * Class to unscramble GDL that has been scrambled by the Tiltyard.
  */
-public class Unscrambler
+public class GDLTranslator
 {
   private static final String LEARNING_DIR = "data\\games";
   private static final String GDL_FILE = "gdl.txt";
+
+  private final Map<SymbolAtom, SymbolAtom> mInternalToNetwork;
+  private final Map<SymbolAtom, SymbolAtom> mNetworkToInternal;
+
+  /**
+   * Create an unscrambler for the specified rulesheet.
+   *
+   * @param xiRulesheet - the rulesheet.
+   */
+  public GDLTranslator(SymbolList xiRulesheet)
+  {
+    // Produce a rule mapping from the internal (saved) form to the network
+    //(current) form.
+    mInternalToNetwork = findMapping(xiRulesheet);
+
+    // Produce the reverse mapping.
+    mNetworkToInternal = new HashMap<>();
+    for (Entry<SymbolAtom, SymbolAtom> lEntry : mInternalToNetwork.entrySet())
+    {
+      mNetworkToInternal.put(lEntry.getValue(), lEntry.getKey());
+    }
+  }
+
+  /**
+   * Convert a symbol from internal to network format.
+   *
+   * @param xiInternal - the internal format.
+   * @return the network format.
+   */
+  public Symbol internalToNetwork(Symbol xiInternal)
+  {
+    Symbol lNetwork;
+
+    if (xiInternal instanceof SymbolAtom)
+    {
+      lNetwork = mInternalToNetwork.get(xiInternal);
+      if (lNetwork == null)
+      {
+        lNetwork = xiInternal;
+      }
+    }
+    else
+    {
+      SymbolList lInternalList = (SymbolList)xiInternal;
+      List<Symbol> lNetworkList = new LinkedList<>();
+
+      for (int lii = 0; lii < lInternalList.size(); lii++)
+      {
+        lNetworkList.add(internalToNetwork(lInternalList.get(lii)));
+      }
+      lNetwork = new SymbolList(lNetworkList);
+    }
+
+    return lNetwork;
+  }
+
+  /**
+   * Convert a symbol from network to internal format.
+   *
+   * @param xiNetwork - the network format.
+   * @return the internal format.
+   */
+  public Symbol networkToInternal(Symbol xiNetwork)
+  {
+    Symbol lInternal;
+
+    if (xiNetwork instanceof SymbolAtom)
+    {
+      lInternal = mNetworkToInternal.get(xiNetwork);
+      if (lInternal == null)
+      {
+        lInternal = xiNetwork;
+      }
+    }
+    else
+    {
+      SymbolList lNetworkList = (SymbolList)xiNetwork;
+      List<Symbol> lInternalList = new LinkedList<>();
+
+      for (int lii = 0; lii < lNetworkList.size(); lii++)
+      {
+        lInternalList.add(networkToInternal(lNetworkList.get(lii)));
+      }
+      lInternal = new SymbolList(lInternalList);
+    }
+
+    return lInternal;
+  }
 
   /**
    * Attempt to identify this game from saved data - despite GDL scrambling.
@@ -30,15 +119,15 @@ public class Unscrambler
    *
    * @param xiRulesheet - the GDL rulesheet.
    *
-   * @return the mapping from old -> new GDL terms, or null if no matching
-   * game could be found.
+   * @return the mapping from saved -> current GDL terms, or an empty map if
+   * no matching game could be found.
    */
-  public Map<String, String> findMapping(String xiRulesheet)
+  private Map<SymbolAtom, SymbolAtom> findMapping(SymbolList xiRulesheet)
   {
-    Map<String, String> lMapping = null;
+    Map<SymbolAtom, SymbolAtom> lMapping = null;
 
     // Get a flat representation of the GDL for this match.
-    final List<String> lFlatGDL = flattenGDL(xiRulesheet);
+    final List<SymbolAtom> lFlatGDL = flattenGDL(xiRulesheet);
 
     try
     {
@@ -51,7 +140,7 @@ public class Unscrambler
       {
         try
         {
-          // Get an old -> new GDL mapping.
+          // Get a saved -> current GDL mapping.
           lMapping = getGDLMapping(lGameDir, lFlatGDL);
           if (lMapping != null)
           {
@@ -79,29 +168,21 @@ public class Unscrambler
     if (lMapping == null)
     {
       saveGDL(lFlatGDL);
+      lMapping = new HashMap<>();
     }
 
     return lMapping;
   }
 
   /**
-   * @return a flattened string version of the GDL.
+   * @return a flattened version of the GDL.
    * @param xiRulesheet - the received rulesheet.
    */
-  private List<String> flattenGDL(String xiRulesheet)
+  private List<SymbolAtom> flattenGDL(SymbolList xiRulesheet)
   {
     // Get a flat representation of the GDL.
-    final List<String> lFlatGDL = new LinkedList<>();
-    try
-    {
-      final Symbol lTopLevel = SymbolFactory.create(xiRulesheet);
-      createAtomList(lTopLevel, lFlatGDL);
-    }
-    catch (final SymbolFormatException lEx)
-    {
-      lEx.printStackTrace();
-    }
-
+    final List<SymbolAtom> lFlatGDL = new LinkedList<>();
+    createAtomList(xiRulesheet, lFlatGDL);
     return lFlatGDL;
   }
 
@@ -111,7 +192,7 @@ public class Unscrambler
    * @param xiSymbol   - the symbol (potentially nested) to convert
    * @param xbAtomList - a list of strings to append to
    */
-  private void createAtomList(Symbol xiSymbol, List<String> xbAtomList)
+  private void createAtomList(Symbol xiSymbol, List<SymbolAtom> xbAtomList)
   {
     if (xiSymbol instanceof SymbolList)
     {
@@ -123,20 +204,23 @@ public class Unscrambler
     }
     else
     {
-      xbAtomList.add(xiSymbol.toString());
+      xbAtomList.add((SymbolAtom)xiSymbol);
     }
   }
 
   /**
    * Assume that the specified game directory is for a matching game and return
-   * the mapping from old -> current GDL terms.  Returns null if this isn't
+   * the mapping from saved -> current GDL terms.  Returns null if this isn't
    * actually a matching game.
    *
    * @return the mapping, or null if there is no mapping.
    */
-  private static Map<String, String> getGDLMapping(File xiGameDir,
-                                                   List<String> xiFlatGDL)
+  private static Map<SymbolAtom, SymbolAtom> getGDLMapping(
+                                                    File xiGameDir,
+                                                    List<SymbolAtom> xiFlatGDL)
   {
+    final String lGameName = xiGameDir.getName();
+
     // Load the GDL from disk.
     final String lGDL = readStringFromFile(new File(xiGameDir, GDL_FILE));
     if (lGDL == null)
@@ -145,16 +229,18 @@ public class Unscrambler
     }
     final String[] lStoredAtoms = lGDL.split(" ");
 
-    final String lGameName = xiGameDir.getName();
-
     // Produce a mapping from the on-disk -> current version of the GDL.
-    final Map<String, String> lMapping = new HashMap<>();
+    final Map<SymbolAtom, SymbolAtom> lMapping = new HashMap<>();
 
-    int lii = 0;
-    while ((!xiFlatGDL.isEmpty()) && (lii < lStoredAtoms.length))
+    if (xiFlatGDL.size() != lStoredAtoms.length)
     {
-      final String lGDLAtom = xiFlatGDL.remove(0);
-      final String lStoredAtom = lStoredAtoms[lii++]; // !! ARR [P3] Could be out-of-bounds
+      debug("Not " + lGameName + ": GDL has wrong number of terms");
+    }
+
+    for (int lii = 0; lii < lStoredAtoms.length; lii++)
+    {
+      final SymbolAtom lGDLAtom = xiFlatGDL.get(lii);
+      final SymbolAtom lStoredAtom = SymbolPool.getAtom(lStoredAtoms[lii]);
       if (lMapping.containsKey(lStoredAtom))
       {
         if (!lMapping.get(lStoredAtom).equals(lGDLAtom))
@@ -169,12 +255,6 @@ public class Unscrambler
       }
     }
 
-    if (lii != lStoredAtoms.length)
-    {
-      System.err.println("Not " + lGameName + ": Didn't use all of the stored GDL");
-      return null;
-    }
-
     debug("Looks like a game of " + lGameName);
 
     return lMapping;
@@ -185,7 +265,7 @@ public class Unscrambler
    *
    * @param xiFlatGDL - flattened representation of the GDL.
    */
-  private static void saveGDL(List<String> xiFlatGDL)
+  private static void saveGDL(List<SymbolAtom> xiFlatGDL)
   {
     // Create a directory for this game.
     final String lDirName = LEARNING_DIR + "\\" + System.currentTimeMillis();
@@ -194,7 +274,7 @@ public class Unscrambler
 
     // Convert the GDL to a string.
     final StringBuffer lGDLBuffer = new StringBuffer();
-    for (final String lSymbol : xiFlatGDL)
+    for (final Symbol lSymbol : xiFlatGDL)
     {
       lGDLBuffer.append(lSymbol);
       lGDLBuffer.append(" ");
