@@ -1,6 +1,7 @@
 
 package org.ggp.base.player.gamer;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -149,6 +150,15 @@ public abstract class Gamer implements Subject
   public Symbol internalToNetwork(Symbol xiInternalSymbol)
   {
     return mGDLTranslator.internalToNetwork(xiInternalSymbol);
+  }
+
+  /**
+   * @return a directory for storing information about the current <b>game</b>
+   * (not the current match).
+   */
+  public File getGameDir()
+  {
+    return mGDLTranslator.getGameDir();
   }
 
   // ==== Observer Stuff ====

@@ -27,6 +27,8 @@ public class GDLTranslator
   private final Map<SymbolAtom, SymbolAtom> mInternalToNetwork;
   private final Map<SymbolAtom, SymbolAtom> mNetworkToInternal;
 
+  private File mGameDir;
+
   /**
    * Create an unscrambler for the specified rulesheet.
    *
@@ -112,6 +114,11 @@ public class GDLTranslator
     return lInternal;
   }
 
+  public File getGameDir()
+  {
+    return mGameDir;
+  }
+
   /**
    * Attempt to identify this game from saved data - despite GDL scrambling.
    * If found, return a mapping from the saved GDL terms to the current GDL
@@ -145,6 +152,7 @@ public class GDLTranslator
           if (lMapping != null)
           {
             // Found one - great.
+            mGameDir = lGameDir;
             break;
           }
         }
@@ -265,7 +273,7 @@ public class GDLTranslator
    *
    * @param xiFlatGDL - flattened representation of the GDL.
    */
-  private static void saveGDL(List<SymbolAtom> xiFlatGDL)
+  private void saveGDL(List<SymbolAtom> xiFlatGDL)
   {
     // Create a directory for this game.
     final String lDirName = LEARNING_DIR + "\\" + System.currentTimeMillis();
@@ -282,6 +290,8 @@ public class GDLTranslator
 
     // Save the GDL to disk.
     writeStringToFile(lGDLBuffer.toString(), new File(lDir, GDL_FILE));
+
+    mGameDir = lDir;
   }
 
   /**
