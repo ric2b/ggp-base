@@ -1,0 +1,83 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; MinimalTictactoe
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Roles
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(role xplayer)
+(role oplayer)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Initial State
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(init (cell 1 1 b))
+(init (control xplayer))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Dynamic Components
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Cell
+
+(<= (next (cell ?m ?n x))
+(does xplayer (mark ?m ?n))
+(true (cell ?m ?n b)))
+
+(<= (next (cell ?m ?n o))
+(does oplayer (mark ?m ?n))
+(true (cell ?m ?n b)))
+
+(<= (next (cell ?m ?n ?w))
+(true (cell ?m ?n ?w))
+(distinct ?w b))
+
+(<= (next (cell ?m ?n b))
+(not (does ?w (mark ?m ?n)))
+(true (control ?w))
+(true (cell ?m ?n b)))
+
+(<= (next (control xplayer))
+(true (control oplayer)))
+
+(<= (next (control oplayer))
+(true (control xplayer)))
+
+
+
+
+(<= open
+(true (cell ?m ?n b)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (legal ?w (mark ?x ?y))
+(true (control ?w))
+(true (cell ?x ?y b)))
+
+(<= (legal xplayer noop)
+(true (control oplayer)))
+
+(<= (legal oplayer noop)
+(true (control xplayer)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (goal xplayer 100)
+(true (cell 1 1 x)))
+
+(<= (goal oplayer 100)
+(true (cell 1 1 o)))
+
+(<= (goal xplayer 0)
+(true (cell 1 1 o)))
+
+(<= (goal oplayer 0)
+(true (cell 1 1 x)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= terminal
+(not open))
