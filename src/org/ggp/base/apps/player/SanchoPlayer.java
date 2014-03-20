@@ -4,7 +4,7 @@ package org.ggp.base.apps.player;
 import java.io.IOException;
 
 import org.ggp.base.player.GamePlayer;
-import org.ggp.base.player.gamer.statemachine.sample.Sancho;
+import org.ggp.base.player.gamer.statemachine.sancho.Sancho;
 
 public class SanchoPlayer
 {
