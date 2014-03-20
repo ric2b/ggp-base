@@ -14,6 +14,7 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 interface ActivityController
 {
   public void requestYield(boolean state);
+  public Object getSerializationObject();
 }
 
 class StateMachineProxy extends StateMachine
@@ -21,14 +22,13 @@ class StateMachineProxy extends StateMachine
   /**
    *
    */
-  private final Object lock;
   private StateMachine machineToProxy;
   private ActivityController controller;
 
-  public StateMachineProxy(Object lock, StateMachine proxyTo, ActivityController controller)
+  public StateMachineProxy(StateMachine proxyTo, ActivityController controller)
   {
-    this.lock = lock;
     machineToProxy = proxyTo;
+    this.controller = controller;
   }
 
   @Override
@@ -41,7 +41,7 @@ class StateMachineProxy extends StateMachine
   public int getGoal(MachineState state, Role role)
       throws GoalDefinitionException
   {
-    synchronized (lock)
+    synchronized (controller.getSerializationObject())
     {
       return machineToProxy.getGoal(state, role);
     }
@@ -50,7 +50,7 @@ class StateMachineProxy extends StateMachine
   @Override
   public boolean isTerminal(MachineState state)
   {
-    synchronized (lock)
+    synchronized (controller.getSerializationObject())
     {
       return machineToProxy.isTerminal(state);
     }
@@ -72,7 +72,7 @@ class StateMachineProxy extends StateMachine
   public List<Move> getLegalMoves(MachineState state, Role role)
       throws MoveDefinitionException
   {
-    synchronized (lock)
+    synchronized (controller.getSerializationObject())
     {
       return machineToProxy.getLegalMoves(state, role);
     }
@@ -88,7 +88,7 @@ class StateMachineProxy extends StateMachine
     {
       controller.requestYield(true);
     }
-    synchronized (lock)
+    synchronized (controller.getSerializationObject())
     {
       result = machineToProxy.getNextState(state, moves);
     }
