@@ -71,21 +71,18 @@ print "This was a game of '$lGame' (from $lRepo) between the following players a
 #* Get the player index.                                                     *#
 #*****************************************************************************#
 my $lNumPlayers = scalar(@{$lRecord->{playerNamesFromHost}});
+my $lDefault = 0;
 
 for (my $lii = 0; $lii < $lNumPlayers; $lii++)
 {
   print "$lii: " . ($lRecord->{playerNamesFromHost})->[$lii] . "\n";
+  $lDefault = $lii if ($lRecord->{playerNamesFromHost})->[$lii] =~ /sancho/i;
 }
 
-my $lPlayerIndex = -1;
-while (($lPlayerIndex < 0) ||
-       ($lPlayerIndex > $lNumPlayers - 1) ||
-       ($lPlayerIndex !~ /^[0-9]+$/))
-{
-  print "Player index to test: ";
-  $lPlayerIndex = <STDIN>;
-  chomp($lPlayerIndex);
-}
+my $lPlayerIndex = getNumericParameter("Player index to test",
+                                       0,
+                                       $lNumPlayers - 1,
+                                       $lDefault);
 
 my $lPlayerName = ($lRecord->{playerNamesFromHost})->[$lPlayerIndex];
 print $lPlayerName . " made the following moves.\n";
@@ -127,13 +124,11 @@ chomp($lAcceptable);
 #*****************************************************************************#
 #* Get the linked bug number.                                                *#
 #*****************************************************************************#
-my $lBugNum = -1;
-while (($lBugNum < 0) || ($lBugNum !~ /^[0-9]+$/))
-{
-  print 'Enter the bug number for this test case, or 0 for none: ';
-  $lBugNum = <STDIN>;
-  chomp($lBugNum);
-}
+my $lBugNum = getNumericParameter(
+                      'Enter the bug number for this test case, or 0 for none',
+                      0,
+                      9999,
+                      0);
 
 my $lBugStr = "";
 if ($lBugNum > 0)
@@ -142,14 +137,23 @@ if ($lBugNum > 0)
 }
 
 #*****************************************************************************#
+#* Get the clocks.                                                           *#
+#*****************************************************************************#
+my $lStartClock =
+           getNumericParameter('Start clock', 10, 600, $lRecord->{startClock});
+
+my $lPlayClock =
+              getNumericParameter('Play clock', 1, 600, $lRecord->{playClock});
+
+#*****************************************************************************#
 #* Generate a test case.                                                     *#
 #*****************************************************************************#
 my $lCase = {};
 $lCase->{case} = "${lBugStr}Tiltyard $lMatchID, player $lPlayerIndex, move " . ($lMoveIndex + 1);
 $lCase->{repo} = $lRepo;
 $lCase->{game} = $lGame;
-$lCase->{start} = $lRecord->{startClock};
-$lCase->{play} = $lRecord->{playClock};
+$lCase->{start} = $lStartClock;
+$lCase->{play} = $lPlayClock;
 $lCase->{limit} = $lMoveIndex + 1;
 
 $lCase->{players} = ();
@@ -206,14 +210,54 @@ $lSuite->{cases}->[0] = $lCase;
 #*****************************************************************************#
 #* Write the suite to file.                                                  *#
 #*****************************************************************************#
-my $lSuiteFile = "..\\data\\tests\\suites\\Tiltyard.$lMatchID.$lPlayerIndex." . ($lMoveIndex + 1) . ".json";
+my $lShortName = "Tiltyard.$lMatchID.$lPlayerIndex." . ($lMoveIndex + 1) . ".json";
+my $lSuiteFile = "..\\data\\tests\\suites\\$lShortName";
 open(SUITE, ">$lSuiteFile") or die "Failed to open $lSuiteFile: $!\n";
 print SUITE JSON::PP->new->pretty->indent_length(2)->sort_by('customSort')->encode($lSuite);
 close(SUITE);
 
 print "Test case saved to $lSuiteFile\n";
+print "Run with: run_cases.pl $lShortName\n\n";
 exit 0;
 
+#*****************************************************************************#
+#*                                                                           *#
+#* getNumericParameter                                                       *#
+#*                                                                           *#
+#* Purpose: Prompt the user for a number.                                    *#
+#*                                                                           *#
+#* Params:  IN     xiPrompt  - prompt to display (without default)           *#
+#*          IN     xiMin     - minimum acceptable answer                     *#
+#*          IN     xiMax     - maximum acceptable answer                     *#
+#*          IN     xiDefault - default (if user presses enter)               *#
+#*                                                                           *#
+#* Returns: The chosen answer.                                               *#
+#*                                                                           *#
+#*****************************************************************************#
+
+sub getNumericParameter
+{
+  my ($xiPrompt, $xiMin, $xiMax, $xiDefault) = @_;
+
+  my $lAnswer = $xiMin - 1;
+  while (($lAnswer < $xiMin) || ($lAnswer > $xiMax))
+  {
+    print "$xiPrompt [$xiDefault]: ";
+    $lAnswer = <STDIN>;
+    chomp($lAnswer);
+    $lAnswer = $xiDefault if $lAnswer eq "";
+  }
+
+  return $lAnswer;
+}
+
+#*****************************************************************************#
+#*                                                                           *#
+#* customSort                                                                *#
+#*                                                                           *#
+#* Purpose: Sort routine to get the JSON file in a sensible order.           *#
+#*                                                                           *#
+#*****************************************************************************#
 sub JSON::PP::customSort
 {
   #***************************************************************************#
@@ -233,3 +277,4 @@ sub JSON::PP::customSort
   #***************************************************************************#
   return $lAOrder <=> $lBOrder;
 }
+

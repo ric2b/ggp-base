@@ -26,7 +26,7 @@ my $gNumPasses = 0;
 my @lSuites;
 if (scalar(@ARGV) >= 1)
 {
-  @lSuites = ($ARGV[0]);
+  @lSuites = 'data\tests\suites\\' . ($ARGV[0]);
 }
 else
 {
