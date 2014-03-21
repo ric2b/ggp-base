@@ -30,7 +30,7 @@ if (scalar(@ARGV) >= 1)
 }
 else
 {
-  @lSuites = glob('..\data\tests\suites\*.json');
+  @lSuites = glob('data\tests\suites\*.json');
 }
 
 foreach my $lSuiteFile (@lSuites)
