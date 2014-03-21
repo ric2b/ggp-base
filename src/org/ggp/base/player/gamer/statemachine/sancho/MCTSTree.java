@@ -13,6 +13,8 @@ import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
+import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
+import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
 
 public class MCTSTree
@@ -69,7 +71,6 @@ public class MCTSTree
   TreeNodeRef                                          cousinMovesCachedFor                        = null;
   double[]                                             bonusBuffer                                 = null;
   double[]                                             roleRationality                             = null;
-  double[]                                             decisiveCompletionRatio                     = null;
   long                                                 numCompletionsProcessed                     = 0;
   Random                                               r                                           = new Random();
   int                                                  numUniqueTreeNodes                          = 0;
@@ -83,18 +84,16 @@ public class MCTSTree
   boolean                                              completeSelectionFromIncompleteParentWarned = false;
   int                                                  numSelectionsThroughIncompleteNodes         = 0;
   int                                                  numReExpansions                             = 0;
-  boolean                                              isSimultaneousMove;
-  boolean                                              isPuzzle;
-  boolean                                              isMultiPlayer;
   HeuristicProvider                                    heuristicProvider;
   RoleOrdering                                         roleOrdering;
   RolloutProcessorPool                                 rolloutPool;
+  GameCharacteristics                                  gameCharacteristics;
 
   public MCTSTree(TestForwardDeadReckonPropnetStateMachine stateMachine,
                   int transpositionTableSize,
                   RoleOrdering roleOrdering,
                   RolloutProcessorPool rolloutPool,
-                  boolean isSimultaneousMove,
+                  GameCharacteristics gameCharacateristics,
                   HeuristicProvider heuristicProvider)
   {
     underlyingStateMachine = stateMachine;
@@ -102,18 +101,14 @@ public class MCTSTree
     this.transpositionTableSize = transpositionTableSize;
     this.roleOrdering = roleOrdering;
     this.heuristicProvider = heuristicProvider;
-    this.isSimultaneousMove = isSimultaneousMove;
+    this.gameCharacteristics = gameCharacateristics;
     this.rolloutPool = rolloutPool;
-
-    isPuzzle = (numRoles == 1);
-    isMultiPlayer = (numRoles > 2);
 
     nodeMoveWeightsCache = new LRUNodeMoveWeightsCache(5000);
     transpositionTable = new TreeNode[transpositionTableSize];
 
     bonusBuffer = new double[numRoles];
     roleRationality = new double[numRoles];
-    decisiveCompletionRatio = new double[numRoles];
     numCompletionsProcessed = 0;
     completeSelectionFromIncompleteParentWarned = false;
 
@@ -122,7 +117,7 @@ public class MCTSTree
     //  scores
     for (int i = 0; i < numRoles; i++)
     {
-      if (isMultiPlayer)
+      if (gameCharacateristics.isMultiPlayer)
       {
         roleRationality[i] = (i == 0 ? 1 : 0.8);
       }
@@ -257,6 +252,114 @@ public class MCTSTree
     }
   }
 
+  public void setRootState(ForwardDeadReckonInternalMachineState state) throws GoalDefinitionException
+  {
+    synchronized (getSerializationObject())
+    {
+      //  Process anything left over from last turn's timeout
+      processCompletedRollouts();
+
+      if (root == null)
+      {
+        root = allocateNode(underlyingStateMachine, state, null);
+        root.decidingRoleIndex = numRoles - 1;
+      }
+      else
+      {
+        TreeNode newRoot = root.findNode(state,
+                                         underlyingStateMachine.getRoles()
+                                             .size() + 1);
+        if (newRoot == null)
+        {
+          System.out.println("Unable to find root node in existing tree");
+          empty();
+          root = allocateNode(underlyingStateMachine, state, null);
+          root.decidingRoleIndex = numRoles - 1;
+        }
+        else
+        {
+          if (newRoot != root)
+          {
+            root.freeAllBut(newRoot);
+
+            root = newRoot;
+          }
+        }
+      }
+      //validateAll();
+
+      if (root.complete && root.children == null)
+      {
+        System.out
+            .println("Encountered complete root with trimmed children - must re-expand");
+        root.complete = false;
+        numCompletedBranches--;
+      }
+    }
+  }
+
+  public boolean growTree(double explorationBias)
+      throws MoveDefinitionException, TransitionDefinitionException,
+      GoalDefinitionException, InterruptedException
+  {
+    synchronized (getSerializationObject())
+    {
+      this.explorationBias = explorationBias;
+      while (numUsedNodes > transpositionTableSize - 200)
+      {
+        root.disposeLeastLikelyNode();
+      }
+      //validateAll();
+      //validationCount++;
+      if (!rolloutPool.isBackedUp())
+      {
+        root.selectAction();
+      }
+
+      processCompletedRollouts();
+
+      return root.complete;
+    }
+  }
+
+  Move getBestMove()
+  {
+    synchronized (getSerializationObject())
+    {
+      System.out.println("Lock obtained, current time: " +
+          System.currentTimeMillis());
+      Move bestMove = root.getBestMove(true);
+
+      System.out.println("Num total tree node allocations: " +
+          numTotalTreeNodes);
+      System.out.println("Num unique tree node allocations: " +
+          numUniqueTreeNodes);
+      System.out.println("Num tree node frees: " + numFreedTreeNodes);
+      System.out.println("Num tree nodes currently in use: " + numUsedNodes);
+      System.out.println("Num true rollouts added: " +
+          rolloutPool.numNonTerminalRollouts);
+      System.out.println("Num terminal nodes revisited: " +
+          numTerminalRollouts);
+      System.out.println("Num incomplete nodes: " + numIncompleteNodes);
+      System.out.println("Num selections through incomplete nodes: " +
+          numSelectionsThroughIncompleteNodes);
+      System.out.println("Num node re-expansions: " + numReExpansions);
+      System.out.println("Num completely explored branches: " +
+          numCompletedBranches);
+      System.out
+      .println("Current rollout sample size: " + rolloutSampleSize);
+      System.out.println("Current observed rollout score range: [" +
+          rolloutPool.lowestRolloutScoreSeen + ", " +
+          rolloutPool.highestRolloutScoreSeen + "]");
+
+      numSelectionsThroughIncompleteNodes = 0;
+      numReExpansions = 0;
+      rolloutPool.numNonTerminalRollouts = 0;
+      numTerminalRollouts = 0;
+      return bestMove;
+    }
+  }
+
   void validateAll()
   {
     if (root != null)
@@ -302,5 +405,49 @@ public class MCTSTree
     {
       System.out.println("Incomplete count mismatch");
     }
+  }
+
+  private void processCompletedRollouts()
+  {
+    //ProfileSection methodSection = new ProfileSection("processCompletedRollouts");
+    //try
+    //{
+    //  Process nay outstanding node completions first, as their processing may
+    //  have been interrupted due to running out of time at the end of the previous
+    //  turn's processing
+    processNodeCompletions();
+
+    RolloutRequest request;
+
+    while ((request = rolloutPool.completedRollouts.poll()) != null)
+    {
+      TreeNode node = request.node.node;
+
+      //masterMoveWeights.accumulate(request.playedMoveWeights);
+
+      if (request.node.seq == node.seq && !node.complete)
+      {
+        request.path.resetCursor();
+        //validateAll();
+        synchronized (getSerializationObject())
+        {
+          node.updateStats(request.averageScores,
+                           request.averageSquaredScores,
+                           request.sampleSize,
+                           request.path,
+                           false);
+        }
+        //validateAll();
+        processNodeCompletions();
+        //validateAll();
+      }
+
+      rolloutPool.numCompletedRollouts++;
+    }
+    //}
+    //finally
+    //{
+    //  methodSection.exitScope();
+    //}
   }
 }

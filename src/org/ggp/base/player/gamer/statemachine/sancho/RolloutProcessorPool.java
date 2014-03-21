@@ -4,6 +4,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.ggp.base.util.statemachine.Role;
+import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
+import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
+import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
 
 public class RolloutProcessorPool
@@ -16,19 +19,23 @@ public class RolloutProcessorPool
   public int                                           enqueuedCompletedRollouts                   = 0;
   public int                                           numNonTerminalRollouts                      = 0;
   private int                                          numRolloutThreads;
+  private int                                          maxOutstandingRolloutRequests;
   private RolloutProcessor[]                           rolloutProcessors                           = null;
   public int                                           numRoles;
   public Role                                          ourRole;
   public RoleOrdering                                  roleOrdering                                = null;
+  private TestForwardDeadReckonPropnetStateMachine     underlyingStateMachine;
   public int highestRolloutScoreSeen;
   public int lowestRolloutScoreSeen;
 
   public RolloutProcessorPool(int numThreads, TestForwardDeadReckonPropnetStateMachine underlyingStateMachine, Role ourRole)
   {
     numRolloutThreads = numThreads;
+    maxOutstandingRolloutRequests = numThreads;
     rolloutProcessors = new RolloutProcessor[numThreads];
     numRoles = underlyingStateMachine.getRoles().size();
     this.ourRole = ourRole;
+    this.underlyingStateMachine = underlyingStateMachine;
 
     for (int i = 0; i < numThreads; i++)
     {
@@ -41,6 +48,29 @@ public class RolloutProcessorPool
   {
     roleOrdering = ordering;
   }
+
+  public boolean isBackedUp() throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
+  {
+    if (numRolloutThreads == 0)
+    {
+      while (!queuedRollouts.isEmpty())
+      {
+        RolloutRequest request = queuedRollouts.remove();
+
+        request.process(underlyingStateMachine);
+      }
+    }
+
+    int numOutstandingRollouts = numQueuedRollouts - numCompletedRollouts;
+
+    if (numOutstandingRollouts < maxOutstandingRolloutRequests)
+    {
+      return false;
+    }
+
+    Thread.yield();
+    return true;
+   }
 
   public void stop()
   {
