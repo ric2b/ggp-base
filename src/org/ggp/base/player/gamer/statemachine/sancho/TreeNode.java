@@ -2484,6 +2484,12 @@ class TreeNode
     // debugging output (because it would be confusing).
     boolean lRecursiveCall = (pathTrace != null);
 
+    // Find the role which has a choice at this node.  If this function is
+    // being called for real (rather than for debug trace) it MUST be our role
+    // (always 0), otherwise why are we trying to get the best move?
+    int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
+    assert(lRecursiveCall || roleIndex == 0);
+
     for (TreeEdge edge : children)
     {
       if (edge.child.node.complete)
@@ -2507,12 +2513,12 @@ class TreeNode
       double moveScore = (tree.gameCharacteristics.isSimultaneousMove ||
                           tree.gameCharacteristics.isMultiPlayer ||
                           anyComplete ||
-                          tree.disableOnelevelMinimax) ? child.averageScores[0] :
+                          tree.disableOnelevelMinimax) ? child.averageScores[roleIndex] :
                                                          child.scoreForMostLikelyResponse();
       //	If we have complete nodes with equal scores choose the one with the highest variance
       if (child.complete)
       {
-        double varianceMeasure = child.averageSquaredScores[0] / 100;
+        double varianceMeasure = child.averageSquaredScores[roleIndex] / 100;
 
         if (moveScore < 0.1)
         {
@@ -2529,7 +2535,7 @@ class TreeNode
       }
       if (!lRecursiveCall)
       {
-        System.out.println("Move " + edge.jointPartialMove[0].move +
+        System.out.println("Move " + edge.jointPartialMove[roleIndex].move +
                            " scores " + moveScore + " (selectionScore score " +
                            selectionScore + ", selection count " +
                            child.numVisits + ", seq " + child.seq +
@@ -2551,18 +2557,18 @@ class TreeNode
       if (selectionScore > bestScore ||
           (moveScore == bestScore && child.complete && (child.numVisits > mostSelected || !bestNode.complete)) ||
           (bestNode != null && bestNode.complete && !child.complete &&
-          bestNode.averageScores[0] <= tree.rolloutPool.lowestRolloutScoreSeen && tree.rolloutPool.lowestRolloutScoreSeen < 100))
+          bestNode.averageScores[roleIndex] <= tree.rolloutPool.lowestRolloutScoreSeen && tree.rolloutPool.lowestRolloutScoreSeen < 100))
       {
         bestNode = child;
         bestScore = selectionScore;
         mostSelected = child.numVisits;
-        result = edge.jointPartialMove[0].move;
+        result = edge.jointPartialMove[roleIndex].move;
       }
-      if (child.averageScores[0] > bestRawScore ||
-          (child.averageScores[0] == bestRawScore && child.complete && child.averageScores[0] > 0))
+      if (child.averageScores[roleIndex] > bestRawScore ||
+          (child.averageScores[roleIndex] == bestRawScore && child.complete && child.averageScores[roleIndex] > 0))
       {
-        bestRawScore = child.averageScores[0];
-        rawResult = edge.jointPartialMove[0].move;
+        bestRawScore = child.averageScores[roleIndex];
+        rawResult = edge.jointPartialMove[roleIndex].move;
       }
     }
 
