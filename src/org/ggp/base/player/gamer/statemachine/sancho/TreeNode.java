@@ -197,11 +197,6 @@ class TreeNode
     if (!complete)
     {
       //validateCompletionValues(values);
-      //				if ( values[1] > 99.5 && state.toString().contains("1 1 b") && state.toString().contains("1 2 b") && state.toString().contains("1 3 b") && state.toString().contains("1 4 b"))
-      //				{
-      //					System.out.println("Impossible completion!");
-      //				}
-      //System.out.println("Mark complete  node seq: " + seq);
       //validateAll();
       if (numUpdates > 0)
       {
@@ -210,27 +205,6 @@ class TreeNode
         //validateScoreVector(averageScores);
       }
 
-      //				if ( children != null )
-      //				{
-      //					boolean valid = false;
-      //
-      //					for(TreeEdge edge : children)
-      //					{
-      //						if ( edge.selectAs == edge )
-      //						{
-      //							if ( edge.child.node.complete && edge.child.node.averageScores[0] == values[0] )
-      //							{
-      //								valid = true;
-      //								break;
-      //							}
-      //						}
-      //					}
-      //
-      //					if ( !valid )
-      //					{
-      //						System.out.println("Invalid ndoe completion");
-      //					}
-      //				}
       for (int i = 0; i < tree.numRoles; i++)
       {
         averageScores[i] = values[i];
@@ -246,31 +220,6 @@ class TreeNode
       }
       else
       {
-        //					if ( parents.contains(root))
-        //					{
-        //						for(TreeEdge edge : root.children)
-        //						{
-        //							if ( edge.child.node == this &&
-        //								 edge.jointPartialMove[0].move.toString().contains("bid 0 no_tiebreaker") &&
-        //								 values[0] > 0.1 )
-        //							{
-        //							    root.dumpTree("C:\\temp\\mctsTree.txt");
-        //								System.out.println("Bad completion");
-        //							}
-        //						}
-        //						//System.out.println("First level move completed");
-        //					}
-        //					else
-        //					{
-        //						for(TreeNode parent : parents)
-        //						{
-        //							if ( parent.parents.contains(root))
-        //							{
-        //								//System.out.println("Complete seq " + seq + " at value " + values[0]);
-        //								//System.out.println("decidingRoleIndex=" + decidingRoleIndex + ", State="+state);
-        //							}
-        //						}
-        //					}
         tree.completedNodeQueue.add(this);
       }
 
@@ -2166,7 +2115,11 @@ class TreeNode
     //  If the node that should have been selected through was complete
     //  note that in the path, so that on application of the update
     //  the propagation upward from this node can be corrected
-    if (bestCompleteNode != null && bestCompleteValue > bestValue)
+    //  HACK - we disable this, at least for now, in puzzles because of MaxKnights
+    //  which happens to do well from the distorted stats you get without it.  This
+    //  is due to the particular circumstance in MaxKnights that scores can only
+    //  go up!
+    if (bestCompleteNode != null && bestCompleteValue > bestValue && !tree.gameCharacteristics.isPuzzle)
     {
       result.setScoreOverrides(bestCompleteNode.averageScores);
       bestCompleteNode.numVisits++;

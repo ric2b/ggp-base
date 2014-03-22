@@ -59,6 +59,8 @@ public class RolloutProcessorPool
 
         request.process(underlyingStateMachine);
       }
+
+      return false;
     }
 
     int numOutstandingRollouts = numQueuedRollouts - numCompletedRollouts;

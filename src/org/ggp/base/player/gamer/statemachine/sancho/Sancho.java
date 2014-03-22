@@ -228,7 +228,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
   @Override
   public String getName()
   {
-    return "Sancho 1.55c";
+    return "Sancho 1.56";
   }
 
   @Override
@@ -1084,6 +1084,10 @@ public class Sancho extends SampleGamer implements HeuristicProvider
       {
         // TODO Auto-generated catch block
         e.printStackTrace();
+      }
+      if ( mctsTree.root.complete )
+      {
+        System.out.println("Complete root");
       }
 
       System.out.println("Timer expired, current time: " +
