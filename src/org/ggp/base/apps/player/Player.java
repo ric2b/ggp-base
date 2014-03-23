@@ -19,7 +19,6 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.border.TitledBorder;
 
-import com.google.common.collect.Lists;
 import org.ggp.base.apps.player.config.ConfigPanel;
 import org.ggp.base.apps.player.detail.DetailPanel;
 import org.ggp.base.apps.player.match.MatchPanel;
@@ -29,138 +28,268 @@ import org.ggp.base.player.gamer.Gamer;
 import org.ggp.base.util.reflection.ProjectSearcher;
 import org.ggp.base.util.ui.NativeUI;
 
+import com.google.common.collect.Lists;
 
+/**
+ * GUI for launching players.
+ */
 @SuppressWarnings("serial")
 public final class Player extends JPanel
 {
-	private static void createAndShowGUI(Player playerPanel)
-	{
-		JFrame frame = new JFrame("Game Player");
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+  /**
+   * Create and show the GUI in the specified panel.
+   *
+   * @param playerPanel - the panel.
+   */
+  static void createAndShowGUI(Player playerPanel)
+  {
+    JFrame frame = new JFrame("Game Player");
+    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-		frame.setPreferredSize(new Dimension(1024, 768));
-		frame.getContentPane().add(playerPanel);
+    frame.setPreferredSize(new Dimension(1024, 768));
+    frame.getContentPane().add(playerPanel);
 
-		frame.pack();
-		frame.setVisible(true);
-	}
+    frame.pack();
+    frame.setVisible(true);
+  }
 
-	public static void main(String[] args) throws IOException
-	{
-	    NativeUI.setNativeUI();	    
+  /**
+   * Main routine.  Just fire up and run the GUI.
+   *
+   * @param args - ignored.
+   * @throws IOException
+   */
+  public static void main(String[] args) throws IOException
+  {
+    NativeUI.setNativeUI();
 
-	    final Player playerPanel = new Player();
-	    javax.swing.SwingUtilities.invokeLater(new Runnable()
-	    {
+    final Player playerPanel = new Player();
+    javax.swing.SwingUtilities.invokeLater(new Runnable()
+    {
+      @Override
+      public void run()
+      {
+        createAndShowGUI(playerPanel);
+      }
+    });
+  }
 
-		public void run()
-		{
-		    createAndShowGUI(playerPanel);
-		}
-	    });
-	}
+  private final JButton                createButton;
+  private final JTabbedPane            playersTabbedPane;
 
-	private final JButton createButton;
-	private final JTabbedPane playersTabbedPane;
+  private final JTextField             portTextField;
 
-	private final JTextField portTextField;
+  private final JComboBox<String>      typeComboBox;
 
-	private final JComboBox<String> typeComboBox;
-	
-	private Integer defaultPort = 9147;
-	
-	private List<Class<? extends Gamer>> gamers = Lists.newArrayList(ProjectSearcher.GAMERS.getConcreteClasses());
+  private Integer                      defaultPort = 9147;
 
-	public Player()
-	{
-		super(new GridBagLayout());
+  private List<Class<? extends Gamer>> gamers      = Lists
+                                                       .newArrayList(ProjectSearcher.GAMERS
+                                                           .getConcreteClasses());
 
-		portTextField = new JTextField(defaultPort.toString());
-		typeComboBox = new JComboBox<String>();
-		createButton = new JButton(createButtonMethod());
-		playersTabbedPane = new JTabbedPane();
+  /**
+   * Create a Player.
+   */
+  public Player()
+  {
+    super(new GridBagLayout());
 
-		portTextField.setColumns(15);
+    portTextField = new JTextField(defaultPort.toString());
+    typeComboBox = new JComboBox<>();
+    createButton = new JButton(createButtonMethod());
+    playersTabbedPane = new JTabbedPane();
 
-		List<Class<? extends Gamer>> gamersCopy = new ArrayList<Class<? extends Gamer>>(gamers);
-		for(Class<? extends Gamer> gamer : gamersCopy)
-		{
-			Gamer g;
-			try {
-				g = gamer.newInstance();
-				typeComboBox.addItem(g.getName());
-			} catch(Exception ex) {
-			    gamers.remove(gamer);
-			}
-		}
-		typeComboBox.setSelectedItem("Random");
+    portTextField.setColumns(15);
 
-		JPanel managerPanel = new JPanel(new GridBagLayout());
-		managerPanel.setBorder(new TitledBorder("Manager"));
+    // Sancho's name varies (with a version number).  Grab it on the way
+    // through because we want to select it in the list.
+    String lSanchoName = null;
+    List<Class<? extends Gamer>> gamersCopy = new ArrayList<>(gamers);
+    for (Class<? extends Gamer> gamer : gamersCopy)
+    {
+      Gamer lGamer;
+      try
+      {
+        lGamer = gamer.newInstance();
+        String lName = lGamer.getName();
+        typeComboBox.addItem(lName);
+        if (lName.startsWith("Sancho"))
+        {
+          lSanchoName = lName;
+        }
+      }
+      catch (Exception ex)
+      {
+        gamers.remove(gamer);
+      }
+    }
 
-		managerPanel.add(new JLabel("Port:"), new GridBagConstraints(0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(20, 5, 5, 5), 5, 5));
-		managerPanel.add(portTextField, new GridBagConstraints(1, 0, 1, 1, 1.0, 0.0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(20, 5, 5, 5), 5, 5));
-		managerPanel.add(new JLabel("Type:"), new GridBagConstraints(0, 1, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(5, 5, 5, 5), 5, 5));
-		managerPanel.add(typeComboBox, new GridBagConstraints(1, 1, 1, 1, 1.0, 0.0, GridBagConstraints.CENTER, GridBagConstraints.BOTH, new Insets(5, 5, 5, 5), 5, 5));
-		managerPanel.add(createButton, new GridBagConstraints(1, 2, 1, 1, 1.0, 1.0, GridBagConstraints.SOUTH, GridBagConstraints.HORIZONTAL, new Insets(5, 5, 5, 5), 0, 0));
+    // Select Sancho (assuming we found it) - it's what we'll usually want.
+    if (lSanchoName != null)
+    {
+      typeComboBox.setSelectedItem(lSanchoName);
+    }
 
-		JPanel playersPanel = new JPanel(new GridBagLayout());
-		playersPanel.setBorder(new TitledBorder("Players"));
+    JPanel managerPanel = new JPanel(new GridBagLayout());
+    managerPanel.setBorder(new TitledBorder("Manager"));
 
-		playersPanel.add(playersTabbedPane, new GridBagConstraints(0, 0, 1, 1, 1.0, 1.0, GridBagConstraints.CENTER, GridBagConstraints.BOTH, new Insets(5, 5, 5, 5), 5, 5));
+    managerPanel.add(new JLabel("Port:"),
+                     new GridBagConstraints(0,
+                                            0,
+                                            1,
+                                            1,
+                                            0.0,
+                                            0.0,
+                                            GridBagConstraints.EAST,
+                                            GridBagConstraints.NONE,
+                                            new Insets(20, 5, 5, 5),
+                                            5,
+                                            5));
+    managerPanel.add(portTextField,
+                     new GridBagConstraints(1,
+                                            0,
+                                            1,
+                                            1,
+                                            1.0,
+                                            0.0,
+                                            GridBagConstraints.CENTER,
+                                            GridBagConstraints.HORIZONTAL,
+                                            new Insets(20, 5, 5, 5),
+                                            5,
+                                            5));
+    managerPanel.add(new JLabel("Type:"),
+                     new GridBagConstraints(0,
+                                            1,
+                                            1,
+                                            1,
+                                            0.0,
+                                            0.0,
+                                            GridBagConstraints.EAST,
+                                            GridBagConstraints.NONE,
+                                            new Insets(5, 5, 5, 5),
+                                            5,
+                                            5));
+    managerPanel.add(typeComboBox,
+                     new GridBagConstraints(1,
+                                            1,
+                                            1,
+                                            1,
+                                            1.0,
+                                            0.0,
+                                            GridBagConstraints.CENTER,
+                                            GridBagConstraints.BOTH,
+                                            new Insets(5, 5, 5, 5),
+                                            5,
+                                            5));
+    managerPanel.add(createButton,
+                     new GridBagConstraints(1,
+                                            2,
+                                            1,
+                                            1,
+                                            1.0,
+                                            1.0,
+                                            GridBagConstraints.SOUTH,
+                                            GridBagConstraints.HORIZONTAL,
+                                            new Insets(5, 5, 5, 5),
+                                            0,
+                                            0));
 
-		this.add(managerPanel, new GridBagConstraints(0, 0, 1, 1, 0.0, 1.0, GridBagConstraints.CENTER, GridBagConstraints.BOTH, new Insets(5, 5, 5, 5), 5, 5));
-		this.add(playersPanel, new GridBagConstraints(1, 0, 1, 1, 1.0, 1.0, GridBagConstraints.CENTER, GridBagConstraints.BOTH, new Insets(5, 5, 5, 5), 5, 5));
-	}
+    JPanel playersPanel = new JPanel(new GridBagLayout());
+    playersPanel.setBorder(new TitledBorder("Players"));
 
-	private AbstractAction createButtonMethod()
-	{
-		return new AbstractAction("Create")
-		{
+    playersPanel.add(playersTabbedPane,
+                     new GridBagConstraints(0,
+                                            0,
+                                            1,
+                                            1,
+                                            1.0,
+                                            1.0,
+                                            GridBagConstraints.CENTER,
+                                            GridBagConstraints.BOTH,
+                                            new Insets(5, 5, 5, 5),
+                                            5,
+                                            5));
 
-			public void actionPerformed(ActionEvent evt)
-			{
-				try
-				{
-					int port = Integer.valueOf(portTextField.getText());
-					String type = (String) typeComboBox.getSelectedItem();
+    this.add(managerPanel, new GridBagConstraints(0,
+                                                  0,
+                                                  1,
+                                                  1,
+                                                  0.0,
+                                                  1.0,
+                                                  GridBagConstraints.CENTER,
+                                                  GridBagConstraints.BOTH,
+                                                  new Insets(5, 5, 5, 5),
+                                                  5,
+                                                  5));
+    this.add(playersPanel, new GridBagConstraints(1,
+                                                  0,
+                                                  1,
+                                                  1,
+                                                  1.0,
+                                                  1.0,
+                                                  GridBagConstraints.CENTER,
+                                                  GridBagConstraints.BOTH,
+                                                  new Insets(5, 5, 5, 5),
+                                                  5,
+                                                  5));
+  }
 
-					MatchPanel matchPanel = new MatchPanel();
-					NetworkPanel networkPanel = new NetworkPanel();
-					DetailPanel detailPanel = null;
-					ConfigPanel configPanel = null;
-					Gamer gamer = null;
+  private AbstractAction createButtonMethod()
+  {
+    return new AbstractAction("Create")
+    {
+      @Override
+      @SuppressWarnings("synthetic-access")
+      public void actionPerformed(ActionEvent evt)
+      {
+        try
+        {
+          int port = Integer.valueOf(portTextField.getText());
+          String type = (String)typeComboBox.getSelectedItem();
 
-					Class<?> gamerClass = gamers.get(typeComboBox.getSelectedIndex());
-					try {
-						gamer = (Gamer) gamerClass.newInstance();
-					} catch(Exception ex) { throw new RuntimeException(ex); }
-					detailPanel = gamer.getDetailPanel();
-					configPanel = gamer.getConfigPanel();
+          MatchPanel matchPanel = new MatchPanel();
+          NetworkPanel networkPanel = new NetworkPanel();
+          DetailPanel detailPanel = null;
+          ConfigPanel configPanel = null;
+          Gamer gamer = null;
 
-					gamer.addObserver(matchPanel);
-					gamer.addObserver(detailPanel);
+          Class<?> gamerClass = gamers.get(typeComboBox.getSelectedIndex());
+          try
+          {
+            gamer = (Gamer)gamerClass.newInstance();
+          }
+          catch (Exception ex)
+          {
+            throw new RuntimeException(ex);
+          }
+          detailPanel = gamer.getDetailPanel();
+          configPanel = gamer.getConfigPanel();
 
-					GamePlayer player = new GamePlayer(port, gamer);
-					player.addObserver(networkPanel);
-					player.start();					
+          gamer.addObserver(matchPanel);
+          gamer.addObserver(detailPanel);
 
-					JTabbedPane tab = new JTabbedPane();
-					tab.addTab("Match", matchPanel);
-					tab.addTab("Network", networkPanel);
-					tab.addTab("Configuration", configPanel);
-					tab.addTab("Detail", detailPanel);
-					playersTabbedPane.addTab(type + " (" + player.getGamerPort() + ")", tab);
-					playersTabbedPane.setSelectedIndex(playersTabbedPane.getTabCount()-1);
-					
-					defaultPort++;
-					portTextField.setText(defaultPort.toString());
-				}
-				catch (Exception e)
-				{
-					e.printStackTrace();
-				}
-			}
-		};
-	}
+          GamePlayer player = new GamePlayer(port, gamer);
+          player.addObserver(networkPanel);
+          player.start();
+
+          JTabbedPane tab = new JTabbedPane();
+          tab.addTab("Match", matchPanel);
+          tab.addTab("Network", networkPanel);
+          tab.addTab("Configuration", configPanel);
+          tab.addTab("Detail", detailPanel);
+          playersTabbedPane.addTab(type + " (" + player.getGamerPort() + ")",
+                                   tab);
+          playersTabbedPane
+              .setSelectedIndex(playersTabbedPane.getTabCount() - 1);
+
+          defaultPort++;
+          portTextField.setText(defaultPort.toString());
+        }
+        catch (Exception e)
+        {
+          e.printStackTrace();
+        }
+      }
+    };
+  }
 }

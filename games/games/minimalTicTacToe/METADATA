@@ -1,0 +1,7 @@
+{
+  "gameName": "Minimal-Tic-Tac-Toe",  
+  "rulesheet": "Minimal-ticTacToe.kif",
+  "stylesheet": "Minimal-ticTacToe.xsl",
+  "description": "Minimal-ticTacToe.txt",
+  "user_interface": "Minimal-ticTacToe.js"
+}

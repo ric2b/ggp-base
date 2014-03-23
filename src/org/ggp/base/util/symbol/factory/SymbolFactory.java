@@ -1,3 +1,4 @@
+
 package org.ggp.base.util.symbol.factory;
 
 import java.util.ArrayList;
@@ -13,72 +14,69 @@ import org.ggp.base.util.symbol.grammar.SymbolPool;
 
 public final class SymbolFactory
 {
-    public static Symbol create(String string) throws SymbolFormatException
+  public static Symbol create(String string) throws SymbolFormatException
+  {
+    try
     {
-        try
-        {
-            String preprocessed = preprocess(string);
-            List<String> tokens = lex(preprocessed);
-            return convert(new LinkedList<String>(tokens));
-        }
-        catch (Exception e)
-        {
-            throw new SymbolFormatException(string);
-        }
-    }    
+      String preprocessed = preprocess(string);
+      List<String> tokens = lex(preprocessed);
+      return convert(new LinkedList<>(tokens));
+    }
+    catch (Exception e)
+    {
+      throw new SymbolFormatException(string);
+    }
+  }
 
-    /* Private, implementation-specific methods below here */
-    
-	private static Symbol convert(LinkedList<String> tokens)
-	{
-		if (tokens.getFirst().equals("("))
-		{
-			return convertList(tokens);
-		}
-		else
-		{
-			return convertAtom(tokens);
-		}
-	}
+  /* Private, implementation-specific methods below here */
 
-	private static SymbolAtom convertAtom(LinkedList<String> tokens)
-	{
-		return SymbolPool.getAtom(tokens.removeFirst());
-	}
+  private static Symbol convert(LinkedList<String> tokens)
+  {
+    if (tokens.getFirst().equals("("))
+    {
+      return convertList(tokens);
+    }
+    return convertAtom(tokens);
+  }
 
-	private static SymbolList convertList(LinkedList<String> tokens)
-	{
-		List<Symbol> contents = new ArrayList<Symbol>();
+  private static SymbolAtom convertAtom(LinkedList<String> tokens)
+  {
+    return SymbolPool.getAtom(tokens.removeFirst());
+  }
 
-		tokens.removeFirst();
-		while (!tokens.getFirst().equals(")"))
-		{
-			contents.add(convert(tokens));
-		}
-		tokens.removeFirst();
+  private static SymbolList convertList(LinkedList<String> tokens)
+  {
+    List<Symbol> contents = new ArrayList<>();
 
-		return SymbolPool.getList(contents);
-	}
+    tokens.removeFirst();
+    while (!tokens.getFirst().equals(")"))
+    {
+      contents.add(convert(tokens));
+    }
+    tokens.removeFirst();
 
-	private static List<String> lex(String string)
-	{
-		List<String> tokens = new ArrayList<String>();
-		for (String token : string.split(" "))
-		{
-			tokens.add(token);
-		}
+    return SymbolPool.getList(contents);
+  }
 
-		return tokens;
-	}
+  private static List<String> lex(String string)
+  {
+    List<String> tokens = new ArrayList<>();
+    for (String token : string.split(" "))
+    {
+      tokens.add(token);
+    }
 
-	private static String preprocess(String string)
-	{
-		string = string.replaceAll("\\(", " ( ");
-		string = string.replaceAll("\\)", " ) ");
+    return tokens;
+  }
 
-		string = string.replaceAll("\\s+", " ");
-		string = string.trim();
+  private static String preprocess(String string)
+  {
+    string = string.replaceAll("\\(", " ( ");
+    string = string.replaceAll("\\)", " ) ");
 
-		return string;
-	}
+    string = string.replaceAll("\\s+", " ");
+    string = string.trim();
+
+    return string;
+  }
 }

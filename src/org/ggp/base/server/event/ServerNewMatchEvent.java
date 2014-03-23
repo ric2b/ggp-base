@@ -1,3 +1,4 @@
+
 package org.ggp.base.server.event;
 
 import java.io.Serializable;
@@ -12,23 +13,23 @@ import org.ggp.base.util.statemachine.Role;
 public final class ServerNewMatchEvent extends Event implements Serializable
 {
 
-	private final List<Role> roles;
-	private final MachineState initialState;
+  private final List<Role>   roles;
+  private final MachineState initialState;
 
-	public ServerNewMatchEvent(List<Role> roles, MachineState initialState)
-	{
-		this.roles = roles;
-		this.initialState = initialState;
-	}
+  public ServerNewMatchEvent(List<Role> roles, MachineState initialState)
+  {
+    this.roles = roles;
+    this.initialState = initialState;
+  }
 
-	public List<Role> getRoles()
-	{
-		return roles;
-	}
-	
-	public MachineState getInitialState()
-	{
-		return initialState;
-	}
+  public List<Role> getRoles()
+  {
+    return roles;
+  }
+
+  public MachineState getInitialState()
+  {
+    return initialState;
+  }
 
 }

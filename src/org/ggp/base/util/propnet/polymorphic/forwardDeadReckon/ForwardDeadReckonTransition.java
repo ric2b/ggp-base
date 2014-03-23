@@ -1,3 +1,4 @@
+
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
 import java.util.Set;
@@ -12,59 +13,68 @@ import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.Bidirectio
  * The Transition class is designed to represent pass-through gates.
  */
 @SuppressWarnings("serial")
-public final class ForwardDeadReckonTransition extends ForwardDeadReckonComponent implements PolymorphicTransition
+public final class ForwardDeadReckonTransition extends
+                                              ForwardDeadReckonComponent
+                                                                        implements
+                                                                        PolymorphicTransition
 {
-	private ForwardDeadReckonInternalMachineState[] owningTransitionInfoSet = null;
-	private ForwardDeadReckonPropositionCrossReferenceInfo transitionInfo = null;
-	
-	public ForwardDeadReckonTransition(int numOutputs) {
-		super(1, numOutputs);
-	}
+  private ForwardDeadReckonInternalMachineState[]        owningTransitionInfoSet = null;
+  private ForwardDeadReckonPropositionCrossReferenceInfo transitionInfo          = null;
 
-    public void setKnownChangedState(boolean newState, int instanceId, ForwardDeadReckonComponent source)
+  public ForwardDeadReckonTransition(int numOutputs)
+  {
+    super(1, numOutputs);
+  }
+
+  @Override
+  public void setKnownChangedState(boolean newState,
+                                   int instanceId,
+                                   ForwardDeadReckonComponent source)
+  {
+    cachedValue[instanceId] = newState;
+    if (owningTransitionInfoSet[instanceId] != null)
     {
-		cachedValue[instanceId] = newState;
-		if ( owningTransitionInfoSet[instanceId] != null )
-		{
-			//ProfileSection methodSection = new ProfileSection("ForwardDeadReckonTransition.legalStateChange");
-			//try
-			{
-				if ( newState )
-				{
-					owningTransitionInfoSet[instanceId].add(transitionInfo);
-				}
-				else
-				{
-					owningTransitionInfoSet[instanceId].remove(transitionInfo);
-				}
-			}
-			//finally
-			//{
-			//	methodSection.exitScope();
-			//}
-		}
+      //ProfileSection methodSection = new ProfileSection("ForwardDeadReckonTransition.legalStateChange");
+      //try
+      {
+        if (newState)
+        {
+          owningTransitionInfoSet[instanceId].add(transitionInfo);
+        }
+        else
+        {
+          owningTransitionInfoSet[instanceId].remove(transitionInfo);
+        }
+      }
+      //finally
+      //{
+      //	methodSection.exitScope();
+      //}
     }
-    
-    public void setTransitionSet(ForwardDeadReckonPropositionCrossReferenceInfo transitionInfo, int instanceId, ForwardDeadReckonInternalMachineState owningSet)
-    {
-    	this.owningTransitionInfoSet[instanceId] = owningSet;
-    	this.transitionInfo = transitionInfo;
-    }
-    
-    @Override
-	public void crystalize(int numInstances)
-    {
-    	super.crystalize(numInstances);
-    	
-    	owningTransitionInfoSet = new ForwardDeadReckonInternalMachineState[numInstances];
-    }
-    
-	/**
-	 * @see org.ggp.base.util.propnet.architecture.Component#toString()
-	 */
-	@Override
-	public String toString()
-	{
-		return toDot("box", "grey", "TRANSITION");
-	}
+  }
+
+  public void setTransitionSet(ForwardDeadReckonPropositionCrossReferenceInfo transitionInfo,
+                               int instanceId,
+                               ForwardDeadReckonInternalMachineState owningSet)
+  {
+    this.owningTransitionInfoSet[instanceId] = owningSet;
+    this.transitionInfo = transitionInfo;
+  }
+
+  @Override
+  public void crystalize(int numInstances)
+  {
+    super.crystalize(numInstances);
+
+    owningTransitionInfoSet = new ForwardDeadReckonInternalMachineState[numInstances];
+  }
+
+  /**
+   * @see org.ggp.base.util.propnet.architecture.Component#toString()
+   */
+  @Override
+  public String toString()
+  {
+    return toDot("box", "grey", "TRANSITION");
+  }
 }

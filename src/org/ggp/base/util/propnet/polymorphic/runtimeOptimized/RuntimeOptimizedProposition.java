@@ -1,7 +1,7 @@
+
 package org.ggp.base.util.propnet.polymorphic.runtimeOptimized;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
@@ -11,131 +11,134 @@ import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.Bidirectio
  * The Proposition class is designed to represent named latches.
  */
 @SuppressWarnings("serial")
-public final class RuntimeOptimizedProposition extends RuntimeOptimizedComponent implements PolymorphicProposition
+public final class RuntimeOptimizedProposition extends
+                                              RuntimeOptimizedComponent
+                                                                       implements
+                                                                       PolymorphicProposition
 {
-	/** The name of the Proposition. */
-	private GdlSentence name;
-	/** The value of the Proposition. */
-	private boolean value;
-	private PolymorphicTransition predecessorTransition = null;
+  /** The name of the Proposition. */
+  private GdlSentence           name;
+  /** The value of the Proposition. */
+  private boolean               value;
+  private PolymorphicTransition predecessorTransition = null;
 
-	/**
-	 * Creates a new Proposition with name <tt>name</tt>.
-	 * @param numOutputs 
-	 * 
-	 * @param name
-	 *            The name of the Proposition.
-	 */
-	public RuntimeOptimizedProposition(int numOutputs, GdlSentence name)
-	{
-		super(1, numOutputs);
-		
-		this.name = name;
-		this.value = false;
-	}
+  /**
+   * Creates a new Proposition with name <tt>name</tt>.
+   *
+   * @param numOutputs
+   * @param name
+   *          The name of the Proposition.
+   */
+  public RuntimeOptimizedProposition(int numOutputs, GdlSentence name)
+  {
+    super(1, numOutputs);
 
-	/**
-	 * Getter method.
-	 * 
-	 * @return The name of the Proposition.
-	 */
-	public GdlSentence getName()
-	{
-		return name;
-	}
-	
-    /**
-     * Setter method.
-     * 
-     * This should only be rarely used; the name of a proposition
-     * is usually constant over its entire lifetime.
-     * 
-     * @return The name of the Proposition.
-     */
-    public void setName(GdlSentence newName)
+    this.name = name;
+    this.value = false;
+  }
+
+  /**
+   * Getter method.
+   *
+   * @return The name of the Proposition.
+   */
+  @Override
+  public GdlSentence getName()
+  {
+    return name;
+  }
+
+  /**
+   * Setter method. This should only be rarely used; the name of a proposition
+   * is usually constant over its entire lifetime.
+   *
+   * @return The name of the Proposition.
+   */
+  @Override
+  public void setName(GdlSentence newName)
+  {
+    name = newName;
+  }
+
+  @Override
+  public void addInput(PolymorphicComponent input)
+  {
+    super.addInput(input);
+
+    if (input instanceof PolymorphicTransition)
     {
-        name = newName;
+      predecessorTransition = (PolymorphicTransition)input;
     }
-    
-    @Override
-    public void addInput(PolymorphicComponent input)
+  }
+
+  /**
+   * Returns the current value of the Proposition.
+   *
+   * @see org.ggp.base.util.propnet.architecture.Component#getValueInternal()
+   */
+  @Override
+  protected boolean getValueInternal()
+  {
+    //	Pass-through for backward propagation in all cases except where predecessor is a transition
+    if (inputIndex == 0 || predecessorTransition != null)
     {
-    	super.addInput(input);
-    	
-    	if ( input instanceof PolymorphicTransition )
-    	{
-    		predecessorTransition = (PolymorphicTransition)input;
-    	}
+      return value;
     }
+    return inputsArray[0].getValue();
+  }
 
-	/**
-	 * Returns the current value of the Proposition.
-	 * 
-	 * @see org.ggp.base.util.propnet.architecture.Component#getValueInternal()
-	 */
-	@Override
-	protected boolean getValueInternal()
-	{
-		//	Pass-through for backward propagation in all cases except where predecessor is a transition
-		if ( inputIndex == 0 || predecessorTransition != null )
-		{
-			return value;
-		}
-		else
-		{
-			return inputsArray[0].getValue();
-		}
-	}
-
-	@Override
-    public void reset(boolean disable)
+  @Override
+  public void reset(boolean disable)
+  {
+    if (disable)
     {
-		if ( disable )
-		{
-			value = false;
-		}
-		
-		super.reset(disable);
+      value = false;
     }
 
-	/**
-	 * Setter method.
-	 * 
-	 * @param value
-	 *            The new value of the Proposition.
-	 */
-	public void setValue(boolean value)
-	{
-		if ( this.value != value )
-		{
-			this.value = value;
-			cachedValue = value;
-			dirty = false;
-			
-    		for(RuntimeOptimizedComponent output : outputsArray)
-    		{
-    			output.setDirty(!value, this);
-    		}
-		}
-	}
+    super.reset(disable);
+  }
 
-    public void setKnownChangedState(boolean newState, BidirectionalPropagationComponent source)
+  /**
+   * Setter method.
+   *
+   * @param value
+   *          The new value of the Proposition.
+   */
+  @Override
+  public void setValue(boolean value)
+  {
+    if (this.value != value)
     {
-		dirty = false;
-		cachedValue = newState;
-    	
-		for(RuntimeOptimizedComponent output : outputsArray)
-		{
-			output.setKnownChangedState(newState, this);
-		}
+      this.value = value;
+      cachedValue = value;
+      dirty = false;
+
+      for (RuntimeOptimizedComponent output : outputsArray)
+      {
+        output.setDirty(!value, this);
+      }
     }
-    
-	/**
-	 * @see org.ggp.base.util.propnet.architecture.Component#toString()
-	 */
-	@Override
-	public String toString()
-	{
-		return toDot("circle", value ? "red" : "white", name.toString());
-	}
+  }
+
+  @Override
+  public void setKnownChangedState(boolean newState,
+                                   BidirectionalPropagationComponent source)
+  {
+    dirty = false;
+    cachedValue = newState;
+
+    for (RuntimeOptimizedComponent output : outputsArray)
+    {
+      output.setKnownChangedState(newState, this);
+    }
+  }
+
+  /**
+   * @see org.ggp.base.util.propnet.architecture.Component#toString()
+   */
+  @Override
+  public String toString()
+  {
+    return toDot("circle", value ? "red" : "white", name.toString());
+  }
 }

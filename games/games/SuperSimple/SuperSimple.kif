@@ -1,0 +1,18 @@
+(role player)
+
+(  base (marked p))
+(  base (unmarked p))
+
+(  input player (mark p))
+
+(init (unmarked p))
+
+(<= (legal player (mark p)) (true (unmarked p)))
+
+
+(<= (next (marked p)) (does player (mark p)))
+
+(<= terminal (true (marked p)))
+
+(<= (goal player 100) terminal)
+

@@ -1,3 +1,4 @@
+
 package org.ggp.base.util.game;
 
 import java.io.File;
@@ -13,21 +14,32 @@ import org.ggp.base.util.files.FileUtils;
  * 
  * @author Sam
  */
-public final class TestGameRepository extends GameRepository {
-    protected Set<String> getUncachedGameKeys() {
-        Set<String> theKeys = new HashSet<String>();
-        for(File game : new File("games/test").listFiles()) {
-            if(!game.getName().endsWith(".kif")) continue;
-            theKeys.add(game.getName().replace(".kif", ""));
-        }
-        return theKeys;
+public final class TestGameRepository extends GameRepository
+{
+  @Override
+  protected Set<String> getUncachedGameKeys()
+  {
+    Set<String> theKeys = new HashSet<String>();
+    for (File game : new File("games/test").listFiles())
+    {
+      if (!game.getName().endsWith(".kif"))
+        continue;
+      theKeys.add(game.getName().replace(".kif", ""));
     }
-    
-    protected Game getUncachedGame(String theKey) {
-    	try {
-    		return Game.createEphemeralGame(Game.preprocessRulesheet(FileUtils.readFileAsString(new File("games/test/" + theKey + ".kif"))));
-    	} catch (Exception e) {
-    		throw new RuntimeException(e);
-    	}        
+    return theKeys;
+  }
+
+  @Override
+  protected Game getUncachedGame(String theKey)
+  {
+    try
+    {
+      return Game.createEphemeralGame(Game.preprocessRulesheet(FileUtils
+          .readFileAsString(new File("games/test/" + theKey + ".kif"))));
     }
+    catch (Exception e)
+    {
+      throw new RuntimeException(e);
+    }
+  }
 }

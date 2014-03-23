@@ -1,3 +1,4 @@
+
 package org.ggp.base.server.threads;
 
 import java.util.HashSet;
@@ -17,42 +18,70 @@ import org.ggp.base.util.symbol.factory.exceptions.SymbolFormatException;
 
 public class PlayRequestThread extends RequestThread
 {
-	private final GameServer gameServer;
-	private final List<Move> legalMoves;
-	private final Match match;
-	private final Role role;
-	
-	private Move move;
+  private final GameServer gameServer;
+  private final List<Move> legalMoves;
+  private final Match      match;
+  private final Role       role;
 
-	public PlayRequestThread(GameServer gameServer, Match match, List<Move> previousMoves, List<Move> legalMoves, Role role, String host, int port, String playerName, boolean unlimitedTime)
-	{
-		super(gameServer, role, host, port, playerName, unlimitedTime ? -1 : (match.getPlayClock() * 1000 + 1000), RequestBuilder.getPlayRequest(match.getMatchId(), previousMoves, match.getGdlScrambler()));
-		this.gameServer = gameServer;
-		this.legalMoves = legalMoves;
-		this.match = match;
-		this.role = role;
+  private Move             move;
 
-		move = legalMoves.get(new Random().nextInt(legalMoves.size()));
-	}
-	
-	public Move getMove()
-	{
-		return move;
-	}
-	
-	@Override
-	protected void handleResponse(String response) {
-		try {
-			Move candidateMove = gameServer.getStateMachine().getMoveFromTerm(GdlFactory.createTerm(match.getGdlScrambler().unscramble(response).toString()));
-			if (new HashSet<Move>(legalMoves).contains(candidateMove)) {
-				move = candidateMove;
-			} else {
-				gameServer.notifyObservers(new ServerIllegalMoveEvent(role, candidateMove));
-			}
-		} catch (GdlFormatException e) {
-			gameServer.notifyObservers(new ServerIllegalMoveEvent(role, null));
-		} catch (SymbolFormatException e) {
-			gameServer.notifyObservers(new ServerIllegalMoveEvent(role, null));
-		}
-	}
+  public PlayRequestThread(GameServer gameServer,
+                           Match match,
+                           List<Move> previousMoves,
+                           List<Move> legalMoves,
+                           Role role,
+                           String host,
+                           int port,
+                           String playerName,
+                           boolean unlimitedTime)
+  {
+    super(gameServer,
+          role,
+          host,
+          port,
+          playerName,
+          unlimitedTime ? -1 : (match.getPlayClock() * 1000 + 1000),
+          RequestBuilder.getPlayRequest(match.getMatchId(),
+                                        previousMoves,
+                                        match.getGdlScrambler()));
+    this.gameServer = gameServer;
+    this.legalMoves = legalMoves;
+    this.match = match;
+    this.role = role;
+
+    move = legalMoves.get(new Random().nextInt(legalMoves.size()));
+  }
+
+  public Move getMove()
+  {
+    return move;
+  }
+
+  @Override
+  protected void handleResponse(String response)
+  {
+    try
+    {
+      Move candidateMove = gameServer.getStateMachine()
+          .getMoveFromTerm(GdlFactory.createTerm(match.getGdlScrambler()
+              .unscramble(response).toString()));
+      if (new HashSet<Move>(legalMoves).contains(candidateMove))
+      {
+        move = candidateMove;
+      }
+      else
+      {
+        gameServer.notifyObservers(new ServerIllegalMoveEvent(role,
+                                                              candidateMove));
+      }
+    }
+    catch (GdlFormatException e)
+    {
+      gameServer.notifyObservers(new ServerIllegalMoveEvent(role, null));
+    }
+    catch (SymbolFormatException e)
+    {
+      gameServer.notifyObservers(new ServerIllegalMoveEvent(role, null));
+    }
+  }
 }

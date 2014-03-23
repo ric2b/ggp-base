@@ -1,3 +1,4 @@
+
 package org.ggp.base.server.event;
 
 import java.io.Serializable;
@@ -10,16 +11,16 @@ import org.ggp.base.util.statemachine.Role;
 public final class ServerTimeoutEvent extends Event implements Serializable
 {
 
-	private final Role role;
+  private final Role role;
 
-	public ServerTimeoutEvent(Role role)
-	{
-		this.role = role;
-	}
+  public ServerTimeoutEvent(Role role)
+  {
+    this.role = role;
+  }
 
-	public Role getRole()
-	{
-		return role;
-	}
+  public Role getRole()
+  {
+    return role;
+  }
 
 }

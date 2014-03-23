@@ -1,3 +1,4 @@
+
 package org.ggp.base.util.propnet.polymorphic.learning;
 
 import java.util.List;
@@ -17,60 +18,66 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
 import org.ggp.base.util.statemachine.Role;
 
-public class LearningComponentFactory extends PolymorphicComponentFactory {
+public class LearningComponentFactory extends PolymorphicComponentFactory
+{
 
-	public LearningComponentFactory()
-	{
-	}
-	
-	@Override
-	public PolymorphicPropNet createPropNet(PropNet basicPropNet)
-	{
-		return new PolymorphicPropNet(basicPropNet, this);
-	}
-	
-	@Override
-	public PolymorphicPropNet createPropNet(PolymorphicPropNet propNet)
-	{
-		return new PolymorphicPropNet(propNet, this);
-	}
-	
-	@Override
-	public PolymorphicPropNet createPropNet(List<Role> roles, Set<PolymorphicComponent> components)
-	{
-		return new PolymorphicPropNet(roles, components, this);
-	}
+  public LearningComponentFactory()
+  {
+  }
 
-	@Override
-	public PolymorphicAnd createAnd(int numInputs, int numOutputs) {
-		return new LearningAnd();
-	}
-	
-	@Override
-	public PolymorphicOr createOr(int numInputs, int numOutputs) {
-		return new LearningOr();
-	}
-	
-	@Override
-	public PolymorphicNot createNot(int numOutputs) {
-		return new LearningNot();
-	}
+  @Override
+  public PolymorphicPropNet createPropNet(PropNet basicPropNet)
+  {
+    return new PolymorphicPropNet(basicPropNet, this);
+  }
 
-	@Override
-	public PolymorphicConstant createConstant(int numOutputs, boolean value)
-	{
-		return new LearningConstant(value);
-	}
-	
-	@Override
-	public PolymorphicProposition createProposition(int numOutputs, GdlSentence name)
-	{
-		return new LearningProposition(name);
-	}
+  @Override
+  public PolymorphicPropNet createPropNet(PolymorphicPropNet propNet)
+  {
+    return new PolymorphicPropNet(propNet, this);
+  }
 
-	@Override
-	public PolymorphicTransition createTransition(int numOutputs)
-	{
-		return new LearningTransition();
-	}
+  @Override
+  public PolymorphicPropNet createPropNet(List<Role> roles,
+                                          Set<PolymorphicComponent> components)
+  {
+    return new PolymorphicPropNet(roles, components, this);
+  }
+
+  @Override
+  public PolymorphicAnd createAnd(int numInputs, int numOutputs)
+  {
+    return new LearningAnd();
+  }
+
+  @Override
+  public PolymorphicOr createOr(int numInputs, int numOutputs)
+  {
+    return new LearningOr();
+  }
+
+  @Override
+  public PolymorphicNot createNot(int numOutputs)
+  {
+    return new LearningNot();
+  }
+
+  @Override
+  public PolymorphicConstant createConstant(int numOutputs, boolean value)
+  {
+    return new LearningConstant(value);
+  }
+
+  @Override
+  public PolymorphicProposition createProposition(int numOutputs,
+                                                  GdlSentence name)
+  {
+    return new LearningProposition(name);
+  }
+
+  @Override
+  public PolymorphicTransition createTransition(int numOutputs)
+  {
+    return new LearningTransition();
+  }
 }

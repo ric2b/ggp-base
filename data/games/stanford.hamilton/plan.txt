@@ -1,0 +1,1 @@
+move h,move g,move q,move r,move i,move j,move b,move c,move d,move e,move f,move o,move n,move m,move l,move k,move s,move t,move p
