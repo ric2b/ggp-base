@@ -25,7 +25,7 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 
 class TreeNode
 {
-  public class TreeNodeRef
+  public static class TreeNodeRef
   {
     public TreeNode node;
     public int      seq;
@@ -2596,8 +2596,8 @@ class TreeNode
       pathTrace = new StringBuffer("Most likely path: ");
     }
     assert(pathTrace != null);
-    pathTrace.append(result); // !! ARR No.  Needs to be the move for the deciding role
-    pathTrace.append(", ");
+    pathTrace.append(result);
+    pathTrace.append(roleIndex == 0 ? ", " : " | ");
 
     if ((bestNode != null) && (bestNode.children != null))
     {
