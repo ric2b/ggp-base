@@ -25,7 +25,7 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 
 class TreeNode
 {
-  public class TreeNodeRef
+  public static class TreeNodeRef
   {
     public TreeNode node;
     public int      seq;
@@ -38,34 +38,34 @@ class TreeNode
   }
 
   /**
-   *
+   * The tree in which we're a node.
    */
   private final MCTSTree tree;
 
-  static final double                           epsilon             = 1e-6;
+  private static final double           EPSILON             = 1e-6;
 
   int                                   seq                 = -1;
   int                                   numVisits           = 0;
-  private int                                   numUpdates          = 0;
+  private int                           numUpdates          = 0;
   double[]                              averageScores;
-  private double[]                              averageSquaredScores;
-  private int[]                                 numChoices;
+  private double[]                      averageSquaredScores;
+  private int[]                         numChoices;
   ForwardDeadReckonInternalMachineState state;
   int                                   decidingRoleIndex;
-  private boolean                               isTerminal          = false;
+  private boolean                       isTerminal          = false;
   TreeEdge[]                            children            = null;
   Set<TreeNode>                         parents             = new HashSet<TreeNode>();
   int                                   trimmedChildren     = 0;
-  private int                                   sweepSeq;
+  private int                           sweepSeq;
   //private TreeNode sweepParent = null;
-  boolean                                       freed               = false;
-  int                                           trimCount           = 0;
-  private int                                   leastLikelyWinner   = -1;
-  private double                                leastLikelyRunnerUpValue;
-  private int                                   mostLikelyWinner    = -1;
-  private double                                mostLikelyRunnerUpValue;
+  boolean                               freed               = false;
+  int                                   trimCount           = 0;
+  private int                           leastLikelyWinner   = -1;
+  private double                        leastLikelyRunnerUpValue;
+  private int                           mostLikelyWinner    = -1;
+  private double                        mostLikelyRunnerUpValue;
   boolean                               complete            = false;
-  private boolean                               allChildrenComplete = false;
+  private boolean                       allChildrenComplete = false;
 
   TreeNode(MCTSTree tree, int numRoles) throws GoalDefinitionException
   {
@@ -126,7 +126,7 @@ class TreeNode
 
             double weight = (exploitationUct + 1 / Math
                 .log(primaryPathParent.numVisits + 1)) *
-                edge.child.node.numVisits + epsilon;
+                edge.child.node.numVisits + EPSILON;
 
             totalWeight += weight;
             for (int i = 0; i < tree.numRoles; i++)
@@ -741,7 +741,7 @@ class TreeNode
       //	don't require all nephews to be complete to complete this node at the floor
       if (!hasSiblings() ||
           (floorDeciderScore != null && floorDeciderScore[roleIndex] +
-          epsilon >= bestValues[roleIndex]))
+          EPSILON >= bestValues[roleIndex]))
       {
         //	There was only one opponent choice so this is not after all
         //	incomplete information, so complete with the best choice for
@@ -757,7 +757,7 @@ class TreeNode
 
         for (int i = 0; i < tree.numRoles; i++)
         {
-          if (Math.abs(averageValues[i] - bestValues[i]) > epsilon)
+          if (Math.abs(averageValues[i] - bestValues[i]) > EPSILON)
           {
             allImmediateChildrenComplete = allNephewsComplete;
 
@@ -1603,7 +1603,7 @@ class TreeNode
       total += scores[i];
     }
 
-    if (total > 0 && Math.abs(total - 100) > epsilon)
+    if (total > 0 && Math.abs(total - 100) > EPSILON)
     {
       System.out.println("Bad score vector");
     }
@@ -1926,7 +1926,7 @@ class TreeNode
               if (c.numVisits == 0 && !c.complete)
               {
                 // small random number to break ties randomly in unexpanded nodes
-                uctValue = 1000 + tree.r.nextDouble() * epsilon;
+                uctValue = 1000 + tree.r.nextDouble() * EPSILON;
               }
               else
               {
@@ -1985,7 +1985,7 @@ class TreeNode
                   if (children[i].numChildVisits == 0 && !c.complete)
                   {
                     // small random number to break ties randomly in unexpanded nodes
-                    uctValue = 1000 + tree.r.nextDouble() * epsilon;
+                    uctValue = 1000 + tree.r.nextDouble() * EPSILON;
                   }
                   else
                   {
@@ -2469,8 +2469,7 @@ class TreeNode
     }
   }
 
-  @SuppressWarnings("null")
-  public Move getBestMove(boolean traceResponses)
+  public Move getBestMove(boolean traceResponses, StringBuffer pathTrace)
   {
     double bestScore = -Double.MAX_VALUE;
     double bestRawScore = -Double.MAX_VALUE;
@@ -2479,6 +2478,17 @@ class TreeNode
     Move result = null;
     boolean anyComplete = false;
     TreeNode bestNode = null;
+
+    // This routine is called recursively for path tracing purposes.  When
+    // calling this routing for path tracing purposes, don't make any other
+    // debugging output (because it would be confusing).
+    boolean lRecursiveCall = (pathTrace != null);
+
+    // Find the role which has a choice at this node.  If this function is
+    // being called for real (rather than for debug trace) it MUST be our role
+    // (always 0), otherwise why are we trying to get the best move?
+    int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
+    assert(lRecursiveCall || roleIndex == 0);
 
     for (TreeEdge edge : children)
     {
@@ -2500,13 +2510,15 @@ class TreeNode
       TreeNode child = edge.child.node;
 
       double selectionScore;
-      double moveScore = (tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.isMultiPlayer || anyComplete || tree.disableOnelevelMinimax) ? child.averageScores[0]
-          : child
-          .scoreForMostLikelyResponse();
+      double moveScore = (tree.gameCharacteristics.isSimultaneousMove ||
+                          tree.gameCharacteristics.isMultiPlayer ||
+                          anyComplete ||
+                          tree.disableOnelevelMinimax) ? child.averageScores[roleIndex] :
+                                                         child.scoreForMostLikelyResponse();
       //	If we have complete nodes with equal scores choose the one with the highest variance
-      if (edge.child.node.complete)
+      if (child.complete)
       {
-        double varianceMeasure = child.averageSquaredScores[0] / 100;
+        double varianceMeasure = child.averageSquaredScores[roleIndex] / 100;
 
         if (moveScore < 0.1)
         {
@@ -2521,11 +2533,15 @@ class TreeNode
             (1 - 20 * Math.log(numVisits) /
                 (20 * Math.log(numVisits) + child.numVisits));
       }
-      System.out.println("Move " + edge.jointPartialMove[0].move +
-                         " scores " + moveScore + " (selectionScore score " +
-                         selectionScore + ", selection count " +
-                         child.numVisits + ", seq " + child.seq +
-                         (child.complete ? ", complete" : "") + ")");
+      if (!lRecursiveCall)
+      {
+        System.out.println("Move " + edge.jointPartialMove[roleIndex].move +
+                           " scores " + moveScore + " (selectionScore score " +
+                           selectionScore + ", selection count " +
+                           child.numVisits + ", seq " + child.seq +
+                           (child.complete ? ", complete" : "") + ")");
+      }
+
       if (child.children != null && !child.complete && traceResponses)
       {
         child.traceFirstChoiceNode();
@@ -2541,18 +2557,18 @@ class TreeNode
       if (selectionScore > bestScore ||
           (moveScore == bestScore && child.complete && (child.numVisits > mostSelected || !bestNode.complete)) ||
           (bestNode != null && bestNode.complete && !child.complete &&
-          bestNode.averageScores[0] <= tree.rolloutPool.lowestRolloutScoreSeen && tree.rolloutPool.lowestRolloutScoreSeen < 100))
+          bestNode.averageScores[roleIndex] <= tree.rolloutPool.lowestRolloutScoreSeen && tree.rolloutPool.lowestRolloutScoreSeen < 100))
       {
         bestNode = child;
         bestScore = selectionScore;
         mostSelected = child.numVisits;
-        result = edge.jointPartialMove[0].move;
+        result = edge.jointPartialMove[roleIndex].move;
       }
-      if (child.averageScores[0] > bestRawScore ||
-          (child.averageScores[0] == bestRawScore && child.complete && child.averageScores[0] > 0))
+      if (child.averageScores[roleIndex] > bestRawScore ||
+          (child.averageScores[roleIndex] == bestRawScore && child.complete && child.averageScores[roleIndex] > 0))
       {
-        bestRawScore = child.averageScores[0];
-        rawResult = edge.jointPartialMove[0].move;
+        bestRawScore = child.averageScores[roleIndex];
+        rawResult = edge.jointPartialMove[roleIndex].move;
       }
     }
 
@@ -2560,16 +2576,38 @@ class TreeNode
 
     //dumpTree("C:\\temp\\mctsTree.txt");
 
-    if (result == null)
+    if (!lRecursiveCall)
     {
-      System.out.println("No move found!");
+      if (result == null)
+      {
+        System.out.println("No move found!");
+      }
+      if (rawResult != result)
+      {
+        System.out
+        .println("1 level minimax result differed from best raw move: " +
+            rawResult);
+      }
     }
-    if (rawResult != result)
+
+    // Trace the most likely path through the tree
+    if (!lRecursiveCall)
     {
-      System.out
-      .println("1 level minimax result differed from best raw move: " +
-          rawResult);
+      pathTrace = new StringBuffer("Most likely path: ");
     }
+    assert(pathTrace != null);
+    pathTrace.append(result);
+    pathTrace.append(roleIndex == 0 ? ", " : " | ");
+
+    if ((bestNode != null) && (bestNode.children != null))
+    {
+      bestNode.getBestMove(false, pathTrace);
+    }
+    else
+    {
+      System.out.println(pathTrace.toString());
+    }
+
     return result;
   }
 

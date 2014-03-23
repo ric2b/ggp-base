@@ -328,7 +328,7 @@ public class MCTSTree
     {
       System.out.println("Lock obtained, current time: " +
           System.currentTimeMillis());
-      Move bestMove = root.getBestMove(true);
+      Move bestMove = root.getBestMove(true, null);
 
       System.out.println("Num total tree node allocations: " +
           numTotalTreeNodes);
