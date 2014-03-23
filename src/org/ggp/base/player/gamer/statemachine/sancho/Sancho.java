@@ -122,7 +122,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
 
   @Override
   public double[] heuristicStateValue(ForwardDeadReckonInternalMachineState state,
-                                       TreeNode previousNode)
+                                      TreeNode previousNode)
   {
     double total = 0;
     double rootTotal = 0;
@@ -130,14 +130,14 @@ public class Sancho extends SampleGamer implements HeuristicProvider
     for (int i = 0; i < numRoles; i++)
     {
       int numPieces = pieceStateMaps[i].intersectionSize(state);
-      int previousNumPieces = pieceStateMaps[i]
-          .intersectionSize(previousNode.state);
+      int previousNumPieces = pieceStateMaps[i].intersectionSize(
+                                                           previousNode.state);
       heuristicStateValueBuffer[i] = numPieces - rootPieceCounts[i];
       total += numPieces;
       rootTotal += rootPieceCounts[i];
 
-      //	Counter-weight exchange sequences slightly to remove the first-capture bias
-      //	at least to first order
+      // Counter-weight exchange sequences slightly to remove the first-
+      // capture bias at least to first order
       if (numPieces == rootPieceCounts[i] &&
           previousNumPieces < rootPieceCounts[i])
       {
@@ -936,8 +936,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
 
           for (int i = 0; i < numRoles; i++)
           {
-            rootPieceCounts[i] = pieceStateMaps[i]
-                .intersectionSize(mctsTree.root.state);
+            rootPieceCounts[i] = pieceStateMaps[i].intersectionSize(mctsTree.root.state);
             total += rootPieceCounts[i];
 
             if (i == 0)
@@ -946,12 +945,11 @@ public class Sancho extends SampleGamer implements HeuristicProvider
             }
           }
 
-          double ourMaterialDivergence = ourPieceCount - total / numRoles;
+          double ourMaterialDivergence = ourPieceCount - (total / numRoles);
 
           //	Weight further material gain down the more we're already ahead/behind in material
           //	because in either circumstance it's likely to be position that is more important
-          heuristicSampleWeight = (int)Math.max(2, 6 - Math
-              .abs(ourMaterialDivergence) * 3);
+          heuristicSampleWeight = (int)Math.max(2, 6 - Math.abs(ourMaterialDivergence) * 3);
         }
         else
         {

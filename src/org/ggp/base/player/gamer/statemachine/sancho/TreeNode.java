@@ -1521,10 +1521,12 @@ class TreeNode
             }
           }
 
-          if (newChild.numVisits == 0 && tree.heuristicProvider.getSampleWeight() > 0 &&
-              !newChild.isTerminal)
+          if ((newChild.numVisits == 0) &&
+              (!newChild.isTerminal) &&
+              (tree.heuristicProvider.getSampleWeight() > 0))
           {
-            double[] heuristicScores = tree.heuristicProvider.heuristicStateValue(newChild.state,
+            double[] heuristicScores =
+                     tree.heuristicProvider.heuristicStateValue(newChild.state,
                                                                 this);
             double heuristicSquaredDeviation = 0;
 
@@ -1533,8 +1535,8 @@ class TreeNode
             for (int i = 0; i < tree.numRoles; i++)
             {
               newChild.averageScores[i] = heuristicScores[i];
-              heuristicSquaredDeviation += (tree.root.averageScores[i] - heuristicScores[i]) *
-                  (tree.root.averageScores[i] - heuristicScores[i]);
+              double lDeviation = tree.root.averageScores[i] - heuristicScores[i];
+              heuristicSquaredDeviation += (lDeviation * lDeviation);
             }
 
             if (heuristicSquaredDeviation > 0.01 && tree.root.numVisits > 50)
@@ -1625,7 +1627,7 @@ class TreeNode
       if (visitTotal > 200 &&
           Math.abs(averageScores[0] - total / visitTotal) > 10)
       {
-        System.out.println("Parent stats do not match chikdren");
+        System.out.println("Parent stats do not match children");
       }
     }
   }
