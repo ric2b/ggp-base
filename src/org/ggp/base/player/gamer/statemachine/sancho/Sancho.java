@@ -11,12 +11,13 @@ import java.util.Set;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.player.gamer.statemachine.sample.SampleGamer;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Analyser;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.HeuristicProvider;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristicAnalyser;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.profile.ProfilerContext;
-import org.ggp.base.util.propnet.polymorphic.analysis.Analyser;
-import org.ggp.base.util.propnet.polymorphic.analysis.PieceHeuristicAnalyser;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
@@ -355,7 +356,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
 
     multiRoleAverageScoreDiff = 0;
 
-    Set<Analyser> analysers = new HashSet<Analyser>();
+    Set<Analyser> analysers = new HashSet<>();
     PieceHeuristicAnalyser pieceSetAnalyser = new PieceHeuristicAnalyser();
 
     analysers.add(pieceSetAnalyser);

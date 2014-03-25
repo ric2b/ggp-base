@@ -1,13 +1,13 @@
 
-package org.ggp.base.util.propnet.polymorphic.analysis;
+package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlFunction;
 import org.ggp.base.util.gdl.grammar.GdlSentence;

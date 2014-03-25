@@ -1,5 +1,5 @@
 
-package org.ggp.base.util.propnet.polymorphic.analysis;
+package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
 public class CorrelationInfo
 {

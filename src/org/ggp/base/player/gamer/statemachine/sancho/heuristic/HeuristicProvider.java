@@ -1,5 +1,6 @@
-package org.ggp.base.player.gamer.statemachine.sancho;
+package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
+import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 
 public interface HeuristicProvider
