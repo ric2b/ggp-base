@@ -4,8 +4,8 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 
 public interface HeuristicProvider
 {
-  double[] heuristicStateValue(ForwardDeadReckonInternalMachineState state,
-                               ForwardDeadReckonInternalMachineState previousState);
+  double[] getHeuristicValue(ForwardDeadReckonInternalMachineState state,
+                             ForwardDeadReckonInternalMachineState previousState);
 
   int getSampleWeight();
 }

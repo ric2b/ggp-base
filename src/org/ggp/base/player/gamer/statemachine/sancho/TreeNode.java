@@ -1526,7 +1526,7 @@ public class TreeNode
               (tree.heuristicProvider.getSampleWeight() > 0))
           {
             double[] heuristicScores =
-                     tree.heuristicProvider.heuristicStateValue(newChild.state, state);
+                     tree.heuristicProvider.getHeuristicValue(newChild.state, state);
             double heuristicSquaredDeviation = 0;
 
             //validateScoreVector(heuristicScores);

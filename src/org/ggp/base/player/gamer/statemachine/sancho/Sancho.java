@@ -12,7 +12,7 @@ import java.util.Set;
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.player.gamer.statemachine.sample.SampleGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Analyser;
-import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristicAnalyser;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
@@ -37,7 +37,7 @@ public class Sancho extends SampleGamer
   private String         planString             = null;
   private Queue<Move>    plan                   = null;
   private int            transpositionTableSize = 2000000;
-  PieceHeuristicAnalyser pieceSetAnalyser       = null;
+  PieceHeuristic pieceSetAnalyser       = null;
 
   @Override
   public void configure(int xiParamIndex, String xiParam)
@@ -267,7 +267,7 @@ public class Sancho extends SampleGamer
     multiRoleAverageScoreDiff = 0;
 
     Set<Analyser> analysers = new HashSet<>();
-    pieceSetAnalyser = new PieceHeuristicAnalyser();
+    pieceSetAnalyser = new PieceHeuristic();
 
     analysers.add(pieceSetAnalyser);
     for (Analyser analyser : analysers)

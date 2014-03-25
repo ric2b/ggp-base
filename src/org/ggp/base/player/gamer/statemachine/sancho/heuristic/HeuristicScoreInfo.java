@@ -1,25 +1,27 @@
 
 package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
+import org.ggp.base.util.stats.PearsonCorrelation;
+
 public class HeuristicScoreInfo
 {
-  CorrelationInfo[] roleCorrelationInfos;
-  CorrelationInfo[] roleWinLossCorrelationInfos;
-  int               lastValue        = -1;
-  boolean[]         hasRoleChanges;
-  double            noChangeTurnRate = 0;
-  double            totalValue       = 0;
-  int               numSamples       = 0;
+  private PearsonCorrelation[] roleCorrelationInfos;
+  private PearsonCorrelation[] roleWinLossCorrelationInfos;
+  int                          lastValue        = -1;
+  boolean[]                    hasRoleChanges;
+  double                       noChangeTurnRate = 0;
+  private double               totalValue       = 0;
+  private int                  numSamples       = 0;
 
   public HeuristicScoreInfo(int numRoles)
   {
-    roleCorrelationInfos = new CorrelationInfo[numRoles];
-    roleWinLossCorrelationInfos = new CorrelationInfo[numRoles];
+    roleCorrelationInfos = new PearsonCorrelation[numRoles];
+    roleWinLossCorrelationInfos = new PearsonCorrelation[numRoles];
     hasRoleChanges = new boolean[numRoles];
     for (int i = 0; i < numRoles; i++)
     {
-      roleCorrelationInfos[i] = new CorrelationInfo();
-      roleWinLossCorrelationInfos[i] = new CorrelationInfo();
+      roleCorrelationInfos[i] = new PearsonCorrelation();
+      roleWinLossCorrelationInfos[i] = new PearsonCorrelation();
     }
   }
 
@@ -27,11 +29,11 @@ public class HeuristicScoreInfo
   {
     for (int i = 0; i < roleCorrelationInfos.length; i++)
     {
-      roleCorrelationInfos[i].accrueSample(value, roleValues[i]);
+      roleCorrelationInfos[i].sample(value, roleValues[i]);
 
       if (roleValues[i] == 0 || roleValues[i] == 100)
       {
-        roleWinLossCorrelationInfos[i].accrueSample(value, roleValues[i]);
+        roleWinLossCorrelationInfos[i].sample(value, roleValues[i]);
       }
     }
 

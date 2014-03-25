@@ -16,7 +16,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
 
-public class PieceHeuristicAnalyser extends Analyser implements HeuristicProvider
+public class PieceHeuristic extends Analyser implements HeuristicProvider
 {
   private static final int                                               MIN_PIECE_PROP_ARITY      = 3;    // Assume board of at least 2 dimensions + piece type
   private static final int                                               MAX_PIECE_PROP_ARITY      = 4;    // For now (until we can do game-specific learning) restrict to exactly 2-d boards
@@ -299,7 +299,7 @@ public class PieceHeuristicAnalyser extends Analyser implements HeuristicProvide
   }
 
   @Override
-  public double[] heuristicStateValue(ForwardDeadReckonInternalMachineState state,
+  public double[] getHeuristicValue(ForwardDeadReckonInternalMachineState state,
                                       ForwardDeadReckonInternalMachineState previousState)
   {
     double total = 0;
