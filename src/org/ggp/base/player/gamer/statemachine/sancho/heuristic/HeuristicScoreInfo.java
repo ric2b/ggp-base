@@ -5,8 +5,7 @@ import org.ggp.base.util.stats.PearsonCorrelation;
 
 public class HeuristicScoreInfo
 {
-  private PearsonCorrelation[] roleCorrelationInfos;
-  private PearsonCorrelation[] roleWinLossCorrelationInfos;
+  private PearsonCorrelation[] roleCorrelation;
   int                          lastValue        = -1;
   boolean[]                    hasRoleChanges;
   double                       noChangeTurnRate = 0;
@@ -15,26 +14,19 @@ public class HeuristicScoreInfo
 
   public HeuristicScoreInfo(int numRoles)
   {
-    roleCorrelationInfos = new PearsonCorrelation[numRoles];
-    roleWinLossCorrelationInfos = new PearsonCorrelation[numRoles];
+    roleCorrelation = new PearsonCorrelation[numRoles];
     hasRoleChanges = new boolean[numRoles];
     for (int i = 0; i < numRoles; i++)
     {
-      roleCorrelationInfos[i] = new PearsonCorrelation();
-      roleWinLossCorrelationInfos[i] = new PearsonCorrelation();
+      roleCorrelation[i] = new PearsonCorrelation();
     }
   }
 
   public void accrueSample(double value, double[] roleValues)
   {
-    for (int i = 0; i < roleCorrelationInfos.length; i++)
+    for (int i = 0; i < roleCorrelation.length; i++)
     {
-      roleCorrelationInfos[i].sample(value, roleValues[i]);
-
-      if (roleValues[i] == 0 || roleValues[i] == 100)
-      {
-        roleWinLossCorrelationInfos[i].sample(value, roleValues[i]);
-      }
+      roleCorrelation[i].sample(value, roleValues[i]);
     }
 
     totalValue += value;
@@ -43,30 +35,13 @@ public class HeuristicScoreInfo
 
   public double[] getRoleCorrelations()
   {
-    double[] result = new double[roleCorrelationInfos.length];
+    double[] result = new double[roleCorrelation.length];
 
-    for (int i = 0; i < roleCorrelationInfos.length; i++)
+    for (int i = 0; i < roleCorrelation.length; i++)
     {
-      result[i] = roleCorrelationInfos[i].getCorrelation();
+      result[i] = roleCorrelation[i].getCorrelation();
     }
 
     return result;
-  }
-
-  public double[] getWinLossRoleCorrelations()
-  {
-    double[] result = new double[roleCorrelationInfos.length];
-
-    for (int i = 0; i < roleCorrelationInfos.length; i++)
-    {
-      result[i] = roleWinLossCorrelationInfos[i].getCorrelation();
-    }
-
-    return result;
-  }
-
-  public double getAverageValue()
-  {
-    return totalValue / numSamples;
   }
 }
