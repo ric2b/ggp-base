@@ -9,17 +9,28 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.gdl.grammar.GdlFunction;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
 
-public class PieceHeuristicAnalyser extends Analyser
+public class PieceHeuristicAnalyser extends Analyser implements HeuristicProvider
 {
-  private int                                     numRoles            = 0;
-  private ForwardDeadReckonInternalMachineState[] pieceSets           = null;
-  private int                                     totalSimulatedTurns = 0;
+  private static final int                                               MIN_PIECE_PROP_ARITY      = 3;    // Assume board of at least 2 dimensions + piece type
+  private static final int                                               MAX_PIECE_PROP_ARITY      = 4;    // For now (until we can do game-specific learning) restrict to exactly 2-d boards
+  private static final int                                               MIN_PIECES_THRESHOLD      = 6;
+  private static final double                                            MIN_HEURISTIC_CORRELATION = 0.075;
+
+  private TreeNode                                                       rootNode                  = null;
+  private Map<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> propGroupScoreSets        = null;
+  private double[]                                                       heuristicStateValueBuffer = null;
+  private int                                                            numRoles                  = 0;
+  private ForwardDeadReckonInternalMachineState[]                        pieceSets                 = null;
+  private int                                                            totalSimulatedTurns       = 0;
+  private int                                                            heuristicSampleWeight     = 10;
+  private int[]                                                          rootPieceCounts           = null;
 
   private class GdlFunctionInfo
   {
@@ -29,7 +40,7 @@ public class PieceHeuristicAnalyser extends Analyser
     public GdlFunctionInfo(String name, int arity)
     {
       this.name = name;
-      paramRanges = new ArrayList<Set<String>>();
+      paramRanges = new ArrayList<>();
 
       for (int i = 0; i < arity; i++)
       {
@@ -55,17 +66,15 @@ public class PieceHeuristicAnalyser extends Analyser
     }
   }
 
-  private final int                                                      minPiecePropArity       = 3;    //	Assume board of at least 2 dimensions + piece type
-  private final int                                                      maxPiecePropArity       = 4;    //	For now (until we can do game-specific learning) restrict to exactly 2-d boards
-  private final int                                                      minPiecesThreshold      = 6;
-  private final double                                                   minHeuristicCorrelation = 0.075;
-  private Map<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> propGroupScoreSets      = null;
-
   @Override
   public void init(TestForwardDeadReckonPropnetStateMachine stateMachine)
   {
+    pieceSets = null;
     numRoles = stateMachine.getRoles().size();
-    Map<String, GdlFunctionInfo> basePropFns = new HashMap<String, GdlFunctionInfo>();
+    heuristicStateValueBuffer = new double[numRoles];
+    rootPieceCounts = new int[numRoles];
+
+    Map<String, GdlFunctionInfo> basePropFns = new HashMap<>();
 
     for (GdlSentence baseProp : stateMachine.getBasePropositions())
     {
@@ -74,8 +83,8 @@ public class PieceHeuristicAnalyser extends Analyser
       {
         GdlFunction propFn = (GdlFunction)baseProp.getBody().get(0);
 
-        if (propFn.arity() >= minPiecePropArity &&
-            propFn.arity() <= maxPiecePropArity)
+        if (propFn.arity() >= MIN_PIECE_PROP_ARITY &&
+            propFn.arity() <= MAX_PIECE_PROP_ARITY)
         {
           GdlFunctionInfo fnInfo;
 
@@ -98,7 +107,7 @@ public class PieceHeuristicAnalyser extends Analyser
       }
     }
 
-    Set<PotentialPiecePropSet> potentialPiecePropSets = new HashSet<PotentialPiecePropSet>();
+    Set<PotentialPiecePropSet> potentialPiecePropSets = new HashSet<>();
 
     for (GdlFunctionInfo fnInfo : basePropFns.values())
     {
@@ -125,7 +134,7 @@ public class PieceHeuristicAnalyser extends Analyser
       }
     }
 
-    propGroupScoreSets = new HashMap<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo>();
+    propGroupScoreSets = new HashMap<>();
 
     for (PotentialPiecePropSet pieceSet : potentialPiecePropSets)
     {
@@ -134,7 +143,7 @@ public class PieceHeuristicAnalyser extends Analyser
       for (String roleArgValue : info.paramRanges
           .get(pieceSet.potentialRoleArgIndex))
       {
-        Set<GdlSentence> pieceSetSentences = new HashSet<GdlSentence>();
+        Set<GdlSentence> pieceSetSentences = new HashSet<>();
 
         for (GdlSentence baseProp : stateMachine.getBasePropositions())
         {
@@ -143,8 +152,8 @@ public class PieceHeuristicAnalyser extends Analyser
           {
             GdlFunction propFn = (GdlFunction)baseProp.getBody().get(0);
 
-            if (propFn.arity() >= minPiecePropArity &&
-                propFn.arity() <= maxPiecePropArity &&
+            if (propFn.arity() >= MIN_PIECE_PROP_ARITY &&
+                propFn.arity() <= MAX_PIECE_PROP_ARITY &&
                 pieceSet.fnName.equals(propFn.getName().toString()) &&
                 propFn.getBody().get(pieceSet.potentialRoleArgIndex)
                     .toString().equals(roleArgValue))
@@ -154,7 +163,7 @@ public class PieceHeuristicAnalyser extends Analyser
           }
         }
 
-        if (pieceSetSentences.size() >= minPiecesThreshold)
+        if (pieceSetSentences.size() >= MIN_PIECES_THRESHOLD)
         {
           System.out.println("Possible piece set: " + pieceSetSentences);
 
@@ -245,7 +254,7 @@ public class PieceHeuristicAnalyser extends Analyser
         {
           System.out.println("  Role " + i + ": " + roleCorrelations[i]);
 
-          if (roleCorrelations[i] >= minHeuristicCorrelation)
+          if (roleCorrelations[i] >= MIN_HEURISTIC_CORRELATION)
           {
             if (!e.getValue().hasRoleChanges[i])
             {
@@ -289,8 +298,119 @@ public class PieceHeuristicAnalyser extends Analyser
     }
   }
 
-  public ForwardDeadReckonInternalMachineState[] getPieceSets()
+  @Override
+  public double[] heuristicStateValue(ForwardDeadReckonInternalMachineState state,
+                                      ForwardDeadReckonInternalMachineState previousState)
   {
-    return pieceSets;
+    double total = 0;
+    double rootTotal = 0;
+
+    for (int i = 0; i < numRoles; i++)
+    {
+      int numPieces = pieceSets[i].intersectionSize(state);
+      int previousNumPieces = pieceSets[i].intersectionSize(previousState);
+      heuristicStateValueBuffer[i] = numPieces - rootPieceCounts[i];
+      total += numPieces;
+      rootTotal += rootPieceCounts[i];
+
+      // Counter-weight exchange sequences slightly to remove the first-
+      // capture bias at least to first order
+      if (numPieces == rootPieceCounts[i] &&
+          previousNumPieces < rootPieceCounts[i])
+      {
+        heuristicStateValueBuffer[i] += 0.1;
+        total += 0.1;
+      }
+      else if (numPieces == rootPieceCounts[i] &&
+               previousNumPieces > rootPieceCounts[i])
+      {
+        heuristicStateValueBuffer[i] -= 0.1;
+        total -= 0.1;
+      }
+    }
+
+    for (int i = 0; i < numRoles; i++)
+    {
+      double weight;
+
+      if (rootTotal != total)
+      {
+        double proportion = (heuristicStateValueBuffer[i] - (total - rootTotal) /
+                                                            numRoles) /
+                            (total / numRoles);
+        weight = 1 / (1 + Math.exp(-proportion * 10));
+      }
+      else
+      {
+        weight = 0.5;
+      }
+      heuristicStateValueBuffer[i] = 100 * weight;
+
+      //  Normalize against root score since this is relative to the root state material balance
+      //  Only do this if the root has had enough visits to have a credible estimate
+      if (rootNode.numVisits > 50)
+      {
+        if (heuristicStateValueBuffer[i] > 50)
+        {
+          heuristicStateValueBuffer[i] = rootNode.averageScores[i] +
+                                         (100 - rootNode.averageScores[i]) *
+                                         (heuristicStateValueBuffer[i] - 50) /
+                                         50;
+        }
+        else
+        {
+          heuristicStateValueBuffer[i] = rootNode.averageScores[i] -
+                                         (rootNode.averageScores[i]) *
+                                         (50 - heuristicStateValueBuffer[i]) /
+                                         50;
+        }
+      }
+    }
+
+
+    return heuristicStateValueBuffer;
+  }
+
+  @Override
+  public int getSampleWeight()
+  {
+    return heuristicSampleWeight;
+  }
+
+  public void newTurn(TreeNode xiNode, ForwardDeadReckonInternalMachineState xiState)
+  {
+    rootNode = xiNode;
+
+    if (pieceSets != null)
+    {
+      double total = 0;
+      double ourPieceCount = 0;
+
+      for (int i = 0; i < numRoles; i++)
+      {
+        rootPieceCounts[i] = pieceSets[i].intersectionSize(xiState);
+        total += rootPieceCounts[i];
+
+        if (i == 0)
+        {
+          ourPieceCount = total;
+        }
+      }
+
+      double ourMaterialDivergence = ourPieceCount - (total / numRoles);
+
+      //  Weight further material gain down the more we're already ahead/behind in material
+      //  because in either circumstance it's likely to be position that is more important
+      heuristicSampleWeight = (int)Math.max(2, 6 - Math.abs(ourMaterialDivergence) * 3);
+    }
+    else
+    {
+      heuristicSampleWeight = 0;
+    }
+  }
+
+  public boolean isEnabled()
+  {
+    return (pieceSets != null);
   }
 }

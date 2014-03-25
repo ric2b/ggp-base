@@ -12,7 +12,6 @@ import java.util.Set;
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.player.gamer.statemachine.sample.SampleGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Analyser;
-import org.ggp.base.player.gamer.statemachine.sancho.heuristic.HeuristicProvider;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristicAnalyser;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.logging.GamerLogger;
@@ -28,17 +27,17 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
 
-public class Sancho extends SampleGamer implements HeuristicProvider
+public class Sancho extends SampleGamer
 {
-  public Role                                                  ourRole;
-  private final boolean                                        runSynchronously                            = false;                                                         //	Set to run everything on one thread to eliminate concurrency issues when debugging
-  private int                                                  numRolloutThreads                           = (runSynchronously ? 0
-                                                                                                                              : 4);
-  private double                                               minExplorationBias                          = 0.5;
-  private double                                               maxExplorationBias                          = 1.2;
-  private String                                               planString                                  = null;
-  private Queue<Move>                                          plan                                        = null;
-  private int                                         transpositionTableSize = 2000000;
+  public Role            ourRole;
+  private final boolean  runSynchronously       = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
+  private int            numRolloutThreads      = (runSynchronously ? 0 : 4);
+  private double         minExplorationBias     = 0.5;
+  private double         maxExplorationBias     = 1.2;
+  private String         planString             = null;
+  private Queue<Move>    plan                   = null;
+  private int            transpositionTableSize = 2000000;
+  PieceHeuristicAnalyser pieceSetAnalyser       = null;
 
   @Override
   public void configure(int xiParamIndex, String xiParam)
@@ -111,91 +110,6 @@ public class Sancho extends SampleGamer implements HeuristicProvider
       methodSection.exitScope();
     }
   }
-
-  private int[]    rootPieceCounts           = null;
-  private double[] heuristicStateValueBuffer = null;
-
-  @Override
-  public int getSampleWeight()
-  {
-    return heuristicSampleWeight;
-  }
-
-  @Override
-  public double[] heuristicStateValue(ForwardDeadReckonInternalMachineState state,
-                                      TreeNode previousNode)
-  {
-    double total = 0;
-    double rootTotal = 0;
-
-    for (int i = 0; i < numRoles; i++)
-    {
-      int numPieces = pieceStateMaps[i].intersectionSize(state);
-      int previousNumPieces = pieceStateMaps[i].intersectionSize(
-                                                           previousNode.state);
-      heuristicStateValueBuffer[i] = numPieces - rootPieceCounts[i];
-      total += numPieces;
-      rootTotal += rootPieceCounts[i];
-
-      // Counter-weight exchange sequences slightly to remove the first-
-      // capture bias at least to first order
-      if (numPieces == rootPieceCounts[i] &&
-          previousNumPieces < rootPieceCounts[i])
-      {
-        heuristicStateValueBuffer[i] += 0.1;
-        total += 0.1;
-      }
-      else if (numPieces == rootPieceCounts[i] &&
-               previousNumPieces > rootPieceCounts[i])
-      {
-        heuristicStateValueBuffer[i] -= 0.1;
-        total -= 0.1;
-      }
-    }
-
-    for (int i = 0; i < numRoles; i++)
-    {
-      double weight;
-
-      if (rootTotal != total)
-      {
-        double proportion = (heuristicStateValueBuffer[i] - (total - rootTotal) /
-                                                            numRoles) /
-                            (total / numRoles);
-        weight = 1 / (1 + Math.exp(-proportion * 10));
-      }
-      else
-      {
-        weight = 0.5;
-      }
-      heuristicStateValueBuffer[i] = 100 * weight;
-
-      //	Normalize against root score since this is relative to the root state material balance
-      //	Only do this if the root has had enough visits to have a credible estimate
-      if (mctsTree.root.numVisits > 50)
-      {
-        if (heuristicStateValueBuffer[i] > 50)
-        {
-          heuristicStateValueBuffer[i] = mctsTree.root.averageScores[i] +
-                                         (100 - mctsTree.root.averageScores[i]) *
-                                         (heuristicStateValueBuffer[i] - 50) /
-                                         50;
-        }
-        else
-        {
-          heuristicStateValueBuffer[i] = mctsTree.root.averageScores[i] -
-                                         (mctsTree.root.averageScores[i]) *
-                                         (50 - heuristicStateValueBuffer[i]) /
-                                         50;
-        }
-      }
-    }
-
-
-    return heuristicStateValueBuffer;
-  }
-
-  int heuristicSampleWeight = 10;
 
   RoleOrdering roleOrdering = null;
   private Move[] canonicallyOrderedMoveBuffer = null;
@@ -309,7 +223,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
     }
   }
 
-  ForwardDeadReckonInternalMachineState[] pieceStateMaps = null;
+  // !! ARR private ForwardDeadReckonInternalMachineState[] pieceStateMaps = null;
 
   RolloutProcessorPool rolloutPool = null;
   private TargetedSolutionStatePlayer puzzlePlayer = null;
@@ -333,10 +247,6 @@ public class Sancho extends SampleGamer implements HeuristicProvider
     ourRole = getRole();
 
     numRoles = underlyingStateMachine.getRoles().size();
-    rootPieceCounts = new int[numRoles];
-    heuristicStateValueBuffer = new double[numRoles];
-
-    pieceStateMaps = null;
 
     roleOrdering = new RoleOrdering(underlyingStateMachine, ourRole);
 
@@ -357,7 +267,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
     multiRoleAverageScoreDiff = 0;
 
     Set<Analyser> analysers = new HashSet<>();
-    PieceHeuristicAnalyser pieceSetAnalyser = new PieceHeuristicAnalyser();
+    pieceSetAnalyser = new PieceHeuristicAnalyser();
 
     analysers.add(pieceSetAnalyser);
     for (Analyser analyser : analysers)
@@ -380,7 +290,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
 
     //	Also monitor whether any given player always has the SAME choice of move (or just a single choice)
     //	every turn - such games are (highly probably) iterated games
-    List<Set<Move>> roleMoves = new ArrayList<Set<Move>>();
+    List<Set<Move>> roleMoves = new ArrayList<>();
     gameCharacteristics.isIteratedGame = true;
 
     for (int i = 0; i < numRoles; i++)
@@ -404,7 +314,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
       {
         boolean roleWithChoiceSeen = false;
         Move[] jointMove = new Move[numRoles];
-        Set<Move> allMovesInState = new HashSet<Move>();
+        Set<Move> allMovesInState = new HashSet<>();
 
         int choosingRoleIndex = -1;
         for (int i = 0; i < numRoles; i++)
@@ -415,7 +325,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
           if (legalMoves.size() > 1)
           {
             Set<Move> previousChoices = roleMoves.get(i);
-            HashSet<Move> moveSet = new HashSet<Move>(legalMoves);
+            HashSet<Move> moveSet = new HashSet<>(legalMoves);
 
             if (previousChoices != null && !previousChoices.equals(moveSet))
             {
@@ -467,7 +377,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
 
     branchingFactorApproximation /= 50;
 
-    mctsTree = new MCTSTree(underlyingStateMachine, transpositionTableSize, roleOrdering, rolloutPool, gameCharacteristics, this);
+    mctsTree = new MCTSTree(underlyingStateMachine, transpositionTableSize, roleOrdering, rolloutPool, gameCharacteristics, pieceSetAnalyser);
     if (gameCharacteristics.isSimultaneousMove || gameCharacteristics.isPseudoSimultaneousMove)
     {
       if (!greedyRolloutsDisabled)
@@ -582,8 +492,6 @@ public class Sancho extends SampleGamer implements HeuristicProvider
     //  Dump the game characteristics to trace output
     gameCharacteristics.report();
 
-    pieceStateMaps = pieceSetAnalyser.getPieceSets();
-
     double stdDevNumTurns = Math.sqrt(averageSquaredNumTurns -
                                       averageNumTurns * averageNumTurns);
 
@@ -604,7 +512,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
       mctsTree.explorationBias = 1.2;
     }
 
-    if (pieceStateMaps != null)
+    if (pieceSetAnalyser.isEnabled())
     {
       //	Empirically games with piece count heuristics seem to like lower
       //	exploration bias - not entirely sure why!
@@ -687,11 +595,11 @@ public class Sancho extends SampleGamer implements HeuristicProvider
       Set<MachineState> goalStates = underlyingStateMachine
           .findGoalStates(getRole(), 90, 100, 20);
       //Set<MachineState> goalStates = underlyingStateMachine.findTerminalStates(100,20);
-      Set<MachineState> cleanedStates = new HashSet<MachineState>();
+      Set<MachineState> cleanedStates = new HashSet<>();
 
       for (MachineState state : goalStates)
       {
-        Set<GdlSentence> eliminatedSentences = new HashSet<GdlSentence>();
+        Set<GdlSentence> eliminatedSentences = new HashSet<>();
 
         for (GdlSentence s : state.getContents())
         {
@@ -713,7 +621,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
           }
         }
 
-        MachineState cleaned = new MachineState(new HashSet<GdlSentence>(state.getContents()));
+        MachineState cleaned = new MachineState(new HashSet<>(state.getContents()));
         cleaned.getContents().removeAll(eliminatedSentences);
 
         cleanedStates.add(cleaned);
@@ -805,7 +713,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
         mctsTree.explorationBias = (maxExplorationBias + minExplorationBias) / 2;
       }
       searchProcessor
-          .StartSearch(System.currentTimeMillis() + 60000,
+          .startSearch(System.currentTimeMillis() + 60000,
                        new ForwardDeadReckonInternalMachineState(initialState));
 
       try
@@ -842,7 +750,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
       // TODO Auto-generated method stub
       try
       {
-        while (SearchAvailable())
+        while (searchAvailable())
         {
           try
           {
@@ -900,7 +808,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
       return numIterations;
     }
 
-    private boolean SearchAvailable() throws InterruptedException
+    private boolean searchAvailable() throws InterruptedException
     {
       synchronized (this)
       {
@@ -918,7 +826,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
       return true;
     }
 
-    public void StartSearch(long moveTimeout,
+    public void startSearch(long moveTimeout,
                             ForwardDeadReckonInternalMachineState startState)
     {
       System.out.println("Start move search...");
@@ -930,32 +838,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
         stopRequested = false;
         numIterations = 0;
 
-        if (pieceStateMaps != null)
-        {
-          double total = 0;
-          double ourPieceCount = 0;
-
-          for (int i = 0; i < numRoles; i++)
-          {
-            rootPieceCounts[i] = pieceStateMaps[i].intersectionSize(mctsTree.root.state);
-            total += rootPieceCounts[i];
-
-            if (i == 0)
-            {
-              ourPieceCount = total;
-            }
-          }
-
-          double ourMaterialDivergence = ourPieceCount - (total / numRoles);
-
-          //	Weight further material gain down the more we're already ahead/behind in material
-          //	because in either circumstance it's likely to be position that is more important
-          heuristicSampleWeight = (int)Math.max(2, 6 - Math.abs(ourMaterialDivergence) * 3);
-        }
-        else
-        {
-          heuristicSampleWeight = 0;
-        }
+        pieceSetAnalyser.newTurn(mctsTree.root, mctsTree.root.state);
 
         this.notify();
       }
@@ -1058,7 +941,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
       //validateAll();
       mctsTree.setRootState(currentState);
 
-      searchProcessor.StartSearch(finishBy, currentState);
+      searchProcessor.startSearch(finishBy, currentState);
 
       searchProcessor.requestYield(false);
 
@@ -1098,7 +981,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
       bestMove = mctsTree.getBestMove();
       System.out.println("Num iterations: " +
           searchProcessor.getNumIterations());
-      System.out.println("Heuristic bias: " + heuristicSampleWeight);
+      System.out.println("Heuristic bias: " + pieceSetAnalyser.getSampleWeight());
 
       if (!moves.contains(bestMove))
       {
@@ -1147,7 +1030,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
   {
     if (iFromIndex >= legalMoves.size())
     {
-      jointMoves.add(new ArrayList<Move>(partialJointMove));
+      jointMoves.add(new ArrayList<>(partialJointMove));
       return;
     }
 
@@ -1172,7 +1055,7 @@ public class Sancho extends SampleGamer implements HeuristicProvider
   private void flattenMoveLists(List<List<Move>> legalMoves,
                                 List<List<Move>> jointMoves)
   {
-    List<Move> partialJointMove = new ArrayList<Move>();
+    List<Move> partialJointMove = new ArrayList<>();
 
     flattenMoveSubLists(legalMoves, 0, jointMoves, partialJointMove);
   }

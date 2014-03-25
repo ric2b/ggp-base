@@ -45,9 +45,9 @@ public class TreeNode
   private static final double           EPSILON             = 1e-6;
 
   int                                   seq                 = -1;
-  int                                   numVisits           = 0;
+  public int                            numVisits           = 0;
   private int                           numUpdates          = 0;
-  double[]                              averageScores;
+  public double[]                       averageScores;
   private double[]                      averageSquaredScores;
   private int[]                         numChoices;
   ForwardDeadReckonInternalMachineState state;
@@ -1526,8 +1526,7 @@ public class TreeNode
               (tree.heuristicProvider.getSampleWeight() > 0))
           {
             double[] heuristicScores =
-                     tree.heuristicProvider.heuristicStateValue(newChild.state,
-                                                                this);
+                     tree.heuristicProvider.heuristicStateValue(newChild.state, state);
             double heuristicSquaredDeviation = 0;
 
             //validateScoreVector(heuristicScores);
