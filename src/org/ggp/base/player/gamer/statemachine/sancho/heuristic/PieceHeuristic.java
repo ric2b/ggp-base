@@ -216,8 +216,7 @@ public class PieceHeuristic extends Analyser implements HeuristicProvider
   public void accrueTerminalStateSample(ForwardDeadReckonInternalMachineState finalState,
                                         double[] roleScores)
   {
-    for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets
-        .entrySet())
+    for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
     {
       double heuristicScore = finalState.intersectionSize(e.getKey());
 
@@ -228,16 +227,14 @@ public class PieceHeuristic extends Analyser implements HeuristicProvider
   @Override
   public void completeAnalysis()
   {
-    for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets
-        .entrySet())
+    for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
     {
       HeuristicScoreInfo heuristicInfo = e.getValue();
 
       heuristicInfo.noChangeTurnRate /= totalSimulatedTurns;
     }
 
-    for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets
-        .entrySet())
+    for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
     {
       if (e.getValue().noChangeTurnRate < 0.5)
       {

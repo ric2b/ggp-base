@@ -49,7 +49,12 @@ public class SampledStatistic
       return 0;
     }
 
-    return Math.sqrt((mSumOfSquares - (mSum * mSum)) /
-                     (mNumSamples * (mNumSamples - 1)));
+    double lStdDev = Math.sqrt((double)((mNumSamples * mSumOfSquares) - (mSum * mSum)) /
+                               (double)(mNumSamples * (mNumSamples - 1)));
+    assert(!Double.isNaN(lStdDev));
+    assert(!Double.isInfinite(lStdDev));
+    assert(lStdDev != 0);
+
+    return lStdDev;
   }
 }
