@@ -10,8 +10,6 @@ public class HeuristicScoreInfo
   int                          lastValue        = -1;
   boolean[]                    hasRoleChanges;
   double                       noChangeTurnRate = 0;
-  private double               totalValue       = 0;
-  private int                  numSamples       = 0;
 
   public HeuristicScoreInfo(int numRoles)
   {
@@ -29,9 +27,6 @@ public class HeuristicScoreInfo
     {
       roleCorrelation[i].sample(value, roleValues[i]);
     }
-
-    totalValue += value;
-    numSamples++;
   }
 
   public double[] getRoleCorrelations()
