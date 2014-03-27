@@ -1,7 +1,8 @@
-
 package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
 import org.ggp.base.util.stats.PearsonCorrelation;
+
+// !! ARR Not clear this is general enough to be stand-alone.  Consider making a static inner in PieceHeuristic.
 
 public class HeuristicScoreInfo
 {

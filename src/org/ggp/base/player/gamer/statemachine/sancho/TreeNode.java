@@ -1521,12 +1521,12 @@ public class TreeNode
             }
           }
 
-          int lSampleWeight = tree.heuristicProvider.getSampleWeight();
+          int lSampleWeight = tree.heuristic.getSampleWeight();
           if ((newChild.numVisits == 0) &&
               (!newChild.isTerminal) &&
               (lSampleWeight > 0))
           {
-            double[] heuristicScores = tree.heuristicProvider.getHeuristicValue(newChild.state, state);
+            double[] heuristicScores = tree.heuristic.getHeuristicValue(newChild.state, state);
             double heuristicSquaredDeviation = 0;
 
             //validateScoreVector(heuristicScores);

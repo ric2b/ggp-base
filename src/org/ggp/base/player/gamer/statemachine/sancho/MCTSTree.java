@@ -9,7 +9,7 @@ import java.util.Map.Entry;
 import java.util.Random;
 
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeRef;
-import org.ggp.base.player.gamer.statemachine.sancho.heuristic.HeuristicProvider;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Move;
@@ -85,7 +85,7 @@ public class MCTSTree
   boolean                                              completeSelectionFromIncompleteParentWarned = false;
   int                                                  numSelectionsThroughIncompleteNodes         = 0;
   int                                                  numReExpansions                             = 0;
-  HeuristicProvider                                    heuristicProvider;
+  Heuristic                                            heuristic;
   RoleOrdering                                         roleOrdering;
   RolloutProcessorPool                                 rolloutPool;
   GameCharacteristics                                  gameCharacteristics;
@@ -95,13 +95,13 @@ public class MCTSTree
                   RoleOrdering roleOrdering,
                   RolloutProcessorPool rolloutPool,
                   GameCharacteristics gameCharacateristics,
-                  HeuristicProvider heuristicProvider)
+                  Heuristic heuristic)
   {
     underlyingStateMachine = stateMachine;
     numRoles = stateMachine.getRoles().size();
     this.transpositionTableSize = transpositionTableSize;
     this.roleOrdering = roleOrdering;
-    this.heuristicProvider = heuristicProvider;
+    this.heuristic = heuristic;
     this.gameCharacteristics = gameCharacateristics;
     this.rolloutPool = rolloutPool;
 

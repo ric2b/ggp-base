@@ -1,9 +1,12 @@
 package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
 
 /**
  * Interface for heuristics.
+ *
+ * !! ARR Not quite right yet.
  *
  * <p>Sancho uses heuristics in meta-gaming and during move selection.
  *
@@ -17,7 +20,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
  * Heuristics which are not sufficiently useful are discarded during meta-gaming.
  *
  * <p>(The weight applied to each heuristic is a tree-specific value.  The heuristic need not concern itself with
- * assigning a weight.)
+ * assigning a weight.)  !! ARR Totally bogus.
  *
  * <p><b>Move selection</b>
  *
@@ -28,11 +31,22 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
  */
 public interface Heuristic
 {
-  /**
-   * Get the heuristic value of the specified state, for all roles.
-   *
-   * @param state - the state.
-   * @return the heuristic value for each role (in the range 0 - 100).
-   */
-  public double[] getHeuristicValue(ForwardDeadReckonInternalMachineState state);
+  //	Initialize with a given a state machine to analyse
+  public void init(TestForwardDeadReckonPropnetStateMachine stateMachine);
+
+  //	Accrue a state sample from each state within a rollout
+  public void accrueInterimStateSample(ForwardDeadReckonInternalMachineState state,
+                                                int choosingRoleIndex);
+
+  //	Accrue a rollout sample (terminal state from a rollout)
+  public void accrueTerminalStateSample(ForwardDeadReckonInternalMachineState state,
+                                                 double[] roleScores);
+
+  //	Complete the analysis
+  public void completeAnalysis();
+
+  double[] getHeuristicValue(ForwardDeadReckonInternalMachineState state,
+                             ForwardDeadReckonInternalMachineState previousState);
+
+  int getSampleWeight();
 }
