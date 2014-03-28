@@ -23,7 +23,7 @@ import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 
-class TreeNode
+public class TreeNode
 {
   public static class TreeNodeRef
   {
@@ -45,9 +45,9 @@ class TreeNode
   private static final double           EPSILON             = 1e-6;
 
   int                                   seq                 = -1;
-  int                                   numVisits           = 0;
+  public int                            numVisits           = 0;
   private int                           numUpdates          = 0;
-  double[]                              averageScores;
+  public double[]                       averageScores;
   private double[]                      averageSquaredScores;
   private int[]                         numChoices;
   ForwardDeadReckonInternalMachineState state;
@@ -1521,11 +1521,12 @@ class TreeNode
             }
           }
 
-          if (newChild.numVisits == 0 && tree.heuristicProvider.getSampleWeight() > 0 &&
-              !newChild.isTerminal)
+          int lSampleWeight = tree.heuristic.getSampleWeight();
+          if ((newChild.numVisits == 0) &&
+              (!newChild.isTerminal) &&
+              (lSampleWeight > 0))
           {
-            double[] heuristicScores = tree.heuristicProvider.heuristicStateValue(newChild.state,
-                                                                this);
+            double[] heuristicScores = tree.heuristic.getHeuristicValue(newChild.state, state);
             double heuristicSquaredDeviation = 0;
 
             //validateScoreVector(heuristicScores);
@@ -1533,14 +1534,14 @@ class TreeNode
             for (int i = 0; i < tree.numRoles; i++)
             {
               newChild.averageScores[i] = heuristicScores[i];
-              heuristicSquaredDeviation += (tree.root.averageScores[i] - heuristicScores[i]) *
-                  (tree.root.averageScores[i] - heuristicScores[i]);
+              double lDeviation = tree.root.averageScores[i] - heuristicScores[i];
+              heuristicSquaredDeviation += (lDeviation * lDeviation);
             }
 
             if (heuristicSquaredDeviation > 0.01 && tree.root.numVisits > 50)
             {
-              newChild.numUpdates = tree.heuristicProvider.getSampleWeight();
-              newChild.numVisits = tree.heuristicProvider.getSampleWeight();
+              newChild.numUpdates = lSampleWeight;
+              newChild.numVisits = lSampleWeight;
             }
           }
 
@@ -1625,7 +1626,7 @@ class TreeNode
       if (visitTotal > 200 &&
           Math.abs(averageScores[0] - total / visitTotal) > 10)
       {
-        System.out.println("Parent stats do not match chikdren");
+        System.out.println("Parent stats do not match children");
       }
     }
   }
