@@ -21,7 +21,7 @@ public class PieceHeuristic implements Heuristic
   private static final int                                               MIN_PIECE_PROP_ARITY      = 3;    // Assume board of at least 2 dimensions + piece type
   private static final int                                               MAX_PIECE_PROP_ARITY      = 4;    // For now (until we can do game-specific learning) restrict to exactly 2-d boards
   private static final int                                               MIN_PIECES_THRESHOLD      = 6;
-  private static final double                                            MIN_HEURISTIC_CORRELATION = 0.15;
+  private static final double                                            MIN_HEURISTIC_CORRELATION = 0.09;
 
   private TreeNode                                                       rootNode                  = null;
   private Map<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> propGroupScoreSets        = null;
@@ -214,12 +214,11 @@ public class PieceHeuristic implements Heuristic
 
   @Override
   public void accrueTerminalStateSample(ForwardDeadReckonInternalMachineState finalState,
-                                        double[] roleScores)
+                                        int[] roleScores)
   {
     for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
     {
-      double heuristicScore = finalState.intersectionSize(e.getKey());
-
+      int heuristicScore = finalState.intersectionSize(e.getKey());
       e.getValue().accrueSample(heuristicScore, roleScores);
     }
   }
@@ -285,17 +284,26 @@ public class PieceHeuristic implements Heuristic
       }
     }
 
+    // Check that all roles have a set of pieces.  If not, disable the heuristic.
     if (pieceSets != null)
     {
+      System.out.println("Some roles have piece sets");
       for (int i = 0; i < numRoles; i++)
       {
+        System.out.println("  Checking role " + i);
         if (pieceSets[i] == null)
         {
-          System.out
-              .println("Heuristics only identified for a subset of roles - disabling");
+          System.out.println("      No piece set for this role");
+          System.out.println("Heuristics only identified for a subset of roles - disabling");
           pieceSets = null;
           break;
         }
+        System.out.println("    Final piece set is: " + pieceSets[i]);
+      }
+
+      if (pieceSets != null)
+      {
+        System.out.println("All roles have piece sets");
       }
     }
   }

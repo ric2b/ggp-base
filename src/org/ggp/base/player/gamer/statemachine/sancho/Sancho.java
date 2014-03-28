@@ -400,7 +400,7 @@ public class Sancho extends SampleGamer
     double averageBranchingFactor = 0;
     double averageNumTurns = 0;
     double averageSquaredNumTurns = 0;
-    double[] roleScores = new double[numRoles];
+    int[] roleScores = new int[numRoles];
 
     while (System.currentTimeMillis() < simulationStopTime)
     {
@@ -429,8 +429,7 @@ public class Sancho extends SampleGamer
               int role2Score = underlyingStateMachine.getGoal(role2);
 
               multiRoleSamples++;
-              multiRoleAverageScoreDiff += Math
-                  .abs(role2Score - roleScores[i]);
+              multiRoleAverageScoreDiff += Math.abs(role2Score - roleScores[i]);
             }
           }
         }

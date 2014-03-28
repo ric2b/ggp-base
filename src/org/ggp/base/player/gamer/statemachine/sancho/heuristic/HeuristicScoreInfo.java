@@ -21,7 +21,7 @@ public class HeuristicScoreInfo
     }
   }
 
-  public void accrueSample(double value, double[] roleValues)
+  public void accrueSample(int value, int[] roleValues)
   {
     for (int i = 0; i < roleCorrelation.length; i++)
     {

@@ -16,7 +16,7 @@ public class SampledStatistic
    *
    * @param xiValue - the sample value.
    */
-  public void sample(double xiValue)
+  public void sample(int xiValue)
   {
     mSum += xiValue;
     mSumOfSquares += (xiValue * xiValue);
@@ -32,11 +32,19 @@ public class SampledStatistic
   }
 
   /**
+   * @return the total value of the recorded samples.
+   */
+  public long getTotal()
+  {
+    return mSum;
+  }
+
+  /**
    * @return the mean value of the recorded samples.
    */
   public double getMean()
   {
-    return mSum / mNumSamples;
+    return (double)mSum / (double)mNumSamples;
   }
 
   /**

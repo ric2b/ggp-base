@@ -35,12 +35,10 @@ public interface Heuristic
   public void init(TestForwardDeadReckonPropnetStateMachine stateMachine);
 
   //	Accrue a state sample from each state within a rollout
-  public void accrueInterimStateSample(ForwardDeadReckonInternalMachineState state,
-                                                int choosingRoleIndex);
+  public void accrueInterimStateSample(ForwardDeadReckonInternalMachineState state, int choosingRoleIndex);
 
   //	Accrue a rollout sample (terminal state from a rollout)
-  public void accrueTerminalStateSample(ForwardDeadReckonInternalMachineState state,
-                                                 double[] roleScores);
+  public void accrueTerminalStateSample(ForwardDeadReckonInternalMachineState state, int[] roleScores);
 
   //	Complete the analysis
   public void completeAnalysis();
