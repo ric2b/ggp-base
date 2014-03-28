@@ -1,5 +1,6 @@
 package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
+import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
@@ -50,8 +51,10 @@ public interface Heuristic
    * Initialise the heuristic and prepare for tuning.
    *
    * @param stateMachine - the state machine representation of the game.
+   * @param roleOrdering - the canonical role ordering.
    */
-  public void tuningInitialise(TestForwardDeadReckonPropnetStateMachine stateMachine);
+  public void tuningInitialise(TestForwardDeadReckonPropnetStateMachine stateMachine,
+                               RoleOrdering roleOrdering);
 
   /**
    * Update tuning state as a result of a single step of a rollout (i.e. a single move in a game).

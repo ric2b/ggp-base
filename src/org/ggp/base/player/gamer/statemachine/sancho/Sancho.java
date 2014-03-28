@@ -12,6 +12,7 @@ import java.util.Set;
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.player.gamer.statemachine.sample.SampleGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MobilityHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.logging.GamerLogger;
@@ -223,8 +224,6 @@ public class Sancho extends SampleGamer
     }
   }
 
-  // !! ARR private ForwardDeadReckonInternalMachineState[] pieceStateMaps = null;
-
   RolloutProcessorPool rolloutPool = null;
   private TargetedSolutionStatePlayer puzzlePlayer = null;
 
@@ -268,11 +267,12 @@ public class Sancho extends SampleGamer
 
     Set<Heuristic> heuristics = new HashSet<>();
     heuristics.add(new PieceHeuristic());
-    mHeuristic = heuristics.iterator().next(); // !! ARR Hack until there's more than 1 heuristic.
+    mHeuristic = heuristics.iterator().next(); // !! ARR Hack until we can combine heuristics.
+    heuristics.add(new MobilityHeuristic());
 
     for (Heuristic heuristic : heuristics)
     {
-      heuristic.tuningInitialise(underlyingStateMachine);
+      heuristic.tuningInitialise(underlyingStateMachine, roleOrdering);
     }
 
     ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine.createInternalState(getCurrentState());
@@ -298,11 +298,13 @@ public class Sancho extends SampleGamer
     }
 
     double branchingFactorApproximation = 0;
+    int[] roleScores = new int[numRoles];
 
     //	Perform a small number of move-by-move simulations to assess how
     //	the potential piece count heuristics behave at the granularity of
     //	a single decision
-    for (int iteration = 0; iteration < 50; iteration++)
+    // !! ARR Just do this until we get near the stopping time.  Combine with the next loop.
+    for (int iteration = 0; iteration < 5000; iteration++)
     {
       ForwardDeadReckonInternalMachineState sampleState = new ForwardDeadReckonInternalMachineState(initialState);
 
@@ -318,8 +320,7 @@ public class Sancho extends SampleGamer
         int choosingRoleIndex = -1;
         for (int i = 0; i < numRoles; i++)
         {
-          List<Move> legalMoves = underlyingStateMachine
-              .getLegalMoves(sampleState, roleOrdering.roleIndexToRole(i));
+          List<Move> legalMoves = underlyingStateMachine.getLegalMoves(sampleState, roleOrdering.roleIndexToRole(i));
 
           if (legalMoves.size() > 1)
           {
@@ -358,8 +359,7 @@ public class Sancho extends SampleGamer
             numBranchesTaken += legalMoves.size();
             numRoleMovesSimulated++;
           }
-          jointMove[roleOrdering.roleIndexToRawRoleIndex(i)] = legalMoves.get(r
-              .nextInt(legalMoves.size()));
+          jointMove[roleOrdering.roleIndexToRawRoleIndex(i)] = legalMoves.get(r.nextInt(legalMoves.size()));
         }
 
         for (Heuristic heuristic : heuristics)
@@ -367,8 +367,18 @@ public class Sancho extends SampleGamer
           heuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
         }
 
-        sampleState = underlyingStateMachine.getNextState(sampleState,
-                                                          jointMove);
+        sampleState = underlyingStateMachine.getNextState(sampleState, jointMove);
+      }
+
+      for (int i = 0; i < numRoles; i++)
+      {
+        roleScores[i] = underlyingStateMachine.getGoal(roleOrdering.roleIndexToRole(i));
+      }
+
+      assert(underlyingStateMachine.isTerminal(sampleState));
+      for (Heuristic heuristic : heuristics)
+      {
+        heuristic.tuningTerminalStateSample(sampleState, roleScores);
       }
 
       branchingFactorApproximation += (numBranchesTaken / numRoleMovesSimulated);
@@ -404,7 +414,6 @@ public class Sancho extends SampleGamer
     double averageBranchingFactor = 0;
     double averageNumTurns = 0;
     double averageSquaredNumTurns = 0;
-    int[] roleScores = new int[numRoles];
 
     while (System.currentTimeMillis() < simulationStopTime)
     {

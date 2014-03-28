@@ -2,32 +2,45 @@
 // (C) COPYRIGHT METASWITCH NETWORKS 2014
 package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
+import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.statemachine.Role;
+import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.stats.PearsonCorrelation;
 
+/**
+ * Heuristic which assumes that it's better to have more choices of move (greater "mobility").
+ */
 public class MobilityHeuristic implements Heuristic
 {
   private boolean mEnabled;
+
+  private TestForwardDeadReckonPropnetStateMachine mStateMachine;
+  private RoleOrdering mRoleOrdering;
+
   private PearsonCorrelation[] mCorrelationForRole;
   private int mNumRoles;
-  private int mNumTurns;
   private int mTotalChoicesForRole[];
-  private TestForwardDeadReckonPropnetStateMachine mStateMachine;
+  private int mMovesWithChoiceForRole[];
 
   @Override
-  public void tuningInitialise(TestForwardDeadReckonPropnetStateMachine xiStateMachine)
+  public void tuningInitialise(TestForwardDeadReckonPropnetStateMachine xiStateMachine,
+                               RoleOrdering xiRoleOrdering)
   {
-    mStateMachine = xiStateMachine;
     mEnabled = true;
+
+    mStateMachine = xiStateMachine;
+    mRoleOrdering = xiRoleOrdering;
+
     mNumRoles = xiStateMachine.getRoles().size();
     mCorrelationForRole = new PearsonCorrelation[mNumRoles];
     mTotalChoicesForRole = new int[mNumRoles];
+    mMovesWithChoiceForRole = new int[mNumRoles];
     for (int lii = 0; lii < mNumRoles; lii++)
     {
       mCorrelationForRole[lii] = new PearsonCorrelation();
-      mTotalChoicesForRole[lii] = 0;
     }
 
     tuningInitRollout();
@@ -38,33 +51,52 @@ public class MobilityHeuristic implements Heuristic
    */
   private void tuningInitRollout()
   {
-    mNumTurns = 0;
     for (int lii = 0; lii < mNumRoles; lii++)
     {
       mTotalChoicesForRole[lii] = 0;
+      mMovesWithChoiceForRole[lii] = 0;
     }
   }
 
   @Override
-  public void tuningInterimStateSample(ForwardDeadReckonInternalMachineState xiState, int xiRoleIndex)
+  public void tuningInterimStateSample(ForwardDeadReckonInternalMachineState xiState, int xiChoosingRoleIndex)
   {
-    // Find the number of legal moves for the choosing role.
-    // !! ARR How do you get the role from the role index?
-    // mTotalChoicesForRole[xiRoleIndex] = mStateMachine.getLegalMoves(xiState, role[xiRoleIndex]);
-    mNumTurns++;
+    assert(!mStateMachine.isTerminal(xiState));
+
+    try
+    {
+      for (int lii = 0; lii < mNumRoles; lii++)
+      {
+        Role lRole = mRoleOrdering.roleIndexToRole(lii);
+        int lMobility = mStateMachine.getLegalMoves(xiState, lRole).size();
+        if (lMobility > 1)
+        {
+          mMovesWithChoiceForRole[lii]++;
+          mTotalChoicesForRole[lii] += lMobility;
+        }
+      }
+    }
+    catch (MoveDefinitionException lEx)
+    {
+      System.err.println("Unexpected error getting legal moves");
+      lEx.printStackTrace();
+    }
   }
 
   @Override
   public void tuningTerminalStateSample(ForwardDeadReckonInternalMachineState xiState,
                                         int[] xiRoleScores)
   {
-    if (mNumTurns > 2)
+    assert(mStateMachine.isTerminal(xiState));
+
+    // For each role, record the correlation between the average number of turns (x 100 to mitigate rounding) and the
+    // final goal value.
+    for (int lii = 0; lii < mNumRoles; lii++)
     {
-      // Record the correlation between the average number of turns (x 100 to mitigate rounding) for each role.
-      for (int lii = 0; lii < mNumRoles; lii++)
+      if (mMovesWithChoiceForRole[lii] > 2)
       {
-        mCorrelationForRole[lii].sample((mTotalChoicesForRole[lii] * 100) / mNumTurns, xiRoleScores[lii]);
-        mTotalChoicesForRole[lii] = 0;
+        mCorrelationForRole[lii].sample((mTotalChoicesForRole[lii] * 100) / mMovesWithChoiceForRole[lii],
+                                        xiRoleScores[lii]);
       }
     }
 
@@ -75,9 +107,13 @@ public class MobilityHeuristic implements Heuristic
   @Override
   public void tuningComplete()
   {
-    // !! ARR Auto-generated method stub
-
     // See if overall game mobility is a good predictor of final score and enable/disable the heuristic on that basis.
+    for (int lii = 0; lii < mNumRoles; lii++)
+    {
+      System.out.println("Mobility heuristic correlation for role " + lii + " = " +
+                                                                             mCorrelationForRole[lii].getCorrelation());
+    }
+    // !! ARR ...
   }
 
   @Override

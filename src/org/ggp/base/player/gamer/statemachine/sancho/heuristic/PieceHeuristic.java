@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.gdl.grammar.GdlFunction;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
@@ -16,6 +17,9 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
 
+/**
+ * Heuristic which assumes that it's better to have more pieces than few.
+ */
 public class PieceHeuristic implements Heuristic
 {
   private static final int                                               MIN_PIECE_PROP_ARITY      = 3;    // Assume board of at least 2 dimensions + piece type
@@ -67,7 +71,8 @@ public class PieceHeuristic implements Heuristic
   }
 
   @Override
-  public void tuningInitialise(TestForwardDeadReckonPropnetStateMachine stateMachine)
+  public void tuningInitialise(TestForwardDeadReckonPropnetStateMachine stateMachine,
+                               RoleOrdering xiRoleOrdering)
   {
     pieceSets = null;
     numRoles = stateMachine.getRoles().size();
