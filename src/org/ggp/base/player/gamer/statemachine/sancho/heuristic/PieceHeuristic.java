@@ -67,7 +67,7 @@ public class PieceHeuristic implements Heuristic
   }
 
   @Override
-  public void init(TestForwardDeadReckonPropnetStateMachine stateMachine)
+  public void tuningInitialise(TestForwardDeadReckonPropnetStateMachine stateMachine)
   {
     pieceSets = null;
     numRoles = stateMachine.getRoles().size();
@@ -177,7 +177,7 @@ public class PieceHeuristic implements Heuristic
   }
 
   @Override
-  public void accrueInterimStateSample(ForwardDeadReckonInternalMachineState sampleState,
+  public void tuningInterimStateSample(ForwardDeadReckonInternalMachineState sampleState,
                                        int choosingRoleIndex)
   {
     for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets
@@ -213,7 +213,7 @@ public class PieceHeuristic implements Heuristic
   }
 
   @Override
-  public void accrueTerminalStateSample(ForwardDeadReckonInternalMachineState finalState,
+  public void tuningTerminalStateSample(ForwardDeadReckonInternalMachineState finalState,
                                         int[] roleScores)
   {
     for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
@@ -224,7 +224,7 @@ public class PieceHeuristic implements Heuristic
   }
 
   @Override
-  public void completeAnalysis()
+  public void tuningComplete()
   {
     for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
     {
@@ -387,7 +387,8 @@ public class PieceHeuristic implements Heuristic
     return heuristicSampleWeight;
   }
 
-  public void newTurn(TreeNode xiNode, ForwardDeadReckonInternalMachineState xiState)
+  @Override
+  public void newTurn(ForwardDeadReckonInternalMachineState xiState, TreeNode xiNode)
   {
     rootNode = xiNode;
 
@@ -419,6 +420,7 @@ public class PieceHeuristic implements Heuristic
     }
   }
 
+  @Override
   public boolean isEnabled()
   {
     return (pieceSets != null);

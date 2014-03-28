@@ -37,7 +37,7 @@ public class Sancho extends SampleGamer
   private String         planString             = null;
   private Queue<Move>    plan                   = null;
   private int            transpositionTableSize = 2000000;
-  PieceHeuristic         pieceHeuristic         = null;
+  Heuristic              mHeuristic             = null;
 
   @Override
   public void configure(int xiParamIndex, String xiParam)
@@ -267,16 +267,15 @@ public class Sancho extends SampleGamer
     multiRoleAverageScoreDiff = 0;
 
     Set<Heuristic> heuristics = new HashSet<>();
-    pieceHeuristic = new PieceHeuristic();
+    heuristics.add(new PieceHeuristic());
+    mHeuristic = heuristics.iterator().next(); // !! ARR Hack until there's more than 1 heuristic.
 
-    heuristics.add(pieceHeuristic);
     for (Heuristic heuristic : heuristics)
     {
-      heuristic.init(underlyingStateMachine);
+      heuristic.tuningInitialise(underlyingStateMachine);
     }
 
-    ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine
-        .createInternalState(getCurrentState());
+    ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine.createInternalState(getCurrentState());
 
     GameCharacteristics gameCharacteristics = new GameCharacteristics(numRoles);
 
@@ -365,7 +364,7 @@ public class Sancho extends SampleGamer
 
         for (Heuristic heuristic : heuristics)
         {
-          heuristic.accrueInterimStateSample(sampleState, choosingRoleIndex);
+          heuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
         }
 
         sampleState = underlyingStateMachine.getNextState(sampleState,
@@ -377,7 +376,12 @@ public class Sancho extends SampleGamer
 
     branchingFactorApproximation /= 50;
 
-    mctsTree = new MCTSTree(underlyingStateMachine, transpositionTableSize, roleOrdering, rolloutPool, gameCharacteristics, pieceHeuristic);
+    mctsTree = new MCTSTree(underlyingStateMachine,
+                            transpositionTableSize,
+                            roleOrdering,
+                            rolloutPool,
+                            gameCharacteristics,
+                            mHeuristic);
     if (gameCharacteristics.isSimultaneousMove || gameCharacteristics.isPseudoSimultaneousMove)
     {
       if (!greedyRolloutsDisabled)
@@ -439,7 +443,7 @@ public class Sancho extends SampleGamer
 
       for (Heuristic heuristic : heuristics)
       {
-        heuristic.accrueTerminalStateSample(finalState, roleScores);
+        heuristic.tuningTerminalStateSample(finalState, roleScores);
       }
 
       averageNumTurns = (averageNumTurns * (simulationsPerformed - 1) + rolloutStats[0]) /
@@ -472,9 +476,21 @@ public class Sancho extends SampleGamer
       }
     }
 
-    for (Heuristic heuristic : heuristics)
+    // Complete heuristic tuning and identify those which should be enabled.
+    boolean lUsingPieceHeuristic = false;
     {
-      heuristic.completeAnalysis();
+      Set<Heuristic> tunedHeuristics = new HashSet<>();
+      for (Heuristic heuristic : heuristics)
+      {
+        heuristic.tuningComplete();
+        if (heuristic.isEnabled())
+        {
+          tunedHeuristics.add(heuristic);
+          lUsingPieceHeuristic = lUsingPieceHeuristic || (heuristic instanceof PieceHeuristic);
+        }
+      }
+      heuristics = tunedHeuristics;
+      tunedHeuristics = null;
     }
 
     System.out.println("branchingFactorApproximation = " +
@@ -510,7 +526,7 @@ public class Sancho extends SampleGamer
       mctsTree.explorationBias = 1.2;
     }
 
-    if (pieceHeuristic.isEnabled())
+    if (lUsingPieceHeuristic)
     {
       //	Empirically games with piece count heuristics seem to like lower
       //	exploration bias - not entirely sure why!
@@ -836,7 +852,7 @@ public class Sancho extends SampleGamer
         stopRequested = false;
         numIterations = 0;
 
-        pieceHeuristic.newTurn(mctsTree.root, mctsTree.root.state);
+        mHeuristic.newTurn(mctsTree.root.state, mctsTree.root);
 
         this.notify();
       }
@@ -979,7 +995,7 @@ public class Sancho extends SampleGamer
       bestMove = mctsTree.getBestMove();
       System.out.println("Num iterations: " +
           searchProcessor.getNumIterations());
-      System.out.println("Heuristic bias: " + pieceHeuristic.getSampleWeight());
+      System.out.println("Heuristic bias: " + mHeuristic.getSampleWeight());
 
       if (!moves.contains(bestMove))
       {
