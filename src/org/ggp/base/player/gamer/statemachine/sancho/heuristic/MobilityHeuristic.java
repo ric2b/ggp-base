@@ -15,6 +15,8 @@ import org.ggp.base.util.stats.PearsonCorrelation;
  */
 public class MobilityHeuristic implements Heuristic
 {
+  private static final double MIN_HEURISTIC_CORRELATION = 0.1;
+
   private boolean mEnabled;
 
   private TestForwardDeadReckonPropnetStateMachine mStateMachine;
@@ -110,15 +112,21 @@ public class MobilityHeuristic implements Heuristic
     // See if overall game mobility is a good predictor of final score and enable/disable the heuristic on that basis.
     for (int lii = 0; lii < mNumRoles; lii++)
     {
-      System.out.println("Mobility heuristic correlation for role " + lii + " = " +
-                                                                             mCorrelationForRole[lii].getCorrelation());
+      double lCorrelation = mCorrelationForRole[lii].getCorrelation();
+      System.out.println("Mobility heuristic correlation for role " + lii + " = " + lCorrelation);
+      if (lCorrelation < MIN_HEURISTIC_CORRELATION)
+      {
+        System.out.println("Disabling mobility heuristic");
+        mEnabled = false;
+      }
     }
-    // !! ARR ...
+
+    // It isn't safe to use the state machine any more (for multi-threading reasons)
+    mStateMachine = null;
   }
 
   @Override
-  public void newTurn(ForwardDeadReckonInternalMachineState xiState,
-                      TreeNode xiNode)
+  public void newTurn(ForwardDeadReckonInternalMachineState xiState, TreeNode xiNode)
   {
     // !! ARR Auto-generated method stub
   }
@@ -134,14 +142,12 @@ public class MobilityHeuristic implements Heuristic
   @Override
   public int getSampleWeight()
   {
-    // !! ARR Auto-generated method stub
-    return 0;
+    return 10;
   }
 
   @Override
   public boolean isEnabled()
   {
-    // !! ARR Auto-generated method stub
     return mEnabled;
   }
 }
