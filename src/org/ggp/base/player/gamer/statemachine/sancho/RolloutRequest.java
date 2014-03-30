@@ -6,7 +6,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.TestForwardDeadReckonPropnetStateMachine;
 
 class RolloutRequest
 {

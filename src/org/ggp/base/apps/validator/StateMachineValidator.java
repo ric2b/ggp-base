@@ -13,8 +13,8 @@ import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.propnet.polymorphic.learning.LearningComponentFactory;
 import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponentFactory;
 import org.ggp.base.util.statemachine.StateMachine;
-import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.TestPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.TestForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 import org.ggp.base.util.statemachine.verifier.StateMachineVerifier;
 

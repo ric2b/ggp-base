@@ -1,19 +1,8 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
-
 import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.profile.ProfileSection;
-import org.ggp.base.util.propnet.architecture.Component;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
-import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
-import org.ggp.base.util.statemachine.MachineState;
-import org.ggp.base.util.statemachine.Move;
 
 /**
  * The Proposition class is designed to represent named latches.
@@ -28,11 +17,11 @@ public final class ForwardDeadReckonProposition extends
   private GdlSentence                                    name;
   private ForwardDeadReckonLegalMoveSet[]                owningMoveSet  = null;
   private ForwardDeadReckonLegalMoveInfo                 associatedMove = null;
-  private ForwardDeadReckonPropositionCrossReferenceInfo opaqueInfo     = null;
+  private ForwardDeadReckonPropositionInfo               opaqueInfo     = null;
 
   /**
    * Creates a new Proposition with name <tt>name</tt>.
-   * 
+   *
    * @param numOutputs
    * @param name
    *          The name of the Proposition.
@@ -44,7 +33,7 @@ public final class ForwardDeadReckonProposition extends
     this.name = name;
   }
 
-  public ForwardDeadReckonPropositionCrossReferenceInfo getCrossReferenceInfo()
+  public ForwardDeadReckonPropositionInfo getInfo()
   {
     return opaqueInfo;
   }
@@ -57,7 +46,7 @@ public final class ForwardDeadReckonProposition extends
     owningMoveSet = new ForwardDeadReckonLegalMoveSet[numInstances];
   }
 
-  public void setCrossReferenceInfo(ForwardDeadReckonPropositionCrossReferenceInfo info)
+  public void setInfo(ForwardDeadReckonPropositionInfo info)
   {
     opaqueInfo = info;
   }
@@ -72,7 +61,7 @@ public final class ForwardDeadReckonProposition extends
 
   /**
    * Getter method.
-   * 
+   *
    * @return The name of the Proposition.
    */
   @Override
@@ -84,7 +73,7 @@ public final class ForwardDeadReckonProposition extends
   /**
    * Setter method. This should only be rarely used; the name of a proposition
    * is usually constant over its entire lifetime.
-   * 
+   *
    * @return The name of the Proposition.
    */
   @Override
@@ -132,7 +121,7 @@ public final class ForwardDeadReckonProposition extends
 
   /**
    * Setter method.
-   * 
+   *
    * @param value
    *          The new value of the Proposition.
    */

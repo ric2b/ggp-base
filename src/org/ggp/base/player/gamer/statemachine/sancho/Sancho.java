@@ -26,7 +26,7 @@ import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.TestForwardDeadReckonPropnetStateMachine;
 
 public class Sancho extends SampleGamer
 {
@@ -144,7 +144,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.56";
+    return "Sancho 1.56a";
   }
 
   @Override

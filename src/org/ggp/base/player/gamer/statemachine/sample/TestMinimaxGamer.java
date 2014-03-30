@@ -25,8 +25,8 @@ import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.TestPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.TestForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 
 public class TestMinimaxGamer extends SampleGamer

@@ -4,19 +4,17 @@ package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 import java.util.BitSet;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.statemachine.MachineState;
 
 public class ForwardDeadReckonInternalMachineState
                                                   implements
-                                                  Iterable<ForwardDeadReckonPropositionCrossReferenceInfo>
+                                                  Iterable<ForwardDeadReckonPropositionInfo>
 {
   private class InternalMachineStateIterator
                                             implements
-                                            Iterator<ForwardDeadReckonPropositionCrossReferenceInfo>
+                                            Iterator<ForwardDeadReckonPropositionInfo>
   {
     private ForwardDeadReckonInternalMachineState parent;
     int                                           index;
@@ -34,9 +32,9 @@ public class ForwardDeadReckonInternalMachineState
     }
 
     @Override
-    public ForwardDeadReckonPropositionCrossReferenceInfo next()
+    public ForwardDeadReckonPropositionInfo next()
     {
-      ForwardDeadReckonPropositionCrossReferenceInfo result = parent.infoSet[index];
+      ForwardDeadReckonPropositionInfo result = parent.infoSet[index];
       index = parent.contents.nextSetBit(index + 1);
       return result;
     }
@@ -49,13 +47,13 @@ public class ForwardDeadReckonInternalMachineState
     }
   }
 
-  private ForwardDeadReckonPropositionCrossReferenceInfo[] infoSet;
+  private ForwardDeadReckonPropositionInfo[] infoSet;
 
   BitSet                                                   contents = new BitSet();
   //Set<ForwardDeadReckonPropositionCrossReferenceInfo> contents = new HashSet<ForwardDeadReckonPropositionCrossReferenceInfo>();
   public boolean                                           isXState = false;
 
-  public ForwardDeadReckonInternalMachineState(ForwardDeadReckonPropositionCrossReferenceInfo[] infoSet)
+  public ForwardDeadReckonInternalMachineState(ForwardDeadReckonPropositionInfo[] infoSet)
   {
     this.infoSet = infoSet;
   }
@@ -66,12 +64,12 @@ public class ForwardDeadReckonInternalMachineState
     copy(copyFrom);
   }
 
-  public void add(ForwardDeadReckonPropositionCrossReferenceInfo info)
+  public void add(ForwardDeadReckonPropositionInfo info)
   {
     contents.set(info.index);
   }
 
-  public boolean contains(ForwardDeadReckonPropositionCrossReferenceInfo info)
+  public boolean contains(ForwardDeadReckonPropositionInfo info)
   {
     return contents.get(info.index);
   }
@@ -136,7 +134,7 @@ public class ForwardDeadReckonInternalMachineState
     contents.clear();
   }
 
-  public void remove(ForwardDeadReckonPropositionCrossReferenceInfo info)
+  public void remove(ForwardDeadReckonPropositionInfo info)
   {
     contents.clear(info.index);
   }
@@ -209,7 +207,7 @@ public class ForwardDeadReckonInternalMachineState
   }
 
   @Override
-  public Iterator<ForwardDeadReckonPropositionCrossReferenceInfo> iterator()
+  public Iterator<ForwardDeadReckonPropositionInfo> iterator()
   {
     // TODO Auto-generated method stub
     return new InternalMachineStateIterator(this);
