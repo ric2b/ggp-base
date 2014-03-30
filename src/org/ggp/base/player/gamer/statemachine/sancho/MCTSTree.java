@@ -16,7 +16,7 @@ import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class MCTSTree
 {
@@ -53,7 +53,7 @@ public class MCTSTree
   final boolean                                        freeCompletedNodeChildren                   = false;                                                          //true;
   final boolean                                        disableOnelevelMinimax                      = true;  //false;
   int                                                  rolloutSampleSize                           = 4;
-  TestForwardDeadReckonPropnetStateMachine             underlyingStateMachine;
+  ForwardDeadReckonPropnetStateMachine             underlyingStateMachine;
   volatile TreeNode                                    root = null;
   int                                                  numRoles;
   LRUNodeMoveWeightsCache                              nodeMoveWeightsCache                        = null;
@@ -90,7 +90,7 @@ public class MCTSTree
   RolloutProcessorPool                                 rolloutPool;
   GameCharacteristics                                  gameCharacteristics;
 
-  public MCTSTree(TestForwardDeadReckonPropnetStateMachine stateMachine,
+  public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
                   int transpositionTableSize,
                   RoleOrdering roleOrdering,
                   RolloutProcessorPool rolloutPool,
@@ -156,7 +156,7 @@ public class MCTSTree
     return this;
   }
 
-  TreeNode allocateNode(TestForwardDeadReckonPropnetStateMachine underlyingStateMachine,
+  TreeNode allocateNode(ForwardDeadReckonPropnetStateMachine underlyingStateMachine,
                                 ForwardDeadReckonInternalMachineState state,
                                 TreeNode parent)
       throws GoalDefinitionException

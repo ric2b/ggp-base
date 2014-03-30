@@ -26,7 +26,7 @@ import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class Sancho extends SampleGamer
 {
@@ -52,7 +52,7 @@ public class Sancho extends SampleGamer
     planString = xiParam.substring(5);
   }
 
-  int netScore(TestForwardDeadReckonPropnetStateMachine stateMachine,
+  int netScore(ForwardDeadReckonPropnetStateMachine stateMachine,
                        ForwardDeadReckonInternalMachineState state)
       throws GoalDefinitionException
   {
@@ -138,7 +138,7 @@ public class Sancho extends SampleGamer
     return canonicallyOrderedMoveBuffer;
   }
 
-  TestForwardDeadReckonPropnetStateMachine underlyingStateMachine;
+  ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
   private MCTSTree mctsTree = null;
 
   @Override
@@ -180,7 +180,7 @@ public class Sancho extends SampleGamer
 
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
-    underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine(1 + numRolloutThreads,
+    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(1 + numRolloutThreads,
                                                                           getRoleName());
 
     mctsTree = null;

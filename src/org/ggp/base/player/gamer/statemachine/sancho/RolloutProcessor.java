@@ -3,7 +3,7 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 class RolloutProcessor implements Runnable
 {
@@ -12,10 +12,10 @@ class RolloutProcessor implements Runnable
    */
   private final RolloutProcessorPool               pool;
   private boolean                                  stop          = false;
-  private TestForwardDeadReckonPropnetStateMachine stateMachine;
+  private ForwardDeadReckonPropnetStateMachine stateMachine;
   private Thread                                   runningThread = null;
 
-  public RolloutProcessor(RolloutProcessorPool pool, TestForwardDeadReckonPropnetStateMachine stateMachine)
+  public RolloutProcessor(RolloutProcessorPool pool, ForwardDeadReckonPropnetStateMachine stateMachine)
   {
     this.pool = pool;
     this.stateMachine = stateMachine;

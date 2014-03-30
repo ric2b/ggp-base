@@ -42,7 +42,7 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBuilder;
 import org.ggp.base.util.stats.Stats;
 
-public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
+public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 {
   /** The underlying proposition network */
   private ForwardDeadReckonPropNet                                     propNetX                        = null;
@@ -481,7 +481,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
-  public void validateStateEquality(TestForwardDeadReckonPropnetStateMachine other)
+  public void validateStateEquality(ForwardDeadReckonPropnetStateMachine other)
   {
     if (!lastInternalSetState.equals(other.lastInternalSetState))
     {
@@ -756,19 +756,19 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
     return result;
   }
 
-  public TestForwardDeadReckonPropnetStateMachine()
+  public ForwardDeadReckonPropnetStateMachine()
   {
     this.maxInstances = 1;
   }
 
-  public TestForwardDeadReckonPropnetStateMachine(int maxInstances,
+  public ForwardDeadReckonPropnetStateMachine(int maxInstances,
                                                   GdlConstant roleName)
   {
     this.maxInstances = maxInstances;
     this.roleName = roleName;
   }
 
-  private TestForwardDeadReckonPropnetStateMachine(TestForwardDeadReckonPropnetStateMachine master,
+  private ForwardDeadReckonPropnetStateMachine(ForwardDeadReckonPropnetStateMachine master,
                                                    int instanceId)
   {
     this.maxInstances = -1;
@@ -810,14 +810,14 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
         .getLegalPropositions().get(getRoles().get(0)).length);
   }
 
-  public TestForwardDeadReckonPropnetStateMachine createInstance()
+  public ForwardDeadReckonPropnetStateMachine createInstance()
   {
     if (numInstances >= maxInstances)
     {
       throw new RuntimeException("Too many instances");
     }
 
-    TestForwardDeadReckonPropnetStateMachine result = new TestForwardDeadReckonPropnetStateMachine(this,
+    ForwardDeadReckonPropnetStateMachine result = new ForwardDeadReckonPropnetStateMachine(this,
                                                                                                    numInstances++);
 
     return result;

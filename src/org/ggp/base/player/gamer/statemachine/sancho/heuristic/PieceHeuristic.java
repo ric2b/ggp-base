@@ -15,7 +15,7 @@ import org.ggp.base.util.gdl.grammar.GdlFunction;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.MachineState;
-import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 /**
  * Heuristic which assumes that it's better to have more pieces than few.
@@ -71,7 +71,7 @@ public class PieceHeuristic implements Heuristic
   }
 
   @Override
-  public void tuningInitialise(TestForwardDeadReckonPropnetStateMachine stateMachine,
+  public void tuningInitialise(ForwardDeadReckonPropnetStateMachine stateMachine,
                                RoleOrdering xiRoleOrdering)
   {
     pieceSets = null;

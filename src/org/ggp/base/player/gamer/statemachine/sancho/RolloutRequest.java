@@ -6,7 +6,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 class RolloutRequest
 {
@@ -28,7 +28,7 @@ class RolloutRequest
     averageSquaredScores = new double[pool.numRoles];
   }
 
-  public void process(TestForwardDeadReckonPropnetStateMachine stateMachine)
+  public void process(ForwardDeadReckonPropnetStateMachine stateMachine)
       throws TransitionDefinitionException, MoveDefinitionException,
       GoalDefinitionException
   {

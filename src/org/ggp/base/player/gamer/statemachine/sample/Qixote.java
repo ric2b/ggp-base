@@ -26,7 +26,7 @@ import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class Qixote extends SampleGamer
 {
@@ -71,11 +71,11 @@ public class Qixote extends SampleGamer
   private class RolloutProcessor implements Runnable
   {
     private boolean                                  stop          = false;
-    private TestForwardDeadReckonPropnetStateMachine stateMachine;
+    private ForwardDeadReckonPropnetStateMachine stateMachine;
     private Thread                                   runningThread = null;
     private AtomicInteger                            utilization   = new AtomicInteger(1000);
 
-    public RolloutProcessor(TestForwardDeadReckonPropnetStateMachine stateMachine)
+    public RolloutProcessor(ForwardDeadReckonPropnetStateMachine stateMachine)
     {
       this.stateMachine = stateMachine;
     }
@@ -178,7 +178,7 @@ public class Qixote extends SampleGamer
     public int                                   sampleSize;
     public List<TreeNode>                        path;
 
-    public void process(TestForwardDeadReckonPropnetStateMachine stateMachine)
+    public void process(ForwardDeadReckonPropnetStateMachine stateMachine)
         throws TransitionDefinitionException, MoveDefinitionException,
         GoalDefinitionException
     {
@@ -217,7 +217,7 @@ public class Qixote extends SampleGamer
     }
   }
 
-  private int netScore(TestForwardDeadReckonPropnetStateMachine stateMachine,
+  private int netScore(ForwardDeadReckonPropnetStateMachine stateMachine,
                        ForwardDeadReckonInternalMachineState state)
       throws GoalDefinitionException
   {
@@ -303,7 +303,7 @@ public class Qixote extends SampleGamer
     }
   }
 
-  private TreeNode allocateNode(TestForwardDeadReckonPropnetStateMachine underlyingStateMachine,
+  private TreeNode allocateNode(ForwardDeadReckonPropnetStateMachine underlyingStateMachine,
                                 ForwardDeadReckonInternalMachineState state,
                                 Move ourMove,
                                 TreeNode parent)
@@ -426,7 +426,7 @@ public class Qixote extends SampleGamer
     {
     }
 
-    private void setStateAndMove(TestForwardDeadReckonPropnetStateMachine underlyingStateMachine,
+    private void setStateAndMove(ForwardDeadReckonPropnetStateMachine underlyingStateMachine,
                                  ForwardDeadReckonInternalMachineState state,
                                  Move ourMove) throws GoalDefinitionException
     {
@@ -1776,7 +1776,7 @@ public class Qixote extends SampleGamer
     numCompletedRollouts = 0;
   }
 
-  private TestForwardDeadReckonPropnetStateMachine underlyingStateMachine;
+  private ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
   private TreeNode                                 root = null;
 
   @Override
@@ -1800,7 +1800,7 @@ public class Qixote extends SampleGamer
     }
     GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
-    underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine(1 + numRolloutThreads,
+    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(1 + numRolloutThreads,
                                                                           getRoleName());
 
     emptyTree();

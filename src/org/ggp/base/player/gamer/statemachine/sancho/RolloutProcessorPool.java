@@ -7,7 +7,7 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class RolloutProcessorPool
 {
@@ -24,11 +24,11 @@ public class RolloutProcessorPool
   public int                                           numRoles;
   public Role                                          ourRole;
   public RoleOrdering                                  roleOrdering                                = null;
-  private TestForwardDeadReckonPropnetStateMachine     underlyingStateMachine;
+  private ForwardDeadReckonPropnetStateMachine     underlyingStateMachine;
   public int highestRolloutScoreSeen;
   public int lowestRolloutScoreSeen;
 
-  public RolloutProcessorPool(int numThreads, TestForwardDeadReckonPropnetStateMachine underlyingStateMachine, Role ourRole)
+  public RolloutProcessorPool(int numThreads, ForwardDeadReckonPropnetStateMachine underlyingStateMachine, Role ourRole)
   {
     numRolloutThreads = numThreads;
     maxOutstandingRolloutRequests = numThreads;

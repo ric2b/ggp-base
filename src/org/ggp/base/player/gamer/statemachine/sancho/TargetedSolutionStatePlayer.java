@@ -18,7 +18,7 @@ import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class TargetedSolutionStatePlayer
 {
@@ -217,7 +217,7 @@ public class TargetedSolutionStatePlayer
   }
 
 
-  private TestForwardDeadReckonPropnetStateMachine underlyingStateMachine;
+  private ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
   private StateMachineGamer gamer;
   private RoleOrdering roleOrdering;
 
@@ -229,7 +229,7 @@ public class TargetedSolutionStatePlayer
   private HashMap<MachineState, Integer> considered                    = new HashMap<>();
   private MachineState                   targetState                     = null;
 
-  public TargetedSolutionStatePlayer(TestForwardDeadReckonPropnetStateMachine stateMachine,
+  public TargetedSolutionStatePlayer(ForwardDeadReckonPropnetStateMachine stateMachine,
                                      StateMachineGamer gamer,
                                      RoleOrdering roleOrdering)
   {

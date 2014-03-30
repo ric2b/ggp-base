@@ -26,13 +26,13 @@ import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.TestPropnetStateMachine;
-import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 
 public class TestMinimaxGamer extends SampleGamer
 {
 
-  private TestForwardDeadReckonPropnetStateMachine underlyingStateMachine;
+  private ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
   private Set<MachineState>                        visitedStates = new HashSet<MachineState>();
   private int                                      nodesExamined;
   private List<MachineState>                       statesVisited = new LinkedList<MachineState>();
@@ -48,7 +48,7 @@ public class TestMinimaxGamer extends SampleGamer
   {
     GamerLogger.setFileToDisplay("StateMachine");
     bestScoreGoaled = -1;
-    underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine();
+    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine();
     //underlyingStateMachine = new ProverStateMachine();
     //underlyingStateMachine = new TestPropnetStateMachine(new LearningComponentFactory());
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
