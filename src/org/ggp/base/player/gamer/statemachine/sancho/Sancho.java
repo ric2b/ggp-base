@@ -924,8 +924,8 @@ public class Sancho extends SampleGamer
           .createInternalState(getCurrentState());
       moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
 
-      System.out.println("Received current state: " + getCurrentState());
-      System.out.println("Using current state: " + currentState);
+      //System.out.println("Received current state: " + getCurrentState());
+      //System.out.println("Using current state: " + currentState);
 
       rolloutPool.lowestRolloutScoreSeen = 1000;
       rolloutPool.highestRolloutScoreSeen = -100;

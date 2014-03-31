@@ -2415,58 +2415,61 @@ public class TreeNode
 
   private void dumpStats()
   {
-    Map<Move, MoveFrequencyInfo> moveChoices = new HashMap<Move, MoveFrequencyInfo>();
-    Map<Move, MoveFrequencyInfo> responseChoices = new HashMap<Move, MoveFrequencyInfo>();
-    MoveWeightsCollection ourWeights = tree.nodeMoveWeightsCache.get(this);
-
-    if (children != null)
+    if ( tree.enableMoveActionHistory )
     {
-      for (TreeEdge edge : children)
+      Map<Move, MoveFrequencyInfo> moveChoices = new HashMap<Move, MoveFrequencyInfo>();
+      Map<Move, MoveFrequencyInfo> responseChoices = new HashMap<Move, MoveFrequencyInfo>();
+      MoveWeightsCollection ourWeights = tree.nodeMoveWeightsCache.get(this);
+
+      if (children != null)
       {
-        MoveFrequencyInfo info = new MoveFrequencyInfo();
-
-        info.selectionFrequency = edge.numChildVisits;
-        info.weightedAverageScores = edge.child.node.averageScores;
-        info.numSamples = 1;
-        info.averageWeight = (ourWeights == null ? 0 : ourWeights
-                                                 .getMoveWeight(edge.jointPartialMove[0].move, 0));
-        moveChoices.put(edge.jointPartialMove[0].move, info);
-
-        MoveWeightsCollection weights = new MoveWeightsCollection(tree.numRoles);
-        if (ourWeights != null)
+        for (TreeEdge edge : children)
         {
-          weights.accrue(ourWeights);
+          MoveFrequencyInfo info = new MoveFrequencyInfo();
+
+          info.selectionFrequency = edge.numChildVisits;
+          info.weightedAverageScores = edge.child.node.averageScores;
+          info.numSamples = 1;
+          info.averageWeight = (ourWeights == null ? 0 : ourWeights
+                                                   .getMoveWeight(edge.jointPartialMove[0].move, 0));
+          moveChoices.put(edge.jointPartialMove[0].move, info);
+
+          MoveWeightsCollection weights = new MoveWeightsCollection(tree.numRoles);
+          if (ourWeights != null)
+          {
+            weights.accrue(ourWeights);
+          }
+          edge.child.node.addResponseStats(responseChoices, weights);
         }
-        edge.child.node.addResponseStats(responseChoices, weights);
       }
-    }
 
-    for (Entry<Move, MoveFrequencyInfo> e : moveChoices.entrySet())
-    {
-      System.out
-      .println("Move " +
-          e.getKey() +
-          " weight " +
-          e.getValue().averageWeight +
-          ", frequency " +
-              e.getValue().selectionFrequency +
-              ", score: " +
-                  stringizeScoreVector(e.getValue().weightedAverageScores,
-                                       false));
-    }
+      for (Entry<Move, MoveFrequencyInfo> e : moveChoices.entrySet())
+      {
+        System.out
+        .println("Move " +
+            e.getKey() +
+            " weight " +
+            e.getValue().averageWeight +
+            ", frequency " +
+                e.getValue().selectionFrequency +
+                ", score: " +
+                    stringizeScoreVector(e.getValue().weightedAverageScores,
+                                         false));
+      }
 
-    for (Entry<Move, MoveFrequencyInfo> e : responseChoices.entrySet())
-    {
-      System.out
-      .println("Response " +
-          e.getKey() +
-          " weight " +
-          e.getValue().averageWeight +
-          ", frequency " +
-          e.getValue().selectionFrequency +
-          ", score: " +
-          stringizeScoreVector(e.getValue().weightedAverageScores,
-                               false));
+      for (Entry<Move, MoveFrequencyInfo> e : responseChoices.entrySet())
+      {
+        System.out
+        .println("Response " +
+            e.getKey() +
+            " weight " +
+            e.getValue().averageWeight +
+            ", frequency " +
+            e.getValue().selectionFrequency +
+            ", score: " +
+            stringizeScoreVector(e.getValue().weightedAverageScores,
+                                 false));
+      }
     }
   }
 
