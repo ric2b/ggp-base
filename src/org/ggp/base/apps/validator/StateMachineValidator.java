@@ -13,8 +13,8 @@ import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.propnet.polymorphic.learning.LearningComponentFactory;
 import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponentFactory;
 import org.ggp.base.util.statemachine.StateMachine;
-import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.TestPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 import org.ggp.base.util.statemachine.verifier.StateMachineVerifier;
 
@@ -70,7 +70,7 @@ public class StateMachineValidator
         //  Instantiate the statemachine to be tested here as per the following commented out
         //  line in place of the basic prover
         //TestPropnetStateMachine theMachine = new TestPropnetStateMachine(new LearningComponentFactory());
-        TestForwardDeadReckonPropnetStateMachine theMachine = new TestForwardDeadReckonPropnetStateMachine();
+        ForwardDeadReckonPropnetStateMachine theMachine = new ForwardDeadReckonPropnetStateMachine();
         //StateMachine theMachine = new ProverStateMachine(); // Replace this line with your state machine instantiation           
 
         System.out.println("Precheck game " + gameKey + ".");

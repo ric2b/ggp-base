@@ -13,12 +13,12 @@ import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class MonteCarloTestGamer extends SampleGamer
 {
 
-  private TestForwardDeadReckonPropnetStateMachine underlyingStateMachine;
+  private ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
 
   @Override
   public void stateMachineMetaGame(long timeout)
@@ -72,7 +72,7 @@ public class MonteCarloTestGamer extends SampleGamer
   {
     GamerLogger.setFileToDisplay("StateMachine");
 
-    underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine();
+    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine();
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
     //return new CachedStateMachine(underlyingStateMachine);
     return underlyingStateMachine;

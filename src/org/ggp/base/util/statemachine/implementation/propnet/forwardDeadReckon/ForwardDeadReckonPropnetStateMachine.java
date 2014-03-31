@@ -1,5 +1,5 @@
 
-package org.ggp.base.util.statemachine.implementation.propnet;
+package org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,7 +30,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
-import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionCrossReferenceInfo;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
 import org.ggp.base.util.propnet.polymorphic.learning.LearningComponent;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
@@ -42,7 +42,7 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBuilder;
 import org.ggp.base.util.stats.Stats;
 
-public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
+public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 {
   /** The underlying proposition network */
   private ForwardDeadReckonPropNet                                     propNetX                        = null;
@@ -274,8 +274,8 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         ForwardDeadReckonProposition p = (ForwardDeadReckonProposition)propNet
             .getBasePropositions().get(s);
-        ForwardDeadReckonPropositionCrossReferenceInfo info = p
-            .getCrossReferenceInfo();
+        ForwardDeadReckonPropositionInfo info = p
+            .getInfo();
         result.add(info);
 
         result.isXState |= (info.sentence == XSentence);
@@ -481,7 +481,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
-  public void validateStateEquality(TestForwardDeadReckonPropnetStateMachine other)
+  public void validateStateEquality(ForwardDeadReckonPropnetStateMachine other)
   {
     if (!lastInternalSetState.equals(other.lastInternalSetState))
     {
@@ -756,19 +756,19 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
     return result;
   }
 
-  public TestForwardDeadReckonPropnetStateMachine()
+  public ForwardDeadReckonPropnetStateMachine()
   {
     this.maxInstances = 1;
   }
 
-  public TestForwardDeadReckonPropnetStateMachine(int maxInstances,
+  public ForwardDeadReckonPropnetStateMachine(int maxInstances,
                                                   GdlConstant roleName)
   {
     this.maxInstances = maxInstances;
     this.roleName = roleName;
   }
 
-  private TestForwardDeadReckonPropnetStateMachine(TestForwardDeadReckonPropnetStateMachine master,
+  private ForwardDeadReckonPropnetStateMachine(ForwardDeadReckonPropnetStateMachine master,
                                                    int instanceId)
   {
     this.maxInstances = -1;
@@ -810,14 +810,14 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
         .getLegalPropositions().get(getRoles().get(0)).length);
   }
 
-  public TestForwardDeadReckonPropnetStateMachine createInstance()
+  public ForwardDeadReckonPropnetStateMachine createInstance()
   {
     if (numInstances >= maxInstances)
     {
       throw new RuntimeException("Too many instances");
     }
 
-    TestForwardDeadReckonPropnetStateMachine result = new TestForwardDeadReckonPropnetStateMachine(this,
+    ForwardDeadReckonPropnetStateMachine result = new ForwardDeadReckonPropnetStateMachine(this,
                                                                                                    numInstances++);
 
     return result;
@@ -876,7 +876,6 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
                    fullPropNet.getComponents().size());
 
       fullPropNet.renderToFile("c:\\temp\\propnetReduced.dot");
-
       roles = fullPropNet.getRoles();
 
       moveProps = new ForwardDeadReckonProposition[roles.size()];
@@ -943,9 +942,14 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
 
         masterInfoSet[index++] = info;
 
-        prop.setCrossReferenceInfo(info);
+        prop.setInfo(info);
         basePropChangeCounts.put(info, 0);
       }
+
+      FactorAnalyser factorAnalyser = new FactorAnalyser(fullPropNet);
+      int numFactors = factorAnalyser.analyse();
+      System.out.println("Game appears to have " + numFactors + " factors");
+
       fullPropNet.crystalize(masterInfoSet, maxInstances);
 
       stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -1202,11 +1206,11 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
 
         masterInfoSet[index++] = info;
 
-        xProp.setCrossReferenceInfo(info);
-        oProp.setCrossReferenceInfo(info);
+        xProp.setInfo(info);
+        oProp.setInfo(info);
         if (goalsProp != null)
         {
-          goalsProp.setCrossReferenceInfo(info);
+          goalsProp.setInfo(info);
         }
 
         if (e.getKey().equals(XSentence))
@@ -1321,35 +1325,36 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
             nextInternalSetState = state;
           }
 
-          for (ForwardDeadReckonPropositionCrossReferenceInfo info : lastInternalSetState)
+          for (ForwardDeadReckonPropositionInfo info : lastInternalSetState)
           {
+            ForwardDeadReckonPropositionCrossReferenceInfo infoCr = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
             if (nextInternalSetState.contains(info))
             {
               if (propNet == propNetX)
               {
-                info.xNetProp.setValue(true, instanceId);
+                infoCr.xNetProp.setValue(true, instanceId);
               }
               else
               {
-                info.oNetProp.setValue(true, instanceId);
+                infoCr.oNetProp.setValue(true, instanceId);
               }
             }
             else
             {
               if (propNet == propNetX)
               {
-                info.xNetProp.setValue(false, instanceId);
+                infoCr.xNetProp.setValue(false, instanceId);
               }
               else
               {
-                info.oNetProp.setValue(false, instanceId);
+                infoCr.oNetProp.setValue(false, instanceId);
               }
             }
 
             if (measuringBasePropChanges)
             {
-              basePropChangeCounts.put(info,
-                                       basePropChangeCounts.get(info) + 1);
+              basePropChangeCounts.put(infoCr,
+                                       basePropChangeCounts.get(infoCr) + 1);
             }
           }
 
@@ -1373,15 +1378,16 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           ((ForwardDeadReckonProposition)p).setValue(false, instanceId);
         }
-        for (ForwardDeadReckonPropositionCrossReferenceInfo s : state)
+        for (ForwardDeadReckonPropositionInfo s : state)
         {
+          ForwardDeadReckonPropositionCrossReferenceInfo sCr = (ForwardDeadReckonPropositionCrossReferenceInfo)s;
           if (propNet == propNetX)
           {
-            s.xNetProp.setValue(true, instanceId);
+            sCr.xNetProp.setValue(true, instanceId);
           }
           else
           {
-            s.oNetProp.setValue(true, instanceId);
+            sCr.oNetProp.setValue(true, instanceId);
           }
         }
       }
@@ -2158,7 +2164,7 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
       //RuntimeOptimizedComponent.getCount = 0;
 
       ForwardDeadReckonInternalMachineState result = new ForwardDeadReckonInternalMachineState(masterInfoSet);
-      for (ForwardDeadReckonPropositionCrossReferenceInfo info : propNet
+      for (ForwardDeadReckonPropositionInfo info : propNet
           .getActiveBaseProps(instanceId))
       {
         result.add(info);
@@ -2977,14 +2983,14 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
             .getBasePropositions().get(e.getKey());
         ForwardDeadReckonProposition xProp = (ForwardDeadReckonProposition)propNetXWithoutGoals
             .getBasePropositions().get(e.getKey());
-        ForwardDeadReckonPropositionCrossReferenceInfo info = ((ForwardDeadReckonProposition)e
-            .getValue()).getCrossReferenceInfo();
+        ForwardDeadReckonPropositionCrossReferenceInfo info = (ForwardDeadReckonPropositionCrossReferenceInfo)((ForwardDeadReckonProposition)e
+            .getValue()).getInfo();
 
         info.xNetProp = xProp;
         info.oNetProp = oProp;
 
-        xProp.setCrossReferenceInfo(info);
-        oProp.setCrossReferenceInfo(info);
+        xProp.setInfo(info);
+        oProp.setInfo(info);
       }
 
       propNetXWithoutGoals.crystalize(masterInfoSet, maxInstances);
@@ -3168,11 +3174,12 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
           {
             ((ForwardDeadReckonProposition)p).setValue(false, instanceId);
           }
-          for (ForwardDeadReckonPropositionCrossReferenceInfo s : state)
+          for (ForwardDeadReckonPropositionInfo s : state)
           {
-            if (s.goalsNetProp != null)
+            ForwardDeadReckonPropositionCrossReferenceInfo scr = (ForwardDeadReckonPropositionCrossReferenceInfo)s;
+            if (scr.goalsNetProp != null)
             {
-              s.goalsNetProp.setValue(true, instanceId);
+              scr.goalsNetProp.setValue(true, instanceId);
             }
           }
 
@@ -3198,17 +3205,18 @@ public class TestForwardDeadReckonPropnetStateMachine extends StateMachine
 
           lastGoalState.xor(state);
 
-          for (ForwardDeadReckonPropositionCrossReferenceInfo info : lastGoalState)
+          for (ForwardDeadReckonPropositionInfo info : lastGoalState)
           {
-            if (info.goalsNetProp != null)
+            ForwardDeadReckonProposition goalsNetProp = ((ForwardDeadReckonPropositionCrossReferenceInfo)info).goalsNetProp;
+            if (goalsNetProp != null)
             {
               if (nextGoalState.contains(info))
               {
-                info.goalsNetProp.setValue(true, instanceId);
+                goalsNetProp.setValue(true, instanceId);
               }
               else
               {
-                info.goalsNetProp.setValue(false, instanceId);
+                goalsNetProp.setValue(false, instanceId);
               }
             }
           }

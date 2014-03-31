@@ -7,7 +7,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.stats.PearsonCorrelation;
 
 /**
@@ -19,7 +19,7 @@ public class MobilityHeuristic implements Heuristic
 
   private boolean mEnabled;
 
-  private TestForwardDeadReckonPropnetStateMachine mStateMachine;
+  private ForwardDeadReckonPropnetStateMachine mStateMachine;
   private RoleOrdering mRoleOrdering;
 
   private PearsonCorrelation[] mCorrelationForRole;
@@ -28,7 +28,7 @@ public class MobilityHeuristic implements Heuristic
   private int mMovesWithChoiceForRole[];
 
   @Override
-  public void tuningInitialise(TestForwardDeadReckonPropnetStateMachine xiStateMachine,
+  public void tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine,
                                RoleOrdering xiRoleOrdering)
   {
     mEnabled = true;

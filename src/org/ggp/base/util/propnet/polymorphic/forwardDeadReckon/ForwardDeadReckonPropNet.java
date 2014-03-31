@@ -1,14 +1,7 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
@@ -27,7 +20,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
   /**
    * Creates a new PropNet from a list of Components, along with indices over
    * those components.
-   * 
+   *
    * @param components
    *          A list of Components.
    */
@@ -80,7 +73,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
     propagationQueueIndex[0] = 0;
   }
 
-  private void setUpActivePropositionSets(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet)
+  private void setUpActivePropositionSets(ForwardDeadReckonPropositionInfo[] masterInfoSet)
   {
     activeLegalMoves = new ForwardDeadReckonLegalMoveSet[numInstances];
     alwaysTrueLegalMoves = new ForwardDeadReckonLegalMoveSet(getRoles());
@@ -145,7 +138,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
           ForwardDeadReckonTransition t = (ForwardDeadReckonTransition)input;
 
           t.setTransitionSet(((ForwardDeadReckonProposition)p)
-                                 .getCrossReferenceInfo(),
+                                 .getInfo(),
                              instanceId,
                              activeBasePropositions[instanceId]);
         }
@@ -154,14 +147,14 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
           if (input.getValue())
           {
             alwaysTrueBasePropositions.add(((ForwardDeadReckonProposition)p)
-                .getCrossReferenceInfo());
+                .getInfo());
           }
         }
       }
     }
   }
 
-  public void crystalize(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet)
+  public void crystalize(ForwardDeadReckonPropositionInfo[] masterInfoSet)
   {
     for (PolymorphicComponent c : getComponents())
     {
@@ -185,7 +178,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
     }
   }
 
-  public void crystalize(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet,
+  public void crystalize(ForwardDeadReckonPropositionInfo[] masterInfoSet,
                          int numInstances)
   {
     this.numInstances = numInstances;

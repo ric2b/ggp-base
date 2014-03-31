@@ -17,11 +17,11 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class IteratedGamePlayer
 {
-  private TestForwardDeadReckonPropnetStateMachine underlyingStateMachine;
+  private ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
   private StateMachineGamer gamer;
   private boolean isPseudoSimultaneousMove;
   private RoleOrdering roleOrdering;
@@ -29,7 +29,7 @@ public class IteratedGamePlayer
   private double competitivenessBonus;
   private Random r = new Random();
 
-  public IteratedGamePlayer(TestForwardDeadReckonPropnetStateMachine stateMachine,
+  public IteratedGamePlayer(ForwardDeadReckonPropnetStateMachine stateMachine,
                             StateMachineGamer gamer,
                             boolean isPseudoSimultaneousMove,
                             RoleOrdering roleOrdering,

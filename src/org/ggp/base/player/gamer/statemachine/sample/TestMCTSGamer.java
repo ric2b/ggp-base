@@ -23,7 +23,7 @@ import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class TestMCTSGamer extends SampleGamer
 {
@@ -63,7 +63,7 @@ public class TestMCTSGamer extends SampleGamer
     }
   }
 
-  private TreeNode allocateNode(TestForwardDeadReckonPropnetStateMachine underlyingStateMachine,
+  private TreeNode allocateNode(ForwardDeadReckonPropnetStateMachine underlyingStateMachine,
                                 MachineState state,
                                 Move ourMove,
                                 TreeNode parent)
@@ -177,7 +177,7 @@ public class TestMCTSGamer extends SampleGamer
     {
     }
 
-    private void setStateAndMove(TestForwardDeadReckonPropnetStateMachine underlyingStateMachine,
+    private void setStateAndMove(ForwardDeadReckonPropnetStateMachine underlyingStateMachine,
                                  MachineState state,
                                  Move ourMove) throws GoalDefinitionException
     {
@@ -1214,7 +1214,7 @@ public class TestMCTSGamer extends SampleGamer
     freeList.clear();
   }
 
-  private TestForwardDeadReckonPropnetStateMachine underlyingStateMachine;
+  private ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
   private TreeNode                                 root = null;
 
   // This is the default State Machine
@@ -1223,7 +1223,7 @@ public class TestMCTSGamer extends SampleGamer
   {
     GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
-    underlyingStateMachine = new TestForwardDeadReckonPropnetStateMachine(2,
+    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(2,
                                                                           getRoleName());
 
     emptyTree();
