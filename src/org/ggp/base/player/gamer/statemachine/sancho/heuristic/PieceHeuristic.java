@@ -16,6 +16,7 @@ import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.stats.PearsonCorrelation;
 
 /**
  * Heuristic which assumes that it's better to have more pieces than few.
@@ -36,7 +37,7 @@ public class PieceHeuristic implements Heuristic
   private int                                                            heuristicSampleWeight     = 10;
   private int[]                                                          rootPieceCounts           = null;
 
-  private class GdlFunctionInfo
+  private static class GdlFunctionInfo
   {
     private String           name;
     public List<Set<String>> paramRanges;
@@ -58,7 +59,7 @@ public class PieceHeuristic implements Heuristic
     }
   }
 
-  private class PotentialPiecePropSet
+  private static class PotentialPiecePropSet
   {
     String fnName;
     int    potentialRoleArgIndex;
@@ -67,6 +68,44 @@ public class PieceHeuristic implements Heuristic
     {
       fnName = name;
       potentialRoleArgIndex = index;
+    }
+  }
+
+  private static class HeuristicScoreInfo
+  {
+    private PearsonCorrelation[] roleCorrelation;
+    int                          lastValue        = -1;
+    boolean[]                    hasRoleChanges;
+    double                       noChangeTurnRate = 0;
+
+    public HeuristicScoreInfo(int numRoles)
+    {
+      roleCorrelation = new PearsonCorrelation[numRoles];
+      hasRoleChanges = new boolean[numRoles];
+      for (int i = 0; i < numRoles; i++)
+      {
+        roleCorrelation[i] = new PearsonCorrelation();
+      }
+    }
+
+    public void accrueSample(int value, int[] roleValues)
+    {
+      for (int i = 0; i < roleCorrelation.length; i++)
+      {
+        roleCorrelation[i].sample(value, roleValues[i]);
+      }
+    }
+
+    public double[] getRoleCorrelations()
+    {
+      double[] result = new double[roleCorrelation.length];
+
+      for (int i = 0; i < roleCorrelation.length; i++)
+      {
+        result[i] = roleCorrelation[i].getCorrelation();
+      }
+
+      return result;
     }
   }
 
