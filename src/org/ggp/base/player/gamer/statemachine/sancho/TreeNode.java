@@ -1558,8 +1558,7 @@ public class TreeNode
           tree.numIncompleteNodes--;
           if (tree.numIncompleteNodes < 0)
           {
-            System.out
-            .println("Unexpected negative count of incomplete nodes");
+            System.out.println("Unexpected negative count of incomplete nodes");
           }
         }
 

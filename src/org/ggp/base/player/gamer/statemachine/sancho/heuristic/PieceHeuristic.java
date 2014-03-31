@@ -354,7 +354,7 @@ public class PieceHeuristic implements Heuristic
 
   @Override
   public double[] getHeuristicValue(ForwardDeadReckonInternalMachineState state,
-                                      ForwardDeadReckonInternalMachineState previousState)
+                                    ForwardDeadReckonInternalMachineState previousState)
   {
     double total = 0;
     double rootTotal = 0;
