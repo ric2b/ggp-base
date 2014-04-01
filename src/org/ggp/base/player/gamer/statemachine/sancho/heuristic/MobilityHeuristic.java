@@ -121,9 +121,6 @@ public class MobilityHeuristic implements Heuristic
         mEnabled = false;
       }
     }
-
-    // It isn't safe to use the state machine any more (for multi-threading reasons)
-    mStateMachine = null;
   }
 
   @Override
@@ -148,7 +145,7 @@ public class MobilityHeuristic implements Heuristic
       for (int lii = 0; lii < lMobilityData.mNumRoles; lii++)
       {
         Role lRole = mRoleOrdering.roleIndexToRole(lii);
-        int lMobility = mStateMachine.getLegalMoves(xiState, lRole).size(); // !! ARR Wrong state machine
+        int lMobility = mStateMachine.getLegalMoves(xiState, lRole).size();
         if (lMobility > 1)
         {
           lMobilityData.mMovesWithChoiceForRole[lii]++;

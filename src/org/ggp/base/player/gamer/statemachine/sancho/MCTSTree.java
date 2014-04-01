@@ -53,7 +53,7 @@ public class MCTSTree
   final boolean                                        freeCompletedNodeChildren                   = false;                                                          //true;
   final boolean                                        disableOnelevelMinimax                      = true;  //false;
   int                                                  rolloutSampleSize                           = 4;
-  ForwardDeadReckonPropnetStateMachine             underlyingStateMachine;
+  ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
   int                                                  numRoles;
   LRUNodeMoveWeightsCache                              nodeMoveWeightsCache                        = null;
