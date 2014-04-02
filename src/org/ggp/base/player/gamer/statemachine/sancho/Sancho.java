@@ -38,7 +38,7 @@ public class Sancho extends SampleGamer
   private String         planString             = null;
   private Queue<Move>    plan                   = null;
   private int            transpositionTableSize = 2000000;
-  Heuristic              mHeuristic             = null;
+  private Heuristic      mHeuristic             = null;
 
   @Override
   public void configure(int xiParamIndex, String xiParam)
@@ -244,6 +244,7 @@ public class Sancho extends SampleGamer
 
     puzzlePlayer = null;
     ourRole = getRole();
+    System.out.println("We are: " + ourRole);
 
     numRoles = underlyingStateMachine.getRoles().size();
 
@@ -267,8 +268,11 @@ public class Sancho extends SampleGamer
 
     Set<Heuristic> heuristics = new HashSet<>();
     heuristics.add(new PieceHeuristic());
-    mHeuristic = heuristics.iterator().next(); // !! ARR Hack until we can combine heuristics.
+    // !! ARR Hack until we can combine heuristics.
+    mHeuristic = heuristics.iterator().next();
     heuristics.add(new MobilityHeuristic());
+
+    System.out.println("Using " + mHeuristic.getClass().getSimpleName());
 
     for (Heuristic heuristic : heuristics)
     {
@@ -303,7 +307,7 @@ public class Sancho extends SampleGamer
     //	Perform a small number of move-by-move simulations to assess how
     //	the potential piece count heuristics behave at the granularity of
     //	a single decision
-    // !! ARR Just do this until we get near the stopping time.  Combine with the next loop.
+    // !! ARR Do this for half the time (and the next loop for half the time)
     for (int iteration = 0; iteration < 5000; iteration++)
     {
       ForwardDeadReckonInternalMachineState sampleState = new ForwardDeadReckonInternalMachineState(initialState);

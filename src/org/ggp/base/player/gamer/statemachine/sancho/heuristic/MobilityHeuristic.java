@@ -27,6 +27,8 @@ public class MobilityHeuristic implements Heuristic
   private PearsonCorrelation[] mCorrelationForRole;
   private MobilityData mTuningData;
 
+  public int mWeight = 10; // !! ARR Hack
+
   @Override
   public void tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine,
                                RoleOrdering xiRoleOrdering)
@@ -121,6 +123,11 @@ public class MobilityHeuristic implements Heuristic
         mEnabled = false;
       }
     }
+
+    if (mEnabled)
+    {
+      System.out.println("Mobility heuristic enabled");
+    }
   }
 
   @Override
@@ -134,8 +141,38 @@ public class MobilityHeuristic implements Heuristic
                                     ForwardDeadReckonInternalMachineState xiPreviousState)
   {
     // Get the total mobility data from the previous state.
-    // !! ARR Need to do something about the first state.
-    MobilityData lMobilityData = ((MobilityData)(xiPreviousState.getHeuristicData(this))).clone();
+    MobilityData lMobilityData = ((MobilityData)(xiPreviousState.getHeuristicData(this)));
+
+    if (lMobilityData == null)
+    {
+      // If there's no data in xiPreviousState this must be the very first call to getHeuristicValue, in the initial
+      // state of the game.
+      System.out.println("Creating MobilityData in initial state");
+      lMobilityData = new MobilityData(mTuningData.mNumRoles);
+      try
+      {
+        for (int lii = 0; lii < lMobilityData.mNumRoles; lii++)
+        {
+          Role lRole = mRoleOrdering.roleIndexToRole(lii);
+          int lMobility = mStateMachine.getLegalMoves(xiPreviousState, lRole).size();
+          if (lMobility > 1)
+          {
+            lMobilityData.mMovesWithChoiceForRole[lii]++;
+            lMobilityData.mTotalChoicesForRole[lii] += lMobility;
+          }
+        }
+      }
+      catch (MoveDefinitionException lEx)
+      {
+        System.err.println("Unexpected error getting legal moves");
+        lEx.printStackTrace();
+      }
+
+      xiPreviousState.putHeuristicData(this, lMobilityData);
+    }
+
+    // Clone the mobility data for the new state, so as not to affect the version stored in the parent.
+    lMobilityData = lMobilityData.clone();
 
     // Add the mobility for this state.
     int lGrandTotalChoices = 0;
@@ -190,7 +227,7 @@ public class MobilityHeuristic implements Heuristic
   @Override
   public int getSampleWeight()
   {
-    return 10;
+    return mWeight;
   }
 
   @Override
