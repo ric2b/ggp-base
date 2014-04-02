@@ -144,7 +144,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.56a";
+    return "Sancho 1.56d";
   }
 
   @Override
@@ -424,6 +424,7 @@ public class Sancho extends SampleGamer
       simulationsPerformed++;
 
       underlyingStateMachine.getDepthChargeResult(initialState,
+                                                  null,
                                                   getRole(),
                                                   rolloutStats,
                                                   null,

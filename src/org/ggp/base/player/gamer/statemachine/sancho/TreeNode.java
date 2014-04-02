@@ -16,7 +16,6 @@ import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
-import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
@@ -49,7 +48,6 @@ public class TreeNode
   private int                           numUpdates          = 0;
   public double[]                       averageScores;
   private double[]                      averageSquaredScores;
-  private int[]                         numChoices;
   ForwardDeadReckonInternalMachineState state;
   int                                   decidingRoleIndex;
   private boolean                       isTerminal          = false;
@@ -198,7 +196,7 @@ public class TreeNode
     {
       //validateCompletionValues(values);
       //validateAll();
-      if (numUpdates > 0)
+      if (numUpdates > 0 && tree.gameCharacteristics.isSimultaneousMove)
       {
         //validateScoreVector(averageScores);
         correctParentsForCompletion(values);
@@ -851,7 +849,6 @@ public class TreeNode
     mostLikelyWinner = -1;
     complete = false;
     allChildrenComplete = false;
-    numChoices = null;
     seq = -1;
   }
 
@@ -1375,17 +1372,15 @@ public class TreeNode
         //validateAll();
 
         //System.out.println("Expand our moves from state: " + state);
-        ForwardDeadReckonLegalMoveSet moves = tree.underlyingStateMachine
-            .getLegalMoves(state);
+        Iterable<ForwardDeadReckonLegalMoveInfo> moves = tree.underlyingStateMachine
+            .getLegalMoves(state, choosingRole, null);
         List<ForwardDeadReckonLegalMoveInfo> moveInfos = new LinkedList<ForwardDeadReckonLegalMoveInfo>();
 
-        for (ForwardDeadReckonLegalMoveInfo move : moves
-            .getContents(choosingRole))
+        for (ForwardDeadReckonLegalMoveInfo move : moves)
         {
           moveInfos.add(move);
         }
-        TreeEdge[] newChildren = new TreeEdge[moves
-                                              .getContentSize(choosingRole)];
+        TreeEdge[] newChildren = new TreeEdge[moveInfos.size()];
 
         int index = 0;
         if (children != null)
@@ -1415,7 +1410,7 @@ public class TreeNode
           if (roleIndex == tree.numRoles - 1)
           {
             newState = tree.underlyingStateMachine
-                .getNextState(state, newEdge.jointPartialMove);
+                .getNextState(state, null, newEdge.jointPartialMove);
           }
 
           newEdge.child = tree.allocateNode(tree.underlyingStateMachine,
@@ -1439,24 +1434,12 @@ public class TreeNode
 
           newChild.decidingRoleIndex = roleIndex;
 
-          if (numChoices == null)
-          {
-            numChoices = new int[tree.numRoles];
-            for (int i = 0; i < tree.numRoles; i++)
-            {
-              numChoices[i] = 0;
-            }
-          }
-
           if (newState == null)
           {
             newChild.state = state;
-            newChild.numChoices = numChoices;
           }
           else
           {
-            newChild.numChoices = new int[tree.numRoles];
-
             if (tree.underlyingStateMachine.isTerminal(newState))
             {
               newChild.isTerminal = true;
@@ -1500,23 +1483,6 @@ public class TreeNode
                 newChild.averageScores[i] = ((newChild.averageScores[i] + tree.bonusBuffer[i]) * 100) /
                     (100 + 2 * (tree.numRoles - 1) *
                         tree.competitivenessBonus);
-              }
-            }
-            else
-            {
-              for (int i = 0; i < tree.numRoles; i++)
-              {
-                int num = tree.underlyingStateMachine
-                    .getLegalMoves(newChild.state)
-                    .getContentSize(tree.roleOrdering.roleIndexToRole(i));
-                if (num > 1)
-                {
-                  newChild.numChoices[i] = num;
-                }
-                else
-                {
-                  newChild.numChoices[i] = numChoices[i];
-                }
               }
             }
           }
@@ -1930,7 +1896,7 @@ public class TreeNode
             {
               double uctValue;
 
-              if (c.numVisits == 0 && !c.complete)
+              if (children[mostLikelyWinner].numChildVisits == 0 && !c.complete)
               {
                 // small random number to break ties randomly in unexpanded nodes
                 uctValue = 1000 + tree.r.nextDouble() * EPSILON;
@@ -1989,7 +1955,7 @@ public class TreeNode
                 else if (children[i].selectAs == children[i])
                 {
                   double uctValue;
-                  if (children[i].numChildVisits == 0 && !c.complete)
+                  if (children[i].numChildVisits == 0)
                   {
                     // small random number to break ties randomly in unexpanded nodes
                     uctValue = 1000 + tree.r.nextDouble() * EPSILON;
@@ -2126,13 +2092,13 @@ public class TreeNode
     //  which happens to do well from the distorted stats you get without it.  This
     //  is due to the particular circumstance in MaxKnights that scores can only
     //  go up!
-    if (bestCompleteNode != null && bestCompleteValue > bestValue && !tree.gameCharacteristics.isPuzzle)
-    {
-      result.setScoreOverrides(bestCompleteNode.averageScores);
-      bestCompleteNode.numVisits++;
-      children[bestSelectedIndex].numChildVisits++;
-      mostLikelyWinner = -1;
-    }
+//    if (bestCompleteNode != null && bestCompleteValue > bestValue && !tree.gameCharacteristics.isPuzzle)
+//    {
+//      result.setScoreOverrides(bestCompleteNode.averageScores);
+//      bestCompleteNode.numVisits++;
+//      children[bestSelectedIndex].numChildVisits++;
+//      mostLikelyWinner = -1;
+//    }
 
     //  Decay the weights being aggregated (so that they decay progressively as
     //  we select down the tree)

@@ -6,6 +6,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 class RolloutRequest
@@ -16,6 +17,7 @@ class RolloutRequest
   private final RolloutProcessorPool           pool;
   public TreeNodeRef                           node;
   public ForwardDeadReckonInternalMachineState state;
+  public Factor                                factor = null;
   public double[]                              averageScores;
   public double[]                              averageSquaredScores;
   public int                                   sampleSize;
@@ -53,7 +55,7 @@ class RolloutRequest
       {
         //System.out.println("Perform rollout from state: " + state);
         pool.numNonTerminalRollouts++;
-        stateMachine.getDepthChargeResult(state, pool.ourRole, null, null, null);
+        stateMachine.getDepthChargeResult(state, factor, pool.ourRole, null, null, null);
 
         for (int roleIndex = 0; roleIndex < pool.numRoles; roleIndex++)
         {

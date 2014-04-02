@@ -12,7 +12,6 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicOr;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
-import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 
 /**
@@ -21,8 +20,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
  */
 public class FactorAnalyser
 {
-  private ForwardDeadReckonPropNet propNet;
-  private Set<Factor>              factors;
+  private ForwardDeadReckonPropnetStateMachine stateMachine;
   static final private GdlConstant    GOAL      = GdlPool.getConstant("goal");
   static final private GdlConstant    INIT      = GdlPool.getConstant("init");
   static final private GdlConstant    TERMINAL  = GdlPool.getConstant("terminal");
@@ -42,21 +40,21 @@ public class FactorAnalyser
 
   private Map<PolymorphicProposition, DependencyInfo> baseDependencies = new HashMap<>();
 
-  public FactorAnalyser(ForwardDeadReckonPropNet propNet)
+  public FactorAnalyser(ForwardDeadReckonPropnetStateMachine stateMachine)
   {
-    factors = new HashSet<>();
-
-    this.propNet = propNet;
+    this.stateMachine = stateMachine;
   }
 
   /**
    * @return  Number of factors identified
    */
-  public int analyse()
+  public Set<Factor> analyse()
   {
+    Set<Factor>  factors = new HashSet<>();
+
     //  Find the base dependencies of every base, transitting through input props to their
     //  associated legals
-    for(PolymorphicProposition baseProp : propNet.getBasePropositions().values())
+    for(PolymorphicProposition baseProp : stateMachine.getFullPropNet().getBasePropositions().values())
     {
       //System.out.println("Build dependencies for: " + baseProp);
       baseDependencies.put(baseProp, buildBaseDependencies(baseProp));
@@ -66,7 +64,7 @@ public class FactorAnalyser
     //  Start by finding the closure for each base prop
     Map<PolymorphicProposition,Set<PolymorphicProposition>> dependencyClosures = new HashMap<>();
 
-    for(PolymorphicProposition baseProp : propNet.getBasePropositions().values())
+    for(PolymorphicProposition baseProp : stateMachine.getFullPropNet().getBasePropositions().values())
     {
       dependencyClosures.put(baseProp, findDependencyClosure(baseProp));
     }
@@ -74,7 +72,7 @@ public class FactorAnalyser
     //  Now look for pure disjunctive inputs to goal and terminal
     Map<PolymorphicComponent, Set<PolymorphicProposition>> disjunctiveInputs = new HashMap<>();
 
-    addDisjunctiveInputProps(propNet.getTerminalProposition(), disjunctiveInputs);
+    addDisjunctiveInputProps(stateMachine.getFullPropNet().getTerminalProposition(), disjunctiveInputs);
     //  TODO - same for goals
 
     //  Trim out from each disjunctive input set those propositions in the control set, which are only
@@ -82,7 +80,7 @@ public class FactorAnalyser
     Set<PolymorphicComponent> controlOnlyInputs = new HashSet<>();
     Set<PolymorphicProposition> controlSet = new HashSet<>();
 
-    for(PolymorphicProposition baseProp : propNet.getBasePropositions().values())
+    for(PolymorphicProposition baseProp : stateMachine.getFullPropNet().getBasePropositions().values())
     {
       DependencyInfo dInfo = baseDependencies.get(baseProp);
 
@@ -142,7 +140,7 @@ public class FactorAnalyser
 
     for( Entry<PolymorphicComponent, Set<PolymorphicProposition>> e : disjunctiveInputs.entrySet())
     {
-      if ( e.getValue().size() > (propNet.getBasePropositions().size() - controlSet.size())/2 )
+      if ( e.getValue().size() > (stateMachine.getFullPropNet().getBasePropositions().size() - controlSet.size())/2 )
       {
         ignorableDisjuncts.add(e.getKey());
       }
@@ -157,7 +155,7 @@ public class FactorAnalyser
     //  dependencies - these are the factors
     while(!disjunctiveInputs.isEmpty())
     {
-      Factor newFactor = new Factor();
+      Factor newFactor = new Factor(stateMachine);
 
       newFactor.addAll(disjunctiveInputs.values().iterator().next());
       factors.add(newFactor);
@@ -217,7 +215,7 @@ public class FactorAnalyser
       }
     }
 
-    return Math.max(1, factors.size());
+    return (factors.size() > 1 ? factors : null);
   }
 
   private DependencyInfo buildBaseDependencies(PolymorphicProposition p)
@@ -303,7 +301,7 @@ public class FactorAnalyser
       PolymorphicProposition p = (PolymorphicProposition)c;
       GdlConstant name = p.getName().getName();
 
-      if ( propNet.getBasePropositions().containsValue(p))
+      if ( stateMachine.getFullPropNet().getBasePropositions().containsValue(p))
       {
         dependencies.add(p);
         root = p;
@@ -318,7 +316,7 @@ public class FactorAnalyser
       {
         if ( root != null )
         {
-          PolymorphicProposition legalProp = propNet.getLegalInputMap().get(c);
+          PolymorphicProposition legalProp = stateMachine.getFullPropNet().getLegalInputMap().get(c);
 
           if ( legalProp != null )
           {
