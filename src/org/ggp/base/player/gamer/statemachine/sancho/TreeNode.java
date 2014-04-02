@@ -196,7 +196,7 @@ public class TreeNode
     {
       //validateCompletionValues(values);
       //validateAll();
-      if (numUpdates > 0)
+      if (numUpdates > 0 && tree.gameCharacteristics.isSimultaneousMove)
       {
         //validateScoreVector(averageScores);
         correctParentsForCompletion(values);
