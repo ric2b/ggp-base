@@ -1487,6 +1487,7 @@ public class TreeNode
             }
           }
 
+          // Determine the heuristic value for this child (provided that it's a new non-terminal child).
           int lSampleWeight = tree.heuristic.getSampleWeight();
           if ((newChild.numVisits == 0) &&
               (!newChild.isTerminal) &&
@@ -1497,6 +1498,8 @@ public class TreeNode
 
             //validateScoreVector(heuristicScores);
 
+            // Set the heuristic values, although note that this doesn't actually apply them.  There need to be some
+            // recorded samples before the averageScores have any meaning.
             for (int i = 0; i < tree.numRoles; i++)
             {
               newChild.averageScores[i] = heuristicScores[i];
@@ -1504,8 +1507,12 @@ public class TreeNode
               heuristicSquaredDeviation += (lDeviation * lDeviation);
             }
 
+            // Only apply the heuristic values if the current root has sufficient visits and there is some deviation
+            // between the root's scores and the heuristic scores in the new child.
             if (heuristicSquaredDeviation > 0.01 && tree.root.numVisits > 50)
             {
+              // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
+              // the new child.
               newChild.numUpdates = lSampleWeight;
               newChild.numVisits = lSampleWeight;
             }
@@ -1524,8 +1531,7 @@ public class TreeNode
           tree.numIncompleteNodes--;
           if (tree.numIncompleteNodes < 0)
           {
-            System.out
-            .println("Unexpected negative count of incomplete nodes");
+            System.out.println("Unexpected negative count of incomplete nodes");
           }
         }
 

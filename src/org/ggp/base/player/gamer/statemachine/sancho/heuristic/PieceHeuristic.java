@@ -16,6 +16,7 @@ import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.stats.PearsonCorrelation;
 
 /**
  * Heuristic which assumes that it's better to have more pieces than few.
@@ -36,7 +37,7 @@ public class PieceHeuristic implements Heuristic
   private int                                                            heuristicSampleWeight     = 10;
   private int[]                                                          rootPieceCounts           = null;
 
-  private class GdlFunctionInfo
+  private static class GdlFunctionInfo
   {
     private String           name;
     public List<Set<String>> paramRanges;
@@ -58,7 +59,7 @@ public class PieceHeuristic implements Heuristic
     }
   }
 
-  private class PotentialPiecePropSet
+  private static class PotentialPiecePropSet
   {
     String fnName;
     int    potentialRoleArgIndex;
@@ -67,6 +68,44 @@ public class PieceHeuristic implements Heuristic
     {
       fnName = name;
       potentialRoleArgIndex = index;
+    }
+  }
+
+  private static class HeuristicScoreInfo
+  {
+    private PearsonCorrelation[] roleCorrelation;
+    int                          lastValue        = -1;
+    boolean[]                    hasRoleChanges;
+    double                       noChangeTurnRate = 0;
+
+    public HeuristicScoreInfo(int numRoles)
+    {
+      roleCorrelation = new PearsonCorrelation[numRoles];
+      hasRoleChanges = new boolean[numRoles];
+      for (int i = 0; i < numRoles; i++)
+      {
+        roleCorrelation[i] = new PearsonCorrelation();
+      }
+    }
+
+    public void accrueSample(int value, int[] roleValues)
+    {
+      for (int i = 0; i < roleCorrelation.length; i++)
+      {
+        roleCorrelation[i].sample(value, roleValues[i]);
+      }
+    }
+
+    public double[] getRoleCorrelations()
+    {
+      double[] result = new double[roleCorrelation.length];
+
+      for (int i = 0; i < roleCorrelation.length; i++)
+      {
+        result[i] = roleCorrelation[i].getCorrelation();
+      }
+
+      return result;
     }
   }
 
@@ -315,21 +354,23 @@ public class PieceHeuristic implements Heuristic
 
   @Override
   public double[] getHeuristicValue(ForwardDeadReckonInternalMachineState state,
-                                      ForwardDeadReckonInternalMachineState previousState)
+                                    ForwardDeadReckonInternalMachineState previousState)
   {
     double total = 0;
     double rootTotal = 0;
 
     for (int i = 0; i < numRoles; i++)
     {
+      // Set the initial heuristic value for this role according to the difference in number of pieces between this
+      // state and the current state in the tree root.
       int numPieces = pieceSets[i].intersectionSize(state);
-      int previousNumPieces = pieceSets[i].intersectionSize(previousState);
       heuristicStateValueBuffer[i] = numPieces - rootPieceCounts[i];
+
       total += numPieces;
       rootTotal += rootPieceCounts[i];
 
-      // Counter-weight exchange sequences slightly to remove the first-
-      // capture bias at least to first order
+      // Counter-weight exchange sequences slightly to remove the first-capture bias, at least to first order.
+      int previousNumPieces = pieceSets[i].intersectionSize(previousState);
       if (numPieces == rootPieceCounts[i] &&
           previousNumPieces < rootPieceCounts[i])
       {
@@ -346,25 +387,32 @@ public class PieceHeuristic implements Heuristic
 
     for (int i = 0; i < numRoles; i++)
     {
-      double weight;
-
       if (rootTotal != total)
       {
+        // There has been an overall change in the number of pieces.  Calculate the proportion of that total gained/lost
+        // by this role and use that to generate a new average heuristic value for the role.
         double proportion = (heuristicStateValueBuffer[i] - (total - rootTotal) /
                                                             numRoles) /
                             (total / numRoles);
-        weight = 1 / (1 + Math.exp(-proportion * 10));
+        heuristicStateValueBuffer[i] = 100 / (1 + Math.exp(-proportion * 10));
       }
       else
       {
-        weight = 0.5;
+        // There has been no overall change to the number of pieces.  Assume an average value.
+        // !! ARR Why?
+        heuristicStateValueBuffer[i] = 50;
       }
-      heuristicStateValueBuffer[i] = 100 * weight;
 
-      //  Normalize against root score since this is relative to the root state material balance
-      //  Only do this if the root has had enough visits to have a credible estimate
+      // Normalize against the root score since this is relative to the root state material balance.  Only do this if
+      // the root has had enough visits to have a credible estimate.
       if (rootNode.numVisits > 50)
       {
+        // Set the average score for the child to the average score of the root displaced towards the extremities
+        // (0/100) by a proportion of the amount that it currently deviates from the extremities, where that proportion
+        // is equal to the proportion by which the heuristic value deviates from the centre.
+        //
+        // This assumes that the root's score is a very good basis as the initial estimate for this child node and is
+        // certainly better than the heuristic value alone.
         if (heuristicStateValueBuffer[i] > 50)
         {
           heuristicStateValueBuffer[i] = rootNode.averageScores[i] +
