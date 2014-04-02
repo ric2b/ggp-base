@@ -7,9 +7,9 @@ package org.ggp.base.util.stats;
  */
 public class SampledStatistic
 {
-  private int    mNumSamples          = 0;
-  private long   mSum                 = 0;
-  private long   mSumOfSquares        = 0;
+  private int      mNumSamples          = 0;
+  private double   mSum                 = 0;
+  private double   mSumOfSquares        = 0;
 
   /**
    * Record a sample.
@@ -19,7 +19,8 @@ public class SampledStatistic
   public void sample(int xiValue)
   {
     mSum += xiValue;
-    mSumOfSquares += (xiValue * xiValue);
+    //  Convert to double to avoid overflow from very high sampling rate
+    mSumOfSquares += ((double)xiValue * (double)xiValue);
     mNumSamples++;
   }
 
@@ -36,7 +37,7 @@ public class SampledStatistic
    */
   public long getTotal()
   {
-    return mSum;
+    return (long)mSum;
   }
 
   /**
@@ -44,7 +45,7 @@ public class SampledStatistic
    */
   public double getMean()
   {
-    return (double)mSum / (double)mNumSamples;
+    return mSum / mNumSamples;
   }
 
   /**
@@ -57,11 +58,15 @@ public class SampledStatistic
       return 0;
     }
 
-    double lStdDev = Math.sqrt((double)((mNumSamples * mSumOfSquares) - (mSum * mSum)) /
-                               (double)(mNumSamples * (mNumSamples - 1)));
+    //  When the sample size gets very large and every sample is the same (TicTacToe exhibits this)
+    //  then rounding errors can make the difference slightly negative, so correct for that
+    //  possibility
+    double numerator = Math.max(0, ((mNumSamples * mSumOfSquares) - (mSum * mSum)));
+    double lStdDev = Math.sqrt( numerator/
+                               (mNumSamples * ((double)mNumSamples - 1)));
     assert(!Double.isNaN(lStdDev));
     assert(!Double.isInfinite(lStdDev));
-    assert(lStdDev != 0);
+    assert(lStdDev >= 0);
 
     return lStdDev;
   }
