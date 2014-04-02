@@ -32,7 +32,7 @@ public class Sancho extends SampleGamer
 {
   public Role            ourRole;
   private final boolean  runSynchronously       = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
-  private int            numRolloutThreads      = (runSynchronously ? 0 : 4);
+  private int            numRolloutThreads      = (runSynchronously ? 0 : (Runtime.getRuntime().availableProcessors() + 1) / 2);
   private double         minExplorationBias     = 0.5;
   private double         maxExplorationBias     = 1.2;
   private String         planString             = null;
