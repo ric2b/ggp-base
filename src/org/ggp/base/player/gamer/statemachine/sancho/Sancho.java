@@ -307,8 +307,13 @@ public class Sancho extends SampleGamer
     //	Perform a small number of move-by-move simulations to assess how
     //	the potential piece count heuristics behave at the granularity of
     //	a single decision
-    // !! ARR Do this for half the time (and the next loop for half the time)
-    for (int iteration = 0; iteration < 5000; iteration++)
+    long lMetaGameStartTime = System.currentTimeMillis();
+    long lMetaGameStopTime = timeout - 5000;
+
+    // Spend half the time determining heuristic weights
+    long lHeuristicStopTime = (lMetaGameStartTime + lMetaGameStartTime) / 2;
+
+    while (System.currentTimeMillis() < lHeuristicStopTime)
     {
       ForwardDeadReckonInternalMachineState sampleState = new ForwardDeadReckonInternalMachineState(initialState);
 
