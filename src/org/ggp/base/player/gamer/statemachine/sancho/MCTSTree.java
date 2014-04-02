@@ -61,11 +61,8 @@ public class MCTSTree
   double                                               explorationBias                             = 1.0;
   double                                               moveActionHistoryBias                       = 0;
   final double                                         competitivenessBonus                        = 2;
+  NodePool                                             nodePool;
   Map<ForwardDeadReckonInternalMachineState, TreeNode> positions                                   = new HashMap<>();
-  private TreeNode[]                                   transpositionTable                          = null;
-  private int                                          nextSeq                                     = 0;
-  List<TreeNode>                                       freeList                                    = new LinkedList<>();
-  private int                                          largestUsedIndex                            = -1;
   int                                                  sweepInstance                               = 0;
   List<TreeNode>                                       completedNodeQueue                          = new LinkedList<>();
   Map<Move, MoveScoreInfo>                             cousinMoveCache                             = new HashMap<>();
@@ -76,10 +73,7 @@ public class MCTSTree
   Random                                               r                                           = new Random();
   int                                                  numUniqueTreeNodes                          = 0;
   int                                                  numTotalTreeNodes                           = 0;
-  private int                                          transpositionTableSize;
-  int                                                  numFreedTreeNodes                           = 0;
   int                                                  numTerminalRollouts                         = 0;
-  int                                                  numUsedNodes                                = 0;
   int                                                  numIncompleteNodes                          = 0;
   int                                                  numCompletedBranches                        = 0;
   boolean                                              completeSelectionFromIncompleteParentWarned = false;
@@ -91,7 +85,7 @@ public class MCTSTree
   GameCharacteristics                                  gameCharacteristics;
 
   public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
-                  int transpositionTableSize,
+                  NodePool nodePool,
                   RoleOrdering roleOrdering,
                   RolloutProcessorPool rolloutPool,
                   GameCharacteristics gameCharacateristics,
@@ -99,14 +93,13 @@ public class MCTSTree
   {
     underlyingStateMachine = stateMachine;
     numRoles = stateMachine.getRoles().size();
-    this.transpositionTableSize = transpositionTableSize;
+    this.nodePool = nodePool;
     this.roleOrdering = roleOrdering;
     this.heuristic = heuristic;
     this.gameCharacteristics = gameCharacateristics;
     this.rolloutPool = rolloutPool;
 
     nodeMoveWeightsCache = new LRUNodeMoveWeightsCache(5000);
-    transpositionTable = new TreeNode[transpositionTableSize];
 
     bonusBuffer = new double[numRoles];
     roleRationality = new double[numRoles];
@@ -133,16 +126,8 @@ public class MCTSTree
   {
     numUniqueTreeNodes = 0;
     numTotalTreeNodes = 0;
-    numFreedTreeNodes = 0;
     numCompletedBranches = 0;
-    numUsedNodes = 0;
     root = null;
-    freeList.clear();
-    for (int i = 0; i <= largestUsedIndex; i++)
-    {
-      transpositionTable[i].reset(true);
-      freeList.add(transpositionTable[i]);
-    }
     positions.clear();
     numIncompleteNodes = 0;
     if (nodeMoveWeightsCache != null)
@@ -173,29 +158,8 @@ public class MCTSTree
         numUniqueTreeNodes++;
 
         //System.out.println("Add state " + state);
-        if (largestUsedIndex < transpositionTableSize - 1)
-        {
-          result = new TreeNode(this, numRoles);
-          transpositionTable[++largestUsedIndex] = result;
-        }
-        else if (!freeList.isEmpty())
-        {
-          result = freeList.remove(0);
-
-          if (!result.freed)
-          {
-            System.out.println("Bad allocation choice");
-          }
-
-          result.reset(false);
-        }
-        else
-        {
-          throw new RuntimeException("Unexpectedly full transition table");
-        }
-
+        result = nodePool.allocateNode(this);
         result.state = state;
-        result.seq = nextSeq++;
 
         //if ( positions.values().contains(result))
         //{
@@ -205,8 +169,6 @@ public class MCTSTree
         {
           positions.put(state, result);
         }
-
-        numUsedNodes++;
       }
       else
       {
@@ -306,7 +268,7 @@ public class MCTSTree
     synchronized (getSerializationObject())
     {
       this.explorationBias = explorationBias;
-      while (numUsedNodes > transpositionTableSize - 200)
+      while (nodePool.isFull())
       {
         root.disposeLeastLikelyNode();
       }
@@ -335,8 +297,8 @@ public class MCTSTree
           numTotalTreeNodes);
       System.out.println("Num unique tree node allocations: " +
           numUniqueTreeNodes);
-      System.out.println("Num tree node frees: " + numFreedTreeNodes);
-      System.out.println("Num tree nodes currently in use: " + numUsedNodes);
+      System.out.println("Num tree node frees: " + nodePool.getNumFreedNodes());
+      System.out.println("Num tree nodes currently in use: " + nodePool.getNumUsedNodes());
       System.out.println("Num true rollouts added: " +
           rolloutPool.numNonTerminalRollouts);
       System.out.println("Num terminal nodes revisited: " +
@@ -381,7 +343,7 @@ public class MCTSTree
 
     int incompleteCount = 0;
 
-    for (TreeNode node : transpositionTable)
+    for (TreeNode node : nodePool.getNodesTable())
     {
       if (node != null && !node.freed)
       {

@@ -384,7 +384,7 @@ public class Sancho extends SampleGamer
     branchingFactorApproximation /= 50;
 
     mctsTree = new MCTSTree(underlyingStateMachine,
-                            transpositionTableSize,
+                            new NodePool(transpositionTableSize),
                             roleOrdering,
                             rolloutPool,
                             gameCharacteristics,

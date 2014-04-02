@@ -1021,12 +1021,7 @@ public class TreeNode
       }
 
       //System.out.println("    Freeing (" + ourIndex + "): " + state);
-      tree.numFreedTreeNodes++;
-      seq = -2; //	Must be negative and distinct from -1, the null ref seq value
-      tree.freeList.add(this);
-      freed = true;
-
-      tree.numUsedNodes--;
+      tree.nodePool.free(this);
       //validateAll();
     }
     finally
