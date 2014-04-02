@@ -2,6 +2,7 @@
 package org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -81,8 +82,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private int                                                          instanceId;
   private int                                                          maxInstances;
   private int                                                          numInstances                    = 1;
-  private GdlConstant                                                  roleName                        = null;
-
+  private Set<Factor>                                                  factors                         = null;
   public long                                                          totalNumGatesPropagated         = 0;
   public long                                                          totalNumPropagates              = 0;
 
@@ -765,7 +765,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                                   GdlConstant roleName)
   {
     this.maxInstances = maxInstances;
-    this.roleName = roleName;
   }
 
   private ForwardDeadReckonPropnetStateMachine(ForwardDeadReckonPropnetStateMachine master,
@@ -946,9 +945,13 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         basePropChangeCounts.put(info, 0);
       }
 
-      FactorAnalyser factorAnalyser = new FactorAnalyser(fullPropNet);
-      int numFactors = factorAnalyser.analyse();
-      System.out.println("Game appears to have " + numFactors + " factors");
+      FactorAnalyser factorAnalyser = new FactorAnalyser(this);
+      factors = factorAnalyser.analyse();
+
+      if ( factors != null )
+      {
+        System.out.println("Game appears factorize into " + factors.size() + " factors");
+      }
 
       fullPropNet.crystalize(masterInfoSet, maxInstances);
 
@@ -1277,11 +1280,17 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
+  public ForwardDeadReckonPropNet getFullPropNet()
+  {
+    return fullPropNet;
+  }
+
   private void setBasePropositionsFromState(MachineState state)
   {
     setBasePropositionsFromState(createInternalState(masterInfoSet,
                                                      XSentence,
                                                      state),
+                                 null,
                                  false);
   }
 
@@ -1291,6 +1300,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private ForwardDeadReckonInternalMachineState stateBufferO2 = null;
 
   private void setBasePropositionsFromState(ForwardDeadReckonInternalMachineState state,
+                                            Factor factor,
                                             boolean isolate)
   {
     //ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.setBasePropositionsInternal");
@@ -1328,26 +1338,30 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           for (ForwardDeadReckonPropositionInfo info : lastInternalSetState)
           {
             ForwardDeadReckonPropositionCrossReferenceInfo infoCr = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
-            if (nextInternalSetState.contains(info))
+
+            if ( factor == null || factor.getStateMask().contains(infoCr))
             {
-              if (propNet == propNetX)
+              if (nextInternalSetState.contains(info))
               {
-                infoCr.xNetProp.setValue(true, instanceId);
+                if (propNet == propNetX)
+                {
+                  infoCr.xNetProp.setValue(true, instanceId);
+                }
+                else
+                {
+                  infoCr.oNetProp.setValue(true, instanceId);
+                }
               }
               else
               {
-                infoCr.oNetProp.setValue(true, instanceId);
-              }
-            }
-            else
-            {
-              if (propNet == propNetX)
-              {
-                infoCr.xNetProp.setValue(false, instanceId);
-              }
-              else
-              {
-                infoCr.oNetProp.setValue(false, instanceId);
+                if (propNet == propNetX)
+                {
+                  infoCr.xNetProp.setValue(false, instanceId);
+                }
+                else
+                {
+                  infoCr.oNetProp.setValue(false, instanceId);
+                }
               }
             }
 
@@ -1433,7 +1447,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     //try
     {
       setPropNetUsage(state);
-      setBasePropositionsFromState(state, true);
+      setBasePropositionsFromState(state, null, true);
 
       PolymorphicProposition terminalProp = propNet.getTerminalProposition();
       boolean result = ((ForwardDeadReckonComponent)terminalProp
@@ -1558,7 +1572,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       List<Move> result;
 
       setPropNetUsage(state);
-      setBasePropositionsFromState(state, true);
+      setBasePropositionsFromState(state, null, true);
 
       //ForwardDeadReckonComponent.numGatesPropagated = 0;
       //ForwardDeadReckonComponent.numPropagates = 0;
@@ -1584,20 +1598,24 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
-  public ForwardDeadReckonLegalMoveSet getLegalMoves(ForwardDeadReckonInternalMachineState state)
+  public Collection<ForwardDeadReckonLegalMoveInfo> getLegalMoves(ForwardDeadReckonInternalMachineState state, Role role, Factor factor)
       throws MoveDefinitionException
   {
     ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getLegalMoveInfos");
     try
     {
       setPropNetUsage(state);
-      setBasePropositionsFromState(state, true);
+      setBasePropositionsFromState(state, factor, true);
 
       //ForwardDeadReckonComponent.numGatesPropagated = 0;
       //ForwardDeadReckonComponent.numPropagates = 0;
       //propNet.seq++;
-
-      return propNet.getActiveLegalProps(instanceId);
+      Collection<ForwardDeadReckonLegalMoveInfo> baseIterable = propNet.getActiveLegalProps(instanceId).getContents(role);
+      if ( factor == null )
+      {
+        return baseIterable;
+      }
+      return new FactorFilteredForwardDeadReckonLegalMoveSet(factor, baseIterable);
     }
     finally
     {
@@ -1776,7 +1794,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
       }
 
-      setBasePropositionsFromState(state, true);
+      setBasePropositionsFromState(state, null, true);
 
       ForwardDeadReckonInternalMachineState result = getInternalStateFromBase();
 
@@ -1839,7 +1857,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
       }
 
-      setBasePropositionsFromState(state, true);
+      setBasePropositionsFromState(state, null, true);
 
       ForwardDeadReckonInternalMachineState result = getInternalStateFromBase();
 
@@ -1869,6 +1887,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   }
 
   public ForwardDeadReckonInternalMachineState getNextState(ForwardDeadReckonInternalMachineState state,
+                                                            Factor factor,
                                                             ForwardDeadReckonLegalMoveInfo[] moves)
       throws TransitionDefinitionException
   {
@@ -1907,7 +1926,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
       }
 
-      setBasePropositionsFromState(state, true);
+      setBasePropositionsFromState(state, factor, true);
 
       result = getInternalStateFromBase();
 
@@ -1952,18 +1971,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.transitionToNextStateFromChosenMove");
     try
     {
-      ForwardDeadReckonInternalMachineState currentState;
-
-      if (choosingRole != null)
-      {
-        currentState = new ForwardDeadReckonInternalMachineState(lastInternalSetState);
-      }
-      else
-      {
-        currentState = null;
-      }
-
-      MachineState validationResult = null;
       //for(PolymorphicComponent c : propNet.getComponents())
       //{
       //	((ForwardDeadReckonComponent)c).hasQueuedForPropagation = false;
@@ -1981,7 +1988,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
         try
         {
-          validationResult = validationMachine.getNextState(validationState,
+          validationMachine.getNextState(validationState,
                                                             moves);
         }
         catch (TransitionDefinitionException e)
@@ -2134,7 +2141,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       transitionTo.isXState = targetIsXNet;
 
-      setBasePropositionsFromState(transitionTo, true);
+      setBasePropositionsFromState(transitionTo, null, true);
       //Set<GdlSentence> contents = new HashSet<GdlSentence>();
       //nt numBaseProps = basePropositionTransitions.length;
 
@@ -2267,7 +2274,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     public int                              chooserIndex;
     public int                              baseChoiceIndex;
     public int                              nextChoiceIndex;
-    public int                              prevChoiceIndex;
     public int                              rolloutSeq;
     ForwardDeadReckonInternalMachineState   state;
     Role                                    choosingRole;
@@ -2313,6 +2319,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private int                    totalRoleoutNodesExamined;
 
   private void doRecursiveGreedyRoleout(TerminalResultSet results,
+                                        Factor factor,
                                         MoveWeights moveWeights,
                                         List<ForwardDeadReckonLegalMoveInfo> playedMoves)
       throws MoveDefinitionException, GoalDefinitionException
@@ -2326,6 +2333,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     do
     {
       ForwardDeadReckonProposition winningMoveProp = transitionToNextStateInGreedyRollout(results,
+                                                                                          factor,
                                                                                           hintMoveProp,
                                                                                           moveWeights,
                                                                                           playedMoves);
@@ -2353,7 +2361,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             //System.out.println("...next choice=" + poppedState.nextChoiceIndex + " (base was " + poppedState.baseChoiceIndex + ")");
 
             setPropNetUsage(poppedState.state);
-            setBasePropositionsFromState(poppedState.state, true);
+            setBasePropositionsFromState(poppedState.state, factor, true);
           }
           else
           {
@@ -2390,7 +2398,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
 
         setPropNetUsage(decisionState.state);
-        setBasePropositionsFromState(decisionState.state, true);
+        setBasePropositionsFromState(decisionState.state, null, true);
       }
       else
       {
@@ -2406,6 +2414,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   }
 
   private double recursiveGreedyRollout(TerminalResultSet results,
+                                        Factor factor,
                                         MoveWeights moveWeights,
                                         List<ForwardDeadReckonLegalMoveInfo> playedMoves)
       throws MoveDefinitionException, GoalDefinitionException
@@ -2415,7 +2424,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     totalRoleoutChoices = 0;
     totalRoleoutNodesExamined = 0;
 
-    doRecursiveGreedyRoleout(results, moveWeights, playedMoves);
+    doRecursiveGreedyRoleout(results, factor, moveWeights, playedMoves);
 
     if (totalRoleoutNodesExamined > 0)
     {
@@ -2449,6 +2458,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   }
 
   private ForwardDeadReckonProposition transitionToNextStateInGreedyRollout(TerminalResultSet results,
+                                                                            Factor factor,
                                                                             ForwardDeadReckonProposition hintMoveProp,
                                                                             MoveWeights moveWeights,
                                                                             List<ForwardDeadReckonLegalMoveInfo> playedMoves)
@@ -2482,13 +2492,21 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       decisionState.chooserIndex = -1;
       decisionState.baseChoiceIndex = -1;
       decisionState.nextChoiceIndex = -1;
-      decisionState.prevChoiceIndex = -1;
-
       totalRoleoutNodesExamined++;
 
       for (Role role : getRoles())
       {
-        int numChoices = activeLegalMoves.getContentSize(role);
+        Collection<ForwardDeadReckonLegalMoveInfo> moves;
+
+        if ( factor == null )
+        {
+          moves = activeLegalMoves.getContents(role);
+        }
+        else
+        {
+          moves = new FactorFilteredForwardDeadReckonLegalMoveSet(factor, activeLegalMoves.getContents(role));
+        }
+        int numChoices = moves.size();
 
         if (numChoices > maxChoices)
         {
@@ -2513,7 +2531,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
             ForwardDeadReckonLegalMoveInfo info = decisionState.chooserMoves[rand];
             chosenJointMoveProps[decisionState.chooserIndex] = info.inputProposition;
-            decisionState.prevChoiceIndex = rand;
             if (playedMoves != null)
             {
               playedMoves.add(info);
@@ -2530,8 +2547,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           int rand = getRandom(numChoices);
 
-          for (ForwardDeadReckonLegalMoveInfo info : activeLegalMoves
-              .getContents(role))
+          for (ForwardDeadReckonLegalMoveInfo info : moves)
           {
             if (rand-- <= 0)
             {
@@ -2548,8 +2564,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         else
         {
           int chooserMoveIndex = 0;
-          for (ForwardDeadReckonLegalMoveInfo info : activeLegalMoves
-              .getContents(role))
+          for (ForwardDeadReckonLegalMoveInfo info : moves)
           {
             if (decisionState.choosingRole == role)
             {
@@ -2669,7 +2684,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                 //System.out.println("Encountered terminal state with goal value: "+ resultVector.scores.get(resultVector.controllingRole));
                 if (getGoal(decisionState.choosingRole) == 100)
                 {
-                  decisionState.prevChoiceIndex = i;
                   if (playedMoves != null)
                   {
                     playedMoves.add(decisionState.chooserMoves[i]);
@@ -2717,7 +2731,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         if (transitioned)
         {
           setPropNetUsage(decisionState.state);
-          setBasePropositionsFromState(decisionState.state, true);
+          setBasePropositionsFromState(decisionState.state, factor, true);
         }
 
         chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserMoves[choice].inputProposition;
@@ -2736,7 +2750,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           //System.out.println("Encountered terminal state with goal value: "+ resultVector.scores.get(resultVector.controllingRole));
           if (getGoal(decisionState.choosingRole) == 100)
           {
-            decisionState.prevChoiceIndex = choice;
             if (playedMoves != null)
             {
               playedMoves.add(decisionState.chooserMoves[choice]);
@@ -2755,7 +2768,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
       }
 
-      decisionState.prevChoiceIndex = choice;
       if (playedMoves != null)
       {
         playedMoves.add(decisionState.chooserMoves[choice]);
@@ -2807,7 +2819,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     //		}
   }
 
-  private int chooseRandomJointMove(MoveWeights moveWeights,
+  private int chooseRandomJointMove(Factor factor,
+                                    MoveWeights moveWeights,
                                     List<ForwardDeadReckonLegalMoveInfo> playedMoves)
       throws MoveDefinitionException
   {
@@ -2822,7 +2835,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     for (Role role : getRoles())
     {
-      int numChoices = activeLegalMoves.getContentSize(role);
+      Collection<ForwardDeadReckonLegalMoveInfo> moves = activeLegalMoves.getContents(role);
+      int numChoices = moves.size();
       int rand;
 
       if (moveWeights == null)
@@ -2895,57 +2909,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     //		{
     //			methodSection.exitScope();
     //		}
-  }
-
-  public int getDepthChargeResult(MachineState state,
-                                  Role role,
-                                  int sampleDepth,
-                                  MachineState sampleState,
-                                  final int[] theDepth)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
-  {
-    int nDepth = 0;
-    validationState = state;
-    setPropNetUsage(state);
-    setBasePropositionsFromState(state);
-    for (int i = 0; i < roles.size(); i++)
-    {
-      previouslyChosenJointMovePropsX[i] = null;
-      previouslyChosenJointMovePropsO[i] = null;
-    }
-    while (!isTerminal())
-    {
-      nDepth++;
-      chooseRandomJointMove(null, null);
-      transitionToNextStateFromChosenMove(null, null);
-      if (sampleState != null && nDepth == sampleDepth)
-      {
-        sampleState.getContents().clear();
-        sampleState.getContents().addAll(getInternalStateFromBase()
-            .getMachineState().getContents());
-      }
-    }
-    if (sampleState != null && nDepth < sampleDepth)
-    {
-      sampleState.getContents().clear();
-      sampleState.getContents().addAll(getInternalStateFromBase()
-          .getMachineState().getContents());
-    }
-    if (theDepth != null)
-      theDepth[0] = nDepth;
-    for (int i = 0; i < roles.size(); i++)
-    {
-      if (previouslyChosenJointMovePropsX[i] != null)
-      {
-        previouslyChosenJointMovePropsX[i].setValue(false, instanceId);
-      }
-      if (previouslyChosenJointMovePropsO[i] != null)
-      {
-        previouslyChosenJointMovePropsO[i].setValue(false, instanceId);
-      }
-    }
-    return getGoal(role);
   }
 
   private class TerminalResultVector
@@ -3042,6 +3005,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   }
 
   public int getDepthChargeResult(ForwardDeadReckonInternalMachineState state,
+                                  Factor factor,
                                   Role role,
                                   final int[] stats,
                                   MoveWeights moveWeights,
@@ -3059,7 +3023,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       validationState = state.getMachineState();
     }
     setPropNetUsage(state);
-    setBasePropositionsFromState(state, true);
+    setBasePropositionsFromState(state, factor, true);
     for (int i = 0; i < roles.size(); i++)
     {
       previouslyChosenJointMovePropsX[i] = null;
@@ -3071,7 +3035,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       while (!isTerminal())
       {
-        totalChoices += chooseRandomJointMove(moveWeights, playedMoves);
+        totalChoices += chooseRandomJointMove(factor, moveWeights, playedMoves);
         transitionToNextStateFromChosenMove(null, null);
         rolloutDepth++;
       }
@@ -3089,6 +3053,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     else
     {
       double branchingFactor = recursiveGreedyRollout(resultSet,
+                                                      factor,
                                                       moveWeights,
                                                       playedMoves);
 
@@ -3106,7 +3071,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       if (resultSet.resultVector.controllingRole != null)
       {
         setPropNetUsage(resultSet.resultVector.state);
-        setBasePropositionsFromState(resultSet.resultVector.state, true);
+        setBasePropositionsFromState(resultSet.resultVector.state, null, true);
       }
     }
     for (int i = 0; i < roles.size(); i++)
@@ -3122,6 +3087,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
 
     return scores.get(role);
+  }
+
+  public Set<Factor> getFactors()
+  {
+    return factors;
   }
 
   public Set<GdlSentence> getBasePropositions()
@@ -3154,7 +3124,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         if (state != null)
         {
           setPropNetUsage(state);
-          setBasePropositionsFromState(state, true);
+          setBasePropositionsFromState(state, null, true);
         }
 
         net = propNet;

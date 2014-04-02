@@ -6,6 +6,8 @@ import java.util.Set;
 
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 
 /**
  * @author steve
@@ -18,6 +20,13 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 public class Factor
 {
   private Set<PolymorphicComponent> components = new HashSet<>();
+  private ForwardDeadReckonInternalMachineState stateMask = null;
+  private ForwardDeadReckonPropnetStateMachine stateMachine;
+
+  public Factor(ForwardDeadReckonPropnetStateMachine stateMachine)
+  {
+    this.stateMachine = stateMachine;
+  }
 
   public boolean containsComponent(PolymorphicComponent c)
   {
@@ -63,5 +72,25 @@ public class Factor
         System.out.println("  " + p.getName());
       }
     }
+  }
+
+  public ForwardDeadReckonInternalMachineState getStateMask()
+  {
+    if ( stateMask == null )
+    {
+      stateMask = new ForwardDeadReckonInternalMachineState(stateMachine.getInfoSet());
+      for(PolymorphicProposition p : stateMachine.getFullPropNet().getBasePropositions().values())
+      {
+        ForwardDeadReckonProposition fdrp = (ForwardDeadReckonProposition)p;
+        ForwardDeadReckonPropositionCrossReferenceInfo info = (ForwardDeadReckonPropositionCrossReferenceInfo)fdrp.getInfo();
+
+        if ( info.factor == this || info.factor == null )
+        {
+          stateMask.add(info);
+        }
+      }
+    }
+
+    return stateMask;
   }
 }
