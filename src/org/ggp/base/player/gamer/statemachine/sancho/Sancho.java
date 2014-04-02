@@ -311,7 +311,7 @@ public class Sancho extends SampleGamer
     long lMetaGameStopTime = timeout - 5000;
 
     // Spend half the time determining heuristic weights
-    long lHeuristicStopTime = (lMetaGameStartTime + lMetaGameStartTime) / 2;
+    long lHeuristicStopTime = (lMetaGameStartTime + lMetaGameStopTime) / 2;
 
     while (System.currentTimeMillis() < lHeuristicStopTime)
     {
