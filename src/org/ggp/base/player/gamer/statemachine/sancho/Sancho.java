@@ -11,8 +11,7 @@ import java.util.Set;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.player.gamer.statemachine.sample.SampleGamer;
-import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
-import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MobilityHeuristic;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.logging.GamerLogger;
@@ -30,15 +29,15 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 public class Sancho extends SampleGamer
 {
-  public Role            ourRole;
-  private final boolean  runSynchronously       = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
-  private int            numRolloutThreads      = (runSynchronously ? 0 : (Runtime.getRuntime().availableProcessors() + 1) / 2);
-  private double         minExplorationBias     = 0.5;
-  private double         maxExplorationBias     = 1.2;
-  private String         planString             = null;
-  private Queue<Move>    plan                   = null;
-  private int            transpositionTableSize = 2000000;
-  private Heuristic      mHeuristic             = null;
+  public Role               ourRole;
+  private final boolean     runSynchronously       = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
+  private int               numRolloutThreads      = (runSynchronously ? 0 : (Runtime.getRuntime().availableProcessors() + 1) / 2);
+  private double            minExplorationBias     = 0.5;
+  private double            maxExplorationBias     = 1.2;
+  private String            planString             = null;
+  private Queue<Move>       plan                   = null;
+  private int               transpositionTableSize = 2000000;
+  private CombinedHeuristic mHeuristic             = null;
 
   @Override
   public void configure(int xiParamIndex, String xiParam)
@@ -266,18 +265,9 @@ public class Sancho extends SampleGamer
 
     multiRoleAverageScoreDiff = 0;
 
-    Set<Heuristic> heuristics = new HashSet<>();
-    heuristics.add(new PieceHeuristic());
-    // !! ARR Hack until we can combine heuristics.
-    mHeuristic = heuristics.iterator().next();
-    heuristics.add(new MobilityHeuristic());
-
-    System.out.println("Using " + mHeuristic.getClass().getSimpleName());
-
-    for (Heuristic heuristic : heuristics)
-    {
-      heuristic.tuningInitialise(underlyingStateMachine, roleOrdering);
-    }
+    // mHeuristic = new CombinedHeuristic(new PieceHeuristic(), new MobilityHeuristic());
+    mHeuristic = new CombinedHeuristic(new PieceHeuristic());
+    mHeuristic.tuningInitialise(underlyingStateMachine, roleOrdering);
 
     ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine.createInternalState(getCurrentState());
 
@@ -371,10 +361,8 @@ public class Sancho extends SampleGamer
           jointMove[roleOrdering.roleIndexToRawRoleIndex(i)] = legalMoves.get(r.nextInt(legalMoves.size()));
         }
 
-        for (Heuristic heuristic : heuristics)
-        {
-          heuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
-        }
+        // Tell the heuristic about the interim state, for tuning purposes.
+        mHeuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
 
         sampleState = underlyingStateMachine.getNextState(sampleState, jointMove);
       }
@@ -384,11 +372,9 @@ public class Sancho extends SampleGamer
         roleScores[i] = underlyingStateMachine.getGoal(roleOrdering.roleIndexToRole(i));
       }
 
+      // Tell the heuristic about the termainal state, for tuning purposes.
       assert(underlyingStateMachine.isTerminal(sampleState));
-      for (Heuristic heuristic : heuristics)
-      {
-        heuristic.tuningTerminalStateSample(sampleState, roleScores);
-      }
+      mHeuristic.tuningTerminalStateSample(sampleState, roleScores);
 
       branchingFactorApproximation += (numBranchesTaken / numRoleMovesSimulated);
     }
@@ -460,10 +446,9 @@ public class Sancho extends SampleGamer
 
       ForwardDeadReckonInternalMachineState finalState = underlyingStateMachine.getCurrentState();
 
-      for (Heuristic heuristic : heuristics)
-      {
-        heuristic.tuningTerminalStateSample(finalState, roleScores);
-      }
+      // Tell the heuristic about the termainal state, for tuning purposes.
+      assert(underlyingStateMachine.isTerminal(finalState));
+      mHeuristic.tuningTerminalStateSample(finalState, roleScores);
 
       averageNumTurns = (averageNumTurns * (simulationsPerformed - 1) + rolloutStats[0]) /
                         simulationsPerformed;
@@ -495,22 +480,8 @@ public class Sancho extends SampleGamer
       }
     }
 
-    // Complete heuristic tuning and identify those which should be enabled.
-    boolean lUsingPieceHeuristic = false;
-    {
-      Set<Heuristic> tunedHeuristics = new HashSet<>();
-      for (Heuristic heuristic : heuristics)
-      {
-        heuristic.tuningComplete();
-        if (heuristic.isEnabled())
-        {
-          tunedHeuristics.add(heuristic);
-          lUsingPieceHeuristic = lUsingPieceHeuristic || (heuristic instanceof PieceHeuristic);
-        }
-      }
-      heuristics = tunedHeuristics;
-      tunedHeuristics = null;
-    }
+    // Complete heuristic tuning.
+    mHeuristic.tuningComplete();
 
     System.out.println("branchingFactorApproximation = " +
                        branchingFactorApproximation +
@@ -545,7 +516,7 @@ public class Sancho extends SampleGamer
       mctsTree.explorationBias = 1.2;
     }
 
-    if (lUsingPieceHeuristic)
+    if (mHeuristic.includes(PieceHeuristic.class))
     {
       //	Empirically games with piece count heuristics seem to like lower
       //	exploration bias - not entirely sure why!
