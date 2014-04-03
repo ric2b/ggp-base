@@ -50,7 +50,7 @@ public class MCTSTree
   }
 
 
-  final boolean                                        freeCompletedNodeChildren                   = false;                                                          //true;
+  final boolean                                        freeCompletedNodeChildren                   = true;                                                          //true;
   final boolean                                        disableOnelevelMinimax                      = true;  //false;
   ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
@@ -242,6 +242,44 @@ public class MCTSTree
             root.freeAllBut(newRoot);
 
             root = newRoot;
+
+            //  A special case arises if we're set to not trim the children of complete nodes.
+            //  In such a case a node can have trimmed children and become the root through
+            //  this path, which is a problem as we require all children of the root to be
+            //  present so we can enumerate the move choices (and their scores).  Therefore,
+            //  upon promoting an extant node to the root in this path we must check for this case
+            //  and clear the complete flag (to force re-expansion) if it arises
+            if ( root.complete )
+            {
+              if (root.children != null )
+              {
+                for (int i = 0; i < root.children.length; i++)
+                {
+                  TreeEdge edge = root.children[i];
+                  TreeNodeRef cr = edge.child;
+                  if (cr != null)
+                  {
+                    TreeNode c = cr.node;
+                    if (c.seq != cr.seq)
+                    {
+                      if (cr.seq != -1)
+                      {
+                        if (root.trimmedChildren++ == 0)
+                        {
+                          numIncompleteNodes++;
+                        }
+                        cr.seq = -1;
+                      }
+                    }
+                  }
+                }
+              }
+
+              if ( root.trimmedChildren != 0 || root.children == null )
+              {
+                root.complete = false;
+              }
+            }
           }
         }
       }

@@ -91,15 +91,19 @@ public class NodePool
 
       numUsedNodes = 0;
       numFreedNodes = 0;
+      numFreedNodes = 0;
     }
     else
     {
       for (int i = 0; i <= largestUsedIndex; i++)
       {
-        if ( nodeTable[i].tree == tree )
+        if ( nodeTable[i].tree == tree && !nodeTable[i].freed )
         {
           nodeTable[i].reset(null);
           freeList.add(nodeTable[i]);
+          numUsedNodes--;
+          //  We don't increment numFreedNodes here since what it is (intention)
+          //  measuring and reporting is how much forced trimming is going on
         }
       }
     }

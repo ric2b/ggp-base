@@ -235,7 +235,6 @@ public class TreeNode
     }
   }
 
-  @SuppressWarnings("unused")
   void processCompletion()
   {
     //validateCompletionValues(averageScores);
