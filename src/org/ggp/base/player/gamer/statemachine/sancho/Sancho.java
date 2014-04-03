@@ -29,35 +29,13 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 public class Sancho extends SampleGamer
 {
-  /**
-   * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
-   */
-  private Role              ourRole;
-  private final boolean     runSynchronously       = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
-  private int               numRolloutThreads      = (runSynchronously ? 0 : (Runtime.getRuntime().availableProcessors() + 1) / 2);
-  private double            minExplorationBias     = 0.5;
-  private double            maxExplorationBias     = 1.2;
-  private String            planString             = null;
-  private Queue<Move>       plan                   = null;
-  private int               transpositionTableSize = 2000000;
-  private CombinedHeuristic mHeuristic             = null;
-  private RoleOrdering      roleOrdering           = null;
-  private Move[]            canonicallyOrderedMoveBuffer = null;
-  private ForwardDeadReckonPropnetStateMachine underlyingStateMachine = null;
-  private MCTSTree          mctsTree               = null;
-  private int               numRoles               = 0;
-  private int               MinRawNetScore         = 0;
-  private int               MaxRawNetScore         = 100;
-  private int               multiRoleAverageScoreDiff       = 0;
-  private boolean           underExpectedRangeScoreReported = false;
-  private boolean           overExpectedRangeScoreReported  = false;
-  private MachineState      targetState                     = null;
-  private RolloutProcessorPool rolloutPool         = null;
-  private TargetedSolutionStatePlayer puzzlePlayer = null;
-  private TreeSearcher      searchProcessor        = null;
-  /**
-   * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
-   */
+  public Role            ourRole;
+  final boolean          runSynchronously       = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
+  private int            numRolloutThreads      = (runSynchronously ? 0 : 4);
+  private String         planString             = null;
+  private Queue<Move>    plan                   = null;
+  int                    transpositionTableSize = 2000000;
+  RuntimeGameCharacteristics gameCharacteristics = null;
 
   @Override
   public void configure(int xiParamIndex, String xiParam)
@@ -106,7 +84,7 @@ public class Sancho extends SampleGamer
           winBonus += 5;
         }
       }
-      int rawResult = (mctsTree.gameCharacteristics.isPuzzle ? result : ((result + winBonus) * 100) / 110);
+      int rawResult = (gameCharacteristics.isPuzzle ? result : ((result + winBonus) * 100) / 110);
       int normalizedResult = ((rawResult - MinRawNetScore) * 100) /
                              (MaxRawNetScore - MinRawNetScore);
 
@@ -131,6 +109,9 @@ public class Sancho extends SampleGamer
     }
   }
 
+  RoleOrdering roleOrdering = null;
+  private Move[] canonicallyOrderedMoveBuffer = null;
+
   private Move[] getMoveCanonicallyOrdered(Move[] move)
   {
     int index = 0;
@@ -154,6 +135,9 @@ public class Sancho extends SampleGamer
     return canonicallyOrderedMoveBuffer;
   }
 
+  ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
+  //private MCTSTree mctsTree = null;
+
   @Override
   public String getName()
   {
@@ -165,10 +149,15 @@ public class Sancho extends SampleGamer
   {
     if (searchProcessor == null)
     {
-      searchProcessor = new TreeSearcher();
-      Thread lSearchProcessorThread = new Thread(searchProcessor, "Search Processor");
-      lSearchProcessorThread.setDaemon(true);
-      lSearchProcessorThread.start();
+      searchProcessor = new GameSearcher(transpositionTableSize);
+
+      if ( !runSynchronously )
+      {
+        Thread lSearchProcessorThread = new Thread(searchProcessor,
+                                                   "Search Processor");
+        lSearchProcessorThread.setDaemon(true);
+        lSearchProcessorThread.start();
+      }
     }
     else
     {
@@ -185,22 +174,23 @@ public class Sancho extends SampleGamer
       }
     }
 
-    if (rolloutPool != null)
-    {
-      rolloutPool.stop();
-    }
-
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
     underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(1 + numRolloutThreads,
                                                                           getRoleName());
 
-    mctsTree = null;
-
     System.gc();
 
     return new StateMachineProxy(underlyingStateMachine, searchProcessor);
   }
+
+  int                   numRoles                        = 0;
+  private int           MinRawNetScore                  = 0;
+  private int           MaxRawNetScore                  = 100;
+  private int           multiRoleAverageScoreDiff       = 0;
+  private boolean       underExpectedRangeScoreReported = false;
+  private boolean       overExpectedRangeScoreReported  = false;
+  private MachineState  targetState                     = null;
 
   private int unNormalizedStateDistance(MachineState queriedState,
                                         MachineState targetState)
@@ -217,16 +207,7 @@ public class Sancho extends SampleGamer
 
     return targetState.getContents().size() - matchCount;
   }
-
-  private void disableGreedyRollouts()
-  {
-    System.out.println("Disabling greedy rollouts");
-    underlyingStateMachine.disableGreedyRollouts();
-    if (rolloutPool != null)
-    {
-      rolloutPool.disableGreedyRollouts();
-    }
-  }
+  private TargetedSolutionStatePlayer puzzlePlayer = null;
 
   @Override
   public void stateMachineMetaGame(long timeout)
@@ -256,9 +237,6 @@ public class Sancho extends SampleGamer
     underExpectedRangeScoreReported = false;
     overExpectedRangeScoreReported = false;
 
-    rolloutPool = new RolloutProcessorPool(numRolloutThreads, underlyingStateMachine, ourRole);
-    rolloutPool.setRoleOrdering(roleOrdering);
-
     int observedMinNetScore = Integer.MAX_VALUE;
     int observedMaxNetScore = Integer.MIN_VALUE;
     int simulationsPerformed = 0;
@@ -273,7 +251,7 @@ public class Sancho extends SampleGamer
 
     ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine.createInternalState(getCurrentState());
 
-    GameCharacteristics gameCharacteristics = new GameCharacteristics(numRoles);
+    gameCharacteristics = new RuntimeGameCharacteristics(numRoles);
 
     //	Sample to see if multiple roles have multiple moves available
     //	implying this must be a simultaneous move game
@@ -383,18 +361,12 @@ public class Sancho extends SampleGamer
 
     branchingFactorApproximation /= 50;
 
-    mctsTree = new MCTSTree(underlyingStateMachine,
-                            new NodePool(transpositionTableSize),
-                            roleOrdering,
-                            rolloutPool,
-                            gameCharacteristics,
-                            mHeuristic);
     if (gameCharacteristics.isSimultaneousMove || gameCharacteristics.isPseudoSimultaneousMove)
     {
       if (!greedyRolloutsDisabled)
       {
         greedyRolloutsDisabled = true;
-        disableGreedyRollouts();
+        underlyingStateMachine.disableGreedyRollouts();
       }
     }
 
@@ -429,7 +401,7 @@ public class Sancho extends SampleGamer
       {
         roleScores[i] = underlyingStateMachine.getGoal(roleOrdering.roleIndexToRole(i));
 
-        if (i != 0 && mctsTree.gameCharacteristics.isMultiPlayer)
+        if (i != 0 && gameCharacteristics.isMultiPlayer)
         {
           //	If there are several enemy players involved extract a measure
           //	of their goal correlation
@@ -507,41 +479,38 @@ public class Sancho extends SampleGamer
     System.out.println("Average num turns: " + averageNumTurns);
     System.out.println("Std deviation num turns: " + stdDevNumTurns);
 
-    mctsTree.explorationBias = 18 / (averageNumTurns + ((maxNumTurns + minNumTurns) / 2 - averageNumTurns) *
+    double explorationBias = 18 / (averageNumTurns + ((maxNumTurns + minNumTurns) / 2 - averageNumTurns) *
                                               stdDevNumTurns / averageNumTurns) + 0.4;
-    if (mctsTree.explorationBias < 0.5)
+    if (explorationBias < 0.5)
     {
-      mctsTree.explorationBias = 0.5;
+      explorationBias = 0.5;
     }
-    else if (mctsTree.explorationBias > 1.2)
+    else if (explorationBias > 1.2)
     {
-      mctsTree.explorationBias = 1.2;
+      explorationBias = 1.2;
     }
 
     if (mHeuristic.includes(PieceHeuristic.class))
     {
       //	Empirically games with piece count heuristics seem to like lower
       //	exploration bias - not entirely sure why!
-      mctsTree.explorationBias = mctsTree.explorationBias * 0.6;
+      explorationBias = explorationBias * 0.6;
     }
 
-    minExplorationBias = mctsTree.explorationBias * 0.8;
-    maxExplorationBias = mctsTree.explorationBias * 1.2;
+    gameCharacteristics.setExplorationBias(explorationBias);
+    searchProcessor.setExplorationBiasRange(explorationBias * 0.8, explorationBias * 1.2);
 
-    System.out.println("Set explorationBias range to [" + minExplorationBias +
-                       ", " + maxExplorationBias + "]");
-
-    if ( mctsTree.enableMoveActionHistory && (maxNumTurns - minNumTurns) > averageNumTurns / 10)
+    if ( gameCharacteristics.getMoveActionHistoryEnabled() && (maxNumTurns - minNumTurns) > averageNumTurns / 10)
     {
-      mctsTree.moveActionHistoryBias = averageBranchingFactor / 5;
+      gameCharacteristics.setMoveActionBias(averageBranchingFactor / 5);
     }
     else
     {
-      mctsTree.moveActionHistoryBias = 0;
+      gameCharacteristics.setMoveActionBias(0);
     }
 
     System.out
-        .println("Set moveActionHistoryBias to " + mctsTree.moveActionHistoryBias);
+        .println("Set moveActionHistoryBias to " + gameCharacteristics.getMoveActionHistoryBias());
 
     if (underlyingStateMachine.numRolloutDecisionNodeExpansions > 0)
     {
@@ -576,12 +545,12 @@ public class Sancho extends SampleGamer
 
     System.out.println("Estimated greedy rollout cost: " + greedyRolloutCost);
     if (minNumTurns == maxNumTurns ||
-        ((greedyRolloutCost > 8 || stdDevNumTurns < 0.15 * averageNumTurns || underlyingStateMachine.greedyRolloutEffectiveness < underlyingStateMachine.numRolloutDecisionNodeExpansions / 3) && !mctsTree.gameCharacteristics.isPuzzle))
+        ((greedyRolloutCost > 8 || stdDevNumTurns < 0.15 * averageNumTurns || underlyingStateMachine.greedyRolloutEffectiveness < underlyingStateMachine.numRolloutDecisionNodeExpansions / 3) && !gameCharacteristics.isPuzzle))
     {
       if (!greedyRolloutsDisabled)
       {
         greedyRolloutsDisabled = true;
-        disableGreedyRollouts();
+        underlyingStateMachine.disableGreedyRollouts();
 
         //	Scale up the estimate of simulation rate since we'll be running without the overhead
         //	of greedy rollouts (which is proportional to the branching factor)
@@ -591,7 +560,7 @@ public class Sancho extends SampleGamer
 
     //	Special case handling for puzzles with hard-to-find wins
     //	WEAKEN THIS WHEN WE HAVE TRIAL A*
-    if (mctsTree.gameCharacteristics.isPuzzle && observedMinNetScore == observedMaxNetScore &&
+    if (gameCharacteristics.isPuzzle && observedMinNetScore == observedMaxNetScore &&
         observedMaxNetScore < 100)
     {
       //	8-puzzle type stuff
@@ -668,7 +637,7 @@ public class Sancho extends SampleGamer
           .println("No score discrimination seen during simulation - resetting to [0,100]");
     }
 
-    if (mctsTree.gameCharacteristics.isPuzzle)
+    if (gameCharacteristics.isPuzzle)
     {
       observedMinNetScore = 0;
       observedMaxNetScore = 100;
@@ -682,26 +651,29 @@ public class Sancho extends SampleGamer
     multiRoleAverageScoreDiff = (multiRoleAverageScoreDiff * 100) /
                                 (MaxRawNetScore - MinRawNetScore);
 
+    int rolloutSampleSize;
+
     if (numRolloutThreads == 0)
     {
-      mctsTree.rolloutSampleSize = 1;
+      rolloutSampleSize = 1;
     }
     else
     {
-      mctsTree.rolloutSampleSize = (int)(simulationsPerformed /
+      rolloutSampleSize = (int)(simulationsPerformed /
                                 (2.5 * (simulationStopTime - simulationStartTime)) + 1);
-      if (mctsTree.rolloutSampleSize > 100)
+      if (rolloutSampleSize > 100)
       {
-        mctsTree.rolloutSampleSize = 100;
+        rolloutSampleSize = 100;
       }
     }
 
+    gameCharacteristics.setRolloutSampleSize(rolloutSampleSize);
     System.out
         .println(simulationsPerformed *
                  1000 /
                  (simulationStopTime - simulationStartTime) +
                  " simulations/second performed - setting rollout sample size to " +
-                 mctsTree.rolloutSampleSize);
+                 rolloutSampleSize);
 
     if (ProfilerContext.getContext() != null)
     {
@@ -711,15 +683,15 @@ public class Sancho extends SampleGamer
 
     if ((!gameCharacteristics.isIteratedGame || numRoles != 2) && targetState == null)
     {
-      mctsTree.root = mctsTree.allocateNode(underlyingStateMachine, initialState, null);
-      mctsTree.root.decidingRoleIndex = numRoles - 1;
-
       if (runSynchronously)
       {
-        mctsTree.explorationBias = (maxExplorationBias + minExplorationBias) / 2;
+        gameCharacteristics.setExplorationBias(explorationBias);
       }
-      searchProcessor.startSearch(System.currentTimeMillis() + 60000,
-                                  new ForwardDeadReckonInternalMachineState(initialState));
+
+      searchProcessor.setup(underlyingStateMachine, initialState, roleOrdering, gameCharacteristics, numRolloutThreads, greedyRolloutsDisabled);
+      searchProcessor
+          .startSearch(System.currentTimeMillis() + 60000,
+                       new ForwardDeadReckonInternalMachineState(initialState));
 
       try
       {
@@ -733,158 +705,7 @@ public class Sancho extends SampleGamer
     }
   }
 
-  class TreeSearcher implements Runnable, ActivityController
-  {
-    private volatile long    moveTime;
-    private volatile long    startTime;
-    private volatile int     searchSeqRequested  = 0;
-    private volatile int     searchSeqProcessing = 0;
-    private volatile boolean stopRequested       = true;
-    private volatile boolean running             = false;
-    private int              numIterations       = 0;
-    private volatile boolean requestYield        = false;
-    private volatile boolean mTerminateRequested = false;
-
-    @Override
-    public void run()
-    {
-      if (runSynchronously)
-      {
-        return;
-      }
-
-      // TODO Auto-generated method stub
-      try
-      {
-        while (searchAvailable() && (!mTerminateRequested))
-        {
-          try
-          {
-            boolean complete = false;
-
-            System.out.println("Move search started");
-            //int validationCount = 0;
-
-            //Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
-
-            while (!complete && !stopRequested)
-            {
-              long time = System.currentTimeMillis();
-              double percentThroughTurn = Math.min(100, (time - startTime) * 100 / (moveTime - startTime));
-
-              //							if ( Math.abs(lastPercentThroughTurn - percentThroughTurn) > 4 )
-              //							{
-              //								System.out.println("Percent through turn: " + percentThroughTurn + " - num iterations: " + numIterations + ", root has children=" + (root.children != null));
-              //								lastPercentThroughTurn = percentThroughTurn;
-              //							}
-              if (requestYield)
-              {
-                Thread.yield();
-              }
-              else
-              {
-                complete = mctsTree.growTree(maxExplorationBias -
-                                             percentThroughTurn *
-                                             (maxExplorationBias - minExplorationBias) /
-                                             100);
-
-              }
-            }
-
-            System.out.println("Move search complete");
-          }
-          catch (TransitionDefinitionException | MoveDefinitionException
-              | GoalDefinitionException e)
-          {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-          }
-        }
-      }
-      catch (InterruptedException e)
-      {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
-
-      System.out.println("Terminating TreeSearcher");
-    }
-
-    public int getNumIterations()
-    {
-      return numIterations;
-    }
-
-    private boolean searchAvailable() throws InterruptedException
-    {
-      synchronized (this)
-      {
-        if (searchSeqRequested == searchSeqProcessing || stopRequested)
-        {
-          running = false;
-          this.notify();
-          this.wait();
-        }
-
-        searchSeqProcessing = searchSeqRequested;
-        running = true;
-      }
-
-      return true;
-    }
-
-    public void startSearch(long moveTimeout,
-                            ForwardDeadReckonInternalMachineState startState)
-    {
-      System.out.println("Start move search...");
-      synchronized (this)
-      {
-        moveTime = moveTimeout;
-        startTime = System.currentTimeMillis();
-        searchSeqRequested++;
-        stopRequested = false;
-        numIterations = 0;
-
-        mHeuristic.newTurn(mctsTree.root.state, mctsTree.root);
-
-        this.notify();
-      }
-    }
-
-    public void stop() throws InterruptedException
-    {
-      synchronized (this)
-      {
-        stopRequested = true;
-
-        if (running)
-        {
-          wait();
-        }
-      }
-    }
-
-    public void terminate()
-    {
-      synchronized(this)
-      {
-        mTerminateRequested = true;
-        notifyAll();
-      }
-    }
-
-    @Override
-    public void requestYield(boolean state)
-    {
-      requestYield = state;
-    }
-
-    @Override
-    public Object getSerializationObject()
-    {
-      return mctsTree.getSerializationObject();
-    }
-  }
+  GameSearcher searchProcessor = null;
 
   @Override
   public Move stateMachineSelectMove(long timeout)
@@ -909,16 +730,13 @@ public class Sancho extends SampleGamer
     System.out.println("Calculating current state, current time: " +
                        System.currentTimeMillis());
 
-    synchronized (mctsTree.getSerializationObject())
+    synchronized (searchProcessor.getSerializationObject())
     {
       currentState = underlyingStateMachine.createInternalState(getCurrentState());
       moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
 
       //System.out.println("Received current state: " + getCurrentState());
       //System.out.println("Using current state: " + currentState);
-
-      rolloutPool.lowestRolloutScoreSeen = 1000;
-      rolloutPool.highestRolloutScoreSeen = -100;
 
       if (underlyingStateMachine.isTerminal(currentState))
       {
@@ -935,9 +753,9 @@ public class Sancho extends SampleGamer
       bestMove = plan.remove();
       System.out.println("Playing pre-planned move: " + bestMove);
     }
-    else if (mctsTree.gameCharacteristics.isIteratedGame && numRoles == 2)
+    else if (gameCharacteristics.isIteratedGame && numRoles == 2)
     {
-      IteratedGamePlayer iteratedPlayer = new IteratedGamePlayer(underlyingStateMachine, this, mctsTree.gameCharacteristics.isPseudoSimultaneousMove, roleOrdering, mctsTree.competitivenessBonus);
+      IteratedGamePlayer iteratedPlayer = new IteratedGamePlayer(underlyingStateMachine, this, gameCharacteristics.isPseudoSimultaneousMove, roleOrdering, gameCharacteristics.competitivenessBonus);
       bestMove = iteratedPlayer.selectMove(moves, timeout);
       System.out.println("Playing best iterated game move: " + bestMove);
     }
@@ -952,8 +770,6 @@ public class Sancho extends SampleGamer
       //emptyTree();
       //root = null;
       //validateAll();
-      mctsTree.setRootState(currentState);
-
       searchProcessor.startSearch(finishBy, currentState);
 
       searchProcessor.requestYield(false);
@@ -963,11 +779,11 @@ public class Sancho extends SampleGamer
 
       try
       {
-        while (System.currentTimeMillis() < finishBy && !mctsTree.root.complete)
+        while (System.currentTimeMillis() < finishBy && !searchProcessor.isComplete())
         {
           if (runSynchronously)
           {
-            mctsTree.growTree((minExplorationBias + maxExplorationBias)/2);
+            searchProcessor.expandSearch();
           }
           else
           {
@@ -980,7 +796,7 @@ public class Sancho extends SampleGamer
         // TODO Auto-generated catch block
         e.printStackTrace();
       }
-      if ( mctsTree.root.complete )
+      if ( searchProcessor.isComplete() )
       {
         System.out.println("Complete root");
       }
@@ -991,10 +807,9 @@ public class Sancho extends SampleGamer
       searchProcessor.requestYield(true);
 
       //validateAll();
-      bestMove = mctsTree.getBestMove();
+      bestMove = searchProcessor.getBestMove();
       System.out.println("Num iterations: " +
           searchProcessor.getNumIterations());
-      System.out.println("Heuristic bias: " + mHeuristic.getSampleWeight());
 
       if (!moves.contains(bestMove))
       {

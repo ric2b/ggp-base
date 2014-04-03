@@ -52,15 +52,10 @@ public class MCTSTree
 
   final boolean                                        freeCompletedNodeChildren                   = false;                                                          //true;
   final boolean                                        disableOnelevelMinimax                      = true;  //false;
-  int                                                  rolloutSampleSize                           = 4;
   ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
   int                                                  numRoles;
   LRUNodeMoveWeightsCache                              nodeMoveWeightsCache                        = null;
-  final boolean                                        enableMoveActionHistory                     = false;
-  double                                               explorationBias                             = 1.0;
-  double                                               moveActionHistoryBias                       = 0;
-  final double                                         competitivenessBonus                        = 2;
   NodePool                                             nodePool;
   Map<ForwardDeadReckonInternalMachineState, TreeNode> positions                                   = new HashMap<>();
   int                                                  sweepInstance                               = 0;
@@ -82,13 +77,13 @@ public class MCTSTree
   Heuristic                                            heuristic;
   RoleOrdering                                         roleOrdering;
   RolloutProcessorPool                                 rolloutPool;
-  GameCharacteristics                                  gameCharacteristics;
+  RuntimeGameCharacteristics                           gameCharacteristics;
 
   public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
                   NodePool nodePool,
                   RoleOrdering roleOrdering,
                   RolloutProcessorPool rolloutPool,
-                  GameCharacteristics gameCharacateristics,
+                  RuntimeGameCharacteristics gameCharacateristics,
                   Heuristic heuristic)
   {
     underlyingStateMachine = stateMachine;
@@ -128,6 +123,7 @@ public class MCTSTree
     numTotalTreeNodes = 0;
     numCompletedBranches = 0;
     root = null;
+    nodePool.clear(this);
     positions.clear();
     numIncompleteNodes = 0;
     if (nodeMoveWeightsCache != null)
@@ -261,13 +257,12 @@ public class MCTSTree
     }
   }
 
-  public boolean growTree(double explorationBias)
+  public boolean growTree()
       throws MoveDefinitionException, TransitionDefinitionException,
       GoalDefinitionException, InterruptedException
   {
     synchronized (getSerializationObject())
     {
-      this.explorationBias = explorationBias;
       while (nodePool.isFull())
       {
         root.disposeLeastLikelyNode();
@@ -310,10 +305,11 @@ public class MCTSTree
       System.out.println("Num completely explored branches: " +
           numCompletedBranches);
       System.out
-      .println("Current rollout sample size: " + rolloutSampleSize);
+      .println("Current rollout sample size: " + gameCharacteristics.getRolloutSampleSize());
       System.out.println("Current observed rollout score range: [" +
           rolloutPool.lowestRolloutScoreSeen + ", " +
           rolloutPool.highestRolloutScoreSeen + "]");
+      System.out.println("Heuristic bias: " + heuristic.getSampleWeight());
 
       numSelectionsThroughIncompleteNodes = 0;
       numReExpansions = 0;

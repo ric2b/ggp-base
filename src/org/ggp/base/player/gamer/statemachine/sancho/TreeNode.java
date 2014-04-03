@@ -39,7 +39,7 @@ public class TreeNode
   /**
    * The tree in which we're a node.
    */
-  private final MCTSTree tree;
+  MCTSTree tree;
 
   private static final double           EPSILON             = 1e-6;
 
@@ -813,8 +813,10 @@ public class TreeNode
     mostLikelyWinner = -1;
   }
 
-  public void reset(boolean freed)
+  public void reset(MCTSTree tree)
   {
+    freed = (tree == null);
+    this.tree = tree;
     numVisits = 0;
     numUpdates = 0;
     if (averageScores != null)
@@ -843,7 +845,6 @@ public class TreeNode
     children = null;
     parents.clear();
     trimmedChildren = 0;
-    this.freed = freed;
     trimCount = 0;
     leastLikelyWinner = -1;
     mostLikelyWinner = -1;
@@ -1261,7 +1262,7 @@ public class TreeNode
     ProfileSection methodSection = new ProfileSection("TreeNode.selectAction");
     try
     {
-      MoveWeightsCollection moveWeights = (tree.moveActionHistoryBias != 0 ? new MoveWeightsCollection(tree.numRoles)
+      MoveWeightsCollection moveWeights = (tree.gameCharacteristics.getMoveActionHistoryEnabled() ? new MoveWeightsCollection(tree.numRoles)
       : null);
 
       //validateAll();
@@ -1332,7 +1333,7 @@ public class TreeNode
       {
         newNode.updateStats(rollout.averageScores,
                             rollout.averageSquaredScores,
-                            tree.rolloutSampleSize,
+                            tree.gameCharacteristics.getRolloutSampleSize(),
                             visited,
                             true);
       }
@@ -1342,7 +1343,7 @@ public class TreeNode
         //{
         //	node.validate(false);
         //}
-        newNode.updateVisitCounts(tree.rolloutSampleSize, visited);
+        newNode.updateVisitCounts(tree.gameCharacteristics.getRolloutSampleSize(), visited);
       }
       //validateAll();
     }
@@ -1460,7 +1461,7 @@ public class TreeNode
 
                     if (iScore >= jScore)
                     {
-                      double bonus = tree.competitivenessBonus;
+                      double bonus = tree.gameCharacteristics.getCompetitivenessBonus();
 
                       if (iScore > jScore)
                       {
@@ -1477,7 +1478,7 @@ public class TreeNode
               {
                 newChild.averageScores[i] = ((newChild.averageScores[i] + tree.bonusBuffer[i]) * 100) /
                     (100 + 2 * (tree.numRoles - 1) *
-                        tree.competitivenessBonus);
+                        tree.gameCharacteristics.getCompetitivenessBonus());
               }
             }
           }
@@ -1612,7 +1613,7 @@ public class TreeNode
                                               Math.log(Math.max(effectiveTotalVists,
                                                                 numChildVisits) + 1) /
                                                                 numChildVisits);
-    return tree.explorationBias *
+    return tree.gameCharacteristics.getExplorationBias() *
         Math.sqrt(2 *
                   Math.min(0.5, varianceBound) *
                   Math.log(Math.max(effectiveTotalVists, numChildVisits) + 1) /
@@ -1872,7 +1873,7 @@ public class TreeNode
           mostLikelyRunnerUpValue = Double.MIN_VALUE;
 
           //  If action histories are in use we need to accrue the weights from this node
-          if (tree.moveActionHistoryBias != 0)
+          if (tree.gameCharacteristics.getMoveActionHistoryEnabled())
           {
             MoveWeightsCollection ourWeights = tree.nodeMoveWeightsCache.get(this);
 
@@ -1979,7 +1980,7 @@ public class TreeNode
                   }
 
                   //  If we're suing move action histories add the move weight into the selection value
-                  if (tree.moveActionHistoryBias != 0)
+                  if (tree.gameCharacteristics.getMoveActionHistoryEnabled() )
                   {
                     double moveWeight = 0;
                     double opponentEnabledMoveWeight = c
@@ -1993,7 +1994,7 @@ public class TreeNode
                     uctValue += (moveWeight - opponentEnabledMoveWeight) *
                         Math.sqrt(Math.log(numVisits) /
                                   (c.numVisits + 1)) *
-                                  tree.moveActionHistoryBias;
+                                  tree.gameCharacteristics.getMoveActionHistoryBias();
                   }
 
                   //  If the node we most want to select through is complete (or all its
@@ -2097,7 +2098,7 @@ public class TreeNode
 
     //  Decay the weights being aggregated (so that they decay progressively as
     //  we select down the tree)
-    if (tree.moveActionHistoryBias != 0 && weights != null)
+    if (tree.gameCharacteristics.getMoveActionHistoryEnabled() && weights != null)
     {
       weights
       .decayForSelectionThrough(selected.jointPartialMove[roleIndex].move,
@@ -2382,7 +2383,7 @@ public class TreeNode
 
   private void dumpStats()
   {
-    if ( tree.enableMoveActionHistory )
+    if ( tree.gameCharacteristics.getMoveActionHistoryEnabled() )
     {
       Map<Move, MoveFrequencyInfo> moveChoices = new HashMap<Move, MoveFrequencyInfo>();
       Map<Move, MoveFrequencyInfo> responseChoices = new HashMap<Move, MoveFrequencyInfo>();
@@ -2607,7 +2608,7 @@ public class TreeNode
 
     request.state = state;
     request.node = getRef();
-    request.sampleSize = tree.rolloutSampleSize;
+    request.sampleSize = tree.gameCharacteristics.getRolloutSampleSize();
     request.path = path;
     //request.moveWeights = masterMoveWeights.copy();
 
@@ -2674,7 +2675,7 @@ public class TreeNode
       values = overrides;
     }
     else if (childEdge != null && children.length > 1 &&
-        tree.moveActionHistoryBias > 0)
+        tree.gameCharacteristics.getMoveActionHistoryEnabled())
     {
       //	Sigmoid response to score in move weight, biased around a score of 75
       double newWeight = 1 / (1 + Math

@@ -56,7 +56,7 @@ public class NodePool
         System.out.println("Bad allocation choice");
       }
 
-      result.reset(false);
+      result.reset(tree);
     }
     else
     {
@@ -78,17 +78,31 @@ public class NodePool
     freeList.add(node);
   }
 
-  public void clear()
+  public void clear(MCTSTree tree)
   {
-    freeList.clear();
-    for (int i = 0; i <= largestUsedIndex; i++)
+    if ( tree == null )
     {
-      nodeTable[i].reset(true);
-      freeList.add(nodeTable[i]);
-    }
+      freeList.clear();
+      for (int i = 0; i <= largestUsedIndex; i++)
+      {
+        nodeTable[i].reset(null);
+        freeList.add(nodeTable[i]);
+      }
 
-    numUsedNodes = 0;
-    numFreedNodes = 0;
+      numUsedNodes = 0;
+      numFreedNodes = 0;
+    }
+    else
+    {
+      for (int i = 0; i <= largestUsedIndex; i++)
+      {
+        if ( nodeTable[i].tree == tree )
+        {
+          nodeTable[i].reset(null);
+          freeList.add(nodeTable[i]);
+        }
+      }
+    }
   }
 
   public boolean isFull()
