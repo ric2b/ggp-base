@@ -108,4 +108,12 @@ public interface Heuristic
    * @return whether the heuristic should be used.
    */
   public boolean isEnabled();
+
+  /**
+   * @return an instance of the heuristic that can be used independently
+   * of existing instances on different game trees (for the same game)
+   * An instance may return itself if it has no game-state-dependent persistent
+   * state
+   */
+  public Heuristic createIndependentInstance();
 }

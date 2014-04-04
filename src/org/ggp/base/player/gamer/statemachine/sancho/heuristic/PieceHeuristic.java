@@ -28,13 +28,14 @@ public class PieceHeuristic implements Heuristic
   private static final int                                               MIN_PIECES_THRESHOLD      = 6;
   private static final double                                            MIN_HEURISTIC_CORRELATION = 0.09;
 
-  private TreeNode                                                       rootNode                  = null;
   private Map<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> propGroupScoreSets        = null;
-  private double[]                                                       heuristicStateValueBuffer = null;
   private int                                                            numRoles                  = 0;
   private ForwardDeadReckonInternalMachineState[]                        pieceSets                 = null;
   private int                                                            totalSimulatedTurns       = 0;
+  //  The following track runtime usage state and are dependent on the current game-state
+  private TreeNode                                                       rootNode                  = null;
   private int                                                            heuristicSampleWeight     = 10;
+  private double[]                                                       heuristicStateValueBuffer = null;
   private int[]                                                          rootPieceCounts           = null;
   private boolean                                                        mTuningComplete           = false;
 
@@ -108,6 +109,21 @@ public class PieceHeuristic implements Heuristic
 
       return result;
     }
+  }
+
+  public PieceHeuristic()
+  {
+  }
+
+  private PieceHeuristic(PieceHeuristic copyFrom)
+  {
+    propGroupScoreSets        = copyFrom.propGroupScoreSets;
+    numRoles                  = copyFrom.numRoles;
+    pieceSets                 = copyFrom.pieceSets;
+    totalSimulatedTurns       = copyFrom.totalSimulatedTurns;
+    //  The following track runtime usage state and are dependent on the current game-state
+    heuristicStateValueBuffer = new double[numRoles];
+    rootPieceCounts           = new int[numRoles];
   }
 
   @Override
@@ -480,5 +496,11 @@ public class PieceHeuristic implements Heuristic
   {
     // We're enabled by default, unless we fail to discover piece sets by the end of tuning.
     return ((!mTuningComplete) || (pieceSets != null));
+  }
+
+  @Override
+  public Heuristic createIndependentInstance()
+  {
+    return new PieceHeuristic(this);
   }
 }

@@ -1,11 +1,15 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 class GameSearcher implements Runnable, ActivityController
@@ -18,12 +22,13 @@ class GameSearcher implements Runnable, ActivityController
   private volatile boolean      running             = false;
   private int                   numIterations       = 0;
   private volatile boolean      requestYield        = false;
-  private MCTSTree              mctsTree            = null;
+  private Set<MCTSTree>         factorTrees         = new HashSet<>();
   private NodePool              nodePool;
   private RolloutProcessorPool  rolloutPool         = null;
   private Heuristic             mHeuristic          = null;
   private double                minExplorationBias  = 0.5;
   private double                maxExplorationBias  = 1.2;
+  private Object                treeSerializationObject = new Object();
 
   public GameSearcher(int nodeTableSize)
   {
@@ -62,15 +67,40 @@ class GameSearcher implements Runnable, ActivityController
     }
 
     nodePool.clear(null);
-    mctsTree = new MCTSTree(underlyingStateMachine,
-                            nodePool,
-                            roleOrdering,
-                            rolloutPool,
-                            gameCharacteristics,
-                            mHeuristic);
+    factorTrees.clear();
 
-    mctsTree.root = mctsTree.allocateNode(underlyingStateMachine, initialState, null);
-    mctsTree.root.decidingRoleIndex = underlyingStateMachine.getRoles().size() - 1;
+    Set<Factor> factors = underlyingStateMachine.getFactors();
+    if ( factors == null )
+    {
+      factorTrees.add(new MCTSTree(underlyingStateMachine,
+                                    null,
+                                    nodePool,
+                                    roleOrdering,
+                                    rolloutPool,
+                                    gameCharacteristics,
+                                    mHeuristic,
+                                    getSerializationObject()));
+    }
+    else
+    {
+      for(Factor factor : factors)
+      {
+        factorTrees.add(new MCTSTree(underlyingStateMachine,
+                                     factor,
+                                     nodePool,
+                                     roleOrdering,
+                                     rolloutPool,
+                                     gameCharacteristics,
+                                     mHeuristic.createIndependentInstance(),
+                                     getSerializationObject()));
+      }
+    }
+
+    for(MCTSTree tree : factorTrees)
+    {
+      tree.root = tree.allocateNode(underlyingStateMachine, initialState, null);
+      tree.root.decidingRoleIndex = underlyingStateMachine.getRoles().size() - 1;
+    }
   }
 
 
@@ -108,12 +138,14 @@ class GameSearcher implements Runnable, ActivityController
             }
             else
             {
-              mctsTree.gameCharacteristics.setExplorationBias(maxExplorationBias -
-                                                     percentThroughTurn *
-                                                     (maxExplorationBias - minExplorationBias) /
-                                                     100);
+              for(MCTSTree tree : factorTrees)
+              {
+                tree.gameCharacteristics.setExplorationBias(maxExplorationBias -
+                                                       percentThroughTurn *
+                                                       (maxExplorationBias - minExplorationBias) /
+                                                       100);
+              }
               complete = expandSearch();
-
             }
           }
 
@@ -136,17 +168,56 @@ class GameSearcher implements Runnable, ActivityController
 
   public boolean isComplete()
   {
-    return mctsTree.root.complete;
+    for(MCTSTree tree : factorTrees)
+    {
+      if ( !tree.root.complete )
+      {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   public Move getBestMove()
   {
-    return mctsTree.getBestMove();
+    Move result = null;
+    int factorIndex = 0;
+
+    System.out.println("Searching for best move amongst factors:");
+    for(MCTSTree tree : factorTrees)
+    {
+      factorIndex++;
+      Move move = tree.getBestMove();
+      if ( move != null )
+      {
+        System.out.println("  Factor best move: " + move);
+        result = move;
+      }
+      else
+      {
+        System.out.println("  Factor best move is NULL");
+      }
+
+      //tree.root.dumpTree("c:\\temp\\treeDump_factor" + factorIndex + ".txt");
+    }
+
+    return result;
   }
 
   public boolean expandSearch() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException, InterruptedException
   {
-    return mctsTree.growTree();
+    boolean result = true;
+
+    for(MCTSTree tree : factorTrees)
+    {
+      if ( !tree.root.complete )
+      {
+        result &= tree.growTree();
+      }
+    }
+
+    return result;
   }
 
   public int getNumIterations()
@@ -175,11 +246,14 @@ class GameSearcher implements Runnable, ActivityController
   public void startSearch(long moveTimeout,
                           ForwardDeadReckonInternalMachineState startState) throws GoalDefinitionException
   {
-    mctsTree.setRootState(startState);
-
     System.out.println("Start move search...");
     synchronized (this)
     {
+      for(MCTSTree tree : factorTrees)
+      {
+        tree.setRootState(startState);
+      }
+
       rolloutPool.lowestRolloutScoreSeen = 1000;
       rolloutPool.highestRolloutScoreSeen = -100;
 
@@ -188,8 +262,6 @@ class GameSearcher implements Runnable, ActivityController
       searchSeqRequested++;
       stopRequested = false;
       numIterations = 0;
-
-      mHeuristic.newTurn(mctsTree.root.state, mctsTree.root);
 
       this.notify();
     }
@@ -222,6 +294,6 @@ class GameSearcher implements Runnable, ActivityController
   @Override
   public Object getSerializationObject()
   {
-    return mctsTree.getSerializationObject();
+    return treeSerializationObject;
   }
 }

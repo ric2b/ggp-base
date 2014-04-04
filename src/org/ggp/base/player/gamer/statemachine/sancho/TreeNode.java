@@ -1034,13 +1034,13 @@ public class TreeNode
   {
     if (descendant != null)
     {
-      System.out
-      .println("Free all but rooted in state: " + descendant.state);
+      //System.out
+      //.println("Free all but rooted in state: " + descendant.state);
       tree.sweepInstance++;
 
       descendant.markTreeForSweep();
       descendant.parents.clear(); //	Do this here to allow generic orphan checking in node freeing
-      //	without tripping over this special case
+                                  //	without tripping over this special case
     }
 
     if (descendant == this || sweepSeq == tree.sweepInstance)
@@ -1350,12 +1350,12 @@ public class TreeNode
     {
       methodSection.exitScope();
     }
-      }
+  }
 
   public void expand(TreeEdge from)
       throws MoveDefinitionException, TransitionDefinitionException,
       GoalDefinitionException
-      {
+  {
     ProfileSection methodSection = new ProfileSection("TreeNode.expand");
     try
     {
@@ -1368,8 +1368,8 @@ public class TreeNode
 
         //System.out.println("Expand our moves from state: " + state);
         Iterable<ForwardDeadReckonLegalMoveInfo> moves = tree.underlyingStateMachine
-            .getLegalMoves(state, choosingRole, null);
-        List<ForwardDeadReckonLegalMoveInfo> moveInfos = new LinkedList<ForwardDeadReckonLegalMoveInfo>();
+            .getLegalMoves(state, choosingRole, tree.factor);
+        List<ForwardDeadReckonLegalMoveInfo> moveInfos = new LinkedList<>();
 
         for (ForwardDeadReckonLegalMoveInfo move : moves)
         {
@@ -1560,7 +1560,7 @@ public class TreeNode
     {
       methodSection.exitScope();
     }
-      }
+  }
 
   private void validateScoreVector(double[] scores)
   {
@@ -2264,7 +2264,7 @@ public class TreeNode
     }
   }
 
-  private void dumpTree(String filename)
+  void dumpTree(String filename)
   {
     tree.sweepInstance++;
 
@@ -2461,6 +2461,12 @@ public class TreeNode
     int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
     assert(lRecursiveCall || roleIndex == 0);
 
+    //  If there are no real moves in this factor return null
+    if ( children.length == 1 && children[0].jointPartialMove[roleIndex].isPseudoNoOp )
+    {
+      return null;
+    }
+
     for (TreeEdge edge : children)
     {
       if (edge.child.node.complete)
@@ -2609,6 +2615,7 @@ public class TreeNode
     request.node = getRef();
     request.sampleSize = tree.gameCharacteristics.getRolloutSampleSize();
     request.path = path;
+    request.factor = tree.factor;
     //request.moveWeights = masterMoveWeights.copy();
 
     tree.rolloutPool.enqueueRequest(request);

@@ -7,6 +7,64 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 
 public class FactorFilteredForwardDeadReckonLegalMoveSet implements Collection<ForwardDeadReckonLegalMoveInfo>
 {
+  static ForwardDeadReckonLegalMoveInfo pseudoNoOpMove = new ForwardDeadReckonLegalMoveInfo(true);
+
+  private class FactorFilteredMoveIterator implements Iterator<ForwardDeadReckonLegalMoveInfo>
+  {
+    private Factor factor;
+    private Iterator<ForwardDeadReckonLegalMoveInfo> wrapped;
+    private ForwardDeadReckonLegalMoveInfo availableElement = null;
+
+    FactorFilteredMoveIterator(Factor factor, Iterator<ForwardDeadReckonLegalMoveInfo> wrapped)
+    {
+      this.factor = factor;
+      this.wrapped = wrapped;
+
+      preFindNext();
+
+      //  If the underlying set has no moves contained in this factor insert a pseudo-noop
+      //  so that the factor game is well-formed
+      if ( availableElement == null )
+      {
+        availableElement = pseudoNoOpMove;
+      }
+    }
+
+    private void preFindNext()
+    {
+      while(wrapped.hasNext())
+      {
+        availableElement = wrapped.next();
+        if ( availableElement.factor == factor)
+        {
+          return;
+        }
+      }
+      availableElement = null;
+    }
+
+    @Override
+    public boolean hasNext()
+    {
+      return (availableElement != null);
+    }
+
+    @Override
+    public ForwardDeadReckonLegalMoveInfo next()
+    {
+      ForwardDeadReckonLegalMoveInfo result = availableElement;
+
+      preFindNext();
+      return result;
+    }
+
+    @Override
+    public void remove()
+    {
+      // Not supported
+    }
+  }
+
   private Collection<ForwardDeadReckonLegalMoveInfo> baseCollection;
   private Factor  factor;
 
@@ -52,14 +110,13 @@ public class FactorFilteredForwardDeadReckonLegalMoveSet implements Collection<F
   public boolean isEmpty()
   {
     //  TODO - this needs to filter
-    return baseCollection.isEmpty();
+    return !(new FactorFilteredMoveIterator(factor, baseCollection.iterator())).hasNext();
   }
 
   @Override
   public Iterator<ForwardDeadReckonLegalMoveInfo> iterator()
   {
-    //  TODO - this needs to filter
-    return baseCollection.iterator();
+    return new FactorFilteredMoveIterator(factor, baseCollection.iterator());
   }
 
   @Override
@@ -86,8 +143,14 @@ public class FactorFilteredForwardDeadReckonLegalMoveSet implements Collection<F
   @Override
   public int size()
   {
-    //  TODO - this needs to filter
-    return baseCollection.size();
+     int count = 0;
+
+     for(@SuppressWarnings("unused") ForwardDeadReckonLegalMoveInfo x : this)
+     {
+       count++;
+     }
+
+     return count;
   }
 
   @Override

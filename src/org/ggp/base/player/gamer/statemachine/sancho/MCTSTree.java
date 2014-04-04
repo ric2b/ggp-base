@@ -16,6 +16,7 @@ import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class MCTSTree
@@ -78,21 +79,27 @@ public class MCTSTree
   RoleOrdering                                         roleOrdering;
   RolloutProcessorPool                                 rolloutPool;
   RuntimeGameCharacteristics                           gameCharacteristics;
+  Factor                                               factor;
+  Object                                               serializationObject;
 
   public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
+                  Factor factor,
                   NodePool nodePool,
                   RoleOrdering roleOrdering,
                   RolloutProcessorPool rolloutPool,
                   RuntimeGameCharacteristics gameCharacateristics,
-                  Heuristic heuristic)
+                  Heuristic heuristic,
+                  Object serializationObject)
   {
     underlyingStateMachine = stateMachine;
     numRoles = stateMachine.getRoles().size();
     this.nodePool = nodePool;
+    this.factor = factor;
     this.roleOrdering = roleOrdering;
     this.heuristic = heuristic;
     this.gameCharacteristics = gameCharacateristics;
     this.rolloutPool = rolloutPool;
+    this.serializationObject = serializationObject;
 
     nodeMoveWeightsCache = new LRUNodeMoveWeightsCache(5000);
 
@@ -134,7 +141,7 @@ public class MCTSTree
 
   public Object getSerializationObject()
   {
-    return this;
+    return serializationObject;
   }
 
   TreeNode allocateNode(ForwardDeadReckonPropnetStateMachine underlyingStateMachine,
@@ -292,6 +299,8 @@ public class MCTSTree
         root.complete = false;
         numCompletedBranches--;
       }
+
+      heuristic.newTurn(root.state, root);
     }
   }
 

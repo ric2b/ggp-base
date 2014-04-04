@@ -1,5 +1,6 @@
 package org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -8,11 +9,11 @@ import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlPool;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicOr;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
+import org.ggp.base.util.statemachine.Move;
 
 /**
  * @author steve
@@ -34,8 +35,8 @@ public class FactorAnalyser
     {
     }
 
-    public Set<PolymorphicProposition>  dependencies1 = new HashSet<>();
-    public boolean                      dependenciesIncludeMove = false;
+    public Set<PolymorphicProposition>  dependencies = new HashSet<>();
+    public Set<Move>                    moves = new HashSet<>();
   }
 
   private Map<PolymorphicProposition, DependencyInfo> baseDependencies = new HashMap<>();
@@ -70,7 +71,7 @@ public class FactorAnalyser
     }
 
     //  Now look for pure disjunctive inputs to goal and terminal
-    Map<PolymorphicComponent, Set<PolymorphicProposition>> disjunctiveInputs = new HashMap<>();
+    Map<PolymorphicComponent, DependencyInfo> disjunctiveInputs = new HashMap<>();
 
     addDisjunctiveInputProps(stateMachine.getFullPropNet().getTerminalProposition(), disjunctiveInputs);
     //  TODO - same for goals
@@ -84,22 +85,18 @@ public class FactorAnalyser
     {
       DependencyInfo dInfo = baseDependencies.get(baseProp);
 
-      if ( !dInfo.dependenciesIncludeMove )
+      if ( dInfo.moves.isEmpty() )
       {
         controlSet.add(baseProp);
       }
     }
 
-    for( Entry<PolymorphicComponent, Set<PolymorphicProposition>> e : disjunctiveInputs.entrySet())
+    for( Entry<PolymorphicComponent, DependencyInfo> e : disjunctiveInputs.entrySet())
     {
-      e.getValue().removeAll(controlSet);
-      if ( e.getValue().isEmpty())
+      e.getValue().dependencies.removeAll(controlSet);
+      if ( e.getValue().dependencies.isEmpty())
       {
         controlOnlyInputs.add(e.getKey());
-      }
-      else
-      {
-        System.out.println("Disjunctive input of size: " + e.getValue().size());
       }
     }
 
@@ -138,9 +135,9 @@ public class FactorAnalyser
     //  can be ignored for the purposes of determining factorization!
     Set<PolymorphicComponent> ignorableDisjuncts = new HashSet<>();
 
-    for( Entry<PolymorphicComponent, Set<PolymorphicProposition>> e : disjunctiveInputs.entrySet())
+    for( Entry<PolymorphicComponent, DependencyInfo> e : disjunctiveInputs.entrySet())
     {
-      if ( e.getValue().size() > (stateMachine.getFullPropNet().getBasePropositions().size() - controlSet.size())/2 )
+      if ( e.getValue().dependencies.size() > (stateMachine.getFullPropNet().getBasePropositions().size() - controlSet.size())/2 )
       {
         ignorableDisjuncts.add(e.getKey());
       }
@@ -157,7 +154,7 @@ public class FactorAnalyser
     {
       Factor newFactor = new Factor(stateMachine);
 
-      newFactor.addAll(disjunctiveInputs.values().iterator().next());
+      newFactor.addAll(disjunctiveInputs.values().iterator().next().dependencies);
       factors.add(newFactor);
 
       for(Factor factor : factors)
@@ -170,11 +167,12 @@ public class FactorAnalyser
 
           Set<PolymorphicComponent> inputsProcessed = new HashSet<>();
 
-          for( Entry<PolymorphicComponent, Set<PolymorphicProposition>> e : disjunctiveInputs.entrySet())
+          for( Entry<PolymorphicComponent, DependencyInfo> e : disjunctiveInputs.entrySet())
           {
-            if ( factor.containsAny(e.getValue()) )
+            if ( factor.containsAny(e.getValue().dependencies) )
             {
-              factor.addAll(e.getValue());
+              factor.addAll(e.getValue().dependencies);
+              factor.addAllMoves(e.getValue().moves);
               inputsProcessed.add(e.getKey());
               anyAdded = true;
             }
@@ -223,17 +221,17 @@ public class FactorAnalyser
     DependencyInfo result = new DependencyInfo();
     Set<PolymorphicComponent> visited = new HashSet<>();
 
-    result.dependenciesIncludeMove = recursiveBuildBaseDependencies(p, p, result.dependencies1, visited);
+    recursiveBuildBaseDependencies(p, p, result, visited);
 
     return result;
   }
 
-  private void addDisjunctiveInputProps(PolymorphicComponent c, Map<PolymorphicComponent, Set<PolymorphicProposition>> disjunctiveInputs)
+  private void addDisjunctiveInputProps(PolymorphicComponent c, Map<PolymorphicComponent, DependencyInfo> disjunctiveInputs)
   {
     recursiveAddDisjunctiveInputProps(c.getSingleInput(), disjunctiveInputs);
   }
 
-  private void recursiveAddDisjunctiveInputProps(PolymorphicComponent c, Map<PolymorphicComponent, Set<PolymorphicProposition>> disjunctiveInputs)
+  private void recursiveAddDisjunctiveInputProps(PolymorphicComponent c, Map<PolymorphicComponent, DependencyInfo> disjunctiveInputs)
   {
     if ( c instanceof PolymorphicOr )
     {
@@ -245,7 +243,7 @@ public class FactorAnalyser
     else
     {
       //  For each disjunctive input find the base props it is dependent on
-      Set<PolymorphicProposition> dependencies = new HashSet<>();
+      DependencyInfo dependencies = new DependencyInfo();
       Set<PolymorphicComponent> visited = new HashSet<>();
 
       recursiveBuildBaseDependencies(null, c, dependencies, visited);
@@ -273,7 +271,7 @@ public class FactorAnalyser
     if ( dInfo != null )
     {
       closure.add(p);
-      for(PolymorphicProposition dependency : dInfo.dependencies1)
+      for(PolymorphicProposition dependency : dInfo.dependencies)
       {
         recursiveBuildDependencyClosure(dependency, closure);
       }
@@ -281,11 +279,11 @@ public class FactorAnalyser
   }
 
   //  Return true if at least one dependency involved transitioning across a does->legal relationship
-  private boolean recursiveBuildBaseDependencies(PolymorphicProposition root, PolymorphicComponent c, Set<PolymorphicProposition> dependencies, Set<PolymorphicComponent> visited)
+  private void recursiveBuildBaseDependencies(PolymorphicProposition root, PolymorphicComponent c, DependencyInfo dInfo, Set<PolymorphicComponent> visited)
   {
     if ( visited.contains(c))
     {
-      return false;
+      return;
     }
 
     visited.add(c);
@@ -293,9 +291,9 @@ public class FactorAnalyser
     //System.out.println("  ...trace back through: " + c);
     if ( c instanceof PolymorphicProposition )
     {
-      if ( dependencies.contains(c))
+      if ( dInfo.dependencies.contains(c))
       {
-        return false;
+        return;
       }
 
       PolymorphicProposition p = (PolymorphicProposition)c;
@@ -303,13 +301,22 @@ public class FactorAnalyser
 
       if ( stateMachine.getFullPropNet().getBasePropositions().containsValue(p))
       {
-        dependencies.add(p);
+        if ( baseDependencies.containsKey(p))
+        {
+          DependencyInfo ancestorKnownDependencies = baseDependencies.get(p);
+
+          dInfo.dependencies.addAll(ancestorKnownDependencies.dependencies);
+          dInfo.moves.addAll(ancestorKnownDependencies.moves);
+          return;
+        }
+
+        dInfo.dependencies.add(p);
         root = p;
       }
 
       if (name.equals(INIT) )
       {
-        return false;
+        return;
       }
 
       if ( name.equals(DOES))
@@ -320,37 +327,74 @@ public class FactorAnalyser
 
           if ( legalProp != null )
           {
-            recursiveBuildBaseDependencies(root, legalProp, dependencies, visited);
-            return true;
+            recursiveBuildBaseDependencies(root, legalProp, dInfo, visited);
+            dInfo.moves.add(new Move(legalProp.getName().getBody().get(1)));
+            return;
+          }
+        }
+      }
+    }
+
+    //  The following is a somewhat heuristic approach to getting around 'fake' dependencies
+    //  introduced by distinct clauses in the GDL.  Specifically games often have rules of this
+    //  type (taken from KnighThrough):
+    //    (<= (next (cell ?x ?y ?state))
+    //        (true (cell ?x ?y ?state))
+    //        (does ?player (move ?x1 ?y1 ?x2 ?y2))
+    //        (distinctcell ?x ?y ?x1 ?y1)
+    //        (distinctcell ?x ?y ?x2 ?y2))
+    //  This is saying that a cell retains its state unless someone moves into or out of it
+    //  The problem is that it encodes this logic by testing that what is played is one of the
+    //  set of moves that is not a move into or out of the cell in question - i.e. - a vast OR
+    //  consisting of most moves in the game, and in particular, including all the moves on the
+    //  'other board' relative to the tested cell.  Naively this coupling of a move on the other
+    //  board to the next state of a cell on this board looks like a dependency that prevents
+    //  factorization, but we must prevent this being seen as a 'real' coupling.  This is a result
+    //  of the (not encoded into the propnet) requirement (for a well formed game) that exactly
+    //  one move must be played each turn, so this huge OR is equivalent to the NOT of a much smaller
+    //  OR for the complimentary set of moves.  We convert ORs involving more than half of the moves in
+    //  the game with that transformation and calculate the dependencies with respect to the result.
+    if ( c instanceof PolymorphicOr )
+    {
+      Collection<PolymorphicProposition> inputProps = stateMachine.getFullPropNet().getInputPropositions().values();
+      if ( c.getInputs().size() > inputProps.size()/2 )
+      {
+        Set<PolymorphicComponent> inputPropsOred = new HashSet<>();
+
+        for(PolymorphicComponent input : c.getInputs())
+        {
+          if ( inputProps.contains(input))
+          {
+            inputPropsOred.add(input);
           }
         }
 
-        return false;
-      }
-    }
-
-    //  An AND that incldues the thing we're trying to find the dependencies of
-    //  itself is not an interesting dependency since it cannot BECOME set through
-    //  this path.  This helps weed out logic in the GDL that says a prop retains its
-    //  current state when any move except some distinct clause is played
-    if ( c instanceof PolymorphicAnd )
-    {
-      for(PolymorphicComponent input : c.getInputs())
-      {
-        if ( input == root )
+        if ( inputPropsOred.size() > inputProps.size()/2 )
         {
-          return false;
+          for(PolymorphicComponent input : c.getInputs())
+          {
+            if ( !inputPropsOred.contains(input))
+            {
+              recursiveBuildBaseDependencies(root, input, dInfo, visited);
+            }
+          }
+          for(PolymorphicComponent input : inputProps)
+          {
+            if ( !inputPropsOred.contains(input))
+            {
+              recursiveBuildBaseDependencies(root, input, dInfo, visited);
+            }
+          }
+
+          return;
         }
       }
     }
 
-    boolean result = false;
     for(PolymorphicComponent input : c.getInputs())
     {
-      result |= recursiveBuildBaseDependencies(root, input, dependencies, visited);
+      recursiveBuildBaseDependencies(root, input, dInfo, visited);
     }
-
-    return result;
   }
 
   private void recursiveBuildFactorForwards(Factor factor, PolymorphicComponent c)

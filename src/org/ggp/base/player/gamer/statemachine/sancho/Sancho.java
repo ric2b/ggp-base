@@ -30,7 +30,7 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 public class Sancho extends SampleGamer
 {
   public Role            ourRole;
-  final boolean          runSynchronously       = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
+  final boolean          runSynchronously       = true; //	Set to run everything on one thread to eliminate concurrency issues when debugging
   private int            numRolloutThreads      = (runSynchronously ? 0 : 4);
   private String         planString             = null;
   private Queue<Move>    plan                   = null;

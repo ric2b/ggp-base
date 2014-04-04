@@ -8,6 +8,7 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
+import org.ggp.base.util.statemachine.Move;
 
 /**
  * @author steve
@@ -20,6 +21,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 public class Factor
 {
   private Set<PolymorphicComponent> components = new HashSet<>();
+  private Set<Move> moves = new HashSet<>();
   private ForwardDeadReckonInternalMachineState stateMask = null;
   private ForwardDeadReckonPropnetStateMachine stateMachine;
 
@@ -43,6 +45,11 @@ public class Factor
     return components;
   }
 
+  public Set<Move> getMoves()
+  {
+    return moves;
+  }
+
   public boolean containsAny(Collection<? extends PolymorphicComponent> toTest)
   {
     for(PolymorphicComponent c : toTest)
@@ -61,8 +68,14 @@ public class Factor
     components.addAll(toAdd);
   }
 
+  public void addAllMoves(Collection<Move> toAdd)
+  {
+    moves.addAll(toAdd);
+  }
+
   public void dump()
   {
+    System.out.println("Factor base props:");
     for(PolymorphicComponent c : components)
     {
       if ( c instanceof PolymorphicProposition )
@@ -72,7 +85,13 @@ public class Factor
         System.out.println("  " + p.getName());
       }
     }
-  }
+
+    System.out.println("Factor moves:");
+    for(Move move : moves)
+    {
+      System.out.println("  " + move);
+    }
+}
 
   public ForwardDeadReckonInternalMachineState getStateMask()
   {

@@ -236,6 +236,14 @@ public class MobilityHeuristic implements Heuristic
     return mEnabled;
   }
 
+  @Override
+  public Heuristic createIndependentInstance()
+  {
+    //  We have no game-state dependent member state so one instance
+    //  can freely be used in multiple contexts
+    return this;
+  }
+
   private static class MobilityData
   {
     public final int mNumRoles;

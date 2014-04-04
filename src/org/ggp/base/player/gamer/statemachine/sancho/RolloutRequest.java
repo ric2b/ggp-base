@@ -53,10 +53,13 @@ class RolloutRequest
 
       for (int i = 0; i < sampleSize; i++)
       {
+        //long startTime = System.nanoTime();
         //System.out.println("Perform rollout from state: " + state);
         pool.numNonTerminalRollouts++;
         stateMachine.getDepthChargeResult(state, factor, pool.ourRole, null, null, null);
 
+        //long rolloutTime = System.nanoTime() - startTime;
+        //System.out.println("Rollout took: " + rolloutTime);
         for (int roleIndex = 0; roleIndex < pool.numRoles; roleIndex++)
         {
           int score = stateMachine.getGoal(pool.roleOrdering.roleIndexToRole(roleIndex));
