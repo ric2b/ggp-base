@@ -36,6 +36,7 @@ public class PieceHeuristic implements Heuristic
   private int                                                            totalSimulatedTurns       = 0;
   private int                                                            heuristicSampleWeight     = 10;
   private int[]                                                          rootPieceCounts           = null;
+  private boolean                                                        mTuningComplete           = false;
 
   private static class GdlFunctionInfo
   {
@@ -275,6 +276,7 @@ public class PieceHeuristic implements Heuristic
       HeuristicScoreInfo heuristicInfo = e.getValue();
 
       heuristicInfo.noChangeTurnRate /= totalSimulatedTurns;
+      mTuningComplete = true;
     }
 
     for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
@@ -476,6 +478,7 @@ public class PieceHeuristic implements Heuristic
   @Override
   public boolean isEnabled()
   {
-    return (pieceSets != null);
+    // We're enabled by default, unless we fail to discover piece sets by the end of tuning.
+    return ((!mTuningComplete) || (pieceSets != null));
   }
 }

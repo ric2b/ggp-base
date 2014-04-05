@@ -29,7 +29,10 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 public class Sancho extends SampleGamer
 {
-  public Role               ourRole;
+  /**
+   * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
+   */
+  private Role              ourRole;
   private final boolean     runSynchronously       = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
   private int               numRolloutThreads      = (runSynchronously ? 0 : (Runtime.getRuntime().availableProcessors() + 1) / 2);
   private double            minExplorationBias     = 0.5;
@@ -38,6 +41,23 @@ public class Sancho extends SampleGamer
   private Queue<Move>       plan                   = null;
   private int               transpositionTableSize = 2000000;
   private CombinedHeuristic mHeuristic             = null;
+  private RoleOrdering      roleOrdering           = null;
+  private Move[]            canonicallyOrderedMoveBuffer = null;
+  private ForwardDeadReckonPropnetStateMachine underlyingStateMachine = null;
+  private MCTSTree          mctsTree               = null;
+  private int               numRoles               = 0;
+  private int               MinRawNetScore         = 0;
+  private int               MaxRawNetScore         = 100;
+  private int               multiRoleAverageScoreDiff       = 0;
+  private boolean           underExpectedRangeScoreReported = false;
+  private boolean           overExpectedRangeScoreReported  = false;
+  private MachineState      targetState                     = null;
+  private RolloutProcessorPool rolloutPool         = null;
+  private TargetedSolutionStatePlayer puzzlePlayer = null;
+  private TreeSearcher      searchProcessor        = null;
+  /**
+   * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
+   */
 
   @Override
   public void configure(int xiParamIndex, String xiParam)
@@ -111,9 +131,6 @@ public class Sancho extends SampleGamer
     }
   }
 
-  RoleOrdering roleOrdering = null;
-  private Move[] canonicallyOrderedMoveBuffer = null;
-
   private Move[] getMoveCanonicallyOrdered(Move[] move)
   {
     int index = 0;
@@ -137,9 +154,6 @@ public class Sancho extends SampleGamer
     return canonicallyOrderedMoveBuffer;
   }
 
-  ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
-  private MCTSTree mctsTree = null;
-
   @Override
   public String getName()
   {
@@ -152,8 +166,7 @@ public class Sancho extends SampleGamer
     if (searchProcessor == null)
     {
       searchProcessor = new TreeSearcher();
-      Thread lSearchProcessorThread = new Thread(searchProcessor,
-                                                 "Search Processor");
+      Thread lSearchProcessorThread = new Thread(searchProcessor, "Search Processor");
       lSearchProcessorThread.setDaemon(true);
       lSearchProcessorThread.start();
     }
@@ -189,14 +202,6 @@ public class Sancho extends SampleGamer
     return new StateMachineProxy(underlyingStateMachine, searchProcessor);
   }
 
-  int                   numRoles                        = 0;
-  private int           MinRawNetScore                  = 0;
-  private int           MaxRawNetScore                  = 100;
-  private int           multiRoleAverageScoreDiff       = 0;
-  private boolean       underExpectedRangeScoreReported = false;
-  private boolean       overExpectedRangeScoreReported  = false;
-  private MachineState  targetState                     = null;
-
   private int unNormalizedStateDistance(MachineState queriedState,
                                         MachineState targetState)
   {
@@ -222,9 +227,6 @@ public class Sancho extends SampleGamer
       rolloutPool.disableGreedyRollouts();
     }
   }
-
-  RolloutProcessorPool rolloutPool = null;
-  private TargetedSolutionStatePlayer puzzlePlayer = null;
 
   @Override
   public void stateMachineMetaGame(long timeout)
@@ -716,9 +718,8 @@ public class Sancho extends SampleGamer
       {
         mctsTree.explorationBias = (maxExplorationBias + minExplorationBias) / 2;
       }
-      searchProcessor
-          .startSearch(System.currentTimeMillis() + 60000,
-                       new ForwardDeadReckonInternalMachineState(initialState));
+      searchProcessor.startSearch(System.currentTimeMillis() + 60000,
+                                  new ForwardDeadReckonInternalMachineState(initialState));
 
       try
       {
@@ -741,7 +742,8 @@ public class Sancho extends SampleGamer
     private volatile boolean stopRequested       = true;
     private volatile boolean running             = false;
     private int              numIterations       = 0;
-    private volatile boolean  requestYield        = false;
+    private volatile boolean requestYield        = false;
+    private volatile boolean mTerminateRequested = false;
 
     @Override
     public void run()
@@ -754,7 +756,7 @@ public class Sancho extends SampleGamer
       // TODO Auto-generated method stub
       try
       {
-        while (searchAvailable())
+        while (searchAvailable() && (!mTerminateRequested))
         {
           try
           {
@@ -768,8 +770,7 @@ public class Sancho extends SampleGamer
             while (!complete && !stopRequested)
             {
               long time = System.currentTimeMillis();
-              double percentThroughTurn = Math
-                  .min(100, (time - startTime) * 100 / (moveTime - startTime));
+              double percentThroughTurn = Math.min(100, (time - startTime) * 100 / (moveTime - startTime));
 
               //							if ( Math.abs(lastPercentThroughTurn - percentThroughTurn) > 4 )
               //							{
@@ -805,6 +806,8 @@ public class Sancho extends SampleGamer
         // TODO Auto-generated catch block
         e.printStackTrace();
       }
+
+      System.out.println("Terminating TreeSearcher");
     }
 
     public int getNumIterations()
@@ -861,6 +864,15 @@ public class Sancho extends SampleGamer
       }
     }
 
+    public void terminate()
+    {
+      synchronized(this)
+      {
+        mTerminateRequested = true;
+        notifyAll();
+      }
+    }
+
     @Override
     public void requestYield(boolean state)
     {
@@ -873,8 +885,6 @@ public class Sancho extends SampleGamer
       return mctsTree.getSerializationObject();
     }
   }
-
-  TreeSearcher searchProcessor = null;
 
   @Override
   public Move stateMachineSelectMove(long timeout)
@@ -901,8 +911,7 @@ public class Sancho extends SampleGamer
 
     synchronized (mctsTree.getSerializationObject())
     {
-      currentState = underlyingStateMachine
-          .createInternalState(getCurrentState());
+      currentState = underlyingStateMachine.createInternalState(getCurrentState());
       moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
 
       //System.out.println("Received current state: " + getCurrentState());
@@ -1073,4 +1082,54 @@ public class Sancho extends SampleGamer
   {
     transpositionTableSize = tableSize;
   }
+
+  @Override
+  public void stateMachineStop()
+  {
+    tidyUp();
+  }
+
+  @Override
+  public void stateMachineAbort()
+  {
+    tidyUp();
+  }
+
+  /**
+   * Tidy up game state at the end of the game.
+   */
+  private void tidyUp()
+  {
+    // Terminate all other threads.
+    if (rolloutPool != null)
+    {
+      rolloutPool.stop();
+      rolloutPool = null;
+    }
+
+    if (searchProcessor != null)
+    {
+      searchProcessor.terminate();
+      searchProcessor = null;
+    }
+
+    // Free off all our references.
+    ourRole                      = null;
+    planString                   = null;
+    plan                         = null;
+    mHeuristic                   = null;
+    roleOrdering                 = null;
+    canonicallyOrderedMoveBuffer = null;
+    underlyingStateMachine       = null;
+    mctsTree                     = null;
+    targetState                  = null;
+    puzzlePlayer                 = null;
+
+    // Get our parent to tidy up too.
+    cleanupAfterMatch();
+
+    // Prompt the JVM to do garbage collection, just we've hopefully just freed a lot of stuff.
+    System.gc();
+  }
+
 }

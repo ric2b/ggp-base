@@ -7,13 +7,10 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 class RolloutProcessor implements Runnable
 {
-  /**
-   *
-   */
-  private final RolloutProcessorPool               pool;
-  private boolean                                  stop          = false;
-  private ForwardDeadReckonPropnetStateMachine stateMachine;
-  private Thread                                   runningThread = null;
+  private final RolloutProcessorPool                 pool;
+  private final ForwardDeadReckonPropnetStateMachine stateMachine;
+  private boolean                                    stop;
+  private Thread                                     runningThread;
 
   public RolloutProcessor(RolloutProcessorPool pool, ForwardDeadReckonPropnetStateMachine stateMachine)
   {
@@ -76,7 +73,7 @@ class RolloutProcessor implements Runnable
     }
     catch (InterruptedException ie)
     {
-      // This would be a surprise.
+      // This is completely expected (if we stop this thread whilst it's waiting for a queue item).
     }
   }
 }
