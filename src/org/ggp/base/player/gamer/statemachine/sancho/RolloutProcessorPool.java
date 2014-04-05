@@ -17,7 +17,6 @@ public class RolloutProcessorPool
   public int                                           numCompletedRollouts                        = 0;
   public int                                           dequeuedRollouts                            = 0;
   public int                                           enqueuedCompletedRollouts                   = 0;
-  public int                                           numNonTerminalRollouts                      = 0;
   private int                                          numRolloutThreads;
   private int                                          maxOutstandingRolloutRequests;
   private RolloutProcessor[]                           rolloutProcessors                           = null;

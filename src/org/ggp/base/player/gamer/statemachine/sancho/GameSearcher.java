@@ -78,8 +78,7 @@ class GameSearcher implements Runnable, ActivityController
                                     roleOrdering,
                                     rolloutPool,
                                     gameCharacteristics,
-                                    mHeuristic,
-                                    getSerializationObject()));
+                                    mHeuristic));
     }
     else
     {
@@ -91,8 +90,7 @@ class GameSearcher implements Runnable, ActivityController
                                      roleOrdering,
                                      rolloutPool,
                                      gameCharacteristics,
-                                     mHeuristic.createIndependentInstance(),
-                                     getSerializationObject()));
+                                     mHeuristic.createIndependentInstance()));
       }
     }
 
@@ -138,14 +136,17 @@ class GameSearcher implements Runnable, ActivityController
             }
             else
             {
-              for(MCTSTree tree : factorTrees)
+              synchronized(getSerializationObject())
               {
-                tree.gameCharacteristics.setExplorationBias(maxExplorationBias -
-                                                       percentThroughTurn *
-                                                       (maxExplorationBias - minExplorationBias) /
-                                                       100);
+                for(MCTSTree tree : factorTrees)
+                {
+                  tree.gameCharacteristics.setExplorationBias(maxExplorationBias -
+                                                         percentThroughTurn *
+                                                         (maxExplorationBias - minExplorationBias) /
+                                                         100);
+                }
+                complete = expandSearch();
               }
-              complete = expandSearch();
             }
           }
 
@@ -181,33 +182,49 @@ class GameSearcher implements Runnable, ActivityController
 
   public Move getBestMove()
   {
-    Move result = null;
-    int factorIndex = 0;
-
-    System.out.println("Searching for best move amongst factors:");
-    for(MCTSTree tree : factorTrees)
+    synchronized(getSerializationObject())
     {
-      factorIndex++;
-      Move move = tree.getBestMove();
-      if ( move != null )
+      Move result = null;
+      int factorIndex = 0;
+
+      System.out.println("Num tree node frees: " + nodePool.getNumFreedNodes());
+      System.out.println("Num tree nodes currently in use: " + nodePool.getNumUsedNodes());
+      System.out.println("Searching for best move amongst factors:");
+      for(MCTSTree tree : factorTrees)
       {
-        System.out.println("  Factor best move: " + move);
-        result = move;
-      }
-      else
-      {
-        System.out.println("  Factor best move is NULL");
+        factorIndex++;
+        Move move = tree.getBestMove();
+        if ( move != null )
+        {
+          System.out.println("  Factor best move: " + move);
+          result = move;
+        }
+        else
+        {
+          System.out.println("  Factor best move is NULL");
+        }
+
+        //tree.root.dumpTree("c:\\temp\\treeDump_factor" + factorIndex + ".txt");
       }
 
-      //tree.root.dumpTree("c:\\temp\\treeDump_factor" + factorIndex + ".txt");
+      return result;
     }
-
-    return result;
   }
 
   public boolean expandSearch() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException, InterruptedException
   {
     boolean result = true;
+
+    while (nodePool.isFull())
+    {
+      for(MCTSTree tree : factorTrees)
+      {
+        if ( !tree.root.complete )
+        {
+          tree.root.disposeLeastLikelyNode();
+        }
+      }
+    }
 
     for(MCTSTree tree : factorTrees)
     {
@@ -216,6 +233,8 @@ class GameSearcher implements Runnable, ActivityController
         result &= tree.growTree();
       }
     }
+
+    processCompletedRollouts();
 
     return result;
   }
@@ -249,6 +268,9 @@ class GameSearcher implements Runnable, ActivityController
     System.out.println("Start move search...");
     synchronized (this)
     {
+      //  Process anything left over from last turn's timeout
+      processCompletedRollouts();
+
       for(MCTSTree tree : factorTrees)
       {
         tree.setRootState(startState);
@@ -295,5 +317,39 @@ class GameSearcher implements Runnable, ActivityController
   public Object getSerializationObject()
   {
     return treeSerializationObject;
+  }
+
+  private void processCompletedRollouts()
+  {
+    //ProfileSection methodSection = new ProfileSection("processCompletedRollouts");
+    //try
+    //{
+    RolloutRequest request;
+
+    while ((request = rolloutPool.completedRollouts.poll()) != null)
+    {
+      TreeNode node = request.node.node;
+
+      //masterMoveWeights.accumulate(request.playedMoveWeights);
+
+      if (request.node.seq == node.seq && !node.complete)
+      {
+        request.path.resetCursor();
+        //validateAll();
+        node.updateStats(request.averageScores,
+                         request.averageSquaredScores,
+                         request.sampleSize,
+                         request.path,
+                         false);
+        //validateAll();
+      }
+
+      rolloutPool.numCompletedRollouts++;
+    }
+    //}
+    //finally
+    //{
+    //  methodSection.exitScope();
+    //}
   }
 }

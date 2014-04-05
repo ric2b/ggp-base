@@ -3145,6 +3145,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return factors;
   }
 
+  public void disableFactorization()
+  {
+    factors = null;
+  }
+
   public Set<GdlSentence> getBasePropositions()
   {
     return fullPropNet.getBasePropositions().keySet();

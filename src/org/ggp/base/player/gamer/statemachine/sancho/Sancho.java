@@ -3,6 +3,7 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
@@ -25,12 +26,13 @@ import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class Sancho extends SampleGamer
 {
   public Role            ourRole;
-  final boolean          runSynchronously       = true; //	Set to run everything on one thread to eliminate concurrency issues when debugging
+  final boolean          runSynchronously       = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
   private int            numRolloutThreads      = (runSynchronously ? 0 : 4);
   private String         planString             = null;
   private Queue<Move>    plan                   = null;
@@ -141,7 +143,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.56d";
+    return "Sancho 1.56e";
   }
 
   @Override
@@ -274,6 +276,8 @@ public class Sancho extends SampleGamer
     double branchingFactorApproximation = 0;
     int[] roleScores = new int[numRoles];
 
+    Collection<Factor> factors = underlyingStateMachine.getFactors();
+
     //	Perform a small number of move-by-move simulations to assess how
     //	the potential piece count heuristics behave at the granularity of
     //	a single decision
@@ -316,8 +320,26 @@ public class Sancho extends SampleGamer
             }
 
             choosingRoleIndex = i;
+            Factor turnFactor = null;
+
             for (Move move : legalMoves)
             {
+              if ( factors != null )
+              {
+                for(Factor factor : factors)
+                {
+                  if ( factor.getMoves().contains(move))
+                  {
+                    if ( turnFactor != null && turnFactor != factor )
+                    {
+                      underlyingStateMachine.disableFactorization();
+                      factors = null;
+                      break;
+                    }
+                    turnFactor = factor;
+                  }
+                }
+              }
               if (allMovesInState.contains(move))
               {
                 gameCharacteristics.isSimultaneousMove = true;
@@ -814,6 +836,7 @@ public class Sancho extends SampleGamer
       if (!moves.contains(bestMove))
       {
         System.out.println("Selected illegal move!!");
+        bestMove = moves.get(0);
       }
       System.out.println("Playing move: " + bestMove);
 

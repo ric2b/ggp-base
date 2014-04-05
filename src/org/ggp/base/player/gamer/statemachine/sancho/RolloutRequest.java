@@ -55,8 +55,7 @@ class RolloutRequest
       {
         //long startTime = System.nanoTime();
         //System.out.println("Perform rollout from state: " + state);
-        pool.numNonTerminalRollouts++;
-        stateMachine.getDepthChargeResult(state, factor, pool.ourRole, null, null, null);
+         stateMachine.getDepthChargeResult(state, factor, pool.ourRole, null, null, null);
 
         //long rolloutTime = System.nanoTime() - startTime;
         //System.out.println("Rollout took: " + rolloutTime);

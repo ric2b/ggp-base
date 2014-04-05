@@ -2461,6 +2461,14 @@ public class TreeNode
     int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
     assert(lRecursiveCall || roleIndex == 0);
 
+    //  The root should never be childless, but this has been observed, so rather than
+    //  crash return null cleanly (which is handled)
+    if ( children == null )
+    {
+      System.out.println("Unexpectedly asked for best move from node with no children");
+      return null;
+    }
+
     //  If there are no real moves in this factor return null
     if ( children.length == 1 && children[0].jointPartialMove[roleIndex].isPseudoNoOp )
     {
@@ -2617,6 +2625,7 @@ public class TreeNode
     request.path = path;
     request.factor = tree.factor;
     //request.moveWeights = masterMoveWeights.copy();
+    tree.numNonTerminalRollouts += request.sampleSize;
 
     tree.rolloutPool.enqueueRequest(request);
 
@@ -2680,7 +2689,7 @@ public class TreeNode
     {
       values = overrides;
     }
-    else if (childEdge != null && children.length > 1 &&
+    else if (childEdge != null && children != null && children.length > 1 &&
         tree.gameCharacteristics.getMoveActionHistoryEnabled())
     {
       //	Sigmoid response to score in move weight, biased around a score of 75
