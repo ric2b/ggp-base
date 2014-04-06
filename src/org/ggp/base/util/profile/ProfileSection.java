@@ -5,7 +5,7 @@ public class ProfileSection
 {
   private String name;
   private long   startTime;
-  private long   ellapsedTime;
+  private long   elapsedTime;
 
   public ProfileSection(String name)
   {
@@ -23,16 +23,16 @@ public class ProfileSection
     return name;
   }
 
-  public long getEllapsedTime()
+  public long getElapsedTime()
   {
-    return ellapsedTime;
+    return elapsedTime;
   }
 
   public void exitScope()
   {
     if (ProfilerContext.getContext() != null)
     {
-      ellapsedTime = System.nanoTime() - startTime;
+      elapsedTime = System.nanoTime() - startTime;
 
       ProfilerContext.getContext().endSection(this);
       //System.out.println("Exit section: " + name);

@@ -23,7 +23,7 @@ public class RolloutProcessorPool
   public int                                           numRoles;
   public Role                                          ourRole;
   public RoleOrdering                                  roleOrdering                                = null;
-  private ForwardDeadReckonPropnetStateMachine     underlyingStateMachine;
+  private ForwardDeadReckonPropnetStateMachine         underlyingStateMachine;
   public int highestRolloutScoreSeen;
   public int lowestRolloutScoreSeen;
 

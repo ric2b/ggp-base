@@ -36,11 +36,14 @@ public class Sancho extends SampleGamer
    */
   public Role                         ourRole;
   private final boolean               runSynchronously                = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
-  private int                         numRolloutThreads               = (runSynchronously ? 0 : 4);
+  private boolean                     halfStrength                    = false;
+  private int                         numRolloutThreads               = runSynchronously ? 0 :
+                                                                        halfStrength ? ((((Runtime.getRuntime().availableProcessors() + 1) / 2) + 1) / 2) :
+                                                                                         ((Runtime.getRuntime().availableProcessors() + 1) / 2);
   private String                      planString                      = null;
   private Queue<Move>                 plan                            = null;
   private int                         transpositionTableSize          = 2000000;
-  RuntimeGameCharacteristics          gameCharacteristics             = null;
+  private RuntimeGameCharacteristics  gameCharacteristics             = null;
   private RoleOrdering                roleOrdering                    = null;
   private Move[]                      canonicallyOrderedMoveBuffer    = null;
   private ForwardDeadReckonPropnetStateMachine underlyingStateMachine = null;
