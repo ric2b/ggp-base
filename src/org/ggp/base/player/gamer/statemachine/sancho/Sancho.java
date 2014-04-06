@@ -31,13 +31,31 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 public class Sancho extends SampleGamer
 {
-  public Role            ourRole;
-  final boolean          runSynchronously       = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
-  private int            numRolloutThreads      = (runSynchronously ? 0 : 4);
-  private String         planString             = null;
-  private Queue<Move>    plan                   = null;
-  int                    transpositionTableSize = 2000000;
-  RuntimeGameCharacteristics gameCharacteristics = null;
+  /**
+   * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
+   */
+  public Role                         ourRole;
+  private final boolean               runSynchronously                = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
+  private int                         numRolloutThreads               = (runSynchronously ? 0 : 4);
+  private String                      planString                      = null;
+  private Queue<Move>                 plan                            = null;
+  private int                         transpositionTableSize          = 2000000;
+  RuntimeGameCharacteristics          gameCharacteristics             = null;
+  private RoleOrdering                roleOrdering                    = null;
+  private Move[]                      canonicallyOrderedMoveBuffer    = null;
+  private ForwardDeadReckonPropnetStateMachine underlyingStateMachine = null;
+  private int                         numRoles                        = 0;
+  private int                         MinRawNetScore                  = 0;
+  private int                         MaxRawNetScore                  = 100;
+  private int                         multiRoleAverageScoreDiff       = 0;
+  private boolean                     underExpectedRangeScoreReported = false;
+  private boolean                     overExpectedRangeScoreReported  = false;
+  private MachineState                targetState                     = null;
+  private TargetedSolutionStatePlayer puzzlePlayer                    = null;
+  private GameSearcher                searchProcessor                 = null;
+  /**
+   * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
+   */
 
   @Override
   public void configure(int xiParamIndex, String xiParam)
@@ -111,9 +129,6 @@ public class Sancho extends SampleGamer
     }
   }
 
-  RoleOrdering roleOrdering = null;
-  private Move[] canonicallyOrderedMoveBuffer = null;
-
   private Move[] getMoveCanonicallyOrdered(Move[] move)
   {
     int index = 0;
@@ -137,9 +152,6 @@ public class Sancho extends SampleGamer
     return canonicallyOrderedMoveBuffer;
   }
 
-  ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
-  //private MCTSTree mctsTree = null;
-
   @Override
   public String getName()
   {
@@ -149,31 +161,14 @@ public class Sancho extends SampleGamer
   @Override
   public StateMachine getInitialStateMachine()
   {
-    if (searchProcessor == null)
-    {
-      searchProcessor = new GameSearcher(transpositionTableSize);
+    searchProcessor = new GameSearcher(transpositionTableSize);
 
-      if ( !runSynchronously )
-      {
-        Thread lSearchProcessorThread = new Thread(searchProcessor,
-                                                   "Search Processor");
-        lSearchProcessorThread.setDaemon(true);
-        lSearchProcessorThread.start();
-      }
-    }
-    else
+    if ( !runSynchronously )
     {
-      try
-      {
-        System.out.println("Stop search processor...");
-        searchProcessor.stop();
-        System.out.println("...stopped");
-      }
-      catch (InterruptedException e)
-      {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
+      Thread lSearchProcessorThread = new Thread(searchProcessor,
+                                                 "Search Processor");
+      lSearchProcessorThread.setDaemon(true);
+      lSearchProcessorThread.start();
     }
 
     //GamerLogger.setFileToDisplay("StateMachine");
@@ -185,14 +180,6 @@ public class Sancho extends SampleGamer
 
     return new StateMachineProxy(underlyingStateMachine, searchProcessor);
   }
-
-  int                   numRoles                        = 0;
-  private int           MinRawNetScore                  = 0;
-  private int           MaxRawNetScore                  = 100;
-  private int           multiRoleAverageScoreDiff       = 0;
-  private boolean       underExpectedRangeScoreReported = false;
-  private boolean       overExpectedRangeScoreReported  = false;
-  private MachineState  targetState                     = null;
 
   private int unNormalizedStateDistance(MachineState queriedState,
                                         MachineState targetState)
@@ -209,7 +196,6 @@ public class Sancho extends SampleGamer
 
     return targetState.getContents().size() - matchCount;
   }
-  private TargetedSolutionStatePlayer puzzlePlayer = null;
 
   @Override
   public void stateMachineMetaGame(long timeout)
@@ -248,8 +234,8 @@ public class Sancho extends SampleGamer
     multiRoleAverageScoreDiff = 0;
 
     // mHeuristic = new CombinedHeuristic(new PieceHeuristic(), new MobilityHeuristic());
-    mHeuristic = new CombinedHeuristic(new PieceHeuristic());
-    mHeuristic.tuningInitialise(underlyingStateMachine, roleOrdering);
+    CombinedHeuristic heuristic = new CombinedHeuristic(new PieceHeuristic());
+    heuristic.tuningInitialise(underlyingStateMachine, roleOrdering);
 
     ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine.createInternalState(getCurrentState());
 
@@ -364,7 +350,7 @@ public class Sancho extends SampleGamer
         }
 
         // Tell the heuristic about the interim state, for tuning purposes.
-        mHeuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
+        heuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
 
         sampleState = underlyingStateMachine.getNextState(sampleState, jointMove);
       }
@@ -376,7 +362,7 @@ public class Sancho extends SampleGamer
 
       // Tell the heuristic about the termainal state, for tuning purposes.
       assert(underlyingStateMachine.isTerminal(sampleState));
-      mHeuristic.tuningTerminalStateSample(sampleState, roleScores);
+      heuristic.tuningTerminalStateSample(sampleState, roleScores);
 
       branchingFactorApproximation += (numBranchesTaken / numRoleMovesSimulated);
     }
@@ -444,7 +430,7 @@ public class Sancho extends SampleGamer
 
       // Tell the heuristic about the termainal state, for tuning purposes.
       assert(underlyingStateMachine.isTerminal(finalState));
-      mHeuristic.tuningTerminalStateSample(finalState, roleScores);
+      heuristic.tuningTerminalStateSample(finalState, roleScores);
 
       averageNumTurns = (averageNumTurns * (simulationsPerformed - 1) + rolloutStats[0]) /
                         simulationsPerformed;
@@ -477,7 +463,7 @@ public class Sancho extends SampleGamer
     }
 
     // Complete heuristic tuning.
-    mHeuristic.tuningComplete();
+    heuristic.tuningComplete();
 
     System.out.println("branchingFactorApproximation = " +
                        branchingFactorApproximation +
@@ -512,7 +498,7 @@ public class Sancho extends SampleGamer
       explorationBias = 1.2;
     }
 
-    if (mHeuristic.includes(PieceHeuristic.class))
+    if (heuristic.includes(PieceHeuristic.class))
     {
       //	Empirically games with piece count heuristics seem to like lower
       //	exploration bias - not entirely sure why!
@@ -710,7 +696,7 @@ public class Sancho extends SampleGamer
         gameCharacteristics.setExplorationBias(explorationBias);
       }
 
-      searchProcessor.setup(underlyingStateMachine, initialState, roleOrdering, gameCharacteristics, numRolloutThreads, greedyRolloutsDisabled);
+      searchProcessor.setup(underlyingStateMachine, initialState, roleOrdering, gameCharacteristics, numRolloutThreads, greedyRolloutsDisabled, heuristic);
       searchProcessor
           .startSearch(System.currentTimeMillis() + 60000,
                        new ForwardDeadReckonInternalMachineState(initialState));
@@ -726,8 +712,6 @@ public class Sancho extends SampleGamer
       }
     }
   }
-
-  GameSearcher searchProcessor = null;
 
   @Override
   public Move stateMachineSelectMove(long timeout)
@@ -939,12 +923,6 @@ public class Sancho extends SampleGamer
   private void tidyUp()
   {
     // Terminate all other threads.
-    if (rolloutPool != null)
-    {
-      rolloutPool.stop();
-      rolloutPool = null;
-    }
-
     if (searchProcessor != null)
     {
       searchProcessor.terminate();
@@ -955,11 +933,9 @@ public class Sancho extends SampleGamer
     ourRole                      = null;
     planString                   = null;
     plan                         = null;
-    mHeuristic                   = null;
     roleOrdering                 = null;
     canonicallyOrderedMoveBuffer = null;
     underlyingStateMachine       = null;
-    mctsTree                     = null;
     targetState                  = null;
     puzzlePlayer                 = null;
 

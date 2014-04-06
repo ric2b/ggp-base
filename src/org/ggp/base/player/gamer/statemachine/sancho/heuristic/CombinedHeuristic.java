@@ -34,6 +34,16 @@ public class CombinedHeuristic implements Heuristic
     }
   }
 
+  private CombinedHeuristic(CombinedHeuristic copyFrom)
+  {
+    mNumRoles = copyFrom.mNumRoles;
+    mHeuristics = new LinkedList<>();
+    for (Heuristic lHeuristic : copyFrom.mHeuristics)
+    {
+      mHeuristics.add(lHeuristic.createIndependentInstance());
+    }
+  }
+
   @Override
   public void tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine, RoleOrdering xiRoleOrdering)
   {
@@ -195,5 +205,12 @@ public class CombinedHeuristic implements Heuristic
         lIterator.remove();
       }
     }
+  }
+
+  @Override
+  public Heuristic createIndependentInstance()
+  {
+    //  Return a suitable clone
+    return new CombinedHeuristic(this);
   }
 }

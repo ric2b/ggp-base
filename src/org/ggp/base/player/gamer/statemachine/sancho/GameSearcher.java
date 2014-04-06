@@ -18,26 +18,18 @@ class GameSearcher implements Runnable, ActivityController
   private volatile long         startTime;
   private volatile int          searchSeqRequested  = 0;
   private volatile int          searchSeqProcessing = 0;
-  private volatile boolean      stopRequested       = true;
-  private volatile boolean      running             = false;
   private int                   numIterations       = 0;
   private volatile boolean      requestYield        = false;
   private Set<MCTSTree>         factorTrees         = new HashSet<>();
   private NodePool              nodePool;
   private RolloutProcessorPool  rolloutPool         = null;
-  private Heuristic             mHeuristic          = null;
   private double                minExplorationBias  = 0.5;
   private double                maxExplorationBias  = 1.2;
-  private Object                treeSerializationObject = new Object();
+  private volatile boolean      mTerminateRequested = false;
 
   public GameSearcher(int nodeTableSize)
   {
     nodePool = new NodePool(nodeTableSize);
-  }
-
-  public void setHeuristic(Heuristic heuristic)
-  {
-    mHeuristic = heuristic;
   }
 
   public void setExplorationBiasRange(double min, double max)
@@ -54,7 +46,8 @@ class GameSearcher implements Runnable, ActivityController
                     RoleOrdering roleOrdering,
                     RuntimeGameCharacteristics gameCharacteristics,
                     int numRolloutThreads,
-                    boolean disableGreedyRollouts) throws GoalDefinitionException
+                    boolean disableGreedyRollouts,
+                    Heuristic heuristic) throws GoalDefinitionException
   {
     rolloutPool = new RolloutProcessorPool(numRolloutThreads, underlyingStateMachine, roleOrdering.roleIndexToRole(0));
     rolloutPool.setRoleOrdering(roleOrdering);
@@ -78,7 +71,7 @@ class GameSearcher implements Runnable, ActivityController
                                     roleOrdering,
                                     rolloutPool,
                                     gameCharacteristics,
-                                    mHeuristic));
+                                    heuristic));
     }
     else
     {
@@ -90,7 +83,7 @@ class GameSearcher implements Runnable, ActivityController
                                      roleOrdering,
                                      rolloutPool,
                                      gameCharacteristics,
-                                     mHeuristic.createIndependentInstance()));
+                                     heuristic.createIndependentInstance()));
       }
     }
 
@@ -108,7 +101,7 @@ class GameSearcher implements Runnable, ActivityController
     // TODO Auto-generated method stub
     try
     {
-      while (searchAvailable())
+      while (searchAvailable() && (!mTerminateRequested))
       {
         try
         {
@@ -119,7 +112,7 @@ class GameSearcher implements Runnable, ActivityController
 
           //Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
 
-          while (!complete && !stopRequested)
+          while (!complete)
           {
             long time = System.currentTimeMillis();
             double percentThroughTurn = Math
@@ -138,14 +131,18 @@ class GameSearcher implements Runnable, ActivityController
             {
               synchronized(getSerializationObject())
               {
-                for(MCTSTree tree : factorTrees)
+                //  Must re-test for a termination request having obtained the lock
+                if ( !mTerminateRequested )
                 {
-                  tree.gameCharacteristics.setExplorationBias(maxExplorationBias -
-                                                         percentThroughTurn *
-                                                         (maxExplorationBias - minExplorationBias) /
-                                                         100);
+                  for(MCTSTree tree : factorTrees)
+                  {
+                    tree.gameCharacteristics.setExplorationBias(maxExplorationBias -
+                                                           percentThroughTurn *
+                                                           (maxExplorationBias - minExplorationBias) /
+                                                           100);
+                  }
+                  complete = expandSearch();
                 }
-                complete = expandSearch();
               }
             }
           }
@@ -165,6 +162,8 @@ class GameSearcher implements Runnable, ActivityController
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
+
+    System.out.println("Terminating GameSearcher");
   }
 
   public boolean isComplete()
@@ -248,15 +247,13 @@ class GameSearcher implements Runnable, ActivityController
   {
     synchronized (this)
     {
-      if (searchSeqRequested == searchSeqProcessing || stopRequested)
+      if (searchSeqRequested == searchSeqProcessing)
       {
-        running = false;
-        this.notify();
+        this.notifyAll();
         this.wait();
       }
 
       searchSeqProcessing = searchSeqRequested;
-      running = true;
     }
 
     return true;
@@ -282,28 +279,9 @@ class GameSearcher implements Runnable, ActivityController
       moveTime = moveTimeout;
       startTime = System.currentTimeMillis();
       searchSeqRequested++;
-      stopRequested = false;
       numIterations = 0;
 
       this.notify();
-    }
-  }
-
-  public void stop() throws InterruptedException
-  {
-    synchronized (this)
-    {
-      stopRequested = true;
-
-      if (running)
-      {
-        wait();
-      }
-    }
-
-    if (rolloutPool != null)
-    {
-      rolloutPool.stop();
     }
   }
 
@@ -316,7 +294,7 @@ class GameSearcher implements Runnable, ActivityController
   @Override
   public Object getSerializationObject()
   {
-    return treeSerializationObject;
+    return this;
   }
 
   private void processCompletedRollouts()
@@ -351,5 +329,20 @@ class GameSearcher implements Runnable, ActivityController
     //{
     //  methodSection.exitScope();
     //}
+  }
+
+  public void terminate()
+  {
+    if (rolloutPool != null)
+    {
+      rolloutPool.stop();
+      rolloutPool = null;
+    }
+
+    synchronized(getSerializationObject())
+    {
+      mTerminateRequested = true;
+      notifyAll();
+    }
   }
 }

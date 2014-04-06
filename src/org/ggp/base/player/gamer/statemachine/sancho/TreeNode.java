@@ -2460,14 +2460,7 @@ public class TreeNode
     // (always 0), otherwise why are we trying to get the best move?
     int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
     assert(lRecursiveCall || roleIndex == 0);
-
-    //  The root should never be childless, but this has been observed, so rather than
-    //  crash return null cleanly (which is handled)
-    if ( children == null )
-    {
-      System.out.println("Unexpectedly asked for best move from node with no children");
-      return null;
-    }
+    assert(children != null);
 
     //  If there are no real moves in this factor return null
     if ( children.length == 1 && children[0].jointPartialMove[roleIndex].isPseudoNoOp )
