@@ -935,7 +935,7 @@ public class TreeNode
       {
         for (TreeEdge edge : children)
         {
-          if (edge.child.node.seq == edge.child.seq)
+          if (edge.child.seq != -1 && edge.child.node.seq == edge.child.seq)
           {
             //if ( !cr.node.parents.contains(this))
             //{

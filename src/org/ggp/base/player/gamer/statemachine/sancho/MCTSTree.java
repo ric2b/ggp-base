@@ -268,12 +268,9 @@ public class MCTSTree
   {
     //validateAll();
     //validationCount++;
-    if (!rolloutPool.isBackedUp())
-    {
-      root.selectAction();
+    root.selectAction();
 
-      processNodeCompletions();
-    }
+    processNodeCompletions();
 
     return root.complete;
   }

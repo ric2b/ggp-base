@@ -212,7 +212,7 @@ class GameSearcher implements Runnable, ActivityController
 
   public boolean expandSearch() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException, InterruptedException
   {
-    boolean result = true;
+    boolean result;
 
     while (nodePool.isFull())
     {
@@ -225,15 +225,24 @@ class GameSearcher implements Runnable, ActivityController
       }
     }
 
-    for(MCTSTree tree : factorTrees)
+    processCompletedRollouts();
+
+    if (!rolloutPool.isBackedUp())
     {
-      if ( !tree.root.complete )
+      result = true;
+
+      for(MCTSTree tree : factorTrees)
       {
-        result &= tree.growTree();
+        if ( !tree.root.complete )
+        {
+          result &= tree.growTree();
+        }
       }
     }
-
-    processCompletedRollouts();
+    else
+    {
+      result = false;
+    }
 
     return result;
   }
@@ -333,14 +342,14 @@ class GameSearcher implements Runnable, ActivityController
 
   public void terminate()
   {
-    if (rolloutPool != null)
-    {
-      rolloutPool.stop();
-      rolloutPool = null;
-    }
-
     synchronized(getSerializationObject())
     {
+      if (rolloutPool != null)
+      {
+        rolloutPool.stop();
+        rolloutPool = null;
+      }
+
       mTerminateRequested = true;
       notifyAll();
     }
