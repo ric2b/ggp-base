@@ -76,7 +76,7 @@ public class Sancho extends SampleGamer
                        ForwardDeadReckonInternalMachineState state)
       throws GoalDefinitionException
   {
-    ProfileSection methodSection = new ProfileSection("TreeNode.netScore");
+    ProfileSection methodSection = ProfileSection.newInstance("TreeNode.netScore");
     try
     {
       int result = 0;

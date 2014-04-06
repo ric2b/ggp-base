@@ -34,7 +34,7 @@ class RolloutRequest
       throws TransitionDefinitionException, MoveDefinitionException,
       GoalDefinitionException
   {
-    ProfileSection methodSection = new ProfileSection("TreeNode.rollOut");
+    ProfileSection methodSection = ProfileSection.newInstance("TreeNode.rollOut");
     try
     {
       synchronized (pool)

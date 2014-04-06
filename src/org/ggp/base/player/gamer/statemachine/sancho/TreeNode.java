@@ -951,7 +951,7 @@ public class TreeNode
 
   private void freeNode()
   {
-    ProfileSection methodSection = new ProfileSection("TreeNode.freeNode");
+    ProfileSection methodSection = ProfileSection.newInstance("TreeNode.freeNode");
     try
     {
       //validateAll();
@@ -1096,7 +1096,7 @@ public class TreeNode
 
   public void disposeLeastLikelyNode()
   {
-    ProfileSection methodSection = new ProfileSection("TreeNode.disposeLeastLikelyNode");
+    ProfileSection methodSection = ProfileSection.newInstance("TreeNode.disposeLeastLikelyNode");
     try
     {
       TreeNode leastLikely = selectLeastLikelyNode(null, 0);
@@ -1258,7 +1258,7 @@ public class TreeNode
       throws MoveDefinitionException, TransitionDefinitionException,
       GoalDefinitionException, InterruptedException
       {
-    ProfileSection methodSection = new ProfileSection("TreeNode.selectAction");
+    ProfileSection methodSection = ProfileSection.newInstance("TreeNode.selectAction");
     try
     {
       MoveWeightsCollection moveWeights = (tree.gameCharacteristics.getMoveActionHistoryEnabled() ? new MoveWeightsCollection(tree.numRoles)
@@ -1356,7 +1356,7 @@ public class TreeNode
       throws MoveDefinitionException, TransitionDefinitionException,
       GoalDefinitionException
   {
-    ProfileSection methodSection = new ProfileSection("TreeNode.expand");
+    ProfileSection methodSection = ProfileSection.newInstance("TreeNode.expand");
     try
     {
       if (children == null || trimmedChildren > 0)

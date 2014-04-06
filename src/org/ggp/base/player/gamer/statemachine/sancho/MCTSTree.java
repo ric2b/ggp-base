@@ -142,7 +142,7 @@ public class MCTSTree
                                 TreeNode parent)
       throws GoalDefinitionException
   {
-    ProfileSection methodSection = new ProfileSection("allocateNode");
+    ProfileSection methodSection = ProfileSection.newInstance("allocateNode");
     try
     {
       TreeNode result = (state != null ? positions.get(state) : null);

@@ -238,7 +238,7 @@ public class TestPropnetStateMachine extends StateMachine
 
   private void setBasePropositionsFromState(MachineState state)
   {
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.setBasePropositions");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.setBasePropositions");
     try
     {
       if (lastSetState != null)
@@ -288,7 +288,7 @@ public class TestPropnetStateMachine extends StateMachine
   @Override
   public boolean isTerminal(MachineState state)
   {
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.isTerminal");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.isTerminal");
     try
     {
       setBasePropositionsFromState(state);
@@ -312,7 +312,7 @@ public class TestPropnetStateMachine extends StateMachine
   public int getGoal(MachineState state, Role role)
       throws GoalDefinitionException
   {
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getGoal");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getGoal");
     try
     {
       setBasePropositionsFromState(state);
@@ -368,7 +368,7 @@ public class TestPropnetStateMachine extends StateMachine
   public List<Move> getLegalMoves(MachineState state, Role role)
       throws MoveDefinitionException
   {
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getLegalMoves");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getLegalMoves");
     try
     {
       setBasePropositionsFromState(state);
@@ -399,7 +399,7 @@ public class TestPropnetStateMachine extends StateMachine
   public boolean isLegalMove(MachineState state, Role role, Move move)
       throws MoveDefinitionException
   {
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.isLegalMove");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.isLegalMove");
     try
     {
       setBasePropositionsFromState(state);
@@ -446,7 +446,7 @@ public class TestPropnetStateMachine extends StateMachine
     //System.out.println("Get next state after " + moves + " from: " + state);
     //RuntimeOptimizedComponent.getCount = 0;
     //RuntimeOptimizedComponent.dirtyCount = 0;
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getNextState");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getNextState");
     try
     {
       setBasePropositionsFromState(state);
@@ -552,7 +552,7 @@ public class TestPropnetStateMachine extends StateMachine
    */
   public MachineState getStateFromBase()
   {
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getStateFromBase");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getStateFromBase");
     try
     {
       //RuntimeOptimizedComponent.getCount = 0;

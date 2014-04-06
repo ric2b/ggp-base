@@ -246,7 +246,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
 
   public void propagate(int instanceId)
   {
-    ProfileSection methodSection = new ProfileSection("ForwardDeadReckonPropNet.propagate");
+    ProfileSection methodSection = ProfileSection.newInstance("ForwardDeadReckonPropNet.propagate");
     try
     {
       while (propagationQueueIndex[instanceId] > 0)
