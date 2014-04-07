@@ -112,7 +112,7 @@ class GameSearcher implements Runnable, ActivityController
 
           //Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
 
-          while (!complete)
+          while (!complete && !mTerminateRequested)
           {
             long time = System.currentTimeMillis();
             double percentThroughTurn = Math
