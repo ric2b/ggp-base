@@ -1422,7 +1422,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   @Override
   public boolean isTerminal(MachineState state)
   {
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.isTerminal");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.isTerminal");
     try
     {
       setPropNetUsage(state);
@@ -1537,7 +1537,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public List<Move> getLegalMoves(MachineState state, Role role)
       throws MoveDefinitionException
   {
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getLegalMoves");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getLegalMoves");
     try
     {
       List<Move> result;
@@ -1571,7 +1571,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public List<Move> getLegalMoves(ForwardDeadReckonInternalMachineState state,
                                   Role role) throws MoveDefinitionException
   {
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getLegalMoves");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getLegalMoves");
     try
     {
       List<Move> result;
@@ -1606,7 +1606,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public Collection<ForwardDeadReckonLegalMoveInfo> getLegalMoves(ForwardDeadReckonInternalMachineState state, Role role, Factor factor)
       throws MoveDefinitionException
   {
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getLegalMoveInfos");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getLegalMoveInfos");
     try
     {
       setPropNetUsage(state);
@@ -1634,7 +1634,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public boolean isLegalMove(MachineState state, Role role, Move move)
       throws MoveDefinitionException
   {
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.isLegalMove");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.isLegalMove");
     try
     {
       setPropNetUsage(state);
@@ -1709,7 +1709,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     //System.out.println("Get next state after " + moves + " from: " + state);
     //RuntimeOptimizedComponent.getCount = 0;
     //RuntimeOptimizedComponent.dirtyCount = 0;
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getNextState");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getNextState");
     try
     {
       setPropNetUsage(state);
@@ -1772,7 +1772,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     //System.out.println("Get next state after " + moves + " from: " + state);
     //RuntimeOptimizedComponent.getCount = 0;
     //RuntimeOptimizedComponent.dirtyCount = 0;
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getNextState");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getNextState");
     try
     {
       setPropNetUsage(state);
@@ -1835,7 +1835,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     //System.out.println("Get next state after " + moves + " from: " + state);
     //RuntimeOptimizedComponent.getCount = 0;
     //RuntimeOptimizedComponent.dirtyCount = 0;
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getNextState");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getNextState");
     try
     {
       setPropNetUsage(state);
@@ -1899,7 +1899,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     //System.out.println("Get next state after " + moves + " from: " + state);
     //RuntimeOptimizedComponent.getCount = 0;
     //RuntimeOptimizedComponent.dirtyCount = 0;
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getNextState");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getNextState");
     try
     {
       ForwardDeadReckonInternalMachineState result;
@@ -1976,7 +1976,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     //System.out.println("Get next state after " + moves + " from: " + state);
     //RuntimeOptimizedComponent.getCount = 0;
     //RuntimeOptimizedComponent.dirtyCount = 0;
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.transitionToNextStateFromChosenMove");
+    ProfileSection methodSection =
+                              ProfileSection.newInstance("TestPropnetStateMachine.transitionToNextStateFromChosenMove");
     try
     {
       //for(PolymorphicComponent c : propNet.getComponents())
@@ -2114,7 +2115,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private void propagateCalculatedNextState()
   {
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.propagateCalculatedNextState");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.propagateCalculatedNextState");
     try
     {
       ForwardDeadReckonInternalMachineState transitionTo = propNet
@@ -2172,7 +2173,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private ForwardDeadReckonInternalMachineState getInternalStateFromBase()
   {
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getStateFromBase");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getStateFromBase");
     try
     {
       //RuntimeOptimizedComponent.getCount = 0;
@@ -3170,7 +3171,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   public int getGoal(ForwardDeadReckonInternalMachineState state, Role role)
   {
-    ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.getGoal");
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getGoal");
     try
     {
       ForwardDeadReckonPropNet net;
