@@ -92,6 +92,7 @@ public class NodePool
       numUsedNodes = 0;
       numFreedNodes = 0;
       numFreedNodes = 0;
+      nextSeq = 0;
     }
     else
     {

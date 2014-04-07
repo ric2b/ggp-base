@@ -216,13 +216,21 @@ class GameSearcher implements Runnable, ActivityController
 
     while (nodePool.isFull())
     {
+      boolean somethingDisposed = false;
+
       for(MCTSTree tree : factorTrees)
       {
         if ( !tree.root.complete )
         {
-          tree.root.disposeLeastLikelyNode();
+          //  The trees may have very asymmetric sizes due to one being nearly
+          //  complete, in which case it is possible that no candidates for trimming
+          //  will be found.  This should not be possible in all trees if the node pool
+          //  is nearly full, so check that at least one tree does release something
+          somethingDisposed |= tree.root.disposeLeastLikelyNode();
         }
       }
+
+      assert(somethingDisposed);
     }
 
     processCompletedRollouts();
