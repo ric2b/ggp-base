@@ -221,10 +221,14 @@ class GameSearcher implements Runnable, ActivityController
               System.out.println("  Already selected factor move is a loss so selecting this factor");
               bestChoice = factorChoice;
             }
-            // otherwise choose the one that reduces our overall chances the least
+            // otherwise choose the one that reduces the resulting net chances the least weighted
+            // by the resulting win chance in the chosen factor.  This biases the player towards
+            // concentrating on the factor it is most ahead in, and is somewhat experimental (since ignoring
+            // the factor you are behind in could be rather bad too!)
             else
             {
-              if ( bestChoice.bestMoveValue - bestChoice.pseudoNoopValue < factorChoice.bestMoveValue - factorChoice.pseudoNoopValue)
+              if ( bestChoice.bestMoveValue*(bestChoice.bestMoveValue - bestChoice.pseudoNoopValue) <
+                   factorChoice.bestMoveValue*(factorChoice.bestMoveValue - factorChoice.pseudoNoopValue))
               {
                 bestChoice = factorChoice;
                 System.out.println("  This factor score is superior - selecting");

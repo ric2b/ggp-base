@@ -1779,17 +1779,24 @@ public class TreeNode
 
   private double exploitationUCT(TreeEdge inboundEdge, int roleIndex)
   {
-    //double stdDeviationMeasure = Math.sqrt((averageSquaredScore - averageScore*averageScore)/10000) - 0.25;
-    //double stdDeviationContribution = stdDeviationMeasure - 2*averageScore*stdDeviationMeasure/100;
-    //final double alpha = 0.5;
+    //  Force selection of a pseudo-noop as an immediate child of the
+    //  root aas much as the best scoring node as there is a 50-50 chance we'll need to pass
+    //  on this factor (well strictly (#factors-1)/#factors but 1:1 is good
+    //  enough), so we need good estimates on the score for the pseudo-noop
+    if ( inboundEdge.jointPartialMove[roleIndex].isPseudoNoOp && this == tree.root)
+    {
+      double bestChildScore = 0;
 
-    //if ( isMultiPlayer && ourMove == null )
-    //{
-    //	For multi-player games inject noise onto enemy scores of magnitude proportional
-    //	to their observed non-correlation of terminal position scores
-    //	return Math.min(0,  Math.max(averageScore + r.nextInt(multiRoleAverageScoreDiff*2) - multiRoleAverageScoreDiff,100))/100;
-    //}
-    //else
+      for(TreeEdge edge2 : children)
+      {
+        if ( edge2.child.node.averageScores[roleIndex] > bestChildScore )
+        {
+          bestChildScore = edge2.child.node.averageScores[roleIndex];
+        }
+      }
+
+      return bestChildScore/100;
+    }
     if (tree.gameCharacteristics.isSimultaneousMove)
     {
       if (roleIndex == 0)
@@ -1929,7 +1936,7 @@ public class TreeNode
             }
           }
 
-          if (mostLikelyWinner != -1)
+          if (mostLikelyWinner != -1 && (tree.factor == null || this != tree.root))
           {
             TreeNodeRef cr = children[mostLikelyWinner].child;
             TreeNode c = cr.node;
@@ -1996,6 +2003,7 @@ public class TreeNode
                 else if (children[i].selectAs == children[i])
                 {
                   double uctValue;
+
                   if (children[i].numChildVisits == 0)
                   {
                     // small random number to break ties randomly in unexpanded nodes
