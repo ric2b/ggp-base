@@ -1432,21 +1432,31 @@ public class TreeNode
         {
           TreeEdge newEdge = new TreeEdge(tree.numRoles);
           ForwardDeadReckonInternalMachineState newState = null;
+          boolean isPseudoNullMove = true;
 
           for (int i = 0; i < roleIndex; i++)
           {
             newEdge.jointPartialMove[i] = from.jointPartialMove[i];
+            if ( newEdge.jointPartialMove[i].inputProposition != null )
+            {
+              isPseudoNullMove = false;
+            }
           }
           newEdge.jointPartialMove[roleIndex] = moveInfos.remove(0);
+          if ( newEdge.jointPartialMove[roleIndex].inputProposition != null )
+          {
+            isPseudoNullMove = false;
+          }
           if (roleIndex == tree.numRoles - 1)
           {
             newState = tree.underlyingStateMachine
-                .getNextState(state, null, newEdge.jointPartialMove);
+                .getNextState(state, tree.factor, newEdge.jointPartialMove);
           }
 
           newEdge.child = tree.allocateNode(tree.underlyingStateMachine,
                                             newState,
-                                            this).getRef();
+                                            this,
+                                            isPseudoNullMove).getRef();
           newEdge.selectAs = newEdge;
 
           //	Check for multiple moves that all transition to the same state
@@ -2479,15 +2489,21 @@ public class TreeNode
     }
   }
 
-  public Move getBestMove(boolean traceResponses, StringBuffer pathTrace)
+  public FactorMoveChoiceInfo getBestMove(boolean traceResponses, StringBuffer pathTrace)
   {
     double bestScore = -Double.MAX_VALUE;
+    double bestMoveScore = -Double.MAX_VALUE;
     double bestRawScore = -Double.MAX_VALUE;
     int mostSelected = -Integer.MAX_VALUE;
-    TreeEdge rawResult = null;
-    TreeEdge result = null;
+    TreeEdge rawBestEdgeResult = null;
+    TreeEdge bestEdge = null;
     boolean anyComplete = false;
     TreeNode bestNode = null;
+    FactorMoveChoiceInfo result = new FactorMoveChoiceInfo();
+
+    //  If there is no pseudo-noop then there cannot be any penalty for not taking
+    //  this factor's results - we simply return a pseudo-noop penalty value of 0
+    result.pseudoNoopValue = 100;
 
     // This routine is called recursively for path tracing purposes.  When
     // calling this routing for path tracing purposes, don't make any other
@@ -2571,6 +2587,13 @@ public class TreeNode
       {
         child.traceFirstChoiceNode();
       }
+
+      if ( edge.jointPartialMove[roleIndex].isPseudoNoOp )
+      {
+        result.pseudoNoopValue = moveScore;
+        result.pseudoMoveIsComplete = child.complete;
+        continue;
+      }
       //	Don't accept a complete score which no rollout has seen worse than, if there is
       //	any alternative
       if (bestNode != null && !bestNode.complete && child.complete &&
@@ -2580,20 +2603,21 @@ public class TreeNode
         continue;
       }
       if (selectionScore > bestScore ||
-          (moveScore == bestScore && child.complete && (child.numVisits > mostSelected || !bestNode.complete)) ||
+          (selectionScore == bestScore && child.complete && (child.numVisits > mostSelected || !bestNode.complete)) ||
           (bestNode != null && bestNode.complete && !child.complete &&
           bestNode.averageScores[roleIndex] <= tree.rolloutPool.lowestRolloutScoreSeen && tree.rolloutPool.lowestRolloutScoreSeen < 100))
       {
         bestNode = child;
         bestScore = selectionScore;
+        bestMoveScore = bestScore;
         mostSelected = child.numVisits;
-        result = edge;
+        bestEdge = edge;
       }
       if (child.averageScores[roleIndex] > bestRawScore ||
           (child.averageScores[roleIndex] == bestRawScore && child.complete && child.averageScores[roleIndex] > 0))
       {
         bestRawScore = child.averageScores[roleIndex];
-        rawResult = edge;
+        rawBestEdgeResult = edge;
       }
     }
 
@@ -2603,15 +2627,15 @@ public class TreeNode
 
     if (!lRecursiveCall)
     {
-      if (result == null)
+      if (bestEdge == null)
       {
         System.out.println("No move found!");
       }
-      if (rawResult != result)
+      if (rawBestEdgeResult != bestEdge)
       {
         System.out
         .println("1 level minimax result differed from best raw move: " +
-            rawResult);
+            rawBestEdgeResult);
       }
     }
 
@@ -2621,9 +2645,9 @@ public class TreeNode
       pathTrace = new StringBuffer("Most likely path: ");
     }
     assert(pathTrace != null);
-    if ( result != null )
+    if ( bestEdge != null )
     {
-      pathTrace.append(result.descriptiveName(roleIndex));
+      pathTrace.append(bestEdge.descriptiveName(roleIndex));
       pathTrace.append(roleIndex == 0 ? ", " : " | ");
     }
 
@@ -2636,14 +2660,23 @@ public class TreeNode
       System.out.println(pathTrace.toString());
     }
 
-    if ( result == null )
+    if ( bestEdge == null )
     {
-      return null;
+      result.bestMove = null;
+    }
+    else
+    {
+      ForwardDeadReckonLegalMoveInfo moveInfo = bestEdge.jointPartialMove[roleIndex];
+
+      result.bestMove = (moveInfo.isPseudoNoOp ? null : moveInfo.move);
+      if ( !moveInfo.isPseudoNoOp )
+      {
+        result.bestMoveValue = bestMoveScore;
+        result.bestMoveIsComplete = bestEdge.child.node.complete;
+      }
     }
 
-    ForwardDeadReckonLegalMoveInfo moveInfo = result.jointPartialMove[roleIndex];
-
-    return (moveInfo.isPseudoNoOp ? null : moveInfo.move);
+    return result;
   }
 
   public RolloutRequest rollOut(TreePath path)

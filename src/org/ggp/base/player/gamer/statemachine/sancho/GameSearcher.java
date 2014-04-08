@@ -89,7 +89,7 @@ class GameSearcher implements Runnable, ActivityController
 
     for(MCTSTree tree : factorTrees)
     {
-      tree.root = tree.allocateNode(underlyingStateMachine, initialState, null);
+      tree.root = tree.allocateNode(underlyingStateMachine, initialState, null, false);
       tree.root.decidingRoleIndex = underlyingStateMachine.getRoles().size() - 1;
     }
   }
@@ -183,7 +183,7 @@ class GameSearcher implements Runnable, ActivityController
   {
     synchronized(getSerializationObject())
     {
-      Move result = null;
+      FactorMoveChoiceInfo bestChoice = null;
       int factorIndex = 0;
 
       System.out.println("Num tree node frees: " + nodePool.getNumFreedNodes());
@@ -192,11 +192,49 @@ class GameSearcher implements Runnable, ActivityController
       for(MCTSTree tree : factorTrees)
       {
         factorIndex++;
-        Move move = tree.getBestMove();
-        if ( move != null )
+        FactorMoveChoiceInfo factorChoice = tree.getBestMove();
+        if ( factorChoice.bestMove != null )
         {
-          System.out.println("  Factor best move: " + move);
-          result = move;
+          System.out.println("  Factor best move: " + factorChoice.bestMove);
+
+          if ( bestChoice == null )
+          {
+            bestChoice = factorChoice;
+          }
+          else
+          {
+            // Complete win dominates everything, else complete loss for pseudo noop
+            // dominates everything else
+            if ( factorChoice.bestMoveValue == 100 )
+            {
+              System.out.println("  Factor move is a win so selecting");
+              bestChoice = factorChoice;
+            }
+            else if ( (bestChoice.bestMoveValue == 100 && bestChoice.bestMoveIsComplete) ||
+                      (factorChoice.pseudoNoopValue == 0 && factorChoice.pseudoMoveIsComplete) )
+            {
+              System.out.println("  Already selected factor move is a win or this move is a loss - not selecting");
+              continue;
+            }
+            else if ( factorChoice.pseudoNoopValue == 0 && factorChoice.pseudoMoveIsComplete )
+            {
+              System.out.println("  Already selected factor move is a loss so selecting this factor");
+              bestChoice = factorChoice;
+            }
+            // otherwise choose the one that reduces our overall chances the least
+            else
+            {
+              if ( bestChoice.bestMoveValue - bestChoice.pseudoNoopValue < factorChoice.bestMoveValue - factorChoice.pseudoNoopValue)
+              {
+                bestChoice = factorChoice;
+                System.out.println("  This factor score is superior - selecting");
+              }
+              else
+              {
+                System.out.println("  This factor score is inferior - not selecting");
+              }
+            }
+          }
         }
         else
         {
@@ -206,7 +244,8 @@ class GameSearcher implements Runnable, ActivityController
         //tree.root.dumpTree("c:\\temp\\treeDump_factor" + factorIndex + ".txt");
       }
 
-      return result;
+      assert(bestChoice != null);
+      return bestChoice.bestMove;
     }
   }
 

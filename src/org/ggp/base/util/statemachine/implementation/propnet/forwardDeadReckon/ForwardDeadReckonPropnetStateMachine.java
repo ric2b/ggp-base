@@ -1620,7 +1620,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         return baseIterable;
       }
-      return new FactorFilteredForwardDeadReckonLegalMoveSet(factor, baseIterable);
+      return new FactorFilteredForwardDeadReckonLegalMoveSet(factor, baseIterable, true);
     }
     finally
     {
@@ -1799,17 +1799,26 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
       }
 
-      setBasePropositionsFromState(state, null, true);
+      ForwardDeadReckonInternalMachineState result;
 
-      ForwardDeadReckonInternalMachineState result = getInternalStateFromBase();
-
-      //System.out.println("After move " + moves + " in state " + state + " resulting state is " + result);
-      //totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
-      //totalNumPropagates += ForwardDeadReckonComponent.numPropagates;
-
-      for (int i = 0; i < movesCount; i++)
+      if ( movesCount > 0 )
       {
-        moveProps[i].setValue(false, instanceId);
+        setBasePropositionsFromState(state, null, true);
+
+        result = getInternalStateFromBase();
+
+        //System.out.println("After move " + moves + " in state " + state + " resulting state is " + result);
+        //totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
+        //totalNumPropagates += ForwardDeadReckonComponent.numPropagates;
+
+        for (int i = 0; i < movesCount; i++)
+        {
+          moveProps[i].setValue(false, instanceId);
+        }
+      }
+      else
+      {
+        result = state;
       }
       //for(GdlSentence moveSentence : toDoes(moves))
       //{
@@ -1945,6 +1954,19 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       for (int i = 0; i < movesCount; i++)
       {
         moveProps[i].setValue(false, instanceId);
+      }
+
+      if ( movesCount == 0 && factor != null )
+      {
+        //  Hack - re-impose the base props from the starting state.  We need to do it this
+        //  way in order for the non-factor turn logic (control prop, step, etc) to generate
+        //  correctly, but then make sure we haver not changed any factor-specific base props
+        //  which can happen because no moves were played (consider distinct clauses on moves)
+        ForwardDeadReckonInternalMachineState basePropState = new ForwardDeadReckonInternalMachineState(state);
+
+        basePropState.intersect(factor.getStateMask(true));
+        result.intersect(factor.getInverseStateMask(true));
+        result.merge(basePropState);
       }
       //				if ( !result.toString().contains("step"))
       //				{
@@ -2512,7 +2534,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
         else
         {
-          moves = new FactorFilteredForwardDeadReckonLegalMoveSet(factor, activeLegalMoves.getContents(role));
+          moves = new FactorFilteredForwardDeadReckonLegalMoveSet(factor, activeLegalMoves.getContents(role), false);
         }
         int numChoices = moves.size();
 
@@ -2863,7 +2885,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           return 0;
         }
-        moves = new FactorFilteredForwardDeadReckonLegalMoveSet(factor, moves);
+        moves = new FactorFilteredForwardDeadReckonLegalMoveSet(factor, moves, false);
       }
       int numChoices = moves.size();
       int rand;

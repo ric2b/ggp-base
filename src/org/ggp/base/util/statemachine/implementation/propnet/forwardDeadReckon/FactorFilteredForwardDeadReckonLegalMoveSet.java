@@ -14,11 +14,13 @@ public class FactorFilteredForwardDeadReckonLegalMoveSet implements Collection<F
     private Factor factor;
     private Iterator<ForwardDeadReckonLegalMoveInfo> wrapped;
     private ForwardDeadReckonLegalMoveInfo availableElement = null;
+    private boolean includeForcedPseudoNoops;
 
-    FactorFilteredMoveIterator(Factor factor, Iterator<ForwardDeadReckonLegalMoveInfo> wrapped)
+    FactorFilteredMoveIterator(Factor factor, Iterator<ForwardDeadReckonLegalMoveInfo> wrapped, boolean includeForcedPseudoNoops)
     {
       this.factor = factor;
       this.wrapped = wrapped;
+      this.includeForcedPseudoNoops = (includeForcedPseudoNoops && factor.getAlwaysIncludePseudoNoop());
 
       preFindNext();
 
@@ -35,12 +37,20 @@ public class FactorFilteredForwardDeadReckonLegalMoveSet implements Collection<F
       while(wrapped.hasNext())
       {
         availableElement = wrapped.next();
-        if ( availableElement.factor == factor)
+        if ( availableElement.factor == factor || availableElement.factor == null )
         {
           return;
         }
       }
-      availableElement = null;
+
+      if (includeForcedPseudoNoops && availableElement != pseudoNoOpMove)
+      {
+        availableElement = pseudoNoOpMove;
+      }
+      else
+      {
+        availableElement = null;
+      }
     }
 
     @Override
@@ -53,6 +63,12 @@ public class FactorFilteredForwardDeadReckonLegalMoveSet implements Collection<F
     public ForwardDeadReckonLegalMoveInfo next()
     {
       ForwardDeadReckonLegalMoveInfo result = availableElement;
+
+      if ( result.inputProposition == null )
+      {
+        //  We only ever add a pseudo-noop if there isn't a real one
+        includeForcedPseudoNoops = false;
+      }
 
       preFindNext();
       return result;
@@ -67,11 +83,13 @@ public class FactorFilteredForwardDeadReckonLegalMoveSet implements Collection<F
 
   private Collection<ForwardDeadReckonLegalMoveInfo> baseCollection;
   private Factor  factor;
+  private boolean includeForcedPseudoNoops;
 
-  public FactorFilteredForwardDeadReckonLegalMoveSet(Factor factor, Collection<ForwardDeadReckonLegalMoveInfo> wrapped)
+  public FactorFilteredForwardDeadReckonLegalMoveSet(Factor factor, Collection<ForwardDeadReckonLegalMoveInfo> wrapped, boolean includeForcedPseudoNoops)
   {
     baseCollection = wrapped;
     this.factor = factor;
+    this.includeForcedPseudoNoops = includeForcedPseudoNoops;
   }
 
   @Override
@@ -110,13 +128,13 @@ public class FactorFilteredForwardDeadReckonLegalMoveSet implements Collection<F
   public boolean isEmpty()
   {
     //  TODO - this needs to filter
-    return !(new FactorFilteredMoveIterator(factor, baseCollection.iterator())).hasNext();
+    return !(new FactorFilteredMoveIterator(factor, baseCollection.iterator(), includeForcedPseudoNoops)).hasNext();
   }
 
   @Override
   public Iterator<ForwardDeadReckonLegalMoveInfo> iterator()
   {
-    return new FactorFilteredMoveIterator(factor, baseCollection.iterator());
+    return new FactorFilteredMoveIterator(factor, baseCollection.iterator(), includeForcedPseudoNoops);
   }
 
   @Override

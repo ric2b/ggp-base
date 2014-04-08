@@ -139,13 +139,14 @@ public class MCTSTree
 
   TreeNode allocateNode(ForwardDeadReckonPropnetStateMachine underlyingStateMachine,
                                 ForwardDeadReckonInternalMachineState state,
-                                TreeNode parent)
+                                TreeNode parent,
+                                boolean disallowTransposition)
       throws GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("allocateNode");
     try
     {
-      TreeNode result = (state != null ? positions.get(state) : null);
+      TreeNode result = ((state != null && !disallowTransposition) ? positions.get(state) : null);
 
       //validateAll();
       numTotalTreeNodes++;
@@ -219,12 +220,12 @@ public class MCTSTree
     else
     {
       factorState = new ForwardDeadReckonInternalMachineState(state);
-      factorState.intersect(factor.getStateMask());
+      factorState.intersect(factor.getStateMask(false));
     }
 
     if (root == null)
     {
-      root = allocateNode(underlyingStateMachine, factorState, null);
+      root = allocateNode(underlyingStateMachine, factorState, null, false);
       root.decidingRoleIndex = numRoles - 1;
     }
     else
@@ -236,7 +237,7 @@ public class MCTSTree
       {
         System.out.println("Unable to find root node in existing tree");
         empty();
-        root = allocateNode(underlyingStateMachine, factorState, null);
+        root = allocateNode(underlyingStateMachine, factorState, null, false);
         root.decidingRoleIndex = numRoles - 1;
       }
       else
@@ -275,9 +276,9 @@ public class MCTSTree
     return root.complete;
   }
 
-  Move getBestMove()
+  FactorMoveChoiceInfo getBestMove()
   {
-    Move bestMove = root.getBestMove(true, null);
+    FactorMoveChoiceInfo bestMoveInfo = root.getBestMove(true, null);
 
     System.out.println("Num total tree node allocations: " +
         numTotalTreeNodes);
@@ -303,7 +304,7 @@ public class MCTSTree
     numReExpansions = 0;
     numNonTerminalRollouts = 0;
     numTerminalRollouts = 0;
-    return bestMove;
+    return bestMoveInfo;
   }
 
   void validateAll()

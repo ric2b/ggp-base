@@ -23,7 +23,11 @@ public class Factor
   private Set<PolymorphicComponent> components = new HashSet<>();
   private Set<Move> moves = new HashSet<>();
   private ForwardDeadReckonInternalMachineState stateMask = null;
+  private ForwardDeadReckonInternalMachineState factorSpecificStateMask = null;
+  private ForwardDeadReckonInternalMachineState inverseStateMask = null;
+  private ForwardDeadReckonInternalMachineState inverseFactorSpecificStateMask = null;
   private ForwardDeadReckonPropnetStateMachine stateMachine;
+  private boolean alwaysIncludePseudoNoop = false;
 
   public Factor(ForwardDeadReckonPropnetStateMachine stateMachine)
   {
@@ -91,25 +95,67 @@ public class Factor
     {
       System.out.println("  " + move);
     }
-}
+  }
 
-  public ForwardDeadReckonInternalMachineState getStateMask()
+  private void setUpStateMasks()
   {
-    if ( stateMask == null )
+    factorSpecificStateMask = new ForwardDeadReckonInternalMachineState(stateMachine.getInfoSet());
+    for(PolymorphicProposition p : stateMachine.getFullPropNet().getBasePropositions().values())
     {
-      stateMask = new ForwardDeadReckonInternalMachineState(stateMachine.getInfoSet());
-      for(PolymorphicProposition p : stateMachine.getFullPropNet().getBasePropositions().values())
-      {
-        ForwardDeadReckonProposition fdrp = (ForwardDeadReckonProposition)p;
-        ForwardDeadReckonPropositionCrossReferenceInfo info = (ForwardDeadReckonPropositionCrossReferenceInfo)fdrp.getInfo();
+      ForwardDeadReckonProposition fdrp = (ForwardDeadReckonProposition)p;
+      ForwardDeadReckonPropositionCrossReferenceInfo info = (ForwardDeadReckonPropositionCrossReferenceInfo)fdrp.getInfo();
 
-        if ( info.factor == this || info.factor == null )
-        {
-          stateMask.add(info);
-        }
+      if ( info.factor == this )
+      {
+        factorSpecificStateMask.add(info);
       }
     }
+    stateMask = new ForwardDeadReckonInternalMachineState(stateMachine.getInfoSet());
+    for(PolymorphicProposition p : stateMachine.getFullPropNet().getBasePropositions().values())
+    {
+      ForwardDeadReckonProposition fdrp = (ForwardDeadReckonProposition)p;
+      ForwardDeadReckonPropositionCrossReferenceInfo info = (ForwardDeadReckonPropositionCrossReferenceInfo)fdrp.getInfo();
 
-    return stateMask;
+      if ( info.factor == null )
+      {
+        stateMask.add(info);
+      }
+    }
+    stateMask.merge(factorSpecificStateMask);
+
+    inverseStateMask = new ForwardDeadReckonInternalMachineState(stateMask);
+    inverseStateMask.invert();
+    inverseFactorSpecificStateMask = new ForwardDeadReckonInternalMachineState(factorSpecificStateMask);
+    inverseFactorSpecificStateMask.invert();
+  }
+
+  public ForwardDeadReckonInternalMachineState getStateMask(boolean stateSpecificOnly)
+  {
+    if ( factorSpecificStateMask == null )
+    {
+      setUpStateMasks();
+    }
+
+    return (stateSpecificOnly ? factorSpecificStateMask : stateMask);
+  }
+
+  public ForwardDeadReckonInternalMachineState getInverseStateMask(boolean stateSpecificOnly)
+  {
+    if ( factorSpecificStateMask == null )
+    {
+      setUpStateMasks();
+    }
+
+    return (stateSpecificOnly ? inverseFactorSpecificStateMask : inverseStateMask);
+  }
+
+  public boolean getAlwaysIncludePseudoNoop()
+  {
+    return alwaysIncludePseudoNoop;
+  }
+
+  public void setAlwaysIncludePseudoNoop(boolean value)
+  {
+    alwaysIncludePseudoNoop = value;;
   }
 }

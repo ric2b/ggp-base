@@ -158,7 +158,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.56e";
+    return "Sancho 1.56f";
   }
 
   @Override
@@ -321,8 +321,9 @@ public class Sancho extends SampleGamer
                   {
                     if ( turnFactor != null && turnFactor != factor )
                     {
-                      underlyingStateMachine.disableFactorization();
-                      factors = null;
+                      //underlyingStateMachine.disableFactorization();
+                      //factors = null;
+                      gameCharacteristics.moveChoicesFromMultipleFactors = true;
                       break;
                     }
                     turnFactor = factor;
@@ -378,6 +379,18 @@ public class Sancho extends SampleGamer
       {
         greedyRolloutsDisabled = true;
         underlyingStateMachine.disableGreedyRollouts();
+      }
+    }
+
+    //  If we detected that moves from multiple factors are valid in the same turn
+    //  then flag the factors as requiring the inclusion of a pseudo-noop as a valid
+    //  search choice every move because we'll have to choose whether to play a move
+    //  from one factor or another (imposing an artificial noop on the other)
+    if ( gameCharacteristics.moveChoicesFromMultipleFactors )
+    {
+      for(Factor factor : factors)
+      {
+        factor.setAlwaysIncludePseudoNoop(true);
       }
     }
 
