@@ -2000,7 +2000,8 @@ public class TreeNode
                   break;
                 }
                 //  Only select one move that is state-equivalent
-                else if (children[i].selectAs == children[i])
+                else if (children[i].selectAs == children[i] &&
+                         (!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove)))
                 {
                   double uctValue;
 
@@ -2144,13 +2145,14 @@ public class TreeNode
     //  which happens to do well from the distorted stats you get without it.  This
     //  is due to the particular circumstance in MaxKnights that scores can only
     //  go up!
-//    if (bestCompleteNode != null && bestCompleteValue > bestValue && !tree.gameCharacteristics.isPuzzle)
-//    {
-//      result.setScoreOverrides(bestCompleteNode.averageScores);
-//      bestCompleteNode.numVisits++;
-//      children[bestSelectedIndex].numChildVisits++;
-//      mostLikelyWinner = -1;
-//    }
+    if ((tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove) &&
+        bestCompleteNode != null && bestCompleteValue > bestValue && !tree.gameCharacteristics.isPuzzle)
+    {
+      result.setScoreOverrides(bestCompleteNode.averageScores);
+      bestCompleteNode.numVisits++;
+      children[bestSelectedIndex].numChildVisits++;
+      mostLikelyWinner = -1;
+    }
 
     //  Decay the weights being aggregated (so that they decay progressively as
     //  we select down the tree)

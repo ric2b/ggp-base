@@ -52,7 +52,14 @@ public class MCTSTree
 
 
   final boolean                                        freeCompletedNodeChildren                   = true;                                                          //true;
-  final boolean                                        disableOnelevelMinimax                      = true;  //false;
+  final boolean                                        disableOnelevelMinimax                      = true;
+  /**
+   * For reasons not well understood, allowing select() to select complete children and propagate
+   * upward their values (while playing out something that adds information at the level below) seems
+   * harmful in most games, but strongly beneficial in some simultaneous move games.  Consequently
+   * this flag allows it to be disabled for all but simultaneous move games
+   */
+  final boolean                                        allowAllGamesToSelectThroughComplete        = false;
   ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
   int                                                  numRoles;
