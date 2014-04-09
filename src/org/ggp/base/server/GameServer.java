@@ -295,8 +295,8 @@ public final class GameServer extends Thread implements Subject
     {
       try
       {
-        spectatorServerKey = MatchPublisher
-            .publishToSpectatorServer(spectatorServerURL, match);
+        spectatorServerKey = MatchPublisher.publishToSpectatorServer(spectatorServerURL, match);
+        System.out.println("matches.ggp.org database ID: " + spectatorServerKey);
         return spectatorServerKey;
       }
       catch (IOException e)
