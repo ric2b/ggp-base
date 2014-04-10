@@ -1452,7 +1452,6 @@ public class TreeNode
             newState = tree.underlyingStateMachine
                 .getNextState(state, tree.factor, newEdge.jointPartialMove);
           }
-
           newEdge.child = tree.allocateNode(tree.underlyingStateMachine,
                                             newState,
                                             this,
@@ -2358,7 +2357,6 @@ public class TreeNode
                 System.out
                 .println("Post-processing completion of response node");
                 markComplete(edge2.child.node.averageScores);
-                processCompletion();
               }
             }
           }
@@ -2548,6 +2546,8 @@ public class TreeNode
         }
       }
     }
+
+    tree.processNodeCompletions();
 
     for (TreeEdge edge : children)
     {
