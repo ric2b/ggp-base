@@ -1,0 +1,30 @@
+{
+  "cases" : [
+    {
+      "case" : "Bug #42, Tiltyard a36059b9e9ef556a1523256d0945a5f472a7edee, player 1, move 18",
+      "repo" : "games.ggp.org/base",
+      "game" : "escortLatch",
+      "start" : "30",
+      "play" : "35",
+      "limit" : 18,
+      "players" : [
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "move d 2 c 3,noop,move d 1 d 2,noop,move d 2 d 3,noop,move d 3 e 4,noop,move e 2 d 3,noop,move h 2 g 3,noop,move e 4 d 4,noop,move d 4 c 5,noop,move d 3 e 4,noop"
+          ]
+        },
+        {
+          "type" : "Sancho",
+          "args" : [
+            "plan=noop,move e 7 f 6,noop,move d 8 e 7,noop,move e 7 e 6,noop,move b 7 c 6,noop,move c 7 d 6,noop,move c 6 d 5,noop,move f 6 e 5,noop,move d 6 c 5,noop"
+          ]
+        }
+      ],
+      "check" : {
+        "player" : "1",
+        "acceptable" : "move d 5 e 4"
+      }
+    }
+  ]
+}
