@@ -1098,7 +1098,6 @@ public class OptimizingPolymorphicPropNetFactory
     //We also try to optimize as we go, which means possibly removing the
     //proposition if it isn't actually possible, or replacing it with
     //true/false if it's a constant.
-
     Set<GdlSentence> alwaysTrueSentences = model
         .getSentencesListedAsTrue(form);
     Set<GdlRule> rules = model.getRules(form);
@@ -1308,9 +1307,13 @@ public class OptimizingPolymorphicPropNetFactory
               PolymorphicComponent positive = components.get(transformed);
               //No, because then that will be attached to "negations", which could be bad
 
+              if ( positive == null && transformed.arity() == 0 )
+              {
+                 positive = components.get(GdlPool.getProposition(transformed.getName()));
+              }
               if (positive == null)
               {
-                //So the positive can't possibly be true (unless we have recurstion)
+                //So the positive can't possibly be true (unless we have recursion)
                 //and so this would be positive always
                 //We want to just skip this conjunct, so we continue to the next
 
