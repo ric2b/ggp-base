@@ -847,6 +847,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                          fullPropNet.getComponents().size());
       OptimizingPolymorphicPropNetFactory
           .removeUnreachableBasesAndInputs(fullPropNet);
+      OptimizingPolymorphicPropNetFactory
+          .removeIrrelevantBasesAndInputs(fullPropNet);
       System.out.println("Num components after unreachable removal: " +
                          fullPropNet.getComponents().size());
       OptimizingPolymorphicPropNetFactory

@@ -53,7 +53,6 @@ public class Sancho extends SampleGamer
   private int                         multiRoleAverageScoreDiff       = 0;
   private boolean                     underExpectedRangeScoreReported = false;
   private boolean                     overExpectedRangeScoreReported  = false;
-  private MachineState                targetState                     = null;
   private TargetedSolutionStatePlayer puzzlePlayer                    = null;
   private GameSearcher                searchProcessor                 = null;
   /**
@@ -158,7 +157,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.56h";
+    return "Sancho 1.56i";
   }
 
   @Override
@@ -585,7 +584,7 @@ public class Sancho extends SampleGamer
     //	Special case handling for puzzles with hard-to-find wins
     //	WEAKEN THIS WHEN WE HAVE TRIAL A*
     if (gameCharacteristics.isPuzzle && observedMinNetScore == observedMaxNetScore &&
-        observedMaxNetScore < 100)
+        observedMaxNetScore < 100 && factors == null )
     {
       //	8-puzzle type stuff
       System.out.println("Puzzle with no observed solution");
@@ -705,7 +704,7 @@ public class Sancho extends SampleGamer
                                     ProfilerContext.getContext().toString());
     }
 
-    if ((!gameCharacteristics.isIteratedGame || numRoles != 2) && targetState == null)
+    if ((!gameCharacteristics.isIteratedGame || numRoles != 2) && puzzlePlayer == null)
     {
       if (runSynchronously)
       {
@@ -952,7 +951,6 @@ public class Sancho extends SampleGamer
     roleOrdering                 = null;
     canonicallyOrderedMoveBuffer = null;
     underlyingStateMachine       = null;
-    targetState                  = null;
     puzzlePlayer                 = null;
 
     // Get our parent to tidy up too.

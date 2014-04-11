@@ -62,6 +62,11 @@ public class TreePath
     index++;
   }
 
+  public int size()
+  {
+    return elements.size();
+  }
+
   public void resetCursor()
   {
     index = elements.size();
