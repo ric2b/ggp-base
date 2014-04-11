@@ -2,21 +2,17 @@
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
 
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.statemachine.MachineState;
 
-public class ForwardDeadReckonInternalMachineState
-                                                  implements
-                                                  Iterable<ForwardDeadReckonPropositionCrossReferenceInfo>
+public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDeadReckonPropositionInfo>
 {
-  private class InternalMachineStateIterator
-                                            implements
-                                            Iterator<ForwardDeadReckonPropositionCrossReferenceInfo>
+  private class InternalMachineStateIterator implements Iterator<ForwardDeadReckonPropositionInfo>
   {
     private ForwardDeadReckonInternalMachineState parent;
     int                                           index;
@@ -34,9 +30,9 @@ public class ForwardDeadReckonInternalMachineState
     }
 
     @Override
-    public ForwardDeadReckonPropositionCrossReferenceInfo next()
+    public ForwardDeadReckonPropositionInfo next()
     {
-      ForwardDeadReckonPropositionCrossReferenceInfo result = parent.infoSet[index];
+      ForwardDeadReckonPropositionInfo result = parent.infoSet[index];
       index = parent.contents.nextSetBit(index + 1);
       return result;
     }
@@ -45,33 +41,34 @@ public class ForwardDeadReckonInternalMachineState
     public void remove()
     {
       // TODO Auto-generated method stub
-
     }
   }
 
-  private ForwardDeadReckonPropositionCrossReferenceInfo[] infoSet;
-
-  BitSet                                                   contents = new BitSet();
+  private ForwardDeadReckonPropositionInfo[] infoSet;
+  private final HashMap<Heuristic, Object>   heuristicData;
+  BitSet                                     contents = new BitSet();
   //Set<ForwardDeadReckonPropositionCrossReferenceInfo> contents = new HashSet<ForwardDeadReckonPropositionCrossReferenceInfo>();
-  public boolean                                           isXState = false;
+  public boolean                             isXState = false;
 
-  public ForwardDeadReckonInternalMachineState(ForwardDeadReckonPropositionCrossReferenceInfo[] infoSet)
+  public ForwardDeadReckonInternalMachineState(ForwardDeadReckonPropositionInfo[] infoSet)
   {
     this.infoSet = infoSet;
+    heuristicData = new HashMap<>();
   }
 
   public ForwardDeadReckonInternalMachineState(ForwardDeadReckonInternalMachineState copyFrom)
   {
     this.infoSet = copyFrom.infoSet;
+    heuristicData = new HashMap<>();
     copy(copyFrom);
   }
 
-  public void add(ForwardDeadReckonPropositionCrossReferenceInfo info)
+  public void add(ForwardDeadReckonPropositionInfo info)
   {
     contents.set(info.index);
   }
 
-  public boolean contains(ForwardDeadReckonPropositionCrossReferenceInfo info)
+  public boolean contains(ForwardDeadReckonPropositionInfo info)
   {
     return contents.get(info.index);
   }
@@ -116,6 +113,8 @@ public class ForwardDeadReckonInternalMachineState
     contents.or(other.contents);
 
     isXState = other.isXState;
+
+    heuristicData.putAll(other.heuristicData);
   }
 
   public double distance(ForwardDeadReckonInternalMachineState other)
@@ -136,7 +135,7 @@ public class ForwardDeadReckonInternalMachineState
     contents.clear();
   }
 
-  public void remove(ForwardDeadReckonPropositionCrossReferenceInfo info)
+  public void remove(ForwardDeadReckonPropositionInfo info)
   {
     contents.clear(info.index);
   }
@@ -148,8 +147,7 @@ public class ForwardDeadReckonInternalMachineState
     {
       MachineState result = new MachineState(new HashSet<GdlSentence>());
 
-      for (int i = contents.nextSetBit(0); i >= 0; i = contents
-          .nextSetBit(i + 1))
+      for (int i = contents.nextSetBit(0); i >= 0; i = contents.nextSetBit(i + 1))
       {
         result.getContents().add(infoSet[i].sentence);
       }
@@ -160,6 +158,28 @@ public class ForwardDeadReckonInternalMachineState
     //{
     //	methodSection.exitScope();
     //}
+  }
+
+  /**
+   * Store data associated with a heuristic for this machine state.
+   *
+   * @param xiHeuristic - the heuristic.
+   * @param xiData      - the data to store.
+   */
+  public void putHeuristicData(Heuristic xiHeuristic, Object xiData)
+  {
+    heuristicData.put(xiHeuristic, xiData);
+  }
+
+  /**
+   * Retrieve data for a heuristic, previously stored with {@link #putHeuristicData()}.
+   *
+   * @param xiHeuristic - the heuristic.
+   * @return the previously stored data.
+   */
+  public Object getHeuristicData(Heuristic xiHeuristic)
+  {
+    return heuristicData.get(xiHeuristic);
   }
 
   /* Utility methods */
@@ -209,7 +229,7 @@ public class ForwardDeadReckonInternalMachineState
   }
 
   @Override
-  public Iterator<ForwardDeadReckonPropositionCrossReferenceInfo> iterator()
+  public Iterator<ForwardDeadReckonPropositionInfo> iterator()
   {
     // TODO Auto-generated method stub
     return new InternalMachineStateIterator(this);

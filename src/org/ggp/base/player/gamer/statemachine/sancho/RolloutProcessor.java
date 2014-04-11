@@ -3,19 +3,16 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 class RolloutProcessor implements Runnable
 {
-  /**
-   *
-   */
-  private final RolloutProcessorPool               pool;
-  private boolean                                  stop          = false;
-  private TestForwardDeadReckonPropnetStateMachine stateMachine;
-  private Thread                                   runningThread = null;
+  private final RolloutProcessorPool                 pool;
+  private final ForwardDeadReckonPropnetStateMachine stateMachine;
+  private boolean                                    stop;
+  private Thread                                     runningThread;
 
-  public RolloutProcessor(RolloutProcessorPool pool, TestForwardDeadReckonPropnetStateMachine stateMachine)
+  public RolloutProcessor(RolloutProcessorPool pool, ForwardDeadReckonPropnetStateMachine stateMachine)
   {
     this.pool = pool;
     this.stateMachine = stateMachine;
@@ -76,7 +73,7 @@ class RolloutProcessor implements Runnable
     }
     catch (InterruptedException ie)
     {
-      // This would be a surprise.
+      // This is completely expected (if we stop this thread whilst it's waiting for a queue item).
     }
   }
 }

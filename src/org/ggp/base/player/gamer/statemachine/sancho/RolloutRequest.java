@@ -6,7 +6,8 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 class RolloutRequest
 {
@@ -16,6 +17,7 @@ class RolloutRequest
   private final RolloutProcessorPool           pool;
   public TreeNodeRef                           node;
   public ForwardDeadReckonInternalMachineState state;
+  public Factor                                factor = null;
   public double[]                              averageScores;
   public double[]                              averageSquaredScores;
   public int                                   sampleSize;
@@ -28,11 +30,11 @@ class RolloutRequest
     averageSquaredScores = new double[pool.numRoles];
   }
 
-  public void process(TestForwardDeadReckonPropnetStateMachine stateMachine)
+  public void process(ForwardDeadReckonPropnetStateMachine stateMachine)
       throws TransitionDefinitionException, MoveDefinitionException,
       GoalDefinitionException
   {
-    ProfileSection methodSection = new ProfileSection("TreeNode.rollOut");
+    ProfileSection methodSection = ProfileSection.newInstance("TreeNode.rollOut");
     try
     {
       synchronized (pool)
@@ -51,10 +53,12 @@ class RolloutRequest
 
       for (int i = 0; i < sampleSize; i++)
       {
+        //long startTime = System.nanoTime();
         //System.out.println("Perform rollout from state: " + state);
-        pool.numNonTerminalRollouts++;
-        stateMachine.getDepthChargeResult(state, pool.ourRole, null, null, null);
+         stateMachine.getDepthChargeResult(state, factor, pool.ourRole, null, null, null);
 
+        //long rolloutTime = System.nanoTime() - startTime;
+        //System.out.println("Rollout took: " + rolloutTime);
         for (int roleIndex = 0; roleIndex < pool.numRoles; roleIndex++)
         {
           int score = stateMachine.getGoal(pool.roleOrdering.roleIndexToRole(roleIndex));

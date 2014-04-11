@@ -3,6 +3,7 @@ package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
@@ -52,14 +53,14 @@ public class ForwardDeadReckonLegalMoveSet
     }
   }
 
-  private class ForwardDeadReckonLegalMoveSetIteratable
+  private class ForwardDeadReckonLegalMoveSetCollection
                                                        implements
-                                                       Iterable<ForwardDeadReckonLegalMoveInfo>
+                                                       Collection<ForwardDeadReckonLegalMoveInfo>
   {
     private ForwardDeadReckonLegalMoveSet parent;
     int                                   roleIndex;
 
-    public ForwardDeadReckonLegalMoveSetIteratable(ForwardDeadReckonLegalMoveSet parent,
+    public ForwardDeadReckonLegalMoveSetCollection(ForwardDeadReckonLegalMoveSet parent,
                                                    int roleIndex)
     {
       this.parent = parent;
@@ -71,6 +72,100 @@ public class ForwardDeadReckonLegalMoveSet
     {
       // TODO Auto-generated method stub
       return new ForwardDeadReckonLegalMoveSetIterator(parent, roleIndex);
+    }
+
+    @Override
+    public boolean add(ForwardDeadReckonLegalMoveInfo xiE)
+    {
+      // Not supported - this is a read-only collection
+      return false;
+    }
+
+    @Override
+    public boolean addAll(Collection<? extends ForwardDeadReckonLegalMoveInfo> xiC)
+    {
+      // Not supported - this is a read-only collection
+      return false;
+    }
+
+    @Override
+    public void clear()
+    {
+      // Not supported - this is a read-only collection
+    }
+
+    @Override
+    public boolean contains(Object xiO)
+    {
+      ForwardDeadReckonLegalMoveInfo move = (ForwardDeadReckonLegalMoveInfo)xiO;
+      return (move != null && parent.contents[roleIndex].get(move.masterIndex));
+    }
+
+    @Override
+    public boolean containsAll(Collection<?> xiC)
+    {
+      for(Object o : xiC)
+      {
+        if ( !contains(o))
+        {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    @Override
+    public boolean isEmpty()
+    {
+      // TODO Auto-generated method stub
+      return (parent.contents[roleIndex].cardinality() == 0);
+    }
+
+    @Override
+    public boolean remove(Object xiO)
+    {
+      // Not supported - this is a read-only collection
+      return false;
+    }
+
+    @Override
+    public boolean removeAll(Collection<?> xiC)
+    {
+      // Not supported - this is a read-only collection
+      return false;
+    }
+
+    @Override
+    public boolean retainAll(Collection<?> xiC)
+    {
+      // Not supported - this is a read-only collection
+      return false;
+    }
+
+    @Override
+    public int size()
+    {
+      return parent.contents[roleIndex].cardinality();
+    }
+
+    @Override
+    public Object[] toArray()
+    {
+      Object[] result = new Object[size()];
+      int index = 0;
+
+      for(Object o : this)
+      {
+        result[index++] = o;
+      }
+      return result;
+    }
+
+    @Override
+    public <T> T[] toArray(T[] xiA)
+    {
+      // TODO Auto-generated method stub
+      return null;
     }
 
   }
@@ -143,34 +238,21 @@ public class ForwardDeadReckonLegalMoveSet
     }
   }
 
-  public Iterable<ForwardDeadReckonLegalMoveInfo> getContents(int roleIndex)
+  public Collection<ForwardDeadReckonLegalMoveInfo> getContents(int roleIndex)
   {
-    return new ForwardDeadReckonLegalMoveSetIteratable(this, roleIndex);
+    return new ForwardDeadReckonLegalMoveSetCollection(this, roleIndex);
   }
 
-  public Iterable<ForwardDeadReckonLegalMoveInfo> getContents(Role role)
+  public Collection<ForwardDeadReckonLegalMoveInfo> getContents(Role role)
   {
     for (int i = 0; i < roles.length; i++)
     {
       if (roles[i].equals(role))
       {
-        return new ForwardDeadReckonLegalMoveSetIteratable(this, i);
+        return new ForwardDeadReckonLegalMoveSetCollection(this, i);
       }
     }
 
     return null;
-  }
-
-  public int getContentSize(Role role)
-  {
-    for (int i = 0; i < roles.length; i++)
-    {
-      if (roles[i].equals(role))
-      {
-        return contents[i].cardinality();
-      }
-    }
-
-    return 0;
   }
 }

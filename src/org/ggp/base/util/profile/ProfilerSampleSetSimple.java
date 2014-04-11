@@ -43,13 +43,13 @@ public class ProfilerSampleSetSimple extends ProfileSampleSet
     Stack<ProfileSample> stack = profileStack.get();
     ProfileSample masterSample = stack.pop();
 
-    masterSample.exitInstance(section.getEllapsedTime());
+    masterSample.exitInstance(section.getElapsedTime());
 
     if (!stack.isEmpty())
     {
       ProfileSample parentSample = stack.peek();
 
-      parentSample.accrueChildTime(section.getEllapsedTime());
+      parentSample.accrueChildTime(section.getElapsedTime());
     }
   }
 

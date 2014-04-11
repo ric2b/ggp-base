@@ -176,8 +176,7 @@ public final class Scheduler implements Observer
       {
         if (!match.getGame().getRepositoryURL().contains("127.0.0.1"))
         {
-          gameServer
-              .startPublishingToSpectatorServer("http://matches.ggp.org/");
+          gameServer.startPublishingToSpectatorServer("http://matches.ggp.org/");
           gameServer.setForceUsingEntireClock();
         }
       }

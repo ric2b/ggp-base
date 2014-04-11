@@ -9,13 +9,15 @@ import java.util.Map.Entry;
 import java.util.Random;
 
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeRef;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.TestForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class MCTSTree
 {
@@ -49,22 +51,21 @@ public class MCTSTree
   }
 
 
-  final boolean                                        freeCompletedNodeChildren                   = false;                                                          //true;
-  final boolean                                        disableOnelevelMinimax                      = true;  //false;
-  int                                                  rolloutSampleSize                           = 4;
-  TestForwardDeadReckonPropnetStateMachine             underlyingStateMachine;
+  final boolean                                        freeCompletedNodeChildren                   = true;                                                          //true;
+  final boolean                                        disableOnelevelMinimax                      = true;
+  /**
+   * For reasons not well understood, allowing select() to select complete children and propagate
+   * upward their values (while playing out something that adds information at the level below) seems
+   * harmful in most games, but strongly beneficial in some simultaneous move games.  Consequently
+   * this flag allows it to be disabled for all but simultaneous move games
+   */
+  final boolean                                        allowAllGamesToSelectThroughComplete        = false;
+  ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
   int                                                  numRoles;
   LRUNodeMoveWeightsCache                              nodeMoveWeightsCache                        = null;
-  final boolean                                        enableMoveActionHistory                     = false;
-  double                                               explorationBias                             = 1.0;
-  double                                               moveActionHistoryBias                       = 0;
-  final double                                         competitivenessBonus                        = 2;
+  NodePool                                             nodePool;
   Map<ForwardDeadReckonInternalMachineState, TreeNode> positions                                   = new HashMap<>();
-  private TreeNode[]                                   transpositionTable                          = null;
-  private int                                          nextSeq                                     = 0;
-  List<TreeNode>                                       freeList                                    = new LinkedList<>();
-  private int                                          largestUsedIndex                            = -1;
   int                                                  sweepInstance                               = 0;
   List<TreeNode>                                       completedNodeQueue                          = new LinkedList<>();
   Map<Move, MoveScoreInfo>                             cousinMoveCache                             = new HashMap<>();
@@ -75,37 +76,37 @@ public class MCTSTree
   Random                                               r                                           = new Random();
   int                                                  numUniqueTreeNodes                          = 0;
   int                                                  numTotalTreeNodes                           = 0;
-  private int                                          transpositionTableSize;
-  int                                                  numFreedTreeNodes                           = 0;
   int                                                  numTerminalRollouts                         = 0;
-  int                                                  numUsedNodes                                = 0;
+  int                                                  numNonTerminalRollouts                      = 0;
   int                                                  numIncompleteNodes                          = 0;
   int                                                  numCompletedBranches                        = 0;
   boolean                                              completeSelectionFromIncompleteParentWarned = false;
   int                                                  numSelectionsThroughIncompleteNodes         = 0;
   int                                                  numReExpansions                             = 0;
-  HeuristicProvider                                    heuristicProvider;
+  Heuristic                                            heuristic;
   RoleOrdering                                         roleOrdering;
   RolloutProcessorPool                                 rolloutPool;
-  GameCharacteristics                                  gameCharacteristics;
+  RuntimeGameCharacteristics                           gameCharacteristics;
+  Factor                                               factor;
 
-  public MCTSTree(TestForwardDeadReckonPropnetStateMachine stateMachine,
-                  int transpositionTableSize,
+  public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
+                  Factor factor,
+                  NodePool nodePool,
                   RoleOrdering roleOrdering,
                   RolloutProcessorPool rolloutPool,
-                  GameCharacteristics gameCharacateristics,
-                  HeuristicProvider heuristicProvider)
+                  RuntimeGameCharacteristics gameCharacateristics,
+                  Heuristic heuristic)
   {
     underlyingStateMachine = stateMachine;
     numRoles = stateMachine.getRoles().size();
-    this.transpositionTableSize = transpositionTableSize;
+    this.nodePool = nodePool;
+    this.factor = factor;
     this.roleOrdering = roleOrdering;
-    this.heuristicProvider = heuristicProvider;
+    this.heuristic = heuristic;
     this.gameCharacteristics = gameCharacateristics;
     this.rolloutPool = rolloutPool;
 
     nodeMoveWeightsCache = new LRUNodeMoveWeightsCache(5000);
-    transpositionTable = new TreeNode[transpositionTableSize];
 
     bonusBuffer = new double[numRoles];
     roleRationality = new double[numRoles];
@@ -132,16 +133,9 @@ public class MCTSTree
   {
     numUniqueTreeNodes = 0;
     numTotalTreeNodes = 0;
-    numFreedTreeNodes = 0;
     numCompletedBranches = 0;
-    numUsedNodes = 0;
     root = null;
-    freeList.clear();
-    for (int i = 0; i <= largestUsedIndex; i++)
-    {
-      transpositionTable[i].reset(true);
-      freeList.add(transpositionTable[i]);
-    }
+    nodePool.clear(this);
     positions.clear();
     numIncompleteNodes = 0;
     if (nodeMoveWeightsCache != null)
@@ -150,20 +144,16 @@ public class MCTSTree
     }
   }
 
-  public Object getSerializationObject()
-  {
-    return this;
-  }
-
-  TreeNode allocateNode(TestForwardDeadReckonPropnetStateMachine underlyingStateMachine,
+  TreeNode allocateNode(ForwardDeadReckonPropnetStateMachine underlyingStateMachine,
                                 ForwardDeadReckonInternalMachineState state,
-                                TreeNode parent)
+                                TreeNode parent,
+                                boolean disallowTransposition)
       throws GoalDefinitionException
   {
-    ProfileSection methodSection = new ProfileSection("allocateNode");
+    ProfileSection methodSection = ProfileSection.newInstance("allocateNode");
     try
     {
-      TreeNode result = (state != null ? positions.get(state) : null);
+      TreeNode result = ((state != null && !disallowTransposition) ? positions.get(state) : null);
 
       //validateAll();
       numTotalTreeNodes++;
@@ -172,29 +162,8 @@ public class MCTSTree
         numUniqueTreeNodes++;
 
         //System.out.println("Add state " + state);
-        if (largestUsedIndex < transpositionTableSize - 1)
-        {
-          result = new TreeNode(this, numRoles);
-          transpositionTable[++largestUsedIndex] = result;
-        }
-        else if (!freeList.isEmpty())
-        {
-          result = freeList.remove(0);
-
-          if (!result.freed)
-          {
-            System.out.println("Bad allocation choice");
-          }
-
-          result.reset(false);
-        }
-        else
-        {
-          throw new RuntimeException("Unexpectedly full transition table");
-        }
-
+        result = nodePool.allocateNode(this);
         result.state = state;
-        result.seq = nextSeq++;
 
         //if ( positions.values().contains(result))
         //{
@@ -204,8 +173,6 @@ public class MCTSTree
         {
           positions.put(state, result);
         }
-
-        numUsedNodes++;
       }
       else
       {
@@ -242,122 +209,109 @@ public class MCTSTree
       //validateAll();
       TreeNode node = completedNodeQueue.remove(0);
 
-      synchronized (this)
+      if (!node.freed)
       {
-        if (!node.freed)
-        {
-          node.processCompletion();
-        }
+        node.processCompletion();
       }
     }
   }
 
   public void setRootState(ForwardDeadReckonInternalMachineState state) throws GoalDefinitionException
   {
-    synchronized (getSerializationObject())
-    {
-      //  Process anything left over from last turn's timeout
-      processCompletedRollouts();
+    ForwardDeadReckonInternalMachineState factorState;
 
-      if (root == null)
+    if ( factor == null )
+    {
+      factorState = state;
+    }
+    else
+    {
+      factorState = new ForwardDeadReckonInternalMachineState(state);
+      factorState.intersect(factor.getStateMask(false));
+    }
+
+    if (root == null)
+    {
+      root = allocateNode(underlyingStateMachine, factorState, null, false);
+      root.decidingRoleIndex = numRoles - 1;
+    }
+    else
+    {
+      TreeNode newRoot = root.findNode(factorState,
+                                       underlyingStateMachine.getRoles()
+                                           .size() + 1);
+      if (newRoot == null)
       {
-        root = allocateNode(underlyingStateMachine, state, null);
+        System.out.println("Unable to find root node in existing tree");
+        empty();
+        root = allocateNode(underlyingStateMachine, factorState, null, false);
         root.decidingRoleIndex = numRoles - 1;
       }
       else
       {
-        TreeNode newRoot = root.findNode(state,
-                                         underlyingStateMachine.getRoles()
-                                             .size() + 1);
-        if (newRoot == null)
+        if (newRoot != root)
         {
-          System.out.println("Unable to find root node in existing tree");
-          empty();
-          root = allocateNode(underlyingStateMachine, state, null);
-          root.decidingRoleIndex = numRoles - 1;
-        }
-        else
-        {
-          if (newRoot != root)
-          {
-            root.freeAllBut(newRoot);
+          root.freeAllBut(newRoot);
 
-            root = newRoot;
-          }
+          root = newRoot;
         }
-      }
-      //validateAll();
-
-      if (root.complete && root.children == null)
-      {
-        System.out
-            .println("Encountered complete root with trimmed children - must re-expand");
-        root.complete = false;
-        numCompletedBranches--;
       }
     }
+    //validateAll();
+
+    if (root.complete && root.children == null)
+    {
+      System.out
+          .println("Encountered complete root with trimmed children - must re-expand");
+      root.complete = false;
+      numCompletedBranches--;
+    }
+
+    heuristic.newTurn(root.state, root);
   }
 
-  public boolean growTree(double explorationBias)
+  public boolean growTree()
       throws MoveDefinitionException, TransitionDefinitionException,
       GoalDefinitionException, InterruptedException
   {
-    synchronized (getSerializationObject())
-    {
-      this.explorationBias = explorationBias;
-      while (numUsedNodes > transpositionTableSize - 200)
-      {
-        root.disposeLeastLikelyNode();
-      }
-      //validateAll();
-      //validationCount++;
-      if (!rolloutPool.isBackedUp())
-      {
-        root.selectAction();
-      }
+    //validateAll();
+    //validationCount++;
+    root.selectAction();
 
-      processCompletedRollouts();
+    processNodeCompletions();
 
-      return root.complete;
-    }
+    return root.complete;
   }
 
-  Move getBestMove()
+  FactorMoveChoiceInfo getBestMove()
   {
-    synchronized (getSerializationObject())
-    {
-      System.out.println("Lock obtained, current time: " +
-          System.currentTimeMillis());
-      Move bestMove = root.getBestMove(true);
+    FactorMoveChoiceInfo bestMoveInfo = root.getBestMove(true, null);
 
-      System.out.println("Num total tree node allocations: " +
-          numTotalTreeNodes);
-      System.out.println("Num unique tree node allocations: " +
-          numUniqueTreeNodes);
-      System.out.println("Num tree node frees: " + numFreedTreeNodes);
-      System.out.println("Num tree nodes currently in use: " + numUsedNodes);
-      System.out.println("Num true rollouts added: " +
-          rolloutPool.numNonTerminalRollouts);
-      System.out.println("Num terminal nodes revisited: " +
-          numTerminalRollouts);
-      System.out.println("Num incomplete nodes: " + numIncompleteNodes);
-      System.out.println("Num selections through incomplete nodes: " +
-          numSelectionsThroughIncompleteNodes);
-      System.out.println("Num node re-expansions: " + numReExpansions);
-      System.out.println("Num completely explored branches: " +
-          numCompletedBranches);
-      System.out
-      .println("Current rollout sample size: " + rolloutSampleSize);
-      System.out.println("Current observed rollout score range: [" +
-          rolloutPool.lowestRolloutScoreSeen + ", " +
-          rolloutPool.highestRolloutScoreSeen + "]");
+    System.out.println("Num total tree node allocations: " +
+        numTotalTreeNodes);
+    System.out.println("Num unique tree node allocations: " +
+        numUniqueTreeNodes);
+    System.out.println("Num true rollouts added: " + numNonTerminalRollouts);
+    System.out.println("Num terminal nodes revisited: " +
+        numTerminalRollouts);
+    System.out.println("Num incomplete nodes: " + numIncompleteNodes);
+    System.out.println("Num selections through incomplete nodes: " +
+        numSelectionsThroughIncompleteNodes);
+    System.out.println("Num node re-expansions: " + numReExpansions);
+    System.out.println("Num completely explored branches: " +
+        numCompletedBranches);
+    System.out
+    .println("Current rollout sample size: " + gameCharacteristics.getRolloutSampleSize());
+    System.out.println("Current observed rollout score range: [" +
+        rolloutPool.lowestRolloutScoreSeen + ", " +
+        rolloutPool.highestRolloutScoreSeen + "]");
+    System.out.println("Heuristic bias: " + heuristic.getSampleWeight());
 
-      numSelectionsThroughIncompleteNodes = 0;
-      numReExpansions = 0;
-      rolloutPool.numNonTerminalRollouts = 0;
-      numTerminalRollouts = 0;
-      return bestMove;
-    }
+    numSelectionsThroughIncompleteNodes = 0;
+    numReExpansions = 0;
+    numNonTerminalRollouts = 0;
+    numTerminalRollouts = 0;
+    return bestMoveInfo;
   }
 
   void validateAll()
@@ -380,7 +334,7 @@ public class MCTSTree
 
     int incompleteCount = 0;
 
-    for (TreeNode node : transpositionTable)
+    for (TreeNode node : nodePool.getNodesTable())
     {
       if (node != null && !node.freed)
       {
@@ -405,49 +359,5 @@ public class MCTSTree
     {
       System.out.println("Incomplete count mismatch");
     }
-  }
-
-  private void processCompletedRollouts()
-  {
-    //ProfileSection methodSection = new ProfileSection("processCompletedRollouts");
-    //try
-    //{
-    //  Process nay outstanding node completions first, as their processing may
-    //  have been interrupted due to running out of time at the end of the previous
-    //  turn's processing
-    processNodeCompletions();
-
-    RolloutRequest request;
-
-    while ((request = rolloutPool.completedRollouts.poll()) != null)
-    {
-      TreeNode node = request.node.node;
-
-      //masterMoveWeights.accumulate(request.playedMoveWeights);
-
-      if (request.node.seq == node.seq && !node.complete)
-      {
-        request.path.resetCursor();
-        //validateAll();
-        synchronized (getSerializationObject())
-        {
-          node.updateStats(request.averageScores,
-                           request.averageSquaredScores,
-                           request.sampleSize,
-                           request.path,
-                           false);
-        }
-        //validateAll();
-        processNodeCompletions();
-        //validateAll();
-      }
-
-      rolloutPool.numCompletedRollouts++;
-    }
-    //}
-    //finally
-    //{
-    //  methodSection.exitScope();
-    //}
   }
 }

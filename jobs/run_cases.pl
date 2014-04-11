@@ -21,12 +21,22 @@ my $gNumCases  = 0;
 my $gNumPasses = 0;
 
 #*****************************************************************************#
+#* Whether to prompt the user to ran Sancho in debug mode in Eclipse.        *#
+#*****************************************************************************#
+my $gDebugSancho = 0;
+
+#*****************************************************************************#
 #* Process all the test suites, unless one was provided on the command line. *#
 #*****************************************************************************#
+my $lNumArgs = scalar(@ARGV);
 my @lSuites;
-if (scalar(@ARGV) >= 1)
+if ($lNumArgs >= 1)
 {
   @lSuites = 'data\tests\suites\\' . ($ARGV[0]);
+  if (($lNumArgs >= 2) && ($ARGV[1] =~ /debug/i))
+  {
+    $gDebugSancho = 1;
+  }
 }
 else
 {
@@ -71,7 +81,27 @@ foreach my $lSuiteFile (@lSuites)
                       $lPlayer->{port},
                       $lPlayer->{type});
       defined($lPlayer->{args}) && push(@lSysArgs, @{$lPlayer->{args}});
-      system(@lSysArgs);
+
+      #***********************************************************************#
+      #* Prompt the user to start Sancho if doing manual debugging.          *#
+      #***********************************************************************#
+      if (($gDebugSancho) && ($lPlayer->{type} =~ /Sancho/i))
+      {
+        shift(@lSysArgs);
+        shift(@lSysArgs);
+        print "\n    Please start PlayerRunner with the following params:\n      " . join("\n      ", @lSysArgs);
+        print "\n    Then press enter";
+        my $lDummy = <STDIN>;
+        print "  ";
+      }
+      else
+      {
+        #*********************************************************************#
+        #* Run player automatically.                                         *#
+        #*********************************************************************#
+        system(@lSysArgs);
+      }
+
       $lRoleIndex++;
     }
 

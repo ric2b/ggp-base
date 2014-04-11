@@ -1,13 +1,7 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
-import java.util.Set;
-
-import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.profile.ProfileSection;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
-import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
 /**
  * The Transition class is designed to represent pass-through gates.
@@ -19,7 +13,7 @@ public final class ForwardDeadReckonTransition extends
                                                                         PolymorphicTransition
 {
   private ForwardDeadReckonInternalMachineState[]        owningTransitionInfoSet = null;
-  private ForwardDeadReckonPropositionCrossReferenceInfo transitionInfo          = null;
+  private ForwardDeadReckonPropositionInfo               transitionInfo          = null;
 
   public ForwardDeadReckonTransition(int numOutputs)
   {
@@ -53,7 +47,7 @@ public final class ForwardDeadReckonTransition extends
     }
   }
 
-  public void setTransitionSet(ForwardDeadReckonPropositionCrossReferenceInfo transitionInfo,
+  public void setTransitionSet(ForwardDeadReckonPropositionInfo transitionInfo,
                                int instanceId,
                                ForwardDeadReckonInternalMachineState owningSet)
   {

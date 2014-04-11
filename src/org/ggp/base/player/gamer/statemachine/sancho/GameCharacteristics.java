@@ -2,11 +2,12 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 public class GameCharacteristics
 {
-  boolean                                              isSimultaneousMove;
-  boolean                                              isPuzzle;
-  boolean                                              isMultiPlayer;
-  boolean                                              isIteratedGame;
-  boolean                                              isPseudoSimultaneousMove;
+  boolean                                              isSimultaneousMove             = false;
+  boolean                                              isPuzzle                       = false;
+  boolean                                              isMultiPlayer                  = false;
+  boolean                                              isIteratedGame                 = false;
+  boolean                                              isPseudoSimultaneousMove       = false;
+  boolean                                              moveChoicesFromMultipleFactors = false;
 
   public GameCharacteristics(int numRoles)
   {

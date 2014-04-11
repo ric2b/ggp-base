@@ -1098,7 +1098,6 @@ public class OptimizingPolymorphicPropNetFactory
     //We also try to optimize as we go, which means possibly removing the
     //proposition if it isn't actually possible, or replacing it with
     //true/false if it's a constant.
-
     Set<GdlSentence> alwaysTrueSentences = model
         .getSentencesListedAsTrue(form);
     Set<GdlRule> rules = model.getRules(form);
@@ -1308,9 +1307,13 @@ public class OptimizingPolymorphicPropNetFactory
               PolymorphicComponent positive = components.get(transformed);
               //No, because then that will be attached to "negations", which could be bad
 
+              if ( positive == null && transformed.arity() == 0 )
+              {
+                 positive = components.get(GdlPool.getProposition(transformed.getName()));
+              }
               if (positive == null)
               {
-                //So the positive can't possibly be true (unless we have recurstion)
+                //So the positive can't possibly be true (unless we have recursion)
                 //and so this would be positive always
                 //We want to just skip this conjunct, so we continue to the next
 
@@ -1606,6 +1609,93 @@ public class OptimizingPolymorphicPropNetFactory
     public int size()
     {
       return contents.size();
+    }
+  }
+
+  public static boolean removeIrrelevantBasesAndInputs(PolymorphicPropNet pn)
+  {
+    //  Any bases and inputs that cannot be reached by tracing back from either the terminal
+    //  or a goal proposition are irrelevant (transiting through a virtual does->legal back-link)
+    Set<PolymorphicComponent> reachableComponents = new HashSet<>();
+    recursiveFindReachable(pn, pn.getTerminalProposition(), reachableComponents);
+
+    for( PolymorphicProposition[] roleGoals : pn.getGoalPropositions().values())
+    {
+      for( PolymorphicProposition c : roleGoals)
+      {
+        recursiveFindReachable(pn, c, reachableComponents);
+      }
+    }
+
+    //  What can we eliminate?
+    Set<PolymorphicComponent> unreachable = new HashSet<>();
+    boolean result = false;
+    int removalCount = 0;
+    for(PolymorphicProposition c : pn.getBasePropositions().values())
+    {
+      if ( !reachableComponents.contains(c))
+      {
+        unreachable.add(c);
+      }
+    }
+    for(PolymorphicProposition c : pn.getInputPropositions().values())
+    {
+      //  Don't lop no-ops off the network
+      if ( c.getOutputs().isEmpty() )
+      {
+        //  Or its corresponding legal
+        PolymorphicComponent noopLegal = pn.getLegalInputMap().get(c);
+        if ( noopLegal != null )
+        {
+          reachableComponents.add(noopLegal);
+        }
+      }
+      else if ( !reachableComponents.contains(c) )
+      {
+        unreachable.add(c);
+      }
+    }
+    for(PolymorphicProposition[] roleLegals : pn.getLegalPropositions().values())
+    {
+      for( PolymorphicProposition c : roleLegals)
+      {
+        if ( !reachableComponents.contains(c))
+        {
+          unreachable.add(c);
+          result = true;
+        }
+      }
+    }
+
+    for(PolymorphicComponent c : unreachable)
+    {
+      //System.out.println("Remove: " + c);
+      pn.removeComponent(c);
+      removalCount++;
+    }
+
+    System.out.println("Removed " + removalCount + " irrelevant propositions");
+
+    return result;
+  }
+
+  private static void recursiveFindReachable(PolymorphicPropNet pn, PolymorphicComponent from, Set<PolymorphicComponent> reachableComponents)
+  {
+    if ( reachableComponents.contains(from))
+    {
+      return;
+    }
+
+    reachableComponents.add(from);
+
+    if ( pn.getLegalInputMap().containsKey(from) )
+    {
+      recursiveFindReachable(pn, pn.getLegalInputMap().get(from), reachableComponents );
+    }
+
+    for(PolymorphicComponent c : from.getInputs())
+    {
+      recursiveFindReachable(pn, c, reachableComponents );
     }
   }
 

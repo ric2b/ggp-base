@@ -130,7 +130,7 @@ public final class Server extends JPanel implements ActionListener
     shouldQueue = new JCheckBox("Queue match?", true);
     shouldDetail = new JCheckBox("Show match details?", true);
     shouldSave = new JCheckBox("Save match to disk?", false);
-    shouldPublish = new JCheckBox("Publish match to the web?", false);
+    shouldPublish = new JCheckBox("Publish match to the web?", true);
 
     runButton.setEnabled(false);
 
