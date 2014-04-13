@@ -246,7 +246,8 @@ public class GdlCleaner
     }
     else if (literal instanceof GdlNot)
     {
-      return GdlPool.getNot(((GdlNot)literal).getBody());
+      GdlLiteral body = ((GdlNot) literal).getBody();
+      return GdlPool.getNot(cleanParentheses(body));
     }
     else if (literal instanceof GdlOr)
     {

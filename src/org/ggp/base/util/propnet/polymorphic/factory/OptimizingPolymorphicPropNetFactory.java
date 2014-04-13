@@ -1307,10 +1307,10 @@ public class OptimizingPolymorphicPropNetFactory
               PolymorphicComponent positive = components.get(transformed);
               //No, because then that will be attached to "negations", which could be bad
 
-              if ( positive == null && transformed.arity() == 0 )
-              {
-                 positive = components.get(GdlPool.getProposition(transformed.getName()));
-              }
+//              if ( positive == null && transformed.arity() == 0 )
+//              {
+//                 positive = components.get(GdlPool.getProposition(transformed.getName()));
+//              }
               if (positive == null)
               {
                 //So the positive can't possibly be true (unless we have recursion)
