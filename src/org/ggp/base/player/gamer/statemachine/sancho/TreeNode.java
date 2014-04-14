@@ -51,6 +51,7 @@ public class TreeNode
   ForwardDeadReckonInternalMachineState state;
   int                                   decidingRoleIndex;
   private boolean                       isTerminal          = false;
+  private boolean                       autoExpand          = false;
   TreeEdge[]                            children            = null;
   Set<TreeNode>                         parents             = new HashSet<TreeNode>();
   int                                   trimmedChildren     = 0;
@@ -841,6 +842,7 @@ public class TreeNode
     }
     state = null;
     isTerminal = false;
+    autoExpand = false;
     children = null;
     parents.clear();
     trimmedChildren = 0;
@@ -1334,9 +1336,16 @@ public class TreeNode
           newNode = selected.getChildNode();
           //visited.add(newNode);
           visited.push(selected);
-          while (newNode.decidingRoleIndex != tree.numRoles - 1 &&
-              !newNode.complete)
+
+          int autoExpansionDepth = 0;
+
+          while ((newNode.decidingRoleIndex != tree.numRoles - 1 || newNode.autoExpand) &&
+                 !newNode.complete)
           {
+            if ( newNode.decidingRoleIndex == tree.numRoles - 1 )
+            {
+              autoExpansionDepth++;
+            }
             newNode.expand(selected.getEdge());
             if (!newNode.complete)
             {
@@ -1344,6 +1353,20 @@ public class TreeNode
               newNode = selected.getChildNode();
               //visited.add(newNode);
               visited.push(selected);
+            }
+          }
+
+          if ( autoExpansionDepth > 0 )
+          {
+            tree.averageAutoExpansionDepth = (tree.averageAutoExpansionDepth*tree.numAutoExpansions + autoExpansionDepth)/(tree.numAutoExpansions+1);
+            tree.numAutoExpansions++;
+            if ( autoExpansionDepth > tree.maxAutoExpansionDepth )
+            {
+              tree.maxAutoExpansionDepth = autoExpansionDepth;
+            }
+            else
+            {
+              tree.numNormalExpansions++;
             }
           }
         }
@@ -1477,6 +1500,7 @@ public class TreeNode
           if (newState == null)
           {
             newChild.state = state;
+            newChild.autoExpand = autoExpand;
           }
           else
           {
@@ -1525,13 +1549,41 @@ public class TreeNode
                         tree.gameCharacteristics.getCompetitivenessBonus());
               }
             }
+            else
+            {
+              boolean foundNonNoop = false;
+              boolean isForcedMove = true;
+
+              for(int i = 0; i < tree.numRoles; i++ )
+              {
+                for(ForwardDeadReckonLegalMoveInfo info : tree.underlyingStateMachine.getLegalMoves(newState, tree.roleOrdering.roleIndexToRole(i), tree.factor))
+                {
+                  if ( info.inputProposition != null )
+                  {
+                    if ( foundNonNoop )
+                    {
+                      isForcedMove = false;
+                      break;
+                    }
+
+                    foundNonNoop = true;
+                  }
+                }
+              }
+
+              if ( foundNonNoop && isForcedMove )
+              {
+                newChild.autoExpand = true;
+              }
+            }
           }
 
           // Determine the heuristic value for this child (provided that it's a new non-terminal child).
           int lSampleWeight = tree.heuristic.getSampleWeight();
           if ((newChild.numVisits == 0) &&
               (!newChild.isTerminal) &&
-              (lSampleWeight > 0))
+              (lSampleWeight > 0) &&
+              !newChild.autoExpand)
           {
             double[] heuristicScores = tree.heuristic.getHeuristicValue(newChild.state, state);
             double heuristicSquaredDeviation = 0;
@@ -2637,7 +2689,7 @@ public class TreeNode
 
     if (!lRecursiveCall)
     {
-      if (bestEdge == null)
+      if (bestEdge == null && tree.factor == null)
       {
         System.out.println("No move found!");
       }

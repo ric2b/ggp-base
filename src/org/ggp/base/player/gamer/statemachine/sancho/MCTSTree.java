@@ -80,6 +80,10 @@ public class MCTSTree
   int                                                  numNonTerminalRollouts                      = 0;
   int                                                  numIncompleteNodes                          = 0;
   int                                                  numCompletedBranches                        = 0;
+  int                                                  numNormalExpansions                         = 0;
+  int                                                  numAutoExpansions                           = 0;
+  int                                                  maxAutoExpansionDepth                       = 0;
+  double                                               averageAutoExpansionDepth                   = 0;
   boolean                                              completeSelectionFromIncompleteParentWarned = false;
   int                                                  numSelectionsThroughIncompleteNodes         = 0;
   int                                                  numReExpansions                             = 0;
@@ -134,6 +138,10 @@ public class MCTSTree
     numUniqueTreeNodes = 0;
     numTotalTreeNodes = 0;
     numCompletedBranches = 0;
+    numNormalExpansions = 0;
+    numAutoExpansions = 0;
+    maxAutoExpansionDepth = 0;
+    averageAutoExpansionDepth = 0;
     root = null;
     nodePool.clear(this);
     positions.clear();
@@ -300,6 +308,13 @@ public class MCTSTree
     System.out.println("Num node re-expansions: " + numReExpansions);
     System.out.println("Num completely explored branches: " +
         numCompletedBranches);
+    if ( numAutoExpansions + numNormalExpansions > 0 )
+    {
+      System.out.println("Percentage forced single-choice expansion: " +
+          ((double)numAutoExpansions/(numAutoExpansions+numNormalExpansions)));
+      System.out.println("Average depth of auto-expansion instances: " + averageAutoExpansionDepth);
+      System.out.println("Maximum depth of auto-expansion instances: " + maxAutoExpansionDepth);
+    }
     System.out
     .println("Current rollout sample size: " + gameCharacteristics.getRolloutSampleSize());
     System.out.println("Current observed rollout score range: [" +
