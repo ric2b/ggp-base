@@ -3654,41 +3654,184 @@ public class OptimizingPolymorphicPropNetFactory
     //	them by their complements
     int possibleSavings = 0;
 
-    for (PolymorphicComponent c : pn.getComponents())
-    {
-      if ((c instanceof PolymorphicAnd || c instanceof PolymorphicOr) &&
-          c.getInputs().size() > minInputSizeToConsider)
-      {
-        for (Set<PolymorphicProposition> roleSet : roleInputMap.values())
-        {
-          Set<PolymorphicComponent> inputSet = new HashSet<PolymorphicComponent>();
+//    for (PolymorphicComponent c : pn.getComponents())
+//    {
+//      if ((c instanceof PolymorphicAnd || c instanceof PolymorphicOr) &&
+//          c.getInputs().size() > minInputSizeToConsider)
+//      {
+//        for (Set<PolymorphicProposition> roleSet : roleInputMap.values())
+//        {
+//          Set<PolymorphicComponent> inputSet = new HashSet<PolymorphicComponent>();
+//
+//          for (PolymorphicComponent input : c.getInputs())
+//          {
+//            if (input instanceof PolymorphicProposition &&
+//                roleSet.contains(input))
+//            {
+//              inputSet.add(input);
+//            }
+//          }
+//
+//          if (inputSet.size() > roleSet.size() / 2)
+//          {
+//            possibleSavings += 2 * inputSet.size() - roleSet.size();
+//            System.out.println("Identified input set of size " +
+//                               inputSet.size() +
+//                               " that can be replaced by complement of size " +
+//                               (roleSet.size() - inputSet.size()));
+//          }
+//        }
+//      }
+//    }
 
-          for (PolymorphicComponent input : c.getInputs())
+    Set<PolymorphicComponent> allInputs = new HashSet<>();
+    for (Set<PolymorphicProposition> roleInputs : roleInputMap.values())
+    {
+      allInputs.addAll(roleInputs);
+    }
+
+    Set<PolymorphicComponent> newComponents = new HashSet<>();
+    Set<PolymorphicComponent> removedComponents = new HashSet<>();
+
+    for(PolymorphicComponent c : pn.getComponents())
+    {
+      if ( c instanceof PolymorphicOr )
+      {
+        Map<Role,Set<PolymorphicComponent>> disjunctiveInputs = new HashMap<>();
+
+        for (Role role : pn.getRoles())
+        {
+          Set<PolymorphicProposition> roleInputs = roleInputMap.get(role);
+          Set<PolymorphicComponent> inputSet = new HashSet<>();
+
+          if ( !recursiveCalculateDisjunctiveRoleInputs(c, inputSet, roleInputs, allInputs) )
           {
-            if (input instanceof PolymorphicProposition &&
-                roleSet.contains(input))
+            disjunctiveInputs.clear();
+            break;
+          }
+
+          if ( inputSet.size() > (3*roleInputs.size())/4 )
+          {
+            disjunctiveInputs.put(role, inputSet);
+          }
+        }
+
+        if ( !disjunctiveInputs.isEmpty())
+        {
+          Set<PolymorphicComponent> newNots = new HashSet<>();
+
+          removedComponents.add(c);
+
+          for (Role role : pn.getRoles())
+          {
+            Set<PolymorphicComponent> roleInputs = disjunctiveInputs.get(role);
+
+            if ( roleInputs != null )
             {
-              inputSet.add(input);
+              PolymorphicOr newOr = pn.getComponentFactory().createOr(-1, -1);
+              newComponents.add(newOr);
+
+              for(PolymorphicComponent input : roleInputMap.get(role))
+              {
+                if ( !roleInputs.contains(input))
+                {
+                  newOr.addInput(input);
+                  input.addOutput(newOr);
+                }
+                else
+                {
+                  c.removeInput(input);
+                  input.removeOutput(c);
+                }
+              }
+
+              PolymorphicNot newNot = pn.getComponentFactory().createNot(-1);
+
+              newOr.addOutput(newNot);
+              newNot.addInput(newOr);
+
+              newNots.add(newNot);
+              newComponents.add(newNot);
             }
           }
 
-          if (inputSet.size() > roleSet.size() / 2)
+          PolymorphicComponent newOutput;
+
+          if ( newNots.size() == 1 )
           {
-            possibleSavings += 2 * inputSet.size() - roleSet.size();
-            System.out.println("Identified input set of size " +
-                               inputSet.size() +
-                               " that can be replaced by complement of size " +
-                               (roleSet.size() - inputSet.size()));
+            newOutput = newNots.iterator().next();
           }
+          else
+          {
+            newOutput = pn.getComponentFactory().createOr(-1, -1);
+            newComponents.add(newOutput);
+
+            for(PolymorphicComponent newNot : newNots)
+            {
+              newNot.addOutput(newOutput);
+              newOutput.addInput(newNot);
+            }
+          }
+
+          for(PolymorphicComponent output : c.getOutputs())
+          {
+            newOutput.addOutput(output);
+            output.removeInput(c);
+            output.addInput(newOutput);
+          }
+
+          c.removeAllOutputs();
         }
       }
     }
 
-    if (possibleSavings > 0)
+    for(PolymorphicComponent c : newComponents)
     {
-      System.out.println("Possible input connectivity savings: " +
-                         possibleSavings);
+      pn.addComponent(c);
     }
+
+    for(PolymorphicComponent c : removedComponents)
+    {
+      pn.removeComponent(c);
+    }
+
+//    if (possibleSavings > 0)
+//    {
+//      System.out.println("Possible input connectivity savings: " +
+//                         possibleSavings);
+//    }
+  }
+
+  private static boolean recursiveCalculateDisjunctiveRoleInputs(PolymorphicComponent c, Set<PolymorphicComponent> inputs, Set<PolymorphicProposition> inputSet, Set<PolymorphicComponent> allowableInputs)
+  {
+    if ( c instanceof PolymorphicOr )
+    {
+      for(PolymorphicComponent input : c.getInputs())
+      {
+        if ( !recursiveCalculateDisjunctiveRoleInputs(input, inputs, inputSet, allowableInputs))
+        {
+          return false;
+        }
+      }
+
+      return true;
+    }
+    else if ( c instanceof PolymorphicProposition )
+    {
+      if ( !allowableInputs.contains(c) )
+      {
+        return false;
+      }
+
+      if ( inputSet.contains(c))
+      {
+        inputs.add(c);
+      }
+
+      return true;
+    }
+
+    return false;
   }
 
   public static void OptimizeInvertedInputs(PolymorphicPropNet pn)

@@ -865,8 +865,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       OptimizingPolymorphicPropNetFactory.removeDuplicateLogic(fullPropNet);
       System.out.println("Num components after duplicate removal: " +
                          fullPropNet.getComponents().size());
-      //OptimizingPolymorphicPropNetFactory.optimizeInputSets(fullPropNet);
-      //System.out.println("Num components after input set optimization: " + fullPropNet.getComponents().size());
+      OptimizingPolymorphicPropNetFactory.optimizeInputSets(fullPropNet);
+      System.out.println("Num components after input set optimization: " + fullPropNet.getComponents().size());
       OptimizingPolymorphicPropNetFactory.OptimizeInvertedInputs(fullPropNet);
       System.out.println("Num components after inverted input optimization: " +
                          fullPropNet.getComponents().size());
@@ -1308,8 +1308,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                             Factor factor,
                                             boolean isolate)
   {
-    //ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.setBasePropositionsInternal");
-    //try
+    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.setBasePropositionsInternal");
+    try
     {
       //System.out.println("Set state for instance " + instanceId + ": " + state);
       //System.out.println("Last set state for instance " + instanceId + " was: " + lastInternalSetState);
@@ -1319,25 +1319,33 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           ForwardDeadReckonInternalMachineState nextInternalSetState;
 
-          lastInternalSetState.xor(state);
-          if (isolate)
+          ProfileSection stateManipulationSection = ProfileSection.newInstance("TestPropnetStateMachine.manipulateStateDiff");
+          try
           {
-            if (propNet == propNetX)
+            lastInternalSetState.xor(state);
+            if (isolate)
             {
-              nextInternalSetState = (lastInternalSetState == stateBufferX1 ? stateBufferX2
-                                                                           : stateBufferX1);
+              if (propNet == propNetX)
+              {
+                nextInternalSetState = (lastInternalSetState == stateBufferX1 ? stateBufferX2
+                                                                             : stateBufferX1);
+              }
+              else
+              {
+                nextInternalSetState = (lastInternalSetState == stateBufferO1 ? stateBufferO2
+                                                                             : stateBufferO1);
+              }
+              //nextInternalSetState = new ForwardDeadReckonInternalMachineState(state);
+              nextInternalSetState.copy(state);
             }
             else
             {
-              nextInternalSetState = (lastInternalSetState == stateBufferO1 ? stateBufferO2
-                                                                           : stateBufferO1);
+              nextInternalSetState = state;
             }
-            //nextInternalSetState = new ForwardDeadReckonInternalMachineState(state);
-            nextInternalSetState.copy(state);
           }
-          else
+          finally
           {
-            nextInternalSetState = state;
+            stateManipulationSection.exitScope();
           }
 
           for (ForwardDeadReckonPropositionInfo info : lastInternalSetState)
@@ -1348,24 +1356,40 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             {
               if (nextInternalSetState.contains(info))
               {
-                if (propNet == propNetX)
+                ProfileSection setPropsSection = ProfileSection.newInstance("TestPropnetStateMachine.setNewProps");
+                try
                 {
-                  infoCr.xNetProp.setValue(true, instanceId);
+                  if (propNet == propNetX)
+                  {
+                    infoCr.xNetProp.setValue(true, instanceId);
+                  }
+                  else
+                  {
+                    infoCr.oNetProp.setValue(true, instanceId);
+                  }
                 }
-                else
+                finally
                 {
-                  infoCr.oNetProp.setValue(true, instanceId);
+                  setPropsSection.exitScope();
                 }
               }
               else
               {
-                if (propNet == propNetX)
+                ProfileSection clearPropsSection = ProfileSection.newInstance("TestPropnetStateMachine.clearOldProps");
+                try
                 {
-                  infoCr.xNetProp.setValue(false, instanceId);
+                  if (propNet == propNetX)
+                  {
+                    infoCr.xNetProp.setValue(false, instanceId);
+                  }
+                  else
+                  {
+                    infoCr.oNetProp.setValue(false, instanceId);
+                  }
                 }
-                else
+                finally
                 {
-                  infoCr.oNetProp.setValue(false, instanceId);
+                  clearPropsSection.exitScope();
                 }
               }
             }
@@ -1411,10 +1435,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
       }
     }
-    //finally
-    //{
-    //	methodSection.exitScope();
-    //}
+    finally
+    {
+    	methodSection.exitScope();
+    }
   }
 
   /**
@@ -2174,20 +2198,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       transitionTo.isXState = targetIsXNet;
 
       setBasePropositionsFromState(transitionTo, null, true);
-      //Set<GdlSentence> contents = new HashSet<GdlSentence>();
-      //nt numBaseProps = basePropositionTransitions.length;
-
-      //for (int i = 0; i < numBaseProps; i++)
-      //{
-      //	PolymorphicComponent t = basePropositionTransitions[i];
-      //	if (t.getValue())
-      //	{
-      //		contents.add(propNet.getBasePropositionsArray()[i].getName());
-      //	}
-      //}
-      //stats.addGetCount(RuntimeOptimizedComponent.getCount);
-
-      //return new MachineState(contents);
     }
     finally
     {
@@ -2870,96 +2880,96 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                     MoveWeights moveWeights,
                                     List<ForwardDeadReckonLegalMoveInfo> playedMoves)
   {
-    //		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.chooseRandomJointMove");
-    //		try
-    //		{
-    int result = 0;
-    int index = 0;
+		ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.chooseRandomJointMove");
+		try
+		{
+      int result = 0;
+      int index = 0;
 
-    for (Role role : getRoles())
-    {
-      Collection<ForwardDeadReckonLegalMoveInfo> moves = propNet.getActiveLegalProps(instanceId).getContents(role);
-      if ( factor != null )
+      for (Role role : getRoles())
       {
-        //  In a factored game the terminal logic can sometimes span the factors in a way we don't
-        //  cleanly cater for currently, so use lack of legal moves as a proxy for terminality
-        if ( moves.isEmpty() )
+        Collection<ForwardDeadReckonLegalMoveInfo> moves = propNet.getActiveLegalProps(instanceId).getContents(role);
+        if ( factor != null )
         {
-          return 0;
-        }
-        moves = new FactorFilteredForwardDeadReckonLegalMoveSet(factor, moves, false);
-      }
-      int numChoices = moves.size();
-      int rand;
-
-      if (moveWeights == null)
-      {
-        rand = getRandom(numChoices);
-      }
-      else
-      {
-        double total = 0;
-
-        for (ForwardDeadReckonLegalMoveInfo info : moves)
-        {
-          if (moveWeights.weightScore[info.globalMoveIndex] == 0)
+          //  In a factored game the terminal logic can sometimes span the factors in a way we don't
+          //  cleanly cater for currently, so use lack of legal moves as a proxy for terminality
+          if ( moves.isEmpty() )
           {
-            System.out.println("Unexpected 0 move weight");
+            return 0;
           }
-          total += moveWeights.weightScore[info.globalMoveIndex];
+          moves = new FactorFilteredForwardDeadReckonLegalMoveSet(factor, moves, false);
         }
+        int numChoices = moves.size();
+        int rand;
 
-        if (total == 0)
+        if (moveWeights == null)
         {
-          System.out.println("Unexpected 0 move weight total");
+          rand = getRandom(numChoices);
         }
-        rand = getRandom((int)total);
-      }
-
-      if (numChoices > result)
-      {
-        result = numChoices;
-      }
-
-      ForwardDeadReckonLegalMoveInfo chosen = null;
-      while (chosen == null)
-      {
-        for (ForwardDeadReckonLegalMoveInfo info : moves)
+        else
         {
-          if (moveWeights == null)
+          double total = 0;
+
+          for (ForwardDeadReckonLegalMoveInfo info : moves)
           {
-            rand--;
-          }
-          else
-          {
-            rand -= moveWeights.weightScore[info.globalMoveIndex];
+            if (moveWeights.weightScore[info.globalMoveIndex] == 0)
+            {
+              System.out.println("Unexpected 0 move weight");
+            }
+            total += moveWeights.weightScore[info.globalMoveIndex];
           }
 
-          if (rand < 0)
+          if (total == 0)
           {
-            chosen = info;
-            break;
+            System.out.println("Unexpected 0 move weight total");
           }
+          rand = getRandom((int)total);
+        }
+
+        if (numChoices > result)
+        {
+          result = numChoices;
+        }
+
+        ForwardDeadReckonLegalMoveInfo chosen = null;
+        while (chosen == null)
+        {
+          for (ForwardDeadReckonLegalMoveInfo info : moves)
+          {
+            if (moveWeights == null)
+            {
+              rand--;
+            }
+            else
+            {
+              rand -= moveWeights.weightScore[info.globalMoveIndex];
+            }
+
+            if (rand < 0)
+            {
+              chosen = info;
+              break;
+            }
+          }
+        }
+
+        if (validationMachine != null)
+        {
+          chosenMoves[index] = chosen.move;
+        }
+        chosenJointMoveProps[index++] = chosen.inputProposition;
+        if (playedMoves != null)
+        {
+          playedMoves.add(chosen);
         }
       }
 
-      if (validationMachine != null)
-      {
-        chosenMoves[index] = chosen.move;
-      }
-      chosenJointMoveProps[index++] = chosen.inputProposition;
-      if (playedMoves != null)
-      {
-        playedMoves.add(chosen);
-      }
+      return result;
     }
-
-    return result;
-    //        }
-    //		finally
-    //		{
-    //			methodSection.exitScope();
-    //		}
+		finally
+		{
+			methodSection.exitScope();
+		}
   }
 
   private class TerminalResultVector
