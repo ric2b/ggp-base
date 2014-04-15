@@ -61,15 +61,6 @@ public class FactorAnalyser
       baseDependencies.put(baseProp, buildBaseDependencies(baseProp));
     }
 
-    //  Now find subsets of the base props that are closed under the dependency relation
-    //  Start by finding the closure for each base prop
-    Map<PolymorphicProposition,Set<PolymorphicProposition>> dependencyClosures = new HashMap<>();
-
-    for(PolymorphicProposition baseProp : stateMachine.getFullPropNet().getBasePropositions().values())
-    {
-      dependencyClosures.put(baseProp, findDependencyClosure(baseProp));
-    }
-
     //  Now look for pure disjunctive inputs to goal and terminal
     Map<PolymorphicComponent, DependencyInfo> disjunctiveInputs = new HashMap<>();
 
@@ -248,33 +239,6 @@ public class FactorAnalyser
 
       recursiveBuildBaseDependencies(null, c, dependencies, visited);
       disjunctiveInputs.put(c, dependencies);
-    }
-  }
-
-  private Set<PolymorphicProposition> findDependencyClosure(PolymorphicProposition p)
-  {
-    Set<PolymorphicProposition> result = new HashSet<>();
-
-    recursiveBuildDependencyClosure(p, result);
-
-    return result;
-  }
-
-  private void recursiveBuildDependencyClosure(PolymorphicProposition p, Set<PolymorphicProposition> closure)
-  {
-    if ( closure.contains(p))
-    {
-      return;
-    }
-
-    DependencyInfo dInfo = baseDependencies.get(p);
-    if ( dInfo != null )
-    {
-      closure.add(p);
-      for(PolymorphicProposition dependency : dInfo.dependencies)
-      {
-        recursiveBuildDependencyClosure(dependency, closure);
-      }
     }
   }
 
