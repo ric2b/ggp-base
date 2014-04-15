@@ -1364,10 +1364,10 @@ public class TreeNode
             {
               tree.maxAutoExpansionDepth = autoExpansionDepth;
             }
-            else
-            {
-              tree.numNormalExpansions++;
-            }
+          }
+          else
+          {
+            tree.numNormalExpansions++;
           }
         }
         else
