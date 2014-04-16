@@ -51,7 +51,7 @@ public class TreeNode
   ForwardDeadReckonInternalMachineState state;
   int                                   decidingRoleIndex;
   private boolean                       isTerminal          = false;
-  private boolean                       autoExpand          = false;
+  boolean                               autoExpand          = false;
   TreeEdge[]                            children            = null;
   Set<TreeNode>                         parents             = new HashSet<TreeNode>();
   int                                   trimmedChildren     = 0;
@@ -1292,125 +1292,6 @@ public class TreeNode
     return false;
   }
 
-  public void selectAction()
-      throws MoveDefinitionException, TransitionDefinitionException,
-      GoalDefinitionException, InterruptedException
-      {
-    ProfileSection methodSection = ProfileSection.newInstance("TreeNode.selectAction");
-    try
-    {
-      MoveWeightsCollection moveWeights = (tree.gameCharacteristics.getMoveActionHistoryEnabled() ? new MoveWeightsCollection(tree.numRoles)
-      : null);
-
-      //validateAll();
-      tree.completedNodeQueue.clear();
-
-      //List<TreeNode> visited = new LinkedList<TreeNode>();
-      TreePath visited = new TreePath(tree);
-      TreeNode cur = this;
-      TreePathElement selected = null;
-      //visited.add(this);
-      while (!cur.isUnexpanded())
-      {
-        selected = cur.select(visited,
-                              selected == null ? null : selected.getEdge(),
-                              moveWeights);
-
-        cur = selected.getChildNode();
-        //visited.add(cur);
-        visited.push(selected);
-      }
-
-      TreeNode newNode;
-      if (!cur.complete)
-      {
-        //	Expand for each role so we're back to our-move as we always rollout after joint moves
-        cur.expand(selected == null ? null : selected.getEdge());
-
-        if (!cur.complete)
-        {
-          selected = cur
-              .select(visited,
-                      selected == null ? null : selected.getEdge(),
-                      moveWeights);
-          newNode = selected.getChildNode();
-          //visited.add(newNode);
-          visited.push(selected);
-
-          int autoExpansionDepth = 0;
-
-          while ((newNode.decidingRoleIndex != tree.numRoles - 1 || newNode.autoExpand) &&
-                 !newNode.complete)
-          {
-            if ( newNode.decidingRoleIndex == tree.numRoles - 1 )
-            {
-              autoExpansionDepth++;
-            }
-            newNode.expand(selected.getEdge());
-            if (!newNode.complete)
-            {
-              selected = newNode.select(visited, selected.getEdge(), moveWeights);
-              newNode = selected.getChildNode();
-              //visited.add(newNode);
-              visited.push(selected);
-            }
-          }
-
-          if ( autoExpansionDepth > 0 )
-          {
-            tree.averageAutoExpansionDepth = (tree.averageAutoExpansionDepth*tree.numAutoExpansions + autoExpansionDepth)/(tree.numAutoExpansions+1);
-            tree.numAutoExpansions++;
-            if ( autoExpansionDepth > tree.maxAutoExpansionDepth )
-            {
-              tree.maxAutoExpansionDepth = autoExpansionDepth;
-            }
-          }
-          else
-          {
-            tree.numNormalExpansions++;
-          }
-        }
-        else
-        {
-          newNode = cur;
-        }
-      }
-      else
-      {
-        //	If we've selected a terminal node we still do a pseudo-rollout
-        //	from it so its value gets a weight increase via back propagation
-        newNode = cur;
-      }
-
-      //	Add a pseudo-edge that represents the link into the unexplored part of the tree
-      //visited.push(null);
-      //validateAll();
-      //System.out.println("Rollout from: " + newNode.state);
-      RolloutRequest rollout = newNode.rollOut(visited);
-      if (rollout != null)
-      {
-        newNode.updateStats(rollout.averageScores,
-                            rollout.averageSquaredScores,
-                            tree.gameCharacteristics.getRolloutSampleSize(),
-                            visited,
-                            true);
-      }
-      else
-      {
-        //for(TreeNode node : visited)
-        //{
-        //	node.validate(false);
-        //}
-        newNode.updateVisitCounts(tree.gameCharacteristics.getRolloutSampleSize(), visited);
-      }
-      //validateAll();
-    }
-    finally
-    {
-      methodSection.exitScope();
-    }
-  }
-
   public void expand(TreeEdge from)
       throws MoveDefinitionException, TransitionDefinitionException,
       GoalDefinitionException
@@ -1931,7 +1812,7 @@ public class TreeNode
     return result;
   }
 
-  private TreePathElement select(TreePath path, TreeEdge from, MoveWeightsCollection weights)
+  TreePathElement select(TreePath path, TreeEdge from, MoveWeightsCollection weights)
       throws MoveDefinitionException, TransitionDefinitionException,
       GoalDefinitionException
       {
@@ -2050,9 +1931,12 @@ public class TreeNode
                   selectedIndex = -1;
                   break;
                 }
-                //  Only select one move that is state-equivalent
+                //  Only select one move that is state-equivalent, and don't allow selection of a pseudo-noop
+                //  except from the root since we just want to know the difference in cost or omitting one
+                //  move (at root level) if we play in another factor
                 else if (children[i].selectAs == children[i] &&
-                         (!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove)))
+                         (!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove)) &&
+                         (tree.root == this || !children[i].jointPartialMove[roleIndex].isPseudoNoOp))
                 {
                   double uctValue;
 

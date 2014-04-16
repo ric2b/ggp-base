@@ -9,6 +9,7 @@ import java.util.Map.Entry;
 import java.util.Random;
 
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeRef;
+import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -51,7 +52,7 @@ public class MCTSTree
   }
 
 
-  final boolean                                        freeCompletedNodeChildren                   = true;                                                          //true;
+  final boolean                                        freeCompletedNodeChildren                   = false;                                                          //true;
   final boolean                                        disableOnelevelMinimax                      = true;
   /**
    * For reasons not well understood, allowing select() to select complete children and propagate
@@ -165,7 +166,10 @@ public class MCTSTree
 
       //validateAll();
       numTotalTreeNodes++;
-      if (result == null)
+      //  Use of pseudo-noops in factors can result in recreation of the root state (only)
+      //  a lower level with a joint move of (pseudo-noop, noop, noop, ..., noop).  This
+      //  must not be linked back to or else a loop will be created
+      if (result == null || result == root)
       {
         numUniqueTreeNodes++;
 
@@ -177,7 +181,7 @@ public class MCTSTree
         //{
         //  System.out.println("Node already referenced by a state!");
         //}
-        if (state != null)
+        if (state != null && !disallowTransposition)
         {
           positions.put(state, result);
         }
@@ -284,7 +288,7 @@ public class MCTSTree
   {
     //validateAll();
     //validationCount++;
-    root.selectAction();
+    selectAction();
 
     processNodeCompletions();
 
@@ -373,6 +377,125 @@ public class MCTSTree
     if (incompleteCount != numIncompleteNodes)
     {
       System.out.println("Incomplete count mismatch");
+    }
+  }
+
+  private void selectAction()
+      throws MoveDefinitionException, TransitionDefinitionException,
+      GoalDefinitionException, InterruptedException
+  {
+    ProfileSection methodSection = ProfileSection.newInstance("TreeNode.selectAction");
+    try
+    {
+      MoveWeightsCollection moveWeights = (gameCharacteristics.getMoveActionHistoryEnabled() ? new MoveWeightsCollection(numRoles)
+      : null);
+
+      //validateAll();
+      completedNodeQueue.clear();
+
+      //List<TreeNode> visited = new LinkedList<TreeNode>();
+      TreePath visited = new TreePath(this);
+      TreeNode cur = root;
+      TreePathElement selected = null;
+      //visited.add(this);
+      while (!cur.isUnexpanded())
+      {
+        selected = cur.select(visited,
+                              selected == null ? null : selected.getEdge(),
+                              moveWeights);
+
+        cur = selected.getChildNode();
+        //visited.add(cur);
+        visited.push(selected);
+      }
+
+      TreeNode newNode;
+      if (!cur.complete)
+      {
+        //  Expand for each role so we're back to our-move as we always rollout after joint moves
+        cur.expand(selected == null ? null : selected.getEdge());
+
+        if (!cur.complete)
+        {
+          selected = cur
+              .select(visited,
+                      selected == null ? null : selected.getEdge(),
+                      moveWeights);
+          newNode = selected.getChildNode();
+          //visited.add(newNode);
+          visited.push(selected);
+
+          int autoExpansionDepth = 0;
+
+          while ((newNode.decidingRoleIndex != numRoles - 1 || newNode.autoExpand) &&
+                 !newNode.complete)
+          {
+            if ( newNode.decidingRoleIndex == numRoles - 1 )
+            {
+              autoExpansionDepth++;
+            }
+            newNode.expand(selected.getEdge());
+            if (!newNode.complete)
+            {
+              selected = newNode.select(visited, selected.getEdge(), moveWeights);
+              newNode = selected.getChildNode();
+              //visited.add(newNode);
+              visited.push(selected);
+            }
+          }
+
+          if ( autoExpansionDepth > 0 )
+          {
+            averageAutoExpansionDepth = (averageAutoExpansionDepth*numAutoExpansions + autoExpansionDepth)/(numAutoExpansions+1);
+            numAutoExpansions++;
+            if ( autoExpansionDepth > maxAutoExpansionDepth )
+            {
+              maxAutoExpansionDepth = autoExpansionDepth;
+            }
+          }
+          else
+          {
+            numNormalExpansions++;
+          }
+        }
+        else
+        {
+          newNode = cur;
+        }
+      }
+      else
+      {
+        //  If we've selected a terminal node we still do a pseudo-rollout
+        //  from it so its value gets a weight increase via back propagation
+        newNode = cur;
+      }
+
+      //  Add a pseudo-edge that represents the link into the unexplored part of the tree
+      //visited.push(null);
+      //validateAll();
+      //System.out.println("Rollout from: " + newNode.state);
+      RolloutRequest rollout = newNode.rollOut(visited);
+      if (rollout != null)
+      {
+        newNode.updateStats(rollout.averageScores,
+                            rollout.averageSquaredScores,
+                            gameCharacteristics.getRolloutSampleSize(),
+                            visited,
+                            true);
+      }
+      else
+      {
+        //for(TreeNode node : visited)
+        //{
+        //  node.validate(false);
+        //}
+        newNode.updateVisitCounts(gameCharacteristics.getRolloutSampleSize(), visited);
+      }
+      //validateAll();
+    }
+    finally
+    {
+      methodSection.exitScope();
     }
   }
 }
