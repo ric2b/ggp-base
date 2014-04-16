@@ -12,6 +12,7 @@ import org.ggp.base.util.statemachine.Role;
 public class ForwardDeadReckonLegalMoveSet
 {
   private List<ForwardDeadReckonLegalMoveInfo> masterList;
+  private ForwardDeadReckonLegalMoveInfo[]     masterListAsArray;
   private BitSet[]                             contents;
   private Role[]                               roles;
 
@@ -40,7 +41,7 @@ public class ForwardDeadReckonLegalMoveSet
     @Override
     public ForwardDeadReckonLegalMoveInfo next()
     {
-      ForwardDeadReckonLegalMoveInfo result = parent.masterList.get(index);
+      ForwardDeadReckonLegalMoveInfo result = parent.masterListAsArray[index];
       index = parent.contents[roleIndex].nextSetBit(index + 1);
       return result;
     }
@@ -173,6 +174,7 @@ public class ForwardDeadReckonLegalMoveSet
   public ForwardDeadReckonLegalMoveSet(ForwardDeadReckonLegalMoveSet master)
   {
     masterList = master.masterList;
+    masterListAsArray = master.masterListAsArray;
     roles = master.roles;
     contents = new BitSet[roles.length];
 
@@ -186,6 +188,7 @@ public class ForwardDeadReckonLegalMoveSet
   public ForwardDeadReckonLegalMoveSet(List<Role> roles)
   {
     masterList = new ArrayList<ForwardDeadReckonLegalMoveInfo>();
+    masterListAsArray = null;
     contents = new BitSet[roles.size()];
     this.roles = new Role[roles.size()];
 
@@ -197,9 +200,16 @@ public class ForwardDeadReckonLegalMoveSet
     }
   }
 
-  public List<ForwardDeadReckonLegalMoveInfo> getMasterList()
+  public void crystalize()
   {
-    return masterList;
+    masterListAsArray = new ForwardDeadReckonLegalMoveInfo[masterList.size()];
+    masterList.toArray(masterListAsArray);
+    masterList = null;
+  }
+
+  public ForwardDeadReckonLegalMoveInfo[] getMasterList()
+  {
+    return masterListAsArray;
   }
 
   public void clear()

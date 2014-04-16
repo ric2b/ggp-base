@@ -34,7 +34,7 @@ public abstract class ForwardDeadReckonComponent implements
   //	Empirically the overhead of queuing exceeds the overhead of
   //	requiring slightly more propagation calls to reach equilibrium - for
   //	games tested the extra calls are a tiny percentage
-  protected final boolean                 queuePropagation   = false;
+  protected final static boolean          queuePropagation   = false;
 
   //protected boolean dirty;
   protected boolean[]                     cachedValue;
@@ -68,7 +68,10 @@ public abstract class ForwardDeadReckonComponent implements
 
     cachedValue = new boolean[1];
     lastPropagatedValue = new boolean[1];
-    hasQueuedForPropagation = new boolean[1];
+    if ( queuePropagation )
+    {
+      hasQueuedForPropagation = new boolean[1];
+    }
   }
 
   @Override
@@ -113,7 +116,10 @@ public abstract class ForwardDeadReckonComponent implements
 
     cachedValue = new boolean[numInstances];
     lastPropagatedValue = new boolean[numInstances];
-    hasQueuedForPropagation = new boolean[numInstances];
+    if ( queuePropagation )
+    {
+      hasQueuedForPropagation = new boolean[numInstances];
+    }
   }
 
   @Override
@@ -381,7 +387,10 @@ public abstract class ForwardDeadReckonComponent implements
       lastPropagatedValue[instanceId] = cachedValue[instanceId];
     }
 
-    hasQueuedForPropagation[instanceId] = false;
+    if ( queuePropagation )
+    {
+      hasQueuedForPropagation[instanceId] = false;
+    }
 
     //for(ForwardDeadReckonComponent output : outputsArray)
     //{
@@ -397,7 +406,10 @@ public abstract class ForwardDeadReckonComponent implements
   {
     cachedValue[instanceId] = false;
     lastPropagatedValue[instanceId] = false;
-    hasQueuedForPropagation[instanceId] = false;
+    if ( queuePropagation )
+    {
+      hasQueuedForPropagation[instanceId] = false;
+    }
   }
 
   /**

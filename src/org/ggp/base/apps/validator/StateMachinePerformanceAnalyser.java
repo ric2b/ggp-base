@@ -29,7 +29,7 @@ public class StateMachinePerformanceAnalyser
         //TestPropnetStateMachine theMachine = new TestPropnetStateMachine(new LearningComponentFactory());
         ForwardDeadReckonPropnetStateMachine theMachine = new ForwardDeadReckonPropnetStateMachine();
 
-        System.out.println("Measure game " + gameKey + " state machin performance.");
+        System.out.println("Measure game " + gameKey + " state machine performance.");
 
         List<Gdl> description = theRepository.getGame(gameKey).getRules();
         theMachine.initialize(description);

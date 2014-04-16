@@ -122,6 +122,13 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
       roleIndex++;
     }
 
+    alwaysTrueLegalMoves.crystalize();
+
+    for (int instanceId = 0; instanceId < numInstances; instanceId++)
+    {
+      activeLegalMoves[instanceId].crystalize();
+    }
+
     activeBasePropositions = new ForwardDeadReckonInternalMachineState[numInstances];
     alwaysTrueBasePropositions = new ForwardDeadReckonInternalMachineState(masterInfoSet);
 
@@ -196,7 +203,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
     return activeBasePropositions[instanceId];
   }
 
-  public List<ForwardDeadReckonLegalMoveInfo> getMasterMoveList()
+  public ForwardDeadReckonLegalMoveInfo[] getMasterMoveList()
   {
     return alwaysTrueLegalMoves.getMasterList();
   }
@@ -221,11 +228,21 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
       //	Establish full reset state if required
       if (fullEquilibrium)
       {
-        for (PolymorphicComponent c : getComponents())
+        if ( ForwardDeadReckonComponent.queuePropagation )
         {
-          ((ForwardDeadReckonComponent)c).queuePropagation(instanceId);
+          for (PolymorphicComponent c : getComponents())
+          {
+            ((ForwardDeadReckonComponent)c).queuePropagation(instanceId);
+          }
+          propagate(instanceId);
         }
-        propagate(instanceId);
+        else
+        {
+          for (PolymorphicComponent c : getComponents())
+          {
+            ((ForwardDeadReckonComponent)c).propagate(instanceId);
+          }
+        }
       }
     }
   }
