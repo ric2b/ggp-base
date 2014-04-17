@@ -3685,9 +3685,35 @@ public class OptimizingPolymorphicPropNetFactory
 //    }
 
     Set<PolymorphicComponent> allInputs = new HashSet<>();
+
+    //  Noops can present some issues for factorization in terms of replacement
+    //  or ORs of does props by the not of the OR of their converse.  This is because
+    //  the ability to artificially noop in one factor (for games where there is choice
+    //  of which factor to play in) means that it is no longer true that SOME move is played
+    //  by each player in every factor.  We treat this somewhat empirically by special-casing
+    //  noops and coping with the no-legal-moves case in state transition.  To do this we
+    //  must not add noop to the converse sets when replacing large ORs of does props except
+    //  in the very special case where it was originally an OR of everything except noop.
+    //  Accordingly we need to identify the noops - for now we use the rather iffy test of
+    //  their being a does prop with arity 0 in the move specifier.
+    //  TODO - replace this by a somewhat more robust dependency-based approach (a does prop on
+    //  which no base props are dependent can be considered a noop)
+    Set<PolymorphicComponent> noops = new HashSet<>();
     for (Set<PolymorphicProposition> roleInputs : roleInputMap.values())
     {
       allInputs.addAll(roleInputs);
+
+      for(PolymorphicProposition input : roleInputs)
+      {
+        if ( input.toString().contains("noop"))
+        {
+          System.out.println("noop");
+        }
+        if ( input.getName().get(1).toSentence().arity() == 0 )
+        {
+          noops.add(input);
+        }
+      }
     }
 
     Set<PolymorphicComponent> newComponents = new HashSet<>();
@@ -3733,8 +3759,16 @@ public class OptimizingPolymorphicPropNetFactory
 
               for(PolymorphicComponent input : roleInputMap.get(role))
               {
-                if ( !roleInputs.contains(input))
+                if ( !roleInputs.contains(input) )
                 {
+                  //  Don't add noops to the converse sets - this is somewhat
+                  //  empirical and it would be possible to construct GDL it doesn't work for
+                  //  but it works for the typical idioms that result from distincts and
+                  //  tend to give rise to these large ORs
+                  if ( noops.contains(input) )
+                  {
+                    continue;
+                  }
                   newOr.addInput(input);
                   input.addOutput(newOr);
                 }
@@ -3742,6 +3776,20 @@ public class OptimizingPolymorphicPropNetFactory
                 {
                   c.removeInput(input);
                   input.removeOutput(c);
+                }
+              }
+
+              //  In the special case where nothing is left we need to use the noop since
+              //  it was an OR of every other move previously
+              if ( newOr.getInputs().isEmpty())
+              {
+                for(PolymorphicComponent noop : noops)
+                {
+                  if ( roleInputMap.get(role).contains(noop) && !roleInputs.contains(noop))
+                  {
+                    newOr.addInput(noop);
+                    noop.addOutput(newOr);
+                  }
                 }
               }
 
@@ -3763,7 +3811,7 @@ public class OptimizingPolymorphicPropNetFactory
           }
           else
           {
-            newOutput = pn.getComponentFactory().createOr(-1, -1);
+            newOutput = pn.getComponentFactory().createAnd(-1, -1);
             newComponents.add(newOutput);
 
             for(PolymorphicComponent newNot : newNots)
@@ -3794,12 +3842,6 @@ public class OptimizingPolymorphicPropNetFactory
     {
       pn.removeComponent(c);
     }
-
-//    if (possibleSavings > 0)
-//    {
-//      System.out.println("Possible input connectivity savings: " +
-//                         possibleSavings);
-//    }
   }
 
   private static boolean recursiveCalculateDisjunctiveRoleInputs(PolymorphicComponent c, Set<PolymorphicComponent> inputs, Set<PolymorphicProposition> inputSet, Set<PolymorphicComponent> allowableInputs)

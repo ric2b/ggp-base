@@ -64,9 +64,11 @@ public class FactorFilteredForwardDeadReckonLegalMoveSet implements Collection<F
     {
       ForwardDeadReckonLegalMoveInfo result = availableElement;
 
-      if ( result.inputProposition == null )
+      if ( result.inputProposition == null || result.factor == null )
       {
-        //  We only ever add a pseudo-noop if there isn't a real one
+        //  We only ever add a pseudo-noop if there isn't a real one or
+        //  other multi-factor move (which in practice is essentially going
+        //  to be the same thing)
         includeForcedPseudoNoops = false;
       }
 
