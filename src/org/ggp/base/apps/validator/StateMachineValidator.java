@@ -10,10 +10,7 @@ import org.ggp.base.util.game.GameRepository;
 import org.ggp.base.util.game.LocalGameRepository;
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.logging.GamerLogger;
-import org.ggp.base.util.propnet.polymorphic.learning.LearningComponentFactory;
-import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponentFactory;
 import org.ggp.base.util.statemachine.StateMachine;
-import org.ggp.base.util.statemachine.implementation.propnet.TestPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 import org.ggp.base.util.statemachine.verifier.StateMachineVerifier;
@@ -53,8 +50,8 @@ public class StateMachineValidator
     exceptedGames.add("wallmaze");
     exceptedGames.add("ad_game_2x2");
 
-    String startGame = "reversi"; // Game to begin with if desired
-    boolean foundStartGame = true; // Set to true to just start at the beginning
+    String startGame = "breakthroughWalls"; // Game to begin with if desired
+    boolean foundStartGame = false; // Set to true to just start at the beginning
     boolean stopOnError = true; // Whether to stop on first failing game or continue
 
     Set<String> failureCases = new HashSet<String>();
@@ -71,7 +68,7 @@ public class StateMachineValidator
         //  line in place of the basic prover
         //TestPropnetStateMachine theMachine = new TestPropnetStateMachine(new LearningComponentFactory());
         ForwardDeadReckonPropnetStateMachine theMachine = new ForwardDeadReckonPropnetStateMachine();
-        //StateMachine theMachine = new ProverStateMachine(); // Replace this line with your state machine instantiation           
+        //StateMachine theMachine = new ProverStateMachine(); // Replace this line with your state machine instantiation
 
         System.out.println("Precheck game " + gameKey + ".");
         if (gameKey.equals(startGame))

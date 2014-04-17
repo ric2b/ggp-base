@@ -55,7 +55,7 @@ public class StateMachineVerifier
 
     GamerLogger.emitToConsole("Consistency checking: [");
     int nRound = 0;
-    boolean matchFullStates = false;
+    boolean matchFullStates = true;
     while (true)
     {
       nRound++;
