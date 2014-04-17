@@ -3705,10 +3705,6 @@ public class OptimizingPolymorphicPropNetFactory
 
       for(PolymorphicProposition input : roleInputs)
       {
-        if ( input.toString().contains("noop"))
-        {
-          System.out.println("noop");
-        }
         if ( input.getName().get(1).toSentence().arity() == 0 )
         {
           noops.add(input);
@@ -3748,6 +3744,16 @@ public class OptimizingPolymorphicPropNetFactory
 
           removedComponents.add(c);
 
+          //  If we wind up with JUST noops for all roles then actually
+          //  since all roles must have a move this is just TRUE, so detect this
+          //  case.  Also note that if we DO perform this optimization then the
+          //  net is no longer suitable for factorization because the introduction
+          //  of a factor pseudo-noop will break the all-must-have-a-move assumption
+          //  TODO - this case is really rare (just Pentago/PentagoSuicide that I know of)
+          //  and does not occur in any known factorized game, but at some point we should add
+          //  a factorization inhibitor such that if a game arises in which the network does
+          //  go through this transform then it cannot be played factored
+          boolean noopsOnly = true;
           for (Role role : pn.getRoles())
           {
             Set<PolymorphicComponent> roleInputs = disjunctiveInputs.get(role);
@@ -3755,7 +3761,6 @@ public class OptimizingPolymorphicPropNetFactory
             if ( roleInputs != null )
             {
               PolymorphicOr newOr = pn.getComponentFactory().createOr(-1, -1);
-              newComponents.add(newOr);
 
               for(PolymorphicComponent input : roleInputMap.get(role))
               {
@@ -3783,23 +3788,65 @@ public class OptimizingPolymorphicPropNetFactory
               //  it was an OR of every other move previously
               if ( newOr.getInputs().isEmpty())
               {
-                for(PolymorphicComponent noop : noops)
+                //  Asymmetric cases where it was all moves for one role but a specific
+                //  subset for another should NOT include the noop for the non-gating role
+                if ( noopsOnly )
                 {
-                  if ( roleInputMap.get(role).contains(noop) && !roleInputs.contains(noop))
+                  for(PolymorphicComponent noop : noops)
                   {
-                    newOr.addInput(noop);
-                    noop.addOutput(newOr);
+                    if ( roleInputMap.get(role).contains(noop) && !roleInputs.contains(noop))
+                    {
+                      newOr.addInput(noop);
+                      noop.addOutput(newOr);
+                    }
+                  }
+                }
+              }
+              else
+              {
+                //  Asymmetric cases where it was all moves for one role but a specific
+                //  subset for another should NOT include the noop for the non-gating role
+                if ( noopsOnly && !newNots.isEmpty() )
+                {
+                  newNots.clear();
+                }
+                noopsOnly = false;
+
+                if ( disjunctiveInputs.size() == 1 )
+                {
+                  for(PolymorphicComponent noop : noops)
+                  {
+                    if ( roleInputMap.get(role).contains(noop) && !roleInputs.contains(noop))
+                    {
+                      newOr.addInput(noop);
+                      noop.addOutput(newOr);
+                    }
                   }
                 }
               }
 
-              PolymorphicNot newNot = pn.getComponentFactory().createNot(-1);
+              if ( !newOr.getInputs().isEmpty() )
+              {
+                PolymorphicNot newNot = pn.getComponentFactory().createNot(-1);
 
-              newOr.addOutput(newNot);
-              newNot.addInput(newOr);
+                if ( newOr.getInputs().size() > 1 )
+                {
+                  newComponents.add(newOr);
+                  newOr.addOutput(newNot);
+                  newNot.addInput(newOr);
+                }
+                else
+                {
+                  PolymorphicComponent source = newOr.getSingleInput();
 
-              newNots.add(newNot);
-              newComponents.add(newNot);
+                  source.removeOutput(newOr);
+                  source.addOutput(newNot);
+                  newNot.addInput(source);
+                }
+
+                newNots.add(newNot);
+                newComponents.add(newNot);
+              }
             }
           }
 
@@ -3811,14 +3858,21 @@ public class OptimizingPolymorphicPropNetFactory
           }
           else
           {
-            newOutput = pn.getComponentFactory().createAnd(-1, -1);
-            newComponents.add(newOutput);
-
-            for(PolymorphicComponent newNot : newNots)
+            if ( noopsOnly )
             {
-              newNot.addOutput(newOutput);
-              newOutput.addInput(newNot);
+              newOutput = pn.getComponentFactory().createConstant(-1, true);
             }
+            else
+            {
+              newOutput = pn.getComponentFactory().createAnd(-1, -1);
+
+              for(PolymorphicComponent newNot : newNots)
+              {
+                newNot.addOutput(newOutput);
+                newOutput.addInput(newNot);
+              }
+            }
+            newComponents.add(newOutput);
           }
 
           for(PolymorphicComponent output : c.getOutputs())
