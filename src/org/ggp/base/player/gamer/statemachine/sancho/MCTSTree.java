@@ -52,7 +52,7 @@ public class MCTSTree
   }
 
 
-  final boolean                                        freeCompletedNodeChildren                   = false;                                                          //true;
+  final boolean                                        freeCompletedNodeChildren                   = true;                                                          //true;
   final boolean                                        disableOnelevelMinimax                      = true;
   /**
    * For reasons not well understood, allowing select() to select complete children and propagate
