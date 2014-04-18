@@ -1,14 +1,7 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
-
-import org.ggp.base.util.propnet.architecture.Component;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicOr;
-import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
 /**
  * The Or class is designed to represent logical OR gates.
@@ -49,20 +42,21 @@ public final class ForwardDeadReckonOr extends ForwardDeadReckonComponent
                                    int instanceId,
                                    ForwardDeadReckonComponent source)
   {
+    int count;
     //validate();
 
     if (newState)
     {
-      trueInputCount[instanceId]++;
+      count = ++trueInputCount[instanceId];
     }
     else
     {
-      trueInputCount[instanceId]--;
+      count = --trueInputCount[instanceId];
     }
 
-    if (cachedValue[instanceId] != (trueInputCount[instanceId] != 0))
+    if (cachedValue[instanceId] != (count != 0))
     {
-      cachedValue[instanceId] = (trueInputCount[instanceId] != 0);
+      cachedValue[instanceId] = (count != 0);
 
       if (queuePropagation)
       {

@@ -1,16 +1,7 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Set;
-
-import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
-import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
 
 /**
@@ -49,19 +40,21 @@ public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
                                    int instanceId,
                                    ForwardDeadReckonComponent source)
   {
+    int count;
+
     if (newState)
     {
-      falseInputCount[instanceId]--;
+      count = --falseInputCount[instanceId];
     }
     else
     {
-      falseInputCount[instanceId]++;
+      count = ++falseInputCount[instanceId];
     }
     //System.out.println("AND " + Integer.toHexString(hashCode()) + " with value " + cachedValue + " received new input " + newState + ", causing false count to become " + falseInputCount);
 
-    if (cachedValue[instanceId] != (falseInputCount[instanceId] == 0))
+    if (cachedValue[instanceId] != (count == 0))
     {
-      cachedValue[instanceId] = (falseInputCount[instanceId] == 0);
+      cachedValue[instanceId] = (count == 0);
       //System.out.println("AND value set to "+ cachedValue);
 
       if (queuePropagation)
