@@ -11,30 +11,22 @@ public final class ForwardDeadReckonOr extends ForwardDeadReckonComponent
                                                                          implements
                                                                          PolymorphicOr
 {
-  int[] trueInputCount;
-
   public ForwardDeadReckonOr(int numInputs, int numOutputs)
   {
     super(numInputs, numOutputs);
-
-    trueInputCount = new int[1];
-    trueInputCount[0] = 0;
   }
 
   @Override
   public void reset(int instanceId)
   {
     super.reset(instanceId);
-    cachedValue[instanceId] = false;
-    trueInputCount[instanceId] = 0;
+    state[instanceId] = 0;
   }
 
   @Override
   public void crystalize(int numInstances)
   {
     super.crystalize(numInstances);
-
-    trueInputCount = new int[numInstances];
   }
 
   @Override
@@ -42,21 +34,29 @@ public final class ForwardDeadReckonOr extends ForwardDeadReckonComponent
                                    int instanceId,
                                    ForwardDeadReckonComponent source)
   {
-    int count;
+    int stateVal;
     //validate();
 
     if (newState)
     {
-      count = ++trueInputCount[instanceId];
+      stateVal = ++state[instanceId];
     }
     else
     {
-      count = --trueInputCount[instanceId];
+      stateVal = --state[instanceId];
     }
 
-    if (cachedValue[instanceId] != (count != 0))
+    boolean countNonZero = ((stateVal & opaqueValueMask) != 0);
+    if (((stateVal & cachedStateMask) != 0) != countNonZero)
     {
-      cachedValue[instanceId] = (count != 0);
+      if ( countNonZero )
+      {
+        state[instanceId] |= cachedStateMask;
+      }
+      else
+      {
+        state[instanceId] &= ~cachedStateMask;
+      }
 
       if (queuePropagation)
       {
@@ -72,7 +72,7 @@ public final class ForwardDeadReckonOr extends ForwardDeadReckonComponent
   @Override
   public void validate()
   {
-    for (int instanceId = 0; instanceId < cachedValue.length; instanceId++)
+    for (int instanceId = 0; instanceId < state.length; instanceId++)
     {
       int trueInputCount = 0;
 
@@ -85,7 +85,7 @@ public final class ForwardDeadReckonOr extends ForwardDeadReckonComponent
         }
       }
 
-      if ((trueInputCount != 0) != cachedValue[instanceId])
+      if ((trueInputCount != 0) != ((state[instanceId] & cachedStateMask) != 0))
       {
         System.out.println("Validation failure for " + toString());
       }

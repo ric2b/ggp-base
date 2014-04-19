@@ -37,8 +37,10 @@ public abstract class ForwardDeadReckonComponent implements
   protected final static boolean          queuePropagation   = false;
 
   //protected boolean dirty;
-  protected boolean[]                     cachedValue;
-  protected boolean[]                     lastPropagatedValue;
+  protected int[]                         state;
+  protected final int                     cachedStateMask = 1<<31;
+  protected final int                     lastPropagatedStateMask = 1<<30;
+  protected final int                     opaqueValueMask = ~(cachedStateMask | lastPropagatedStateMask);
 
   public static int                       numPropagates      = 0;
   public static int                       numGatesPropagated = 0;
@@ -66,8 +68,7 @@ public abstract class ForwardDeadReckonComponent implements
       outputsList = null;
     }
 
-    cachedValue = new boolean[1];
-    lastPropagatedValue = new boolean[1];
+    state = new int[1];
     if ( queuePropagation )
     {
       hasQueuedForPropagation = new boolean[1];
@@ -114,8 +115,7 @@ public abstract class ForwardDeadReckonComponent implements
   {
     crystalize();
 
-    cachedValue = new boolean[numInstances];
-    lastPropagatedValue = new boolean[numInstances];
+    state = new int[numInstances];
     if ( queuePropagation )
     {
       hasQueuedForPropagation = new boolean[numInstances];
@@ -315,7 +315,7 @@ public abstract class ForwardDeadReckonComponent implements
   @Override
   public boolean getValue()
   {
-    return cachedValue[0];
+    return (state[0] & cachedStateMask) != 0;
   }
 
   /**
@@ -326,22 +326,22 @@ public abstract class ForwardDeadReckonComponent implements
   @Override
   public boolean getValue(int instanceId)
   {
-    return cachedValue[instanceId];
+    return (state[instanceId] & cachedStateMask) != 0;
   }
 
   public boolean getLastPropagatedValue(int instanceId)
   {
-    return lastPropagatedValue[instanceId];
+    return (state[instanceId] & lastPropagatedStateMask) != 0;
   }
 
   public void validate()
   {
-    for (int instanceId = 0; instanceId < cachedValue.length; instanceId++)
+    for (int instanceId = 0; instanceId < state.length; instanceId++)
     {
       if (inputIndex == 1 &&
           !(getSingleInput() instanceof PolymorphicTransition))
       {
-        if (cachedValue[instanceId] != inputsArray[0]
+        if (((state[instanceId] & cachedStateMask) != 0) != inputsArray[0]
             .getLastPropagatedValue(instanceId))
         {
           System.out.println("Validation failure for " + toString());
@@ -356,7 +356,8 @@ public abstract class ForwardDeadReckonComponent implements
     //{
     //	output.validate();
     //}
-    if (lastPropagatedValue[instanceId] != cachedValue[instanceId])
+    int stateVal = state[instanceId];
+    if (((stateVal & lastPropagatedStateMask) != 0) != ((stateVal & cachedStateMask) != 0))
     {
       if (!hasQueuedForPropagation[instanceId] && outputIndex > 0)
       {
@@ -376,15 +377,24 @@ public abstract class ForwardDeadReckonComponent implements
     //}
 
     //System.out.println("Component " + Integer.toHexString(hashCode()) + " changing from " + lastPropagatedValue + " to " + cachedValue);
-    if (lastPropagatedValue[instanceId] != cachedValue[instanceId])
+    int stateVal = state[instanceId];
+    boolean cachedVal = ((stateVal & cachedStateMask) != 0);
+    if (((stateVal & lastPropagatedStateMask) != 0) != cachedVal)
     {
       //numPropagates++;
       for (ForwardDeadReckonComponent output : outputsArray)
       {
-        output.setKnownChangedState(cachedValue[instanceId], instanceId, this);
+        output.setKnownChangedState(cachedVal, instanceId, this);
       }
 
-      lastPropagatedValue[instanceId] = cachedValue[instanceId];
+      if ( cachedVal )
+      {
+        state[instanceId] |= lastPropagatedStateMask;
+      }
+      else
+      {
+        state[instanceId] &= ~lastPropagatedStateMask;
+      }
     }
 
     if ( queuePropagation )
@@ -404,8 +414,7 @@ public abstract class ForwardDeadReckonComponent implements
 
   public void reset(int instanceId)
   {
-    cachedValue[instanceId] = false;
-    lastPropagatedValue[instanceId] = false;
+    state[instanceId] = 0;
     if ( queuePropagation )
     {
       hasQueuedForPropagation[instanceId] = false;

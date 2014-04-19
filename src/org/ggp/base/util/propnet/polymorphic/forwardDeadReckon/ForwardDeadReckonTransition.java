@@ -25,7 +25,15 @@ public final class ForwardDeadReckonTransition extends
                                    int instanceId,
                                    ForwardDeadReckonComponent source)
   {
-    cachedValue[instanceId] = newState;
+    if ( newState )
+    {
+      state[instanceId] |= cachedStateMask;
+    }
+    else
+    {
+      state[instanceId] &= ~cachedStateMask;
+    }
+
     if (owningTransitionInfoSet[instanceId] != null)
     {
       //ProfileSection methodSection = new ProfileSection("ForwardDeadReckonTransition.legalStateChange");

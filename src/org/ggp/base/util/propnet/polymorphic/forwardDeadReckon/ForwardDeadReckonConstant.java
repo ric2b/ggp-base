@@ -17,7 +17,7 @@ public final class ForwardDeadReckonConstant extends
 
   /**
    * Creates a new Constant with value <tt>value</tt>.
-   * 
+   *
    * @param value
    *          The value of the Constant.
    */
@@ -29,7 +29,7 @@ public final class ForwardDeadReckonConstant extends
 
   /**
    * Gets the value of the Component.
-   * 
+   *
    * @return The value of the Component.
    */
   @Override
@@ -49,7 +49,14 @@ public final class ForwardDeadReckonConstant extends
   public void reset(int instanceId)
   {
     super.reset(instanceId);
-    cachedValue[instanceId] = value;
+    if ( value )
+    {
+      state[instanceId] |= cachedStateMask;
+    }
+    else
+    {
+      state[instanceId] &= ~cachedStateMask;
+    }
   }
 
   /**

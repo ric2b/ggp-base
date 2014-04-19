@@ -12,8 +12,6 @@ public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
                                                                           implements
                                                                           PolymorphicAnd
 {
-  private int[] falseInputCount;
-
   public ForwardDeadReckonAnd(int numInputs, int numOutput)
   {
     super(numInputs, numOutput);
@@ -23,16 +21,13 @@ public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
   public void reset(int instanceId)
   {
     super.reset(instanceId);
-    cachedValue[instanceId] = false;
-    falseInputCount[instanceId] = inputsArray.length;
+    state[instanceId] = inputsArray.length;
   }
 
   @Override
   public void crystalize(int numInstances)
   {
     super.crystalize(numInstances);
-
-    falseInputCount = new int[numInstances];
   }
 
   @Override
@@ -40,22 +35,30 @@ public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
                                    int instanceId,
                                    ForwardDeadReckonComponent source)
   {
-    int count;
+    int stateVal;
 
     if (newState)
     {
-      count = --falseInputCount[instanceId];
+      stateVal = --state[instanceId];
     }
     else
     {
-      count = ++falseInputCount[instanceId];
+      stateVal = ++state[instanceId];
     }
     //System.out.println("AND " + Integer.toHexString(hashCode()) + " with value " + cachedValue + " received new input " + newState + ", causing false count to become " + falseInputCount);
 
-    if (cachedValue[instanceId] != (count == 0))
+    boolean countIsZero = ((stateVal & opaqueValueMask) == 0);
+    if (((state[instanceId] & cachedStateMask) != 0) != countIsZero)
     {
-      cachedValue[instanceId] = (count == 0);
-      //System.out.println("AND value set to "+ cachedValue);
+      if ( countIsZero )
+      {
+        state[instanceId] |= cachedStateMask;
+      }
+      else
+      {
+        state[instanceId] &= ~cachedStateMask;
+      }
+       //System.out.println("AND value set to "+ cachedValue);
 
       if (queuePropagation)
       {
@@ -71,7 +74,7 @@ public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
   @Override
   public void validate()
   {
-    for (int instanceId = 0; instanceId < cachedValue.length; instanceId++)
+    for (int instanceId = 0; instanceId < state.length; instanceId++)
     {
       int falseInputCount = 0;
 
@@ -84,7 +87,7 @@ public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
         }
       }
 
-      if ((falseInputCount == 0) != cachedValue[instanceId])
+      if ((falseInputCount == 0) != ((state[instanceId] & cachedStateMask) != 0))
       {
         System.out.println("Validation failure for " + toString());
       }

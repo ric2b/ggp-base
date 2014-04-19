@@ -1,10 +1,7 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
-import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicNot;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
-import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
 /**
  * The Not class is designed to represent logical NOT gates.
@@ -24,7 +21,14 @@ public final class ForwardDeadReckonNot extends ForwardDeadReckonComponent
                                    int instanceId,
                                    ForwardDeadReckonComponent source)
   {
-    cachedValue[instanceId] = !newState;
+    if ( !newState )
+    {
+      state[instanceId] |= cachedStateMask;
+    }
+    else
+    {
+      state[instanceId] &= ~cachedStateMask;
+    }
 
     if (queuePropagation)
     {
@@ -40,15 +44,15 @@ public final class ForwardDeadReckonNot extends ForwardDeadReckonComponent
   public void reset(int instanceId)
   {
     super.reset(instanceId);
-    cachedValue[instanceId] = true;
+    state[instanceId] |= cachedStateMask;
   }
 
   @Override
   public void validate()
   {
-    for (int instanceId = 0; instanceId < cachedValue.length; instanceId++)
+    for (int instanceId = 0; instanceId < state.length; instanceId++)
     {
-      if (cachedValue[instanceId] != !inputsArray[0]
+      if (((state[instanceId] & cachedStateMask) != 0) != !inputsArray[0]
           .getLastPropagatedValue(instanceId))
       {
         System.out.println("Validation failure for " + toString());

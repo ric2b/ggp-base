@@ -87,7 +87,14 @@ public final class ForwardDeadReckonProposition extends
                                    int instanceId,
                                    ForwardDeadReckonComponent source)
   {
-    cachedValue[instanceId] = newState;
+    if ( newState )
+    {
+      state[instanceId] |= cachedStateMask;
+    }
+    else
+    {
+      state[instanceId] &= ~cachedStateMask;
+    }
 
     if (owningMoveSet[instanceId] != null)
     {
@@ -127,9 +134,16 @@ public final class ForwardDeadReckonProposition extends
    */
   public void setValue(boolean value, int instanceId)
   {
-    if (cachedValue[instanceId] != value)
+    if (((state[instanceId] & cachedStateMask) != 0) != value)
     {
-      cachedValue[instanceId] = value;
+      if ( value )
+      {
+        state[instanceId] |= cachedStateMask;
+      }
+      else
+      {
+        state[instanceId] &= ~cachedStateMask;
+      }
 
       if (queuePropagation)
       {
@@ -148,7 +162,7 @@ public final class ForwardDeadReckonProposition extends
   @Override
   public String toString()
   {
-    return toDot("circle", cachedValue[0] ? "red" : "white", name.toString());
+    return toDot("circle", (state[0] & cachedStateMask) != 0 ? "red" : "white", name.toString());
   }
 
   @Override
