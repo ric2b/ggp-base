@@ -18,6 +18,7 @@ import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.profile.ProfilerContext;
+import org.ggp.base.util.profile.ProfilerSampleSetSimple;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
@@ -157,7 +158,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.57b";
+    return "Sancho 1.57d";
   }
 
   @Override
@@ -488,6 +489,11 @@ public class Sancho extends SampleGamer
         (Math.abs(branchingFactorApproximation - averageBranchingFactor) > 0.1 || (maxNumTurns > 30 && maxNumTurns != minNumTurns)))
     {
       gameCharacteristics.isIteratedGame = false;
+    }
+
+    if ( maxNumTurns == minNumTurns )
+    {
+      gameCharacteristics.setIsFixedMoveCount();
     }
 
     //  Dump the game characteristics to trace output

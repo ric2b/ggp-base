@@ -1292,6 +1292,80 @@ public class TreeNode
     return false;
   }
 
+  private final boolean expandInOnePass = false;
+
+  private void calculateTerminalityAndAutoExpansion() throws MoveDefinitionException, GoalDefinitionException
+  {
+    if (tree.underlyingStateMachine.isTerminal(state))
+    {
+      isTerminal = true;
+
+      for (int i = 0; i < tree.numRoles; i++)
+      {
+        averageScores[i] = tree.underlyingStateMachine
+            .getGoal(tree.roleOrdering.roleIndexToRole(i));
+        averageSquaredScores[i] = 0;
+      }
+
+      //  Add win bonus
+      for (int i = 0; i < tree.numRoles; i++)
+      {
+        double iScore = averageScores[i];
+        tree.bonusBuffer[i] = 0;
+
+        for (int j = 0; j < tree.numRoles; j++)
+        {
+          if (j != i)
+          {
+            double jScore = averageScores[j];
+
+            if (iScore >= jScore)
+            {
+              double bonus = tree.gameCharacteristics.getCompetitivenessBonus();
+
+              if (iScore > jScore)
+              {
+                bonus *= 2;
+              }
+
+              tree.bonusBuffer[i] += bonus;
+            }
+          }
+        }
+      }
+
+      for (int i = 0; i < tree.numRoles; i++)
+      {
+        averageScores[i] = ((averageScores[i] + tree.bonusBuffer[i]) * 100) /
+            (100 + 2 * (tree.numRoles - 1) *
+                tree.gameCharacteristics.getCompetitivenessBonus());
+      }
+    }
+    else
+    {
+      int nonNoopCount = 0;
+
+      for(int i = 0; i < tree.numRoles && nonNoopCount < 2; i++ )
+      {
+        for(ForwardDeadReckonLegalMoveInfo info : tree.underlyingStateMachine.getLegalMoves(state, tree.roleOrdering.roleIndexToRole(i), tree.factor))
+        {
+          if ( info.inputProposition != null )
+          {
+            if ( nonNoopCount++ > 0 )
+            {
+              break;
+            }
+          }
+        }
+      }
+
+      if ( nonNoopCount == 1 )
+      {
+        autoExpand = true;
+      }
+    }
+  }
+
   public void expand(TreeEdge from)
       throws MoveDefinitionException, TransitionDefinitionException,
       GoalDefinitionException
@@ -1299,6 +1373,17 @@ public class TreeNode
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.expand");
     try
     {
+      if ( !tree.evaluateTerminalOnNodeCreation && children == null )
+      {
+        calculateTerminalityAndAutoExpansion();
+
+        if (isTerminal)
+        {
+          markComplete(averageScores);
+          return;
+        }
+      }
+
       if (children == null || trimmedChildren > 0)
       {
         //	Find the role this node is choosing for
@@ -1332,6 +1417,7 @@ public class TreeNode
           }
         }
 
+        int firstNewIndex = index;
         while (index < newChildren.length)
         {
           TreeEdge newEdge = new TreeEdge(tree.numRoles);
@@ -1383,115 +1469,92 @@ public class TreeNode
             newChild.state = state;
             newChild.autoExpand = autoExpand;
           }
-          else
+
+          if ( expandInOnePass )
           {
-            if (tree.underlyingStateMachine.isTerminal(newState))
+            if ( tree.evaluateTerminalOnNodeCreation )
             {
-              newChild.isTerminal = true;
-
-              for (int i = 0; i < tree.numRoles; i++)
-              {
-                newChild.averageScores[i] = tree.underlyingStateMachine
-                    .getGoal(tree.roleOrdering.roleIndexToRole(i));
-                newChild.averageSquaredScores[i] = 0;
-              }
-
-              //	Add win bonus
-              for (int i = 0; i < tree.numRoles; i++)
-              {
-                double iScore = newChild.averageScores[i];
-                tree.bonusBuffer[i] = 0;
-
-                for (int j = 0; j < tree.numRoles; j++)
-                {
-                  if (j != i)
-                  {
-                    double jScore = newChild.averageScores[j];
-
-                    if (iScore >= jScore)
-                    {
-                      double bonus = tree.gameCharacteristics.getCompetitivenessBonus();
-
-                      if (iScore > jScore)
-                      {
-                        bonus *= 2;
-                      }
-
-                      tree.bonusBuffer[i] += bonus;
-                    }
-                  }
-                }
-              }
-
-              for (int i = 0; i < tree.numRoles; i++)
-              {
-                newChild.averageScores[i] = ((newChild.averageScores[i] + tree.bonusBuffer[i]) * 100) /
-                    (100 + 2 * (tree.numRoles - 1) *
-                        tree.gameCharacteristics.getCompetitivenessBonus());
-              }
+              newChild.calculateTerminalityAndAutoExpansion();
             }
-            else
+
+            // Determine the heuristic value for this child (provided that it's a new non-terminal child).
+            int lSampleWeight = tree.heuristic.getSampleWeight();
+            if ((newChild.numVisits == 0) &&
+                (!newChild.isTerminal) &&
+                (lSampleWeight > 0) &&
+                !newChild.autoExpand)
             {
-              boolean foundNonNoop = false;
-              boolean isForcedMove = true;
+              double[] heuristicScores = tree.heuristic.getHeuristicValue(newChild.state, state);
+              double heuristicSquaredDeviation = 0;
 
-              for(int i = 0; i < tree.numRoles; i++ )
+              //validateScoreVector(heuristicScores);
+
+              // Set the heuristic values, although note that this doesn't actually apply them.  There need to be some
+              // recorded samples before the averageScores have any meaning.
+              for (int i = 0; i < tree.numRoles; i++)
               {
-                for(ForwardDeadReckonLegalMoveInfo info : tree.underlyingStateMachine.getLegalMoves(newState, tree.roleOrdering.roleIndexToRole(i), tree.factor))
-                {
-                  if ( info.inputProposition != null )
-                  {
-                    if ( foundNonNoop )
-                    {
-                      isForcedMove = false;
-                      break;
-                    }
-
-                    foundNonNoop = true;
-                  }
-                }
+                newChild.averageScores[i] = heuristicScores[i];
+                double lDeviation = tree.root.averageScores[i] - heuristicScores[i];
+                heuristicSquaredDeviation += (lDeviation * lDeviation);
               }
 
-              if ( foundNonNoop && isForcedMove )
+              // Only apply the heuristic values if the current root has sufficient visits and there is some deviation
+              // between the root's scores and the heuristic scores in the new child.
+              if (heuristicSquaredDeviation > 0.01 && tree.root.numVisits > 50)
               {
-                newChild.autoExpand = true;
+                // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
+                // the new child.
+                newChild.numUpdates = lSampleWeight;
+                newChild.numVisits = lSampleWeight;
               }
             }
           }
-
-          // Determine the heuristic value for this child (provided that it's a new non-terminal child).
-          int lSampleWeight = tree.heuristic.getSampleWeight();
-          if ((newChild.numVisits == 0) &&
-              (!newChild.isTerminal) &&
-              (lSampleWeight > 0) &&
-              !newChild.autoExpand)
-          {
-            double[] heuristicScores = tree.heuristic.getHeuristicValue(newChild.state, state);
-            double heuristicSquaredDeviation = 0;
-
-            //validateScoreVector(heuristicScores);
-
-            // Set the heuristic values, although note that this doesn't actually apply them.  There need to be some
-            // recorded samples before the averageScores have any meaning.
-            for (int i = 0; i < tree.numRoles; i++)
-            {
-              newChild.averageScores[i] = heuristicScores[i];
-              double lDeviation = tree.root.averageScores[i] - heuristicScores[i];
-              heuristicSquaredDeviation += (lDeviation * lDeviation);
-            }
-
-            // Only apply the heuristic values if the current root has sufficient visits and there is some deviation
-            // between the root's scores and the heuristic scores in the new child.
-            if (heuristicSquaredDeviation > 0.01 && tree.root.numVisits > 50)
-            {
-              // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
-              // the new child.
-              newChild.numUpdates = lSampleWeight;
-              newChild.numVisits = lSampleWeight;
-            }
-          }
-
           index++;
+        }
+
+        if (!expandInOnePass && roleIndex == tree.numRoles - 1)
+        {
+          for (index = firstNewIndex; index < newChildren.length; index++)
+          {
+            TreeNode newChild = newChildren[index].child.node;
+
+            if ( tree.evaluateTerminalOnNodeCreation )
+            {
+              newChild.calculateTerminalityAndAutoExpansion();
+            }
+
+            // Determine the heuristic value for this child (provided that it's a new non-terminal child).
+            int lSampleWeight = tree.heuristic.getSampleWeight();
+            if ((newChild.numVisits == 0) &&
+                (!newChild.isTerminal) &&
+                (lSampleWeight > 0) &&
+                !newChild.autoExpand)
+            {
+              double[] heuristicScores = tree.heuristic.getHeuristicValue(newChild.state, state);
+              double heuristicSquaredDeviation = 0;
+
+              //validateScoreVector(heuristicScores);
+
+              // Set the heuristic values, although note that this doesn't actually apply them.  There need to be some
+              // recorded samples before the averageScores have any meaning.
+              for (int i = 0; i < tree.numRoles; i++)
+              {
+                newChild.averageScores[i] = heuristicScores[i];
+                double lDeviation = tree.root.averageScores[i] - heuristicScores[i];
+                heuristicSquaredDeviation += (lDeviation * lDeviation);
+              }
+
+              // Only apply the heuristic values if the current root has sufficient visits and there is some deviation
+              // between the root's scores and the heuristic scores in the new child.
+              if (heuristicSquaredDeviation > 0.01 && tree.root.numVisits > 50)
+              {
+                // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
+                // the new child.
+                newChild.numUpdates = lSampleWeight;
+                newChild.numVisits = lSampleWeight;
+              }
+            }
+          }
         }
 
         children = newChildren;
@@ -1508,28 +1571,31 @@ public class TreeNode
           }
         }
 
-        boolean completeChildFound = false;
-
-        for (TreeEdge edge : children)
+        if ( tree.evaluateTerminalOnNodeCreation )
         {
-          TreeNodeRef cr = edge.child;
-          if (cr.seq >= 0 && cr.node.seq == cr.seq)
+          boolean completeChildFound = false;
+
+          for (TreeEdge edge : children)
           {
-            if (cr.node.isTerminal)
+            TreeNodeRef cr = edge.child;
+            if (cr.seq >= 0 && cr.node.seq == cr.seq)
             {
-              cr.node.markComplete(cr.node.averageScores);
-              completeChildFound = true;
-            }
-            if (cr.node.complete)
-            {
-              completeChildFound = true;
+              if (cr.node.isTerminal)
+              {
+                cr.node.markComplete(cr.node.averageScores);
+                completeChildFound = true;
+              }
+              if (cr.node.complete)
+              {
+                completeChildFound = true;
+              }
             }
           }
-        }
 
-        if (completeChildFound && !complete)
-        {
-          checkChildCompletion(true);
+          if (completeChildFound && !complete)
+          {
+            checkChildCompletion(true);
+          }
         }
         //validateAll();
       }

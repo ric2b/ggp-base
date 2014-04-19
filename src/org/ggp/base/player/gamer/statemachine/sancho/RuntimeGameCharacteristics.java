@@ -13,6 +13,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private double                                               moveActionHistoryBias                       = 0;
   private int                                                  rolloutSampleSize                           = 4;
   final double                                                 competitivenessBonus                        = 2;
+  private boolean                                              isFixedMoveCount                            = false;
 
   public RuntimeGameCharacteristics(int numRoles)
   {
@@ -57,5 +58,15 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   public double getCompetitivenessBonus()
   {
     return competitivenessBonus;
+  }
+
+  public void setIsFixedMoveCount()
+  {
+    isFixedMoveCount = true;
+  }
+
+  public boolean getIsFixedMoveCount()
+  {
+    return isFixedMoveCount;
   }
 }

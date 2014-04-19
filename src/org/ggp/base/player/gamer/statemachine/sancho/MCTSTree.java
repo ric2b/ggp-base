@@ -93,6 +93,7 @@ public class MCTSTree
   RolloutProcessorPool                                 rolloutPool;
   RuntimeGameCharacteristics                           gameCharacteristics;
   Factor                                               factor;
+  boolean                                              evaluateTerminalOnNodeCreation;
 
   public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
                   Factor factor,
@@ -110,6 +111,8 @@ public class MCTSTree
     this.heuristic = heuristic;
     this.gameCharacteristics = gameCharacateristics;
     this.rolloutPool = rolloutPool;
+
+    evaluateTerminalOnNodeCreation = !gameCharacteristics.getIsFixedMoveCount();
 
     nodeMoveWeightsCache = new LRUNodeMoveWeightsCache(5000);
 
