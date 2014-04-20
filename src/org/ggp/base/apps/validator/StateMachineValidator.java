@@ -50,7 +50,7 @@ public class StateMachineValidator
     exceptedGames.add("wallmaze");
     exceptedGames.add("ad_game_2x2");
 
-    String startGame = "breakthroughWalls"; // Game to begin with if desired
+    String startGame = "ticTacToe"; // Game to begin with if desired
     boolean foundStartGame = false; // Set to true to just start at the beginning
     boolean stopOnError = true; // Whether to stop on first failing game or continue
 

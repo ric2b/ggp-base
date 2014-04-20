@@ -46,6 +46,8 @@ public abstract class ForwardDeadReckonComponent implements
   public static int                       numGatesPropagated = 0;
   public boolean[]                        hasQueuedForPropagation;
 
+  public int                              id;
+
   private long                            signature          = 0;
 
   /**
@@ -411,6 +413,8 @@ public abstract class ForwardDeadReckonComponent implements
   public abstract void setKnownChangedState(boolean newState,
                                             int instanceId,
                                             ForwardDeadReckonComponent source);
+
+  public abstract void noteNewValue(int instanceId, boolean value);
 
   public void reset(int instanceId)
   {

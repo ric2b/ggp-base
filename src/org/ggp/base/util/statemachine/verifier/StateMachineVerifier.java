@@ -22,6 +22,7 @@ public class StateMachineVerifier
     {
       if (!state2.getContents().contains(sentence))
       {
+        System.out.println("Sentence is different: " + sentence);
         return false;
       }
     }
@@ -31,6 +32,7 @@ public class StateMachineVerifier
     {
       if (!state1.getContents().contains(sentence))
       {
+        System.out.println("Sentence is different: " + sentence);
         return false;
       }
     }

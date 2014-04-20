@@ -32,6 +32,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
   private ForwardDeadReckonInternalMachineState[] activeBasePropositions;
   private ForwardDeadReckonInternalMachineState   alwaysTrueBasePropositions;
   private int                                     numInstances;
+  private ForwardDeadReckonPropnetFastAnimator    animator = null;
 
   public ForwardDeadReckonPropNet(PropNet sourcePropnet,
                                   PolymorphicComponentFactory componentFactory)
@@ -173,6 +174,9 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
 
     setUpActivePropositionSets(masterInfoSet);
 
+    animator = new ForwardDeadReckonPropnetFastAnimator(this);
+    animator.crystalize(numInstances);
+
     propagationQueue = new ForwardDeadReckonComponent[numInstances][getComponents()
         .size()];
     alternatePropagationQueue = new ForwardDeadReckonComponent[numInstances][getComponents()
@@ -208,6 +212,28 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
     return alwaysTrueLegalMoves.getMasterList();
   }
 
+  public void setProposition(int instanceId, ForwardDeadReckonProposition p, boolean value)
+  {
+    if ( animator != null )
+    {
+      animator.setComponentValue(instanceId, p.id, value);
+    }
+    else
+    {
+      p.setValue(value, instanceId);
+    }
+  }
+
+  public boolean getTransition(int instanceId, ForwardDeadReckonComponent xiGoalInput)
+  {
+    if ( animator != null )
+    {
+      return animator.getComponentValue(instanceId, xiGoalInput.id);
+    }
+
+    return xiGoalInput.getValue(instanceId);
+  }
+
   public void reset(boolean fullEquilibrium)
   {
     for (int instanceId = 0; instanceId < numInstances; instanceId++)
@@ -221,26 +247,33 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
         activeLegalMoves[instanceId].merge(alwaysTrueLegalMoves);
       }
 
-      for (PolymorphicComponent c : getComponents())
+      if ( animator != null )
       {
-        ((ForwardDeadReckonComponent)c).reset(instanceId);
+        animator.reset(instanceId, fullEquilibrium);
       }
-      //	Establish full reset state if required
-      if (fullEquilibrium)
+      else
       {
-        if ( ForwardDeadReckonComponent.queuePropagation )
+        for (PolymorphicComponent c : getComponents())
         {
-          for (PolymorphicComponent c : getComponents())
-          {
-            ((ForwardDeadReckonComponent)c).queuePropagation(instanceId);
-          }
-          propagate(instanceId);
+          ((ForwardDeadReckonComponent)c).reset(instanceId);
         }
-        else
+        //	Establish full reset state if required
+        if (fullEquilibrium)
         {
-          for (PolymorphicComponent c : getComponents())
+          if ( ForwardDeadReckonComponent.queuePropagation )
           {
-            ((ForwardDeadReckonComponent)c).propagate(instanceId);
+            for (PolymorphicComponent c : getComponents())
+            {
+              ((ForwardDeadReckonComponent)c).queuePropagation(instanceId);
+            }
+            propagate(instanceId);
+          }
+          else
+          {
+            for (PolymorphicComponent c : getComponents())
+            {
+              ((ForwardDeadReckonComponent)c).propagate(instanceId);
+            }
           }
         }
       }

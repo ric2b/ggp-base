@@ -70,6 +70,11 @@ public final class ForwardDeadReckonOr extends ForwardDeadReckonComponent
   }
 
   @Override
+  public void noteNewValue(int instanceId, boolean value)
+  {
+  }
+
+  @Override
   public void validate()
   {
     for (int instanceId = 0; instanceId < state.length; instanceId++)
