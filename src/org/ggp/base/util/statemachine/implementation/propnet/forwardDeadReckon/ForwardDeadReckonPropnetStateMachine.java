@@ -325,6 +325,43 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return new MachineState(terminalSentences);
   }
 
+  /**
+   * Find latches.
+   */
+  // !! ARR Work in progress - will need to return something
+  public void findLatches()
+  {
+    // Look for the simplest kind of latch - some logic turns a base proposition on.  After that, it stays on.
+    //
+    //            Logic
+    //              |
+    //              v
+    // BasePropX -> Or -> Transition -\
+    //     ^                          |
+    //     |                          |
+    //     \__________________________/
+    //
+    // This identifies, for example, the "lost" proposition in base.firefighter and the cell-has-an-x and cell-has-an-o
+    // propositions in TTT (and, presumably, most of the other board-filling games too).
+
+    for (PolymorphicProposition lBaseProp : fullPropNet.getBasePropositionsArray())
+    {
+      PolymorphicTransition lTransition = (PolymorphicTransition)lBaseProp.getSingleInput();
+      PolymorphicComponent lCandidateOr = lTransition.getSingleInput();
+
+      if (lCandidateOr instanceof PolymorphicOr)
+      {
+        for (PolymorphicComponent lFeeder : lCandidateOr.getInputs())
+        {
+          if (lFeeder == lBaseProp)
+          {
+            System.out.println("Latch(+ve): " + lBaseProp);
+          }
+        }
+      }
+    }
+  }
+
   public Set<MachineState> findTerminalStates(int maxResultSet, int maxDepth)
   {
     PolymorphicProposition terminal = fullPropNet.getTerminalProposition();

@@ -18,7 +18,6 @@ import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.profile.ProfilerContext;
-import org.ggp.base.util.profile.ProfilerSampleSetSimple;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
@@ -267,6 +266,9 @@ public class Sancho extends SampleGamer
 
     Collection<Factor> factors = underlyingStateMachine.getFactors();
 
+    // Find (positive) latches
+    underlyingStateMachine.findLatches();
+
     //	Perform a small number of move-by-move simulations to assess how
     //	the potential piece count heuristics behave at the granularity of
     //	a single decision
@@ -386,9 +388,9 @@ public class Sancho extends SampleGamer
     //  then flag the factors as requiring the inclusion of a pseudo-noop as a valid
     //  search choice every move because we'll have to choose whether to play a move
     //  from one factor or another (imposing an artificial noop on the other)
-    if ( gameCharacteristics.moveChoicesFromMultipleFactors )
+    if (gameCharacteristics.moveChoicesFromMultipleFactors)
     {
-      for(Factor factor : factors)
+      for (Factor factor : factors)
       {
         factor.setAlwaysIncludePseudoNoop(true);
       }
@@ -596,8 +598,7 @@ public class Sancho extends SampleGamer
       System.out.println("Puzzle with no observed solution");
 
       MachineState terminalState;
-      Set<MachineState> goalStates = underlyingStateMachine
-          .findGoalStates(getRole(), 90, 100, 20);
+      Set<MachineState> goalStates = underlyingStateMachine.findGoalStates(getRole(), 90, 100, 20);
       //Set<MachineState> goalStates = underlyingStateMachine.findTerminalStates(100,20);
       Set<MachineState> cleanedStates = new HashSet<>();
 
@@ -697,12 +698,11 @@ public class Sancho extends SampleGamer
     }
 
     gameCharacteristics.setRolloutSampleSize(rolloutSampleSize);
-    System.out
-        .println(simulationsPerformed *
-                 1000 /
-                 (simulationStopTime - simulationStartTime) +
-                 " simulations/second performed - setting rollout sample size to " +
-                 rolloutSampleSize);
+    System.out.println(simulationsPerformed *
+                       1000 /
+                       (simulationStopTime - simulationStartTime) +
+                       " simulations/second performed - setting rollout sample size to " +
+                       rolloutSampleSize);
 
     if (ProfilerContext.getContext() != null)
     {
@@ -717,10 +717,15 @@ public class Sancho extends SampleGamer
         gameCharacteristics.setExplorationBias(explorationBias);
       }
 
-      searchProcessor.setup(underlyingStateMachine, initialState, roleOrdering, gameCharacteristics, numRolloutThreads, greedyRolloutsDisabled, heuristic);
-      searchProcessor
-          .startSearch(System.currentTimeMillis() + 60000,
-                       new ForwardDeadReckonInternalMachineState(initialState));
+      searchProcessor.setup(underlyingStateMachine,
+                            initialState,
+                            roleOrdering,
+                            gameCharacteristics,
+                            numRolloutThreads,
+                            greedyRolloutsDisabled,
+                            heuristic);
+      searchProcessor.startSearch(System.currentTimeMillis() + 60000,
+                                  new ForwardDeadReckonInternalMachineState(initialState));
 
       try
       {
