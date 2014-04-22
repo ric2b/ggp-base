@@ -1627,6 +1627,14 @@ public class OptimizingPolymorphicPropNetFactory
       }
     }
 
+    for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
+    {
+      for( PolymorphicProposition c : legals)
+      {
+        recursiveFindReachable(pn, c, reachableComponents);
+      }
+    }
+
     //  What can we eliminate?
     Set<PolymorphicComponent> unreachable = new HashSet<>();
     boolean result = false;
@@ -1653,17 +1661,6 @@ public class OptimizingPolymorphicPropNetFactory
       else if ( !reachableComponents.contains(c) )
       {
         unreachable.add(c);
-      }
-    }
-    for(PolymorphicProposition[] roleLegals : pn.getLegalPropositions().values())
-    {
-      for( PolymorphicProposition c : roleLegals)
-      {
-        if ( !reachableComponents.contains(c))
-        {
-          unreachable.add(c);
-          result = true;
-        }
       }
     }
 
@@ -3182,6 +3179,33 @@ public class OptimizingPolymorphicPropNetFactory
     }
   }
 
+  private static boolean hasNoNonGoalDependents(PolymorphicComponent c)
+  {
+    for(PolymorphicComponent output : c.getOutputs())
+    {
+      if ( output instanceof PolymorphicTransition )
+      {
+        return false;
+      }
+      if ( output instanceof PolymorphicProposition )
+      {
+        GdlConstant name = ((PolymorphicProposition)output).getName()
+            .getName();
+
+        if (name != GOAL)
+        {
+          return false;
+        }
+      }
+
+      if ( !hasNoNonGoalDependents(output))
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+
   public static void removeGoalPropositions(PolymorphicPropNet propNet)
   {
     List<PolymorphicComponent> removedComponents = new LinkedList<PolymorphicComponent>();
@@ -3191,7 +3215,10 @@ public class OptimizingPolymorphicPropNetFactory
     {
       for (PolymorphicProposition c : roleGoals)
       {
-        propNet.removeComponent(c);
+        if ( hasNoNonGoalDependents(c) )
+        {
+          propNet.removeComponent(c);
+        }
       }
     }
   }
