@@ -32,7 +32,8 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
   private ForwardDeadReckonInternalMachineState[] activeBasePropositions;
   private ForwardDeadReckonInternalMachineState   alwaysTrueBasePropositions;
   private int                                     numInstances;
-  private ForwardDeadReckonPropnetFastAnimator    animator = null;
+  public static final boolean                     useFastAnimator = true;
+  public ForwardDeadReckonPropnetFastAnimator     animator = null;
 
   public ForwardDeadReckonPropNet(PropNet sourcePropnet,
                                   PolymorphicComponentFactory componentFactory)
@@ -174,8 +175,11 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
 
     setUpActivePropositionSets(masterInfoSet);
 
-    animator = new ForwardDeadReckonPropnetFastAnimator(this);
-    animator.crystalize(numInstances);
+    if ( useFastAnimator )
+    {
+      animator = new ForwardDeadReckonPropnetFastAnimator(this);
+      animator.crystalize(numInstances);
+    }
 
     propagationQueue = new ForwardDeadReckonComponent[numInstances][getComponents()
         .size()];
@@ -214,7 +218,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
 
   public void setProposition(int instanceId, ForwardDeadReckonProposition p, boolean value)
   {
-    if ( animator != null )
+    if ( useFastAnimator )
     {
       animator.setComponentValue(instanceId, p.id, value);
     }
@@ -226,7 +230,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
 
   public boolean getTransition(int instanceId, ForwardDeadReckonComponent xiGoalInput)
   {
-    if ( animator != null )
+    if ( useFastAnimator )
     {
       return animator.getComponentValue(instanceId, xiGoalInput.id);
     }
@@ -247,7 +251,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
         activeLegalMoves[instanceId].merge(alwaysTrueLegalMoves);
       }
 
-      if ( animator != null )
+      if ( useFastAnimator )
       {
         animator.reset(instanceId, fullEquilibrium);
       }

@@ -40,6 +40,8 @@ public class ForwardDeadReckonPropnetFastAnimator
 
   private int[][]                  stateVectors = null;
 
+  private int[]                    resetWatermark = null;
+
   public ForwardDeadReckonPropnetFastAnimator(ForwardDeadReckonPropNet propNet)
   {
     this.propNet = propNet;
@@ -111,6 +113,7 @@ public class ForwardDeadReckonPropnetFastAnimator
   public void crystalize(int numInstances)
   {
     stateVectors = new int[numInstances][];
+    resetWatermark = new int[numInstances];
 
     for(int i = 0; i < numInstances; i++)
     {
@@ -132,12 +135,16 @@ public class ForwardDeadReckonPropnetFastAnimator
         case componentTypeProposition:
         case componentTypeTransition:
         case componentTypeOr:
+        case componentTypeFalseConstant:
           state[i] = 0;
           break;
         case componentTypeAnd:
           state[i] = components[i].inputsArray.length;
           break;
         case componentTypeNot:
+          state[i] = componentInfoCachedValMask;
+          break;
+        case componentTypeTrueConstant:
           state[i] = componentInfoCachedValMask;
           break;
         default:
@@ -149,82 +156,53 @@ public class ForwardDeadReckonPropnetFastAnimator
     {
       for(int i = 0; i < componentInfo.length; i++)
       {
-        boolean lastPropagated = ((state[i] & componentInfoLastPropagatedMask) != 0);
+        //boolean lastPropagated = ((state[i] & componentInfoLastPropagatedMask) != 0);
         boolean current = ((state[i] & componentInfoCachedValMask) != 0);
+        int type = (int)((componentInfo[i] & componentInfoTypeMask) >> componentInfoTypeShift);
 
-        if ( current != lastPropagated )
+        resetWatermark[instanceId] = i;
+
+        if ( current && type != componentTypeTransition )
         {
           propagateComponent(instanceId, state, i, current);
         }
       }
     }
+    else
+    {
+      resetWatermark[instanceId] = componentInfo.length;
+    }
   }
 
   private void propagateComponent(int instanceId, int[] state, int componentId, boolean value)
   {
-    long  compInfo = componentInfo[componentId];
-    int   numOutputs = (int)((compInfo & componentInfoOutputCountMask) >> componentInfoOutputCountShift);
-    int   outputIndex = (int)((compInfo & componentInfoConnectivityOffsetMask) >> componentInfoConnectivityOffsetShift);
-
-    if ( value )
+    if ( resetWatermark[instanceId] >= componentId )
     {
-      state[componentId] |= componentInfoLastPropagatedMask;
-    }
-    else
-    {
-      state[componentId] &= ~componentInfoLastPropagatedMask;
-    }
+      long  compInfo = componentInfo[componentId];
+      int   numOutputs = (int)((compInfo & componentInfoOutputCountMask) >> componentInfoOutputCountShift);
+      int   outputIndex = (int)((compInfo & componentInfoConnectivityOffsetMask) >> componentInfoConnectivityOffsetShift);
 
-    while(numOutputs-- > 0)
-    {
-      int outputId = componentConnectivityTable[outputIndex++];
-      long outputInfo = componentInfo[outputId];
-      int outputType = (int)((outputInfo & componentInfoTypeMask) >> componentInfoTypeShift);
-      int stateVal;
+      //System.out.println("Nwe value " + value + " for component " + components[componentId]);
+//      if ( value )
+//      {
+//        state[componentId] |= componentInfoLastPropagatedMask;
+//      }
+//      else
+//      {
+//        state[componentId] &= ~componentInfoLastPropagatedMask;
+//      }
 
-      switch(outputType)
+      while(numOutputs-- > 0)
       {
-        case componentTypeProposition:
-          if ( value )
-          {
-            state[outputId] |= componentInfoCachedValMask;
-          }
-          else
-          {
-            state[outputId] &= ~componentInfoCachedValMask;
-          }
-          components[outputId].noteNewValue(instanceId, value);
-          propagateComponent(instanceId, state, outputId, value);
-          break;
-        case componentTypeTransition:
-          if ( value )
-          {
-            state[outputId] |= componentInfoCachedValMask;
-          }
-          else
-          {
-            state[outputId] &= ~componentInfoCachedValMask;
-          }
-          components[outputId].noteNewValue(instanceId, value);
-          break;
-        case componentTypeOr:
-          if (value)
-          {
-            stateVal = ++state[outputId];
-          }
-          else
-          {
-            stateVal = --state[outputId];
-          }
+        int outputId = componentConnectivityTable[outputIndex++];
+        long outputInfo = componentInfo[outputId];
+        int outputType = (int)((outputInfo & componentInfoTypeMask) >> componentInfoTypeShift);
+        int stateVal;
 
-          if ( (stateVal & componentInfoOpaqueValueMask) > components[outputId].inputsArray.length )
-          {
-            System.out.println("WTF!!");
-          }
-          boolean countNonZero = ((stateVal & componentInfoOpaqueValueMask) != 0);
-          if (((stateVal & componentInfoCachedValMask) != 0) != countNonZero)
-          {
-            if ( countNonZero )
+        switch(outputType)
+        {
+          case componentTypeProposition:
+            if ( value )
             {
               state[outputId] |= componentInfoCachedValMask;
             }
@@ -232,24 +210,11 @@ public class ForwardDeadReckonPropnetFastAnimator
             {
               state[outputId] &= ~componentInfoCachedValMask;
             }
-
+            components[outputId].noteNewValue(instanceId, value);
             propagateComponent(instanceId, state, outputId, value);
-          }
-          break;
-        case componentTypeAnd:
-          if (value)
-          {
-            stateVal = --state[outputId];
-          }
-          else
-          {
-            stateVal = ++state[outputId];
-          }
-
-          boolean countZero = ((stateVal & componentInfoOpaqueValueMask) == 0);
-          if (((stateVal & componentInfoCachedValMask) != 0) != countZero)
-          {
-            if ( countZero )
+            break;
+          case componentTypeTransition:
+            if ( value )
             {
               state[outputId] |= componentInfoCachedValMask;
             }
@@ -257,24 +222,77 @@ public class ForwardDeadReckonPropnetFastAnimator
             {
               state[outputId] &= ~componentInfoCachedValMask;
             }
+            components[outputId].noteNewValue(instanceId, value);
+            break;
+          case componentTypeOr:
+            if (value)
+            {
+              stateVal = ++state[outputId];
+            }
+            else
+            {
+              stateVal = --state[outputId];
+            }
 
-            propagateComponent(instanceId, state, outputId, value);
-          }
-          break;
-        case componentTypeNot:
-          if ( !value )
-          {
-            state[outputId] |= componentInfoCachedValMask;
-          }
-          else
-          {
-            state[outputId] &= ~componentInfoCachedValMask;
-          }
-          propagateComponent(instanceId, state, outputId, !value);
-          break;
-        default:
-          //  Should not happen
-          throw new UnsupportedOperationException("Unexpected component type");
+            if ( (stateVal & componentInfoOpaqueValueMask) > components[outputId].inputsArray.length )
+            {
+              System.out.println("WTF!!");
+            }
+            boolean countNonZero = ((stateVal & componentInfoOpaqueValueMask) != 0);
+            if (((stateVal & componentInfoCachedValMask) != 0) != countNonZero)
+            {
+              if ( countNonZero )
+              {
+                state[outputId] |= componentInfoCachedValMask;
+              }
+              else
+              {
+                state[outputId] &= ~componentInfoCachedValMask;
+              }
+
+              propagateComponent(instanceId, state, outputId, value);
+            }
+            break;
+          case componentTypeAnd:
+            if (value)
+            {
+              stateVal = --state[outputId];
+            }
+            else
+            {
+              stateVal = ++state[outputId];
+            }
+
+            boolean countZero = ((stateVal & componentInfoOpaqueValueMask) == 0);
+            if (((stateVal & componentInfoCachedValMask) != 0) != countZero)
+            {
+              if ( countZero )
+              {
+                state[outputId] |= componentInfoCachedValMask;
+              }
+              else
+              {
+                state[outputId] &= ~componentInfoCachedValMask;
+              }
+
+              propagateComponent(instanceId, state, outputId, value);
+            }
+            break;
+          case componentTypeNot:
+            if ( !value )
+            {
+              state[outputId] |= componentInfoCachedValMask;
+            }
+            else
+            {
+              state[outputId] &= ~componentInfoCachedValMask;
+            }
+            propagateComponent(instanceId, state, outputId, !value);
+            break;
+          default:
+            //  Should not happen
+            throw new UnsupportedOperationException("Unexpected component type");
+        }
       }
     }
   }
