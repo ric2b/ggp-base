@@ -333,8 +333,7 @@ class GameSearcher implements Runnable, ActivityController
         tree.setRootState(startState);
       }
 
-      rolloutPool.lowestRolloutScoreSeen = 1000;
-      rolloutPool.highestRolloutScoreSeen = -100;
+      rolloutPool.noteNewTurn();
 
       moveTime = moveTimeout;
       startTime = System.currentTimeMillis();

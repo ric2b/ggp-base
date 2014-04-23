@@ -55,6 +55,22 @@ public final class ForwardDeadReckonTransition extends
     }
   }
 
+  @Override
+  public void noteNewValue(int instanceId, boolean value)
+  {
+    if (owningTransitionInfoSet[instanceId] != null)
+    {
+      if (value)
+      {
+        owningTransitionInfoSet[instanceId].add(transitionInfo);
+      }
+      else
+      {
+        owningTransitionInfoSet[instanceId].remove(transitionInfo);
+      }
+    }
+  }
+
   public void setTransitionSet(ForwardDeadReckonPropositionInfo transitionInfo,
                                int instanceId,
                                ForwardDeadReckonInternalMachineState owningSet)
