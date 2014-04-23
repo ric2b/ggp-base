@@ -11,11 +11,15 @@ class RolloutProcessor implements Runnable
   private final ForwardDeadReckonPropnetStateMachine stateMachine;
   private boolean                                    stop;
   private Thread                                     runningThread;
+  public static final boolean                        useTerminalityHorizon = false; //  Work-in-progress - disable for commit for now
+  private final int                                  rolloutTerminalityHorizon = (useTerminalityHorizon ? 5 : 500);
 
   public RolloutProcessor(RolloutProcessorPool pool, ForwardDeadReckonPropnetStateMachine stateMachine)
   {
     this.pool = pool;
     this.stateMachine = stateMachine;
+
+    stateMachine.setTerminalCheckHorizon(rolloutTerminalityHorizon);
   }
 
   public void disableGreedyRollouts()
@@ -44,6 +48,14 @@ class RolloutProcessor implements Runnable
     }
   }
 
+  public void clearTerminatingMoveProps()
+  {
+    synchronized(this)
+    {
+      stateMachine.clearTerminatingMoveProps();
+    }
+  }
+
   @Override
   public void run()
   {
@@ -55,7 +67,10 @@ class RolloutProcessor implements Runnable
 
         try
         {
-          request.process(stateMachine);
+          synchronized(this)
+          {
+            request.process(stateMachine);
+          }
         }
         catch (TransitionDefinitionException e)
         {

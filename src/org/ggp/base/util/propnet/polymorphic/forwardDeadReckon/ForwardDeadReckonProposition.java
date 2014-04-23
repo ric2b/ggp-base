@@ -126,6 +126,22 @@ public final class ForwardDeadReckonProposition extends
     }
   }
 
+  @Override
+  public void noteNewValue(int instanceId, boolean value)
+  {
+    if (owningMoveSet[instanceId] != null)
+    {
+      if (value)
+      {
+        owningMoveSet[instanceId].add(associatedMove);
+      }
+      else
+      {
+        owningMoveSet[instanceId].remove(associatedMove);
+      }
+    }
+  }
+
   /**
    * Setter method.
    *

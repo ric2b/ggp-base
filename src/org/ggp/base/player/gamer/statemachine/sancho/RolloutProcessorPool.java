@@ -43,6 +43,20 @@ public class RolloutProcessorPool
     }
   }
 
+  public void noteNewTurn()
+  {
+    lowestRolloutScoreSeen = 1000;
+    highestRolloutScoreSeen = -100;
+
+    if ( RolloutProcessor.useTerminalityHorizon )
+    {
+      for (int i = 0; i < numRolloutThreads; i++)
+      {
+        rolloutProcessors[i].clearTerminatingMoveProps();
+      }
+    }
+  }
+
   public void setRoleOrdering(RoleOrdering ordering)
   {
     roleOrdering = ordering;

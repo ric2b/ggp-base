@@ -157,7 +157,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.57d";
+    return "Sancho 1.57f";
   }
 
   @Override
@@ -383,6 +383,8 @@ public class Sancho extends SampleGamer
         underlyingStateMachine.disableGreedyRollouts();
       }
     }
+    //greedyRolloutsDisabled = true;
+    //underlyingStateMachine.disableGreedyRollouts();
 
     //  If we detected that moves from multiple factors are valid in the same turn
     //  then flag the factors as requiring the inclusion of a pseudo-noop as a valid

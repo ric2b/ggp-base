@@ -48,9 +48,11 @@ public class StateMachineValidator
     //exceptedGames.add("simple3space");
     exceptedGames.add("modifiedTicTacToe2");
     exceptedGames.add("wallmaze");
+    exceptedGames.add("slidingpieces");
     exceptedGames.add("ad_game_2x2");
+    exceptedGames.add("ticTacHeavenFC");//  Allows both players to noop at once which we don't currently handle
 
-    String startGame = "breakthroughWalls"; // Game to begin with if desired
+    String startGame = "connect4"; // Game to begin with if desired
     boolean foundStartGame = false; // Set to true to just start at the beginning
     boolean stopOnError = true; // Whether to stop on first failing game or continue
 
@@ -82,13 +84,14 @@ public class StateMachineValidator
         System.out.println("Checking consistency in game " + gameKey + ".");
         List<Gdl> description = theRepository.getGame(gameKey).getRules();
         theReference.initialize(description);
-        theMachine.initialize(description);
-        theMachine.disableGreedyRollouts();
 
         boolean result = false;
 
         try
         {
+          theMachine.initialize(description);
+          theMachine.disableGreedyRollouts();
+
           result = StateMachineVerifier.checkMachineConsistency(theReference,
                                                                 theMachine,
                                                                 10000);
@@ -108,11 +111,6 @@ public class StateMachineValidator
             break;
         }
       }
-
-      for (String failure : failureCases)
-      {
-        System.out.println("Failed in game " + failure);
-      }
     }
     finally
     {
@@ -123,6 +121,11 @@ public class StateMachineValidator
       {
         ((LocalGameRepository)theRepository).cleanUp();
       }
+    }
+
+    for (String failure : failureCases)
+    {
+      System.out.println("Failed in game " + failure);
     }
   }
 }
