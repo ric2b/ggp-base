@@ -3,6 +3,7 @@ package org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -333,9 +334,67 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           if (lFeeder == lBaseProp)
           {
+            // Found a latching proposition.  Find out if anything else is latched, positively or negatively, as a
+            // result.
             System.out.println("Latch(+ve): " + lBaseProp);
+            Set<PolymorphicComponent> lPositivelyLatched = new HashSet<PolymorphicComponent>();
+            Set<PolymorphicComponent> lNegativelyLatched = new HashSet<PolymorphicComponent>();
+            findAllLatchedStatesFor(lBaseProp, true, lPositivelyLatched, lNegativelyLatched );
           }
         }
+      }
+    }
+  }
+
+  private void findAllLatchedStatesFor(PolymorphicComponent xiComponent,
+                                       boolean xiForcedOutputValue,
+                                       Set<PolymorphicComponent> xiPositivelyLatched,
+                                       Set<PolymorphicComponent> xiNegativelyLatched)
+  {
+    // Check if we've already visited this component.  (This is expected, because we do latching through transitions.)
+    if ((xiPositivelyLatched.contains(xiComponent)) || (xiNegativelyLatched.contains(xiComponent)))
+    {
+      return;
+    }
+
+    // Record the forced value of this component.
+    assert(Collections.disjoint(xiPositivelyLatched, xiNegativelyLatched));
+    if (xiForcedOutputValue)
+    {
+      xiPositivelyLatched.add(xiComponent);
+    }
+    else
+    {
+      xiNegativelyLatched.add(xiComponent);
+    }
+    assert(Collections.disjoint(xiPositivelyLatched, xiNegativelyLatched));
+
+    // Check which downstream components are latched as a result.
+    for (PolymorphicComponent lComp : xiComponent.getOutputs())
+    {
+      if (lComp instanceof PolymorphicProposition)
+      {
+        System.out.println("  Latched(" + (xiForcedOutputValue ? "+" : "-") + "ve): " + lComp);
+        findAllLatchedStatesFor(lComp, xiForcedOutputValue, xiPositivelyLatched, xiNegativelyLatched);
+        // !! ARR If we've just negatively latched a LEGAL prop, also negatively latch the corresponding DOES prop
+      }
+      else if ((lComp instanceof PolymorphicOr) && (xiForcedOutputValue))
+      {
+        // This OR gate will always have a true input, therefore the output will always be true.
+        findAllLatchedStatesFor(lComp, xiForcedOutputValue, xiPositivelyLatched, xiNegativelyLatched);
+      }
+      else if ((lComp instanceof PolymorphicAnd) && (!xiForcedOutputValue))
+      {
+        // This AND gate will always have a false input, therefore the output will always be false.
+        findAllLatchedStatesFor(lComp, xiForcedOutputValue, xiPositivelyLatched, xiNegativelyLatched);
+      }
+      else if (lComp instanceof PolymorphicNot)
+      {
+        findAllLatchedStatesFor(lComp, !xiForcedOutputValue, xiPositivelyLatched, xiNegativelyLatched);
+      }
+      else if (lComp instanceof PolymorphicTransition)
+      {
+        findAllLatchedStatesFor(lComp, xiForcedOutputValue, xiPositivelyLatched, xiNegativelyLatched);
       }
     }
   }
