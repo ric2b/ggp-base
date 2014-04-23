@@ -59,6 +59,11 @@ public final class ForwardDeadReckonProposition extends
     this.associatedMove = associatedMove;
   }
 
+  public ForwardDeadReckonLegalMoveInfo getAssociatedMove()
+  {
+    return associatedMove;
+  }
+
   /**
    * Getter method.
    *
