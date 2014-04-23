@@ -874,46 +874,48 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //validationMachine = new ProverStateMachine();
       //validationMachine.initialize(description);
 
-      fullPropNet = (ForwardDeadReckonPropNet)OptimizingPolymorphicPropNetFactory
-          .create(description, new ForwardDeadReckonComponentFactory());
-      fullPropNet.renderToFile("c:\\temp\\propnet.dot");
+      fullPropNet = (ForwardDeadReckonPropNet)OptimizingPolymorphicPropNetFactory.create(
+                                                                               description,
+                                                                               new ForwardDeadReckonComponentFactory());
+      fullPropNet.renderToFile("c:\\temp\\propnet_001.dot");
 
-      OptimizingPolymorphicPropNetFactory
-          .removeAnonymousPropositions(fullPropNet);
-      System.out.println("Num components after anon prop removal: " +
+      OptimizingPolymorphicPropNetFactory.removeAnonymousPropositions(fullPropNet);
+      fullPropNet.renderToFile("c:\\temp\\propnet_012_AnonRemoved.dot");
+      System.out.println("Num components after anon prop removal: " + fullPropNet.getComponents().size());
+
+      OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(fullPropNet);
+      fullPropNet.renderToFile("c:\\temp\\propnet_014_UnreachablesRemoved.dot");
+
+      OptimizingPolymorphicPropNetFactory.removeIrrelevantBasesAndInputs(fullPropNet);
+      fullPropNet.renderToFile("c:\\temp\\propnet_016_IrrelevantRemoved.dot");
+      System.out.println("Num components after unreachable removal: " + fullPropNet.getComponents().size());
+
+      OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(fullPropNet, false);
+      fullPropNet.renderToFile("c:\\temp\\propnet_018_RedundantRemoved.dot");
+      System.out.println("Num components after first pass redundant components removal: " +
                          fullPropNet.getComponents().size());
-      OptimizingPolymorphicPropNetFactory
-          .removeUnreachableBasesAndInputs(fullPropNet);
-      OptimizingPolymorphicPropNetFactory
-          .removeIrrelevantBasesAndInputs(fullPropNet);
-      System.out.println("Num components after unreachable removal: " +
-                         fullPropNet.getComponents().size());
-      OptimizingPolymorphicPropNetFactory
-          .removeRedundantConstantsAndGates(fullPropNet, false);
-      System.out
-          .println("Num components after first pass redundant components removal: " +
-                   fullPropNet.getComponents().size());
+
       OptimizingPolymorphicPropNetFactory.refactorLargeGates(fullPropNet);
-      fullPropNet.renderToFile("c:\\temp\\propnetBeforeLargeFanout.dot");
+      fullPropNet.renderToFile("c:\\temp\\propnet_020_BeforeLargeFanout.dot");
+
       OptimizingPolymorphicPropNetFactory.refactorLargeFanouts(fullPropNet);
-      fullPropNet.renderToFile("c:\\temp\\propnetAfterLargeFanout.dot");
-      System.out.println("Num components after large gate refactoring: " +
-                         fullPropNet.getComponents().size());
+      fullPropNet.renderToFile("c:\\temp\\propnet_030_AfterLargeFanout.dot");
+      System.out.println("Num components after large gate refactoring: " + fullPropNet.getComponents().size());
+
       OptimizingPolymorphicPropNetFactory.removeDuplicateLogic(fullPropNet);
-      System.out.println("Num components after duplicate removal: " +
-                         fullPropNet.getComponents().size());
+      System.out.println("Num components after duplicate removal: " + fullPropNet.getComponents().size());
+
       OptimizingPolymorphicPropNetFactory.optimizeInputSets(fullPropNet);
       System.out.println("Num components after input set optimization: " + fullPropNet.getComponents().size());
-      OptimizingPolymorphicPropNetFactory.OptimizeInvertedInputs(fullPropNet);
-      System.out.println("Num components after inverted input optimization: " +
-                         fullPropNet.getComponents().size());
-      OptimizingPolymorphicPropNetFactory
-          .removeRedundantConstantsAndGates(fullPropNet);
-      System.out
-          .println("Num components after further removal of redundant components: " +
-                   fullPropNet.getComponents().size());
 
-      fullPropNet.renderToFile("c:\\temp\\propnetReduced.dot");
+      OptimizingPolymorphicPropNetFactory.OptimizeInvertedInputs(fullPropNet);
+      System.out.println("Num components after inverted input optimization: " + fullPropNet.getComponents().size());
+
+      OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(fullPropNet);
+      System.out.println("Num components after further removal of redundant components: " +
+                         fullPropNet.getComponents().size());
+
+      fullPropNet.renderToFile("c:\\temp\\propnet_040_Reduced.dot");
       roles = fullPropNet.getRoles();
       numRoles = roles.size();
 
@@ -922,15 +924,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       chosenMoves = new Move[numRoles];
       previouslyChosenJointMovePropsX = new ForwardDeadReckonProposition[numRoles];
       previouslyChosenJointMovePropsO = new ForwardDeadReckonProposition[numRoles];
-      stats = new TestPropnetStateMachineStats(fullPropNet
-                                                   .getBasePropositions()
-                                                   .size(),
-                                               fullPropNet
-                                                   .getInputPropositions()
-                                                   .size(),
-                                               fullPropNet
-                                                   .getLegalPropositions()
-                                                   .get(getRoles().get(0)).length);
+      stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(),
+                                               fullPropNet.getInputPropositions().size(),
+                                               fullPropNet.getLegalPropositions().get(getRoles().get(0)).length);
       //	Assess network statistics
       int numInputs = 0;
       int numMultiInputs = 0;
@@ -967,8 +963,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       for (Entry<GdlSentence, PolymorphicProposition> e : fullPropNet
           .getBasePropositions().entrySet())
       {
-        ForwardDeadReckonProposition prop = (ForwardDeadReckonProposition)e
-            .getValue();
+        ForwardDeadReckonProposition prop = (ForwardDeadReckonProposition)e.getValue();
         ForwardDeadReckonPropositionCrossReferenceInfo info = new ForwardDeadReckonPropositionCrossReferenceInfo();
 
         info.sentence = e.getKey();
@@ -1194,8 +1189,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                                                  false);
         }
         //OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, XSentence, false);
-        propNetX.renderToFile("c:\\temp\\propnetReducedX.dot");
-        propNetO.renderToFile("c:\\temp\\propnetReducedO.dot");
+        propNetX.renderToFile("c:\\temp\\propnet_050_ReducedX.dot");
+        propNetO.renderToFile("c:\\temp\\propnet_060_ReducedO.dot");
         System.out.println("Num components remaining in X-net: " +
                            propNetX.getComponents().size());
         System.out.println("Num components remaining in O-net: " +
@@ -1212,8 +1207,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           .minimizeNetwork(propNetXWithoutGoals);
       OptimizingPolymorphicPropNetFactory
           .minimizeNetwork(propNetOWithoutGoals);
-      propNetXWithoutGoals.renderToFile("c:\\temp\\propnetXWithoutGoals.dot");
-      propNetOWithoutGoals.renderToFile("c:\\temp\\propnetROWithoutGoals.dot");
+      propNetXWithoutGoals.renderToFile("c:\\temp\\propnet_070_XWithoutGoals.dot");
+      propNetOWithoutGoals.renderToFile("c:\\temp\\propnet_080_ROWithoutGoals.dot");
       System.out.println("Num components remaining in goal-less X-net: " +
                          propNetXWithoutGoals.getComponents().size());
       System.out.println("Num components remaining in goal-less O-net: " +
@@ -1222,7 +1217,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       goalsNet.RemoveAllButGoals();
       System.out.println("Goal net left with " +
                          goalsNet.getComponents().size() + " components");
-      goalsNet.renderToFile("c:\\temp\\propnetGoalsReduced.dot");
+      goalsNet.renderToFile("c:\\temp\\propnet_090_GoalsReduced.dot");
 
       //masterInfoSet = new ForwardDeadReckonPropositionCrossReferenceInfo[fullPropNet
       //    .getBasePropositions().size()];
