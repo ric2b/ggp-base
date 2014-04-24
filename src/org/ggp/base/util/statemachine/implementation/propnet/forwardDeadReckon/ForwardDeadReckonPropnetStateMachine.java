@@ -339,7 +339,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             System.out.println("Latch(+ve): " + lBaseProp);
             Set<PolymorphicComponent> lPositivelyLatched = new HashSet<PolymorphicComponent>();
             Set<PolymorphicComponent> lNegativelyLatched = new HashSet<PolymorphicComponent>();
-            findAllLatchedStatesFor(lBaseProp, true, lPositivelyLatched, lNegativelyLatched );
+            findAllLatchedStatesFor(lBaseProp, true, lPositivelyLatched, lNegativelyLatched);
           }
         }
       }
@@ -376,7 +376,19 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         System.out.println("  Latched(" + (xiForcedOutputValue ? "+" : "-") + "ve): " + lComp);
         findAllLatchedStatesFor(lComp, xiForcedOutputValue, xiPositivelyLatched, xiNegativelyLatched);
-        // !! ARR If we've just negatively latched a LEGAL prop, also negatively latch the corresponding DOES prop
+
+        // If we've just negatively latched a LEGAL prop, also negatively latch the corresponding DOES prop.
+        if (!xiForcedOutputValue)
+        {
+          // Find the matching proposition in the legal/input map.  (If this isn't a LEGAL/DOES prop then we won't
+          // find anything.  Also, it can't be a DOES prop because they can't ever have logic leading to them.)
+          PolymorphicProposition lPairProp = fullPropNet.getLegalInputMap().get(lComp);
+          if (lPairProp != null)
+          {
+            System.out.println("  Latched(-ve): " + lPairProp);
+            findAllLatchedStatesFor(lComp, xiForcedOutputValue, xiPositivelyLatched, xiNegativelyLatched);
+          }
+        }
       }
       else if ((lComp instanceof PolymorphicOr) && (xiForcedOutputValue))
       {
