@@ -573,13 +573,143 @@ public class ForwardDeadReckonPropnetFastAnimator
   {
     if ( instanceInfo.resetWatermark >= componentId )
     {
-      if ( value )
+      int[] state = instanceInfo.state;
+      long  compInfo = componentInfo[componentId];
+      int   numOutputs = (int)((compInfo & componentInfoOutputCountMask) >> componentInfoOutputCountShift);
+      int   outputIndex = (int)((compInfo & componentInfoConnectivityOffsetMask) >> componentInfoConnectivityOffsetShift);
+      int outputTypeBits;
+      long outputInfo;
+      int stateVal;
+
+      while(numOutputs-- > 0)
       {
-        propagateComponentTrue(instanceInfo, componentId);
-      }
-      else
-      {
-        propagateComponentFalse(instanceInfo, componentId);
+        int outputId = componentConnectivityTable[outputIndex++];
+        outputInfo = componentInfo[outputId];
+        outputTypeBits = (int)(outputInfo & componentInfoTypeMask);
+
+        switch(outputTypeBits)
+        {
+          case componentTypePropositionBits:
+            if ( value )
+            {
+              state[outputId] |= componentInfoCachedValMask;
+            }
+            else
+            {
+              state[outputId] &= ~componentInfoCachedValMask;
+            }
+
+            if ( (outputInfo & componentInfoHasTriggerMask) != 0 )
+            {
+              int moveIndex = componentAssociatedTransitionIndexes[outputId];
+
+              if ( value )
+              {
+                instanceInfo.legalMoveNotifier.add(moveIndex);
+              }
+              else
+              {
+                instanceInfo.legalMoveNotifier.remove(moveIndex);
+              }
+            }
+            if ( (outputInfo & componentInfoOutputCountMask) != 0 )
+            {
+              propagateComponent(instanceInfo, outputId, value);
+            }
+            break;
+          case componentTypeTransitionBits:
+            if ( value )
+            {
+              state[outputId] |= componentInfoCachedValMask;
+            }
+            else
+            {
+              state[outputId] &= ~componentInfoCachedValMask;
+            }
+
+            if ( (outputInfo & componentInfoHasTriggerMask) != 0 )
+            {
+              int propIndex = componentAssociatedTransitionIndexes[outputId];
+
+              if ( value )
+              {
+                instanceInfo.propositionTransitionNotifier.add(propIndex);
+              }
+              else
+              {
+                instanceInfo.propositionTransitionNotifier.remove(propIndex);
+              }
+            }
+            break;
+          case componentTypeOrBits:
+            if ( value )
+            {
+              stateVal = state[outputId] + 1;
+            }
+            else
+            {
+              stateVal = state[outputId] - 1;
+            }
+
+            if ((stateVal & componentInfoOpaqueValueMask) == (value ? 1 : 0))
+            {
+              if ( value )
+              {
+                state[outputId] = stateVal | componentInfoCachedValMask;
+              }
+              else
+              {
+                state[outputId] = stateVal & ~componentInfoCachedValMask;
+              }
+              propagateComponent(instanceInfo, outputId, value);
+            }
+            else
+            {
+              state[outputId] = stateVal;
+            }
+            break;
+          case componentTypeAndBits:
+            if ( value )
+            {
+              stateVal = state[outputId] - 1;
+            }
+            else
+            {
+              stateVal = state[outputId] + 1;
+            }
+
+            if ((stateVal & componentInfoOpaqueValueMask) == (value ? 0 : 1))
+            {
+              if ( value )
+              {
+                state[outputId] = stateVal | componentInfoCachedValMask;
+              }
+              else
+              {
+                state[outputId] = stateVal & ~componentInfoCachedValMask;
+              }
+              propagateComponent(instanceInfo, outputId, value);
+            }
+            else
+            {
+              state[outputId] = stateVal;
+            }
+            break;
+          case componentTypeNotBits:
+            if ( value )
+            {
+              state[outputId] &= ~componentInfoCachedValMask;
+            }
+            else
+            {
+              state[outputId] |= componentInfoCachedValMask;
+            }
+            propagateComponent(instanceInfo, outputId, !value);
+            break;
+          default:
+            //  Should not happen
+            throw new UnsupportedOperationException("Unexpected component type");
+        }
       }
     }
   }
