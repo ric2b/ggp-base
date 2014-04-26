@@ -414,8 +414,6 @@ public abstract class ForwardDeadReckonComponent implements
                                             int instanceId,
                                             ForwardDeadReckonComponent source);
 
-  public abstract void noteNewValue(int instanceId, boolean value);
-
   public void reset(int instanceId)
   {
     state[instanceId] = 0;

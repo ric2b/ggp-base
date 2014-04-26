@@ -41,11 +41,6 @@ public final class ForwardDeadReckonNot extends ForwardDeadReckonComponent
   }
 
   @Override
-  public void noteNewValue(int instanceId, boolean value)
-  {
-  }
-
-  @Override
   public void reset(int instanceId)
   {
     super.reset(instanceId);
