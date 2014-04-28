@@ -12,8 +12,8 @@ public final class ForwardDeadReckonTransition extends
                                                                         implements
                                                                         PolymorphicTransition
 {
-  private ForwardDeadReckonInternalMachineState[]        owningTransitionInfoSet = null;
-  private ForwardDeadReckonPropositionInfo               transitionInfo          = null;
+  private ForwardDeadReckonComponentTransitionNotifier[]        owningTransitionInfoSet = null;
+  private int                                                   associatedPropositionIndex          = -1;
 
   public ForwardDeadReckonTransition(int numOutputs)
   {
@@ -41,11 +41,11 @@ public final class ForwardDeadReckonTransition extends
       {
         if (newState)
         {
-          owningTransitionInfoSet[instanceId].add(transitionInfo);
+          owningTransitionInfoSet[instanceId].add(associatedPropositionIndex);
         }
         else
         {
-          owningTransitionInfoSet[instanceId].remove(transitionInfo);
+          owningTransitionInfoSet[instanceId].remove(associatedPropositionIndex);
         }
       }
       //finally
@@ -55,28 +55,17 @@ public final class ForwardDeadReckonTransition extends
     }
   }
 
-  @Override
-  public void noteNewValue(int instanceId, boolean value)
-  {
-    if (owningTransitionInfoSet[instanceId] != null)
-    {
-      if (value)
-      {
-        owningTransitionInfoSet[instanceId].add(transitionInfo);
-      }
-      else
-      {
-        owningTransitionInfoSet[instanceId].remove(transitionInfo);
-      }
-    }
-  }
-
-  public void setTransitionSet(ForwardDeadReckonPropositionInfo transitionInfo,
+  public void setTransitionSet(int associatedPropositionIndex,
                                int instanceId,
-                               ForwardDeadReckonInternalMachineState owningSet)
+                               ForwardDeadReckonComponentTransitionNotifier owningSet)
   {
     this.owningTransitionInfoSet[instanceId] = owningSet;
-    this.transitionInfo = transitionInfo;
+    this.associatedPropositionIndex = associatedPropositionIndex;
+  }
+
+  public int getAssociatedPropositionIndex()
+  {
+    return associatedPropositionIndex;
   }
 
   @Override

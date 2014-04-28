@@ -10,7 +10,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.statemachine.MachineState;
 
-public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDeadReckonPropositionInfo>
+public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDeadReckonPropositionInfo>, ForwardDeadReckonComponentTransitionNotifier
 {
   private class InternalMachineStateIterator implements Iterator<ForwardDeadReckonPropositionInfo>
   {
@@ -66,6 +66,12 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
   public void add(ForwardDeadReckonPropositionInfo info)
   {
     contents.set(info.index);
+  }
+
+  @Override
+  public void add(int index)
+  {
+    contents.set(index);
   }
 
   public boolean contains(ForwardDeadReckonPropositionInfo info)
@@ -138,6 +144,12 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
   public void remove(ForwardDeadReckonPropositionInfo info)
   {
     contents.clear(info.index);
+  }
+
+  @Override
+  public void remove(int index)
+  {
+    contents.clear(index);
   }
 
   public MachineState getMachineState()

@@ -114,7 +114,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
         {
           for (int instanceId = 0; instanceId < numInstances; instanceId++)
           {
-            pfdr.setTransitionSet(info,
+            pfdr.setTransitionSet(info.masterIndex,
                                   instanceId,
                                   activeLegalMoves[instanceId]);
           }
@@ -146,8 +146,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
         {
           ForwardDeadReckonTransition t = (ForwardDeadReckonTransition)input;
 
-          t.setTransitionSet(((ForwardDeadReckonProposition)p)
-                                 .getInfo(),
+          t.setTransitionSet(((ForwardDeadReckonProposition)p).getInfo().index,
                              instanceId,
                              activeBasePropositions[instanceId]);
         }

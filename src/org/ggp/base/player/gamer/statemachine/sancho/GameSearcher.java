@@ -184,14 +184,12 @@ class GameSearcher implements Runnable, ActivityController
     synchronized(getSerializationObject())
     {
       FactorMoveChoiceInfo bestChoice = null;
-      int factorIndex = 0;
 
       System.out.println("Num tree node frees: " + nodePool.getNumFreedNodes());
       System.out.println("Num tree nodes currently in use: " + nodePool.getNumUsedNodes());
       System.out.println("Searching for best move amongst factors:");
       for(MCTSTree tree : factorTrees)
       {
-        factorIndex++;
         FactorMoveChoiceInfo factorChoice = tree.getBestMove();
         if ( factorChoice.bestMove != null )
         {
@@ -203,23 +201,26 @@ class GameSearcher implements Runnable, ActivityController
           }
           else
           {
-            // Complete win dominates everything, else complete loss for pseudo noop
-            // dominates everything else
-            if ( factorChoice.bestMoveValue == 100 )
+            if ( factorChoice.pseudoNoopValue <= 0 && factorChoice.pseudoMoveIsComplete &&
+                 factorChoice.bestMoveValue > 0 &&
+                 (!bestChoice.pseudoMoveIsComplete || bestChoice.pseudoNoopValue > 0) )
+            {
+              //  If nooping this factor is a certain loss but the same is not true of the other
+              //  factor then take this factor
+              System.out.println("  Factor move is avoids a loss so selecting");
+              bestChoice = factorChoice;
+            }
+            // Complete win dominates everything else
+            else if ( factorChoice.bestMoveValue == 100 )
             {
               System.out.println("  Factor move is a win so selecting");
               bestChoice = factorChoice;
             }
             else if ( (bestChoice.bestMoveValue == 100 && bestChoice.bestMoveIsComplete) ||
-                      (factorChoice.pseudoNoopValue == 0 && factorChoice.pseudoMoveIsComplete) )
+                      (factorChoice.bestMoveValue <= 0 && factorChoice.bestMoveIsComplete) )
             {
               System.out.println("  Already selected factor move is a win or this move is a loss - not selecting");
               continue;
-            }
-            else if ( factorChoice.pseudoNoopValue == 0 && factorChoice.pseudoMoveIsComplete )
-            {
-              System.out.println("  Already selected factor move is a loss so selecting this factor");
-              bestChoice = factorChoice;
             }
             // otherwise choose the one that reduces the resulting net chances the least weighted
             // by the resulting win chance in the chosen factor.  This biases the player towards

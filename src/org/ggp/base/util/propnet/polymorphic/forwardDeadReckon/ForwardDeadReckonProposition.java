@@ -15,8 +15,8 @@ public final class ForwardDeadReckonProposition extends
 {
   /** The name of the Proposition. */
   private GdlSentence                                    name;
-  private ForwardDeadReckonLegalMoveSet[]                owningMoveSet  = null;
-  private ForwardDeadReckonLegalMoveInfo                 associatedMove = null;
+  private ForwardDeadReckonComponentTransitionNotifier[] owningMoveSet  = null;
+  private int                                            associatedMoveIndex = -1;
   private ForwardDeadReckonPropositionInfo               opaqueInfo     = null;
 
   /**
@@ -51,12 +51,17 @@ public final class ForwardDeadReckonProposition extends
     opaqueInfo = info;
   }
 
-  public void setTransitionSet(ForwardDeadReckonLegalMoveInfo associatedMove,
+  public void setTransitionSet(int associatedMoveIndex,
                                int instanceId,
-                               ForwardDeadReckonLegalMoveSet activeLegalMoves)
+                               ForwardDeadReckonComponentTransitionNotifier activeLegalMoves)
   {
     this.owningMoveSet[instanceId] = activeLegalMoves;
-    this.associatedMove = associatedMove;
+    this.associatedMoveIndex = associatedMoveIndex;
+  }
+
+  public int getAssociatedMoveIndex()
+  {
+    return associatedMoveIndex;
   }
 
   /**
@@ -103,11 +108,11 @@ public final class ForwardDeadReckonProposition extends
       {
         if (newState)
         {
-          owningMoveSet[instanceId].add(associatedMove);
+          owningMoveSet[instanceId].add(associatedMoveIndex);
         }
         else
         {
-          owningMoveSet[instanceId].remove(associatedMove);
+          owningMoveSet[instanceId].remove(associatedMoveIndex);
         }
       }
       //finally
@@ -123,22 +128,6 @@ public final class ForwardDeadReckonProposition extends
     else
     {
       propagate(instanceId);
-    }
-  }
-
-  @Override
-  public void noteNewValue(int instanceId, boolean value)
-  {
-    if (owningMoveSet[instanceId] != null)
-    {
-      if (value)
-      {
-        owningMoveSet[instanceId].add(associatedMove);
-      }
-      else
-      {
-        owningMoveSet[instanceId].remove(associatedMove);
-      }
     }
   }
 

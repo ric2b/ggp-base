@@ -157,7 +157,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.57f";
+    return "Sancho 1.57h";
   }
 
   @Override

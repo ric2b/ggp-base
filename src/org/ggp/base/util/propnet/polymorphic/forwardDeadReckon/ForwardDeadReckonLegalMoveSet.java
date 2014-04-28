@@ -9,7 +9,7 @@ import java.util.List;
 
 import org.ggp.base.util.statemachine.Role;
 
-public class ForwardDeadReckonLegalMoveSet
+public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponentTransitionNotifier
 {
   private List<ForwardDeadReckonLegalMoveInfo> masterList;
   private ForwardDeadReckonLegalMoveInfo[]     masterListAsArray;
@@ -232,12 +232,26 @@ public class ForwardDeadReckonLegalMoveSet
     contents[info.roleIndex].set(info.masterIndex);
   }
 
+  @Override
+  public void add(int index)
+  {
+    ForwardDeadReckonLegalMoveInfo info = masterListAsArray[index];
+    contents[info.roleIndex].set(index);
+  }
+
   public void remove(ForwardDeadReckonLegalMoveInfo info)
   {
     if (info.masterIndex != -1)
     {
       contents[info.roleIndex].clear(info.masterIndex);
     }
+  }
+
+  @Override
+  public void remove(int index)
+  {
+    ForwardDeadReckonLegalMoveInfo info = masterListAsArray[index];
+    contents[info.roleIndex].clear(index);
   }
 
   public void merge(ForwardDeadReckonLegalMoveSet other)
