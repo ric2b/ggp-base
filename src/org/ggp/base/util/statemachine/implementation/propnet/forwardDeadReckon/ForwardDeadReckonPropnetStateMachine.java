@@ -46,12 +46,31 @@ import org.ggp.base.util.stats.Stats;
 
 public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 {
-  /** The underlying proposition network */
+  /** The underlying proposition network - in various optimised forms. */
+
+  // The complete propnet.
+  private ForwardDeadReckonPropNet                                     fullPropNet                     = null;
+
+  // A propnet containing just those components required to compute the goal values when it's already known that the
+  // state is terminal.
+  private ForwardDeadReckonPropNet                                     goalsNet                        = null;
+
+  // The propnet is split into two networks dependent on the proposition which changes most frequently during metagame
+  // simulations.  This is commonly a "control" proposition identifing which player's turn it is in a non-simultaneous
+  // game.  The X-net contains just those components required when the control proposition is true.  The O-net contains
+  // just those components required when the control proposition is false.
+  //
+  // In games without greedy rollouts, these are set to the goalless version (below).
   private ForwardDeadReckonPropNet                                     propNetX                        = null;
   private ForwardDeadReckonPropNet                                     propNetO                        = null;
+
+  // X- and O-nets without the goal calculation logic (which is in goalsNet).
   private ForwardDeadReckonPropNet                                     propNetXWithoutGoals            = null;
   private ForwardDeadReckonPropNet                                     propNetOWithoutGoals            = null;
+
+  // The propnet that is currently in use (one of the X- or O- nets).
   private ForwardDeadReckonPropNet                                     propNet                         = null;
+
   private Map<Role, ForwardDeadReckonComponent[]>                      legalPropositionsX              = null;
   private Map<Role, Move[]>                                            legalPropositionMovesX          = null;
   private Map<Role, ForwardDeadReckonComponent[]>                      legalPropositionsO              = null;
@@ -81,15 +100,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private ForwardDeadReckonPropositionCrossReferenceInfo[]             masterInfoSet                   = null;
   private StateMachine                                                 validationMachine               = null;
   private MachineState                                                 validationState                 = null;
-  private ForwardDeadReckonPropNet                                     fullPropNet                     = null;
-  private ForwardDeadReckonPropNet                                     goalsNet                        = null;
   private int                                                          instanceId;
   private int                                                          maxInstances;
   private int                                                          numInstances                    = 1;
   private Set<Factor>                                                  factors                         = null;
   public long                                                          totalNumGatesPropagated         = 0;
   public long                                                          totalNumPropagates              = 0;
-  // !! ARR These maps should be the other way round
   private Map<PolymorphicProposition, List<PolymorphicProposition>>    mPositiveGoalLatches            = null;
   private Map<PolymorphicProposition, List<PolymorphicProposition>>    mNegativeGoalLatches            = null;
 
@@ -279,10 +295,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       for (GdlSentence s : state.getContents())
       {
-        ForwardDeadReckonProposition p = (ForwardDeadReckonProposition)propNet
-            .getBasePropositions().get(s);
-        ForwardDeadReckonPropositionInfo info = p
-            .getInfo();
+        ForwardDeadReckonProposition p = (ForwardDeadReckonProposition)propNet.getBasePropositions().get(s);
+        ForwardDeadReckonPropositionInfo info = p.getInfo();
         result.add(info);
 
         result.isXState |= (info.sentence == XSentence);
@@ -1009,15 +1023,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       previouslyChosenJointMovePropsO = new ForwardDeadReckonProposition[numRoles];
       previouslyChosenJointMovePropIdsX = new int[numRoles];
       previouslyChosenJointMovePropIdsO = new int[numRoles];
-      stats = new TestPropnetStateMachineStats(fullPropNet
-                                                   .getBasePropositions()
-                                                   .size(),
-                                               fullPropNet
-                                                   .getInputPropositions()
-                                                   .size(),
-                                               fullPropNet
-                                                   .getLegalPropositions()
-                                                   .get(getRoles().get(0)).length);
+      stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(),
+                                               fullPropNet.getInputPropositions().size(),
+                                               fullPropNet.getLegalPropositions().get(getRoles().get(0)).length);
       //	Assess network statistics
       int numInputs = 0;
       int numMultiInputs = 0;
@@ -1048,11 +1056,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                                            numMultiInputComponents) +
                    " inputs.");
 
-      masterInfoSet = new ForwardDeadReckonPropositionCrossReferenceInfo[fullPropNet
-          .getBasePropositions().size()];
+      masterInfoSet = new ForwardDeadReckonPropositionCrossReferenceInfo[fullPropNet.getBasePropositions().size()];
       int index = 0;
-      for (Entry<GdlSentence, PolymorphicProposition> e : fullPropNet
-          .getBasePropositions().entrySet())
+      for (Entry<GdlSentence, PolymorphicProposition> e : fullPropNet.getBasePropositions().entrySet())
       {
         ForwardDeadReckonProposition prop = (ForwardDeadReckonProposition)e.getValue();
         ForwardDeadReckonPropositionCrossReferenceInfo info = new ForwardDeadReckonPropositionCrossReferenceInfo();
@@ -1114,8 +1120,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       measuringBasePropChanges = false;
 
       int highestCount = 0;
-      for (Entry<ForwardDeadReckonPropositionCrossReferenceInfo, Integer> e : basePropChangeCounts
-          .entrySet())
+      for (Entry<ForwardDeadReckonPropositionCrossReferenceInfo, Integer> e : basePropChangeCounts.entrySet())
       {
         if (e.getValue() > highestCount)
         {
@@ -1130,27 +1135,21 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       nextGoalState = null;
       propNet = null;
 
-      propNetX = new ForwardDeadReckonPropNet(fullPropNet,
-                                              new ForwardDeadReckonComponentFactory());
-      propNetO = new ForwardDeadReckonPropNet(fullPropNet,
-                                              new ForwardDeadReckonComponentFactory());
-      goalsNet = new ForwardDeadReckonPropNet(fullPropNet,
-                                              new ForwardDeadReckonComponentFactory());
+      propNetX = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
+      propNetO = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
+      goalsNet = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
       propNetX.RemoveInits();
       propNetO.RemoveInits();
 
       if (XSentence != null)
       {
         System.out.println("Reducing with respect to XSentence: " + XSentence);
-        OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX,
-                                                               XSentence,
-                                                               true);
+        OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, XSentence, true);
 
         //	If the reduced net always transitions it's own hard-wired sentence into the opposite state
         //	it may be part of a pivot whereby control passes between alternating propositions.  Check this
         //	Do we turn something else on unconditionally?
-        for (Entry<GdlSentence, PolymorphicProposition> e : propNetX
-            .getBasePropositions().entrySet())
+        for (Entry<GdlSentence, PolymorphicProposition> e : propNetX.getBasePropositions().entrySet())
         {
           PolymorphicComponent input = e.getValue().getSingleInput();
 
@@ -1170,24 +1169,20 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         if (OSentence != null)
         {
           System.out.println("Possible OSentence: " + OSentence);
-          OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO,
-                                                                 OSentence,
-                                                                 true);
+          OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, OSentence, true);
 
           //	Does this one turn the original back on?
           PolymorphicProposition originalPropInSecondNet = propNetO
               .getBasePropositions().get(XSentence);
           if (originalPropInSecondNet != null)
           {
-            PolymorphicComponent input = originalPropInSecondNet
-                .getSingleInput();
+            PolymorphicComponent input = originalPropInSecondNet.getSingleInput();
 
             if (input instanceof PolymorphicTransition)
             {
               PolymorphicComponent driver = input.getSingleInput();
 
-              if (!(driver instanceof PolymorphicConstant) ||
-                  !driver.getValue())
+              if (!(driver instanceof PolymorphicConstant) || !driver.getValue())
               {
                 //	Nope - doesn't work
                 OSentence = null;
@@ -1201,9 +1196,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           {
             //	So if we set the first net's trigger condition to off in the second net do we find
             //	the second net's own trigger is always off?
-            OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO,
-                                                                   XSentence,
-                                                                   false);
+            OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, XSentence, false);
 
             PolymorphicProposition OSentenceInSecondNet = propNetO
                 .getBasePropositions().get(OSentence);
@@ -1742,8 +1735,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //propNet.seq++;
 
       result = new LinkedList<Move>();
-      for (ForwardDeadReckonLegalMoveInfo moveInfo : propNet
-          .getActiveLegalProps(instanceId).getContents(role))
+      for (ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps(instanceId).getContents(role))
       {
         result.add(moveInfo.move);
       }
@@ -1761,7 +1753,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
-  public Collection<ForwardDeadReckonLegalMoveInfo> getLegalMoves(ForwardDeadReckonInternalMachineState state, Role role, Factor factor)
+  public Collection<ForwardDeadReckonLegalMoveInfo> getLegalMoves(ForwardDeadReckonInternalMachineState state,
+                                                                  Role role,
+                                                                  Factor factor)
       throws MoveDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getLegalMoveInfos");
@@ -1773,7 +1767,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //ForwardDeadReckonComponent.numGatesPropagated = 0;
       //ForwardDeadReckonComponent.numPropagates = 0;
       //propNet.seq++;
-      Collection<ForwardDeadReckonLegalMoveInfo> baseIterable = propNet.getActiveLegalProps(instanceId).getContents(role);
+      Collection<ForwardDeadReckonLegalMoveInfo> baseIterable =
+                                                              propNet.getActiveLegalProps(instanceId).getContents(role);
       if ( factor == null )
       {
         return baseIterable;
@@ -2018,8 +2013,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //ForwardDeadReckonComponent.numPropagates = 0;
       //propNet.seq++;
 
-      Map<GdlSentence, PolymorphicProposition> inputProps = propNet
-          .getInputPropositions();
+      Map<GdlSentence, PolymorphicProposition> inputProps = propNet.getInputPropositions();
       int movesCount = 0;
 
       for (GdlSentence moveSentence : toDoes(moves))
@@ -2379,8 +2373,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //RuntimeOptimizedComponent.getCount = 0;
 
       ForwardDeadReckonInternalMachineState result = new ForwardDeadReckonInternalMachineState(masterInfoSet);
-      for (ForwardDeadReckonPropositionInfo info : propNet
-          .getActiveBaseProps(instanceId))
+      for (ForwardDeadReckonPropositionInfo info : propNet.getActiveBaseProps(instanceId))
       {
         result.add(info);
 
@@ -3216,8 +3209,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       propNetOWithoutGoals.reset(true);
 
       List<ForwardDeadReckonLegalMoveInfo> allMoves = new ArrayList<ForwardDeadReckonLegalMoveInfo>();
-      for (ForwardDeadReckonLegalMoveInfo info : propNetXWithoutGoals
-          .getMasterMoveList())
+      for (ForwardDeadReckonLegalMoveInfo info : propNetXWithoutGoals.getMasterMoveList())
       {
         if (!allMoves.contains(info))
         {
@@ -3225,8 +3217,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           allMoves.add(info);
         }
       }
-      for (ForwardDeadReckonLegalMoveInfo info : propNetOWithoutGoals
-          .getMasterMoveList())
+      for (ForwardDeadReckonLegalMoveInfo info : propNetOWithoutGoals.getMasterMoveList())
       {
         if (!allMoves.contains(info))
         {
