@@ -267,7 +267,7 @@ public class Sancho extends SampleGamer
     Collection<Factor> factors = underlyingStateMachine.getFactors();
 
     // Find latches
-    underlyingStateMachine.findLatches();
+    // underlyingStateMachine.findLatches();
 
     //	Perform a small number of move-by-move simulations to assess how
     //	the potential piece count heuristics behave at the granularity of
