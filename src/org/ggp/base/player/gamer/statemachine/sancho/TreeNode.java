@@ -1392,8 +1392,9 @@ public class TreeNode
         //validateAll();
 
         //System.out.println("Expand our moves from state: " + state);
-        Iterable<ForwardDeadReckonLegalMoveInfo> moves = tree.underlyingStateMachine
-            .getLegalMoves(state, choosingRole, tree.factor);
+        Iterable<ForwardDeadReckonLegalMoveInfo> moves = tree.underlyingStateMachine.getLegalMoves(state,
+                                                                                                   choosingRole,
+                                                                                                   tree.factor);
         List<ForwardDeadReckonLegalMoveInfo> moveInfos = new LinkedList<>();
 
         for (ForwardDeadReckonLegalMoveInfo move : moves)
@@ -1427,20 +1428,19 @@ public class TreeNode
           for (int i = 0; i < roleIndex; i++)
           {
             newEdge.jointPartialMove[i] = from.jointPartialMove[i];
-            if ( newEdge.jointPartialMove[i].inputProposition != null )
+            if (newEdge.jointPartialMove[i].inputProposition != null)
             {
               isPseudoNullMove = false;
             }
           }
           newEdge.jointPartialMove[roleIndex] = moveInfos.remove(0);
-          if ( newEdge.jointPartialMove[roleIndex].inputProposition != null )
+          if (newEdge.jointPartialMove[roleIndex].inputProposition != null)
           {
             isPseudoNullMove = false;
           }
           if (roleIndex == tree.numRoles - 1)
           {
-            newState = tree.underlyingStateMachine
-                .getNextState(state, tree.factor, newEdge.jointPartialMove);
+            newState = tree.underlyingStateMachine.getNextState(state, tree.factor, newEdge.jointPartialMove);
           }
           newEdge.child = tree.allocateNode(tree.underlyingStateMachine,
                                             newState,

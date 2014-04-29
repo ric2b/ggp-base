@@ -90,7 +90,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private MachineState                                                 initialState                    = null;
   private ForwardDeadReckonProposition[]                               moveProps                       = null;
   private boolean                                                      measuringBasePropChanges        = false;
-  private Map<ForwardDeadReckonPropositionCrossReferenceInfo, Integer> basePropChangeCounts            = new HashMap<ForwardDeadReckonPropositionCrossReferenceInfo, Integer>();
+  private Map<ForwardDeadReckonPropositionCrossReferenceInfo, Integer> basePropChangeCounts            = new HashMap<>();
   private ForwardDeadReckonProposition[]                               chosenJointMoveProps            = null;
   private Move[]                                                       chosenMoves                     = null;
   private ForwardDeadReckonProposition[]                               previouslyChosenJointMovePropsX = null;
@@ -106,8 +106,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private Set<Factor>                                                  factors                         = null;
   public long                                                          totalNumGatesPropagated         = 0;
   public long                                                          totalNumPropagates              = 0;
-  private Map<PolymorphicProposition, List<PolymorphicProposition>>    mPositiveGoalLatches            = null;
-  private Map<PolymorphicProposition, List<PolymorphicProposition>>    mNegativeGoalLatches            = null;
+  private Map<PolymorphicProposition, List<ForwardDeadReckonPropositionInfo>> mPositiveGoalLatches     = null;
+  private Map<PolymorphicProposition, List<ForwardDeadReckonPropositionInfo>> mNegativeGoalLatches     = null;
 
   private class TestPropnetStateMachineStats extends Stats
   {
@@ -336,8 +336,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     {
       for (PolymorphicProposition lGoal : lGoals)
       {
-        mPositiveGoalLatches.put(lGoal, new LinkedList<PolymorphicProposition>());
-        mNegativeGoalLatches.put(lGoal, new LinkedList<PolymorphicProposition>());
+        mPositiveGoalLatches.put(lGoal, new LinkedList<ForwardDeadReckonPropositionInfo>());
+        mNegativeGoalLatches.put(lGoal, new LinkedList<ForwardDeadReckonPropositionInfo>());
       }
     }
 
@@ -368,18 +368,57 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             // Found a latching proposition.  Find out if anything else is latched, positively or negatively, as a
             // result.
             System.out.println("Latch(+ve): " + lBaseProp);
-            Set<PolymorphicComponent> lPositivelyLatched = new HashSet<PolymorphicComponent>();
-            Set<PolymorphicComponent> lNegativelyLatched = new HashSet<PolymorphicComponent>();
-            findAllLatchedStatesFor(lBaseProp, true, lBaseProp, lPositivelyLatched, lNegativelyLatched);
+            Set<PolymorphicComponent> lPositivelyLatched = new HashSet<>();
+            Set<PolymorphicComponent> lNegativelyLatched = new HashSet<>();
+            findAllLatchedStatesFor(lBaseProp,
+                                    true,
+                                    (ForwardDeadReckonProposition)lBaseProp,
+                                    lPositivelyLatched,
+                                    lNegativelyLatched);
           }
         }
+      }
+    }
+
+    // Post-process the goal latches into an efficient form for checking against machine states.
+    for (Entry<PolymorphicProposition, List<ForwardDeadReckonPropositionInfo>> lEntry : mPositiveGoalLatches.entrySet())
+    {
+      PolymorphicProposition lGoal = lEntry.getKey();
+      List<ForwardDeadReckonPropositionInfo> lLatches = lEntry.getValue();
+
+      if (lLatches.size() != 0)
+      {
+        ForwardDeadReckonInternalMachineState lGoalLatch = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+
+        for (ForwardDeadReckonPropositionInfo lPropInfo : lLatches)
+        {
+          lGoalLatch.add(lPropInfo);
+        }
+        System.out.println("Goal '" + lGoal + "' is positively latched by any of: " + lGoalLatch);
+      }
+    }
+
+    for (Entry<PolymorphicProposition, List<ForwardDeadReckonPropositionInfo>> lEntry : mNegativeGoalLatches.entrySet())
+    {
+      PolymorphicProposition lGoal = lEntry.getKey();
+      List<ForwardDeadReckonPropositionInfo> lLatches = lEntry.getValue();
+
+      if (lLatches.size() != 0)
+      {
+        ForwardDeadReckonInternalMachineState lGoalLatch = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+
+        for (ForwardDeadReckonPropositionInfo lPropInfo : lLatches)
+        {
+          lGoalLatch.add(lPropInfo);
+        }
+        System.out.println("Goal '" + lGoal + "' is negatively latched by any of: " + lGoalLatch);
       }
     }
   }
 
   private void findAllLatchedStatesFor(PolymorphicComponent xiComponent,
                                        boolean xiForcedOutputValue,
-                                       PolymorphicProposition xiOriginal,
+                                       ForwardDeadReckonProposition xiOriginal,
                                        Set<PolymorphicComponent> xiPositivelyLatched,
                                        Set<PolymorphicComponent> xiNegativelyLatched)
   {
@@ -428,11 +467,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           if (xiForcedOutputValue)
           {
-            mPositiveGoalLatches.get(lComp).add(xiOriginal);
+            mPositiveGoalLatches.get(lComp).add(xiOriginal.getInfo());
           }
           else
           {
-            mNegativeGoalLatches.get(lComp).add(xiOriginal);
+            mNegativeGoalLatches.get(lComp).add(xiOriginal.getInfo());
           }
         }
       }
@@ -469,7 +508,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                           int maxResultSet,
                                           int maxDepth)
   {
-    Set<MachineState> results = new HashSet<MachineState>();
+    Set<MachineState> results = new HashSet<>();
 
     for (PolymorphicProposition p : fullPropNet.getGoalPropositions()
         .get(role))
@@ -491,15 +530,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     public AntecedantCursor()
     {
-      positiveProps = new HashSet<PolymorphicProposition>();
-      negativeProps = new HashSet<PolymorphicProposition>();
+      positiveProps = new HashSet<>();
+      negativeProps = new HashSet<>();
       isPositive = true;
     }
 
     public AntecedantCursor(AntecedantCursor parent)
     {
-      positiveProps = new HashSet<PolymorphicProposition>(parent.positiveProps);
-      negativeProps = new HashSet<PolymorphicProposition>(parent.negativeProps);
+      positiveProps = new HashSet<>(parent.positiveProps);
+      negativeProps = new HashSet<>(parent.negativeProps);
       isPositive = parent.isPositive;
     }
 
@@ -661,14 +700,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           if (!cursor.negativeProps.contains(p))
           {
             newCursor.positiveProps.add(prop);
-            Set<AntecedantCursor> result = new HashSet<AntecedantCursor>();
+            Set<AntecedantCursor> result = new HashSet<>();
             result.add(newCursor);
             return result;
           }
           else if (!cursor.positiveProps.contains(p))
           {
             newCursor.negativeProps.add(prop);
-            Set<AntecedantCursor> result = new HashSet<AntecedantCursor>();
+            Set<AntecedantCursor> result = new HashSet<>();
             result.add(newCursor);
             return result;
           }
@@ -680,14 +719,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         if (!cursor.positiveProps.contains(p))
         {
           newCursor.negativeProps.add(prop);
-          Set<AntecedantCursor> result = new HashSet<AntecedantCursor>();
+          Set<AntecedantCursor> result = new HashSet<>();
           result.add(newCursor);
           return result;
         }
         else if (!cursor.negativeProps.contains(p))
         {
           newCursor.positiveProps.add(prop);
-          Set<AntecedantCursor> result = new HashSet<AntecedantCursor>();
+          Set<AntecedantCursor> result = new HashSet<>();
           result.add(newCursor);
           return result;
         }
@@ -719,7 +758,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
     else if (p instanceof PolymorphicAnd)
     {
-      Set<AntecedantCursor> subResults = new HashSet<AntecedantCursor>();
+      Set<AntecedantCursor> subResults = new HashSet<>();
 
       for (PolymorphicComponent c : p.getInputs())
       {
@@ -755,7 +794,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             }
             else
             {
-              Set<AntecedantCursor> validInputResults = new HashSet<AntecedantCursor>();
+              Set<AntecedantCursor> validInputResults = new HashSet<>();
 
               for (AntecedantCursor cur : inputResults)
               {
@@ -787,7 +826,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
     else if (p instanceof PolymorphicOr)
     {
-      Set<AntecedantCursor> subResults = new HashSet<AntecedantCursor>();
+      Set<AntecedantCursor> subResults = new HashSet<>();
 
       for (PolymorphicComponent c : p.getInputs())
       {
@@ -823,7 +862,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             }
             else
             {
-              Set<AntecedantCursor> validInputResults = new HashSet<AntecedantCursor>();
+              Set<AntecedantCursor> validInputResults = new HashSet<>();
 
               for (AntecedantCursor cur : inputResults)
               {
@@ -861,7 +900,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                              int maxResultSet,
                                              int maxDepth)
   {
-    Set<MachineState> result = new HashSet<MachineState>();
+    Set<MachineState> result = new HashSet<>();
 
     PolymorphicProposition p = fullPropNet.findProposition(queryProposition);
     if (p != null)
@@ -1353,7 +1392,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //	Force calculation of the goal set while we're single threaded
       goalsNet.getGoalPropositions();
 
-      List<ForwardDeadReckonLegalMoveInfo> allMoves = new ArrayList<ForwardDeadReckonLegalMoveInfo>();
+      List<ForwardDeadReckonLegalMoveInfo> allMoves = new ArrayList<>();
       for (ForwardDeadReckonLegalMoveInfo info : propNetX.getMasterMoveList())
       {
         if (!allMoves.contains(info))
@@ -1657,14 +1696,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
    */
   @Override
   public int getGoal(MachineState state, Role role)
-      throws GoalDefinitionException
   {
     ForwardDeadReckonInternalMachineState internalState = createInternalState(state);
-
     return getGoal(internalState, role);
   }
 
-  public int getGoal(Role role) throws GoalDefinitionException
+  public int getGoal(Role role)
   {
     return getGoal((ForwardDeadReckonInternalMachineState)null, role);
   }
@@ -1700,7 +1737,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //ForwardDeadReckonComponent.numPropagates = 0;
       //propNet.seq++;
 
-      result = new LinkedList<Move>();
+      result = new LinkedList<>();
       for (ForwardDeadReckonLegalMoveInfo moveInfo : propNet
           .getActiveLegalProps(instanceId).getContents(role))
       {
@@ -1734,7 +1771,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //ForwardDeadReckonComponent.numPropagates = 0;
       //propNet.seq++;
 
-      result = new LinkedList<Move>();
+      result = new LinkedList<>();
       for (ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps(instanceId).getContents(role))
       {
         result.add(moveInfo.move);
@@ -1756,7 +1793,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public Collection<ForwardDeadReckonLegalMoveInfo> getLegalMoves(ForwardDeadReckonInternalMachineState state,
                                                                   Role role,
                                                                   Factor factor)
-      throws MoveDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getLegalMoveInfos");
     try
@@ -1874,8 +1910,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //ForwardDeadReckonComponent.numPropagates = 0;
       //propNet.seq++;
 
-      Map<GdlSentence, PolymorphicProposition> inputProps = propNet
-          .getInputPropositions();
+      Map<GdlSentence, PolymorphicProposition> inputProps = propNet.getInputPropositions();
       int movesCount = 0;
 
       for (GdlSentence moveSentence : toDoes(moves))
@@ -2144,7 +2179,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //propNet.seq++;
       if (validationMachine != null)
       {
-        List<Move> moves = new LinkedList<Move>();
+        List<Move> moves = new LinkedList<>();
 
         for (Move move : chosenMoves)
         {
@@ -2284,7 +2319,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
    */
   private List<GdlSentence> toDoes(Move[] moves)
   {
-    List<GdlSentence> doeses = new ArrayList<GdlSentence>(moves.length);
+    List<GdlSentence> doeses = new ArrayList<>(moves.length);
     Map<Role, Integer> roleIndices = getRoleIndices();
 
     for (int i = 0; i < numRoles; i++)
@@ -2308,7 +2343,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
    */
   private List<GdlSentence> toDoes(List<Move> moves)
   {
-    List<GdlSentence> doeses = new ArrayList<GdlSentence>(moves.size());
+    List<GdlSentence> doeses = new ArrayList<>(moves.size());
     Map<Role, Integer> roleIndices = getRoleIndices();
 
     for (int i = 0; i < numRoles; i++)
@@ -2405,7 +2440,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
-  private Map<Role, List<Move>> recentLegalMoveSetsList = new HashMap<Role, List<Move>>();
+  private Map<Role, List<Move>> recentLegalMoveSetsList = new HashMap<>();
 
   @Override
   public Move getRandomMove(MachineState state, Role role)
@@ -2440,7 +2475,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       if (preferNew && previouslyAvailableMoves != null)
       {
-        candidates = new LinkedList<Move>();
+        candidates = new LinkedList<>();
 
         for (Move move : legals)
         {
@@ -2489,7 +2524,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
 
     public void considerResult(Role choosingRole)
-        throws GoalDefinitionException
     {
       TerminalResultVector newResultVector = new TerminalResultVector(choosingRole);
 
@@ -2649,7 +2683,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return sb.toString();
   }
 
-  private Set<ForwardDeadReckonProposition> terminatingMoveProps             = new HashSet<ForwardDeadReckonProposition>();
+  private Set<ForwardDeadReckonProposition> terminatingMoveProps             = new HashSet<>();
   public long                               numRolloutDecisionNodeExpansions = 0;
   public double                             greedyRolloutEffectiveness       = 0;
   private int                               terminalCheckHorizon             = 500; //  Effectively infinite by default
@@ -3167,7 +3201,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     public TerminalResultVector(Role controllingRole)
     {
       this.controllingRole = controllingRole;
-      scores = new HashMap<Role, Integer>();
+      scores = new HashMap<>();
     }
   }
 
@@ -3208,7 +3242,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       propNetXWithoutGoals.reset(true);
       propNetOWithoutGoals.reset(true);
 
-      List<ForwardDeadReckonLegalMoveInfo> allMoves = new ArrayList<ForwardDeadReckonLegalMoveInfo>();
+      List<ForwardDeadReckonLegalMoveInfo> allMoves = new ArrayList<>();
       for (ForwardDeadReckonLegalMoveInfo info : propNetXWithoutGoals.getMasterMoveList())
       {
         if (!allMoves.contains(info))
@@ -3289,8 +3323,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                   final int[] stats,
                                   MoveWeights moveWeights,
                                   List<ForwardDeadReckonLegalMoveInfo> playedMoves)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
+      throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getDepthChargeResult");
     try

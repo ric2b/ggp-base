@@ -6,7 +6,6 @@ import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -81,7 +80,7 @@ public class PolymorphicPropNet
   /**
    * Creates a new PropNet from a list of Components, along with indices over
    * those components.
-   * 
+   *
    * @param components
    *          A list of Components.
    */
@@ -139,7 +138,7 @@ public class PolymorphicPropNet
    * going over every single-input proposition in the network, and seeing
    * whether or not its input is a transition, which would mean that by
    * definition the proposition is a base proposition.
-   * 
+   *
    * @return An index over the BasePropositions in the PropNet.
    */
   private Map<GdlSentence, PolymorphicProposition> recordBasePropositions()
@@ -167,7 +166,7 @@ public class PolymorphicPropNet
    * function is "goal", and extracting the name of the role associated with
    * that goal proposition, and then using those role names as keys that map to
    * the goal propositions in the index.
-   * 
+   *
    * @return An index over the GoalPropositions in the PropNet.
    */
   private Map<Role, Set<PolymorphicProposition>> recordGoalPropositions()
@@ -197,7 +196,7 @@ public class PolymorphicPropNet
 
   /**
    * Returns a reference to the single, unique, InitProposition.
-   * 
+   *
    * @return A reference to the single, unique, InitProposition.
    */
   private PolymorphicProposition recordInitProposition()
@@ -219,7 +218,7 @@ public class PolymorphicPropNet
 
   /**
    * Builds an index over the InputPropositions in the PropNet.
-   * 
+   *
    * @return An index over the InputPropositions in the PropNet.
    */
   private Map<GdlSentence, PolymorphicProposition> recordInputPropositions()
@@ -243,7 +242,7 @@ public class PolymorphicPropNet
 
   /**
    * Builds an index over the LegalPropositions in the PropNet.
-   * 
+   *
    * @return An index over the LegalPropositions in the PropNet.
    */
   private Map<Role, Set<PolymorphicProposition>> recordLegalPropositions()
@@ -273,7 +272,7 @@ public class PolymorphicPropNet
 
   /**
    * Builds an index over the Propositions in the PropNet.
-   * 
+   *
    * @return An index over Propositions in the PropNet.
    */
   private Set<PolymorphicProposition> recordPropositions()
@@ -291,7 +290,7 @@ public class PolymorphicPropNet
 
   /**
    * Records a reference to the single, unique, TerminalProposition.
-   * 
+   *
    * @return A reference to the single, unqiue, TerminalProposition.
    */
   private PolymorphicProposition recordTerminalProposition()
@@ -315,7 +314,7 @@ public class PolymorphicPropNet
   /**
    * Creates a new PropNet from a list of Components, along with indices over
    * those components.
-   * 
+   *
    * @param components
    *          A list of Components.
    */
@@ -633,7 +632,7 @@ public class PolymorphicPropNet
 
   /**
    * Getter method.
-   * 
+   *
    * @return References to every BaseProposition in the PropNet, indexed by
    *         name.
    */
@@ -648,8 +647,7 @@ public class PolymorphicPropNet
     {
       if (basePropositionsArray == null)
       {
-        basePropositionsArray = new PolymorphicProposition[basePropositions
-            .size()];
+        basePropositionsArray = new PolymorphicProposition[basePropositions.size()];
         int index = 0;
         for (PolymorphicProposition p : basePropositions.values())
         {
@@ -662,7 +660,7 @@ public class PolymorphicPropNet
 
   /**
    * Getter method.
-   * 
+   *
    * @return References to every Component in the PropNet.
    */
   public Set<PolymorphicComponent> getComponents()
@@ -672,7 +670,7 @@ public class PolymorphicPropNet
 
   /**
    * Getter method.
-   * 
+   *
    * @return References to every GoalProposition in the PropNet, indexed by
    *         player name.
    */
@@ -699,7 +697,7 @@ public class PolymorphicPropNet
 
   /**
    * Getter method. A reference to the single, unique, InitProposition.
-   * 
+   *
    * @return
    */
   public PolymorphicProposition getInitProposition()
@@ -727,7 +725,7 @@ public class PolymorphicPropNet
 
   /**
    * Getter method.
-   * 
+   *
    * @return References to every InputProposition in the PropNet, indexed by
    *         name.
    */
@@ -738,7 +736,7 @@ public class PolymorphicPropNet
 
   /**
    * Getter method.
-   * 
+   *
    * @return References to every LegalProposition in the PropNet, indexed by
    *         player name.
    */
@@ -766,7 +764,7 @@ public class PolymorphicPropNet
 
   /**
    * Getter method.
-   * 
+   *
    * @return References to every Proposition in the PropNet.
    */
   public Set<PolymorphicProposition> getPropositions()
@@ -776,7 +774,7 @@ public class PolymorphicPropNet
 
   /**
    * Getter method.
-   * 
+   *
    * @return A reference to the single, unique, TerminalProposition.
    */
   public PolymorphicProposition getTerminalProposition()
@@ -786,7 +784,7 @@ public class PolymorphicPropNet
 
   /**
    * Returns a representation of the PropNet in .dot format.
-   * 
+   *
    * @see java.lang.Object#toString()
    */
   @Override
@@ -807,7 +805,7 @@ public class PolymorphicPropNet
   /**
    * Outputs the propnet in .dot format to a particular file. This can be
    * viewed with tools like Graphviz and ZGRViewer.
-   * 
+   *
    * @param filename
    *          the name of the file to output to
    */
