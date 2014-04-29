@@ -1879,9 +1879,8 @@ public class TreeNode
   }
 
   TreePathElement select(TreePath path, TreeEdge from, MoveWeightsCollection weights)
-      throws MoveDefinitionException, TransitionDefinitionException,
-      GoalDefinitionException
-      {
+      throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
+  {
     TreeEdge selected = null;
     int selectedIndex = -1;
     int bestSelectedIndex = -1;
@@ -2034,7 +2033,7 @@ public class TreeNode
                                                                              exploitationUCT(children[i], roleIndex);
                   }
 
-                  //  If we're suing move action histories add the move weight into the selection value
+                  //  If we're using move action histories add the move weight into the selection value
                   if (tree.gameCharacteristics.getMoveActionHistoryEnabled() )
                   {
                     double moveWeight = 0;
@@ -2120,8 +2119,7 @@ public class TreeNode
           if (!tree.completeSelectionFromIncompleteParentWarned)
           {
             tree.completeSelectionFromIncompleteParentWarned = true;
-            System.out
-            .println("Selected complete node from incomplete parent");
+            System.out.println("Selected complete node from incomplete parent");
           }
         }
       }
@@ -2159,9 +2157,7 @@ public class TreeNode
     //  we select down the tree)
     if (tree.gameCharacteristics.getMoveActionHistoryEnabled() && weights != null)
     {
-      weights
-      .decayForSelectionThrough(selected.jointPartialMove[roleIndex].move,
-                                roleIndex);
+      weights.decayForSelectionThrough(selected.jointPartialMove[roleIndex].move, roleIndex);
     }
 
     return result;

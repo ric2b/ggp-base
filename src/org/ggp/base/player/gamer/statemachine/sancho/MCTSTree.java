@@ -390,8 +390,8 @@ public class MCTSTree
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.selectAction");
     try
     {
-      MoveWeightsCollection moveWeights = (gameCharacteristics.getMoveActionHistoryEnabled() ? new MoveWeightsCollection(numRoles)
-      : null);
+      MoveWeightsCollection moveWeights = (gameCharacteristics.getMoveActionHistoryEnabled() ?
+                                                                            new MoveWeightsCollection(numRoles) : null);
 
       //validateAll();
       completedNodeQueue.clear();
@@ -420,10 +420,9 @@ public class MCTSTree
 
         if (!cur.complete)
         {
-          selected = cur
-              .select(visited,
-                      selected == null ? null : selected.getEdge(),
-                      moveWeights);
+          selected = cur.select(visited,
+                                selected == null ? null : selected.getEdge(),
+                                moveWeights);
           newNode = selected.getChildNode();
           //visited.add(newNode);
           visited.push(selected);
