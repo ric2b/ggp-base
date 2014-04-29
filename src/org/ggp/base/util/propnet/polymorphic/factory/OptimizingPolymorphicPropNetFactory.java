@@ -3635,6 +3635,29 @@ public class OptimizingPolymorphicPropNetFactory
     return c.getSignature();
   }
 
+  public static void removeNonBaseOrDoesPropositionOutputs(PolymorphicPropNet pn)
+  {
+    for(PolymorphicComponent c : pn.getComponents())
+    {
+      if ( c instanceof PolymorphicProposition &&
+           !pn.getBasePropositions().containsValue(c) &&
+           !pn.getInputPropositions().containsValue(c) &&
+           pn.getInitProposition() != c )
+      {
+        PolymorphicComponent input = c.getSingleInput();
+
+        for(PolymorphicComponent output : c.getOutputs())
+        {
+          output.removeInput(c);
+          output.addInput(input);
+          input.addOutput(output);
+        }
+
+        c.removeAllOutputs();
+      }
+    }
+  }
+
   public static void optimizeInputSets(PolymorphicPropNet pn)
   {
     //	First find the input proposition sets for each role

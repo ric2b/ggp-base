@@ -32,6 +32,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropnetFastAnimator;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
 import org.ggp.base.util.propnet.polymorphic.learning.LearningComponent;
@@ -1097,7 +1098,17 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       System.out.println("Num components after further removal of redundant components: " +
                          fullPropNet.getComponents().size());
 
-      fullPropNet.renderToFile("c:\\temp\\propnet_040_Reduced.dot");
+      //  If we're using the fast animator we need to ensure that no propositions apart
+      //  from strict input props (base, does, init) have any outputs, as this is assumed
+      //  by the fast animator.  Accordingly we rewire slightly such that if any such do exist
+      //  we replace their output connection by one from their input (which they anyway just
+      //  directly forward, so this also removes a small propagation step)
+      if ( ForwardDeadReckonPropNet.useFastAnimator )
+      {
+        OptimizingPolymorphicPropNetFactory.removeNonBaseOrDoesPropositionOutputs(fullPropNet);
+      }
+
+      fullPropNet.renderToFile("c:\\temp\\propnetReduced.dot");
       roles = fullPropNet.getRoles();
       numRoles = roles.size();
 
@@ -1169,6 +1180,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
 
       fullPropNet.crystalize(masterInfoSet, maxInstances);
+
+      for(ForwardDeadReckonPropositionInfo info : masterInfoSet)
+      {
+        ForwardDeadReckonPropositionCrossReferenceInfo crInfo = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
+
+        crInfo.xNetPropId = crInfo.xNetProp.id;
+        crInfo.oNetPropId = crInfo.oNetProp.id;
+      }
 
       stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
       stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -1434,6 +1453,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       propNetX.crystalize(masterInfoSet, maxInstances);
       propNetO.crystalize(masterInfoSet, maxInstances);
       goalsNet.crystalize(masterInfoSet, maxInstances);
+
+      for(ForwardDeadReckonPropositionInfo info : masterInfoSet)
+      {
+        ForwardDeadReckonPropositionCrossReferenceInfo crInfo = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
+
+        crInfo.xNetPropId = crInfo.xNetProp.id;
+        crInfo.oNetPropId = crInfo.oNetProp.id;
+      }
+
       goalsNet.reset(true);
       //	Force calculation of the goal set while we're single threaded
       goalsNet.getGoalPropositions();
@@ -1549,60 +1577,112 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             stateManipulationSection.exitScope();
           }
 
-          for (ForwardDeadReckonPropositionInfo info : lastInternalSetState)
-          {
-            ForwardDeadReckonPropositionCrossReferenceInfo infoCr = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
+          ForwardDeadReckonPropnetFastAnimator.InstanceInfo instanceInfo;
 
-            //if ( factor == null || factor.getStateMask().contains(infoCr))
+          if ( ForwardDeadReckonPropNet.useFastAnimator && !measuringBasePropChanges )
+          {
+            instanceInfo = propNet.animator.getInstanceInfo(instanceId);
+
+            if ( propNet == propNetX)
             {
-              if (nextInternalSetState.contains(info))
+              for (ForwardDeadReckonPropositionInfo info : lastInternalSetState)
               {
-                ProfileSection setPropsSection = ProfileSection.newInstance("TestPropnetStateMachine.setNewProps");
-                try
-                {
-                  if (propNet == propNetX)
-                  {
-                    propNet.setProposition(instanceId, infoCr.xNetProp, true);
-                    //infoCr.xNetProp.setValue(true, instanceId);
-                  }
-                  else
-                  {
-                    propNet.setProposition(instanceId, infoCr.oNetProp, true);
-                    //infoCr.oNetProp.setValue(true, instanceId);
-                  }
-                }
-                finally
-                {
-                  setPropsSection.exitScope();
-                }
-              }
-              else
-              {
-                ProfileSection clearPropsSection = ProfileSection.newInstance("TestPropnetStateMachine.clearOldProps");
-                try
-                {
-                  if (propNet == propNetX)
-                  {
-                    propNet.setProposition(instanceId, infoCr.xNetProp, false);
-                    //infoCr.xNetProp.setValue(false, instanceId);
-                  }
-                  else
-                  {
-                    propNet.setProposition(instanceId, infoCr.oNetProp, false);
-                    //infoCr.oNetProp.setValue(false, instanceId);
-                  }
-                }
-                finally
-                {
-                  clearPropsSection.exitScope();
-                }
+                ForwardDeadReckonPropositionCrossReferenceInfo infoCr = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
+
+                propNet.animator.changeComponentValueTo(instanceInfo, infoCr.xNetProp.id, nextInternalSetState.contains(info));
               }
             }
-
-            if (measuringBasePropChanges)
+            else
             {
-              basePropChangeCounts.put(infoCr,
-                                       basePropChangeCounts.get(infoCr) + 1);
+              for (ForwardDeadReckonPropositionInfo info : lastInternalSetState)
+              {
+                ForwardDeadReckonPropositionCrossReferenceInfo infoCr = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
+
+                propNet.animator.changeComponentValueTo(instanceInfo, infoCr.oNetProp.id, nextInternalSetState.contains(info));
+              }
+            }
+          }
+          else
+          {
+            for (ForwardDeadReckonPropositionInfo info : lastInternalSetState)
+            {
+              ForwardDeadReckonPropositionCrossReferenceInfo infoCr = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
+
+              //if ( factor == null || factor.getStateMask().contains(infoCr))
+              {
+                if (nextInternalSetState.contains(info))
+                {
+                  ProfileSection setPropsSection = ProfileSection.newInstance("TestPropnetStateMachine.setNewProps");
+                  try
+                  {
+                    if (propNet == propNetX)
+                    {
+                      if (ForwardDeadReckonPropNet.useFastAnimator)
+                      {
+                        propNet.animator.setComponentValue(instanceId, infoCr.xNetProp.id, true);
+                      }
+                      else
+                      {
+                        infoCr.xNetProp.setValue(true, instanceId);
+                      }
+                    }
+                    else
+                    {
+                      if (ForwardDeadReckonPropNet.useFastAnimator)
+                      {
+                        propNet.animator.setComponentValue(instanceId, infoCr.oNetProp.id, true);
+                      }
+                      else
+                      {
+                        infoCr.oNetProp.setValue(true, instanceId);
+                      }
+                    }
+                  }
+                  finally
+                  {
+                    setPropsSection.exitScope();
+                  }
+                }
+                else
+                {
+                  ProfileSection clearPropsSection = ProfileSection.newInstance("TestPropnetStateMachine.clearOldProps");
+                  try
+                  {
+                    if (propNet == propNetX)
+                    {
+                      if (ForwardDeadReckonPropNet.useFastAnimator)
+                      {
+                        propNet.animator.setComponentValue(instanceId, infoCr.xNetProp.id, false);
+                      }
+                      else
+                      {
+                        infoCr.xNetProp.setValue(false, instanceId);
+                      }
+                    }
+                    else
+                    {
+                      if (ForwardDeadReckonPropNet.useFastAnimator)
+                      {
+                        propNet.animator.setComponentValue(instanceId, infoCr.oNetProp.id, false);
+                      }
+                      else
+                      {
+                        infoCr.oNetProp.setValue(false, instanceId);
+                      }
+                    }
+                  }
+                  finally
+                  {
+                    clearPropsSection.exitScope();
+                  }
+                }
+              }
+
+              if (measuringBasePropChanges)
+              {
+                basePropChangeCounts.put(infoCr,
+                                         basePropChangeCounts.get(infoCr) + 1);
+              }
             }
           }
 
@@ -1621,24 +1701,50 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           lastInternalSetState = state;
           //System.out.println("Copying to last set state: " + lastInternalSetState);
         }
+
+        ForwardDeadReckonPropnetFastAnimator.InstanceInfo instanceInfo;
+
+        if (ForwardDeadReckonPropNet.useFastAnimator)
+        {
+          instanceInfo = propNet.animator.getInstanceInfo(instanceId);
+        }
+
         //System.out.println("Setting entire state");
         for (PolymorphicProposition p : propNet.getBasePropositionsArray())
         {
-          propNet.setProposition(instanceId, ((ForwardDeadReckonProposition)p), false);
-          //((ForwardDeadReckonProposition)p).setValue(false, instanceId);
+          if (ForwardDeadReckonPropNet.useFastAnimator)
+          {
+            propNet.animator.setComponentValue(instanceId, ((ForwardDeadReckonProposition)p).id, false);
+          }
+          else
+          {
+            ((ForwardDeadReckonProposition)p).setValue(false, instanceId);
+          }
         }
         for (ForwardDeadReckonPropositionInfo s : state)
         {
           ForwardDeadReckonPropositionCrossReferenceInfo sCr = (ForwardDeadReckonPropositionCrossReferenceInfo)s;
           if (propNet == propNetX)
           {
-            propNet.setProposition(instanceId, sCr.xNetProp, true);
-            //sCr.xNetProp.setValue(true, instanceId);
+            if (ForwardDeadReckonPropNet.useFastAnimator)
+            {
+              propNet.animator.changeComponentValueTo(instanceInfo, sCr.xNetProp.id, true);
+            }
+            else
+            {
+              sCr.xNetProp.setValue(true, instanceId);
+            }
           }
           else
           {
-            propNet.setProposition(instanceId, sCr.oNetProp, true);
-            //sCr.oNetProp.setValue(true, instanceId);
+            if (ForwardDeadReckonPropNet.useFastAnimator)
+            {
+              propNet.animator.changeComponentValueTo(instanceInfo, sCr.oNetProp.id, true);
+            }
+            else
+            {
+              sCr.oNetProp.setValue(true, instanceId);
+            }
           }
         }
       }
@@ -3285,6 +3391,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       propNetXWithoutGoals.crystalize(masterInfoSet, maxInstances);
       propNetOWithoutGoals.crystalize(masterInfoSet, maxInstances);
+
+      for(ForwardDeadReckonPropositionInfo info : masterInfoSet)
+      {
+        ForwardDeadReckonPropositionCrossReferenceInfo crInfo = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
+
+        crInfo.xNetPropId = crInfo.xNetProp.id;
+        crInfo.oNetPropId = crInfo.oNetProp.id;
+      }
+
       propNetXWithoutGoals.reset(true);
       propNetOWithoutGoals.reset(true);
 
