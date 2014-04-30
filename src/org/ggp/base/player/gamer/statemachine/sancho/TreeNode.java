@@ -228,8 +228,7 @@ public class TreeNode
         tree.numIncompleteNodes--;
         if (tree.numIncompleteNodes < 0)
         {
-          System.out
-          .println("Unexpected negative count of incomplete nodes");
+          System.out.println("Unexpected negative count of incomplete nodes");
         }
       }
       //validateAll();
@@ -982,8 +981,7 @@ public class TreeNode
         tree.numIncompleteNodes--;
         if (tree.numIncompleteNodes < 0)
         {
-          System.out
-          .println("Unexpected negative count of incomplete nodes");
+          System.out.println("Unexpected negative count of incomplete nodes");
         }
       }
       if (complete)
@@ -1296,18 +1294,32 @@ public class TreeNode
 
   private void calculateTerminalityAndAutoExpansion() throws MoveDefinitionException, GoalDefinitionException
   {
+    // Check if the goal value is latched.
+    if (tree.numRoles == 1) // !! ARR 1P Latches
+    {
+      Integer lLatchedScore = tree.underlyingStateMachine.getLatchedScore(state);
+      if (lLatchedScore != null)
+      {
+        isTerminal = true;
+        averageScores[0] = lLatchedScore;
+        averageSquaredScores[0] = 0;
+      }
+    }
+
     if (tree.underlyingStateMachine.isTerminal(state))
     {
       isTerminal = true;
 
       for (int i = 0; i < tree.numRoles; i++)
       {
-        averageScores[i] = tree.underlyingStateMachine
-            .getGoal(tree.roleOrdering.roleIndexToRole(i));
+        averageScores[i] = tree.underlyingStateMachine.getGoal(tree.roleOrdering.roleIndexToRole(i));
         averageSquaredScores[i] = 0;
       }
+    }
 
-      //  Add win bonus
+    if (isTerminal)
+    {
+      // Add win bonus
       for (int i = 0; i < tree.numRoles; i++)
       {
         double iScore = averageScores[i];
@@ -1956,11 +1968,8 @@ public class TreeNode
                 //  in highly transpositional games) does not seem to work as well (even with a
                 //  'corrected' parent visit count obtained by summing the number of visits to all
                 //  the child's parents)
-                uctValue = explorationUCT(numVisits,
-                                          children[mostLikelyWinner].numChildVisits,
-                                          roleIndex) +
-                                          exploitationUCT(children[mostLikelyWinner],
-                                                          roleIndex);
+                uctValue = explorationUCT(numVisits, children[mostLikelyWinner].numChildVisits, roleIndex) +
+                           exploitationUCT(children[mostLikelyWinner], roleIndex);;
               }
 
               if (uctValue >= mostLikelyRunnerUpValue)
@@ -2103,7 +2112,7 @@ public class TreeNode
       if (cr.seq < 0 || cr.seq != cr.node.seq)
       {
         tree.numReExpansions++;
-        if ( trimmedChildren == 0 )
+        if (trimmedChildren == 0)
         {
           System.out.println("Found trimmed child where none should exist!");
         }
@@ -2352,8 +2361,7 @@ public class TreeNode
               if (edge2.child.node.averageScores[0] <= tree.rolloutPool.lowestRolloutScoreSeen &&
                   edge2.child.node.complete)
               {
-                System.out
-                .println("Post-processing completion of response node");
+                System.out.println("Post-processing completion of response node");
                 markComplete(edge2.child.node.averageScores);
               }
             }
@@ -2839,12 +2847,6 @@ public class TreeNode
         averageSquaredScores[roleIndex] = (averageSquaredScores[roleIndex] *
             numUpdates + squaredValues[roleIndex]) /
             (numUpdates + 1);
-      }
-
-      if (complete && !tree.gameCharacteristics.isSimultaneousMove && !tree.gameCharacteristics.isMultiPlayer &&
-          averageScores[roleIndex] != oldAverageScores[roleIndex])
-      {
-        System.out.println("Unexpected update to complete node score");
       }
 
       leastLikelyWinner = -1;

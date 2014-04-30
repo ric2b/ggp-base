@@ -369,27 +369,30 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     for (PolymorphicProposition lBaseProp : fullPropNet.getBasePropositionsArray())
     {
-      PolymorphicTransition lTransition = (PolymorphicTransition)lBaseProp.getSingleInput();
-      PolymorphicComponent lCandidateGate = lTransition.getSingleInput();
-
-      if ((lCandidateGate instanceof PolymorphicOr) ||
-          (lCandidateGate instanceof PolymorphicAnd))
+      if (lBaseProp.getSingleInput() instanceof PolymorphicTransition)
       {
-        boolean lPositive = (lCandidateGate instanceof PolymorphicOr);
-        for (PolymorphicComponent lFeeder : lCandidateGate.getInputs())
+        PolymorphicTransition lTransition = (PolymorphicTransition)lBaseProp.getSingleInput();
+        PolymorphicComponent lCandidateGate = lTransition.getSingleInput();
+
+        if ((lCandidateGate instanceof PolymorphicOr) ||
+            (lCandidateGate instanceof PolymorphicAnd))
         {
-          if (lFeeder == lBaseProp)
+          boolean lPositive = (lCandidateGate instanceof PolymorphicOr);
+          for (PolymorphicComponent lFeeder : lCandidateGate.getInputs())
           {
-            // Found a latching proposition.  Find out if anything else is latched, positively or negatively, as a
-            // result.
-            System.out.println("Latch(" + (lPositive ? "+" : "-") + "ve): " + lBaseProp);
-            Set<PolymorphicComponent> lPositivelyLatched = new HashSet<>();
-            Set<PolymorphicComponent> lNegativelyLatched = new HashSet<>();
-            findAllLatchedStatesFor(lBaseProp,
-                                    lPositive,
-                                    (ForwardDeadReckonProposition)lBaseProp,
-                                    lPositivelyLatched,
-                                    lNegativelyLatched);
+            if (lFeeder == lBaseProp)
+            {
+              // Found a latching proposition.  Find out if anything else is latched, positively or negatively, as a
+              // result.
+              System.out.println("Latch(" + (lPositive ? "+" : "-") + "ve): " + lBaseProp);
+              Set<PolymorphicComponent> lPositivelyLatched = new HashSet<>();
+              Set<PolymorphicComponent> lNegativelyLatched = new HashSet<>();
+              findAllLatchedStatesFor(lBaseProp,
+                                      lPositive,
+                                      (ForwardDeadReckonProposition)lBaseProp,
+                                      lPositivelyLatched,
+                                      lNegativelyLatched);
+            }
           }
         }
       }

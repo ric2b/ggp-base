@@ -20,7 +20,6 @@ class RolloutRequest
   public Factor                                factor = null;
   public final double[]                        averageScores;
   public final double[]                        averageSquaredScores;
-  public final boolean[]                       latchedScore;
   public int                                   sampleSize;
   public TreePath                              path;
 
@@ -29,12 +28,10 @@ class RolloutRequest
     this.pool = xiPool;
     averageScores = new double[xiPool.numRoles];
     averageSquaredScores = new double[xiPool.numRoles];
-    latchedScore = new boolean[xiPool.numRoles];
   }
 
   public void process(ForwardDeadReckonPropnetStateMachine stateMachine)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
+      throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.rollOut");
     try
@@ -51,60 +48,45 @@ class RolloutRequest
       {
         averageScores[roleIndex] = 0;
         averageSquaredScores[roleIndex] = 0;
-        latchedScore[roleIndex] = false;
       }
 
-      // Check if the goal value is latched - in which case we don't need to do any rollouts.
-      if (pool.numRoles == 1)
+      for (int i = 0; i < sampleSize; i++)
       {
-        Integer lLatchedScore = stateMachine.getLatchedScore(state);
-        if (lLatchedScore != null)
-        {
-          latchedScore[0] = true;
-          averageScores[0] = lLatchedScore;
-          averageSquaredScores[0] = lLatchedScore * lLatchedScore;
-          sampleSize = 0;
-        }
-      }
+        //long startTime = System.nanoTime();
+        //System.out.println("Perform rollout from state: " + state);
+         stateMachine.getDepthChargeResult(state, factor, pool.ourRole, null, null, null);
 
-      if (sampleSize > 0)
-      {
-        for (int i = 0; i < sampleSize; i++)
+        //long rolloutTime = System.nanoTime() - startTime;
+        //System.out.println("Rollout took: " + rolloutTime);
+        for (int roleIndex = 0; roleIndex < pool.numRoles; roleIndex++)
         {
-          //long startTime = System.nanoTime();
-          //System.out.println("Perform rollout from state: " + state);
-           stateMachine.getDepthChargeResult(state, factor, pool.ourRole, null, null, null);
+          int score = stateMachine.getGoal(pool.roleOrdering.roleIndexToRole(roleIndex));
+          averageScores[roleIndex] += score;
+          averageSquaredScores[roleIndex] += score * score;
+          scores[pool.roleOrdering.roleIndexToRawRoleIndex(roleIndex)] = score;
 
-          //long rolloutTime = System.nanoTime() - startTime;
-          //System.out.println("Rollout took: " + rolloutTime);
-          for (int roleIndex = 0; roleIndex < pool.numRoles; roleIndex++)
+          if (roleIndex == 0)
           {
-            int score = stateMachine.getGoal(pool.roleOrdering.roleIndexToRole(roleIndex));
-            averageScores[roleIndex] += score;
-            averageSquaredScores[roleIndex] += score * score;
-            scores[pool.roleOrdering.roleIndexToRawRoleIndex(roleIndex)] = score;
-
-            if (roleIndex == 0)
+            if (score > pool.highestRolloutScoreSeen) // !! ARR Not thread-safe
             {
-              if (score > pool.highestRolloutScoreSeen) // !! ARR Not thread-safe
-              {
-                pool.highestRolloutScoreSeen = score;
-              }
-              if (score < pool.lowestRolloutScoreSeen)
-              {
-                pool.lowestRolloutScoreSeen = score;
-              }
+              pool.highestRolloutScoreSeen = score;
+            }
+            if (score < pool.lowestRolloutScoreSeen)
+            {
+              pool.lowestRolloutScoreSeen = score;
             }
           }
         }
-
-        for (int roleIndex = 0; roleIndex < pool.numRoles; roleIndex++)
-        {
-          averageScores[roleIndex] /= sampleSize;
-          averageSquaredScores[roleIndex] /= sampleSize;
-        }
       }
 
+      for (int roleIndex = 0; roleIndex < pool.numRoles; roleIndex++)
+      {
+        averageScores[roleIndex] /= sampleSize;
+        averageSquaredScores[roleIndex] /= sampleSize;
+      }
+
+      // Add the completed rollout to the queue for updating the node statistics.  These are dequeued in
+      // GameSearcher#processCompletedRollouts().
       pool.completedRollouts.add(this);
       synchronized (pool) // !! ARR Perf. win from not keeping this stat (or keeping per-thread stats)?
       {
