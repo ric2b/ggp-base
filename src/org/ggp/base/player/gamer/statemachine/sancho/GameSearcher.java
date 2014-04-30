@@ -3,6 +3,7 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Move;
@@ -14,22 +15,22 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 class GameSearcher implements Runnable, ActivityController
 {
-  private volatile long         moveTime;
-  private volatile long         startTime;
-  private volatile int          searchSeqRequested  = 0;
-  private volatile int          searchSeqProcessing = 0;
-  private int                   numIterations       = 0;
-  private volatile boolean      requestYield        = false;
-  private Set<MCTSTree>         factorTrees         = new HashSet<>();
-  private NodePool              nodePool;
-  private RolloutProcessorPool  rolloutPool         = null;
-  private double                minExplorationBias  = 0.5;
-  private double                maxExplorationBias  = 1.2;
-  private volatile boolean      mTerminateRequested = false;
+  private volatile long                   moveTime;
+  private volatile long                   startTime;
+  private volatile int                    searchSeqRequested  = 0;
+  private volatile int                    searchSeqProcessing = 0;
+  private int                             numIterations       = 0;
+  private volatile boolean                requestYield        = false;
+  private Set<MCTSTree>                   factorTrees         = new HashSet<>();
+  private CappedPool<TreeNode>            nodePool;
+  private RolloutProcessorPool            rolloutPool         = null;
+  private double                          minExplorationBias  = 0.5;
+  private double                          maxExplorationBias  = 1.2;
+  private volatile boolean                mTerminateRequested = false;
 
   public GameSearcher(int nodeTableSize)
   {
-    nodePool = new NodePool(nodeTableSize);
+    nodePool = new CappedPool<>(nodeTableSize);
   }
 
   public void setExplorationBiasRange(double min, double max)
@@ -59,19 +60,19 @@ class GameSearcher implements Runnable, ActivityController
       rolloutPool.disableGreedyRollouts();
     }
 
-    nodePool.clear(null);
+    nodePool.clear(new TreeNodeAllocator(null), false);
     factorTrees.clear();
 
     Set<Factor> factors = underlyingStateMachine.getFactors();
     if ( factors == null )
     {
       factorTrees.add(new MCTSTree(underlyingStateMachine,
-                                    null,
-                                    nodePool,
-                                    roleOrdering,
-                                    rolloutPool,
-                                    gameCharacteristics,
-                                    heuristic));
+                                   null,
+                                   nodePool,
+                                   roleOrdering,
+                                   rolloutPool,
+                                   gameCharacteristics,
+                                   heuristic));
     }
     else
     {
@@ -185,8 +186,8 @@ class GameSearcher implements Runnable, ActivityController
     {
       FactorMoveChoiceInfo bestChoice = null;
 
-      System.out.println("Num tree node frees: " + nodePool.getNumFreedNodes());
-      System.out.println("Num tree nodes currently in use: " + nodePool.getNumUsedNodes());
+      System.out.println("Num tree node frees: " + nodePool.getNumFreedItems());
+      System.out.println("Num tree nodes currently in use: " + nodePool.getNumUsedItems());
       System.out.println("Searching for best move amongst factors:");
       for(MCTSTree tree : factorTrees)
       {
