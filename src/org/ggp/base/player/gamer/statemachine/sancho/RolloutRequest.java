@@ -11,9 +11,6 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 class RolloutRequest
 {
-  /**
-   *
-   */
   private final RolloutProcessorPool           pool;
   public TreeNodeRef                           node;
   public ForwardDeadReckonInternalMachineState state;
@@ -30,16 +27,21 @@ class RolloutRequest
     averageSquaredScores = new double[xiPool.numRoles];
   }
 
+  /**
+   * Process this rollout request.
+   *
+   * @param stateMachine - a state machine to handle perform the rollouts.
+   *
+   * @throws TransitionDefinitionException
+   * @throws MoveDefinitionException
+   * @throws GoalDefinitionException
+   */
   public void process(ForwardDeadReckonPropnetStateMachine stateMachine)
       throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.rollOut");
     try
     {
-      synchronized (pool) // !! ARR Perf. win from not keeping this stat (or keeping per-thread stats)?
-      {
-        pool.dequeuedRollouts++;
-      }
       double[] scores = new double[pool.numRoles];
 
       //playedMoveWeights = stateMachine.createMoveWeights();
@@ -88,10 +90,6 @@ class RolloutRequest
       // Add the completed rollout to the queue for updating the node statistics.  These are dequeued in
       // GameSearcher#processCompletedRollouts().
       pool.completedRollouts.add(this);
-      synchronized (pool) // !! ARR Perf. win from not keeping this stat (or keeping per-thread stats)?
-      {
-        pool.enqueuedCompletedRollouts++;
-      }
     }
     finally
     {

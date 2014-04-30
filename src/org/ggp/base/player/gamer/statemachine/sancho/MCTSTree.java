@@ -322,8 +322,7 @@ public class MCTSTree
       System.out.println("Average depth of auto-expansion instances: " + averageAutoExpansionDepth);
       System.out.println("Maximum depth of auto-expansion instances: " + maxAutoExpansionDepth);
     }
-    System.out
-    .println("Current rollout sample size: " + gameCharacteristics.getRolloutSampleSize());
+    System.out.println("Current rollout sample size: " + gameCharacteristics.getRolloutSampleSize());
     System.out.println("Current observed rollout score range: [" +
         rolloutPool.lowestRolloutScoreSeen + ", " +
         rolloutPool.highestRolloutScoreSeen + "]");

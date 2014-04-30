@@ -24,6 +24,9 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 
 public class TreeNode
 {
+  private static final int NULL_NODE_SEQ = -1;
+  private static final int FREED_NODE_SEQ = -2;
+
   public static class TreeNodeRef
   {
     public TreeNode node;
@@ -43,7 +46,7 @@ public class TreeNode
 
   private static final double           EPSILON             = 1e-6;
 
-  int                                   seq                 = -1;
+  int                                   seq                 = NULL_NODE_SEQ;
   public int                            numVisits           = 0;
   private int                           numUpdates          = 0;
   public double[]                       averageScores;
@@ -252,11 +255,11 @@ public class TreeNode
 
           trimmedChildren++;
 
-          cr.seq = -1;
+          cr.seq = NULL_NODE_SEQ;
         }
-        else if (cr.seq != -1)
+        else if (cr.seq != NULL_NODE_SEQ)
         {
-          cr.seq = -1;
+          cr.seq = NULL_NODE_SEQ;
           trimmedChildren++;
         }
       }
@@ -850,7 +853,7 @@ public class TreeNode
     mostLikelyWinner = -1;
     complete = false;
     allChildrenComplete = false;
-    seq = -1;
+    seq = NULL_NODE_SEQ;
   }
 
   private TreeNodeRef getRef()
@@ -1020,7 +1023,9 @@ public class TreeNode
         }
       }
 
-      //System.out.println("    Freeing (" + ourIndex + "): " + state);
+      // System.out.println("    Freeing (" + ourIndex + "): " + state);
+      seq = FREED_NODE_SEQ;
+      freed = true;
       tree.nodePool.free(this);
       //validateAll();
     }
@@ -1191,13 +1196,13 @@ public class TreeNode
               TreeNode c = cr.node;
               if (cr.seq < 0 || c.seq != cr.seq)
               {
-                if (cr.seq != -1)
+                if (cr.seq != NULL_NODE_SEQ)
                 {
                   if (trimmedChildren++ == 0)
                   {
                     tree.numIncompleteNodes++;
                   }
-                  cr.seq = -1;
+                  cr.seq = NULL_NODE_SEQ;
                 }
               }
               else
@@ -1993,13 +1998,13 @@ public class TreeNode
                 TreeNode c = cr.node;
                 if (c.seq != cr.seq)
                 {
-                  if (cr.seq != -1)
+                  if (cr.seq != NULL_NODE_SEQ)
                   {
                     if (trimmedChildren++ == 0)
                     {
                       tree.numIncompleteNodes++;
                     }
-                    cr.seq = -1;
+                    cr.seq = NULL_NODE_SEQ;
                   }
 
                   selectedIndex = -1;

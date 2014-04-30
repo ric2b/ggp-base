@@ -15,8 +15,6 @@ public class RolloutProcessorPool
   ConcurrentLinkedQueue<RolloutRequest>                completedRollouts                           = new ConcurrentLinkedQueue<>();
   public int                                           numQueuedRollouts                           = 0;
   public int                                           numCompletedRollouts                        = 0;
-  public int                                           dequeuedRollouts                            = 0;
-  public int                                           enqueuedCompletedRollouts                   = 0;
   private int                                          numRolloutThreads;
   private int                                          maxOutstandingRolloutRequests;
   private RolloutProcessor[]                           rolloutProcessors                           = null;
@@ -48,7 +46,7 @@ public class RolloutProcessorPool
     lowestRolloutScoreSeen = 1000;
     highestRolloutScoreSeen = -100;
 
-    if ( RolloutProcessor.useTerminalityHorizon )
+    if (RolloutProcessor.useTerminalityHorizon)
     {
       for (int i = 0; i < numRolloutThreads; i++)
       {

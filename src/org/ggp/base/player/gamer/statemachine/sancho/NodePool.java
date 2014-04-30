@@ -96,25 +96,18 @@ public class NodePool
       lAllocatedNode = new TreeNode(tree, tree.numRoles);
       nodeTable[++largestUsedIndex] = lAllocatedNode;
     }
-    else if (!freeList.isEmpty())
+    else
     {
       // We've allocated the maximum number of nodes, so grab one from the freed list.
+      assert(!freeList.isEmpty()) : "Unexpectedly full transition table";
       lAllocatedNode = freeList.remove(0);
 
-      if (!lAllocatedNode.freed)
-      {
-        System.out.println("Bad allocation choice");
-        // !! ARR Surely we could throw a RuntimeException here?
-        // !! ARR This is none of the NodePool's business.
-      }
+      assert(lAllocatedNode.freed) : "Bad node allocation choice: " + lAllocatedNode;
+      // !! ARR NodePool encapsulation
 
       // Reset the node so that it's ready for re-use.
       lAllocatedNode.reset(tree);
-      // !! ARR Again - this should be the caller's job or a job for the TreeNodeAllocator.
-    }
-    else
-    {
-      throw new RuntimeException("Unexpectedly full transition table");
+      // !! ARR NodePool encapsulation
     }
 
     numUsedNodes++;
@@ -132,9 +125,6 @@ public class NodePool
   public void free(TreeNode node)
   {
     numFreedNodes++;
-    node.seq = -2; //  Must be negative and distinct from -1, the null ref seq value
-    node.freed = true;
-
     numUsedNodes--;
     freeList.add(node);
   }
@@ -152,7 +142,7 @@ public class NodePool
   /**
    * Clear the node pool - freeing all nodes that are still allocated.
    *
-   * @param tree - null to free all nodes in the pool, or an MCTSTree if only nodes in the specified tree shoudl be
+   * @param tree - null to free all nodes in the pool, or an MCTSTree if only nodes in the specified tree should be
    * freed.
    */
   public void clear(MCTSTree tree)
@@ -163,6 +153,7 @@ public class NodePool
       for (int i = 0; i <= largestUsedIndex; i++)
       {
         nodeTable[i].reset(null);
+        // !! ARR NodePool encapsulation
         freeList.add(nodeTable[i]);
       }
 
@@ -178,10 +169,11 @@ public class NodePool
         if ((nodeTable[i].tree == tree) && (!nodeTable[i].freed))
         {
           nodeTable[i].reset(null);
+          // !! ARR NodePool encapsulation
           freeList.add(nodeTable[i]);
           numUsedNodes--;
-          //  We don't increment numFreedNodes here since what it is (intention)
-          //  measuring and reporting is how much forced trimming is going on
+          //  We don't increment numFreedNodes here since what it is (intentionally) measuring and reporting is how
+          // much forced trimming is going on.
         }
       }
     }
