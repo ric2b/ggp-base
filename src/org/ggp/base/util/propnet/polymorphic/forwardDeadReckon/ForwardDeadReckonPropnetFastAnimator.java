@@ -444,6 +444,7 @@ public class ForwardDeadReckonPropnetFastAnimator
             {
               state[outputId] &= ~componentInfoCachedValMask;
             }
+            propagateComponent(instanceInfo, outputId, value);
             break;
           case componentIdPropositionBits:
             if ( value )
