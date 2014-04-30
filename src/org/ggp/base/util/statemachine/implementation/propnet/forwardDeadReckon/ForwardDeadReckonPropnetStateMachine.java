@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -106,8 +107,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private Set<Factor>                                                  factors                         = null;
   public long                                                          totalNumGatesPropagated         = 0;
   public long                                                          totalNumPropagates              = 0;
-  private Map<PolymorphicProposition, List<ForwardDeadReckonPropositionInfo>> mPositiveGoalLatches     = null;
-  private Map<PolymorphicProposition, List<ForwardDeadReckonPropositionInfo>> mNegativeGoalLatches     = null;
+  private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mPositiveGoalLatches      = null;
+  private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mNegativeGoalLatches      = null;
 
   private class TestPropnetStateMachineStats extends Stats
   {
@@ -327,7 +328,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   // !! ARR Work in progress - will need to return something
   public void findLatches()
   {
-
     // As a quick win for now, we'll keep a simple record of any propositions which latch a goal proposition (either
     // positively or negatively).
     mPositiveGoalLatches = new HashMap<>();
@@ -336,8 +336,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     {
       for (PolymorphicProposition lGoal : lGoals)
       {
-        mPositiveGoalLatches.put(lGoal, new LinkedList<ForwardDeadReckonPropositionInfo>());
-        mNegativeGoalLatches.put(lGoal, new LinkedList<ForwardDeadReckonPropositionInfo>());
+        mPositiveGoalLatches.put(lGoal, new ForwardDeadReckonInternalMachineState(masterInfoSet));
+        mNegativeGoalLatches.put(lGoal, new ForwardDeadReckonInternalMachineState(masterInfoSet));
       }
     }
 
@@ -353,25 +353,40 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     //
     // This identifies, for example, the "lost" proposition in base.firefighter and the cell-has-an-x and cell-has-an-o
     // propositions in TTT (and, presumably, most of the other board-filling games too).
+    //
+    //
+    // Do likewise for the simplest negative latches.  (!! ARR Not sure this actually catches anything.  Maybe because
+    // there's an OR from some sort of INIT prop??)
+    //
+    //             Logic
+    //               |
+    //               v
+    // BasePropX -> And -> Transition -\
+    //     ^                           |
+    //     |                           |
+    //     \___________________________/
+    //
 
     for (PolymorphicProposition lBaseProp : fullPropNet.getBasePropositionsArray())
     {
       PolymorphicTransition lTransition = (PolymorphicTransition)lBaseProp.getSingleInput();
-      PolymorphicComponent lCandidateOr = lTransition.getSingleInput();
+      PolymorphicComponent lCandidateGate = lTransition.getSingleInput();
 
-      if (lCandidateOr instanceof PolymorphicOr)
+      if ((lCandidateGate instanceof PolymorphicOr) ||
+          (lCandidateGate instanceof PolymorphicAnd))
       {
-        for (PolymorphicComponent lFeeder : lCandidateOr.getInputs())
+        boolean lPositive = (lCandidateGate instanceof PolymorphicOr);
+        for (PolymorphicComponent lFeeder : lCandidateGate.getInputs())
         {
           if (lFeeder == lBaseProp)
           {
             // Found a latching proposition.  Find out if anything else is latched, positively or negatively, as a
             // result.
-            System.out.println("Latch(+ve): " + lBaseProp);
+            System.out.println("Latch(" + (lPositive ? "+" : "-") + "ve): " + lBaseProp);
             Set<PolymorphicComponent> lPositivelyLatched = new HashSet<>();
             Set<PolymorphicComponent> lNegativelyLatched = new HashSet<>();
             findAllLatchedStatesFor(lBaseProp,
-                                    true,
+                                    lPositive,
                                     (ForwardDeadReckonProposition)lBaseProp,
                                     lPositivelyLatched,
                                     lNegativelyLatched);
@@ -380,39 +395,52 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
     }
 
-    // Post-process the goal latches into an efficient form for checking against machine states.
-    for (Entry<PolymorphicProposition, List<ForwardDeadReckonPropositionInfo>> lEntry : mPositiveGoalLatches.entrySet())
+    // Post-process the goal latches to remove any goals for which no latches were found.
+    Iterator<Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState>> lIterator =
+                                                                             mPositiveGoalLatches.entrySet().iterator();
+    while (lIterator.hasNext())
     {
+      Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry = lIterator.next();
       PolymorphicProposition lGoal = lEntry.getKey();
-      List<ForwardDeadReckonPropositionInfo> lLatches = lEntry.getValue();
+      ForwardDeadReckonInternalMachineState lLatches = lEntry.getValue();
 
       if (lLatches.size() != 0)
       {
-        ForwardDeadReckonInternalMachineState lGoalLatch = new ForwardDeadReckonInternalMachineState(masterInfoSet);
-
-        for (ForwardDeadReckonPropositionInfo lPropInfo : lLatches)
-        {
-          lGoalLatch.add(lPropInfo);
-        }
-        System.out.println("Goal '" + lGoal + "' is positively latched by any of: " + lGoalLatch);
+        System.out.println("Goal '" + lGoal + "' is positively latched by any of: " + lLatches);
+      }
+      else
+      {
+        lIterator.remove();
       }
     }
 
-    for (Entry<PolymorphicProposition, List<ForwardDeadReckonPropositionInfo>> lEntry : mNegativeGoalLatches.entrySet())
+    if (mPositiveGoalLatches.isEmpty())
     {
+      System.out.println("No positive goal latches");
+      mPositiveGoalLatches = null;
+    }
+
+    lIterator = mNegativeGoalLatches.entrySet().iterator();
+    while (lIterator.hasNext())
+    {
+      Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry = lIterator.next();
       PolymorphicProposition lGoal = lEntry.getKey();
-      List<ForwardDeadReckonPropositionInfo> lLatches = lEntry.getValue();
+      ForwardDeadReckonInternalMachineState lLatches = lEntry.getValue();
 
       if (lLatches.size() != 0)
       {
-        ForwardDeadReckonInternalMachineState lGoalLatch = new ForwardDeadReckonInternalMachineState(masterInfoSet);
-
-        for (ForwardDeadReckonPropositionInfo lPropInfo : lLatches)
-        {
-          lGoalLatch.add(lPropInfo);
-        }
-        System.out.println("Goal '" + lGoal + "' is negatively latched by any of: " + lGoalLatch);
+        System.out.println("Goal '" + lGoal + "' is negatively latched by any of: " + lLatches);
       }
+      else
+      {
+        lIterator.remove();
+      }
+    }
+
+    if (mNegativeGoalLatches.isEmpty())
+    {
+      System.out.println("No negative goal latches");
+      mNegativeGoalLatches = null;
     }
   }
 
@@ -496,6 +524,22 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
+  public Integer getLatchedScore(ForwardDeadReckonInternalMachineState xiState)
+  {
+    if (mPositiveGoalLatches != null)
+    {
+      for (Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry : mPositiveGoalLatches.entrySet())
+      {
+        if (xiState.intersects(lEntry.getValue()))
+        {
+          return Integer.parseInt(lEntry.getKey().getName().getBody().get(1).toString());
+        }
+      }
+    }
+
+    return null;
+  }
+
   public Set<MachineState> findTerminalStates(int maxResultSet, int maxDepth)
   {
     PolymorphicProposition terminal = fullPropNet.getTerminalProposition();
@@ -510,8 +554,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   {
     Set<MachineState> results = new HashSet<>();
 
-    for (PolymorphicProposition p : fullPropNet.getGoalPropositions()
-        .get(role))
+    for (PolymorphicProposition p : fullPropNet.getGoalPropositions().get(role))
     {
       if (Integer.parseInt(p.getName().getBody().get(1).toString()) >= minValue)
       {
@@ -933,14 +976,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     this.maxInstances = 1;
   }
 
-  public ForwardDeadReckonPropnetStateMachine(int maxInstances,
-                                                  GdlConstant roleName)
+  public ForwardDeadReckonPropnetStateMachine(int maxInstances, GdlConstant roleName)
   {
     this.maxInstances = maxInstances;
   }
 
-  private ForwardDeadReckonPropnetStateMachine(ForwardDeadReckonPropnetStateMachine master,
-                                                   int instanceId)
+  private ForwardDeadReckonPropnetStateMachine(ForwardDeadReckonPropnetStateMachine master, int instanceId)
   {
     this.maxInstances = -1;
     this.instanceId = instanceId;
@@ -964,6 +1005,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     this.fullPropNet = master.fullPropNet;
     this.masterInfoSet = master.masterInfoSet;
     this.factors = master.factors;
+    this.mPositiveGoalLatches = master.mPositiveGoalLatches;
+    this.mNegativeGoalLatches = master.mNegativeGoalLatches;
 
     stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
     stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -978,9 +1021,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     previouslyChosenJointMovePropIdsX = new int[numRoles];
     previouslyChosenJointMovePropIdsO = new int[numRoles];
 
-    stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions()
-        .size(), fullPropNet.getInputPropositions().size(), fullPropNet
-        .getLegalPropositions().get(getRoles().get(0)).length);
+    stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(),
+                                             fullPropNet.getInputPropositions().size(),
+                                             fullPropNet.getLegalPropositions().get(getRoles().get(0)).length);
   }
 
   public ForwardDeadReckonPropnetStateMachine createInstance()
@@ -3626,8 +3669,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     for (PolymorphicProposition p : goalProps)
     {
-      ForwardDeadReckonComponent goalInput = (ForwardDeadReckonComponent)p
-          .getSingleInput();
+      ForwardDeadReckonComponent goalInput = (ForwardDeadReckonComponent)p.getSingleInput();
       //if (goalInput != null && goalInput.getValue(instanceId))
       if (goalInput != null && net.getTransition(instanceId, goalInput))
       {

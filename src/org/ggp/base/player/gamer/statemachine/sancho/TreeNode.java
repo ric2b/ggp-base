@@ -1571,7 +1571,7 @@ public class TreeNode
           }
         }
 
-        if ( tree.evaluateTerminalOnNodeCreation )
+        if (tree.evaluateTerminalOnNodeCreation)
         {
           boolean completeChildFound = false;
 
@@ -2774,8 +2774,7 @@ public class TreeNode
     double[] oldAverageSquaredScores = new double[tree.numRoles];
     boolean visitCountsUpdated = false;
 
-    double[] overrides = (element == null ? null : element
-                                          .getScoreOverrides());
+    double[] overrides = (element == null ? null : element.getScoreOverrides());
     if (overrides != null)
     {
       values = overrides;
@@ -2821,8 +2820,7 @@ public class TreeNode
 
         if (numChildVisits > childEdge.child.node.numVisits)
         {
-          System.out
-          .println("Unexpected edge strength greater than total child strength");
+          System.out.println("Unexpected edge strength greater than total child strength");
         }
         //	Propagate a value that is a blend of this rollout value and the current score for the child node
         //	being propagated from, according to how much of that child's value was accrued through this path
