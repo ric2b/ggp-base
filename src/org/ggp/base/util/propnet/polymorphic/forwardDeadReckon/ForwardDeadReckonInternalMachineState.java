@@ -10,7 +10,8 @@ import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.statemachine.MachineState;
 
-public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDeadReckonPropositionInfo>, ForwardDeadReckonComponentTransitionNotifier
+public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDeadReckonPropositionInfo>,
+                                                              ForwardDeadReckonComponentTransitionNotifier
 {
   private class InternalMachineStateIterator implements Iterator<ForwardDeadReckonPropositionInfo>
   {
@@ -102,6 +103,11 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
   public void intersect(ForwardDeadReckonInternalMachineState other)
   {
     contents.and(other.contents);
+  }
+
+  public boolean intersects(ForwardDeadReckonInternalMachineState other)
+  {
+    return contents.intersects(other.contents);
   }
 
   public int intersectionSize(ForwardDeadReckonInternalMachineState other)
@@ -225,8 +231,7 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
     boolean first = true;
 
     sb.append("( ");
-    for (int i = contents.nextSetBit(0); i >= 0; i = contents
-        .nextSetBit(i + 1))
+    for (int i = contents.nextSetBit(0); i >= 0; i = contents.nextSetBit(i + 1))
     {
       if (!first)
       {
@@ -243,7 +248,6 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
   @Override
   public Iterator<ForwardDeadReckonPropositionInfo> iterator()
   {
-    // TODO Auto-generated method stub
     return new InternalMachineStateIterator(this);
   }
 

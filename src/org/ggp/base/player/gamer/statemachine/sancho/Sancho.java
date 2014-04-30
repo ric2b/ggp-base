@@ -266,8 +266,11 @@ public class Sancho extends SampleGamer
 
     Collection<Factor> factors = underlyingStateMachine.getFactors();
 
-    // Find latches
-    // underlyingStateMachine.findLatches();
+    // Find latches (just for 1-player games for now)
+    if (numRoles == 1)
+    {
+      underlyingStateMachine.findLatches();
+    }
 
     //	Perform a small number of move-by-move simulations to assess how
     //	the potential piece count heuristics behave at the granularity of
@@ -644,8 +647,7 @@ public class Sancho extends SampleGamer
 
         if (targetStateSize < Math.max(2, initialState.size() / 2))
         {
-          System.out
-              .println("Unsuitable target state based on state elimination - ignoring");
+          System.out.println("Unsuitable target state based on state elimination - ignoring");
         }
         else
         {
@@ -665,8 +667,7 @@ public class Sancho extends SampleGamer
       observedMinNetScore = 0;
       observedMaxNetScore = 100;
 
-      System.out
-          .println("No score discrimination seen during simulation - resetting to [0,100]");
+      System.out.println("No score discrimination seen during simulation - resetting to [0,100]");
     }
 
     if (gameCharacteristics.isPuzzle)
@@ -708,8 +709,7 @@ public class Sancho extends SampleGamer
 
     if (ProfilerContext.getContext() != null)
     {
-      GamerLogger.log("GamePlayer", "Profile stats: \n" +
-                                    ProfilerContext.getContext().toString());
+      GamerLogger.log("GamePlayer", "Profile stats: \n" + ProfilerContext.getContext().toString());
     }
 
     if ((!gameCharacteristics.isIteratedGame || numRoles != 2) && puzzlePlayer == null)

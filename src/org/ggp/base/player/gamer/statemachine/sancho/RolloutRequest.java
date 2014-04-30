@@ -18,26 +18,25 @@ class RolloutRequest
   public TreeNodeRef                           node;
   public ForwardDeadReckonInternalMachineState state;
   public Factor                                factor = null;
-  public double[]                              averageScores;
-  public double[]                              averageSquaredScores;
+  public final double[]                        averageScores;
+  public final double[]                        averageSquaredScores;
   public int                                   sampleSize;
   public TreePath                              path;
 
-  public RolloutRequest(RolloutProcessorPool pool)
+  public RolloutRequest(RolloutProcessorPool xiPool)
   {
-    this.pool = pool;
-    averageScores = new double[pool.numRoles];
-    averageSquaredScores = new double[pool.numRoles];
+    this.pool = xiPool;
+    averageScores = new double[xiPool.numRoles];
+    averageSquaredScores = new double[xiPool.numRoles];
   }
 
   public void process(ForwardDeadReckonPropnetStateMachine stateMachine)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
+      throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.rollOut");
     try
     {
-      synchronized (pool)
+      synchronized (pool) // !! ARR Perf. win from not keeping this stat (or keeping per-thread stats)?
       {
         pool.dequeuedRollouts++;
       }
@@ -68,7 +67,7 @@ class RolloutRequest
 
           if (roleIndex == 0)
           {
-            if (score > pool.highestRolloutScoreSeen)
+            if (score > pool.highestRolloutScoreSeen) // !! ARR Not thread-safe
             {
               pool.highestRolloutScoreSeen = score;
             }
@@ -86,8 +85,10 @@ class RolloutRequest
         averageSquaredScores[roleIndex] /= sampleSize;
       }
 
+      // Add the completed rollout to the queue for updating the node statistics.  These are dequeued in
+      // GameSearcher#processCompletedRollouts().
       pool.completedRollouts.add(this);
-      synchronized (pool)
+      synchronized (pool) // !! ARR Perf. win from not keeping this stat (or keeping per-thread stats)?
       {
         pool.enqueuedCompletedRollouts++;
       }

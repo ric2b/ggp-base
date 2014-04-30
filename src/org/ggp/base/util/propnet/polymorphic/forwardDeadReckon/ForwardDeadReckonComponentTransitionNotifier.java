@@ -10,7 +10,7 @@ package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 public interface ForwardDeadReckonComponentTransitionNotifier
 {
   /**
-   * @param index - index to signal as becomin true
+   * @param index - index to signal as becoming true
    */
   void add(int index);
 

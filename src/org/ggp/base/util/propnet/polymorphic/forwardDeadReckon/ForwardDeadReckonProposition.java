@@ -8,10 +8,7 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
  * The Proposition class is designed to represent named latches.
  */
 @SuppressWarnings("serial")
-public final class ForwardDeadReckonProposition extends
-                                               ForwardDeadReckonComponent
-                                                                         implements
-                                                                         PolymorphicProposition
+public final class ForwardDeadReckonProposition extends ForwardDeadReckonComponent implements PolymorphicProposition
 {
   /** The name of the Proposition. */
   private GdlSentence                                    name;
