@@ -2009,7 +2009,7 @@ public class TreeNode
                 //  except from the root since we just want to know the difference in cost or omitting one
                 //  move (at root level) if we play in another factor
                 else if (children[i].selectAs == children[i] &&
-                         (!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove)) &&
+                         (!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.isMultiPlayer)) &&
                          (tree.root == this || !children[i].jointPartialMove[roleIndex].isPseudoNoOp))
                 {
                   double uctValue;
@@ -2153,7 +2153,7 @@ public class TreeNode
     //  which happens to do well from the distorted stats you get without it.  This
     //  is due to the particular circumstance in MaxKnights that scores can only
     //  go up!
-    if ((tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove) &&
+    if ((tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.isMultiPlayer) &&
         bestCompleteNode != null && bestCompleteValue > bestValue && !tree.gameCharacteristics.isPuzzle)
     {
       result.setScoreOverrides(bestCompleteNode.averageScores);
