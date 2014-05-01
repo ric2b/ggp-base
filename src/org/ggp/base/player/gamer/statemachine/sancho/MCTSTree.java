@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 
+import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeRef;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
@@ -65,7 +66,7 @@ public class MCTSTree
   volatile TreeNode                                    root = null;
   int                                                  numRoles;
   LRUNodeMoveWeightsCache                              nodeMoveWeightsCache                        = null;
-  NodePool                                             nodePool;
+  CappedPool<TreeNode>                                 nodePool;
   Map<ForwardDeadReckonInternalMachineState, TreeNode> positions                                   = new HashMap<>();
   int                                                  sweepInstance                               = 0;
   List<TreeNode>                                       completedNodeQueue                          = new LinkedList<>();
@@ -94,10 +95,11 @@ public class MCTSTree
   RuntimeGameCharacteristics                           gameCharacteristics;
   Factor                                               factor;
   boolean                                              evaluateTerminalOnNodeCreation;
+  private final TreeNodeAllocator                      mTreeNodeAllocator;
 
   public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
                   Factor factor,
-                  NodePool nodePool,
+                  CappedPool nodePool,
                   RoleOrdering roleOrdering,
                   RolloutProcessorPool rolloutPool,
                   RuntimeGameCharacteristics gameCharacateristics,
@@ -120,6 +122,7 @@ public class MCTSTree
     roleRationality = new double[numRoles];
     numCompletionsProcessed = 0;
     completeSelectionFromIncompleteParentWarned = false;
+    mTreeNodeAllocator = new TreeNodeAllocator(this);
 
     //  For now assume players in muli-player games are somewhat irrational.
     //  FUTURE - adjust during the game based on correlations with expected
@@ -147,7 +150,7 @@ public class MCTSTree
     maxAutoExpansionDepth = 0;
     averageAutoExpansionDepth = 0;
     root = null;
-    nodePool.clear(this);
+    nodePool.clear(mTreeNodeAllocator, true);
     positions.clear();
     numIncompleteNodes = 0;
     if (nodeMoveWeightsCache != null)
@@ -177,7 +180,7 @@ public class MCTSTree
         numUniqueTreeNodes++;
 
         //System.out.println("Add state " + state);
-        result = nodePool.allocateNode(this);
+        result = nodePool.allocate(mTreeNodeAllocator);
         result.state = state;
 
         //if ( positions.values().contains(result))
@@ -355,7 +358,7 @@ public class MCTSTree
 
     int incompleteCount = 0;
 
-    for (TreeNode node : nodePool.getNodesTable())
+    for (TreeNode node : nodePool.getItemTable())
     {
       if (node != null && !node.freed)
       {

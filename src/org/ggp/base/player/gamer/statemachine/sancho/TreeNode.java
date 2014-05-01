@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.ggp.base.player.gamer.statemachine.sancho.CappedPool.ObjectAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.MCTSTree.MoveScoreInfo;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
 import org.ggp.base.util.logging.GamerLogger;
@@ -24,9 +25,6 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 
 public class TreeNode
 {
-  private static final int NULL_NODE_SEQ = -1;
-  private static final int FREED_NODE_SEQ = -2;
-
   public static class TreeNodeRef
   {
     public TreeNode node;
@@ -39,6 +37,38 @@ public class TreeNode
     }
   }
 
+  public static class TreeNodeAllocator implements ObjectAllocator<TreeNode>
+  {
+    private MCTSTree mTree;
+
+    public TreeNodeAllocator(MCTSTree xiTree)
+    {
+      mTree = xiTree;
+    }
+
+    @Override
+    public TreeNode newObject(int xiSeq) throws GoalDefinitionException
+    {
+      TreeNode lNode = new TreeNode(mTree, mTree.numRoles);
+      lNode.seq = xiSeq;
+      return lNode;
+    }
+
+    @Override
+    public void resetObject(TreeNode xiNode, boolean xiFree, int xiSeq)
+    {
+      xiNode.reset(xiFree ? null : mTree);
+      xiNode.seq = xiSeq;
+    }
+
+    @Override
+    public boolean shouldReset(TreeNode xiNode)
+    {
+      // Only reset items from our own tree that haven't already been freed.
+      return (xiNode.tree == mTree) && (!xiNode.freed);
+    }
+  }
+
   /**
    * The tree in which we're a node.
    */
@@ -46,7 +76,7 @@ public class TreeNode
 
   private static final double           EPSILON             = 1e-6;
 
-  int                                   seq                 = NULL_NODE_SEQ;
+  int                                   seq                 = CappedPool.NULL_ITEM_SEQ;
   public int                            numVisits           = 0;
   private int                           numUpdates          = 0;
   public double[]                       averageScores;
@@ -255,11 +285,11 @@ public class TreeNode
 
           trimmedChildren++;
 
-          cr.seq = NULL_NODE_SEQ;
+          cr.seq = CappedPool.NULL_ITEM_SEQ;
         }
-        else if (cr.seq != NULL_NODE_SEQ)
+        else if (cr.seq != CappedPool.NULL_ITEM_SEQ)
         {
-          cr.seq = NULL_NODE_SEQ;
+          cr.seq = CappedPool.NULL_ITEM_SEQ;
           trimmedChildren++;
         }
       }
@@ -853,7 +883,7 @@ public class TreeNode
     mostLikelyWinner = -1;
     complete = false;
     allChildrenComplete = false;
-    seq = NULL_NODE_SEQ;
+    seq = CappedPool.NULL_ITEM_SEQ;
   }
 
   private TreeNodeRef getRef()
@@ -1024,7 +1054,7 @@ public class TreeNode
       }
 
       // System.out.println("    Freeing (" + ourIndex + "): " + state);
-      seq = FREED_NODE_SEQ;
+      seq = CappedPool.FREED_ITEM_SEQ;
       freed = true;
       tree.nodePool.free(this);
       //validateAll();
@@ -1196,13 +1226,13 @@ public class TreeNode
               TreeNode c = cr.node;
               if (cr.seq < 0 || c.seq != cr.seq)
               {
-                if (cr.seq != NULL_NODE_SEQ)
+                if (cr.seq != CappedPool.NULL_ITEM_SEQ)
                 {
                   if (trimmedChildren++ == 0)
                   {
                     tree.numIncompleteNodes++;
                   }
-                  cr.seq = NULL_NODE_SEQ;
+                  cr.seq = CappedPool.NULL_ITEM_SEQ;
                 }
               }
               else
@@ -1998,13 +2028,13 @@ public class TreeNode
                 TreeNode c = cr.node;
                 if (c.seq != cr.seq)
                 {
-                  if (cr.seq != NULL_NODE_SEQ)
+                  if (cr.seq != CappedPool.NULL_ITEM_SEQ)
                   {
                     if (trimmedChildren++ == 0)
                     {
                       tree.numIncompleteNodes++;
                     }
-                    cr.seq = NULL_NODE_SEQ;
+                    cr.seq = CappedPool.NULL_ITEM_SEQ;
                   }
 
                   selectedIndex = -1;
