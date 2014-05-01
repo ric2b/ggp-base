@@ -288,16 +288,23 @@ public class MCTSTree
     heuristic.newTurn(root.state, root);
   }
 
+  /**
+   * Perform a single MCTS expansion.
+   *
+   * @return whether the tree is now fully explored.
+   *
+   * @throws MoveDefinitionException
+   * @throws TransitionDefinitionException
+   * @throws GoalDefinitionException
+   * @throws InterruptedException
+   */
   public boolean growTree()
-      throws MoveDefinitionException, TransitionDefinitionException,
-      GoalDefinitionException, InterruptedException
+    throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException, InterruptedException
   {
     //validateAll();
     //validationCount++;
     selectAction();
-
     processNodeCompletions();
-
     return root.complete;
   }
 

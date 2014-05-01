@@ -7,19 +7,26 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 class RolloutProcessor implements Runnable
 {
-  private final RolloutProcessorPool                 pool;
+  private final RolloutProcessorPool                 mPool;
   private final ForwardDeadReckonPropnetStateMachine stateMachine;
   private boolean                                    stop;
   private Thread                                     runningThread;
   public static final boolean                        useTerminalityHorizon = false; //  Work-in-progress - disable for commit for now
   private final int                                  rolloutTerminalityHorizon = (useTerminalityHorizon ? 5 : 500);
 
-  public RolloutProcessor(RolloutProcessorPool pool, ForwardDeadReckonPropnetStateMachine stateMachine)
+  /**
+   * Create a rollout processor.
+   *
+   * @param xiPool - parent pool, which is the source of work.
+   * @param xiStateMachine - a state machine for performing the work.
+   */
+  public RolloutProcessor(RolloutProcessorPool xiPool,
+                          ForwardDeadReckonPropnetStateMachine xiStateMachine)
   {
-    this.pool = pool;
-    this.stateMachine = stateMachine;
+    mPool = xiPool;
+    stateMachine = xiStateMachine;
 
-    stateMachine.setTerminalCheckHorizon(rolloutTerminalityHorizon);
+    xiStateMachine.setTerminalCheckHorizon(rolloutTerminalityHorizon);
   }
 
   public void disableGreedyRollouts()
@@ -63,7 +70,7 @@ class RolloutProcessor implements Runnable
     {
       while (!stop)
       {
-        RolloutRequest request = pool.queuedRollouts.take();
+        RolloutRequest request = mPool.dequeueRequest();
 
         try
         {

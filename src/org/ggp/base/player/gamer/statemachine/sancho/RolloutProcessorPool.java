@@ -1,7 +1,9 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
@@ -11,24 +13,25 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 public class RolloutProcessorPool
 {
-  LinkedBlockingQueue<RolloutRequest>                  queuedRollouts                              = new LinkedBlockingQueue<>();
-  ConcurrentLinkedQueue<RolloutRequest>                completedRollouts                           = new ConcurrentLinkedQueue<>();
-  public int                                           numQueuedRollouts                           = 0;
-  public int                                           numCompletedRollouts                        = 0;
-  private int                                          numRolloutThreads;
-  private int                                          maxOutstandingRolloutRequests;
-  private RolloutProcessor[]                           rolloutProcessors                           = null;
+  private final BlockingQueue<RolloutRequest>          queuedRollouts;
+  ConcurrentLinkedQueue<RolloutRequest>                completedRollouts      = new ConcurrentLinkedQueue<>();
+  public int                                           numQueuedRollouts      = 0;
+  public int                                           numCompletedRollouts   = 0;
+  private final int                                    numRolloutThreads;
+  private RolloutProcessor[]                           rolloutProcessors      = null;
   public int                                           numRoles;
   public Role                                          ourRole;
-  public RoleOrdering                                  roleOrdering                                = null;
+  public RoleOrdering                                  roleOrdering           = null;
   private ForwardDeadReckonPropnetStateMachine         underlyingStateMachine;
   public int highestRolloutScoreSeen;
   public int lowestRolloutScoreSeen;
+  private long                                         mEnqueueTime;
+  private AtomicLong                                   mDequeueTime           = new AtomicLong(0);
 
   public RolloutProcessorPool(int numThreads, ForwardDeadReckonPropnetStateMachine underlyingStateMachine, Role ourRole)
   {
     numRolloutThreads = numThreads;
-    maxOutstandingRolloutRequests = numThreads;
+    queuedRollouts = new ArrayBlockingQueue<>(numThreads * 3);
     rolloutProcessors = new RolloutProcessor[numThreads];
     numRoles = underlyingStateMachine.getRoles().size();
     this.ourRole = ourRole;
@@ -53,6 +56,11 @@ public class RolloutProcessorPool
         rolloutProcessors[i].clearTerminatingMoveProps();
       }
     }
+
+    System.out.println("In last turn, consumers blocked for avg: " +
+                                                         (mDequeueTime.getAndSet(0) / 1000000 / numRolloutThreads) + "ms");
+    System.out.println("In last turn, supplier blocked for:      " + (mEnqueueTime / 1000000) + "ms");
+    mEnqueueTime = 0;
   }
 
   public void setRoleOrdering(RoleOrdering ordering)
@@ -60,29 +68,18 @@ public class RolloutProcessorPool
     roleOrdering = ordering;
   }
 
-  public boolean isBackedUp() throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
+  // !! ARR This method shouldn't be necessary.  We should immediately process rollouts on the main thread at the
+  // !! ARR point where they would normally be queued.
+  public void processQueueWithoutThreads() throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
   {
-    if (numRolloutThreads == 0)
-    {
-      while (!queuedRollouts.isEmpty())
-      {
-        RolloutRequest request = queuedRollouts.remove();
-
-        request.process(underlyingStateMachine);
-      }
-
-      return false;
-    }
-
-    int numOutstandingRollouts = numQueuedRollouts - numCompletedRollouts;
-
-    if (numOutstandingRollouts < maxOutstandingRolloutRequests)
-    {
-      return false;
-    }
-
-    Thread.yield();
-    return true;
+     if (numRolloutThreads == 0)
+     {
+       while (!queuedRollouts.isEmpty())
+       {
+         RolloutRequest request = queuedRollouts.remove();
+         request.process(underlyingStateMachine);
+       }
+     }
    }
 
   public void stop()
@@ -112,9 +109,38 @@ public class RolloutProcessorPool
     return new RolloutRequest(this);
   }
 
+  /**
+   * Enqueue a rollout request for processing.
+   *
+   * If the work backlog has grown to the limit, this method will block until a queue slot is available (or until
+   * interrupted).
+   *
+   * @param request - the rollout request.
+   *
+   * @throws InterruptedException if the thread was interrupted whilst waiting to queue the request.
+   */
   public void enqueueRequest(RolloutRequest request) throws InterruptedException
   {
     numQueuedRollouts++;
+    long enqueueStart = System.nanoTime();
     queuedRollouts.put(request);
+    mEnqueueTime += (System.nanoTime() - enqueueStart);
+  }
+
+  /**
+   * Get a rollout request to work on.
+   *
+   * If there is no available work, this method will block until there is work to do (or until interrupted).
+   *
+   * @return a rollout request.
+   *
+   * @throws InterruptedException if the thread was interrupted whilst waiting to dequeue the request.
+   */
+  public RolloutRequest dequeueRequest() throws InterruptedException
+  {
+    long enqueueStart = System.nanoTime();
+    RolloutRequest lRequest = queuedRollouts.take();
+    mDequeueTime.addAndGet(System.nanoTime() - enqueueStart);
+    return lRequest;
   }
 }

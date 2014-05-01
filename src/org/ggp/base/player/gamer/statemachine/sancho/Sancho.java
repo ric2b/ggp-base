@@ -37,9 +37,10 @@ public class Sancho extends SampleGamer
   public Role                         ourRole;
   private final boolean               runSynchronously                = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
   private boolean                     halfStrength                    = false;
-  private int                         numRolloutThreads               = runSynchronously ? 0 :
-                                                                        halfStrength ? ((((Runtime.getRuntime().availableProcessors() + 1) / 2) + 1) / 2) :
-                                                                                         ((Runtime.getRuntime().availableProcessors() + 1) / 2);
+  //private int                         numRolloutThreads               = runSynchronously ? 0 :
+  //                                                                      halfStrength ? ((((Runtime.getRuntime().availableProcessors() + 1) / 2) + 1) / 2) :
+  //                                                                                       ((Runtime.getRuntime().availableProcessors() + 1) / 2);
+  private int                         numRolloutThreads               = 3; // !! ARR Hack
   private String                      planString                      = null;
   private Queue<Move>                 plan                            = null;
   private int                         transpositionTableSize          = 2000000;
@@ -704,8 +705,7 @@ public class Sancho extends SampleGamer
     System.out.println(simulationsPerformed *
                        1000 /
                        (simulationStopTime - simulationStartTime) +
-                       " simulations/second performed - setting rollout sample size to " +
-                       rolloutSampleSize);
+                       " simulations/second performed - setting rollout sample size to " + rolloutSampleSize);
 
     if (ProfilerContext.getContext() != null)
     {
@@ -970,7 +970,11 @@ public class Sancho extends SampleGamer
     cleanupAfterMatch();
 
     // Prompt the JVM to do garbage collection, just we've hopefully just freed a lot of stuff.
-    System.gc();
+    for (int ii = 0; ii < 1000; ii++)
+    {
+      System.gc();
+      try {Thread.sleep(1);} catch (InterruptedException lEx) {/* Whatever */}
+    }
   }
 
 }

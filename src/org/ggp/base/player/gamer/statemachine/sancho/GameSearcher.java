@@ -116,8 +116,7 @@ class GameSearcher implements Runnable, ActivityController
           while (!complete && !mTerminateRequested)
           {
             long time = System.currentTimeMillis();
-            double percentThroughTurn = Math
-                .min(100, (time - startTime) * 100 / (moveTime - startTime));
+            double percentThroughTurn = Math.min(100, (time - startTime) * 100 / (moveTime - startTime));
 
             //							if ( Math.abs(lastPercentThroughTurn - percentThroughTurn) > 4 )
             //							{
@@ -257,7 +256,7 @@ class GameSearcher implements Runnable, ActivityController
 
   public boolean expandSearch() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException, InterruptedException
   {
-    boolean result;
+    boolean lAllTreesCompletelyExplored;
 
     while (nodePool.isFull())
     {
@@ -265,7 +264,7 @@ class GameSearcher implements Runnable, ActivityController
 
       for(MCTSTree tree : factorTrees)
       {
-        if ( !tree.root.complete )
+        if (!tree.root.complete)
         {
           //  The trees may have very asymmetric sizes due to one being nearly
           //  complete, in which case it is possible that no candidates for trimming
@@ -280,24 +279,18 @@ class GameSearcher implements Runnable, ActivityController
 
     processCompletedRollouts();
 
-    if (!rolloutPool.isBackedUp())
-    {
-      result = true;
+    rolloutPool.processQueueWithoutThreads();
 
-      for(MCTSTree tree : factorTrees)
+    lAllTreesCompletelyExplored = true;
+    for(MCTSTree tree : factorTrees)
+    {
+      if (!tree.root.complete)
       {
-        if ( !tree.root.complete )
-        {
-          result &= tree.growTree();
-        }
+        lAllTreesCompletelyExplored &= tree.growTree();
       }
     }
-    else
-    {
-      result = false;
-    }
 
-    return result;
+    return lAllTreesCompletelyExplored;
   }
 
   public int getNumIterations()
