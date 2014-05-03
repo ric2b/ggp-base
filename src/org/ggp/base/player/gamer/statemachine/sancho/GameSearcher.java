@@ -1,7 +1,9 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.util.HashSet;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
@@ -27,6 +29,7 @@ class GameSearcher implements Runnable, ActivityController
   private double                          minExplorationBias  = 0.5;
   private double                          maxExplorationBias  = 1.2;
   private volatile boolean                mTerminateRequested = false;
+  private final Queue<RolloutRequest>     mCompletedRollouts  = new ConcurrentLinkedQueue<>();
 
   public GameSearcher(int nodeTableSize)
   {
@@ -277,18 +280,16 @@ class GameSearcher implements Runnable, ActivityController
       assert(somethingDisposed);
     }
 
-    processCompletedRollouts();
-
-    rolloutPool.processQueueWithoutThreads();
-
     lAllTreesCompletelyExplored = true;
-    for(MCTSTree tree : factorTrees)
+    for (MCTSTree tree : factorTrees)
     {
       if (!tree.root.complete)
       {
-        lAllTreesCompletelyExplored &= tree.growTree();
+        lAllTreesCompletelyExplored &= tree.growTree(mCompletedRollouts);
       }
     }
+
+    processCompletedRollouts();
 
     return lAllTreesCompletelyExplored;
   }
@@ -358,7 +359,7 @@ class GameSearcher implements Runnable, ActivityController
     //{
     RolloutRequest request;
 
-    while ((request = rolloutPool.pollForCompletedRequests()) != null)
+    while ((request = mCompletedRollouts.poll()) != null)
     {
       TreeNode node = request.node.node;
 

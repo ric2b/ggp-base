@@ -6,6 +6,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.Random;
 
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
@@ -291,6 +292,8 @@ public class MCTSTree
   /**
    * Perform a single MCTS expansion.
    *
+   * @param xiCompletionQueue - queue to put the completed rollout on.
+   *
    * @return whether the tree is now fully explored.
    *
    * @throws MoveDefinitionException
@@ -298,12 +301,12 @@ public class MCTSTree
    * @throws GoalDefinitionException
    * @throws InterruptedException
    */
-  public boolean growTree()
+  public boolean growTree(Queue xiCompletionQueue)
     throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException, InterruptedException
   {
     //validateAll();
     //validationCount++;
-    selectAction();
+    selectAction(xiCompletionQueue);
     processNodeCompletions();
     return root.complete;
   }
@@ -392,7 +395,7 @@ public class MCTSTree
     }
   }
 
-  private void selectAction()
+  private void selectAction(Queue xiCompletionQueue)
       throws MoveDefinitionException, TransitionDefinitionException,
       GoalDefinitionException, InterruptedException
   {
@@ -485,7 +488,7 @@ public class MCTSTree
       //visited.push(null);
       //validateAll();
       //System.out.println("Rollout from: " + newNode.state);
-      RolloutRequest rollout = newNode.rollOut(visited);
+      RolloutRequest rollout = newNode.rollOut(visited, xiCompletionQueue);
       if (rollout != null)
       {
         newNode.updateStats(rollout.averageScores,

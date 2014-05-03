@@ -1,20 +1,16 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.ggp.base.util.statemachine.Role;
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class RolloutProcessorPool
 {
   private final BlockingQueue<RolloutRequest>          queuedRollouts;
-  private final ConcurrentLinkedQueue<RolloutRequest>  completedRollouts      = new ConcurrentLinkedQueue<>();
   private final int                                    numRolloutThreads;
   private RolloutProcessor[]                           rolloutProcessors      = null;
   public final int                                     numRoles;
@@ -66,20 +62,6 @@ public class RolloutProcessorPool
     roleOrdering = ordering;
   }
 
-  // !! ARR This method shouldn't be necessary.  We should immediately process rollouts on the main thread at the
-  // !! ARR point where they would normally be queued.
-  public void processQueueWithoutThreads() throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
-  {
-     if (numRolloutThreads == 0)
-     {
-       while (!queuedRollouts.isEmpty())
-       {
-         RolloutRequest request = queuedRollouts.remove();
-         request.process(underlyingStateMachine);
-       }
-     }
-   }
-
   public void stop()
   {
     if (rolloutProcessors != null)
@@ -102,9 +84,9 @@ public class RolloutProcessorPool
     }
   }
 
-  public RolloutRequest createRolloutRequest()
+  public RolloutRequest createRolloutRequest(Queue xiCompletionQueue)
   {
-    return new RolloutRequest(this);
+    return new RolloutRequest(this, xiCompletionQueue);
   }
 
   /**
@@ -119,9 +101,19 @@ public class RolloutProcessorPool
    */
   public void enqueueRequest(RolloutRequest xiRequest) throws InterruptedException
   {
-    long enqueueStart = System.nanoTime();
-    queuedRollouts.put(xiRequest);
-    mEnqueueTime += (System.nanoTime() - enqueueStart);
+    if (numRolloutThreads > 0)
+    {
+      // We're doing asynchronous rollouts so queue the request for later.
+      long enqueueStart = System.nanoTime();
+      queuedRollouts.put(xiRequest);
+      mEnqueueTime += (System.nanoTime() - enqueueStart);
+    }
+    else
+    {
+      // We're doing synchronous rollouts so just process the request now.
+      assert(numRolloutThreads == 0);
+      xiRequest.process(underlyingStateMachine);
+    }
   }
 
   /**
@@ -135,29 +127,10 @@ public class RolloutProcessorPool
    */
   public RolloutRequest dequeueRequest() throws InterruptedException
   {
+    assert(numRolloutThreads > 0);
     long enqueueStart = System.nanoTime();
     RolloutRequest lRequest = queuedRollouts.take();
     mDequeueTime.addAndGet(System.nanoTime() - enqueueStart);
     return lRequest;
-  }
-
-  /**
-   * Return a request for post-rollout processing.
-   *
-   * @param xiRequest - the completed rollout request.
-   */
-  public void completeRequest(RolloutRequest xiRequest)
-  {
-    completedRollouts.add(xiRequest);
-  }
-
-  /**
-   * Poll for completed rollout requests.
-   *
-   * @return a completed request or null if there aren't any.
-   */
-  public RolloutRequest pollForCompletedRequests()
-  {
-    return completedRollouts.poll();
   }
 }

@@ -8,6 +8,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.Set;
 
 import org.ggp.base.player.gamer.statemachine.sancho.CappedPool.ObjectAllocator;
@@ -2730,10 +2731,10 @@ public class TreeNode
     return result;
   }
 
-  public RolloutRequest rollOut(TreePath path)
+  public RolloutRequest rollOut(TreePath path, Queue xiCompletionQueue)
       throws InterruptedException
   {
-    RolloutRequest request = tree.rolloutPool.createRolloutRequest();
+    RolloutRequest request = tree.rolloutPool.createRolloutRequest(xiCompletionQueue);
 
     if (complete)
     {

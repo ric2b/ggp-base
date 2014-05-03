@@ -1,8 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 class RolloutProcessor implements Runnable
@@ -72,16 +69,9 @@ class RolloutProcessor implements Runnable
       {
         RolloutRequest request = mPool.dequeueRequest();
 
-        try
+        synchronized(this)
         {
-          synchronized(this)
-          {
-            request.process(stateMachine);
-          }
-        }
-        catch (TransitionDefinitionException | MoveDefinitionException | GoalDefinitionException lEx)
-        {
-          lEx.printStackTrace();
+          request.process(stateMachine);
         }
       }
     }

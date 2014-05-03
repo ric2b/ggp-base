@@ -1,5 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.util.Queue;
+
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeRef;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -19,25 +21,22 @@ class RolloutRequest
   public final double[]                        averageSquaredScores;
   public int                                   sampleSize;
   public TreePath                              path;
+  private final Queue                          mCompletionQueue;
 
-  public RolloutRequest(RolloutProcessorPool xiPool)
+  public RolloutRequest(RolloutProcessorPool xiPool, Queue xiCompletionQueue)
   {
     this.pool = xiPool;
     averageScores = new double[xiPool.numRoles];
     averageSquaredScores = new double[xiPool.numRoles];
+    mCompletionQueue = xiCompletionQueue;
   }
 
   /**
    * Process this rollout request.
    *
    * @param stateMachine - a state machine to handle perform the rollouts.
-   *
-   * @throws TransitionDefinitionException
-   * @throws MoveDefinitionException
-   * @throws GoalDefinitionException
    */
   public void process(ForwardDeadReckonPropnetStateMachine stateMachine)
-      throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.rollOut");
     try
@@ -89,7 +88,11 @@ class RolloutRequest
 
       // Add the completed rollout to the queue for updating the node statistics.  These are dequeued in
       // GameSearcher#processCompletedRollouts().
-      pool.completeRequest(this);
+      mCompletionQueue.add(this);
+    }
+    catch (TransitionDefinitionException | MoveDefinitionException | GoalDefinitionException lEx)
+    {
+      lEx.printStackTrace();
     }
     finally
     {
