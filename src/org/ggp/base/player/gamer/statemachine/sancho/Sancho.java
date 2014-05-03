@@ -158,7 +158,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.57h";
+    return "Sancho 1.57i";
   }
 
   @Override
@@ -177,7 +177,8 @@ public class Sancho extends SampleGamer
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
     underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(1 + numRolloutThreads,
-                                                                          getRoleName());
+                                                                          getRoleName(),
+                                                                          getMetaGamingTimeout());
 
     System.gc();
 
@@ -278,6 +279,7 @@ public class Sancho extends SampleGamer
     //	a single decision
     long lMetaGameStartTime = System.currentTimeMillis();
     long lMetaGameStopTime = timeout - 5000;
+    int numSamples = 0;
 
     // Spend half the time determining heuristic weights
     long lHeuristicStopTime = (lMetaGameStartTime + lMetaGameStopTime) / 2;
@@ -375,6 +377,17 @@ public class Sancho extends SampleGamer
       heuristic.tuningTerminalStateSample(sampleState, roleScores);
 
       branchingFactorApproximation += (numBranchesTaken / numRoleMovesSimulated);
+      numSamples++;
+    }
+
+    //  If we were able to run very few samples only don't make non-default
+    //  assumptions about the game based on the inadequate sampling
+    if ( numSamples < 100 )
+    {
+      gameCharacteristics.isIteratedGame = false;
+      heuristic.pruneAll();
+
+      System.out.println("Insufficient sampling time to reliably ascertain game characteristics");
     }
 
     branchingFactorApproximation /= 50;

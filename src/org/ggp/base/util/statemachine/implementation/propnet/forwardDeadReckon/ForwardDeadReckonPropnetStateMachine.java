@@ -104,6 +104,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private MachineState                                                 validationState                 = null;
   private int                                                          instanceId;
   private int                                                          maxInstances;
+  private long                                                         metagameTimeout                 = 20000;
   private int                                                          numInstances                    = 1;
   private Set<Factor>                                                  factors                         = null;
   public long                                                          totalNumGatesPropagated         = 0;
@@ -980,9 +981,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     this.maxInstances = 1;
   }
 
-  public ForwardDeadReckonPropnetStateMachine(int maxInstances, GdlConstant roleName)
+  public ForwardDeadReckonPropnetStateMachine(int maxInstances, GdlConstant roleName, long metagameTimeout)
   {
     this.maxInstances = maxInstances;
+    this.metagameTimeout = metagameTimeout;
   }
 
   private ForwardDeadReckonPropnetStateMachine(ForwardDeadReckonPropnetStateMachine master, int instanceId)
@@ -1050,6 +1052,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   @Override
   public void initialize(List<Gdl> description)
   {
+    long startTime = System.currentTimeMillis();
+
     setRandomSeed(1);
 
     try
@@ -1171,12 +1175,17 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         basePropChangeCounts.put(info, 0);
       }
 
-      FactorAnalyser factorAnalyser = new FactorAnalyser(this);
-      factors = factorAnalyser.analyse();
-
-      if ( factors != null )
+      //  Allow no more than half the remaining time for factorization analysis
+      long factorizationAnalysisTimeout =  (metagameTimeout - System.currentTimeMillis())/2;
+      if ( factorizationAnalysisTimeout > 0 )
       {
-        System.out.println("Game appears factorize into " + factors.size() + " factors");
+        FactorAnalyser factorAnalyser = new FactorAnalyser(this);
+        factors = factorAnalyser.analyse(factorizationAnalysisTimeout);
+
+        if ( factors != null )
+        {
+          System.out.println("Game appears factorize into " + factors.size() + " factors");
+        }
       }
 
       fullPropNet.crystalize(masterInfoSet, maxInstances);

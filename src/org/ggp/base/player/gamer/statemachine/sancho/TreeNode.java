@@ -1470,7 +1470,7 @@ public class TreeNode
         {
           TreeEdge newEdge = new TreeEdge(tree.numRoles);
           ForwardDeadReckonInternalMachineState newState = null;
-          boolean isPseudoNullMove = true;
+          boolean isPseudoNullMove = (tree.factor != null);
 
           for (int i = 0; i < roleIndex; i++)
           {

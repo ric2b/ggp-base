@@ -4,12 +4,12 @@ package org.ggp.base.util.propnet.polymorphic;
 import java.util.Collection;
 
 /**
+ * @author steve
  * The root class of the PolymorphicComponent hierarchy, which is designed to
  * represent nodes in a PropNet. The general contract of derived classes is to
  * override all methods. This mirrors the class Component in the basic propnet
  * code.
  */
-
 public interface PolymorphicComponent
 {
   /** The inputs to the component. */
@@ -75,18 +75,47 @@ public interface PolymorphicComponent
   @Override
   public abstract String toString();
 
+  /**
+   * Remove a specified input.  Valid only before crystalize() is called
+   * @param input
+   */
   public abstract void removeInput(PolymorphicComponent input);
 
+  /**
+   * Remove all inputs.  Valid only before crystalize() is called
+   */
   public abstract void removeAllInputs();
 
-  public abstract void removeAllOutputs();
+  /**
+   * Remove all outputs.  Valid only before crystalize() is called
+   */
+public abstract void removeAllOutputs();
 
+  /**
+   * Remove a specified output.  Valid only before crystalize() is called
+   * @param output
+   */
   public abstract void removeOutput(PolymorphicComponent output);
 
+  /**
+   * Crystalize the implementation of this component into its most runtime
+   * optimal internal representation.  No chnages to inputs or outputs are
+   * permitted once this has been called
+   */
   public abstract void crystalize();
 
+  /**
+   * Set a signature value for this component.
+   * This is opaque at this level, but intended usage is to label
+   * the component with a hash of the value it calculates given all
+   * of its input network
+   * @param signature opaque signature to set
+   */
   public abstract void setSignature(long signature);
 
+  /**
+   * @return component's signature value
+   */
   public abstract long getSignature();
 
 }
