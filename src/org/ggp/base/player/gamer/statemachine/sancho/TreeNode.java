@@ -8,7 +8,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Queue;
 import java.util.Set;
 
 import org.ggp.base.player.gamer.statemachine.sancho.CappedPool.ObjectAllocator;
@@ -2731,11 +2730,9 @@ public class TreeNode
     return result;
   }
 
-  public RolloutRequest rollOut(TreePath path, Queue xiCompletionQueue)
+  public RolloutRequest rollOut(TreePath path, RolloutRequest xiRequest)
       throws InterruptedException
   {
-    RolloutRequest request = tree.rolloutPool.createRolloutRequest(xiCompletionQueue);
-
     if (complete)
     {
       //System.out.println("Terminal state " + state + " score " + averageScore);
@@ -2743,26 +2740,26 @@ public class TreeNode
 
       for (int i = 0; i < tree.numRoles; i++)
       {
-        request.averageScores[i] = averageScores[i];
-        request.averageSquaredScores[i] = averageSquaredScores[i];
+        xiRequest.averageScores[i] = averageScores[i];
+        xiRequest.averageSquaredScores[i] = averageSquaredScores[i];
       }
 
-      return request;
+      return xiRequest;
     }
     if (decidingRoleIndex != tree.numRoles - 1)
     {
       System.out.println("Unexpected rollout state");
     }
 
-    request.state = state;
-    request.node = getRef();
-    request.sampleSize = tree.gameCharacteristics.getRolloutSampleSize();
-    request.path = path;
-    request.factor = tree.factor;
+    xiRequest.state = state;
+    xiRequest.node = getRef();
+    xiRequest.sampleSize = tree.gameCharacteristics.getRolloutSampleSize();
+    xiRequest.path = path;
+    xiRequest.factor = tree.factor;
     //request.moveWeights = masterMoveWeights.copy();
-    tree.numNonTerminalRollouts += request.sampleSize;
+    tree.numNonTerminalRollouts += xiRequest.sampleSize;
 
-    tree.rolloutPool.enqueueRequest(request);
+    tree.rolloutPool.enqueueRequest(xiRequest);
 
     return null;
   }

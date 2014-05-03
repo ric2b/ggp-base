@@ -6,7 +6,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Queue;
 import java.util.Random;
 
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
@@ -292,7 +291,7 @@ public class MCTSTree
   /**
    * Perform a single MCTS expansion.
    *
-   * @param xiCompletionQueue - queue to put the completed rollout on.
+   * @param xiRequest - the rollout request.
    *
    * @return whether the tree is now fully explored.
    *
@@ -301,12 +300,12 @@ public class MCTSTree
    * @throws GoalDefinitionException
    * @throws InterruptedException
    */
-  public boolean growTree(Queue xiCompletionQueue)
+  public boolean growTree(RolloutRequest xiRequest)
     throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException, InterruptedException
   {
     //validateAll();
     //validationCount++;
-    selectAction(xiCompletionQueue);
+    selectAction(xiRequest);
     processNodeCompletions();
     return root.complete;
   }
@@ -395,7 +394,7 @@ public class MCTSTree
     }
   }
 
-  private void selectAction(Queue xiCompletionQueue)
+  private void selectAction(RolloutRequest xiRequest)
       throws MoveDefinitionException, TransitionDefinitionException,
       GoalDefinitionException, InterruptedException
   {
@@ -488,7 +487,11 @@ public class MCTSTree
       //visited.push(null);
       //validateAll();
       //System.out.println("Rollout from: " + newNode.state);
-      RolloutRequest rollout = newNode.rollOut(visited, xiCompletionQueue);
+
+      // Perform the rollout request.  This might complete immediately via a short-circuit if the node is already
+      // complete.  In that case, the rollout request won't be added to the completion queue and we're responsible for
+      // updating the tree statistics.
+      RolloutRequest rollout = newNode.rollOut(visited, xiRequest);
       if (rollout != null)
       {
         newNode.updateStats(rollout.averageScores,

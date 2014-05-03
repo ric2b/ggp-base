@@ -30,6 +30,14 @@ class GameSearcher implements Runnable, ActivityController
   private double                          maxExplorationBias  = 1.2;
   private volatile boolean                mTerminateRequested = false;
   private final Queue<RolloutRequest>     mCompletedRollouts  = new ConcurrentLinkedQueue<>();
+  private RuntimeGameCharacteristics      mGameCharacteristics;
+
+  /**
+   * Timing variables, used to adjust the sample size.
+   */
+  private long                            mTreeThreadDuration = 0;
+  private long                            mRolloutDuration    = 0;
+  private long                            mNumDurationSamples = 0;
 
   public GameSearcher(int nodeTableSize)
   {
@@ -53,6 +61,8 @@ class GameSearcher implements Runnable, ActivityController
                     boolean disableGreedyRollouts,
                     Heuristic heuristic) throws GoalDefinitionException
   {
+    mGameCharacteristics = gameCharacteristics;
+
     rolloutPool = new RolloutProcessorPool(numRolloutThreads, underlyingStateMachine, roleOrdering.roleIndexToRole(0));
     rolloutPool.setRoleOrdering(roleOrdering);
 
@@ -285,7 +295,8 @@ class GameSearcher implements Runnable, ActivityController
     {
       if (!tree.root.complete)
       {
-        lAllTreesCompletelyExplored &= tree.growTree(mCompletedRollouts);
+        RolloutRequest lRequest = new RolloutRequest(rolloutPool, mCompletedRollouts);
+        lAllTreesCompletelyExplored &= tree.growTree(lRequest);
       }
     }
 
@@ -321,8 +332,11 @@ class GameSearcher implements Runnable, ActivityController
     System.out.println("Start move search...");
     synchronized (this)
     {
-      //  Process anything left over from last turn's timeout
+      // Process anything left over from last turn's timeout
       processCompletedRollouts();
+
+      // Calculate an appropriate sample size to use based on the relative time spent in the tree and rollout threads.
+      calculateSampleSize();
 
       for(MCTSTree tree : factorTrees)
       {
@@ -361,6 +375,7 @@ class GameSearcher implements Runnable, ActivityController
 
     while ((request = mCompletedRollouts.poll()) != null)
     {
+      request.startTreeWork();
       TreeNode node = request.node.node;
 
       //masterMoveWeights.accumulate(request.playedMoveWeights);
@@ -376,12 +391,64 @@ class GameSearcher implements Runnable, ActivityController
                          false);
         //validateAll();
       }
+
+      request.completeTreeWork();
+      mTreeThreadDuration += request.getTreeThreadDuration();
+      mRolloutDuration += request.getPerRolloutDuration();
+      mNumDurationSamples++;
     }
+
     //}
     //finally
     //{
     //  methodSection.exitScope();
     //}
+  }
+
+  private void calculateSampleSize()
+  {
+    int lNumThreads = rolloutPool.getNumThreads();
+    if (lNumThreads == 0)
+    {
+      mGameCharacteristics.setRolloutSampleSize(1);
+      return;
+    }
+
+    // Don't tinker with anything without at least 100 samples
+    if (mNumDurationSamples > 100)
+    {
+      // How many rollouts would be required to take as long as the tree thread did?
+      double lNumRollouts = mTreeThreadDuration / mRolloutDuration;
+
+      // We may have several threads doing rollouts.
+      lNumRollouts *= lNumThreads;
+
+      // Cap the value
+      if (lNumRollouts < 1)
+      {
+        lNumRollouts = 1;
+      }
+
+      if (lNumRollouts > 100)
+      {
+        lNumRollouts = 100;
+      }
+
+      // Set the new sample size.
+      mGameCharacteristics.setRolloutSampleSize((int)lNumRollouts);
+
+      // Debug output.
+      System.out.println("Dynamic sample size calculations");
+      System.out.println("  Tree thread duration (ns):               " + mTreeThreadDuration);
+      System.out.println("  Rollout thread duration per sample (ns): " + mRolloutDuration);
+      System.out.println("  Num threads:                             " + lNumThreads);
+      System.out.println("  Samples =>                               " + (int)lNumRollouts);
+    }
+
+    // Reset the statistics for next time.
+    mTreeThreadDuration = 0;
+    mRolloutDuration = 0;
+    mNumDurationSamples = 0;
   }
 
   public void terminate()

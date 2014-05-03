@@ -969,12 +969,11 @@ public class Sancho extends SampleGamer
     // Get our parent to tidy up too.
     cleanupAfterMatch();
 
-    // Prompt the JVM to do garbage collection, just we've hopefully just freed a lot of stuff.
+    // Prompt the JVM to do garbage collection, because we've hopefully just freed a lot of stuff.
     for (int ii = 0; ii < 1000; ii++)
     {
       System.gc();
       try {Thread.sleep(1);} catch (InterruptedException lEx) {/* Whatever */}
     }
   }
-
 }

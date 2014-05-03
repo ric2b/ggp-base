@@ -1,9 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
@@ -19,8 +17,6 @@ public class RolloutProcessorPool
   private ForwardDeadReckonPropnetStateMachine         underlyingStateMachine;
   public int highestRolloutScoreSeen;
   public int lowestRolloutScoreSeen;
-  private long                                         mEnqueueTime;
-  private AtomicLong                                   mDequeueTime           = new AtomicLong(0);
 
   public RolloutProcessorPool(int numThreads, ForwardDeadReckonPropnetStateMachine underlyingStateMachine, Role ourRole)
   {
@@ -50,11 +46,6 @@ public class RolloutProcessorPool
         rolloutProcessors[i].clearTerminatingMoveProps();
       }
     }
-
-    System.out.println("In last turn, consumers blocked for avg: " +
-                                                         (mDequeueTime.getAndSet(0) / 1000000 / numRolloutThreads) + "ms");
-    System.out.println("In last turn, supplier blocked for:      " + (mEnqueueTime / 1000000) + "ms");
-    mEnqueueTime = 0;
   }
 
   public void setRoleOrdering(RoleOrdering ordering)
@@ -84,11 +75,6 @@ public class RolloutProcessorPool
     }
   }
 
-  public RolloutRequest createRolloutRequest(Queue xiCompletionQueue)
-  {
-    return new RolloutRequest(this, xiCompletionQueue);
-  }
-
   /**
    * Enqueue a rollout request for processing.
    *
@@ -104,9 +90,8 @@ public class RolloutProcessorPool
     if (numRolloutThreads > 0)
     {
       // We're doing asynchronous rollouts so queue the request for later.
-      long enqueueStart = System.nanoTime();
+      xiRequest.completeTreeWork();
       queuedRollouts.put(xiRequest);
-      mEnqueueTime += (System.nanoTime() - enqueueStart);
     }
     else
     {
@@ -128,9 +113,15 @@ public class RolloutProcessorPool
   public RolloutRequest dequeueRequest() throws InterruptedException
   {
     assert(numRolloutThreads > 0);
-    long enqueueStart = System.nanoTime();
     RolloutRequest lRequest = queuedRollouts.take();
-    mDequeueTime.addAndGet(System.nanoTime() - enqueueStart);
     return lRequest;
+  }
+
+  /**
+   * @return the number of rollout threads in this pool.
+   */
+  public int getNumThreads()
+  {
+    return numRolloutThreads;
   }
 }

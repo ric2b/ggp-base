@@ -21,10 +21,22 @@ class RolloutRequest
   public final double[]                        averageSquaredScores;
   public int                                   sampleSize;
   public TreePath                              path;
-  private final Queue                          mCompletionQueue;
+  private final Queue<RolloutRequest>          mCompletionQueue;
+
+  /**
+   * Timings for this request.  All times and durations are measured in nanoseconds.
+   *
+   * These timings allow us to determine the relative time spent in the tree processing thread (expansion & stats
+   * updates) vs the rollout processor.  This in turn allows us to calculate the appropriate sample size to keep all
+   * threads busy.
+   */
+  private long  mLastTreeStart;
+  private long  mTreeThreadDuration = 0;
+  private long  mRolloutThreadDuration;
 
   public RolloutRequest(RolloutProcessorPool xiPool, Queue xiCompletionQueue)
   {
+    startTreeWork();
     this.pool = xiPool;
     averageScores = new double[xiPool.numRoles];
     averageSquaredScores = new double[xiPool.numRoles];
@@ -38,6 +50,8 @@ class RolloutRequest
    */
   public void process(ForwardDeadReckonPropnetStateMachine stateMachine)
   {
+    long lRolloutStartTime = System.nanoTime();
+
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.rollOut");
     try
     {
@@ -97,6 +111,40 @@ class RolloutRequest
     finally
     {
       methodSection.exitScope();
+      mRolloutThreadDuration = System.nanoTime() - lRolloutStartTime;
     }
+  }
+
+  /**
+   * Notify this rollout request that we're starting to work on it on the tree thread (either doing select / expand) or
+   * doing back-propagation.
+   */
+  public void startTreeWork()
+  {
+    mLastTreeStart = System.nanoTime();
+  }
+
+  /**
+   * Notify this rollout request that we've stopped working on it on the tree thread.
+   */
+  public void completeTreeWork()
+  {
+    mTreeThreadDuration += System.nanoTime() - mLastTreeStart;
+  }
+
+  /**
+   * @return the time (in nanoseconds) spent in total in the tree thread.
+   */
+  public long getTreeThreadDuration()
+  {
+    return mTreeThreadDuration;
+  }
+
+  /**
+   * @return the time (in nanoseconds) spent **per rollout** in the rollout thread.
+   */
+  public long getPerRolloutDuration()
+  {
+    return mRolloutThreadDuration / sampleSize;
   }
 }
