@@ -358,7 +358,7 @@ class GameSearcher implements Runnable, ActivityController
     //{
     RolloutRequest request;
 
-    while ((request = rolloutPool.completedRollouts.poll()) != null)
+    while ((request = rolloutPool.pollForCompletedRequests()) != null)
     {
       TreeNode node = request.node.node;
 
@@ -375,8 +375,6 @@ class GameSearcher implements Runnable, ActivityController
                          false);
         //validateAll();
       }
-
-      rolloutPool.numCompletedRollouts++;
     }
     //}
     //finally

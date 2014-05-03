@@ -89,7 +89,7 @@ class RolloutRequest
 
       // Add the completed rollout to the queue for updating the node statistics.  These are dequeued in
       // GameSearcher#processCompletedRollouts().
-      pool.completedRollouts.add(this);
+      pool.completeRequest(this);
     }
     finally
     {

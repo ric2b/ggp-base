@@ -79,17 +79,9 @@ class RolloutProcessor implements Runnable
             request.process(stateMachine);
           }
         }
-        catch (TransitionDefinitionException e)
+        catch (TransitionDefinitionException | MoveDefinitionException | GoalDefinitionException lEx)
         {
-          e.printStackTrace();
-        }
-        catch (MoveDefinitionException e)
-        {
-          e.printStackTrace();
-        }
-        catch (GoalDefinitionException e)
-        {
-          e.printStackTrace();
+          lEx.printStackTrace();
         }
       }
     }

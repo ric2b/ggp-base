@@ -14,12 +14,10 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 public class RolloutProcessorPool
 {
   private final BlockingQueue<RolloutRequest>          queuedRollouts;
-  ConcurrentLinkedQueue<RolloutRequest>                completedRollouts      = new ConcurrentLinkedQueue<>();
-  public int                                           numQueuedRollouts      = 0;
-  public int                                           numCompletedRollouts   = 0;
+  private final ConcurrentLinkedQueue<RolloutRequest>  completedRollouts      = new ConcurrentLinkedQueue<>();
   private final int                                    numRolloutThreads;
   private RolloutProcessor[]                           rolloutProcessors      = null;
-  public int                                           numRoles;
+  public final int                                     numRoles;
   public Role                                          ourRole;
   public RoleOrdering                                  roleOrdering           = null;
   private ForwardDeadReckonPropnetStateMachine         underlyingStateMachine;
@@ -115,15 +113,14 @@ public class RolloutProcessorPool
    * If the work backlog has grown to the limit, this method will block until a queue slot is available (or until
    * interrupted).
    *
-   * @param request - the rollout request.
+   * @param xiRequest - the rollout request.
    *
    * @throws InterruptedException if the thread was interrupted whilst waiting to queue the request.
    */
-  public void enqueueRequest(RolloutRequest request) throws InterruptedException
+  public void enqueueRequest(RolloutRequest xiRequest) throws InterruptedException
   {
-    numQueuedRollouts++;
     long enqueueStart = System.nanoTime();
-    queuedRollouts.put(request);
+    queuedRollouts.put(xiRequest);
     mEnqueueTime += (System.nanoTime() - enqueueStart);
   }
 
@@ -142,5 +139,25 @@ public class RolloutProcessorPool
     RolloutRequest lRequest = queuedRollouts.take();
     mDequeueTime.addAndGet(System.nanoTime() - enqueueStart);
     return lRequest;
+  }
+
+  /**
+   * Return a request for post-rollout processing.
+   *
+   * @param xiRequest - the completed rollout request.
+   */
+  public void completeRequest(RolloutRequest xiRequest)
+  {
+    completedRollouts.add(xiRequest);
+  }
+
+  /**
+   * Poll for completed rollout requests.
+   *
+   * @return a completed request or null if there aren't any.
+   */
+  public RolloutRequest pollForCompletedRequests()
+  {
+    return completedRollouts.poll();
   }
 }
