@@ -63,6 +63,9 @@ class RolloutProcessor implements Runnable
   @Override
   public void run()
   {
+    // Register this thread.
+    ThreadControl.registerRolloutThread();
+
     try
     {
       while (!stop)

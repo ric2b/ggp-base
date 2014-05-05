@@ -1,4 +1,3 @@
-
 package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.security.InvalidParameterException;
@@ -35,12 +34,6 @@ public class Sancho extends SampleGamer
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
   public Role                         ourRole;
-  private final boolean               runSynchronously                = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
-  private boolean                     halfStrength                    = false;
-  //private int                         numRolloutThreads               = runSynchronously ? 0 :
-  //                                                                      halfStrength ? ((((Runtime.getRuntime().availableProcessors() + 1) / 2) + 1) / 2) :
-  //                                                                                       ((Runtime.getRuntime().availableProcessors() + 1) / 2);
-  private int                         numRolloutThreads               = 3; // !! ARR Hack
   private String                      planString                      = null;
   private Queue<Move>                 plan                            = null;
   private int                         transpositionTableSize          = 2000000;
@@ -166,7 +159,7 @@ public class Sancho extends SampleGamer
   {
     searchProcessor = new GameSearcher(transpositionTableSize);
 
-    if ( !runSynchronously )
+    if (!ThreadControl.RUN_SYNCHRONOUSLY)
     {
       Thread lSearchProcessorThread = new Thread(searchProcessor,
                                                  "Search Processor");
@@ -176,9 +169,9 @@ public class Sancho extends SampleGamer
 
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
-    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(1 + numRolloutThreads,
-                                                                          getRoleName(),
-                                                                          getMetaGamingTimeout());
+    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
+                                                                      getRoleName(),
+                                                                      getMetaGamingTimeout());
 
     System.gc();
 
@@ -700,7 +693,7 @@ public class Sancho extends SampleGamer
 
     int rolloutSampleSize;
 
-    if (numRolloutThreads == 0)
+    if (ThreadControl.ROLLOUT_THREADS == 0)
     {
       rolloutSampleSize = 1;
     }
@@ -727,7 +720,7 @@ public class Sancho extends SampleGamer
 
     if ((!gameCharacteristics.isIteratedGame || numRoles != 2) && puzzlePlayer == null)
     {
-      if (runSynchronously)
+      if (ThreadControl.RUN_SYNCHRONOUSLY)
       {
         gameCharacteristics.setExplorationBias(explorationBias);
       }
@@ -736,7 +729,6 @@ public class Sancho extends SampleGamer
                             initialState,
                             roleOrdering,
                             gameCharacteristics,
-                            numRolloutThreads,
                             greedyRolloutsDisabled,
                             heuristic);
       searchProcessor.startSearch(System.currentTimeMillis() + 60000,
@@ -828,7 +820,7 @@ public class Sancho extends SampleGamer
       {
         while (System.currentTimeMillis() < finishBy && !searchProcessor.isComplete())
         {
-          if (runSynchronously)
+          if (ThreadControl.RUN_SYNCHRONOUSLY)
           {
             searchProcessor.expandSearch();
           }
@@ -934,16 +926,6 @@ public class Sancho extends SampleGamer
     List<Move> partialJointMove = new ArrayList<>();
 
     flattenMoveSubLists(legalMoves, 0, jointMoves, partialJointMove);
-  }
-
-  public void setNumThreads(int numThreads)
-  {
-    numRolloutThreads = numThreads;
-  }
-
-  public void setTranspositionTableSize(int tableSize)
-  {
-    transpositionTableSize = tableSize;
   }
 
   @Override

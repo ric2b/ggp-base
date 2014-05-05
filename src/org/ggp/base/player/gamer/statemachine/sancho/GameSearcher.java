@@ -57,13 +57,12 @@ class GameSearcher implements Runnable, ActivityController
                     ForwardDeadReckonInternalMachineState initialState,
                     RoleOrdering roleOrdering,
                     RuntimeGameCharacteristics gameCharacteristics,
-                    int numRolloutThreads,
                     boolean disableGreedyRollouts,
                     Heuristic heuristic) throws GoalDefinitionException
   {
     mGameCharacteristics = gameCharacteristics;
 
-    rolloutPool = new RolloutProcessorPool(numRolloutThreads, underlyingStateMachine, roleOrdering.roleIndexToRole(0));
+    rolloutPool = new RolloutProcessorPool(underlyingStateMachine, roleOrdering.roleIndexToRole(0));
     rolloutPool.setRoleOrdering(roleOrdering);
 
     if ( disableGreedyRollouts )
@@ -112,6 +111,9 @@ class GameSearcher implements Runnable, ActivityController
   @Override
   public void run()
   {
+    // Register this thread.
+    ThreadControl.registerSearchThread();
+
     // TODO Auto-generated method stub
     try
     {
@@ -394,7 +396,7 @@ class GameSearcher implements Runnable, ActivityController
 
       request.completeTreeWork();
       mTreeThreadDuration += request.getTreeThreadDuration();
-      mRolloutDuration += request.getPerRolloutDuration();
+      mRolloutDuration += request.getPerSampleRolloutDuration();
       mNumDurationSamples++;
     }
 
@@ -418,10 +420,18 @@ class GameSearcher implements Runnable, ActivityController
     if (mNumDurationSamples > 100)
     {
       // How many rollouts would be required to take as long as the tree thread did?
-      double lNumRollouts = mTreeThreadDuration / mRolloutDuration;
+      System.out.println("Dynamic sample size calculations");
+      System.out.println("  Number of samples:                       " + mNumDurationSamples);
+      System.out.println("  Tree thread duration (ns):               " + mTreeThreadDuration);
+      System.out.println("  Rollout thread duration per sample (ns): " + mRolloutDuration);
+
+      double lNumRollouts = (double)mTreeThreadDuration / (double)mRolloutDuration;
+      System.out.println("  Single-threaded sample weight:           " + lNumRollouts);
 
       // We may have several threads doing rollouts.
-      lNumRollouts *= lNumThreads;
+      lNumRollouts = lNumRollouts * lNumThreads;
+      System.out.println("  Num rollout threads:                     " + lNumThreads);
+      System.out.println("  Multi-threaded sample weight:            " + lNumRollouts);
 
       // Cap the value
       if (lNumRollouts < 1)
@@ -434,15 +444,11 @@ class GameSearcher implements Runnable, ActivityController
         lNumRollouts = 100;
       }
 
-      // Set the new sample size.
-      mGameCharacteristics.setRolloutSampleSize((int)lNumRollouts);
+      System.out.println("  Capped multi-threaded sample weight:     " + lNumRollouts);
 
-      // Debug output.
-      System.out.println("Dynamic sample size calculations");
-      System.out.println("  Tree thread duration (ns):               " + mTreeThreadDuration);
-      System.out.println("  Rollout thread duration per sample (ns): " + mRolloutDuration);
-      System.out.println("  Num threads:                             " + lNumThreads);
-      System.out.println("  Samples =>                               " + (int)lNumRollouts);
+      // Set the new sample size.
+      // !! ARR Disabled: mGameCharacteristics.setRolloutSampleSize((int)lNumRollouts);
+      System.out.println("  Sample weight =>                         " + (int)lNumRollouts);
     }
 
     // Reset the statistics for next time.

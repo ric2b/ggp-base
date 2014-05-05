@@ -9,7 +9,6 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 public class RolloutProcessorPool
 {
   private final BlockingQueue<RolloutRequest>          queuedRollouts;
-  private final int                                    numRolloutThreads;
   private RolloutProcessor[]                           rolloutProcessors      = null;
   public final int                                     numRoles;
   public Role                                          ourRole;
@@ -18,16 +17,15 @@ public class RolloutProcessorPool
   public int highestRolloutScoreSeen;
   public int lowestRolloutScoreSeen;
 
-  public RolloutProcessorPool(int numThreads, ForwardDeadReckonPropnetStateMachine underlyingStateMachine, Role ourRole)
+  public RolloutProcessorPool(ForwardDeadReckonPropnetStateMachine underlyingStateMachine, Role ourRole)
   {
-    numRolloutThreads = numThreads;
-    queuedRollouts = new ArrayBlockingQueue<>(numThreads * 3);
-    rolloutProcessors = new RolloutProcessor[numThreads];
+    queuedRollouts = new ArrayBlockingQueue<>(ThreadControl.ROLLOUT_THREADS * 10);
+    rolloutProcessors = new RolloutProcessor[ThreadControl.ROLLOUT_THREADS];
     numRoles = underlyingStateMachine.getRoles().size();
     this.ourRole = ourRole;
     this.underlyingStateMachine = underlyingStateMachine;
 
-    for (int i = 0; i < numThreads; i++)
+    for (int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
     {
       rolloutProcessors[i] = new RolloutProcessor(this, underlyingStateMachine.createInstance());
       rolloutProcessors[i].start();
@@ -41,7 +39,7 @@ public class RolloutProcessorPool
 
     if (RolloutProcessor.useTerminalityHorizon)
     {
-      for (int i = 0; i < numRolloutThreads; i++)
+      for (int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
       {
         rolloutProcessors[i].clearTerminatingMoveProps();
       }
@@ -58,7 +56,7 @@ public class RolloutProcessorPool
     if (rolloutProcessors != null)
     {
       System.out.println("Stop rollout processors");
-      for (int i = 0; i < numRolloutThreads; i++)
+      for (int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
       {
         rolloutProcessors[i].stop();
       }
@@ -69,7 +67,7 @@ public class RolloutProcessorPool
 
   public void disableGreedyRollouts()
   {
-    for (int i = 0; i < numRolloutThreads; i++)
+    for (int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
     {
       rolloutProcessors[i].disableGreedyRollouts();
     }
@@ -87,7 +85,7 @@ public class RolloutProcessorPool
    */
   public void enqueueRequest(RolloutRequest xiRequest) throws InterruptedException
   {
-    if (numRolloutThreads > 0)
+    if (ThreadControl.ROLLOUT_THREADS > 0)
     {
       // We're doing asynchronous rollouts so queue the request for later.
       xiRequest.completeTreeWork();
@@ -96,7 +94,7 @@ public class RolloutProcessorPool
     else
     {
       // We're doing synchronous rollouts so just process the request now.
-      assert(numRolloutThreads == 0);
+      assert(ThreadControl.ROLLOUT_THREADS == 0);
       xiRequest.process(underlyingStateMachine);
     }
   }
@@ -112,7 +110,7 @@ public class RolloutProcessorPool
    */
   public RolloutRequest dequeueRequest() throws InterruptedException
   {
-    assert(numRolloutThreads > 0);
+    assert(ThreadControl.ROLLOUT_THREADS > 0);
     RolloutRequest lRequest = queuedRollouts.take();
     return lRequest;
   }
@@ -122,6 +120,6 @@ public class RolloutProcessorPool
    */
   public int getNumThreads()
   {
-    return numRolloutThreads;
+    return ThreadControl.ROLLOUT_THREADS;
   }
 }

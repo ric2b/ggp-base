@@ -30,9 +30,8 @@ class RolloutRequest
    * updates) vs the rollout processor.  This in turn allows us to calculate the appropriate sample size to keep all
    * threads busy.
    */
-  private long  mLastTreeStart;
   private long  mTreeThreadDuration = 0;
-  private long  mRolloutThreadDuration;
+  private long  mRolloutThreadDuration = 0;
 
   public RolloutRequest(RolloutProcessorPool xiPool, Queue xiCompletionQueue)
   {
@@ -121,7 +120,7 @@ class RolloutRequest
    */
   public void startTreeWork()
   {
-    mLastTreeStart = System.nanoTime();
+    mTreeThreadDuration -= System.nanoTime();
   }
 
   /**
@@ -129,7 +128,7 @@ class RolloutRequest
    */
   public void completeTreeWork()
   {
-    mTreeThreadDuration += System.nanoTime() - mLastTreeStart;
+    mTreeThreadDuration += System.nanoTime();
   }
 
   /**
@@ -141,9 +140,9 @@ class RolloutRequest
   }
 
   /**
-   * @return the time (in nanoseconds) spent **per rollout** in the rollout thread.
+   * @return the time (in nanoseconds) for all rollouts, but adjusted to assume just 1 sample per rollout.
    */
-  public long getPerRolloutDuration()
+  public long getPerSampleRolloutDuration()
   {
     return mRolloutThreadDuration / sampleSize;
   }
