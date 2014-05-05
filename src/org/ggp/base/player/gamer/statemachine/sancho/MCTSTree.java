@@ -288,16 +288,25 @@ public class MCTSTree
     heuristic.newTurn(root.state, root);
   }
 
-  public boolean growTree()
-      throws MoveDefinitionException, TransitionDefinitionException,
-      GoalDefinitionException, InterruptedException
+  /**
+   * Perform a single MCTS expansion.
+   *
+   * @param xiRequest - the rollout request.
+   *
+   * @return whether the tree is now fully explored.
+   *
+   * @throws MoveDefinitionException
+   * @throws TransitionDefinitionException
+   * @throws GoalDefinitionException
+   * @throws InterruptedException
+   */
+  public boolean growTree(RolloutRequest xiRequest)
+    throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException, InterruptedException
   {
     //validateAll();
     //validationCount++;
-    selectAction();
-
+    selectAction(xiRequest);
     processNodeCompletions();
-
     return root.complete;
   }
 
@@ -385,7 +394,7 @@ public class MCTSTree
     }
   }
 
-  private void selectAction()
+  private void selectAction(RolloutRequest xiRequest)
       throws MoveDefinitionException, TransitionDefinitionException,
       GoalDefinitionException, InterruptedException
   {
@@ -478,7 +487,11 @@ public class MCTSTree
       //visited.push(null);
       //validateAll();
       //System.out.println("Rollout from: " + newNode.state);
-      RolloutRequest rollout = newNode.rollOut(visited);
+
+      // Perform the rollout request.  This might complete immediately via a short-circuit if the node is already
+      // complete.  In that case, the rollout request won't be added to the completion queue and we're responsible for
+      // updating the tree statistics.
+      RolloutRequest rollout = newNode.rollOut(visited, xiRequest);
       if (rollout != null)
       {
         newNode.updateStats(rollout.averageScores,

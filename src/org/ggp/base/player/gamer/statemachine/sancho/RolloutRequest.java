@@ -1,5 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.util.Queue;
+
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeRef;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -19,26 +21,36 @@ class RolloutRequest
   public final double[]                        averageSquaredScores;
   public int                                   sampleSize;
   public TreePath                              path;
+  private final Queue<RolloutRequest>          mCompletionQueue;
 
-  public RolloutRequest(RolloutProcessorPool xiPool)
+  /**
+   * Timings for this request.  All times and durations are measured in nanoseconds.
+   *
+   * These timings allow us to determine the relative time spent in the tree processing thread (expansion & stats
+   * updates) vs the rollout processor.  This in turn allows us to calculate the appropriate sample size to keep all
+   * threads busy.
+   */
+  private long  mTreeThreadDuration = 0;
+  private long  mRolloutThreadDuration = 0;
+
+  public RolloutRequest(RolloutProcessorPool xiPool, Queue xiCompletionQueue)
   {
+    startTreeWork();
     this.pool = xiPool;
     averageScores = new double[xiPool.numRoles];
     averageSquaredScores = new double[xiPool.numRoles];
+    mCompletionQueue = xiCompletionQueue;
   }
 
   /**
    * Process this rollout request.
    *
    * @param stateMachine - a state machine to handle perform the rollouts.
-   *
-   * @throws TransitionDefinitionException
-   * @throws MoveDefinitionException
-   * @throws GoalDefinitionException
    */
   public void process(ForwardDeadReckonPropnetStateMachine stateMachine)
-      throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
   {
+    long lRolloutStartTime = System.nanoTime();
+
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.rollOut");
     try
     {
@@ -89,11 +101,49 @@ class RolloutRequest
 
       // Add the completed rollout to the queue for updating the node statistics.  These are dequeued in
       // GameSearcher#processCompletedRollouts().
-      pool.completedRollouts.add(this);
+      mCompletionQueue.add(this);
+    }
+    catch (TransitionDefinitionException | MoveDefinitionException | GoalDefinitionException lEx)
+    {
+      lEx.printStackTrace();
     }
     finally
     {
       methodSection.exitScope();
+      mRolloutThreadDuration = System.nanoTime() - lRolloutStartTime;
     }
+  }
+
+  /**
+   * Notify this rollout request that we're starting to work on it on the tree thread (either doing select / expand) or
+   * doing back-propagation.
+   */
+  public void startTreeWork()
+  {
+    mTreeThreadDuration -= System.nanoTime();
+  }
+
+  /**
+   * Notify this rollout request that we've stopped working on it on the tree thread.
+   */
+  public void completeTreeWork()
+  {
+    mTreeThreadDuration += System.nanoTime();
+  }
+
+  /**
+   * @return the time (in nanoseconds) spent in total in the tree thread.
+   */
+  public long getTreeThreadDuration()
+  {
+    return mTreeThreadDuration;
+  }
+
+  /**
+   * @return the time (in nanoseconds) for all rollouts, but adjusted to assume just 1 sample per rollout.
+   */
+  public long getPerSampleRolloutDuration()
+  {
+    return mRolloutThreadDuration / sampleSize;
   }
 }

@@ -1,7 +1,9 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.util.HashSet;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
@@ -27,6 +29,15 @@ class GameSearcher implements Runnable, ActivityController
   private double                          minExplorationBias  = 0.5;
   private double                          maxExplorationBias  = 1.2;
   private volatile boolean                mTerminateRequested = false;
+  private final Queue<RolloutRequest>     mCompletedRollouts  = new ConcurrentLinkedQueue<>();
+  private RuntimeGameCharacteristics      mGameCharacteristics;
+
+  /**
+   * Timing variables, used to adjust the sample size.
+   */
+  private long                            mTreeThreadDuration = 0;
+  private long                            mRolloutDuration    = 0;
+  private long                            mNumDurationSamples = 0;
 
   public GameSearcher(int nodeTableSize)
   {
@@ -46,11 +57,12 @@ class GameSearcher implements Runnable, ActivityController
                     ForwardDeadReckonInternalMachineState initialState,
                     RoleOrdering roleOrdering,
                     RuntimeGameCharacteristics gameCharacteristics,
-                    int numRolloutThreads,
                     boolean disableGreedyRollouts,
                     Heuristic heuristic) throws GoalDefinitionException
   {
-    rolloutPool = new RolloutProcessorPool(numRolloutThreads, underlyingStateMachine, roleOrdering.roleIndexToRole(0));
+    mGameCharacteristics = gameCharacteristics;
+
+    rolloutPool = new RolloutProcessorPool(underlyingStateMachine, roleOrdering.roleIndexToRole(0));
     rolloutPool.setRoleOrdering(roleOrdering);
 
     if ( disableGreedyRollouts )
@@ -99,6 +111,9 @@ class GameSearcher implements Runnable, ActivityController
   @Override
   public void run()
   {
+    // Register this thread.
+    ThreadControl.registerSearchThread();
+
     // TODO Auto-generated method stub
     try
     {
@@ -116,8 +131,7 @@ class GameSearcher implements Runnable, ActivityController
           while (!complete && !mTerminateRequested)
           {
             long time = System.currentTimeMillis();
-            double percentThroughTurn = Math
-                .min(100, (time - startTime) * 100 / (moveTime - startTime));
+            double percentThroughTurn = Math.min(100, (time - startTime) * 100 / (moveTime - startTime));
 
             //							if ( Math.abs(lastPercentThroughTurn - percentThroughTurn) > 4 )
             //							{
@@ -257,7 +271,7 @@ class GameSearcher implements Runnable, ActivityController
 
   public boolean expandSearch() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException, InterruptedException
   {
-    boolean result;
+    boolean lAllTreesCompletelyExplored;
 
     while (nodePool.isFull())
     {
@@ -265,7 +279,7 @@ class GameSearcher implements Runnable, ActivityController
 
       for(MCTSTree tree : factorTrees)
       {
-        if ( !tree.root.complete )
+        if (!tree.root.complete)
         {
           //  The trees may have very asymmetric sizes due to one being nearly
           //  complete, in which case it is possible that no candidates for trimming
@@ -278,26 +292,19 @@ class GameSearcher implements Runnable, ActivityController
       assert(somethingDisposed);
     }
 
-    processCompletedRollouts();
-
-    if (!rolloutPool.isBackedUp())
+    lAllTreesCompletelyExplored = true;
+    for (MCTSTree tree : factorTrees)
     {
-      result = true;
-
-      for(MCTSTree tree : factorTrees)
+      if (!tree.root.complete)
       {
-        if ( !tree.root.complete )
-        {
-          result &= tree.growTree();
-        }
+        RolloutRequest lRequest = new RolloutRequest(rolloutPool, mCompletedRollouts);
+        lAllTreesCompletelyExplored &= tree.growTree(lRequest);
       }
     }
-    else
-    {
-      result = false;
-    }
 
-    return result;
+    processCompletedRollouts();
+
+    return lAllTreesCompletelyExplored;
   }
 
   public int getNumIterations()
@@ -327,8 +334,11 @@ class GameSearcher implements Runnable, ActivityController
     System.out.println("Start move search...");
     synchronized (this)
     {
-      //  Process anything left over from last turn's timeout
+      // Process anything left over from last turn's timeout
       processCompletedRollouts();
+
+      // Calculate an appropriate sample size to use based on the relative time spent in the tree and rollout threads.
+      calculateSampleSize();
 
       for(MCTSTree tree : factorTrees)
       {
@@ -365,8 +375,9 @@ class GameSearcher implements Runnable, ActivityController
     //{
     RolloutRequest request;
 
-    while ((request = rolloutPool.completedRollouts.poll()) != null)
+    while ((request = mCompletedRollouts.poll()) != null)
     {
+      request.startTreeWork();
       TreeNode node = request.node.node;
 
       //masterMoveWeights.accumulate(request.playedMoveWeights);
@@ -383,13 +394,67 @@ class GameSearcher implements Runnable, ActivityController
         //validateAll();
       }
 
-      rolloutPool.numCompletedRollouts++;
+      request.completeTreeWork();
+      mTreeThreadDuration += request.getTreeThreadDuration();
+      mRolloutDuration += request.getPerSampleRolloutDuration();
+      mNumDurationSamples++;
     }
+
     //}
     //finally
     //{
     //  methodSection.exitScope();
     //}
+  }
+
+  private void calculateSampleSize()
+  {
+    int lNumThreads = rolloutPool.getNumThreads();
+    if (lNumThreads == 0)
+    {
+      mGameCharacteristics.setRolloutSampleSize(1);
+      return;
+    }
+
+    // Don't tinker with anything without at least 100 samples
+    if (mNumDurationSamples > 100)
+    {
+      // How many rollouts would be required to take as long as the tree thread did?
+      System.out.println("Dynamic sample size calculations");
+      System.out.println("  Number of samples:                       " + mNumDurationSamples);
+      System.out.println("  Tree thread duration (ns):               " + mTreeThreadDuration);
+      System.out.println("  Rollout thread duration per sample (ns): " + mRolloutDuration);
+
+      double lNumRollouts = (double)mTreeThreadDuration / (double)mRolloutDuration;
+      System.out.println("  Single-threaded sample weight:           " + lNumRollouts);
+
+      // We may have several threads doing rollouts.
+      lNumRollouts = lNumRollouts * lNumThreads;
+      System.out.println("  Num rollout threads:                     " + lNumThreads);
+      System.out.println("  Multi-threaded sample weight:            " + lNumRollouts);
+
+      // Cap the value
+      if (lNumRollouts < 1)
+      {
+        lNumRollouts = 1;
+      }
+
+      if (lNumRollouts > 100)
+      {
+        lNumRollouts = 100;
+      }
+
+      System.out.println("  Capped multi-threaded sample weight:     " + lNumRollouts);
+
+      // Set the new sample size.
+      // !! ARR Disabled: mGameCharacteristics.setRolloutSampleSize((int)lNumRollouts);
+      System.out.println("  Sample weight =>                         " + (int)lNumRollouts);
+    }
+
+    // Reset the statistics for next time.
+    mTreeThreadDuration = 0;
+    mRolloutDuration = 0;
+    mNumDurationSamples = 0;
   }
 
   public void terminate()
