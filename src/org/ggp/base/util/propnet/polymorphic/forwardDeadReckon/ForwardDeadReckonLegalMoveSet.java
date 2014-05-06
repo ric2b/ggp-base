@@ -235,6 +235,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   @Override
   public void add(int index)
   {
+    //assert(index >= 0 && index < 1000);
     ForwardDeadReckonLegalMoveInfo info = masterListAsArray[index];
     contents[info.roleIndex].set(index);
   }
@@ -250,6 +251,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   @Override
   public void remove(int index)
   {
+    //assert(index >= 0 && index < 1000);
     ForwardDeadReckonLegalMoveInfo info = masterListAsArray[index];
     contents[info.roleIndex].clear(index);
   }

@@ -52,7 +52,7 @@ public class StateMachineValidator
     exceptedGames.add("ad_game_2x2");
     exceptedGames.add("ticTacHeavenFC");//  Allows both players to noop at once which we don't currently handle
 
-    String startGame = "connect4"; // Game to begin with if desired
+    String startGame = "ticTacToe"; // Game to begin with if desired
     boolean foundStartGame = true; // Set to true to just start at the beginning
     boolean stopOnError = true; // Whether to stop on first failing game or continue
 

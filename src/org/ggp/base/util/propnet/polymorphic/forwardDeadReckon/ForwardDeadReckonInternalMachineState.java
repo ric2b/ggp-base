@@ -72,6 +72,7 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
   @Override
   public void add(int index)
   {
+    //assert(index >= 0 && index < 1000);
     contents.set(index);
   }
 
@@ -155,6 +156,7 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
   @Override
   public void remove(int index)
   {
+    //assert(index >= 0 && index < 1000);
     contents.clear(index);
   }
 
