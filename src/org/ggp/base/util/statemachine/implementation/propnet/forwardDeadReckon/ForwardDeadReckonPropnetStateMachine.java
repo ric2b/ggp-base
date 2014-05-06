@@ -1778,7 +1778,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       setBasePropositionsFromState(state);
 
       PolymorphicProposition terminalProp = propNet.getTerminalProposition();
-      boolean result = propNet.getTransition(instanceId, (ForwardDeadReckonComponent)terminalProp.getSingleInput());
+      //boolean result = propNet.getTransition(instanceId, (ForwardDeadReckonComponent)terminalProp.getSingleInput());
+      boolean result = propNet.getTransition(instanceId, (ForwardDeadReckonComponent)terminalProp);
       //boolean result = ((ForwardDeadReckonComponent)terminalProp
       //    .getSingleInput()).getValue(instanceId);
       //if ( result )
@@ -1831,7 +1832,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private boolean isTerminalUnfactored()
   {
     PolymorphicProposition terminalProp = propNet.getTerminalProposition();
-    boolean result = propNet.getTransition(instanceId, (ForwardDeadReckonComponent)terminalProp.getSingleInput());
+    boolean result = propNet.getTransition(instanceId, (ForwardDeadReckonComponent)terminalProp);
     //boolean result = ((ForwardDeadReckonComponent)terminalProp
     //    .getSingleInput()).getValue(instanceId);
     //if ( result )
@@ -3796,9 +3797,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     for (PolymorphicProposition p : goalProps)
     {
-      ForwardDeadReckonComponent goalInput = (ForwardDeadReckonComponent)p.getSingleInput();
+      //ForwardDeadReckonComponent goalInput = (ForwardDeadReckonComponent)p.getSingleInput();
       //if (goalInput != null && goalInput.getValue(instanceId))
-      if (goalInput != null && net.getTransition(instanceId, goalInput))
+      //if (goalInput != null && net.getTransition(instanceId, goalInput))
+      if (net.getTransition(instanceId, (ForwardDeadReckonComponent)p))
       {
         result = Integer.parseInt(p.getName().getBody().get(1).toString());
         break;

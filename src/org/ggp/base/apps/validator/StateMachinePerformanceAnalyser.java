@@ -155,7 +155,7 @@ public class StateMachinePerformanceAnalyser
 
             List<Gdl> description = theRepository.getGame(gameKey).getRules();
             theMachine.initialize(description);
-            theMachine.disableGreedyRollouts();
+            //theMachine.disableGreedyRollouts();
 
             ForwardDeadReckonInternalMachineState initialState = theMachine.createInternalState(theMachine.getInitialState());
             Role ourRole = theMachine.getRoles().get(0);

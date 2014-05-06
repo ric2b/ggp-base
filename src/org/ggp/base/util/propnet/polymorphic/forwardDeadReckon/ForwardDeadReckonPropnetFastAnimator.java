@@ -1,6 +1,6 @@
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
-import java.util.List;
+import java.util.Collection;
 
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
@@ -29,6 +29,7 @@ public class ForwardDeadReckonPropnetFastAnimator
   //  each long is a packed record using the following masks:
   private final long               componentInfoTypeMask = 0x07000000L; //  3-bits for component type
   private final int                componentInfoTypeShift = 24;
+  private final long               componentInfoOutputInverted = 0x08000000L; //  Flag to indicate output is inverted (only applies to AND/OR)
   private final long               componentInfoOutputCountMask = 0xFFFF00000000L; // Num outputs mask (16 bits)
   private final int                componentInfoOutputCountShift = 32;
   private final long               componentInfoConnectivityOffsetMask = 0xFFFFFFL; // Start offset of output indexes in connectivity array
@@ -43,6 +44,10 @@ public class ForwardDeadReckonPropnetFastAnimator
   private final int                componentTypeProposition = 1;
   private final int                componentTypeTransition = 0;
   private final int                componentTypeOr = 2;
+  //  Internally in the runtime representation AND/OR/NAND/NOR and NOT are all combined
+  //  in a single universal logic component.  Because it doesn't exist in the same representations
+  //  as the basic logic components it can use an id that overlaps with them, so we can keep types down to 8
+  private final int                componentTypeUniversalLogic = 2;
   private final int                componentTypeAnd = 3;
   private final int                componentTypeNot = 4;
   private final int                componentTypeTrueConstant = 5;
@@ -63,13 +68,13 @@ public class ForwardDeadReckonPropnetFastAnimator
   private final int                componentIdNonTriggeringPropositionBits = (componentTypeNonTriggeringProposition << componentIdTypeShift);
   private final int                componentIdPropositionBits = (componentTypeProposition << componentIdTypeShift);
   private final int                componentIdTransitionBits = (componentTypeTransition << componentIdTypeShift);
-  private final int                componentIdOrBits = (componentTypeOr << componentIdTypeShift);
-  private final int                componentIdAndBits = (componentTypeAnd << componentIdTypeShift);
-  private final int                componentIdNotBits = (componentTypeNot << componentIdTypeShift);
+  private final int                componentIdUniversalLogicBits = (componentTypeUniversalLogic << componentIdTypeShift);
+  private final int                componentIdOutputUniversalLogicBits = (1 << 28);
+  private final int                componentIdOutputInvertedFlag = (1<<29);
 
   // states will be represented by per-thread int arrays, with each int packed as follows
-  private final int                componentInfoOpaqueValueMask = 0x3FFFFFFF; // value mask
-  private final int                componentInfoCachedValMask = 1<<31; // Current state
+  private final int                componentStateCachedValMask = 1<<31; // Current state
+  //  Remaining bits are free for opaque use by the implementation
 
   private InstanceInfo[]           instances;
 
@@ -85,10 +90,12 @@ public class ForwardDeadReckonPropnetFastAnimator
     for(PolymorphicComponent c : propNet.getComponents())
     {
       ForwardDeadReckonComponent fdrc = (ForwardDeadReckonComponent)c;
-      boolean hasPropagatableOutputs = !fdrc.getOutputs().isEmpty();
+      Collection<? extends PolymorphicComponent> outputs = c.getOutputs();
+      boolean hasPropagatableOutputs = !outputs.isEmpty();
       boolean hasTrigger = false;
+      boolean outputsInverted = false;
 
-      outputCount += fdrc.getOutputs().size();
+      outputCount += outputs.size();
 
       if ( c instanceof PolymorphicProposition )
       {
@@ -113,17 +120,36 @@ public class ForwardDeadReckonPropnetFastAnimator
         //  Transitions should always have triggers (else what are they doing?)
         assert(hasTrigger);
       }
-      else if ( c instanceof PolymorphicOr )
+      else if ( (c instanceof PolymorphicOr) || (c instanceof PolymorphicAnd) )
       {
-        componentType = componentTypeOr;
-      }
-      else if ( c instanceof PolymorphicAnd )
-      {
-        componentType = componentTypeAnd;
+        componentType = componentTypeUniversalLogic;
+
+        //  If it has a single output to a NOT roll the NOT into this component and a NAND/NOR
+        if ( outputs.size() == 1 )
+        {
+          PolymorphicComponent output = c.getSingleOutput();
+
+          if ( output instanceof PolymorphicNot )
+          {
+            outputs = output.getOutputs();
+            outputCount += (outputs.size()-1);
+            outputsInverted = true;
+          }
+        }
       }
       else if ( c instanceof PolymorphicNot )
       {
-        componentType = componentTypeNot;
+        //  Check this isn't a single output of an AND/OR in which cse the AND/OR will be processed as
+        //  a NAND/NOR and this component need not be processed
+        PolymorphicComponent input = c.getSingleInput();
+        if ( ((input instanceof PolymorphicOr) || (input instanceof PolymorphicAnd)) &&
+             input.getOutputs().size() == 1 )
+        {
+          fdrc.id = -1;
+          continue;
+        }
+
+        componentType = componentTypeUniversalLogic;
       }
       else if ( c instanceof PolymorphicConstant )
       {
@@ -137,8 +163,57 @@ public class ForwardDeadReckonPropnetFastAnimator
         }
       }
 
+      int outputTypeBits = 0;
+      boolean outTypeSet = false;
+
+      for(PolymorphicComponent output : outputs)
+      {
+        if ( !outTypeSet )
+        {
+          outTypeSet = true;
+          if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) )
+          {
+            outputTypeBits = componentIdOutputUniversalLogicBits;
+          }
+          else if ( output instanceof PolymorphicNot )
+          {
+            outputTypeBits = componentIdOutputUniversalLogicBits;
+           }
+          else
+          {
+            break;
+          }
+        }
+        else
+        {
+          if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) )
+          {
+            if ( outputTypeBits != componentIdOutputUniversalLogicBits)
+            {
+              outputTypeBits = 0;
+              break;
+            }
+          }
+          else if ( output instanceof PolymorphicNot )
+          {
+            if ( outputTypeBits != componentIdOutputUniversalLogicBits)
+            {
+              outputTypeBits = 0;
+              break;
+            }
+          }
+          else
+          {
+            outputTypeBits = 0;
+            break;
+          }
+        }
+      }
+
       fdrc.id = index++ |
-                (componentType << 24);
+                (componentType << 24) |
+                outputTypeBits |
+                (outputsInverted ? componentIdOutputInvertedFlag : 0);
     }
 
     componentInfo = new long[index];
@@ -149,12 +224,18 @@ public class ForwardDeadReckonPropnetFastAnimator
     for(PolymorphicComponent c : propNet.getComponents())
     {
       ForwardDeadReckonComponent fdrc = (ForwardDeadReckonComponent)c;
-      int id = fdrc.id & 0xFFFFFF;
 
-      @SuppressWarnings("unchecked")
-      List<PolymorphicComponent> outputs = (List<PolymorphicComponent>)c.getOutputs();
-      @SuppressWarnings("unchecked")
-      List<PolymorphicComponent> inputs = (List<PolymorphicComponent>)c.getInputs();
+      if ( fdrc.id == -1 )
+      {
+        //  Redundant NOT which has been subsumed into a NAND/NOR
+        continue;
+      }
+
+      int id = fdrc.id & 0xFFFFFF;
+      boolean outputInverted = ((fdrc.id & componentIdOutputInvertedFlag) != 0);
+
+      Collection<? extends PolymorphicComponent> outputs = c.getOutputs();
+      Collection<? extends PolymorphicComponent> inputs = c.getInputs();
       if ( c instanceof PolymorphicProposition )
       {
         componentType = componentTypeProposition;
@@ -188,10 +269,19 @@ public class ForwardDeadReckonPropnetFastAnimator
           componentType = componentTypeFalseConstant;
         }
       }
+
+      //  If we subsumed a NOT into a universal logic component then it's that NOT's
+      //  outputs that are the outputs of the universal component
+      if ( outputInverted )
+      {
+        outputs = c.getSingleOutput().getOutputs();
+      }
+
       componentInfo[id] = ((long)componentOffset << componentInfoConnectivityOffsetShift) |
                                ((long)outputs.size() << componentInfoOutputCountShift) |
                                ((long)inputs.size() << componentInfoInputCountShift) |
-                               ((long)componentType << componentInfoTypeShift);
+                               ((long)componentType << componentInfoTypeShift) |
+                               (outputInverted ? componentInfoOutputInverted : 0);
 
       for(PolymorphicComponent output : outputs)
       {
@@ -225,27 +315,47 @@ public class ForwardDeadReckonPropnetFastAnimator
 
     for(int i = 0; i < componentInfo.length; i++)
     {
+      //  Retrieve the actual component type - note that we MUST retrieve this from
+      //  the component info NOT its id, since the id representation uses the same
+      //  code for AND and OR and encodes NAND and NOR as well
       long compInfo = componentInfo[i];
       int componentTypeBits = (int)(compInfo & componentInfoTypeMask);
+      boolean outputInverted = ((compInfo & componentInfoOutputInverted) != 0);
 
       switch(componentTypeBits)
       {
         case componentTypePropositionBits:
         case componentTypeTransitionBits:
-        case componentTypeOrBits:
         case componentTypeFalseConstantBits:
         case componentTypeNonTriggeringPropositionBits:
           state[i] = 0;
           break;
+        case componentTypeOrBits:
+          if ( outputInverted )
+          {
+            state[i] = 0xFFFFFFFF;
+          }
+          else
+          {
+            state[i] = 0x7FFFFFFF;
+          }
+          break;
         case componentTypeAndBits:
           int   numInputs = (int)((compInfo & componentInfoInputCountMask) >> componentInfoInputCountShift);
-          state[i] = numInputs;
+          if ( outputInverted )
+          {
+            state[i] = -numInputs;
+          }
+          else
+          {
+            state[i] = 0x80000000 - numInputs;
+          }
           break;
         case componentTypeNotBits:
-          state[i] = componentInfoCachedValMask;
+          state[i] = 0xFFFFFFFF;
           break;
         case componentTypeTrueConstantBits:
-          state[i] = componentInfoCachedValMask;
+          state[i] = componentStateCachedValMask;
           break;
         default:
           break;
@@ -264,7 +374,7 @@ public class ForwardDeadReckonPropnetFastAnimator
 
         if ( numOutputs > 0 )
         {
-          boolean current = ((state[i] & componentInfoCachedValMask) != 0);
+          boolean current = ((state[i] & componentStateCachedValMask) != 0);
           int type = (int)((compInfo & componentInfoTypeMask) >> componentInfoTypeShift);
 
           if ( current && type != componentTypeTransition )
@@ -280,141 +390,142 @@ public class ForwardDeadReckonPropnetFastAnimator
     }
   }
 
-  private void propagateComponentTrue(InstanceInfo instanceInfo, int componentId)
+  private void propagateComponentTrue(InstanceInfo instanceInfo, int componentIdFull)
   {
     int[] state = instanceInfo.state;
-    long  compInfo = componentInfo[componentId];
+    long  compInfo = componentInfo[componentIdFull & 0xFFFFFF];
     int   numOutputs = (int)((compInfo & componentInfoOutputCountMask) >> componentInfoOutputCountShift);
     int   outputIndex = (int)((compInfo & componentInfoConnectivityOffsetMask) >> componentInfoConnectivityOffsetShift);
-    int stateVal;
 
-    while(numOutputs-- > 0)
+    if ((componentIdFull & componentIdOutputUniversalLogicBits) == 0)
     {
-      int outputFullId = componentConnectivityTable[outputIndex+numOutputs];
-      int outputId = outputFullId & 0xFFFFFF;
-      int outputIdBits = outputFullId & componentIdTypeMask;
-
-      switch(outputIdBits)
+      while(numOutputs-- > 0)
       {
-        case componentIdNonTriggeringPropositionBits:
-          state[outputId] |= componentInfoCachedValMask;
-          break;
-        case componentIdPropositionBits:
-          state[outputId] |= componentInfoCachedValMask;
+        int outputFullId = componentConnectivityTable[outputIndex+numOutputs];
+        int outputId = outputFullId & 0xFFFFFF;
+        int outputIdBits = outputFullId & componentIdTypeMask;
 
-          int moveIndex = componentAssociatedTransitionIndexes[outputId];
-          instanceInfo.legalMoveNotifier.add(moveIndex);
-          break;
-        case componentIdTransitionBits:
-          state[outputId] |= componentInfoCachedValMask;
+        switch(outputIdBits)
+        {
+          case componentIdNonTriggeringPropositionBits:
+            state[outputId] |= componentStateCachedValMask;
+            break;
+          case componentIdPropositionBits:
+            state[outputId] |= componentStateCachedValMask;
 
-          int propIndex = componentAssociatedTransitionIndexes[outputId];
-          instanceInfo.propositionTransitionNotifier.add(propIndex);
-          break;
-        case componentIdOrBits:
-          stateVal = state[outputId] + 1;
+            int moveIndex = componentAssociatedTransitionIndexes[outputId];
+            instanceInfo.legalMoveNotifier.add(moveIndex);
+            break;
+          case componentIdTransitionBits:
+            state[outputId] |= componentStateCachedValMask;
 
-          if ((stateVal & componentInfoOpaqueValueMask) != 1)
-          {
-            state[outputId] = stateVal;
-          }
-          else
-          {
-            state[outputId] = stateVal | componentInfoCachedValMask;
-            propagateComponentTrue(instanceInfo, outputId);
-          }
-          break;
-        case componentIdAndBits:
-          stateVal = state[outputId] - 1;
+            int propIndex = componentAssociatedTransitionIndexes[outputId];
+            instanceInfo.propositionTransitionNotifier.add(propIndex);
+            break;
+          case componentIdUniversalLogicBits:
+            int stateVal = ++state[outputId];
+            if (stateVal == 0x80000000)
+            {
+              propagateComponentTrue(instanceInfo, outputFullId);
+            }
+            else if ( stateVal == 0 )
+            {
+              propagateComponentFalse(instanceInfo, outputFullId);
+            }
+            break;
+          default:
+            //  Should not happen
+            throw new UnsupportedOperationException("Unexpected component type");
+        }
+      }
+    }
+    else
+    {
+      while(numOutputs-- > 0)
+      {
+        int outputFullId = componentConnectivityTable[outputIndex+numOutputs];
 
-          if ((stateVal & componentInfoOpaqueValueMask) != 0)
-          {
-            state[outputId] = stateVal;
-          }
-          else
-          {
-            state[outputId] = stateVal | componentInfoCachedValMask;
-            propagateComponentTrue(instanceInfo, outputId);
-          }
-          break;
-        case componentIdNotBits:
-          state[outputId] &= ~componentInfoCachedValMask;
-          propagateComponentFalse(instanceInfo, outputId);
-          break;
-        default:
-          //  Should not happen
-          throw new UnsupportedOperationException("Unexpected component type");
+        int stateVal = ++state[outputFullId & 0xFFFFFF];
+        if (stateVal == 0x80000000)
+        {
+          propagateComponentTrue(instanceInfo, outputFullId);
+        }
+        else if ( stateVal == 0 )
+        {
+          propagateComponentFalse(instanceInfo, outputFullId);
+        }
       }
     }
   }
 
-  private void propagateComponentFalse(InstanceInfo instanceInfo, int componentId)
+  private void propagateComponentFalse(InstanceInfo instanceInfo, int componentIdFull)
   {
     int[] state = instanceInfo.state;
-    long  compInfo = componentInfo[componentId];
+    long  compInfo = componentInfo[componentIdFull & 0xFFFFFF];
     int   numOutputs = (int)((compInfo & componentInfoOutputCountMask) >> componentInfoOutputCountShift);
     int   outputIndex = (int)((compInfo & componentInfoConnectivityOffsetMask) >> componentInfoConnectivityOffsetShift);
-    int stateVal;
 
-    while(numOutputs-- > 0)
+    if ((componentIdFull & componentIdOutputUniversalLogicBits) == 0)
     {
-      int outputFullId = componentConnectivityTable[outputIndex+numOutputs];
-      int outputId = outputFullId & 0xFFFFFF;
-      int outputIdBits = outputFullId & componentIdTypeMask;
-
-      switch(outputIdBits)
+      while(numOutputs-- > 0)
       {
-        case componentIdNonTriggeringPropositionBits:
-          state[outputId] &= ~componentInfoCachedValMask;
-          break;
-        case componentIdPropositionBits:
-          state[outputId] &= ~componentInfoCachedValMask;
+        int outputFullId = componentConnectivityTable[outputIndex+numOutputs];
+        int outputId = outputFullId & 0xFFFFFF;
+        int outputIdBits = outputFullId & componentIdTypeMask;
 
-          int moveIndex = componentAssociatedTransitionIndexes[outputId];
-          instanceInfo.legalMoveNotifier.remove(moveIndex);
-          break;
-        case componentIdTransitionBits:
-          state[outputId] &= ~componentInfoCachedValMask;
+        switch(outputIdBits)
+        {
+          case componentIdNonTriggeringPropositionBits:
+            state[outputId] &= ~componentStateCachedValMask;
+            break;
+          case componentIdPropositionBits:
+            state[outputId] &= ~componentStateCachedValMask;
 
-          int propIndex = componentAssociatedTransitionIndexes[outputId];
-          instanceInfo.propositionTransitionNotifier.remove(propIndex);
-          break;
-        case componentIdOrBits:
-          stateVal = state[outputId] - 1;
+            int moveIndex = componentAssociatedTransitionIndexes[outputId];
+            instanceInfo.legalMoveNotifier.remove(moveIndex);
+            break;
+          case componentIdTransitionBits:
+            state[outputId] &= ~componentStateCachedValMask;
 
-          if ((stateVal & componentInfoOpaqueValueMask) != 0)
-          {
-            state[outputId] = stateVal;
-          }
-          else
-          {
-            state[outputId] = stateVal & ~componentInfoCachedValMask;
-            propagateComponentFalse(instanceInfo, outputId);
-          }
-          break;
-        case componentIdAndBits:
-          stateVal = state[outputId] + 1;
+            int propIndex = componentAssociatedTransitionIndexes[outputId];
+            instanceInfo.propositionTransitionNotifier.remove(propIndex);
+            break;
+          case componentIdUniversalLogicBits:
+            int stateVal = --state[outputId];
+            if ( stateVal == 0x7FFFFFFF )
+            {
+              propagateComponentFalse(instanceInfo, outputFullId);
+            }
+            else if ( stateVal == 0xFFFFFFFF )
+            {
+              propagateComponentTrue(instanceInfo, outputFullId);
+            }
+            break;
+          default:
+            //  Should not happen
+            throw new UnsupportedOperationException("Unexpected component type");
+        }
+      }
+    }
+    else
+    {
+      while(numOutputs-- > 0)
+      {
+        int outputFullId = componentConnectivityTable[outputIndex+numOutputs];
 
-          if ((stateVal & componentInfoOpaqueValueMask) != 1)
-          {
-            state[outputId] = stateVal;
-          }
-          else
-          {
-            state[outputId] = stateVal & ~componentInfoCachedValMask;
-            propagateComponentFalse(instanceInfo, outputId);
-          }
-          break;
-        case componentIdNotBits:
-          state[outputId] |= componentInfoCachedValMask;
-          propagateComponentTrue(instanceInfo, outputId);
-          break;
-        default:
-          //  Should not happen
-          throw new UnsupportedOperationException("Unexpected component type");
+        int stateVal = --state[outputFullId & 0xFFFFFF];
+        if ( stateVal == 0x7FFFFFFF )
+        {
+          propagateComponentFalse(instanceInfo, outputFullId);
+        }
+        else if ( stateVal == 0xFFFFFFFF )
+        {
+          propagateComponentTrue(instanceInfo, outputFullId);
+        }
       }
     }
   }
+
 
   private void propagateComponent(InstanceInfo instanceInfo, int componentId, boolean value)
   {
@@ -425,7 +536,6 @@ public class ForwardDeadReckonPropnetFastAnimator
       int   numOutputs = (int)((compInfo & componentInfoOutputCountMask) >> componentInfoOutputCountShift);
       int   outputIndex = (int)((compInfo & componentInfoConnectivityOffsetMask) >> componentInfoConnectivityOffsetShift);
       int outputIdBits;
-      int stateVal;
 
       while(numOutputs-- > 0)
       {
@@ -438,22 +548,22 @@ public class ForwardDeadReckonPropnetFastAnimator
           case componentIdNonTriggeringPropositionBits:
             if ( value )
             {
-              state[outputId] |= componentInfoCachedValMask;
+              state[outputId] |= componentStateCachedValMask;
             }
             else
             {
-              state[outputId] &= ~componentInfoCachedValMask;
+              state[outputId] &= ~componentStateCachedValMask;
             }
             propagateComponent(instanceInfo, outputId, value);
             break;
           case componentIdPropositionBits:
             if ( value )
             {
-              state[outputId] |= componentInfoCachedValMask;
+              state[outputId] |= componentStateCachedValMask;
             }
             else
             {
-              state[outputId] &= ~componentInfoCachedValMask;
+              state[outputId] &= ~componentStateCachedValMask;
             }
 
             int moveIndex = componentAssociatedTransitionIndexes[outputId];
@@ -475,11 +585,11 @@ public class ForwardDeadReckonPropnetFastAnimator
           case componentIdTransitionBits:
             if ( value )
             {
-              state[outputId] |= componentInfoCachedValMask;
+              state[outputId] |= componentStateCachedValMask;
             }
             else
             {
-              state[outputId] &= ~componentInfoCachedValMask;
+              state[outputId] &= ~componentStateCachedValMask;
             }
 
             int propIndex = componentAssociatedTransitionIndexes[outputId];
@@ -492,71 +602,33 @@ public class ForwardDeadReckonPropnetFastAnimator
             {
               instanceInfo.propositionTransitionNotifier.remove(propIndex);
             }
-             break;
-          case componentIdOrBits:
-            if ( value )
-            {
-              stateVal = state[outputId] + 1;
-            }
-            else
-            {
-              stateVal = state[outputId] - 1;
-            }
-
-            if ((stateVal & componentInfoOpaqueValueMask) == (value ? 1 : 0))
-            {
-              if ( value )
-              {
-                state[outputId] = stateVal | componentInfoCachedValMask;
-              }
-              else
-              {
-                state[outputId] = stateVal & ~componentInfoCachedValMask;
-              }
-              propagateComponent(instanceInfo, outputId, value);
-            }
-            else
-            {
-              state[outputId] = stateVal;
-            }
             break;
-          case componentIdAndBits:
+          case componentIdUniversalLogicBits:
+             int stateVal;
             if ( value )
             {
-              stateVal = state[outputId] - 1;
-            }
-            else
-            {
-              stateVal = state[outputId] + 1;
-            }
-
-            if ((stateVal & componentInfoOpaqueValueMask) == (value ? 0 : 1))
-            {
-              if ( value )
+              stateVal = ++state[outputId];
+              if ( stateVal == 0x80000000 )
               {
-                state[outputId] = stateVal | componentInfoCachedValMask;
+                propagateComponent(instanceInfo, outputId, true);
               }
-              else
+              else if ( stateVal == 0 )
               {
-                state[outputId] = stateVal & ~componentInfoCachedValMask;
+                propagateComponent(instanceInfo, outputId, false);
               }
-              propagateComponent(instanceInfo, outputId, value);
             }
             else
             {
-              state[outputId] = stateVal;
+              stateVal = --state[outputId];
+              if ( stateVal == 0x7FFFFFFF )
+              {
+                propagateComponent(instanceInfo, outputId, false);
+              }
+              else if ( stateVal == 0xFFFFFFFF )
+              {
+                propagateComponent(instanceInfo, outputId, true);
+              }
             }
-            break;
-          case componentIdNotBits:
-            if ( value )
-            {
-              state[outputId] &= ~componentInfoCachedValMask;
-            }
-            else
-            {
-              state[outputId] |= componentInfoCachedValMask;
-            }
-            propagateComponent(instanceInfo, outputId, !value);
             break;
           default:
             //  Should not happen
@@ -579,13 +651,13 @@ public class ForwardDeadReckonPropnetFastAnimator
 
     if ( value )
     {
-      state[compId] |= componentInfoCachedValMask;
-      propagateComponentTrue(instanceInfo, compId);
+      state[compId] |= componentStateCachedValMask;
+      propagateComponentTrue(instanceInfo, propId);
     }
     else
     {
-      state[compId] &= ~componentInfoCachedValMask;
-      propagateComponentFalse(instanceInfo, compId);
+      state[compId] &= ~componentStateCachedValMask;
+      propagateComponentFalse(instanceInfo, propId);
     }
   }
 
@@ -594,19 +666,19 @@ public class ForwardDeadReckonPropnetFastAnimator
     InstanceInfo instanceInfo = instances[instanceId];
     int[] state = instanceInfo.state;
     int compId = propId & 0xFFFFFF;
-    boolean currentValue = ((state[compId] & componentInfoCachedValMask) != 0);
+    boolean currentValue = ((state[compId] & componentStateCachedValMask) != 0);
 
     if ( value != currentValue )
     {
       if ( value )
       {
-        state[compId] |= componentInfoCachedValMask;
-        propagateComponentTrue(instanceInfo, compId);
+        state[compId] |= componentStateCachedValMask;
+        propagateComponentTrue(instanceInfo, propId);
       }
       else
       {
-        state[compId] &= ~componentInfoCachedValMask;
-        propagateComponentFalse(instanceInfo, compId);
+        state[compId] &= ~componentStateCachedValMask;
+        propagateComponentFalse(instanceInfo, propId);
       }
     }
   }
@@ -614,6 +686,6 @@ public class ForwardDeadReckonPropnetFastAnimator
   public boolean getComponentValue(int instanceId, int propId)
   {
     int[] state = instances[instanceId].state;
-    return ((state[propId & 0xFFFFFF] & componentInfoCachedValMask) != 0);
+    return ((state[propId & 0xFFFFFF] & componentStateCachedValMask) != 0);
   }
 }
