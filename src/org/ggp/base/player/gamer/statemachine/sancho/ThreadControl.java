@@ -42,12 +42,10 @@ public class ThreadControl
    *
    * Unless configured otherwise, use half the available vCPUs.
    */
-  /*
   public static final int     CPU_INTENSIVE_THREADS = RUN_SYNCHRONOUSLY ? 0 :
                                                                           HALF_STRENGTH ? ((((NUM_CPUS + 1) / 2) + 1) / 2) :
                                                                                           ((NUM_CPUS + 1) / 2);
-*/
-  public static final int     CPU_INTENSIVE_THREADS = NUM_CPUS; // !! ARR Hack
+  // public static final int     CPU_INTENSIVE_THREADS = NUM_CPUS; // !! ARR Hack
 
   /**
    * The number of rollout threads.
