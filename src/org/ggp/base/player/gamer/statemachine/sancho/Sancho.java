@@ -59,6 +59,11 @@ public class Sancho extends SampleGamer
     boolean lAssertionsEnabled = false;
     assert ((lAssertionsEnabled = true) == true);
     ASSERTIONS_ENABLED = lAssertionsEnabled;
+
+    if (ASSERTIONS_ENABLED)
+    {
+      System.err.println("WARNING: Assertions are enabled - this will impact performance");
+    }
   }
 
   @Override
