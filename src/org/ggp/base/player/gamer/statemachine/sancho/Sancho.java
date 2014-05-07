@@ -49,9 +49,17 @@ public class Sancho extends SampleGamer
   private boolean                     overExpectedRangeScoreReported  = false;
   private TargetedSolutionStatePlayer puzzlePlayer                    = null;
   private GameSearcher                searchProcessor                 = null;
+  private static final boolean        ASSERTIONS_ENABLED;
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
+
+  static
+  {
+    boolean lAssertionsEnabled = false;
+    assert ((lAssertionsEnabled = true) == true);
+    ASSERTIONS_ENABLED = lAssertionsEnabled;
+  }
 
   @Override
   public void configure(int xiParamIndex, String xiParam)
@@ -199,6 +207,11 @@ public class Sancho extends SampleGamer
       throws TransitionDefinitionException, MoveDefinitionException,
       GoalDefinitionException
   {
+    if (ASSERTIONS_ENABLED)
+    {
+      System.err.println("WARNING: Assertions are enabled - this will impact performance");
+    }
+
     Random r = new Random();
     // If have been configured with a plan (for test purposes), load it now.
     // We'll still do everything else as normal, but whilst there are moves in
