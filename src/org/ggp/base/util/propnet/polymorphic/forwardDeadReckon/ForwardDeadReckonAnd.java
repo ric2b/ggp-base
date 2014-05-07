@@ -5,16 +5,25 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 
 
 /**
- * The And class is designed to represent logical AND gates.
+ * The ForwardDeadReckonAnd class is designed to represent logical AND gates in
+ * the ForwardDeadReckon family of PolymorphicComponents
  */
 @SuppressWarnings("serial")
 public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
                                                                           implements
                                                                           PolymorphicAnd
 {
-  public ForwardDeadReckonAnd(int numInputs, int numOutput)
+  /**
+   * Construct a new AND component
+   *
+   * @param numInputs Number of inputs if known, else -1.  If a specific number (other than -1)
+   *        is specified then no subsequent changes to the inputs are permitted
+   * @param numOutputs Number of outputs if known, else -1.  If a specific number (other than -1)
+   *        is specified then no subsequent changes to the outputs are permitted
+   */
+  public ForwardDeadReckonAnd(int numInputs, int numOutputs)
   {
-    super(numInputs, numOutput);
+    super(numInputs, numOutputs);
   }
 
   @Override
@@ -45,7 +54,6 @@ public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
     {
       stateVal = ++state[instanceId];
     }
-    //System.out.println("AND " + Integer.toHexString(hashCode()) + " with value " + cachedValue + " received new input " + newState + ", causing false count to become " + falseInputCount);
 
     boolean countIsZero = ((stateVal & opaqueValueMask) == 0);
     if (((state[instanceId] & cachedStateMask) != 0) != countIsZero)
@@ -58,16 +66,8 @@ public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
       {
         state[instanceId] &= ~cachedStateMask;
       }
-       //System.out.println("AND value set to "+ cachedValue);
 
-      if (queuePropagation)
-      {
-        queuePropagation(instanceId);
-      }
-      else
-      {
-        propagate(instanceId);
-      }
+      propagate(instanceId);
     }
   }
 

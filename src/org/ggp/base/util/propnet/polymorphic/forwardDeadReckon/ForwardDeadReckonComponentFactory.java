@@ -17,10 +17,17 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.statemachine.Role;
 
+/**
+ * @author steve
+ *  Factory for ForwardDeadReckon family components
+ */
 public class ForwardDeadReckonComponentFactory extends
                                               PolymorphicComponentFactory
 {
 
+  /**
+   * Constructs a new factory
+   */
   public ForwardDeadReckonComponentFactory()
   {
   }

@@ -1205,8 +1205,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       fullPropNet.reset(false);
       fullPropNet.setProposition(0, (ForwardDeadReckonProposition)fullPropNet.getInitProposition(), true);
-      //fullPropNet.getInitProposition().setValue(true);
-      fullPropNet.propagate(0);
       propNet = fullPropNet;
       initialState = getInternalStateFromBase().getMachineState();
       fullPropNet.reset(true);
@@ -1779,7 +1777,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       PolymorphicProposition terminalProp = propNet.getTerminalProposition();
       //boolean result = propNet.getTransition(instanceId, (ForwardDeadReckonComponent)terminalProp.getSingleInput());
-      boolean result = propNet.getTransition(instanceId, (ForwardDeadReckonComponent)terminalProp);
+      boolean result = propNet.getComponentValue(instanceId, (ForwardDeadReckonComponent)terminalProp);
       //boolean result = ((ForwardDeadReckonComponent)terminalProp
       //    .getSingleInput()).getValue(instanceId);
       //if ( result )
@@ -1832,7 +1830,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private boolean isTerminalUnfactored()
   {
     PolymorphicProposition terminalProp = propNet.getTerminalProposition();
-    boolean result = propNet.getTransition(instanceId, (ForwardDeadReckonComponent)terminalProp);
+    boolean result = propNet.getComponentValue(instanceId, (ForwardDeadReckonComponent)terminalProp);
     //boolean result = ((ForwardDeadReckonComponent)terminalProp
     //    .getSingleInput()).getValue(instanceId);
     //if ( result )
@@ -3800,7 +3798,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //ForwardDeadReckonComponent goalInput = (ForwardDeadReckonComponent)p.getSingleInput();
       //if (goalInput != null && goalInput.getValue(instanceId))
       //if (goalInput != null && net.getTransition(instanceId, goalInput))
-      if (net.getTransition(instanceId, (ForwardDeadReckonComponent)p))
+      if (net.getComponentValue(instanceId, (ForwardDeadReckonComponent)p))
       {
         result = Integer.parseInt(p.getName().getBody().get(1).toString());
         break;

@@ -11,6 +11,14 @@ public final class ForwardDeadReckonOr extends ForwardDeadReckonComponent
                                                                          implements
                                                                          PolymorphicOr
 {
+  /**
+   * Construct a new OR component
+   *
+   * @param numInputs Number of inputs if known, else -1.  If a specific number (other than -1)
+   *        is specified then no subsequent changes to the inputs are permitted
+   * @param numOutputs Number of outputs if known, else -1.  If a specific number (other than -1)
+   *        is specified then no subsequent changes to the outputs are permitted
+   */
   public ForwardDeadReckonOr(int numInputs, int numOutputs)
   {
     super(numInputs, numOutputs);
@@ -58,14 +66,7 @@ public final class ForwardDeadReckonOr extends ForwardDeadReckonComponent
         state[instanceId] &= ~cachedStateMask;
       }
 
-      if (queuePropagation)
-      {
-        queuePropagation(instanceId);
-      }
-      else
-      {
-        propagate(instanceId);
-      }
+      propagate(instanceId);
     }
   }
 

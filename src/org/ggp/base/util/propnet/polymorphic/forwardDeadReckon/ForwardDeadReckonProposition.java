@@ -12,24 +12,32 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
 {
   /** The name of the Proposition. */
   private GdlSentence                                    name;
+  /** Notification handler to notify on state changes (used for legal moves), if any */
   private ForwardDeadReckonComponentTransitionNotifier[] owningMoveSet  = null;
+  /** Trigger index to notify on state changes (if any) */
   private int                                            associatedMoveIndex = -1;
+  /** Opaque information higher layers may associate with this component */
   private ForwardDeadReckonPropositionInfo               opaqueInfo     = null;
 
   /**
    * Creates a new Proposition with name <tt>name</tt>.
    *
-   * @param numOutputs
-   * @param name
+   * @param numOutputs Number of outputs if known, else -1.  If a specific number (other than -1)
+   *        is specified then no subsequent changes to the outputs are permitted
+   * @param theName
    *          The name of the Proposition.
    */
-  public ForwardDeadReckonProposition(int numOutputs, GdlSentence name)
+  public ForwardDeadReckonProposition(int numOutputs, GdlSentence theName)
   {
     super(1, numOutputs);
 
-    this.name = name;
+    this.name = theName;
   }
 
+  /**
+   * Retrieve the opaque info et against this component
+   * @return opaque info previously set
+   */
   public ForwardDeadReckonPropositionInfo getInfo()
   {
     return opaqueInfo;
@@ -43,20 +51,35 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
     owningMoveSet = new ForwardDeadReckonLegalMoveSet[numInstances];
   }
 
+  /**
+   * Set opaque info against this component - not semantically interpreted
+   * @param info info to set
+   */
   public void setInfo(ForwardDeadReckonPropositionInfo info)
   {
     opaqueInfo = info;
   }
 
-  public void setTransitionSet(int associatedMoveIndex,
+  /**
+   * Set an instance of a notification handler to be called when this proposition
+   * changes value
+   * @param triggerIndex notification index to raise (actually opaque at this level)
+   * @param instanceId Instance this notifier is bound for
+   * @param activeLegalMovesNotifier notifier to call
+   */
+  public void setTransitionSet(int triggerIndex,
                                int instanceId,
-                               ForwardDeadReckonComponentTransitionNotifier activeLegalMoves)
+                               ForwardDeadReckonComponentTransitionNotifier activeLegalMovesNotifier)
   {
-    this.owningMoveSet[instanceId] = activeLegalMoves;
-    this.associatedMoveIndex = associatedMoveIndex;
+    owningMoveSet[instanceId] = activeLegalMovesNotifier;
+    associatedMoveIndex = triggerIndex;
   }
 
-  public int getAssociatedMoveIndex()
+  /**
+   * Retrieve the trigger index (if any) associated with this proposition
+   * @return associated trigger index, or -1 if none
+   */
+  public int getAssociatedTriggerIndex()
   {
     return associatedMoveIndex;
   }
@@ -75,8 +98,6 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
   /**
    * Setter method. This should only be rarely used; the name of a proposition
    * is usually constant over its entire lifetime.
-   *
-   * @return The name of the Proposition.
    */
   @Override
   public void setName(GdlSentence newName)
@@ -118,14 +139,7 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
       //}
     }
 
-    if (queuePropagation)
-    {
-      queuePropagation(instanceId);
-    }
-    else
-    {
-      propagate(instanceId);
-    }
+    propagate(instanceId);
   }
 
   /**
@@ -133,6 +147,8 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
    *
    * @param value
    *          The new value of the Proposition.
+   * @param instanceId
+   *          Instance within which the value change is occurring
    */
   public void setValue(boolean value, int instanceId)
   {
@@ -147,14 +163,7 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
         state[instanceId] &= ~cachedStateMask;
       }
 
-      if (queuePropagation)
-      {
-        queuePropagation(instanceId);
-      }
-      else
-      {
-        propagate(instanceId);
-      }
+      propagate(instanceId);
     }
   }
 

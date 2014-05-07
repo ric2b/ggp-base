@@ -9,11 +9,25 @@ import java.util.List;
 
 import org.ggp.base.util.statemachine.Role;
 
+/**
+ * @author steve
+ * Collection of currently legal moves associated with a propNet.  The propNet
+ * will update this collection by direct notification when legal move propositions change
+ * state
+ */
 public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponentTransitionNotifier
 {
+  /** List of legal move infos into which the integer of members of this
+   * collection's contents are indexes
+   */
   private List<ForwardDeadReckonLegalMoveInfo> masterList;
-  private ForwardDeadReckonLegalMoveInfo[]     masterListAsArray;
-  private BitSet[]                             contents;
+  /** Master list crystalized into an array for fast access */
+  ForwardDeadReckonLegalMoveInfo[]             masterListAsArray;
+  /**
+   * Contents (as a BitSet) of the legal move collections for each role
+   */
+  BitSet[]                                     contents;
+  /** The set of roles whose legal moves are being tracked */
   private Role[]                               roles;
 
   private class ForwardDeadReckonLegalMoveSetIterator
@@ -24,12 +38,12 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     int                                   index;
     int                                   roleIndex;
 
-    public ForwardDeadReckonLegalMoveSetIterator(ForwardDeadReckonLegalMoveSet parent,
-                                                 int roleIndex)
+    public ForwardDeadReckonLegalMoveSetIterator(ForwardDeadReckonLegalMoveSet parentSet,
+                                                 int theRoleIndex)
     {
-      this.parent = parent;
-      this.roleIndex = roleIndex;
-      index = parent.contents[roleIndex].nextSetBit(0);
+      parent = parentSet;
+      roleIndex = theRoleIndex;
+      index = parentSet.contents[theRoleIndex].nextSetBit(0);
     }
 
     @Override
@@ -61,11 +75,11 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     private ForwardDeadReckonLegalMoveSet parent;
     int                                   roleIndex;
 
-    public ForwardDeadReckonLegalMoveSetCollection(ForwardDeadReckonLegalMoveSet parent,
-                                                   int roleIndex)
+    public ForwardDeadReckonLegalMoveSetCollection(ForwardDeadReckonLegalMoveSet parentSet,
+                                                   int theRoleIndex)
     {
-      this.parent = parent;
-      this.roleIndex = roleIndex;
+      parent = parentSet;
+      roleIndex = theRoleIndex;
     }
 
     @Override
@@ -171,6 +185,11 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
 
   }
 
+  /**
+   * Construct a legal move set with the same master associations as an
+   * existing one (which is effectively used as a template)
+   * @param master existing move set to use as a template
+   */
   public ForwardDeadReckonLegalMoveSet(ForwardDeadReckonLegalMoveSet master)
   {
     masterList = master.masterList;
@@ -178,28 +197,35 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     roles = master.roles;
     contents = new BitSet[roles.length];
 
-    int i = 0;
-    for (Role role : roles)
+    for (int i = 0; i < roles.length; i++)
     {
-      contents[i++] = new BitSet();
+      contents[i] = new BitSet();
     }
   }
 
-  public ForwardDeadReckonLegalMoveSet(List<Role> roles)
+  /**
+   * Construct a new legal move set for a specified set of roles
+   * @param theRoles
+   */
+  public ForwardDeadReckonLegalMoveSet(List<Role> theRoles)
   {
-    masterList = new ArrayList<ForwardDeadReckonLegalMoveInfo>();
+    masterList = new ArrayList<>();
     masterListAsArray = null;
-    contents = new BitSet[roles.size()];
-    this.roles = new Role[roles.size()];
+    contents = new BitSet[theRoles.size()];
+    roles = new Role[theRoles.size()];
 
     int i = 0;
-    for (Role role : roles)
+    for (Role role : theRoles)
     {
       contents[i] = new BitSet();
       this.roles[i++] = role;
     }
   }
 
+  /**
+   * Crystalize the legal move set to an optimal runtime form.  After
+   * this has been called no further chnages may be made to the master list
+   */
   public void crystalize()
   {
     masterListAsArray = new ForwardDeadReckonLegalMoveInfo[masterList.size()];
@@ -207,11 +233,18 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     masterList = null;
   }
 
+  /**
+   * Retrieve the master list of all legal move infos
+   * @return the full list of legal move infos
+   */
   public ForwardDeadReckonLegalMoveInfo[] getMasterList()
   {
     return masterListAsArray;
   }
 
+  /**
+   * Empty the collection
+   */
   public void clear()
   {
     for (int i = 0; i < contents.length; i++)
@@ -220,6 +253,13 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     }
   }
 
+  /**
+   * Add a new legal move info to the master list, resolving its id
+   * as we do so (i.e. - giving it a concrete index in the master list
+   * which will not subsequently change)
+   * @param info Legal move info to add
+   * @return the index of the added move's info in the master list
+   */
   public int resolveId(ForwardDeadReckonLegalMoveInfo info)
   {
     masterList.add(info);
@@ -227,35 +267,48 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     return masterList.size() - 1;
   }
 
+  /**
+   * Add a specified legal move to the collection.  This move must be one
+   * that is already known in the master list (i.e. - resolveId() must have
+   * been called with the same parameter at some time prior to this call)
+   * @param info Legal move to add
+   */
   public void add(ForwardDeadReckonLegalMoveInfo info)
   {
+    assert(info.masterIndex != -1);
     contents[info.roleIndex].set(info.masterIndex);
   }
 
   @Override
   public void add(int index)
   {
-    //assert(index >= 0 && index < 1000);
     ForwardDeadReckonLegalMoveInfo info = masterListAsArray[index];
     contents[info.roleIndex].set(index);
   }
 
+  /**
+   * Remove a specified legal move to the collection.  This move should be one
+   * that is already known in the master list (i.e. - resolveId() must have
+   * been called with the same parameter at some time prior to this call)
+   * @param info Legal move to remove
+   */
   public void remove(ForwardDeadReckonLegalMoveInfo info)
   {
-    if (info.masterIndex != -1)
-    {
-      contents[info.roleIndex].clear(info.masterIndex);
-    }
+    assert(info.masterIndex != -1);
+    contents[info.roleIndex].clear(info.masterIndex);
   }
 
   @Override
   public void remove(int index)
   {
-    //assert(index >= 0 && index < 1000);
     ForwardDeadReckonLegalMoveInfo info = masterListAsArray[index];
     contents[info.roleIndex].clear(index);
   }
 
+  /**
+   * Merge with another legal move set collection - result is the union
+   * @param other set to merge into this set
+   */
   public void merge(ForwardDeadReckonLegalMoveSet other)
   {
     for (int i = 0; i < contents.length; i++)
@@ -264,11 +317,21 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     }
   }
 
+  /**
+   * retrieve the set of legal moves for a specified role
+   * @param roleIndex role for which we want the legal moves
+   * @return collection of legal move infos
+   */
   public Collection<ForwardDeadReckonLegalMoveInfo> getContents(int roleIndex)
   {
     return new ForwardDeadReckonLegalMoveSetCollection(this, roleIndex);
   }
 
+  /**
+   * retrieve the set of legal moves for a specified role
+   * @param role role for which we want the legal moves
+   * @return collection of legal move infos
+   */
   public Collection<ForwardDeadReckonLegalMoveInfo> getContents(Role role)
   {
     for (int i = 0; i < roles.length; i++)

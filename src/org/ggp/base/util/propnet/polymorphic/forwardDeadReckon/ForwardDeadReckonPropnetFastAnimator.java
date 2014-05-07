@@ -158,7 +158,7 @@ public class ForwardDeadReckonPropnetFastAnimator
 
       if ( c instanceof PolymorphicProposition )
       {
-        hasTrigger = (((ForwardDeadReckonProposition)c).getAssociatedMoveIndex() != -1);
+        hasTrigger = (((ForwardDeadReckonProposition)c).getAssociatedTriggerIndex() != -1);
         //  We don't expect legal moves to have outputs!
         assert(!hasTrigger || !hasPropagatableOutputs);
 
@@ -238,7 +238,7 @@ public class ForwardDeadReckonPropnetFastAnimator
         {
           outTypeSet = true;
           if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot) ||
-               (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedMoveIndex() == -1))
+               (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() == -1))
           {
             outputTypeBits = componentIdOutputUniversalLogicBits;
           }
@@ -246,7 +246,7 @@ public class ForwardDeadReckonPropnetFastAnimator
         else
         {
           if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot) ||
-              (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedMoveIndex() == -1))
+              (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() == -1))
           {
             if ( outputTypeBits != componentIdOutputUniversalLogicBits)
             {
@@ -272,7 +272,7 @@ public class ForwardDeadReckonPropnetFastAnimator
 
         for(PolymorphicComponent output : outputs)
         {
-          if ( (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedMoveIndex() != -1) || (output instanceof PolymorphicTransition) )
+          if ( (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() != -1) || (output instanceof PolymorphicTransition) )
           {
             movedTriggers.add(output);
           }
@@ -312,7 +312,7 @@ public class ForwardDeadReckonPropnetFastAnimator
       Collection<? extends PolymorphicComponent> inputs = c.getInputs();
       if ( c instanceof PolymorphicProposition )
       {
-        int moveIndex = ((ForwardDeadReckonProposition)c).getAssociatedMoveIndex();
+        int moveIndex = ((ForwardDeadReckonProposition)c).getAssociatedTriggerIndex();
         if( moveIndex >= 0 )
         {
           componentType = componentTypeProposition;
@@ -369,7 +369,7 @@ public class ForwardDeadReckonPropnetFastAnimator
         {
           outTypeSet = true;
           if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot) ||
-              (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedMoveIndex() == -1) )
+              (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() == -1) )
           {
             outputTypeBits = componentIdOutputUniversalLogicBits;
           }
@@ -377,7 +377,7 @@ public class ForwardDeadReckonPropnetFastAnimator
         else
         {
           if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot) ||
-              (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedMoveIndex() == -1) )
+              (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() == -1) )
           {
             if ( outputTypeBits != componentIdOutputUniversalLogicBits)
             {
@@ -430,7 +430,7 @@ public class ForwardDeadReckonPropnetFastAnimator
              (output instanceof PolymorphicOr) ||
              (output instanceof PolymorphicAnd) ||
              (output instanceof PolymorphicNot) ||
-             (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedMoveIndex() == -1))
+             (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() == -1))
         {
           componentConnectivityTable[componentOffset++] = ((ForwardDeadReckonComponent)output).id;
         }

@@ -15,6 +15,12 @@ public final class ForwardDeadReckonTransition extends
   private ForwardDeadReckonComponentTransitionNotifier[]        owningTransitionInfoSet = null;
   private int                                                   associatedPropositionIndex          = -1;
 
+  /**
+   * Construct a new TRANSITION component
+   *
+   * @param numOutputs Number of outputs if known, else -1.  If a specific number (other than -1)
+   *        is specified then no subsequent changes to the outputs are permitted
+   */
   public ForwardDeadReckonTransition(int numOutputs)
   {
     super(1, numOutputs);
@@ -55,14 +61,25 @@ public final class ForwardDeadReckonTransition extends
     }
   }
 
-  public void setTransitionSet(int associatedPropositionIndex,
+  /**
+   * Set an instance of a notification handler to be called when this transition
+   * changes value
+   * @param triggerIndex notification index to raise (actually opaque at this level)
+   * @param instanceId Instance this notifier is bound for
+   * @param propositionTransitionNotifier notifier to call
+   */
+  public void setTransitionSet(int triggerIndex,
                                int instanceId,
-                               ForwardDeadReckonComponentTransitionNotifier owningSet)
+                               ForwardDeadReckonComponentTransitionNotifier propositionTransitionNotifier)
   {
-    this.owningTransitionInfoSet[instanceId] = owningSet;
-    this.associatedPropositionIndex = associatedPropositionIndex;
+    owningTransitionInfoSet[instanceId] = propositionTransitionNotifier;
+    associatedPropositionIndex = triggerIndex;
   }
 
+  /**
+   * Retrieve the trigger index (if any) associated with this proposition
+   * @return associated trigger index, or -1 if none
+   */
   public int getAssociatedPropositionIndex()
   {
     return associatedPropositionIndex;

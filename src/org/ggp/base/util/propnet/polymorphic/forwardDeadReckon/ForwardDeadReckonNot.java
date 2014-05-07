@@ -11,9 +11,15 @@ public final class ForwardDeadReckonNot extends ForwardDeadReckonComponent
                                                                           implements
                                                                           PolymorphicNot
 {
-  public ForwardDeadReckonNot(int numOutput)
+  /**
+   * Construct a new NOT component
+   *
+   * @param numOutputs Number of outputs if known, else -1.  If a specific number (other than -1)
+   *        is specified then no subsequent changes to the outputs are permitted
+   */
+  public ForwardDeadReckonNot(int numOutputs)
   {
-    super(1, numOutput);
+    super(1, numOutputs);
   }
 
   @Override
@@ -30,14 +36,7 @@ public final class ForwardDeadReckonNot extends ForwardDeadReckonComponent
       state[instanceId] &= ~cachedStateMask;
     }
 
-    if (queuePropagation)
-    {
-      queuePropagation(instanceId);
-    }
-    else
-    {
-      propagate(instanceId);
-    }
+    propagate(instanceId);
   }
 
   @Override
