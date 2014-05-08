@@ -400,8 +400,10 @@ public class Sancho extends SampleGamer
 
       System.out.println("Insufficient sampling time to reliably ascertain game characteristics");
     }
-
-    branchingFactorApproximation /= 50;
+    else
+    {
+      branchingFactorApproximation /= numSamples;
+    }
 
     if (gameCharacteristics.isSimultaneousMove || gameCharacteristics.isPseudoSimultaneousMove)
     {
