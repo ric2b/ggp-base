@@ -11,7 +11,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private final boolean                                        enableMoveActionHistory                     = false;
   private double                                               explorationBias                             = 1.0;
   private double                                               moveActionHistoryBias                       = 0;
-  private int                                                  rolloutSampleSize                           = 4;
+  private volatile int                                         rolloutSampleSize                           = 4;
   final double                                                 competitivenessBonus                        = 2;
   private boolean                                              isFixedMoveCount                            = false;
 

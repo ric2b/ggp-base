@@ -174,8 +174,7 @@ public class Sancho extends SampleGamer
 
     if (!ThreadControl.RUN_SYNCHRONOUSLY)
     {
-      Thread lSearchProcessorThread = new Thread(searchProcessor,
-                                                 "Search Processor");
+      Thread lSearchProcessorThread = new Thread(searchProcessor, "Search Processor");
       lSearchProcessorThread.setDaemon(true);
       lSearchProcessorThread.start();
     }
@@ -803,8 +802,7 @@ public class Sancho extends SampleGamer
       }
     }
 
-    System.out.println("Setting search root, current time: " +
-                       System.currentTimeMillis());
+    System.out.println("Setting search root, current time: " + System.currentTimeMillis());
 
     if ((plan != null) && (!plan.isEmpty()))
     {

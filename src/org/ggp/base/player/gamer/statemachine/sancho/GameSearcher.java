@@ -1,9 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.util.HashSet;
-import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
@@ -17,6 +15,8 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 class GameSearcher implements Runnable, ActivityController
 {
+  private static final int                PIPELINE_SIZE = 16384; // MUST be a power of 2
+
   private volatile long                   moveTime;
   private volatile long                   startTime;
   private volatile int                    searchSeqRequested  = 0;
@@ -29,15 +29,20 @@ class GameSearcher implements Runnable, ActivityController
   private double                          minExplorationBias  = 0.5;
   private double                          maxExplorationBias  = 1.2;
   private volatile boolean                mTerminateRequested = false;
-  private final Queue<RolloutRequest>     mCompletedRollouts  = new ConcurrentLinkedQueue<>();
   private RuntimeGameCharacteristics      mGameCharacteristics;
+  private Pipeline                        mPipeline;
+  private long                            mNumIterations      = 0;
+  private long                            mBlockedFor         = 0;
 
   /**
-   * Timing variables, used to adjust the sample size.
+   * The highest score seen in the current turn (for our role).
    */
-  private long                            mTreeThreadDuration = 0;
-  private long                            mRolloutDuration    = 0;
-  private long                            mNumDurationSamples = 0;
+  public int                              highestRolloutScoreSeen;
+
+  /**
+   * The lowest score seen in the current turn (for our role).
+   */
+  public int                              lowestRolloutScoreSeen;
 
   public GameSearcher(int nodeTableSize)
   {
@@ -61,9 +66,9 @@ class GameSearcher implements Runnable, ActivityController
                     Heuristic heuristic) throws GoalDefinitionException
   {
     mGameCharacteristics = gameCharacteristics;
+    mPipeline = new Pipeline(PIPELINE_SIZE, underlyingStateMachine.getRoles().size());
 
-    rolloutPool = new RolloutProcessorPool(underlyingStateMachine, roleOrdering.roleIndexToRole(0));
-    rolloutPool.setRoleOrdering(roleOrdering);
+    rolloutPool = new RolloutProcessorPool(mPipeline, underlyingStateMachine, mGameCharacteristics, roleOrdering);
 
     if ( disableGreedyRollouts )
     {
@@ -84,7 +89,8 @@ class GameSearcher implements Runnable, ActivityController
                                    roleOrdering,
                                    rolloutPool,
                                    gameCharacteristics,
-                                   heuristic));
+                                   heuristic,
+                                   this));
     }
     else
     {
@@ -96,7 +102,8 @@ class GameSearcher implements Runnable, ActivityController
                                      roleOrdering,
                                      rolloutPool,
                                      gameCharacteristics,
-                                     heuristic.createIndependentInstance()));
+                                     heuristic.createIndependentInstance(),
+                                     this));
       }
     }
 
@@ -124,20 +131,12 @@ class GameSearcher implements Runnable, ActivityController
           boolean complete = false;
 
           System.out.println("Move search started");
-          //int validationCount = 0;
-
-          //Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
 
           while (!complete && !mTerminateRequested)
           {
             long time = System.currentTimeMillis();
             double percentThroughTurn = Math.min(100, (time - startTime) * 100 / (moveTime - startTime));
 
-            //							if ( Math.abs(lastPercentThroughTurn - percentThroughTurn) > 4 )
-            //							{
-            //								System.out.println("Percent through turn: " + percentThroughTurn + " - num iterations: " + numIterations + ", root has children=" + (root.children != null));
-            //								lastPercentThroughTurn = percentThroughTurn;
-            //							}
             if (requestYield)
             {
               Thread.yield();
@@ -147,14 +146,14 @@ class GameSearcher implements Runnable, ActivityController
               synchronized(getSerializationObject())
               {
                 //  Must re-test for a termination request having obtained the lock
-                if ( !mTerminateRequested )
+                if (!mTerminateRequested)
                 {
-                  for(MCTSTree tree : factorTrees)
+                  for (MCTSTree tree : factorTrees)
                   {
                     tree.gameCharacteristics.setExplorationBias(maxExplorationBias -
-                                                           percentThroughTurn *
-                                                           (maxExplorationBias - minExplorationBias) /
-                                                           100);
+                                                                percentThroughTurn *
+                                                                (maxExplorationBias - minExplorationBias) /
+                                                                100);
                   }
                   complete = expandSearch();
                 }
@@ -164,17 +163,14 @@ class GameSearcher implements Runnable, ActivityController
 
           System.out.println("Move search complete");
         }
-        catch (TransitionDefinitionException | MoveDefinitionException
-            | GoalDefinitionException e)
+        catch (TransitionDefinitionException | MoveDefinitionException | GoalDefinitionException e)
         {
-          // TODO Auto-generated catch block
           e.printStackTrace();
         }
       }
     }
     catch (InterruptedException e)
     {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     }
 
@@ -297,12 +293,21 @@ class GameSearcher implements Runnable, ActivityController
     {
       if (!tree.root.complete)
       {
-        RolloutRequest lRequest = new RolloutRequest(rolloutPool, mCompletedRollouts);
+        // If there's back-propagation work to do, do it now, in preference to more select/expand cycles because the
+        // back-propagation will mean that subsequent select/expand cycles are more accurate.
+        processCompletedRollouts(false);
+
+        if (!mPipeline.canExpand())
+        {
+          // The pipeline is full.  We can't expand it until we've done some back-propagation.  Even though none was
+          // available a moment ago, we'll just have to wait.
+          processCompletedRollouts(true);
+        }
+
+        RolloutRequest lRequest = mPipeline.getNextExpandSlot();
         lAllTreesCompletelyExplored &= tree.growTree(lRequest);
       }
     }
-
-    processCompletedRollouts();
 
     return lAllTreesCompletelyExplored;
   }
@@ -331,21 +336,24 @@ class GameSearcher implements Runnable, ActivityController
   public void startSearch(long moveTimeout,
                           ForwardDeadReckonInternalMachineState startState) throws GoalDefinitionException
   {
+
+    // Print out some statistics from last turn.
+    System.out.println("Last time...");
+    System.out.println("  Number of MCTS iterations: " + mNumIterations);
+    System.out.println("  Tree thread blocked for:   " + mBlockedFor / 1000000 + "ms");
+    mNumIterations = 0;
+    mBlockedFor = 0;
+
     System.out.println("Start move search...");
     synchronized (this)
     {
-      // Process anything left over from last turn's timeout
-      processCompletedRollouts();
-
-      // Calculate an appropriate sample size to use based on the relative time spent in the tree and rollout threads.
-      calculateSampleSize();
-
       for(MCTSTree tree : factorTrees)
       {
         tree.setRootState(startState);
       }
 
-      rolloutPool.noteNewTurn();
+      lowestRolloutScoreSeen = 1000;
+      highestRolloutScoreSeen = -100;
 
       moveTime = moveTimeout;
       startTime = System.currentTimeMillis();
@@ -368,93 +376,50 @@ class GameSearcher implements Runnable, ActivityController
     return this;
   }
 
-  private void processCompletedRollouts()
+  private void processCompletedRollouts(boolean xiNeedToDoOne)
   {
-    //ProfileSection methodSection = new ProfileSection("processCompletedRollouts");
-    //try
-    //{
-    RolloutRequest request;
-
-    while ((request = mCompletedRollouts.poll()) != null)
+    while (mPipeline.canBackPropagate() || xiNeedToDoOne)
     {
-      request.startTreeWork();
-      TreeNode node = request.node.node;
+      if (xiNeedToDoOne)
+      {
+        mBlockedFor -= System.nanoTime();
+      }
+
+      RolloutRequest lRequest = mPipeline.getNextRequestForBackPropagation();
+
+      if (xiNeedToDoOne)
+      {
+        mBlockedFor += System.nanoTime();
+      }
+
+      // Update min/max scores.
+      if (lRequest.mMaxScore > highestRolloutScoreSeen)
+      {
+        highestRolloutScoreSeen = lRequest.mMaxScore;
+      }
+
+      if (lRequest.mMinScore < lowestRolloutScoreSeen)
+      {
+        lowestRolloutScoreSeen = lRequest.mMinScore;
+      }
 
       //masterMoveWeights.accumulate(request.playedMoveWeights);
 
-      if (request.node.seq == node.seq && !node.complete)
+      TreeNode node = lRequest.mNode.node;
+      if (lRequest.mNode.seq == node.seq && !node.complete)
       {
-        request.path.resetCursor();
-        //validateAll();
-        node.updateStats(request.averageScores,
-                         request.averageSquaredScores,
-                         request.sampleSize,
-                         request.path,
+        lRequest.mPath.resetCursor();
+        node.updateStats(lRequest.mAverageScores,
+                         lRequest.mAverageSquaredScores,
+                         lRequest.mSampleSize,
+                         lRequest.mPath,
                          false);
-        //validateAll();
       }
 
-      request.completeTreeWork();
-      mTreeThreadDuration += request.getTreeThreadDuration();
-      mRolloutDuration += request.getPerSampleRolloutDuration();
-      mNumDurationSamples++;
+      mPipeline.backPropagationComplete();
+      xiNeedToDoOne = false;
+      mNumIterations++;
     }
-
-    //}
-    //finally
-    //{
-    //  methodSection.exitScope();
-    //}
-  }
-
-  private void calculateSampleSize()
-  {
-    int lNumThreads = rolloutPool.getNumThreads();
-    if (lNumThreads == 0)
-    {
-      mGameCharacteristics.setRolloutSampleSize(1);
-      return;
-    }
-
-    // Don't tinker with anything without at least 100 samples
-    if (mNumDurationSamples > 100)
-    {
-      // How many rollouts would be required to take as long as the tree thread did?
-      System.out.println("Dynamic sample size calculations");
-      System.out.println("  Number of samples:                       " + mNumDurationSamples);
-      System.out.println("  Tree thread duration (ns):               " + mTreeThreadDuration);
-      System.out.println("  Rollout thread duration per sample (ns): " + mRolloutDuration);
-
-      double lNumRollouts = (double)mTreeThreadDuration / (double)mRolloutDuration;
-      System.out.println("  Single-threaded sample weight:           " + lNumRollouts);
-
-      // We may have several threads doing rollouts.
-      lNumRollouts = lNumRollouts * lNumThreads;
-      System.out.println("  Num rollout threads:                     " + lNumThreads);
-      System.out.println("  Multi-threaded sample weight:            " + lNumRollouts);
-
-      // Cap the value
-      if (lNumRollouts < 1)
-      {
-        lNumRollouts = 1;
-      }
-
-      if (lNumRollouts > 100)
-      {
-        lNumRollouts = 100;
-      }
-
-      System.out.println("  Capped multi-threaded sample weight:     " + lNumRollouts);
-
-      // Set the new sample size.
-      // !! ARR Disabled: mGameCharacteristics.setRolloutSampleSize((int)lNumRollouts);
-      System.out.println("  Sample weight =>                         " + (int)lNumRollouts);
-    }
-
-    // Reset the statistics for next time.
-    mTreeThreadDuration = 0;
-    mRolloutDuration = 0;
-    mNumDurationSamples = 0;
   }
 
   public void terminate()

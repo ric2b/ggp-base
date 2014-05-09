@@ -96,6 +96,7 @@ public class MCTSTree
   Factor                                               factor;
   boolean                                              evaluateTerminalOnNodeCreation;
   private final TreeNodeAllocator                      mTreeNodeAllocator;
+  final GameSearcher                                   mGameSearcher;
 
   public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
                   Factor factor,
@@ -103,7 +104,8 @@ public class MCTSTree
                   RoleOrdering roleOrdering,
                   RolloutProcessorPool rolloutPool,
                   RuntimeGameCharacteristics gameCharacateristics,
-                  Heuristic heuristic)
+                  Heuristic heuristic,
+                  GameSearcher xiGameSearcher)
   {
     underlyingStateMachine = stateMachine;
     numRoles = stateMachine.getRoles().size();
@@ -123,6 +125,7 @@ public class MCTSTree
     numCompletionsProcessed = 0;
     completeSelectionFromIncompleteParentWarned = false;
     mTreeNodeAllocator = new TreeNodeAllocator(this);
+    mGameSearcher = xiGameSearcher;
 
     //  For now assume players in muli-player games are somewhat irrational.
     //  FUTURE - adjust during the game based on correlations with expected
@@ -336,8 +339,8 @@ public class MCTSTree
     }
     System.out.println("Current rollout sample size: " + gameCharacteristics.getRolloutSampleSize());
     System.out.println("Current observed rollout score range: [" +
-        rolloutPool.lowestRolloutScoreSeen + ", " +
-        rolloutPool.highestRolloutScoreSeen + "]");
+                       mGameSearcher.lowestRolloutScoreSeen + ", " +
+                       mGameSearcher.highestRolloutScoreSeen + "]");
     System.out.println("Heuristic bias: " + heuristic.getSampleWeight());
 
     numSelectionsThroughIncompleteNodes = 0;
@@ -494,8 +497,8 @@ public class MCTSTree
       RolloutRequest rollout = newNode.rollOut(visited, xiRequest);
       if (rollout != null)
       {
-        newNode.updateStats(rollout.averageScores,
-                            rollout.averageSquaredScores,
+        newNode.updateStats(rollout.mAverageScores,
+                            rollout.mAverageSquaredScores,
                             gameCharacteristics.getRolloutSampleSize(),
                             visited,
                             true);

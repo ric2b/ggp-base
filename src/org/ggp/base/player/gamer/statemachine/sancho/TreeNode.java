@@ -2393,7 +2393,7 @@ public class TreeNode
           {
             if (edge2.child.seq >= 0 && edge2.child.seq == edge2.child.node.seq)
             {
-              if (edge2.child.node.averageScores[0] <= tree.rolloutPool.lowestRolloutScoreSeen &&
+              if (edge2.child.node.averageScores[0] <= tree.mGameSearcher.lowestRolloutScoreSeen &&
                   edge2.child.node.complete)
               {
                 System.out.println("Post-processing completion of response node");
@@ -2579,7 +2579,7 @@ public class TreeNode
           anyComplete = true;
         }
         else if (edge.child.node.children != null &&
-            tree.rolloutPool.lowestRolloutScoreSeen < 100 && !tree.gameCharacteristics.isMultiPlayer &&
+            tree.mGameSearcher.lowestRolloutScoreSeen < 100 && !tree.gameCharacteristics.isMultiPlayer &&
             !tree.gameCharacteristics.isSimultaneousMove)
         {
           //	Post-process completions of children with respect the the observed rollout score range
@@ -2648,15 +2648,15 @@ public class TreeNode
       //	Don't accept a complete score which no rollout has seen worse than, if there is
       //	any alternative
       if (bestNode != null && !bestNode.complete && child.complete &&
-          moveScore <= tree.rolloutPool.lowestRolloutScoreSeen &&
-          tree.rolloutPool.lowestRolloutScoreSeen < 100)
+          moveScore <= tree.mGameSearcher.lowestRolloutScoreSeen &&
+          tree.mGameSearcher.lowestRolloutScoreSeen < 100)
       {
         continue;
       }
       if (selectionScore > bestScore ||
           (selectionScore == bestScore && child.complete && (child.numVisits > mostSelected || !bestNode.complete)) ||
           (bestNode != null && bestNode.complete && !child.complete &&
-          bestNode.averageScores[roleIndex] <= tree.rolloutPool.lowestRolloutScoreSeen && tree.rolloutPool.lowestRolloutScoreSeen < 100))
+          bestNode.averageScores[roleIndex] <= tree.mGameSearcher.lowestRolloutScoreSeen && tree.mGameSearcher.lowestRolloutScoreSeen < 100))
       {
         bestNode = child;
         bestScore = selectionScore;
@@ -2740,8 +2740,8 @@ public class TreeNode
 
       for (int i = 0; i < tree.numRoles; i++)
       {
-        xiRequest.averageScores[i] = averageScores[i];
-        xiRequest.averageSquaredScores[i] = averageSquaredScores[i];
+        xiRequest.mAverageScores[i] = averageScores[i];
+        xiRequest.mAverageSquaredScores[i] = averageSquaredScores[i];
       }
 
       return xiRequest;
@@ -2751,13 +2751,13 @@ public class TreeNode
       System.out.println("Unexpected rollout state");
     }
 
-    xiRequest.state = state;
-    xiRequest.node = getRef();
-    xiRequest.sampleSize = tree.gameCharacteristics.getRolloutSampleSize();
-    xiRequest.path = path;
-    xiRequest.factor = tree.factor;
+    xiRequest.mState = state;
+    xiRequest.mNode = getRef();
+    xiRequest.mSampleSize = tree.gameCharacteristics.getRolloutSampleSize();
+    xiRequest.mPath = path;
+    xiRequest.mFactor = tree.factor;
     //request.moveWeights = masterMoveWeights.copy();
-    tree.numNonTerminalRollouts += xiRequest.sampleSize;
+    tree.numNonTerminalRollouts += xiRequest.mSampleSize;
 
     tree.rolloutPool.enqueueRequest(xiRequest);
 

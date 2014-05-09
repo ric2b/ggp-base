@@ -3380,15 +3380,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     if (instanceId == 0)
     {
       //	Fixup the cross-reference of the base propositions of the two networks
-      for (Entry<GdlSentence, PolymorphicProposition> e : propNetX
-          .getBasePropositions().entrySet())
+      for (Entry<GdlSentence, PolymorphicProposition> e : propNetX.getBasePropositions().entrySet())
       {
-        ForwardDeadReckonProposition oProp = (ForwardDeadReckonProposition)propNetOWithoutGoals
-            .getBasePropositions().get(e.getKey());
-        ForwardDeadReckonProposition xProp = (ForwardDeadReckonProposition)propNetXWithoutGoals
-            .getBasePropositions().get(e.getKey());
-        ForwardDeadReckonPropositionCrossReferenceInfo info = (ForwardDeadReckonPropositionCrossReferenceInfo)((ForwardDeadReckonProposition)e
-            .getValue()).getInfo();
+        ForwardDeadReckonProposition oProp =
+                               (ForwardDeadReckonProposition)propNetOWithoutGoals.getBasePropositions().get(e.getKey());
+        ForwardDeadReckonProposition xProp =
+                               (ForwardDeadReckonProposition)propNetXWithoutGoals.getBasePropositions().get(e.getKey());
+        ForwardDeadReckonPropositionCrossReferenceInfo info =
+                 (ForwardDeadReckonPropositionCrossReferenceInfo)((ForwardDeadReckonProposition)e.getValue()).getInfo();
 
         info.xNetProp = xProp;
         info.oNetProp = oProp;
