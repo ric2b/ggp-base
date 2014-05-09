@@ -29,21 +29,27 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   BitSet[]                                     contents;
   /** The set of roles whose legal moves are being tracked */
   private Role[]                               roles;
+  private ForwardDeadReckonLegalMoveSetCollection[] preAllocatedCollections;
 
   private class ForwardDeadReckonLegalMoveSetIterator
                                                      implements
                                                      Iterator<ForwardDeadReckonLegalMoveInfo>
   {
     private ForwardDeadReckonLegalMoveSet parent;
+    private BitSet                        parentsContentsForRole;
     int                                   index;
-    int                                   roleIndex;
 
     public ForwardDeadReckonLegalMoveSetIterator(ForwardDeadReckonLegalMoveSet parentSet,
                                                  int theRoleIndex)
     {
       parent = parentSet;
-      roleIndex = theRoleIndex;
-      index = parentSet.contents[theRoleIndex].nextSetBit(0);
+      parentsContentsForRole = parentSet.contents[theRoleIndex];
+      reset();
+    }
+
+    void reset()
+    {
+      index = parentsContentsForRole.nextSetBit(0);
     }
 
     @Override
@@ -56,13 +62,14 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     public ForwardDeadReckonLegalMoveInfo next()
     {
       ForwardDeadReckonLegalMoveInfo result = parent.masterListAsArray[index];
-      index = parent.contents[roleIndex].nextSetBit(index + 1);
+      index = parentsContentsForRole.nextSetBit(index + 1);
       return result;
     }
 
     @Override
     public void remove()
     {
+      assert(false);
       // TODO Auto-generated method stub
 
     }
@@ -74,19 +81,29 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   {
     private ForwardDeadReckonLegalMoveSet parent;
     int                                   roleIndex;
+    /**
+     * For performance reasons (minimize GC churn) we return a single pre-allocated
+     * instance of an iterator on all calls, resetting it's state on each request.
+     * Obviously this means that this collection may only be used by ONE thread
+     * concurrently, and iterations of it must never be nested.  This is true for all
+     * current and expected uses, but it is not policable, so caveat emptor!
+     */
+    private final ForwardDeadReckonLegalMoveSetIterator preAllocatedIterator;
 
     public ForwardDeadReckonLegalMoveSetCollection(ForwardDeadReckonLegalMoveSet parentSet,
                                                    int theRoleIndex)
     {
       parent = parentSet;
       roleIndex = theRoleIndex;
+
+      preAllocatedIterator = new ForwardDeadReckonLegalMoveSetIterator(parentSet, theRoleIndex);
     }
 
     @Override
     public Iterator<ForwardDeadReckonLegalMoveInfo> iterator()
     {
-      // TODO Auto-generated method stub
-      return new ForwardDeadReckonLegalMoveSetIterator(parent, roleIndex);
+      preAllocatedIterator.reset();
+      return preAllocatedIterator;
     }
 
     @Override
@@ -196,10 +213,12 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     masterListAsArray = master.masterListAsArray;
     roles = master.roles;
     contents = new BitSet[roles.length];
+    preAllocatedCollections = new ForwardDeadReckonLegalMoveSetCollection[roles.length];
 
     for (int i = 0; i < roles.length; i++)
     {
       contents[i] = new BitSet();
+      preAllocatedCollections[i] = new ForwardDeadReckonLegalMoveSetCollection(this, i);
     }
   }
 
@@ -213,11 +232,13 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     masterListAsArray = null;
     contents = new BitSet[theRoles.size()];
     roles = new Role[theRoles.size()];
+    preAllocatedCollections = new ForwardDeadReckonLegalMoveSetCollection[roles.length];
 
     int i = 0;
     for (Role role : theRoles)
     {
       contents[i] = new BitSet();
+      preAllocatedCollections[i] = new ForwardDeadReckonLegalMoveSetCollection(this, i);
       this.roles[i++] = role;
     }
   }
@@ -324,7 +345,8 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public Collection<ForwardDeadReckonLegalMoveInfo> getContents(int roleIndex)
   {
-    return new ForwardDeadReckonLegalMoveSetCollection(this, roleIndex);
+    return preAllocatedCollections[roleIndex];
+    //return new ForwardDeadReckonLegalMoveSetCollection(this, roleIndex);
   }
 
   /**
@@ -338,7 +360,8 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     {
       if (roles[i].equals(role))
       {
-        return new ForwardDeadReckonLegalMoveSetCollection(this, i);
+        return preAllocatedCollections[i];
+        //return new ForwardDeadReckonLegalMoveSetCollection(this, i);
       }
     }
 

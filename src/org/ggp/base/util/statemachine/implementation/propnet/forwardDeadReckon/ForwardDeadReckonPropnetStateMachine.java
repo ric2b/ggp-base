@@ -3249,6 +3249,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return true;
   }
 
+  @SuppressWarnings("null")
   private int chooseRandomJointMove(Factor factor,
                                     MoveWeights moveWeights,
                                     List<ForwardDeadReckonLegalMoveInfo> playedMoves)
@@ -3258,11 +3259,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 		{
       int result = 0;
       int index = 0;
+      ForwardDeadReckonLegalMoveSet activeLegalMoves = propNet.getActiveLegalProps(instanceId);
 
-      //for (int roleIndex = 0; roleIndex < numRoles; roleIndex++)
-      for (Role role : getRoles())
+      for (int roleIndex = 0; roleIndex < numRoles; roleIndex++)
       {
-        Collection<ForwardDeadReckonLegalMoveInfo> moves = propNet.getActiveLegalProps(instanceId).getContents(role);
+        Collection<ForwardDeadReckonLegalMoveInfo> moves = activeLegalMoves.getContents(roleIndex);
         if ( factor != null )
         {
           //  In a factored game the terminal logic can sometimes span the factors in a way we don't
@@ -3306,24 +3307,22 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
 
         ForwardDeadReckonLegalMoveInfo chosen = null;
-        while (chosen == null)
-        {
-          for (ForwardDeadReckonLegalMoveInfo info : moves)
-          {
-            if (moveWeights == null)
-            {
-              rand--;
-            }
-            else
-            {
-              rand -= moveWeights.weightScore[info.globalMoveIndex];
-            }
 
-            if (rand < 0)
-            {
-              chosen = info;
-              break;
-            }
+        for (ForwardDeadReckonLegalMoveInfo info : moves)
+        {
+          if (moveWeights == null)
+          {
+            rand--;
+          }
+          else
+          {
+            rand -= moveWeights.weightScore[info.globalMoveIndex];
+          }
+
+          if (rand < 0)
+          {
+            chosen = info;
+            break;
           }
         }
 
@@ -3336,11 +3335,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           playedMoves.add(chosen);
         }
-        //System.out.println("Role " + role + " plays " + chosen.move);
-//        if ( chosen.move.toString().contains("capture"))
-//        {
-//          System.out.println("capture");
-//        }
       }
 
       return result;
