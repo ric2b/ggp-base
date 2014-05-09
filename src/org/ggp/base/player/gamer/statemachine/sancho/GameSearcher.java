@@ -13,7 +13,7 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
-class GameSearcher implements Runnable, ActivityController
+public class GameSearcher implements Runnable, ActivityController
 {
   private static final int                PIPELINE_SIZE = 16384; // MUST be a power of 2
 
@@ -269,6 +269,7 @@ class GameSearcher implements Runnable, ActivityController
   {
     boolean lAllTreesCompletelyExplored;
 
+    numIterations++;
     while (nodePool.isFull())
     {
       boolean somethingDisposed = false;
@@ -315,6 +316,18 @@ class GameSearcher implements Runnable, ActivityController
   public int getNumIterations()
   {
     return numIterations;
+  }
+
+  public int getNumRollouts()
+  {
+    int result = 0;
+
+    for (MCTSTree tree : factorTrees)
+    {
+      result += tree.numNonTerminalRollouts;
+    }
+
+    return result;
   }
 
   private boolean searchAvailable() throws InterruptedException

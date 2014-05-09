@@ -14,7 +14,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.Gdl;
-import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
@@ -981,7 +980,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     this.maxInstances = 1;
   }
 
-  public ForwardDeadReckonPropnetStateMachine(int maxInstances, GdlConstant roleName, long metagameTimeout)
+  public ForwardDeadReckonPropnetStateMachine(int maxInstances, long metagameTimeout)
   {
     this.maxInstances = maxInstances;
     this.metagameTimeout = metagameTimeout;
