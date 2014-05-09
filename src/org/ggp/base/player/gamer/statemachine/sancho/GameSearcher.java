@@ -367,12 +367,17 @@ class GameSearcher implements Runnable, ActivityController
   @Override
   public void requestYield(boolean state)
   {
+    // !! ARR This is a bit course.  We could pass more useful messages about the desired state (including whether we
+    // !! ARR should be spinning through outstanding work from a previous turn, whether this is an emergency stop
+    // !! ARR request, etc.)
     requestYield = state;
   }
 
   @Override
   public Object getSerializationObject()
   {
+    // !! ARR Who locks against us (Sancho thread) and why (to start a new turn and all that entails + termination)?
+    // !! ARR But can we do better and not have any other threads needing to access the tree / state machine / etc.?
     return this;
   }
 
