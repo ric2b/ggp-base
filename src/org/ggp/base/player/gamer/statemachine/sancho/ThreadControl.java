@@ -59,7 +59,7 @@ public class ThreadControl
    * and so placing our threads on separate physical cores - always do this if we're only using half the
    * logical cores anyway
    */
-  private static final int CPU_STRIPE_STRIDE = HALF_STRENGTH ? 2 : 1;
+  private static final int CPU_STRIPE_STRIDE = ((NUM_CPUS + 1) / 2 >= CPU_INTENSIVE_THREADS) ? 2 : 1;
 
   /**
    * The number of rollout threads.
