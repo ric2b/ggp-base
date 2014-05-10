@@ -67,6 +67,12 @@ public class ThreadControl
   public static final int     ROLLOUT_THREADS       = CPU_INTENSIVE_THREADS - 1;
 
   /**
+   * A parity which influences whether logical CPU striping is done on odd or even
+   * parity CPU ids
+   */
+  public static boolean CPUIdParity = false;
+
+  /**
    * vCPU index of the last registered search thread.  (Wraps at NUM_CPUS.)
    */
   private static int sNextSearchThreadCPUIndex = 0;
@@ -81,10 +87,14 @@ public class ThreadControl
     // Private default constructor.
   }
 
+  /**
+   * Reset the allocation cursors for CPU id to original values - should be used
+   * when destroying the current consuming threads
+   */
   public static void reset()
   {
-    sNextSearchThreadCPUIndex = 0;
-    sNextRolloutThreadCPUIndex = CPU_STRIPE_STRIDE;
+    sNextSearchThreadCPUIndex = (CPUIdParity ? 1 : 0);
+    sNextRolloutThreadCPUIndex = (CPU_STRIPE_STRIDE + (CPUIdParity ? 1 : 0)) % NUM_CPUS;
   }
 
   /**
@@ -104,9 +114,9 @@ public class ThreadControl
         // If we're striping rollout threads with a stride greater than 1 then
         // then we can interleave the searchers.  If the rollout stride is 1 anyway
         // anything will clash so this is still as good a policy as any
-        if ( sNextSearchThreadCPUIndex == 0 )
+        if ( sNextSearchThreadCPUIndex == (CPUIdParity ? 1 : 0) )
         {
-          sNextSearchThreadCPUIndex = CPU_STRIPE_STRIDE + 1;
+          sNextSearchThreadCPUIndex = CPU_STRIPE_STRIDE + 1 + (CPUIdParity ? 1 : 0);
         }
         else
         {
@@ -127,14 +137,14 @@ public class ThreadControl
       synchronized (ThreadControl.class)
       {
         // Bind this thread to the selected virtual CPU.
-         ThreadControl.setThreadAffinity(1 << sNextRolloutThreadCPUIndex);
+        ThreadControl.setThreadAffinity(1 << sNextRolloutThreadCPUIndex);
         System.out.println("  Bound rollout processor to vCPU: " + sNextRolloutThreadCPUIndex);
 
         // Calculate the next available virtual CPU for rollout threads, wrapping as required and leaving a gap for the
         // search thread if required.
-        if ( sNextRolloutThreadCPUIndex == 0)
+        if ( sNextRolloutThreadCPUIndex == (CPUIdParity ? 1 : 0))
         {
-          sNextRolloutThreadCPUIndex = CPU_STRIPE_STRIDE;
+          sNextRolloutThreadCPUIndex = CPU_STRIPE_STRIDE + (CPUIdParity ? 1 : 0);
         }
         else
         {

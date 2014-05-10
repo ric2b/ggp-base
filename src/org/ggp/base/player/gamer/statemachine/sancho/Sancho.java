@@ -170,6 +170,9 @@ public class Sancho extends SampleGamer
   @Override
   public StateMachine getInitialStateMachine()
   {
+    ThreadControl.CPUIdParity = (getPort()%2 == 0);
+    ThreadControl.reset();
+
     searchProcessor = new GameSearcher(transpositionTableSize);
 
     if (!ThreadControl.RUN_SYNCHRONOUSLY)

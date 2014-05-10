@@ -53,6 +53,8 @@ public final class GamePlayer extends Thread implements Subject
     this.port = port;
     this.gamer = gamer;
 
+    gamer.notePort(port);
+
     setName("GamePlayer - " + this.gamer.getName() + " (" + this.port + ")");
   }
 
