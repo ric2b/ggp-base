@@ -50,6 +50,18 @@ public class ThreadControl
   // public static final int     CPU_INTENSIVE_THREADS = NUM_CPUS; // !! ARR Hack
 
   /**
+   * Whether to pin the CPU intensive threads to fixed cores to prevent core thrashing
+   */
+  private static final boolean USE_AFFINITY_MAPPING = true;
+
+  /**
+   * On hyper-threaded CPUs we get far better performance allocating every other logical core
+   * and so placing our threads on separate physical cores - always do this if we're only using half the
+   * logical cores anyway
+   */
+  private static final int CPU_STRIPE_STRIDE = HALF_STRENGTH ? 2 : 1;
+
+  /**
    * The number of rollout threads.
    */
   public static final int     ROLLOUT_THREADS       = CPU_INTENSIVE_THREADS - 1;
@@ -62,11 +74,17 @@ public class ThreadControl
   /**
    * vCPU index of the last registered rollout thread.  (Wraps at NUM_CPUS.)
    */
-  private static int sNextRolloutThreadCPUIndex = 1;
+  private static int sNextRolloutThreadCPUIndex = CPU_STRIPE_STRIDE;
 
   private ThreadControl()
   {
     // Private default constructor.
+  }
+
+  public static void reset()
+  {
+    sNextSearchThreadCPUIndex = 0;
+    sNextRolloutThreadCPUIndex = CPU_STRIPE_STRIDE;
   }
 
   /**
@@ -74,14 +92,28 @@ public class ThreadControl
    */
   public static void registerSearchThread()
   {
-    synchronized (ThreadControl.class)
+    if ( USE_AFFINITY_MAPPING )
     {
-      // Bind this thread to the selected virtual CPU.
-      // !! ARR Disabled: ThreadControl.setThreadAffinity(1 << sNextSearchThreadCPUIndex);
-      System.out.println("  Bound search thread to vCPU:  " + sNextSearchThreadCPUIndex);
+      synchronized (ThreadControl.class)
+      {
+        // Bind this thread to the selected virtual CPU.
+        ThreadControl.setThreadAffinity(1 << sNextSearchThreadCPUIndex);
+        System.out.println("  Bound search thread to vCPU:  " + sNextSearchThreadCPUIndex);
 
-      // Calculate the next available virtual CPU for search threads.
-      sNextSearchThreadCPUIndex = (sNextSearchThreadCPUIndex + CPU_INTENSIVE_THREADS) % NUM_CPUS;
+        // Calculate the next available virtual CPU for search threads.
+        // If we're striping rollout threads with a stride greater than 1 then
+        // then we can interleave the searchers.  If the rollout stride is 1 anyway
+        // anything will clash so this is still as good a policy as any
+        if ( sNextSearchThreadCPUIndex == 0 )
+        {
+          sNextSearchThreadCPUIndex = CPU_STRIPE_STRIDE + 1;
+        }
+        else
+        {
+          sNextSearchThreadCPUIndex += CPU_STRIPE_STRIDE;
+        }
+        sNextSearchThreadCPUIndex = sNextSearchThreadCPUIndex % NUM_CPUS;
+      }
     }
   }
 
@@ -90,19 +122,25 @@ public class ThreadControl
    */
   public static void registerRolloutThread()
   {
-    synchronized (ThreadControl.class)
+    if ( USE_AFFINITY_MAPPING )
     {
-      // Bind this thread to the selected virtual CPU.
-      // !! ARR Disabled: ThreadControl.setThreadAffinity(1 << sNextRolloutThreadCPUIndex);
-      System.out.println("  Bound rollout processor to vCPU: " + sNextRolloutThreadCPUIndex);
-
-      // Calculate the next available virtual CPU for rollout threads, wrapping as required and leaving a gap for the
-      // search thread if required.
-      sNextRolloutThreadCPUIndex++;
-      sNextRolloutThreadCPUIndex = sNextRolloutThreadCPUIndex % NUM_CPUS;
-      if ((sNextRolloutThreadCPUIndex % CPU_INTENSIVE_THREADS) == 0)
+      synchronized (ThreadControl.class)
       {
-        sNextRolloutThreadCPUIndex++;
+        // Bind this thread to the selected virtual CPU.
+         ThreadControl.setThreadAffinity(1 << sNextRolloutThreadCPUIndex);
+        System.out.println("  Bound rollout processor to vCPU: " + sNextRolloutThreadCPUIndex);
+
+        // Calculate the next available virtual CPU for rollout threads, wrapping as required and leaving a gap for the
+        // search thread if required.
+        if ( sNextRolloutThreadCPUIndex == 0)
+        {
+          sNextRolloutThreadCPUIndex = CPU_STRIPE_STRIDE;
+        }
+        else
+        {
+          sNextRolloutThreadCPUIndex += CPU_STRIPE_STRIDE;
+        }
+        sNextRolloutThreadCPUIndex = sNextRolloutThreadCPUIndex % NUM_CPUS;
       }
     }
   }

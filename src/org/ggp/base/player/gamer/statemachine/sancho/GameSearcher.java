@@ -452,6 +452,8 @@ public class GameSearcher implements Runnable, ActivityController
 
       mTerminateRequested = true;
       notifyAll();
+
+      ThreadControl.reset();
     }
   }
 }
