@@ -1,5 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
+
 import com.sun.jna.LastErrorException;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
@@ -13,9 +15,7 @@ import com.sun.jna.platform.win32.WinDef.DWORD;
  * - GameSearcher     - there's always a single instance of this thread.
  * - RolloutProcessor - there can be several of these.
  *
- * The game searcher always uses the first vCPU.  Rollout processors use the next <num rollout processors> vCPUs.
- * If this doesn't use all the vCPUs then the pattern repeats over the next higher set of vCPUs (to allow for
- * another instance to be running in the same process).
+ * These can be bound to vCPUs if desired because on some systems it increases performance.
  *
  * Note that this class contains Windows-specific code.  It would be straightforward to extend to Linux and POSIX
  * systems if required.
@@ -25,34 +25,34 @@ public class ThreadControl
   /**
    * The number of vCPUs available on the system.  (For a hyper-threaded system, each hyper-thread counts as a CPU.)
    */
-  public static final int     NUM_CPUS              = Runtime.getRuntime().availableProcessors();
+  public static final int NUM_CPUS = Runtime.getRuntime().availableProcessors();
 
   /**
    * Whether to perform rollouts synchronously from the search thread.  Used to disable threading for debugging.
    */
-  public static final boolean RUN_SYNCHRONOUSLY     = false;
+  public static final boolean RUN_SYNCHRONOUSLY = false;
 
   /**
    * System-specific parameter to reduce the system load.
    */
-  public static final boolean HALF_STRENGTH         = false;
+  public static final boolean HALF_STRENGTH = false;
 
   /**
    * The number of CPU-intensive threads.
    *
    * Unless configured otherwise, use half the available vCPUs.
-   *
-   * !! ARR Put in a method to configure this.
    */
-  public static final int     CPU_INTENSIVE_THREADS = RUN_SYNCHRONOUSLY ? 1 :
+  public static final int CPU_INTENSIVE_THREADS =
+               MachineSpecificConfiguration.getCfgVal(CfgItem.CPU_INTENSIVE_THREADS,
+                                                      RUN_SYNCHRONOUSLY ? 1 :
                                                                           HALF_STRENGTH ? ((((NUM_CPUS + 1) / 2) + 1) / 2) :
-                                                                                          ((NUM_CPUS + 1) / 2);
-  // public static final int     CPU_INTENSIVE_THREADS = NUM_CPUS; // !! ARR Hack
+                                                                                          ((NUM_CPUS + 1) / 2));
 
   /**
    * Whether to pin the CPU intensive threads to fixed cores to prevent core thrashing
    */
-  private static final boolean USE_AFFINITY_MAPPING = true;
+  private static final boolean USE_AFFINITY_MAPPING =
+                                                     MachineSpecificConfiguration.getCfgVal(CfgItem.USE_AFFINITY, true);
 
   /**
    * On hyper-threaded CPUs we get far better performance allocating every other logical core
@@ -64,7 +64,7 @@ public class ThreadControl
   /**
    * The number of rollout threads.
    */
-  public static final int     ROLLOUT_THREADS       = CPU_INTENSIVE_THREADS - 1;
+  public static final int ROLLOUT_THREADS = CPU_INTENSIVE_THREADS - 1;
 
   /**
    * A parity which influences whether logical CPU striping is done on odd or even
