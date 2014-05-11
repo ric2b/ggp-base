@@ -39,6 +39,10 @@ public class GameSearcher implements Runnable, ActivityController
    */
   public int                              highestRolloutScoreSeen;
 
+  public long longestObservedLatency = 0;
+  public long averageLatency = 0;
+  private long numCompletedRollouts = 0;
+
   /**
    * The lowest score seen in the current turn (for our role).
    */
@@ -409,6 +413,13 @@ public class GameSearcher implements Runnable, ActivityController
       {
         mBlockedFor += System.nanoTime();
       }
+
+      if ( longestObservedLatency < lRequest.mQueueLatency )
+      {
+        longestObservedLatency = lRequest.mQueueLatency;
+      }
+      averageLatency = (averageLatency*numCompletedRollouts + lRequest.mQueueLatency)/(numCompletedRollouts+1);
+      numCompletedRollouts++;
 
       // Update min/max scores.
       if (lRequest.mMaxScore > highestRolloutScoreSeen)

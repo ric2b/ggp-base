@@ -84,6 +84,7 @@ public class RolloutProcessorPool
   {
     if (ThreadControl.ROLLOUT_THREADS > 0)
     {
+      xiRequest.mEnQueueTime = System.nanoTime();
       // Tell the rest of the pipeline that this rollout request is ready to work on.
       mPipeline.expandComplete();
     }

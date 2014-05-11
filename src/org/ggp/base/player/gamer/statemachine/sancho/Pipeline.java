@@ -1,55 +1,14 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-import com.lmax.disruptor.Sequence;
-import com.lmax.disruptor.util.Util;
 
 /**
  * Highly efficient, lock-free rollout request pipeline.
  */
 public class Pipeline
 {
-  /**
-   * Maximum size of the pipeline and mask for computing index into the underlying array.
-   */
-  private final int mSize;
-  private final int mIndexMask;
-
-  /**
-   * The array holding the requests.
-   */
-  private final RolloutRequest[] mStore;
-
-  /**
-   * The last request which has been published following select/expand processing.
-   *
-   *  Written by: Tree thread.
-   *  Read by:    Tree thread, Rollout threads.
-   */
-  private final Sequence mLastExpanded = new Sequence();
-  private long mLastExpandedCache = -1;
-
-  /**
-   * The last request which has been rolled out.
-   *
-   * Written by: Rollout thread n.
-   * Read by:    Tree thread.
-   */
-  private final Sequence[] mLastRolledOut;
-  private final long[] mLastRolledOutCache;
-
-  /**
-   * The last request which has been completed by the back-propagation processing.
-   *
-   * Written by: Tree thread.
-   * Read by:    Tree thread.
-   */
-  private long mLastBackPropagated = -1L;
-  private long mMinRolledOutCache = -1L;
-
-  /**
-   * Whether the pipeline has been halted.
-   */
-  private volatile boolean mPipelineHalted = false;
+  final private SimplePipeline[] threadPipelines;
+  private int nextExpandThread = -1;
+  private int nextDrainThread = -1;
 
   /**
    * Create a pipeline with the specified maximum size.
@@ -58,25 +17,10 @@ public class Pipeline
    */
   public Pipeline(int xiSize, int xiNumRoles)
   {
-    assert(Integer.bitCount(xiSize) == 1) : "Store size must be a power of 2 and > 0";
-
-    mSize = xiSize;
-    mIndexMask = xiSize - 1;
-
-    // Create the backing store.
-    mStore = new RolloutRequest[mSize];
-    for (int lii = 0; lii < mSize; lii++)
+    threadPipelines = new SimplePipeline[ThreadControl.ROLLOUT_THREADS];
+    for(int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
     {
-      mStore[lii] = new RolloutRequest(xiNumRoles);
-    }
-
-    // Create the per-thread sequence variables.
-    mLastRolledOut = new Sequence[ThreadControl.ROLLOUT_THREADS];
-    mLastRolledOutCache = new long[ThreadControl.ROLLOUT_THREADS];
-    for (int lii = 0; lii < ThreadControl.ROLLOUT_THREADS; lii++)
-    {
-      mLastRolledOut[lii] = new Sequence();
-      mLastRolledOutCache[lii] = -1L;
+      threadPipelines[i] = new SimplePipeline(xiSize, xiNumRoles);
     }
   }
 
@@ -85,7 +29,15 @@ public class Pipeline
    */
   public boolean canExpand()
   {
-    return (mLastExpandedCache < mLastBackPropagated + mSize);
+    for(int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
+    {
+      if ( threadPipelines[i].canExpand() )
+      {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -96,8 +48,12 @@ public class Pipeline
    */
   public RolloutRequest getNextExpandSlot()
   {
-    assert(canExpand()) : "Ensure canExpand() before calling getNextExpandSlot()";
-    return mStore[(int)(mLastExpandedCache + 1) & mIndexMask];
+    do
+    {
+      nextExpandThread = (nextExpandThread + 1)%ThreadControl.ROLLOUT_THREADS;
+    } while(!threadPipelines[nextExpandThread].canExpand());
+
+    return threadPipelines[nextExpandThread].getNextExpandSlot();
   }
 
   /**
@@ -105,9 +61,7 @@ public class Pipeline
    */
   public void expandComplete()
   {
-    assert(canExpand()) : "Call getNextExpandSlot() before calling expandComplete()";
-    mLastExpandedCache++;
-    mLastExpanded.setVolatile(mLastExpandedCache);
+    threadPipelines[nextExpandThread].expandComplete();
   }
 
   /**
@@ -121,25 +75,7 @@ public class Pipeline
    */
   public RolloutRequest getNextRolloutRequest(int xiThreadIndex)
   {
-    final long lNextRequestID = mLastRolledOutCache[xiThreadIndex] + ThreadControl.ROLLOUT_THREADS;
-
-    // Try a non-volatile read first, for speed.
-    if (mLastExpandedCache >= lNextRequestID)
-    {
-      return mStore[(int)lNextRequestID & mIndexMask];
-    }
-
-    final Thread lThread = Thread.currentThread();
-
-    // Perform volatile reads until the next request is available.  (The cached value will be automatically updated
-    // because get() is a volatile read, which fetches everything that happened before, including updating the cache
-    // value.)
-    while ((!lThread.isInterrupted()) && (mLastExpanded.get() < lNextRequestID))
-    {
-      Thread.yield();
-    }
-
-    return mStore[(int)lNextRequestID & mIndexMask];
+    return threadPipelines[xiThreadIndex].getNextRolloutRequest();
   }
 
   /**
@@ -149,8 +85,7 @@ public class Pipeline
    */
   public void rolloutComplete(int xiThreadIndex)
   {
-    mLastRolledOutCache[xiThreadIndex] += ThreadControl.ROLLOUT_THREADS;
-    mLastRolledOut[xiThreadIndex].setVolatile(mLastRolledOutCache[xiThreadIndex]);
+    threadPipelines[xiThreadIndex].rolloutComplete();
   }
 
   /**
@@ -158,14 +93,15 @@ public class Pipeline
    */
   public boolean canBackPropagate()
   {
-    // See if we already know that back-propagation will be successful.
-    if (mMinRolledOutCache > mLastBackPropagated)
+    for(int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
     {
-      return true;
+      if ( threadPipelines[i].canBackPropagate() )
+      {
+        return true;
+      }
     }
 
-    mMinRolledOutCache = Util.getMinimumSequence(mLastRolledOut, Long.MAX_VALUE);
-    return (mMinRolledOutCache > mLastBackPropagated);
+    return false;
   }
 
   /**
@@ -175,21 +111,22 @@ public class Pipeline
    */
   public RolloutRequest getNextRequestForBackPropagation()
   {
-    final long lNextRequestID = mLastBackPropagated + 1;
+    int startDrainThread = -1;
 
-    // See if we already know that a request is available.
-    if (mMinRolledOutCache >= lNextRequestID)
+    do
     {
-      return mStore[(int)lNextRequestID & mIndexMask];
-    }
+      nextDrainThread = (nextDrainThread + 1)%ThreadControl.ROLLOUT_THREADS;
+      if ( startDrainThread == -1 )
+      {
+        startDrainThread = nextDrainThread;
+      }
+      else if (startDrainThread == nextDrainThread)
+      {
+        Thread.yield();
+      }
+    } while(!threadPipelines[nextDrainThread].canBackPropagate());
 
-    // Perform volatile reads until the next request is available.
-    while ((mMinRolledOutCache = Util.getMinimumSequence(mLastRolledOut, Long.MAX_VALUE)) < lNextRequestID)
-    {
-      Thread.yield();
-    }
-
-    return mStore[(int)lNextRequestID & mIndexMask];
+    return threadPipelines[nextDrainThread].getNextRequestForBackPropagation();
   }
 
   /**
@@ -197,14 +134,6 @@ public class Pipeline
    */
   public void backPropagationComplete()
   {
-    mLastBackPropagated++;
-  }
-
-  /**
-   * @return whether the pipeline is completely empty.
-   */
-  public boolean isEmpty()
-  {
-    return mLastExpandedCache == mLastBackPropagated;
+    threadPipelines[nextDrainThread].backPropagationComplete();
   }
 }

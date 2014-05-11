@@ -13,6 +13,7 @@ class RolloutProcessor implements Runnable
   private final ForwardDeadReckonPropnetStateMachine mStateMachine;
   private final Thread                               mThread;
   private final RuntimeGameCharacteristics           mCharacteristics;
+  private final boolean                              USE_DYNAMIC_SAMPLE_SIZING = true;
 
   public final Role                                  mOurRole;
   public final RoleOrdering                          mRoleOrdering;
@@ -114,13 +115,16 @@ class RolloutProcessor implements Runnable
       lUsefulWork += lNow;
 
       // Occasionally, update the sample size
-      if (lNow > lNextReportTime)
+      if (USE_DYNAMIC_SAMPLE_SIZING)
       {
-        updateSampleSize(lUsefulWork, lBlockedFor);
+        if (lNow > lNextReportTime)
+        {
+          updateSampleSize(lUsefulWork, lBlockedFor);
 
-        lNextReportTime += lUpdateSampleSizeInterval;
-        lUsefulWork = 0;
-        lBlockedFor = 0;
+          lNextReportTime += lUpdateSampleSizeInterval;
+          lUsefulWork = 0;
+          lBlockedFor = 0;
+        }
       }
 
       lBlockedFor -= lNow;

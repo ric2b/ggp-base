@@ -41,6 +41,8 @@ public class StateMachinePerformanceAnalyser
     public int stateMachineDirectRolloutsPerSecond;
     public int rolloutsPerSecond;
     public int expansionsPerSecond;
+    public long highestLatency;
+    public long averageLatency;
   }
 
   /**
@@ -113,6 +115,8 @@ public class StateMachinePerformanceAnalyser
         {
           System.out.println("  GameSearcher rollouts per second: " + e.getValue().rolloutsPerSecond);
           System.out.println("  GameSearcher node expansions per second: " + e.getValue().expansionsPerSecond);
+          System.out.println("  GameSearcher highest pipeline latency(micro seconds): " + e.getValue().highestLatency/1000);
+          System.out.println("  GameSearcher average pipeline latency(micro seconds): " + e.getValue().averageLatency/1000);
         }
       }
     }
@@ -226,6 +230,8 @@ public class StateMachinePerformanceAnalyser
 
           perfInfo.expansionsPerSecond = gameSearcher.getNumIterations()/numSeconds;
           perfInfo.rolloutsPerSecond = gameSearcher.getNumRollouts()/numSeconds;
+          perfInfo.highestLatency = gameSearcher.longestObservedLatency;
+          perfInfo.averageLatency = gameSearcher.averageLatency;
           gamesList.put(gameKey,perfInfo);
 
           gameSearcher.terminate();
