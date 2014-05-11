@@ -23,7 +23,7 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 /**
  * @author steve
- * Simple test app for testing aspects of Snacho (subsystem) performance
+ * Simple test app for testing aspects of Sancho (subsystem) performance
  * Currently includes tests for the state-machine and for the game search subsystem
  */
 public class StateMachinePerformanceAnalyser
@@ -240,6 +240,10 @@ public class StateMachinePerformanceAnalyser
           // TODO Auto-generated catch block
           e1.printStackTrace();
         }
+      }
+      else
+      {
+        System.err.println("Game not found: " + gameKey);
       }
     }
   }

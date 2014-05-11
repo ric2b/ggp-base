@@ -15,7 +15,7 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 public class GameSearcher implements Runnable, ActivityController
 {
-  private static final int                PIPELINE_SIZE = 16384; // MUST be a power of 2
+  private static final int                PIPELINE_SIZE = 8; // MUST be a power of 2
 
   private volatile long                   moveTime;
   private volatile long                   startTime;
