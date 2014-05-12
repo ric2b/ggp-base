@@ -1,6 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-
 /**
  * Highly efficient, lock-free rollout request pipeline.
  */
@@ -14,11 +13,12 @@ public class Pipeline
    * Create a pipeline with the specified maximum size.
    *
    * @param xiSize - the maximum number of objects that can be in the pipeline.
+   * @param xiNumRoles number of roles in the game
    */
   public Pipeline(int xiSize, int xiNumRoles)
   {
     threadPipelines = new SimplePipeline[ThreadControl.ROLLOUT_THREADS];
-    for(int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
+    for (int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
     {
       threadPipelines[i] = new SimplePipeline(xiSize, xiNumRoles);
     }
@@ -29,9 +29,9 @@ public class Pipeline
    */
   public boolean canExpand()
   {
-    for(int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
+    for (int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
     {
-      if ( threadPipelines[i].canExpand() )
+      if (threadPipelines[i].canExpand())
       {
         return true;
       }
@@ -50,7 +50,7 @@ public class Pipeline
   {
     do
     {
-      nextExpandThread = (nextExpandThread + 1)%ThreadControl.ROLLOUT_THREADS;
+      nextExpandThread = (nextExpandThread + 1) % ThreadControl.ROLLOUT_THREADS;
     } while(!threadPipelines[nextExpandThread].canExpand());
 
     return threadPipelines[nextExpandThread].getNextExpandSlot();
@@ -93,9 +93,9 @@ public class Pipeline
    */
   public boolean canBackPropagate()
   {
-    for(int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
+    for (int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
     {
-      if ( threadPipelines[i].canBackPropagate() )
+      if (threadPipelines[i].canBackPropagate())
       {
         return true;
       }
@@ -115,8 +115,8 @@ public class Pipeline
 
     do
     {
-      nextDrainThread = (nextDrainThread + 1)%ThreadControl.ROLLOUT_THREADS;
-      if ( startDrainThread == -1 )
+      nextDrainThread = (nextDrainThread + 1) % ThreadControl.ROLLOUT_THREADS;
+      if (startDrainThread == -1)
       {
         startDrainThread = nextDrainThread;
       }
@@ -124,7 +124,7 @@ public class Pipeline
       {
         Thread.yield();
       }
-    } while(!threadPipelines[nextDrainThread].canBackPropagate());
+    } while (!threadPipelines[nextDrainThread].canBackPropagate());
 
     return threadPipelines[nextDrainThread].getNextRequestForBackPropagation();
   }

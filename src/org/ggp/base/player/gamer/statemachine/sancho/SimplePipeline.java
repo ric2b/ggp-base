@@ -1,6 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-
 import com.lmax.disruptor.Sequence;
 
 /**
@@ -23,7 +22,7 @@ public class SimplePipeline
    * The last request which has been published following select/expand processing.
    *
    *  Written by: Tree thread.
-   *  Read by:    Tree thread, Rollout threads.
+   *  Read by:    Tree thread, Rollout thread.
    */
   private final Sequence mLastExpanded = new Sequence();
   private long mLastExpandedCache = -1;
@@ -31,10 +30,10 @@ public class SimplePipeline
   /**
    * The last request which has been rolled out.
    *
-   * Written by: Rollout thread n.
+   * Written by: Rollout thread.
    * Read by:    Tree thread.
    */
-  private final Sequence mLastRolledOut = new Sequence();;
+  private final Sequence mLastRolledOut = new Sequence();
   private long mLastRolledOutCache = -1;
 
   /**
@@ -113,7 +112,7 @@ public class SimplePipeline
    */
   public RolloutRequest getNextRolloutRequest()
   {
-    final long lNextRequestID = mLastRolledOutCache +1;
+    final long lNextRequestID = mLastRolledOutCache + 1;
 
     // Try a non-volatile read first, for speed.
     if (mLastExpandedCache >= lNextRequestID)
@@ -154,7 +153,7 @@ public class SimplePipeline
       return true;
     }
 
-    if ( isEmpty() )
+    if (isEmpty())
     {
       return false;
     }
