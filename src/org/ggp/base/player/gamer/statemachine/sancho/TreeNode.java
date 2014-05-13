@@ -2730,38 +2730,79 @@ public class TreeNode
     return result;
   }
 
-  public RolloutRequest rollOut(TreePath path, RolloutRequest xiRequest)
-      throws InterruptedException
+  public void rollOut(TreePath path, Pipeline xiPipeline)
   {
     if (complete)
     {
-      //System.out.println("Terminal state " + state + " score " + averageScore);
+      // This node is already complete, so there's no need to perform another rollout.  Just back-propagate the known
+      // score for this node.
       tree.numTerminalRollouts++;
 
+      // Take a copy of the scores because updateStats may modify these values during back-propagation.
       for (int i = 0; i < tree.numRoles; i++)
       {
-        xiRequest.mAverageScores[i] = averageScores[i];
-        xiRequest.mAverageSquaredScores[i] = averageSquaredScores[i];
+        tree.mNodeAverageScores[i] = averageScores[i];
+        tree.mNodeAverageSquaredScores[i] = averageSquaredScores[i];
       }
 
-      return xiRequest;
+      updateStats(tree.mNodeAverageScores,
+                  tree.mNodeAverageSquaredScores,
+                  tree.gameCharacteristics.getRolloutSampleSize(),
+                  path,
+                  true);
     }
-    if (decidingRoleIndex != tree.numRoles - 1)
+
+    assert(decidingRoleIndex == tree.numRoles - 1) : "Attempt to rollout from an incomplete-information node";
+
+    // Get a rollout request object.
+    RolloutRequest lRequest;
+    if (ThreadControl.ROLLOUT_THREADS > 0)
     {
-      System.out.println("Unexpected rollout state");
+      // Get a request slot from the pipeline.
+      if (!xiPipeline.canExpand())
+      {
+        // The pipeline is full.  We can't expand it until we've done some back-propagation.  Even though none was
+        // available at the start of the expansion, we'll just have to wait.
+        tree.mGameSearcher.processCompletedRollouts(true);
+      }
+      lRequest = xiPipeline.getNextExpandSlot();
+    }
+    else
+    {
+      // Synchronous rollouts - use the single request object.
+      lRequest = tree.mNodeSynchronousRequest;
     }
 
-    xiRequest.mState = state;
-    xiRequest.mNode = getRef();
-    xiRequest.mSampleSize = tree.gameCharacteristics.getRolloutSampleSize();
-    xiRequest.mPath = path;
-    xiRequest.mFactor = tree.factor;
+    lRequest.mState = state;
+    lRequest.mNode = getRef();
+    lRequest.mSampleSize = tree.gameCharacteristics.getRolloutSampleSize();
+    lRequest.mPath = path;
+    lRequest.mFactor = tree.factor;
+
     //request.moveWeights = masterMoveWeights.copy();
-    tree.numNonTerminalRollouts += xiRequest.mSampleSize;
+    tree.numNonTerminalRollouts += lRequest.mSampleSize;
 
-    tree.rolloutPool.enqueueRequest(xiRequest);
+    if (ThreadControl.ROLLOUT_THREADS > 0)
+    {
+      // Queue the request for processing.
+      lRequest.mEnqueueTime = System.nanoTime();
+      xiPipeline.completedExpansion();
 
-    return null;
+      // Whilst waiting for the request to be rolled out, update the visit count of this node to encourage the search to
+      // go down a different path when selecting the next node for rollout.
+      updateVisitCounts(tree.gameCharacteristics.getRolloutSampleSize(), path);
+    }
+    else
+    {
+      // Do the rollout and back-propagation synchronously (on this thread).
+      assert(ThreadControl.ROLLOUT_THREADS == 0);
+      lRequest.process(tree.underlyingStateMachine, tree.mOurRole, tree.roleOrdering);
+      updateStats(lRequest.mAverageScores,
+                  lRequest.mAverageSquaredScores,
+                  lRequest.mSampleSize,
+                  path,
+                  true);
+    }
   }
 
   public void updateVisitCounts(int sampleSize, TreePath path)

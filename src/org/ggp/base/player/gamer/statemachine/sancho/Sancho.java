@@ -769,8 +769,7 @@ public class Sancho extends SampleGamer
 
   @Override
   public Move stateMachineSelectMove(long timeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
+    throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
   {
     // We get the current start time
     long start = System.currentTimeMillis();

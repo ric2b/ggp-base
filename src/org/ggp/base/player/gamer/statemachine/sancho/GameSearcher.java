@@ -70,7 +70,11 @@ public class GameSearcher implements Runnable, ActivityController
                     Heuristic heuristic) throws GoalDefinitionException
   {
     mGameCharacteristics = gameCharacteristics;
-    mPipeline = new Pipeline(PIPELINE_SIZE, underlyingStateMachine.getRoles().size());
+
+    if (ThreadControl.ROLLOUT_THREADS > 0)
+    {
+      mPipeline = new Pipeline(PIPELINE_SIZE, underlyingStateMachine.getRoles().size());
+    }
 
     rolloutPool = new RolloutProcessorPool(mPipeline, underlyingStateMachine, mGameCharacteristics, roleOrdering);
 
@@ -220,7 +224,7 @@ public class GameSearcher implements Runnable, ActivityController
                  factorChoice.bestMoveValue > 0 &&
                  (!bestChoice.pseudoMoveIsComplete || bestChoice.pseudoNoopValue > 0) )
             {
-              //  If nooping this factor is a certain loss but the same is not true of the other
+              //  If no-oping this factor is a certain loss but the same is not true of the other
               //  factor then take this factor
               System.out.println("  Factor move is avoids a loss so selecting");
               bestChoice = factorChoice;
@@ -269,7 +273,7 @@ public class GameSearcher implements Runnable, ActivityController
     }
   }
 
-  public boolean expandSearch() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException, InterruptedException
+  public boolean expandSearch() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     boolean lAllTreesCompletelyExplored;
 
@@ -298,19 +302,15 @@ public class GameSearcher implements Runnable, ActivityController
     {
       if (!tree.root.complete)
       {
-        // If there's back-propagation work to do, do it now, in preference to more select/expand cycles because the
-        // back-propagation will mean that subsequent select/expand cycles are more accurate.
-        processCompletedRollouts(false);
-
-        if (!mPipeline.canExpand())
+        if (ThreadControl.ROLLOUT_THREADS > 0)
         {
-          // The pipeline is full.  We can't expand it until we've done some back-propagation.  Even though none was
-          // available a moment ago, we'll just have to wait.
-          processCompletedRollouts(true);
+          // If there's back-propagation work to do, do it now, in preference to more select/expand cycles because the
+          // back-propagation will mean that subsequent select/expand cycles are more accurate.
+          processCompletedRollouts(false);
         }
 
-        RolloutRequest lRequest = mPipeline.getNextExpandSlot();
-        lAllTreesCompletelyExplored &= tree.growTree(lRequest);
+        // Perform an MCTS iteration.
+        lAllTreesCompletelyExplored &= tree.growTree();
       }
     }
 
@@ -348,6 +348,14 @@ public class GameSearcher implements Runnable, ActivityController
     }
 
     return true;
+  }
+
+  /**
+   * @return the pipeline being used by this game searcher.
+   */
+  public Pipeline getPipeline()
+  {
+    return mPipeline;
   }
 
   public void startSearch(long moveTimeout,
@@ -398,7 +406,7 @@ public class GameSearcher implements Runnable, ActivityController
     return this;
   }
 
-  private void processCompletedRollouts(boolean xiNeedToDoOne)
+  void processCompletedRollouts(boolean xiNeedToDoOne)
   {
     while (mPipeline.canBackPropagate() || xiNeedToDoOne)
     {
@@ -445,7 +453,7 @@ public class GameSearcher implements Runnable, ActivityController
                          false);
       }
 
-      mPipeline.backPropagationComplete();
+      mPipeline.completedBackPropagation();
       xiNeedToDoOne = false;
       mNumIterations++;
     }

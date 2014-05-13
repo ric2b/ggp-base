@@ -27,7 +27,7 @@ class RolloutRequest
   public final double[]                        mAverageSquaredScores;
   public int                                   mMinScore;
   public int                                   mMaxScore;
-  public long                                  mEnQueueTime;
+  public long                                  mEnqueueTime;
   public long                                  mQueueLatency;
   public int                                   mThreadId;
 
@@ -55,7 +55,7 @@ class RolloutRequest
   {
     int lNumRoles = stateMachine.getRoles().size();
 
-    mQueueLatency = System.nanoTime() - mEnQueueTime;
+    mQueueLatency = System.nanoTime() - mEnqueueTime;
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.rollOut");
     try
     {

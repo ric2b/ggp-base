@@ -102,7 +102,7 @@ public class ThreadControl
    */
   public static void registerSearchThread()
   {
-    if ( USE_AFFINITY_MAPPING )
+    if (USE_AFFINITY_MAPPING)
     {
       synchronized (ThreadControl.class)
       {
@@ -114,7 +114,7 @@ public class ThreadControl
         // If we're striping rollout threads with a stride greater than 1 then
         // then we can interleave the searchers.  If the rollout stride is 1 anyway
         // anything will clash so this is still as good a policy as any
-        if ( sNextSearchThreadCPUIndex == (CPUIdParity ? 1 : 0) )
+        if (sNextSearchThreadCPUIndex == (CPUIdParity ? 1 : 0))
         {
           sNextSearchThreadCPUIndex = CPU_STRIPE_STRIDE + 1 + (CPUIdParity ? 1 : 0);
         }
@@ -132,7 +132,7 @@ public class ThreadControl
    */
   public static void registerRolloutThread()
   {
-    if ( USE_AFFINITY_MAPPING )
+    if (USE_AFFINITY_MAPPING)
     {
       synchronized (ThreadControl.class)
       {
@@ -142,7 +142,7 @@ public class ThreadControl
 
         // Calculate the next available virtual CPU for rollout threads, wrapping as required and leaving a gap for the
         // search thread if required.
-        if ( sNextRolloutThreadCPUIndex == (CPUIdParity ? 1 : 0))
+        if (sNextRolloutThreadCPUIndex == (CPUIdParity ? 1 : 0))
         {
           sNextRolloutThreadCPUIndex = CPU_STRIPE_STRIDE + (CPUIdParity ? 1 : 0);
         }

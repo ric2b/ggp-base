@@ -15,6 +15,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Move;
+import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
@@ -23,9 +24,7 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 public class MCTSTree
 {
-  class LRUNodeMoveWeightsCache
-  extends
-  LinkedHashMap<TreeNode, MoveWeightsCollection>
+  class LRUNodeMoveWeightsCache extends LinkedHashMap<TreeNode, MoveWeightsCollection>
   {
     /**
      *
@@ -90,13 +89,19 @@ public class MCTSTree
   int                                                  numSelectionsThroughIncompleteNodes         = 0;
   int                                                  numReExpansions                             = 0;
   Heuristic                                            heuristic;
-  RoleOrdering                                         roleOrdering;
+  final RoleOrdering                                   roleOrdering;
+  final Role                                           mOurRole;
   RolloutProcessorPool                                 rolloutPool;
   RuntimeGameCharacteristics                           gameCharacteristics;
   Factor                                               factor;
   boolean                                              evaluateTerminalOnNodeCreation;
   private final TreeNodeAllocator                      mTreeNodeAllocator;
   final GameSearcher                                   mGameSearcher;
+
+  // Scratch variables for tree nodes to use to avoid unnecessary object allocation.
+  final double[] mNodeAverageScores;
+  final double[] mNodeAverageSquaredScores;
+  final RolloutRequest mNodeSynchronousRequest;
 
   public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
                   Factor factor,
@@ -112,6 +117,7 @@ public class MCTSTree
     this.nodePool = nodePool;
     this.factor = factor;
     this.roleOrdering = roleOrdering;
+    this.mOurRole = roleOrdering.roleIndexToRole(0);
     this.heuristic = heuristic;
     this.gameCharacteristics = gameCharacateristics;
     this.rolloutPool = rolloutPool;
@@ -141,6 +147,10 @@ public class MCTSTree
         roleRationality[i] = 1;
       }
     }
+
+    mNodeAverageScores = new double[numRoles];
+    mNodeAverageSquaredScores = new double[numRoles];
+    mNodeSynchronousRequest = new RolloutRequest(numRoles);
   }
 
   public void empty()
@@ -294,8 +304,6 @@ public class MCTSTree
   /**
    * Perform a single MCTS expansion.
    *
-   * @param xiRequest - the rollout request.
-   *
    * @return whether the tree is now fully explored.
    *
    * @throws MoveDefinitionException
@@ -303,12 +311,12 @@ public class MCTSTree
    * @throws GoalDefinitionException
    * @throws InterruptedException
    */
-  public boolean growTree(RolloutRequest xiRequest)
-    throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException, InterruptedException
+  public boolean growTree()
+    throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     //validateAll();
     //validationCount++;
-    selectAction(xiRequest);
+    selectAction();
     processNodeCompletions();
     return root.complete;
   }
@@ -397,9 +405,7 @@ public class MCTSTree
     }
   }
 
-  private void selectAction(RolloutRequest xiRequest)
-      throws MoveDefinitionException, TransitionDefinitionException,
-      GoalDefinitionException, InterruptedException
+  private void selectAction() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.selectAction");
     try
@@ -491,27 +497,8 @@ public class MCTSTree
       //validateAll();
       //System.out.println("Rollout from: " + newNode.state);
 
-      // Perform the rollout request.  This might complete immediately via a short-circuit if the node is already
-      // complete.  In that case, the rollout request won't be added to the completion queue and we're responsible for
-      // updating the tree statistics.
-      RolloutRequest rollout = newNode.rollOut(visited, xiRequest);
-      if (rollout != null)
-      {
-        newNode.updateStats(rollout.mAverageScores,
-                            rollout.mAverageSquaredScores,
-                            gameCharacteristics.getRolloutSampleSize(),
-                            visited,
-                            true);
-      }
-      else
-      {
-        //for(TreeNode node : visited)
-        //{
-        //  node.validate(false);
-        //}
-        newNode.updateVisitCounts(gameCharacteristics.getRolloutSampleSize(), visited);
-      }
-      //validateAll();
+      // Perform the rollout request.
+      newNode.rollOut(visited, mGameSearcher.getPipeline());
     }
     finally
     {

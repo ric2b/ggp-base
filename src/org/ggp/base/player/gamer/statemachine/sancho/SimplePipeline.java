@@ -43,7 +43,6 @@ public class SimplePipeline
    * Read by:    Tree thread.
    */
   private long mLastBackPropagated = -1L;
-  private long mMinRolledOutCache = -1L;
 
   /**
    * Whether the pipeline has been halted.
@@ -148,7 +147,7 @@ public class SimplePipeline
   public boolean canBackPropagate()
   {
     // See if we already know that back-propagation will be successful.
-    if (mMinRolledOutCache > mLastBackPropagated)
+    if (mLastRolledOutCache > mLastBackPropagated)
     {
       return true;
     }
@@ -158,8 +157,7 @@ public class SimplePipeline
       return false;
     }
 
-    mMinRolledOutCache = mLastRolledOut.get();
-    return (mMinRolledOutCache > mLastBackPropagated);
+    return ((mLastRolledOutCache = mLastRolledOut.get()) > mLastBackPropagated);
   }
 
   /**
@@ -172,13 +170,13 @@ public class SimplePipeline
     final long lNextRequestID = mLastBackPropagated + 1;
 
     // See if we already know that a request is available.
-    if (mMinRolledOutCache >= lNextRequestID)
+    if (mLastRolledOutCache >= lNextRequestID)
     {
       return mStore[(int)lNextRequestID & mIndexMask];
     }
 
     // Perform volatile reads until the next request is available.
-    while ((mMinRolledOutCache = mLastRolledOut.get()) < lNextRequestID)
+    while ((mLastRolledOutCache = mLastRolledOut.get()) < lNextRequestID)
     {
       Thread.yield();
     }

@@ -5,9 +5,26 @@ package org.ggp.base.player.gamer.statemachine.sancho;
  */
 public class Pipeline
 {
-  final private SimplePipeline[] threadPipelines;
-  private int nextExpandThread = -1;
-  private int nextDrainThread = -1;
+  /**
+   * Individual per-rollout-thread pipelines.
+   */
+  final private SimplePipeline[] mThreadPipelines;
+
+  /**
+   * The next rollout thread to give new (expansion) work to and the next thread to drain (back-propagation) work from.
+   */
+  private int mNextExpandThread = -1;
+  private int mNextDrainThread = -1;
+
+  /**
+   * The maximum permitted number of items in the pipeline.
+   */
+  private final int mMaxQueuedItems;
+
+  /**
+   * The current number of items in the pipeline.
+   */
+  private int mCurrentQueuedItems;
 
   /**
    * Create a pipeline with the specified maximum size.
@@ -17,10 +34,20 @@ public class Pipeline
    */
   public Pipeline(int xiSize, int xiNumRoles)
   {
-    threadPipelines = new SimplePipeline[ThreadControl.ROLLOUT_THREADS];
-    for (int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
+    mMaxQueuedItems = xiSize;
+    mThreadPipelines = new SimplePipeline[ThreadControl.ROLLOUT_THREADS];
+
+    // Create per-thread pipelines big enough that we'll be able to queue xiSize items across all of them.  If there's
+    // a little spare capacity in the per-thread queues, that's okay.  We still limit the overall pipeline size.
+    int lPerThreadSize = (xiSize + ThreadControl.ROLLOUT_THREADS - 1) / ThreadControl.ROLLOUT_THREADS;
+
+    // Per-thread pipeline size must be a power of 2.
+    lPerThreadSize = Integer.highestOneBit(lPerThreadSize - 1) * 2;
+    System.out.println("Per-rollout-thread pipeline size = " + lPerThreadSize);
+
+    for (int lii = 0; lii < ThreadControl.ROLLOUT_THREADS; lii++)
     {
-      threadPipelines[i] = new SimplePipeline(xiSize, xiNumRoles);
+      mThreadPipelines[lii] = new SimplePipeline(lPerThreadSize, xiNumRoles);
     }
   }
 
@@ -29,15 +56,7 @@ public class Pipeline
    */
   public boolean canExpand()
   {
-    for (int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
-    {
-      if (threadPipelines[i].canExpand())
-      {
-        return true;
-      }
-    }
-
-    return false;
+    return mCurrentQueuedItems < mMaxQueuedItems;
   }
 
   /**
@@ -48,20 +67,32 @@ public class Pipeline
    */
   public RolloutRequest getNextExpandSlot()
   {
-    do
-    {
-      nextExpandThread = (nextExpandThread + 1) % ThreadControl.ROLLOUT_THREADS;
-    } while(!threadPipelines[nextExpandThread].canExpand());
+    // For the purposes of tracking the number of outstanding items, this counts as one.  (Doing this here, rather than
+    // in expandComplete(), prevents the search thread from taking more slots than it's meant to - with the intention of
+    // publishing them all later.  This isn't a model that we currently use, but it isn't forbidden - so safer to get it
+    // right in this respect.)
+    assert(mCurrentQueuedItems < mMaxQueuedItems) : "Pipeline unexpectedly full - num items: " + mCurrentQueuedItems;
+    mCurrentQueuedItems++;
 
-    return threadPipelines[nextExpandThread].getNextExpandSlot();
+    // Find the next thread with a slot.  The calling restrictions ensure that there is one (and therefore this won't
+    // loop forever).
+    for (mNextExpandThread = (mNextExpandThread + 1) % ThreadControl.ROLLOUT_THREADS;
+        !mThreadPipelines[mNextExpandThread].canExpand();
+        mNextExpandThread = (mNextExpandThread + 1) % ThreadControl.ROLLOUT_THREADS)
+    {
+      // Do nothing.
+    }
+
+    // Return the rollout request to be filled in.
+    return mThreadPipelines[mNextExpandThread].getNextExpandSlot();
   }
 
   /**
    * Publish a rollout request for further processing.
    */
-  public void expandComplete()
+  public void completedExpansion()
   {
-    threadPipelines[nextExpandThread].expandComplete();
+    mThreadPipelines[mNextExpandThread].expandComplete();
   }
 
   /**
@@ -75,7 +106,7 @@ public class Pipeline
    */
   public RolloutRequest getNextRolloutRequest(int xiThreadIndex)
   {
-    return threadPipelines[xiThreadIndex].getNextRolloutRequest();
+    return mThreadPipelines[xiThreadIndex].getNextRolloutRequest();
   }
 
   /**
@@ -83,9 +114,9 @@ public class Pipeline
    *
    * @param xiThreadIndex - the thread making the request.
    */
-  public void rolloutComplete(int xiThreadIndex)
+  public void completedRollout(int xiThreadIndex)
   {
-    threadPipelines[xiThreadIndex].rolloutComplete();
+    mThreadPipelines[xiThreadIndex].rolloutComplete();
   }
 
   /**
@@ -95,7 +126,7 @@ public class Pipeline
   {
     for (int i = 0; i < ThreadControl.ROLLOUT_THREADS; i++)
     {
-      if (threadPipelines[i].canBackPropagate())
+      if (mThreadPipelines[i].canBackPropagate())
       {
         return true;
       }
@@ -111,29 +142,31 @@ public class Pipeline
    */
   public RolloutRequest getNextRequestForBackPropagation()
   {
-    int startDrainThread = -1;
-
-    do
+    // Find the next thread that has some work to do.  Start with thread 1 (unless there only is one thread) so that we
+    // don't yield until we've looked at all threads once.  Always starting at a fixed thread would be in danger of
+    // starving some threads - but we always completely drain the pipeline of back-propagation work (whenever we do any
+    // such work) so that isn't a problem.
+    for (mNextDrainThread = (ThreadControl.ROLLOUT_THREADS == 1 ? 0 : 1);
+         !mThreadPipelines[mNextDrainThread].canBackPropagate();
+         mNextDrainThread = (mNextDrainThread + 1) % ThreadControl.ROLLOUT_THREADS)
     {
-      nextDrainThread = (nextDrainThread + 1) % ThreadControl.ROLLOUT_THREADS;
-      if (startDrainThread == -1)
+      if (mNextDrainThread == 0)
       {
-        startDrainThread = nextDrainThread;
-      }
-      else if (startDrainThread == nextDrainThread)
-      {
+        // Don't completely busy-wait.  At least yield once per time round all the threads.
         Thread.yield();
       }
-    } while (!threadPipelines[nextDrainThread].canBackPropagate());
+    }
 
-    return threadPipelines[nextDrainThread].getNextRequestForBackPropagation();
+    return mThreadPipelines[mNextDrainThread].getNextRequestForBackPropagation();
   }
 
   /**
    * Mark that back-propagation of a request is complete.
    */
-  public void backPropagationComplete()
+  public void completedBackPropagation()
   {
-    threadPipelines[nextDrainThread].backPropagationComplete();
+    mThreadPipelines[mNextDrainThread].backPropagationComplete();
+    assert(mCurrentQueuedItems > 0) : "Pipeline unexpectedly empty - num items: " + mCurrentQueuedItems;
+    mCurrentQueuedItems--;
   }
 }
