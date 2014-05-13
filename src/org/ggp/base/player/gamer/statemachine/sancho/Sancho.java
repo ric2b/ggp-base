@@ -164,7 +164,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.57l";
+    return "Sancho 1.57m";
   }
 
   @Override
@@ -841,7 +841,7 @@ public class Sancho extends SampleGamer
         {
           if (ThreadControl.RUN_SYNCHRONOUSLY)
           {
-            searchProcessor.expandSearch();
+            searchProcessor.expandSearch(true);
           }
           else
           {

@@ -303,6 +303,7 @@ public class MCTSTree
 
   /**
    * Perform a single MCTS expansion.
+   * @param forceSynchronous
    *
    * @return whether the tree is now fully explored.
    *
@@ -311,12 +312,12 @@ public class MCTSTree
    * @throws GoalDefinitionException
    * @throws InterruptedException
    */
-  public boolean growTree()
+  public boolean growTree(boolean forceSynchronous)
     throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     //validateAll();
     //validationCount++;
-    selectAction();
+    selectAction(forceSynchronous);
     processNodeCompletions();
     return root.complete;
   }
@@ -405,7 +406,7 @@ public class MCTSTree
     }
   }
 
-  private void selectAction() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
+  private void selectAction(boolean forceSynchronous) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.selectAction");
     try
@@ -498,7 +499,7 @@ public class MCTSTree
       //System.out.println("Rollout from: " + newNode.state);
 
       // Perform the rollout request.
-      newNode.rollOut(visited, mGameSearcher.getPipeline());
+      newNode.rollOut(visited, mGameSearcher.getPipeline(), forceSynchronous);
     }
     finally
     {

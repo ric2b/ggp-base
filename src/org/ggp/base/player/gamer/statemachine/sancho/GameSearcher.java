@@ -15,7 +15,8 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 public class GameSearcher implements Runnable, ActivityController
 {
-  private static final int                PIPELINE_SIZE = 8; // MUST be a power of 2
+  private static final int                PIPELINE_SIZE = 12; //  Default set to give reasonable results on 2 and 4 cores
+  private final boolean                   useSearchThreadToRolloutWhenBlocked = true;
 
   private volatile long                   moveTime;
   private volatile long                   startTime;
@@ -163,7 +164,7 @@ public class GameSearcher implements Runnable, ActivityController
                                                                 (maxExplorationBias - minExplorationBias) /
                                                                 100);
                   }
-                  complete = expandSearch();
+                  complete = expandSearch(false);
                 }
               }
             }
@@ -273,7 +274,7 @@ public class GameSearcher implements Runnable, ActivityController
     }
   }
 
-  public boolean expandSearch() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
+  public boolean expandSearch(boolean forceSynchronous) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     boolean lAllTreesCompletelyExplored;
 
@@ -302,7 +303,7 @@ public class GameSearcher implements Runnable, ActivityController
     {
       if (!tree.root.complete)
       {
-        if (ThreadControl.ROLLOUT_THREADS > 0)
+        if (ThreadControl.ROLLOUT_THREADS > 0 && !forceSynchronous)
         {
           // If there's back-propagation work to do, do it now, in preference to more select/expand cycles because the
           // back-propagation will mean that subsequent select/expand cycles are more accurate.
@@ -310,7 +311,7 @@ public class GameSearcher implements Runnable, ActivityController
         }
 
         // Perform an MCTS iteration.
-        lAllTreesCompletelyExplored &= tree.growTree();
+        lAllTreesCompletelyExplored &= tree.growTree(forceSynchronous);
       }
     }
 
@@ -406,13 +407,27 @@ public class GameSearcher implements Runnable, ActivityController
     return this;
   }
 
-  void processCompletedRollouts(boolean xiNeedToDoOne)
+  void processCompletedRollouts(boolean xiNeedToDoOne) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
-    while (mPipeline.canBackPropagate() || xiNeedToDoOne)
+    boolean canBackPropagate;
+
+    while ((canBackPropagate = mPipeline.canBackPropagate()) || xiNeedToDoOne)
     {
       if (xiNeedToDoOne)
       {
         mBlockedFor -= System.nanoTime();
+      }
+
+      if ( useSearchThreadToRolloutWhenBlocked )
+      {
+        if (xiNeedToDoOne && !canBackPropagate)
+        {
+          //  If the rollout threads are not keeping up and the pipeline
+          //  is full then perform an expansion synchronously while we
+          //  wait for the rollout pool to have results for us
+          expandSearch(true);
+          continue;
+        }
       }
 
       RolloutRequest lRequest = mPipeline.getNextRequestForBackPropagation();

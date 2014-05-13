@@ -2730,7 +2730,7 @@ public class TreeNode
     return result;
   }
 
-  public void rollOut(TreePath path, Pipeline xiPipeline)
+  public void rollOut(TreePath path, Pipeline xiPipeline, boolean forceSynchronous) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     if (complete)
     {
@@ -2758,7 +2758,7 @@ public class TreeNode
 
     // Get a rollout request object.
     RolloutRequest lRequest;
-    if (ThreadControl.ROLLOUT_THREADS > 0)
+    if (ThreadControl.ROLLOUT_THREADS > 0 && !forceSynchronous)
     {
       // Get a request slot from the pipeline.
       if (!xiPipeline.canExpand())
@@ -2784,7 +2784,7 @@ public class TreeNode
     //request.moveWeights = masterMoveWeights.copy();
     tree.numNonTerminalRollouts += lRequest.mSampleSize;
 
-    if (ThreadControl.ROLLOUT_THREADS > 0)
+    if (ThreadControl.ROLLOUT_THREADS > 0 && !forceSynchronous)
     {
       // Queue the request for processing.
       lRequest.mEnqueueTime = System.nanoTime();
@@ -2797,7 +2797,7 @@ public class TreeNode
     else
     {
       // Do the rollout and back-propagation synchronously (on this thread).
-      assert(ThreadControl.ROLLOUT_THREADS == 0);
+      assert(ThreadControl.ROLLOUT_THREADS == 0 || forceSynchronous);
       lRequest.process(tree.underlyingStateMachine, tree.mOurRole, tree.roleOrdering);
       updateStats(lRequest.mAverageScores,
                   lRequest.mAverageSquaredScores,
