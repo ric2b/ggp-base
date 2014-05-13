@@ -2750,6 +2750,8 @@ public class TreeNode
                   tree.gameCharacteristics.getRolloutSampleSize(),
                   path,
                   true);
+
+      return;
     }
 
     assert(decidingRoleIndex == tree.numRoles - 1) : "Attempt to rollout from an incomplete-information node";
