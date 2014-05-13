@@ -58,6 +58,7 @@ public class ForwardDeadReckonPropnetFastAnimator
   }
 
   private final ForwardDeadReckonPropNet propNet;
+  private int                      numTabularComponents = 0;
   private final long[]             componentInfo;
   //  each long is a packed record using the following masks:
   private final long               componentInfoTypeMask = 0x07000000L; //  3-bits for component type
@@ -118,6 +119,12 @@ public class ForwardDeadReckonPropnetFastAnimator
   // This allows a single inc/dec to operate the components as any of OR/AND/NOR/NAND depending on how
   // reset initializes the value
 
+  //  Reserved id used to denote a component whose id has not yet been set
+  private final int notSetComponentId = -2;
+  //  Reserved id used to denote a component which has been subsumed into another
+  //  component for fast propagation
+  private final int notNeededComponentId = -1;
+
   // Each instance (which typically maps to a thread) has its own InstanceInfo to hold the complete state
   // of that instance's propNet
   private InstanceInfo[]           instances;
@@ -126,15 +133,20 @@ public class ForwardDeadReckonPropnetFastAnimator
    * Constructs a new fast animator for the given network.  The network must not be changed
    * after this call is made or the generated fast animator will no longer be valid
    *
-   * @param thePropNet1 Network to construct an animator for
+   * @param thePropNet Network to construct an animator for
    */
-  public ForwardDeadReckonPropnetFastAnimator(ForwardDeadReckonPropNet thePropNet1)
+  public ForwardDeadReckonPropnetFastAnimator(ForwardDeadReckonPropNet thePropNet)
   {
-    propNet = thePropNet1;
+    propNet = thePropNet;
 
-    int index = 0;
     int outputCount = 0;
     int componentType = 0;
+
+    //  Initialize component values to a distinguished 'not set' value
+    for(PolymorphicComponent c : thePropNet.getComponents())
+    {
+      ((ForwardDeadReckonComponent)c).id = notSetComponentId;
+    }
 
     //  Dummy components are (virtually) added to ensure that all outputs from any
     //  particular component are either all universal logic elements or are triggers.
@@ -146,160 +158,56 @@ public class ForwardDeadReckonPropnetFastAnimator
     Map<Integer, Set<PolymorphicComponent>> addedPassThroughComponents = new HashMap<>();
 
     //  Number components and set up metadata flags stored in their high id bits
-    for(PolymorphicComponent c : thePropNet1.getComponents())
+    //  In order to make some attempt to improve CPU predictability of stride
+    //  in the primary loop (which iterates over outputs of a component) we number
+    //  so as to encourage generation of consecutive ids for outputs.
+    //  Starting from the base propositions deal with their descendant networks
+    //  first recursively, numbering components as they are encountered if not
+    //  already numbered
+    for(PolymorphicComponent c : propNet.getBasePropositions().values())
     {
       ForwardDeadReckonComponent fdrc = (ForwardDeadReckonComponent)c;
-      Collection<? extends PolymorphicComponent> outputs = c.getOutputs();
-      boolean hasPropagatableOutputs = !outputs.isEmpty();
-      boolean hasTrigger = false;
-      boolean outputsInverted = false;
 
-      outputCount += outputs.size();
-
-      if ( c instanceof PolymorphicProposition )
+      if ( fdrc.id == notSetComponentId )
       {
-        hasTrigger = (((ForwardDeadReckonProposition)c).getAssociatedTriggerIndex() != -1);
-        //  We don't expect legal moves to have outputs!
-        assert(!hasTrigger || !hasPropagatableOutputs);
-
-        if ( hasTrigger )
-        {
-          componentType = componentTypeProposition;
-        }
-        else
-        {
-          //  Represent non-triggering propositions (goals and terminal essentially)
-          //  as 1-input ORs just to hold the necessary state.  This allows us to divide
-          //  the network into strictly logic or triggering components and eliminates the
-          //  need to check that a trigger is present on a supposedly triggering type
-          componentType = componentTypeUniversalLogic;
-        }
+        outputCount += setComponentId(c, addedPassThroughComponents);
+        outputCount += recursivelySetComponentOutputIds(c, addedPassThroughComponents);
       }
-      else if ( c instanceof PolymorphicTransition )
-      {
-        componentType = componentTypeTransition;
-        hasPropagatableOutputs = false;
-        hasTrigger = (((ForwardDeadReckonTransition)c).getAssociatedPropositionIndex() != -1);
-        //  Transitions should always have triggers (else what are they doing?)
-        assert(hasTrigger);
-      }
-      else if ( (c instanceof PolymorphicOr) || (c instanceof PolymorphicAnd) )
-      {
-        componentType = componentTypeUniversalLogic;
-
-        //  If it has a single output to a NOT roll the NOT into this component and a NAND/NOR
-        if ( outputs.size() == 1 )
-        {
-          PolymorphicComponent output = c.getSingleOutput();
-
-          if ( output instanceof PolymorphicNot )
-          {
-            outputs = output.getOutputs();
-            outputCount += (outputs.size()-1);
-            outputsInverted = true;
-          }
-        }
-      }
-      else if ( c instanceof PolymorphicNot )
-      {
-        //  Check this isn't a single output of an AND/OR in which cse the AND/OR will be processed as
-        //  a NAND/NOR and this component need not be processed
-        PolymorphicComponent input = c.getSingleInput();
-        if ( ((input instanceof PolymorphicOr) || (input instanceof PolymorphicAnd)) &&
-             input.getOutputs().size() == 1 )
-        {
-          fdrc.id = -1;
-          continue;
-        }
-
-        componentType = componentTypeUniversalLogic;
-      }
-      else if ( c instanceof PolymorphicConstant )
-      {
-        if ( c.getValue() )
-        {
-          componentType = componentTypeTrueConstant;
-        }
-        else
-        {
-          componentType = componentTypeFalseConstant;
-        }
-      }
-
-      int outputTypeBits = 0;
-      boolean outTypeSet = false;
-      boolean outTypeClash = false;
-
-      //  Check that all outputs are of the same type (either represented in our fast propagator
-      //  tables as universal logic elements or as triggers, but not both)
-      for(PolymorphicComponent output : outputs)
-      {
-        if ( !outTypeSet )
-        {
-          outTypeSet = true;
-          if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot) ||
-               (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() == -1))
-          {
-            outputTypeBits = componentIdOutputUniversalLogicBits;
-          }
-        }
-        else
-        {
-          if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot) ||
-              (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() == -1))
-          {
-            if ( outputTypeBits != componentIdOutputUniversalLogicBits)
-            {
-              outputTypeBits = 0;
-              outTypeClash = true;
-              break;
-            }
-          }
-          else if ( outputTypeBits != 0 )
-          {
-            outputTypeBits = 0;
-            outTypeClash = true;
-            break;
-          }
-        }
-      }
-
-      if ( outTypeClash )
-      {
-        //  Insert a dummy pass-through (1-input OR) component to restore
-        //  strict layering
-        Set<PolymorphicComponent> movedTriggers = new HashSet<>();
-
-        for(PolymorphicComponent output : outputs)
-        {
-          if ( (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() != -1) || (output instanceof PolymorphicTransition) )
-          {
-            movedTriggers.add(output);
-          }
-        }
-
-        addedPassThroughComponents.put(index++, movedTriggers);
-        outputTypeBits = componentIdOutputUniversalLogicBits;
-
-        outputCount++;
-      }
-
-      fdrc.id = index++ |
-                (componentType << 24) |
-                outputTypeBits |
-                (outputsInverted ? componentIdOutputInvertedFlag : 0);
     }
 
-    componentInfo = new long[index];
-    componentAssociatedTriggerIndexes = new int[index];
+    //  Similarly the does props
+    for(PolymorphicComponent c : propNet.getInputPropositions().values())
+    {
+      ForwardDeadReckonComponent fdrc = (ForwardDeadReckonComponent)c;
+
+      if ( fdrc.id == notSetComponentId )
+      {
+        outputCount += setComponentId(c, addedPassThroughComponents);
+        outputCount += recursivelySetComponentOutputIds(c, addedPassThroughComponents);
+      }
+    }
+
+    //  Any remaining components
+    for(PolymorphicComponent c : thePropNet.getComponents())
+    {
+      ForwardDeadReckonComponent fdrc = (ForwardDeadReckonComponent)c;
+
+      if ( fdrc.id == notSetComponentId )
+      {
+        outputCount += setComponentId(c, addedPassThroughComponents);
+      }
+    }
+
+    componentInfo = new long[numTabularComponents];
+    componentAssociatedTriggerIndexes = new int[numTabularComponents];
     componentConnectivityTable = new int[outputCount];
     int componentOffset = 0;
 
-    for(PolymorphicComponent c : thePropNet1.getComponents())
+    for(PolymorphicComponent c : thePropNet.getComponents())
     {
       ForwardDeadReckonComponent fdrc = (ForwardDeadReckonComponent)c;
 
-      if ( fdrc.id == -1 )
+      if ( fdrc.id == notNeededComponentId )
       {
         //  Redundant NOT which has been subsumed into a NAND/NOR
         continue;
@@ -441,6 +349,195 @@ public class ForwardDeadReckonPropnetFastAnimator
         componentConnectivityTable[componentOffset++] = (id-1) | (componentTypeUniversalLogic << 24);
       }
     }
+  }
+
+  /**
+   * Set the components ids of the sub-network rooted in a specified component, stopping at
+   * transitions, in such a way as to increase the probability of consecutive numbering of outputs of each
+   * component (which helps cache locality and stride predictability)
+   * @param c root component to start from (must already have had its id set)
+   * @param addedPassThroughComponents set of any pseudo-components added during numbering
+   * @return total number of outputs processed
+   */
+  private int recursivelySetComponentOutputIds(PolymorphicComponent c, Map<Integer, Set<PolymorphicComponent>> addedPassThroughComponents)
+  {
+    int result = 0;
+
+    assert(((ForwardDeadReckonComponent)c).id != notSetComponentId);
+
+    Set<PolymorphicComponent> processedOutputs = new HashSet<>();
+
+    for(PolymorphicComponent output : c.getOutputs())
+    {
+      ForwardDeadReckonComponent fdrc = (ForwardDeadReckonComponent)output;
+      if ( fdrc.id == notSetComponentId )
+      {
+        result += setComponentId(output, addedPassThroughComponents);
+        processedOutputs.add(output);
+      }
+    }
+
+    for(PolymorphicComponent output : processedOutputs)
+    {
+      if ( !(output instanceof PolymorphicTransition))
+      {
+        result += recursivelySetComponentOutputIds(output, addedPassThroughComponents);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Set the component id of a specified component
+   * @param c  component to set the id of
+   * @param addedPassThroughComponents set of any pseudo-components added during numbering
+   * @return number of outputs processed
+   */
+  private int setComponentId(PolymorphicComponent c, Map<Integer, Set<PolymorphicComponent>> addedPassThroughComponents)
+  {
+    ForwardDeadReckonComponent fdrc = (ForwardDeadReckonComponent)c;
+    Collection<? extends PolymorphicComponent> outputs = fdrc.getOutputs();
+    boolean hasPropagatableOutputs = !outputs.isEmpty();
+    boolean hasTrigger = false;
+    boolean outputsInverted = false;
+    int result = outputs.size();
+    int componentType = 0;
+
+    if ( c instanceof PolymorphicProposition )
+    {
+      hasTrigger = (((ForwardDeadReckonProposition)c).getAssociatedTriggerIndex() != -1);
+      //  We don't expect legal moves to have outputs!
+      assert(!hasTrigger || !hasPropagatableOutputs);
+
+      if ( hasTrigger )
+      {
+        componentType = componentTypeProposition;
+      }
+      else
+      {
+        //  Represent non-triggering propositions (goals and terminal essentially)
+        //  as 1-input ORs just to hold the necessary state.  This allows us to divide
+        //  the network into strictly logic or triggering components and eliminates the
+        //  need to check that a trigger is present on a supposedly triggering type
+        componentType = componentTypeUniversalLogic;
+      }
+    }
+    else if ( c instanceof PolymorphicTransition )
+    {
+      componentType = componentTypeTransition;
+      hasPropagatableOutputs = false;
+      hasTrigger = (((ForwardDeadReckonTransition)c).getAssociatedPropositionIndex() != -1);
+      //  Transitions should always have triggers (else what are they doing?)
+      assert(hasTrigger);
+    }
+    else if ( (c instanceof PolymorphicOr) || (c instanceof PolymorphicAnd) )
+    {
+      componentType = componentTypeUniversalLogic;
+
+      //  If it has a single output to a NOT roll the NOT into this component and a NAND/NOR
+      if ( outputs.size() == 1 )
+      {
+        PolymorphicComponent output = c.getSingleOutput();
+
+        if ( output instanceof PolymorphicNot )
+        {
+          outputs = output.getOutputs();
+          result += (outputs.size()-1);
+          outputsInverted = true;
+        }
+      }
+    }
+    else if ( c instanceof PolymorphicNot )
+    {
+      //  Check this isn't a single output of an AND/OR in which case the AND/OR will be processed as
+      //  a NAND/NOR and this component need not be processed
+      PolymorphicComponent input = c.getSingleInput();
+      if ( ((input instanceof PolymorphicOr) || (input instanceof PolymorphicAnd)) &&
+           input.getOutputs().size() == 1 )
+      {
+        fdrc.id = notNeededComponentId;
+        return result;
+      }
+
+      componentType = componentTypeUniversalLogic;
+    }
+    else if ( c instanceof PolymorphicConstant )
+    {
+      if ( c.getValue() )
+      {
+        componentType = componentTypeTrueConstant;
+      }
+      else
+      {
+        componentType = componentTypeFalseConstant;
+      }
+    }
+
+    int outputTypeBits = 0;
+    boolean outTypeSet = false;
+    boolean outTypeClash = false;
+
+    //  Check that all outputs are of the same type (either represented in our fast propagator
+    //  tables as universal logic elements or as triggers, but not both)
+    for(PolymorphicComponent output : outputs)
+    {
+      if ( !outTypeSet )
+      {
+        outTypeSet = true;
+        if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot) ||
+             (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() == -1))
+        {
+          outputTypeBits = componentIdOutputUniversalLogicBits;
+        }
+      }
+      else
+      {
+        if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot) ||
+            (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() == -1))
+        {
+          if ( outputTypeBits != componentIdOutputUniversalLogicBits)
+          {
+            outputTypeBits = 0;
+            outTypeClash = true;
+            break;
+          }
+        }
+        else if ( outputTypeBits != 0 )
+        {
+          outputTypeBits = 0;
+          outTypeClash = true;
+          break;
+        }
+      }
+    }
+
+    if ( outTypeClash )
+    {
+      //  Insert a dummy pass-through (1-input OR) component to restore
+      //  strict layering
+      Set<PolymorphicComponent> movedTriggers = new HashSet<>();
+
+      for(PolymorphicComponent output : outputs)
+      {
+        if ( (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() != -1) || (output instanceof PolymorphicTransition) )
+        {
+          movedTriggers.add(output);
+        }
+      }
+
+      addedPassThroughComponents.put(numTabularComponents++, movedTriggers);
+      outputTypeBits = componentIdOutputUniversalLogicBits;
+
+      result++;
+    }
+
+    fdrc.id = numTabularComponents++ |
+              (componentType << 24) |
+              outputTypeBits |
+              (outputsInverted ? componentIdOutputInvertedFlag : 0);
+
+    return result;
   }
 
   /**
