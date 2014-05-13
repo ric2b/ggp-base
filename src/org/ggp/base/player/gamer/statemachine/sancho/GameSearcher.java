@@ -366,9 +366,12 @@ public class GameSearcher implements Runnable, ActivityController
     // Print out some statistics from last turn.
     System.out.println("Last time...");
     System.out.println("  Number of MCTS iterations: " + mNumIterations);
-    System.out.println("  Tree thread blocked for:   " + mBlockedFor / 1000000 + "ms");
+    if ( !useSearchThreadToRolloutWhenBlocked )
+    {
+      System.out.println("  Tree thread blocked for:   " + mBlockedFor / 1000000 + "ms");
+      mBlockedFor = 0;
+    }
     mNumIterations = 0;
-    mBlockedFor = 0;
 
     System.out.println("Start move search...");
     synchronized (this)
@@ -413,9 +416,12 @@ public class GameSearcher implements Runnable, ActivityController
 
     while ((canBackPropagate = mPipeline.canBackPropagate()) || xiNeedToDoOne)
     {
-      if (xiNeedToDoOne)
+      if (!useSearchThreadToRolloutWhenBlocked)
       {
-        mBlockedFor -= System.nanoTime();
+        if (xiNeedToDoOne)
+        {
+          mBlockedFor -= System.nanoTime();
+        }
       }
 
       if ( useSearchThreadToRolloutWhenBlocked )
@@ -432,9 +438,12 @@ public class GameSearcher implements Runnable, ActivityController
 
       RolloutRequest lRequest = mPipeline.getNextRequestForBackPropagation();
 
-      if (xiNeedToDoOne)
+      if (!useSearchThreadToRolloutWhenBlocked)
       {
-        mBlockedFor += System.nanoTime();
+        if (xiNeedToDoOne)
+        {
+          mBlockedFor += System.nanoTime();
+        }
       }
 
       if ( longestObservedLatency < lRequest.mQueueLatency )
