@@ -3,6 +3,7 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Move;
@@ -12,24 +13,45 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
-class GameSearcher implements Runnable, ActivityController
+public class GameSearcher implements Runnable, ActivityController
 {
-  private volatile long         moveTime;
-  private volatile long         startTime;
-  private volatile int          searchSeqRequested  = 0;
-  private volatile int          searchSeqProcessing = 0;
-  private int                   numIterations       = 0;
-  private volatile boolean      requestYield        = false;
-  private Set<MCTSTree>         factorTrees         = new HashSet<>();
-  private NodePool              nodePool;
-  private RolloutProcessorPool  rolloutPool         = null;
-  private double                minExplorationBias  = 0.5;
-  private double                maxExplorationBias  = 1.2;
-  private volatile boolean      mTerminateRequested = false;
+  private static final int                PIPELINE_SIZE = 12; //  Default set to give reasonable results on 2 and 4 cores
+  private final boolean                   useSearchThreadToRolloutWhenBlocked = true;
+
+  private volatile long                   moveTime;
+  private volatile long                   startTime;
+  private volatile int                    searchSeqRequested  = 0;
+  private volatile int                    searchSeqProcessing = 0;
+  private int                             numIterations       = 0;
+  private volatile boolean                requestYield        = false;
+  private Set<MCTSTree>                   factorTrees         = new HashSet<>();
+  private CappedPool<TreeNode>            nodePool;
+  private RolloutProcessorPool            rolloutPool         = null;
+  private double                          minExplorationBias  = 0.5;
+  private double                          maxExplorationBias  = 1.2;
+  private volatile boolean                mTerminateRequested = false;
+  private RuntimeGameCharacteristics      mGameCharacteristics;
+  private Pipeline                        mPipeline;
+  private long                            mNumIterations      = 0;
+  private long                            mBlockedFor         = 0;
+
+  /**
+   * The highest score seen in the current turn (for our role).
+   */
+  public int                              highestRolloutScoreSeen;
+
+  public long longestObservedLatency = 0;
+  public long averageLatency = 0;
+  private long numCompletedRollouts = 0;
+
+  /**
+   * The lowest score seen in the current turn (for our role).
+   */
+  public int                              lowestRolloutScoreSeen;
 
   public GameSearcher(int nodeTableSize)
   {
-    nodePool = new NodePool(nodeTableSize);
+    nodePool = new CappedPool<>(nodeTableSize);
   }
 
   public void setExplorationBiasRange(double min, double max)
@@ -45,12 +67,17 @@ class GameSearcher implements Runnable, ActivityController
                     ForwardDeadReckonInternalMachineState initialState,
                     RoleOrdering roleOrdering,
                     RuntimeGameCharacteristics gameCharacteristics,
-                    int numRolloutThreads,
                     boolean disableGreedyRollouts,
                     Heuristic heuristic) throws GoalDefinitionException
   {
-    rolloutPool = new RolloutProcessorPool(numRolloutThreads, underlyingStateMachine, roleOrdering.roleIndexToRole(0));
-    rolloutPool.setRoleOrdering(roleOrdering);
+    mGameCharacteristics = gameCharacteristics;
+
+    if (ThreadControl.ROLLOUT_THREADS > 0)
+    {
+      mPipeline = new Pipeline(PIPELINE_SIZE, underlyingStateMachine.getRoles().size());
+    }
+
+    rolloutPool = new RolloutProcessorPool(mPipeline, underlyingStateMachine, mGameCharacteristics, roleOrdering);
 
     if ( disableGreedyRollouts )
     {
@@ -59,19 +86,20 @@ class GameSearcher implements Runnable, ActivityController
       rolloutPool.disableGreedyRollouts();
     }
 
-    nodePool.clear(null);
+    nodePool.clear(new TreeNodeAllocator(null), false);
     factorTrees.clear();
 
     Set<Factor> factors = underlyingStateMachine.getFactors();
     if ( factors == null )
     {
       factorTrees.add(new MCTSTree(underlyingStateMachine,
-                                    null,
-                                    nodePool,
-                                    roleOrdering,
-                                    rolloutPool,
-                                    gameCharacteristics,
-                                    heuristic));
+                                   null,
+                                   nodePool,
+                                   roleOrdering,
+                                   rolloutPool,
+                                   gameCharacteristics,
+                                   heuristic,
+                                   this));
     }
     else
     {
@@ -83,7 +111,8 @@ class GameSearcher implements Runnable, ActivityController
                                      roleOrdering,
                                      rolloutPool,
                                      gameCharacteristics,
-                                     heuristic.createIndependentInstance()));
+                                     heuristic.createIndependentInstance(),
+                                     this));
       }
     }
 
@@ -98,6 +127,9 @@ class GameSearcher implements Runnable, ActivityController
   @Override
   public void run()
   {
+    // Register this thread.
+    ThreadControl.registerSearchThread();
+
     // TODO Auto-generated method stub
     try
     {
@@ -108,21 +140,12 @@ class GameSearcher implements Runnable, ActivityController
           boolean complete = false;
 
           System.out.println("Move search started");
-          //int validationCount = 0;
-
-          //Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
 
           while (!complete && !mTerminateRequested)
           {
             long time = System.currentTimeMillis();
-            double percentThroughTurn = Math
-                .min(100, (time - startTime) * 100 / (moveTime - startTime));
+            double percentThroughTurn = Math.min(100, (time - startTime) * 100 / (moveTime - startTime));
 
-            //							if ( Math.abs(lastPercentThroughTurn - percentThroughTurn) > 4 )
-            //							{
-            //								System.out.println("Percent through turn: " + percentThroughTurn + " - num iterations: " + numIterations + ", root has children=" + (root.children != null));
-            //								lastPercentThroughTurn = percentThroughTurn;
-            //							}
             if (requestYield)
             {
               Thread.yield();
@@ -132,16 +155,16 @@ class GameSearcher implements Runnable, ActivityController
               synchronized(getSerializationObject())
               {
                 //  Must re-test for a termination request having obtained the lock
-                if ( !mTerminateRequested )
+                if (!mTerminateRequested)
                 {
-                  for(MCTSTree tree : factorTrees)
+                  for (MCTSTree tree : factorTrees)
                   {
                     tree.gameCharacteristics.setExplorationBias(maxExplorationBias -
-                                                           percentThroughTurn *
-                                                           (maxExplorationBias - minExplorationBias) /
-                                                           100);
+                                                                percentThroughTurn *
+                                                                (maxExplorationBias - minExplorationBias) /
+                                                                100);
                   }
-                  complete = expandSearch();
+                  complete = expandSearch(false);
                 }
               }
             }
@@ -149,17 +172,14 @@ class GameSearcher implements Runnable, ActivityController
 
           System.out.println("Move search complete");
         }
-        catch (TransitionDefinitionException | MoveDefinitionException
-            | GoalDefinitionException e)
+        catch (TransitionDefinitionException | MoveDefinitionException | GoalDefinitionException e)
         {
-          // TODO Auto-generated catch block
           e.printStackTrace();
         }
       }
     }
     catch (InterruptedException e)
     {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     }
 
@@ -184,14 +204,12 @@ class GameSearcher implements Runnable, ActivityController
     synchronized(getSerializationObject())
     {
       FactorMoveChoiceInfo bestChoice = null;
-      int factorIndex = 0;
 
-      System.out.println("Num tree node frees: " + nodePool.getNumFreedNodes());
-      System.out.println("Num tree nodes currently in use: " + nodePool.getNumUsedNodes());
+      System.out.println("Num tree node frees: " + nodePool.getNumFreedItems());
+      System.out.println("Num tree nodes currently in use: " + nodePool.getNumUsedItems());
       System.out.println("Searching for best move amongst factors:");
       for(MCTSTree tree : factorTrees)
       {
-        factorIndex++;
         FactorMoveChoiceInfo factorChoice = tree.getBestMove();
         if ( factorChoice.bestMove != null )
         {
@@ -203,23 +221,26 @@ class GameSearcher implements Runnable, ActivityController
           }
           else
           {
-            // Complete win dominates everything, else complete loss for pseudo noop
-            // dominates everything else
-            if ( factorChoice.bestMoveValue == 100 )
+            if ( factorChoice.pseudoNoopValue <= 0 && factorChoice.pseudoMoveIsComplete &&
+                 factorChoice.bestMoveValue > 0 &&
+                 (!bestChoice.pseudoMoveIsComplete || bestChoice.pseudoNoopValue > 0) )
+            {
+              //  If no-oping this factor is a certain loss but the same is not true of the other
+              //  factor then take this factor
+              System.out.println("  Factor move is avoids a loss so selecting");
+              bestChoice = factorChoice;
+            }
+            // Complete win dominates everything else
+            else if ( factorChoice.bestMoveValue == 100 )
             {
               System.out.println("  Factor move is a win so selecting");
               bestChoice = factorChoice;
             }
             else if ( (bestChoice.bestMoveValue == 100 && bestChoice.bestMoveIsComplete) ||
-                      (factorChoice.pseudoNoopValue == 0 && factorChoice.pseudoMoveIsComplete) )
+                      (factorChoice.bestMoveValue <= 0 && factorChoice.bestMoveIsComplete) )
             {
               System.out.println("  Already selected factor move is a win or this move is a loss - not selecting");
               continue;
-            }
-            else if ( factorChoice.pseudoNoopValue == 0 && factorChoice.pseudoMoveIsComplete )
-            {
-              System.out.println("  Already selected factor move is a loss so selecting this factor");
-              bestChoice = factorChoice;
             }
             // otherwise choose the one that reduces the resulting net chances the least weighted
             // by the resulting win chance in the chosen factor.  This biases the player towards
@@ -253,17 +274,18 @@ class GameSearcher implements Runnable, ActivityController
     }
   }
 
-  public boolean expandSearch() throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException, InterruptedException
+  public boolean expandSearch(boolean forceSynchronous) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
-    boolean result;
+    boolean lAllTreesCompletelyExplored;
 
+    numIterations++;
     while (nodePool.isFull())
     {
       boolean somethingDisposed = false;
 
       for(MCTSTree tree : factorTrees)
       {
-        if ( !tree.root.complete )
+        if (!tree.root.complete)
         {
           //  The trees may have very asymmetric sizes due to one being nearly
           //  complete, in which case it is possible that no candidates for trimming
@@ -276,31 +298,41 @@ class GameSearcher implements Runnable, ActivityController
       assert(somethingDisposed);
     }
 
-    processCompletedRollouts();
-
-    if (!rolloutPool.isBackedUp())
+    lAllTreesCompletelyExplored = true;
+    for (MCTSTree tree : factorTrees)
     {
-      result = true;
-
-      for(MCTSTree tree : factorTrees)
+      if (!tree.root.complete)
       {
-        if ( !tree.root.complete )
+        if (ThreadControl.ROLLOUT_THREADS > 0 && !forceSynchronous)
         {
-          result &= tree.growTree();
+          // If there's back-propagation work to do, do it now, in preference to more select/expand cycles because the
+          // back-propagation will mean that subsequent select/expand cycles are more accurate.
+          processCompletedRollouts(false);
         }
+
+        // Perform an MCTS iteration.
+        lAllTreesCompletelyExplored &= tree.growTree(forceSynchronous);
       }
     }
-    else
-    {
-      result = false;
-    }
 
-    return result;
+    return lAllTreesCompletelyExplored;
   }
 
   public int getNumIterations()
   {
     return numIterations;
+  }
+
+  public int getNumRollouts()
+  {
+    int result = 0;
+
+    for (MCTSTree tree : factorTrees)
+    {
+      result += tree.numNonTerminalRollouts;
+    }
+
+    return result;
   }
 
   private boolean searchAvailable() throws InterruptedException
@@ -319,22 +351,39 @@ class GameSearcher implements Runnable, ActivityController
     return true;
   }
 
-  public void startSearch(long moveTimeout,
-                          ForwardDeadReckonInternalMachineState startState) throws GoalDefinitionException
+  /**
+   * @return the pipeline being used by this game searcher.
+   */
+  public Pipeline getPipeline()
   {
+    return mPipeline;
+  }
+
+  public void startSearch(long moveTimeout,
+                          ForwardDeadReckonInternalMachineState startState,
+                          int rootDepth) throws GoalDefinitionException
+  {
+
+    // Print out some statistics from last turn.
+    System.out.println("Last time...");
+    System.out.println("  Number of MCTS iterations: " + mNumIterations);
+    if ( !useSearchThreadToRolloutWhenBlocked )
+    {
+      System.out.println("  Tree thread blocked for:   " + mBlockedFor / 1000000 + "ms");
+      mBlockedFor = 0;
+    }
+    mNumIterations = 0;
+
     System.out.println("Start move search...");
     synchronized (this)
     {
-      //  Process anything left over from last turn's timeout
-      processCompletedRollouts();
-
       for(MCTSTree tree : factorTrees)
       {
-        tree.setRootState(startState);
+        tree.setRootState(startState, rootDepth);
       }
 
-      rolloutPool.lowestRolloutScoreSeen = 1000;
-      rolloutPool.highestRolloutScoreSeen = -100;
+      lowestRolloutScoreSeen = 1000;
+      highestRolloutScoreSeen = -100;
 
       moveTime = moveTimeout;
       startTime = System.currentTimeMillis();
@@ -348,47 +397,91 @@ class GameSearcher implements Runnable, ActivityController
   @Override
   public void requestYield(boolean state)
   {
+    // !! ARR This is a bit course.  We could pass more useful messages about the desired state (including whether we
+    // !! ARR should be spinning through outstanding work from a previous turn, whether this is an emergency stop
+    // !! ARR request, etc.)
     requestYield = state;
   }
 
   @Override
   public Object getSerializationObject()
   {
+    // !! ARR Who locks against us (Sancho thread) and why (to start a new turn and all that entails + termination)?
+    // !! ARR But can we do better and not have any other threads needing to access the tree / state machine / etc.?
     return this;
   }
 
-  private void processCompletedRollouts()
+  void processCompletedRollouts(boolean xiNeedToDoOne) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
-    //ProfileSection methodSection = new ProfileSection("processCompletedRollouts");
-    //try
-    //{
-    RolloutRequest request;
+    boolean canBackPropagate;
 
-    while ((request = rolloutPool.completedRollouts.poll()) != null)
+    while ((canBackPropagate = mPipeline.canBackPropagate()) || xiNeedToDoOne)
     {
-      TreeNode node = request.node.node;
+      if (!useSearchThreadToRolloutWhenBlocked)
+      {
+        if (xiNeedToDoOne)
+        {
+          mBlockedFor -= System.nanoTime();
+        }
+      }
+
+      if ( useSearchThreadToRolloutWhenBlocked )
+      {
+        if (xiNeedToDoOne && !canBackPropagate && mGameCharacteristics.getRolloutSampleSize() == 1)
+        {
+          //  If the rollout threads are not keeping up and the pipeline
+          //  is full then perform an expansion synchronously while we
+          //  wait for the rollout pool to have results for us
+          expandSearch(true);
+          continue;
+        }
+      }
+
+      RolloutRequest lRequest = mPipeline.getNextRequestForBackPropagation();
+
+      if (!useSearchThreadToRolloutWhenBlocked)
+      {
+        if (xiNeedToDoOne)
+        {
+          mBlockedFor += System.nanoTime();
+        }
+      }
+
+      if ( longestObservedLatency < lRequest.mQueueLatency )
+      {
+        longestObservedLatency = lRequest.mQueueLatency;
+      }
+      averageLatency = (averageLatency*numCompletedRollouts + lRequest.mQueueLatency)/(numCompletedRollouts+1);
+      numCompletedRollouts++;
+
+      // Update min/max scores.
+      if (lRequest.mMaxScore > highestRolloutScoreSeen)
+      {
+        highestRolloutScoreSeen = lRequest.mMaxScore;
+      }
+
+      if (lRequest.mMinScore < lowestRolloutScoreSeen)
+      {
+        lowestRolloutScoreSeen = lRequest.mMinScore;
+      }
 
       //masterMoveWeights.accumulate(request.playedMoveWeights);
 
-      if (request.node.seq == node.seq && !node.complete)
+      TreeNode node = lRequest.mNode.node;
+      if (lRequest.mNode.seq == node.seq && !node.complete)
       {
-        request.path.resetCursor();
-        //validateAll();
-        node.updateStats(request.averageScores,
-                         request.averageSquaredScores,
-                         request.sampleSize,
-                         request.path,
+        lRequest.mPath.resetCursor();
+        node.updateStats(lRequest.mAverageScores,
+                         lRequest.mAverageSquaredScores,
+                         lRequest.mSampleSize,
+                         lRequest.mPath,
                          false);
-        //validateAll();
       }
 
-      rolloutPool.numCompletedRollouts++;
+      mPipeline.completedBackPropagation();
+      xiNeedToDoOne = false;
+      mNumIterations++;
     }
-    //}
-    //finally
-    //{
-    //  methodSection.exitScope();
-    //}
   }
 
   public void terminate()

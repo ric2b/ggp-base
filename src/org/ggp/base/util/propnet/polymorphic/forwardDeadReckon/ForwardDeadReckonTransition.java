@@ -12,9 +12,15 @@ public final class ForwardDeadReckonTransition extends
                                                                         implements
                                                                         PolymorphicTransition
 {
-  private ForwardDeadReckonInternalMachineState[]        owningTransitionInfoSet = null;
-  private ForwardDeadReckonPropositionInfo               transitionInfo          = null;
+  private ForwardDeadReckonComponentTransitionNotifier[]        owningTransitionInfoSet = null;
+  private int                                                   associatedPropositionIndex          = -1;
 
+  /**
+   * Construct a new TRANSITION component
+   *
+   * @param numOutputs Number of outputs if known, else -1.  If a specific number (other than -1)
+   *        is specified then no subsequent changes to the outputs are permitted
+   */
   public ForwardDeadReckonTransition(int numOutputs)
   {
     super(1, numOutputs);
@@ -25,7 +31,15 @@ public final class ForwardDeadReckonTransition extends
                                    int instanceId,
                                    ForwardDeadReckonComponent source)
   {
-    cachedValue[instanceId] = newState;
+    if ( newState )
+    {
+      state[instanceId] |= cachedStateMask;
+    }
+    else
+    {
+      state[instanceId] &= ~cachedStateMask;
+    }
+
     if (owningTransitionInfoSet[instanceId] != null)
     {
       //ProfileSection methodSection = new ProfileSection("ForwardDeadReckonTransition.legalStateChange");
@@ -33,11 +47,11 @@ public final class ForwardDeadReckonTransition extends
       {
         if (newState)
         {
-          owningTransitionInfoSet[instanceId].add(transitionInfo);
+          owningTransitionInfoSet[instanceId].add(associatedPropositionIndex);
         }
         else
         {
-          owningTransitionInfoSet[instanceId].remove(transitionInfo);
+          owningTransitionInfoSet[instanceId].remove(associatedPropositionIndex);
         }
       }
       //finally
@@ -47,12 +61,28 @@ public final class ForwardDeadReckonTransition extends
     }
   }
 
-  public void setTransitionSet(ForwardDeadReckonPropositionInfo transitionInfo,
+  /**
+   * Set an instance of a notification handler to be called when this transition
+   * changes value
+   * @param triggerIndex notification index to raise (actually opaque at this level)
+   * @param instanceId Instance this notifier is bound for
+   * @param propositionTransitionNotifier notifier to call
+   */
+  public void setTransitionSet(int triggerIndex,
                                int instanceId,
-                               ForwardDeadReckonInternalMachineState owningSet)
+                               ForwardDeadReckonComponentTransitionNotifier propositionTransitionNotifier)
   {
-    this.owningTransitionInfoSet[instanceId] = owningSet;
-    this.transitionInfo = transitionInfo;
+    owningTransitionInfoSet[instanceId] = propositionTransitionNotifier;
+    associatedPropositionIndex = triggerIndex;
+  }
+
+  /**
+   * Retrieve the trigger index (if any) associated with this proposition
+   * @return associated trigger index, or -1 if none
+   */
+  public int getAssociatedPropositionIndex()
+  {
+    return associatedPropositionIndex;
   }
 
   @Override

@@ -1,108 +1,60 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-
-import org.ggp.base.util.statemachine.Role;
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class RolloutProcessorPool
 {
-  LinkedBlockingQueue<RolloutRequest>                  queuedRollouts                              = new LinkedBlockingQueue<>();
-  ConcurrentLinkedQueue<RolloutRequest>                completedRollouts                           = new ConcurrentLinkedQueue<>();
-  public int                                           numQueuedRollouts                           = 0;
-  public int                                           numCompletedRollouts                        = 0;
-  public int                                           dequeuedRollouts                            = 0;
-  public int                                           enqueuedCompletedRollouts                   = 0;
-  private int                                          numRolloutThreads;
-  private int                                          maxOutstandingRolloutRequests;
-  private RolloutProcessor[]                           rolloutProcessors                           = null;
-  public int                                           numRoles;
-  public Role                                          ourRole;
-  public RoleOrdering                                  roleOrdering                                = null;
-  private ForwardDeadReckonPropnetStateMachine         underlyingStateMachine;
-  public int highestRolloutScoreSeen;
-  public int lowestRolloutScoreSeen;
+  private final Pipeline                               mPipeline;
+  private final RolloutProcessor[]                     mRolloutProcessors;
 
-  public RolloutProcessorPool(int numThreads, ForwardDeadReckonPropnetStateMachine underlyingStateMachine, Role ourRole)
+  /**
+   * Create a pool of rollout processors.
+   *
+   * @param xiPipeline - the work pipeline.
+   * @param xiUnderlyingStateMachine - the underlying state machine.
+   * @param xiCharacteristics - game characteristics.
+   * @param xiRoleOrdering - the role ordering.
+   */
+  public RolloutProcessorPool(Pipeline xiPipeline,
+                              ForwardDeadReckonPropnetStateMachine xiUnderlyingStateMachine,
+                              RuntimeGameCharacteristics xiCharacteristics,
+                              RoleOrdering xiRoleOrdering)
   {
-    numRolloutThreads = numThreads;
-    maxOutstandingRolloutRequests = numThreads;
-    rolloutProcessors = new RolloutProcessor[numThreads];
-    numRoles = underlyingStateMachine.getRoles().size();
-    this.ourRole = ourRole;
-    this.underlyingStateMachine = underlyingStateMachine;
-
-    for (int i = 0; i < numThreads; i++)
+    mPipeline = xiPipeline;
+    mRolloutProcessors = new RolloutProcessor[ThreadControl.ROLLOUT_THREADS];
+    for (int lii = 0; lii < ThreadControl.ROLLOUT_THREADS; lii++)
     {
-      rolloutProcessors[i] = new RolloutProcessor(this, underlyingStateMachine.createInstance());
-      rolloutProcessors[i].start();
+      mRolloutProcessors[lii] = new RolloutProcessor(lii,
+                                                     mPipeline,
+                                                     xiUnderlyingStateMachine.createInstance(),
+                                                     xiCharacteristics,
+                                                     xiRoleOrdering);
     }
   }
 
-  public void setRoleOrdering(RoleOrdering ordering)
-  {
-    roleOrdering = ordering;
-  }
-
-  public boolean isBackedUp() throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
-  {
-    if (numRolloutThreads == 0)
-    {
-      while (!queuedRollouts.isEmpty())
-      {
-        RolloutRequest request = queuedRollouts.remove();
-
-        request.process(underlyingStateMachine);
-      }
-
-      return false;
-    }
-
-    int numOutstandingRollouts = numQueuedRollouts - numCompletedRollouts;
-
-    if (numOutstandingRollouts < maxOutstandingRolloutRequests)
-    {
-      return false;
-    }
-
-    Thread.yield();
-    return true;
-   }
-
+  /**
+   * Stop all rollout processors.
+   */
   public void stop()
   {
-    if (rolloutProcessors != null)
-    {
-      System.out.println("Stop rollout processors");
-      for (int i = 0; i < numRolloutThreads; i++)
-      {
-        rolloutProcessors[i].stop();
-      }
+    System.out.println("Stop rollout processors");
 
-      rolloutProcessors = null;
+    for (int lii = 0; lii < ThreadControl.ROLLOUT_THREADS; lii++)
+    {
+      mRolloutProcessors[lii].stop();
     }
+
+    System.out.println("Finished stopping rollout processors");
   }
 
+  /**
+   * Disable greedy rollouts for all rollout processors.
+   */
   public void disableGreedyRollouts()
   {
-    for (int i = 0; i < numRolloutThreads; i++)
+    for (int ii = 0; ii < ThreadControl.ROLLOUT_THREADS; ii++)
     {
-      rolloutProcessors[i].disableGreedyRollouts();
+      mRolloutProcessors[ii].disableGreedyRollouts();
     }
-  }
-
-  public RolloutRequest createRolloutRequest()
-  {
-    return new RolloutRequest(this);
-  }
-
-  public void enqueueRequest(RolloutRequest request) throws InterruptedException
-  {
-    numQueuedRollouts++;
-    queuedRollouts.put(request);
   }
 }

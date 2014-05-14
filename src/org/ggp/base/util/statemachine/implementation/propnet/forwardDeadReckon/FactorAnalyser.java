@@ -1,8 +1,11 @@
 package org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -29,45 +32,180 @@ public class FactorAnalyser
   static final private GdlConstant    DOES  = GdlPool.getConstant("does");
   static final private GdlConstant    BASE  = GdlPool.getConstant("base");
 
-  private class DependencyInfo
+  private DependencyCache componentDirectBaseDependencies;
+  private Map<PolymorphicComponent, DependencyInfo> basePropositionDependencies = new HashMap<>();
+  private int numBaseProps;
+  private Collection<PolymorphicProposition> basePropositions;
+
+  private class DirectDependencyInfo
+  {
+    public Set<PolymorphicProposition>  dependencies = new HashSet<>();
+    public Set<Move>                    moves = new HashSet<>();
+
+    public DirectDependencyInfo()
+    {
+    }
+
+    public void add(DirectDependencyInfo other)
+    {
+      dependencies.addAll(other.dependencies);
+      moves.addAll(other.moves);
+    }
+
+    public void buildImmediateBaseDependencies(PolymorphicComponent c)
+    {
+      FactorAnalyser.this.buildImmediateBaseDependencies(c, this);
+    }
+  }
+
+  //  An LRU cache is used to cache component dependencies.  The size of this
+  //  cache is a trade-off between performance of walking the dependency graph
+  //  and memory consumption (which can equate to performance via GC time)
+  private class DependencyInfo extends DirectDependencyInfo
   {
     public DependencyInfo()
     {
     }
 
-    public Set<PolymorphicProposition>  dependencies = new HashSet<>();
-    public Set<Move>                    moves = new HashSet<>();
+    @Override
+    public void buildImmediateBaseDependencies(PolymorphicComponent c)
+    {
+      FactorAnalyser.this.buildImmediateBaseDependencies(c, this);
+
+      //  The 0th level dependencies are the immediate dependencies
+      dependenciesByLevel.add(new HashSet<>(dependencies));
+      movesByLevel.add(new HashSet<>(moves));
+    }
+
+    public List<Set<PolymorphicProposition>>  dependenciesByLevel = new ArrayList<>();
+    public List<Set<Move>>  movesByLevel = new ArrayList<>();
   }
 
-  private Map<PolymorphicProposition, DependencyInfo> baseDependencies = new HashMap<>();
+  private class DependencyCache
+  extends
+  LinkedHashMap<PolymorphicComponent, DirectDependencyInfo>
+  {
+    /**
+     *
+     */
+    private static final long serialVersionUID = 1L;
+    private int               maxEntries;
+
+    public DependencyCache(int capacity)
+    {
+      super(capacity + 1, 1.0f, true);
+      maxEntries = capacity;
+    }
+
+    @Override
+    protected boolean removeEldestEntry(final Map.Entry<PolymorphicComponent, DirectDependencyInfo> eldest)
+    {
+      return super.size() > maxEntries;
+    }
+  }
 
   public FactorAnalyser(ForwardDeadReckonPropnetStateMachine stateMachine)
   {
     this.stateMachine = stateMachine;
+    basePropositions = stateMachine.getFullPropNet().getBasePropositions().values();
+    numBaseProps = basePropositions.size();
+    componentDirectBaseDependencies = new DependencyCache(5000);
+  }
+
+  private DirectDependencyInfo getComponentDirectDependencies(PolymorphicComponent c)
+  {
+    if ( basePropositions.contains(c) )
+    {
+      if ( !basePropositionDependencies.containsKey(c))
+      {
+        DependencyInfo newInfo = new DependencyInfo();
+
+        //  Do the put into the map BEFORE trying to recurse as otherwise loops
+        //  will be infinite!
+        basePropositionDependencies.put(c, newInfo);
+        newInfo.buildImmediateBaseDependencies(c);
+
+        return newInfo;
+      }
+
+      return basePropositionDependencies.get(c);
+    }
+    else if ( !componentDirectBaseDependencies.containsKey(c) )
+    {
+      DirectDependencyInfo newInfo = new DirectDependencyInfo();
+
+      //  Do the put into the map BEFORE trying to recurse as otherwise loops
+      //  will be infinite!  We also cache components with many inputs, as they will
+      //  be expensive to recalculate
+      if ( c instanceof PolymorphicProposition || c.getInputs().size() > 5 )
+      {
+        componentDirectBaseDependencies.put(c, newInfo);
+      }
+      newInfo.buildImmediateBaseDependencies(c);
+
+      return newInfo;
+    }
+
+    return componentDirectBaseDependencies.get(c);
   }
 
   /**
    * @return  Number of factors identified
    */
-  public Set<Factor> analyse()
+  public Set<Factor> analyse(long timeout)
   {
     Set<Factor>  factors = new HashSet<>();
+    int basePropsProcessed = 0;
+    long startTime = System.currentTimeMillis();
 
-    //  Find the base dependencies of every base, transitting through input props to their
-    //  associated legals
-    for(PolymorphicProposition baseProp : stateMachine.getFullPropNet().getBasePropositions().values())
+    //  Construct the full closure of base dependencies
+    for(PolymorphicProposition baseProp : basePropositions)
     {
-      //System.out.println("Build dependencies for: " + baseProp);
-      baseDependencies.put(baseProp, buildBaseDependencies(baseProp));
-    }
+      DependencyInfo dInfo = (DependencyInfo)getComponentDirectDependencies(baseProp);
+      int depth = 1;
 
-    //  Now find subsets of the base props that are closed under the dependency relation
-    //  Start by finding the closure for each base prop
-    Map<PolymorphicProposition,Set<PolymorphicProposition>> dependencyClosures = new HashMap<>();
+      Set<PolymorphicProposition> dependenciesAtDepth;
+      Set<Move> movesAtDepth;
+      do
+      {
+        dependenciesAtDepth = new HashSet<>();
+        dInfo.dependenciesByLevel.add(dependenciesAtDepth);
+        movesAtDepth = new HashSet<>();
+        dInfo.movesByLevel.add(movesAtDepth);
 
-    for(PolymorphicProposition baseProp : stateMachine.getFullPropNet().getBasePropositions().values())
-    {
-      dependencyClosures.put(baseProp, findDependencyClosure(baseProp));
+        for(PolymorphicProposition fringeDependency : dInfo.dependenciesByLevel.get(depth-1))
+        {
+          dependenciesAtDepth.addAll(getComponentDirectDependencies(fringeDependency).dependencies);
+          movesAtDepth.addAll(getComponentDirectDependencies(fringeDependency).moves);
+
+          if ( dependenciesAtDepth.size() >= numBaseProps )
+          {
+            break;
+          }
+        }
+
+        dependenciesAtDepth.removeAll(dInfo.dependencies);
+        movesAtDepth.removeAll(dInfo.moves);
+
+        dInfo.dependencies.addAll(dependenciesAtDepth);
+        dInfo.moves.addAll(movesAtDepth);
+
+        depth++;
+      } while(!dependenciesAtDepth.isEmpty() && dInfo.dependencies.size() < numBaseProps);
+
+      //  If we find a base prop that depends on more than 2/3rds of the others assume we're not
+      //  going to be able to factorize and stop wasting time on the factorization analysis
+      if ( dInfo.dependencies.size() > (numBaseProps*2)/3 )
+      {
+        return null;
+      }
+
+      //  If the analysis is just taking too long give up
+      if ( System.currentTimeMillis() > startTime + timeout )
+      {
+        System.out.println("Factorization analysis timed out after " + (System.currentTimeMillis() - startTime) + "ms");
+        return null;
+      }
     }
 
     //  Now look for pure disjunctive inputs to goal and terminal
@@ -81,9 +219,9 @@ public class FactorAnalyser
     Set<PolymorphicComponent> controlOnlyInputs = new HashSet<>();
     Set<PolymorphicProposition> controlSet = new HashSet<>();
 
-    for(PolymorphicProposition baseProp : stateMachine.getFullPropNet().getBasePropositions().values())
+    for(PolymorphicProposition baseProp : basePropositions)
     {
-      DependencyInfo dInfo = baseDependencies.get(baseProp);
+      DependencyInfo dInfo = (DependencyInfo)getComponentDirectDependencies(baseProp);
 
       if ( dInfo.moves.isEmpty() )
       {
@@ -137,7 +275,7 @@ public class FactorAnalyser
 
     for( Entry<PolymorphicComponent, DependencyInfo> e : disjunctiveInputs.entrySet())
     {
-      if ( e.getValue().dependencies.size() > (stateMachine.getFullPropNet().getBasePropositions().size() - controlSet.size())/2 )
+      if ( e.getValue().dependencies.size() > (numBaseProps - controlSet.size())/2 )
       {
         ignorableDisjuncts.add(e.getKey());
       }
@@ -216,16 +354,6 @@ public class FactorAnalyser
     return (factors.size() > 1 ? factors : null);
   }
 
-  private DependencyInfo buildBaseDependencies(PolymorphicProposition p)
-  {
-    DependencyInfo result = new DependencyInfo();
-    Set<PolymorphicComponent> visited = new HashSet<>();
-
-    recursiveBuildBaseDependencies(p, p, result, visited);
-
-    return result;
-  }
-
   private void addDisjunctiveInputProps(PolymorphicComponent c, Map<PolymorphicComponent, DependencyInfo> disjunctiveInputs)
   {
     recursiveAddDisjunctiveInputProps(c.getSingleInput(), disjunctiveInputs);
@@ -243,51 +371,35 @@ public class FactorAnalyser
     else
     {
       //  For each disjunctive input find the base props it is dependent on
-      DependencyInfo dependencies = new DependencyInfo();
-      Set<PolymorphicComponent> visited = new HashSet<>();
+      DirectDependencyInfo immediateDependencies = getComponentDirectDependencies(c);
 
-      recursiveBuildBaseDependencies(null, c, dependencies, visited);
-      disjunctiveInputs.put(c, dependencies);
+      DependencyInfo fullDependencies = new DependencyInfo();
+
+      //  Construct the full dependencies from the already calculated base dependencies map
+      for(PolymorphicProposition p : immediateDependencies.dependencies)
+      {
+        DirectDependencyInfo immediateDependentDependencies = getComponentDirectDependencies(p);
+
+        fullDependencies.add(immediateDependentDependencies);
+        if ( fullDependencies.dependencies.size() >= numBaseProps )
+        {
+          break;
+        }
+      }
+      disjunctiveInputs.put(c, fullDependencies);
     }
   }
 
-  private Set<PolymorphicProposition> findDependencyClosure(PolymorphicProposition p)
+  DirectDependencyInfo buildImmediateBaseDependencies(PolymorphicComponent xiC, DirectDependencyInfo result)
   {
-    Set<PolymorphicProposition> result = new HashSet<>();
-
-    recursiveBuildDependencyClosure(p, result);
+    recursiveBuildImmediateBaseDependencies(xiC, xiC, result);
 
     return result;
   }
 
-  private void recursiveBuildDependencyClosure(PolymorphicProposition p, Set<PolymorphicProposition> closure)
-  {
-    if ( closure.contains(p))
-    {
-      return;
-    }
-
-    DependencyInfo dInfo = baseDependencies.get(p);
-    if ( dInfo != null )
-    {
-      closure.add(p);
-      for(PolymorphicProposition dependency : dInfo.dependencies)
-      {
-        recursiveBuildDependencyClosure(dependency, closure);
-      }
-    }
-  }
-
   //  Return true if at least one dependency involved transitioning across a does->legal relationship
-  private void recursiveBuildBaseDependencies(PolymorphicProposition root, PolymorphicComponent c, DependencyInfo dInfo, Set<PolymorphicComponent> visited)
+  private void recursiveBuildImmediateBaseDependencies(PolymorphicComponent root, PolymorphicComponent c, DirectDependencyInfo dInfo)
   {
-    if ( visited.contains(c))
-    {
-      return;
-    }
-
-    visited.add(c);
-
     //System.out.println("  ...trace back through: " + c);
     if ( c instanceof PolymorphicProposition )
     {
@@ -299,19 +411,13 @@ public class FactorAnalyser
       PolymorphicProposition p = (PolymorphicProposition)c;
       GdlConstant name = p.getName().getName();
 
-      if ( stateMachine.getFullPropNet().getBasePropositions().containsValue(p))
+      if ( basePropositions.contains(p))
       {
-        if ( baseDependencies.containsKey(p))
+        dInfo.dependencies.add(p);
+        if ( root != p )
         {
-          DependencyInfo ancestorKnownDependencies = baseDependencies.get(p);
-
-          dInfo.dependencies.addAll(ancestorKnownDependencies.dependencies);
-          dInfo.moves.addAll(ancestorKnownDependencies.moves);
           return;
         }
-
-        dInfo.dependencies.add(p);
-        root = p;
       }
 
       if (name.equals(INIT) )
@@ -327,11 +433,16 @@ public class FactorAnalyser
 
           if ( legalProp != null )
           {
-            recursiveBuildBaseDependencies(root, legalProp, dInfo, visited);
-            dInfo.moves.add(new Move(legalProp.getName().getBody().get(1)));
-            return;
+            DirectDependencyInfo legalPropInfo = getComponentDirectDependencies(legalProp);
+
+            dInfo.add(legalPropInfo);
+
+            Move move = new Move(legalProp.getName().getBody().get(1));
+            dInfo.moves.add(move);
           }
         }
+
+        return;
       }
     }
 
@@ -375,14 +486,18 @@ public class FactorAnalyser
           {
             if ( !inputPropsOred.contains(input))
             {
-              recursiveBuildBaseDependencies(root, input, dInfo, visited);
+              DirectDependencyInfo inputPropInfo = getComponentDirectDependencies(input);
+
+              dInfo.add(inputPropInfo);
             }
           }
           for(PolymorphicComponent input : inputProps)
           {
             if ( !inputPropsOred.contains(input))
             {
-              recursiveBuildBaseDependencies(root, input, dInfo, visited);
+              DirectDependencyInfo inputPropInfo = getComponentDirectDependencies(input);
+
+              dInfo.add(inputPropInfo);
             }
           }
 
@@ -393,94 +508,15 @@ public class FactorAnalyser
 
     for(PolymorphicComponent input : c.getInputs())
     {
-      recursiveBuildBaseDependencies(root, input, dInfo, visited);
-    }
-  }
-
-  private void recursiveBuildFactorForwards(Factor factor, PolymorphicComponent c)
-  {
-    if ( factor.containsComponent(c))
-    {
-      return;
-    }
-
-    //  Terminal and goal and init props do not constitute factor links
-    if ( c instanceof PolymorphicProposition )
-    {
-      PolymorphicProposition p = (PolymorphicProposition)c;
-      GdlConstant name = p.getName().getName();
-
-      if (name.equals(INIT) || name.equals(LEGAL) || name.equals(GOAL) || name.equals(TERMINAL) )
+      if ( basePropositions.contains(input))
       {
-        return;
-      }
-
-      recursiveBuildFactorBackwards(factor, c);
-    }
-
-    factor.addComponent(c);
-
-    for(PolymorphicComponent output : c.getOutputs())
-    {
-      if ( output instanceof ForwardDeadReckonProposition )
-      {
-        ForwardDeadReckonProposition p = (ForwardDeadReckonProposition)output;
-
-        ForwardDeadReckonPropositionCrossReferenceInfo info = (ForwardDeadReckonPropositionCrossReferenceInfo)p.getInfo();
-        //  Only base props have info structures associated with them currently.  Any other props
-        //  we simply treat like generic components for the purposes of flowing factor colouring
-        //  through them
-        if ( info != null )
-        {
-          info.factor = factor;
-        }
-      }
-
-      recursiveBuildFactorForwards(factor, output);
-    }
-  }
-
-  private void recursiveBuildFactorBackwards(Factor factor, PolymorphicComponent c)
-  {
-    if ( factor.containsComponent(c))
-    {
-      return;
-    }
-
-    factor.addComponent(c);
-
-    //  Terminal and goal and init props do not constitute factor links
-    if ( c instanceof PolymorphicProposition )
-    {
-      PolymorphicProposition p = (PolymorphicProposition)c;
-      GdlConstant name = p.getName().getName();
-
-      if (name.equals(INIT) || name.equals(GOAL) || name.equals(TERMINAL) )
-      {
-        return;
-      }
-    }
-
-    for(PolymorphicComponent input : c.getInputs())
-    {
-      if ( input instanceof ForwardDeadReckonProposition )
-      {
-        ForwardDeadReckonProposition p = (ForwardDeadReckonProposition)input;
-
-        ForwardDeadReckonPropositionCrossReferenceInfo info = (ForwardDeadReckonPropositionCrossReferenceInfo)p.getInfo();
-
-        //  Only base props have info structures associated with them currently.  Any other props
-        //  we simply treat like generic components for the purposes of flowing factor colouring
-        //  through them
-        if ( info != null )
-        {
-          info.factor = factor;
-        }
-        recursiveBuildFactorForwards(factor, input);
+        dInfo.dependencies.add((PolymorphicProposition)input);
       }
       else
       {
-        recursiveBuildFactorBackwards(factor, input);
+        DirectDependencyInfo inputPropInfo = getComponentDirectDependencies(input);
+
+        dInfo.add(inputPropInfo);
       }
     }
   }

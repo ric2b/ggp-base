@@ -40,7 +40,7 @@ public class PearsonCorrelation
 
     double lCorrelation = ((productSum - (lNumSamples * mStat1.getMean() * mStat2.getMean())) /
                            ((lNumSamples - 1) * lStdDev1 * lStdDev2));
-    assert(Math.abs(lCorrelation) <= 1);
+    assert(Math.abs(lCorrelation) <= 1.0001) : "Invalid correlation: " + lCorrelation;
 
     return lCorrelation;
   }

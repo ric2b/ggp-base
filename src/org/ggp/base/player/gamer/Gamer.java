@@ -35,6 +35,7 @@ public abstract class Gamer implements Subject
   private Match       match;
   private GdlConstant roleName;
   private GDLTranslator mGDLTranslator;
+  private int         port;
 
   public Gamer()
   {
@@ -91,6 +92,24 @@ public abstract class Gamer implements Subject
   public ConfigPanel getConfigPanel()
   {
     return new EmptyConfigPanel();
+  }
+
+  /**
+   * Setter
+   * @param thePort Note the port this gamer is playing on
+   */
+  public void notePort(int thePort)
+  {
+    port = thePort;
+  }
+
+  /**
+   * Getter
+   * @return the port this gamer is playing on
+   */
+  public int getPort()
+  {
+    return port;
   }
 
   /**

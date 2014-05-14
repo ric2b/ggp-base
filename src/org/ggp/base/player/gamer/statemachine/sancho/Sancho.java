@@ -1,4 +1,3 @@
-
 package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.security.InvalidParameterException;
@@ -35,11 +34,6 @@ public class Sancho extends SampleGamer
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
   public Role                         ourRole;
-  private final boolean               runSynchronously                = false; //	Set to run everything on one thread to eliminate concurrency issues when debugging
-  private boolean                     halfStrength                    = false;
-  private int                         numRolloutThreads               = runSynchronously ? 0 :
-                                                                        halfStrength ? ((((Runtime.getRuntime().availableProcessors() + 1) / 2) + 1) / 2) :
-                                                                                         ((Runtime.getRuntime().availableProcessors() + 1) / 2);
   private String                      planString                      = null;
   private Queue<Move>                 plan                            = null;
   private int                         transpositionTableSize          = 2000000;
@@ -51,13 +45,27 @@ public class Sancho extends SampleGamer
   private int                         MinRawNetScore                  = 0;
   private int                         MaxRawNetScore                  = 100;
   private int                         multiRoleAverageScoreDiff       = 0;
+  private int                         currentMoveDepth                = 0;
   private boolean                     underExpectedRangeScoreReported = false;
   private boolean                     overExpectedRangeScoreReported  = false;
   private TargetedSolutionStatePlayer puzzlePlayer                    = null;
   private GameSearcher                searchProcessor                 = null;
+  private static final boolean        ASSERTIONS_ENABLED;
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
+
+  static
+  {
+    boolean lAssertionsEnabled = false;
+    assert ((lAssertionsEnabled = true) == true);
+    ASSERTIONS_ENABLED = lAssertionsEnabled;
+
+    if (ASSERTIONS_ENABLED)
+    {
+      System.err.println("WARNING: Assertions are enabled - this will impact performance");
+    }
+  }
 
   @Override
   public void configure(int xiParamIndex, String xiParam)
@@ -157,28 +165,32 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.57";
+    return "Sancho 1.58";
   }
 
   @Override
   public StateMachine getInitialStateMachine()
   {
+    ThreadControl.CPUIdParity = (getPort()%2 == 0);
+    ThreadControl.reset();
+
     searchProcessor = new GameSearcher(transpositionTableSize);
 
-    if ( !runSynchronously )
+    if (!ThreadControl.RUN_SYNCHRONOUSLY)
     {
-      Thread lSearchProcessorThread = new Thread(searchProcessor,
-                                                 "Search Processor");
+      Thread lSearchProcessorThread = new Thread(searchProcessor, "Search Processor");
       lSearchProcessorThread.setDaemon(true);
       lSearchProcessorThread.start();
     }
 
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
-    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(1 + numRolloutThreads,
-                                                                          getRoleName());
+    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
+                                                                      getMetaGamingTimeout());
 
     System.gc();
+
+    currentMoveDepth = 0;
 
     return new StateMachineProxy(underlyingStateMachine, searchProcessor);
   }
@@ -204,6 +216,11 @@ public class Sancho extends SampleGamer
       throws TransitionDefinitionException, MoveDefinitionException,
       GoalDefinitionException
   {
+    if (ASSERTIONS_ENABLED)
+    {
+      System.err.println("WARNING: Assertions are enabled - this will impact performance");
+    }
+
     Random r = new Random();
     // If have been configured with a plan (for test purposes), load it now.
     // We'll still do everything else as normal, but whilst there are moves in
@@ -266,11 +283,18 @@ public class Sancho extends SampleGamer
 
     Collection<Factor> factors = underlyingStateMachine.getFactors();
 
+    // Find latches (just for 1-player games for now)
+    if (numRoles == 1)
+    {
+      underlyingStateMachine.findLatches();
+    }
+
     //	Perform a small number of move-by-move simulations to assess how
     //	the potential piece count heuristics behave at the granularity of
     //	a single decision
     long lMetaGameStartTime = System.currentTimeMillis();
     long lMetaGameStopTime = timeout - 5000;
+    int numSamples = 0;
 
     // Spend half the time determining heuristic weights
     long lHeuristicStopTime = (lMetaGameStartTime + lMetaGameStopTime) / 2;
@@ -368,9 +392,22 @@ public class Sancho extends SampleGamer
       heuristic.tuningTerminalStateSample(sampleState, roleScores);
 
       branchingFactorApproximation += (numBranchesTaken / numRoleMovesSimulated);
+      numSamples++;
     }
 
-    branchingFactorApproximation /= 50;
+    //  If we were able to run very few samples only don't make non-default
+    //  assumptions about the game based on the inadequate sampling
+    if ( numSamples < 100 )
+    {
+      gameCharacteristics.isIteratedGame = false;
+      heuristic.pruneAll();
+
+      System.out.println("Insufficient sampling time to reliably ascertain game characteristics");
+    }
+    else
+    {
+      branchingFactorApproximation /= numSamples;
+    }
 
     if (gameCharacteristics.isSimultaneousMove || gameCharacteristics.isPseudoSimultaneousMove)
     {
@@ -380,14 +417,16 @@ public class Sancho extends SampleGamer
         underlyingStateMachine.disableGreedyRollouts();
       }
     }
+    //greedyRolloutsDisabled = true;
+    //underlyingStateMachine.disableGreedyRollouts();
 
     //  If we detected that moves from multiple factors are valid in the same turn
     //  then flag the factors as requiring the inclusion of a pseudo-noop as a valid
     //  search choice every move because we'll have to choose whether to play a move
     //  from one factor or another (imposing an artificial noop on the other)
-    if ( gameCharacteristics.moveChoicesFromMultipleFactors )
+    if (gameCharacteristics.moveChoicesFromMultipleFactors)
     {
-      for(Factor factor : factors)
+      for (Factor factor : factors)
       {
         factor.setAlwaysIncludePseudoNoop(true);
       }
@@ -490,6 +529,11 @@ public class Sancho extends SampleGamer
       gameCharacteristics.isIteratedGame = false;
     }
 
+    if ( maxNumTurns == minNumTurns )
+    {
+      gameCharacteristics.setIsFixedMoveCount();
+    }
+
     //  Dump the game characteristics to trace output
     gameCharacteristics.report();
 
@@ -590,8 +634,7 @@ public class Sancho extends SampleGamer
       System.out.println("Puzzle with no observed solution");
 
       MachineState terminalState;
-      Set<MachineState> goalStates = underlyingStateMachine
-          .findGoalStates(getRole(), 90, 100, 20);
+      Set<MachineState> goalStates = underlyingStateMachine.findGoalStates(getRole(), 90, 100, 20);
       //Set<MachineState> goalStates = underlyingStateMachine.findTerminalStates(100,20);
       Set<MachineState> cleanedStates = new HashSet<>();
 
@@ -635,8 +678,7 @@ public class Sancho extends SampleGamer
 
         if (targetStateSize < Math.max(2, initialState.size() / 2))
         {
-          System.out
-              .println("Unsuitable target state based on state elimination - ignoring");
+          System.out.println("Unsuitable target state based on state elimination - ignoring");
         }
         else
         {
@@ -656,8 +698,7 @@ public class Sancho extends SampleGamer
       observedMinNetScore = 0;
       observedMaxNetScore = 100;
 
-      System.out
-          .println("No score discrimination seen during simulation - resetting to [0,100]");
+      System.out.println("No score discrimination seen during simulation - resetting to [0,100]");
     }
 
     if (gameCharacteristics.isPuzzle)
@@ -676,7 +717,7 @@ public class Sancho extends SampleGamer
 
     int rolloutSampleSize;
 
-    if (numRolloutThreads == 0)
+    if (ThreadControl.ROLLOUT_THREADS == 0)
     {
       rolloutSampleSize = 1;
     }
@@ -691,30 +732,32 @@ public class Sancho extends SampleGamer
     }
 
     gameCharacteristics.setRolloutSampleSize(rolloutSampleSize);
-    System.out
-        .println(simulationsPerformed *
-                 1000 /
-                 (simulationStopTime - simulationStartTime) +
-                 " simulations/second performed - setting rollout sample size to " +
-                 rolloutSampleSize);
+    System.out.println(simulationsPerformed *
+                       1000 /
+                       (simulationStopTime - simulationStartTime) +
+                       " simulations/second performed - setting rollout sample size to " + rolloutSampleSize);
 
     if (ProfilerContext.getContext() != null)
     {
-      GamerLogger.log("GamePlayer", "Profile stats: \n" +
-                                    ProfilerContext.getContext().toString());
+      GamerLogger.log("GamePlayer", "Profile stats: \n" + ProfilerContext.getContext().toString());
     }
 
     if ((!gameCharacteristics.isIteratedGame || numRoles != 2) && puzzlePlayer == null)
     {
-      if (runSynchronously)
+      if (ThreadControl.RUN_SYNCHRONOUSLY)
       {
         gameCharacteristics.setExplorationBias(explorationBias);
       }
 
-      searchProcessor.setup(underlyingStateMachine, initialState, roleOrdering, gameCharacteristics, numRolloutThreads, greedyRolloutsDisabled, heuristic);
-      searchProcessor
-          .startSearch(System.currentTimeMillis() + 60000,
-                       new ForwardDeadReckonInternalMachineState(initialState));
+      searchProcessor.setup(underlyingStateMachine,
+                            initialState,
+                            roleOrdering,
+                            gameCharacteristics,
+                            greedyRolloutsDisabled,
+                            heuristic);
+      searchProcessor.startSearch(System.currentTimeMillis() + 60000,
+                                  new ForwardDeadReckonInternalMachineState(initialState),
+                                  0);
 
       try
       {
@@ -730,8 +773,7 @@ public class Sancho extends SampleGamer
 
   @Override
   public Move stateMachineSelectMove(long timeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
+    throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
   {
     // We get the current start time
     long start = System.currentTimeMillis();
@@ -765,8 +807,7 @@ public class Sancho extends SampleGamer
       }
     }
 
-    System.out.println("Setting search root, current time: " +
-                       System.currentTimeMillis());
+    System.out.println("Setting search root, current time: " + System.currentTimeMillis());
 
     if ((plan != null) && (!plan.isEmpty()))
     {
@@ -791,7 +832,8 @@ public class Sancho extends SampleGamer
       //emptyTree();
       //root = null;
       //validateAll();
-      searchProcessor.startSearch(finishBy, currentState);
+      searchProcessor.startSearch(finishBy, currentState, currentMoveDepth);
+      currentMoveDepth += numRoles;
 
       searchProcessor.requestYield(false);
 
@@ -802,9 +844,9 @@ public class Sancho extends SampleGamer
       {
         while (System.currentTimeMillis() < finishBy && !searchProcessor.isComplete())
         {
-          if (runSynchronously)
+          if (ThreadControl.RUN_SYNCHRONOUSLY)
           {
-            searchProcessor.expandSearch();
+            searchProcessor.expandSearch(true);
           }
           else
           {
@@ -910,16 +952,6 @@ public class Sancho extends SampleGamer
     flattenMoveSubLists(legalMoves, 0, jointMoves, partialJointMove);
   }
 
-  public void setNumThreads(int numThreads)
-  {
-    numRolloutThreads = numThreads;
-  }
-
-  public void setTranspositionTableSize(int tableSize)
-  {
-    transpositionTableSize = tableSize;
-  }
-
   @Override
   public void stateMachineStop()
   {
@@ -956,8 +988,11 @@ public class Sancho extends SampleGamer
     // Get our parent to tidy up too.
     cleanupAfterMatch();
 
-    // Prompt the JVM to do garbage collection, just we've hopefully just freed a lot of stuff.
-    System.gc();
+    // Prompt the JVM to do garbage collection, because we've hopefully just freed a lot of stuff.
+    for (int ii = 0; ii < 1000; ii++)
+    {
+      System.gc();
+      try {Thread.sleep(1);} catch (InterruptedException lEx) {/* Whatever */}
+    }
   }
-
 }

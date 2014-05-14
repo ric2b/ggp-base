@@ -11,6 +11,11 @@ import org.ggp.base.util.propnet.polymorphic.MultiInstanceComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 
+/**
+ * @author steve
+ *  Abstract base class for all components in the ForwardDeadReckon family
+ *  of PolymorphicComponents
+ */
 public abstract class ForwardDeadReckonComponent implements
                                                 PolymorphicComponent,
                                                 MultiInstanceComponent,
@@ -19,44 +24,73 @@ public abstract class ForwardDeadReckonComponent implements
   private static final long               serialVersionUID   = 352527628564121134L;
   /** The inputs to the component. */
   protected ForwardDeadReckonComponent[]  inputsArray        = null;
+  /**
+   * The single input if there is only 1 input (else undefined)
+   */
   protected ForwardDeadReckonComponent    singleInput        = null;
   /** The outputs of the component. */
   protected ForwardDeadReckonComponent[]  outputsArray       = null;
 
+  /**
+   * Propnet within which this component is a member
+   */
   protected ForwardDeadReckonPropNet      propNet            = null;
 
-  protected int                           inputIndex         = 0;
-  protected int                           outputIndex        = 0;
+  /**
+   * Current number of inputs
+   */
+  protected int                           inputCount         = 0;
+  /**
+   * Current number of outputs
+   */
+  protected int                           outputCount        = 0;
 
   private Set<ForwardDeadReckonComponent> inputsList;
   private Set<ForwardDeadReckonComponent> outputsList;
 
-  //	Empirically the overhead of queuing exceeds the overhead of
-  //	requiring slightly more propagation calls to reach equilibrium - for
-  //	games tested the extra calls are a tiny percentage
-  protected final boolean                 queuePropagation   = false;
+  /**
+   * Current state value for the component.  Two bits are reserved
+   * as flags for last propagated and current states, the remainder
+   * is opaque and usable by individual component subclasses as
+   * they see fit
+   */
+  protected int[]                         state;
+  /**
+   * Mask for flag bit signifying current state
+   */
+  protected final int                     cachedStateMask = 1<<31;
+  /**
+   * Mask for flag bit signifying last propagated state
+   */
+  protected final int                     lastPropagatedStateMask = 1<<30;
+  /**
+   * Mask for opaque non-flag bits that may be used freely by subclasses
+   */
+  protected final int                     opaqueValueMask = ~(cachedStateMask | lastPropagatedStateMask);
 
-  //protected boolean dirty;
-  protected boolean[]                     cachedValue;
-  protected boolean[]                     lastPropagatedValue;
-
-  public static int                       numPropagates      = 0;
-  public static int                       numGatesPropagated = 0;
-  public boolean[]                        hasQueuedForPropagation;
+  /**
+   * Unique id for this component.  Opaque at this level
+   */
+  public int                              id;
 
   private long                            signature          = 0;
 
   /**
-   * Creates a new Component with no inputs or outputs.
+   * Construct a new component
+   *
+   * @param numInputs Number of inputs if known, else -1.  If a specific number (other than -1)
+   *        is specified then no subsequent changes to the inputs are permitted
+   * @param numOutputs Number of outputs if known, else -1.  If a specific number (other than -1)
+   *        is specified then no subsequent changes to the outputs are permitted
    */
   public ForwardDeadReckonComponent(int numInputs, int numOutputs)
   {
     if (numInputs < 0 || numOutputs < 0)
     {
       inputsArray = null;
-      inputsList = new HashSet<ForwardDeadReckonComponent>();
+      inputsList = new HashSet<>();
       outputsArray = null;
-      outputsList = new HashSet<ForwardDeadReckonComponent>();
+      outputsList = new HashSet<>();
     }
     else
     {
@@ -66,9 +100,7 @@ public abstract class ForwardDeadReckonComponent implements
       outputsList = null;
     }
 
-    cachedValue = new boolean[1];
-    lastPropagatedValue = new boolean[1];
-    hasQueuedForPropagation = new boolean[1];
+    state = new int[1];
   }
 
   @Override
@@ -85,8 +117,8 @@ public abstract class ForwardDeadReckonComponent implements
       }
 
       inputsList = null;
-      inputIndex = index;
-      if (inputIndex > 0)
+      inputCount = index;
+      if (inputCount > 0)
       {
         singleInput = inputsArray[0];
       }
@@ -102,7 +134,7 @@ public abstract class ForwardDeadReckonComponent implements
       }
 
       outputsList = null;
-      outputIndex = index;
+      outputCount = index;
     }
   }
 
@@ -111,9 +143,7 @@ public abstract class ForwardDeadReckonComponent implements
   {
     crystalize();
 
-    cachedValue = new boolean[numInstances];
-    lastPropagatedValue = new boolean[numInstances];
-    hasQueuedForPropagation = new boolean[numInstances];
+    state = new int[numInstances];
   }
 
   @Override
@@ -174,9 +204,13 @@ public abstract class ForwardDeadReckonComponent implements
     }
   }
 
-  public void setPropnet(ForwardDeadReckonPropNet propNet)
+  /**
+   * Record the parent propNet to which this component belongs
+   * @param thePropNet1 parent propNet that owns the component
+   */
+  public void setPropnet(ForwardDeadReckonPropNet thePropNet1)
   {
-    this.propNet = propNet;
+    propNet = thePropNet1;
   }
 
   /**
@@ -199,11 +233,11 @@ public abstract class ForwardDeadReckonComponent implements
     }
     else
     {
-      if (inputIndex == 0)
+      if (inputCount == 0)
       {
         singleInput = (ForwardDeadReckonComponent)input;
       }
-      inputsArray[inputIndex++] = (ForwardDeadReckonComponent)input;
+      inputsArray[inputCount++] = (ForwardDeadReckonComponent)input;
     }
   }
 
@@ -222,7 +256,7 @@ public abstract class ForwardDeadReckonComponent implements
     }
     else
     {
-      outputsArray[outputIndex++] = (ForwardDeadReckonComponent)output;
+      outputsArray[outputCount++] = (ForwardDeadReckonComponent)output;
     }
   }
 
@@ -239,9 +273,9 @@ public abstract class ForwardDeadReckonComponent implements
     {
       return inputsList;
     }
-    LinkedList<ForwardDeadReckonComponent> result = new LinkedList<ForwardDeadReckonComponent>();
+    LinkedList<ForwardDeadReckonComponent> result = new LinkedList<>();
 
-    for (int i = 0; i < inputIndex; i++)
+    for (int i = 0; i < inputCount; i++)
     {
       result.add(inputsArray[i]);
     }
@@ -274,7 +308,7 @@ public abstract class ForwardDeadReckonComponent implements
       return outputsList;
     }
 
-    LinkedList<ForwardDeadReckonComponent> result = new LinkedList<ForwardDeadReckonComponent>();
+    LinkedList<ForwardDeadReckonComponent> result = new LinkedList<>();
 
     for (ForwardDeadReckonComponent c : outputsArray)
     {
@@ -309,7 +343,7 @@ public abstract class ForwardDeadReckonComponent implements
   @Override
   public boolean getValue()
   {
-    return cachedValue[0];
+    return (state[0] & cachedStateMask) != 0;
   }
 
   /**
@@ -320,22 +354,31 @@ public abstract class ForwardDeadReckonComponent implements
   @Override
   public boolean getValue(int instanceId)
   {
-    return cachedValue[instanceId];
+    return (state[instanceId] & cachedStateMask) != 0;
   }
 
+  /**
+   * Retrieve the state last propagated by this component
+   * @param instanceId Instance to retrieve for
+   * @return last propagated state for the specified instance
+   */
   public boolean getLastPropagatedValue(int instanceId)
   {
-    return lastPropagatedValue[instanceId];
+    return (state[instanceId] & lastPropagatedStateMask) != 0;
   }
 
+  /**
+   * Debug validation routine to check that the component state is
+   * self consistent given its inputs
+   */
   public void validate()
   {
-    for (int instanceId = 0; instanceId < cachedValue.length; instanceId++)
+    for (int instanceId = 0; instanceId < state.length; instanceId++)
     {
-      if (inputIndex == 1 &&
+      if (inputCount == 1 &&
           !(getSingleInput() instanceof PolymorphicTransition))
       {
-        if (cachedValue[instanceId] != inputsArray[0]
+        if (((state[instanceId] & cachedStateMask) != 0) != inputsArray[0]
             .getLastPropagatedValue(instanceId))
         {
           System.out.println("Validation failure for " + toString());
@@ -344,60 +387,50 @@ public abstract class ForwardDeadReckonComponent implements
     }
   }
 
-  public void queuePropagation(int instanceId)
-  {
-    //for(ForwardDeadReckonComponent output : outputsArray)
-    //{
-    //	output.validate();
-    //}
-    if (lastPropagatedValue[instanceId] != cachedValue[instanceId])
-    {
-      if (!hasQueuedForPropagation[instanceId] && outputIndex > 0)
-      {
-        hasQueuedForPropagation[instanceId] = true;
-        //numGatesPropagated++;
-
-        propNet.addToPropagateQueue(this, instanceId);
-      }
-    }
-  }
-
+  /**
+   * Propagate the component's value if it has changed
+   * @param instanceId
+   */
   public void propagate(int instanceId)
   {
-    //for(ForwardDeadReckonComponent output : outputsArray)
-    //{
-    //	output.validate();
-    //}
-
-    //System.out.println("Component " + Integer.toHexString(hashCode()) + " changing from " + lastPropagatedValue + " to " + cachedValue);
-    if (lastPropagatedValue[instanceId] != cachedValue[instanceId])
+    int stateVal = state[instanceId];
+    boolean cachedVal = ((stateVal & cachedStateMask) != 0);
+    if (((stateVal & lastPropagatedStateMask) != 0) != cachedVal)
     {
-      //numPropagates++;
       for (ForwardDeadReckonComponent output : outputsArray)
       {
-        output.setKnownChangedState(cachedValue[instanceId], instanceId, this);
+        output.setKnownChangedState(cachedVal, instanceId, this);
       }
 
-      lastPropagatedValue[instanceId] = cachedValue[instanceId];
+      if ( cachedVal )
+      {
+        state[instanceId] |= lastPropagatedStateMask;
+      }
+      else
+      {
+        state[instanceId] &= ~lastPropagatedStateMask;
+      }
     }
-
-    hasQueuedForPropagation[instanceId] = false;
-
-    //for(ForwardDeadReckonComponent output : outputsArray)
-    //{
-    //	output.validate();
-    //}
   }
 
+  /**
+   * Note that a specified input has changed its value.  This
+   * component should adjust its own current state accordingly
+   * @param newState new state of the changed input (asserted to have changed)
+   * @param instanceId Instance that the change is occuring on
+   * @param source input component that is chnaging it state
+   */
   public abstract void setKnownChangedState(boolean newState,
                                             int instanceId,
                                             ForwardDeadReckonComponent source);
 
+  /**
+   * Reset to the all-inputs false state
+   * @param instanceId Instance for which the reset is happening
+   */
   public void reset(int instanceId)
   {
-    cachedValue[instanceId] = false;
-    lastPropagatedValue[instanceId] = false;
-    hasQueuedForPropagation[instanceId] = false;
+    state[instanceId] = 0;
   }
 
   /**
@@ -428,9 +461,9 @@ public abstract class ForwardDeadReckonComponent implements
   }
 
   @Override
-  public void setSignature(long signature)
+  public void setSignature(long theSignature1)
   {
-    this.signature = signature;
+    signature = theSignature1;
   }
 
   @Override

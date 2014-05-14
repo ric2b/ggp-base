@@ -7,7 +7,6 @@
 	<classpathentry kind="lib" path="src/external/FlyingSaucer/core-renderer.jar"/>
 	<classpathentry kind="lib" path="src/external/JTidy/Tidy.jar"/>
 	<classpathentry kind="lib" path="src/external/JGoodiesForms/forms-1.2.1.jar"/>
-	<classpathentry kind="lib" path="src/external/Jython/jython.jar"/>
 	<classpathentry kind="lib" path="src/external/Clojure/clojure.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
 	<classpathentry kind="lib" path="src/external/JFreeChart/jcommon-1.0.17.jar"/>
@@ -15,5 +14,12 @@
 	<classpathentry kind="lib" path="src/external/Guava/guava-14.0.1.jar"/>
 	<classpathentry kind="lib" path="src/external/reflections/reflections-0.9.9-RC1.jar"/>
 	<classpathentry kind="lib" path="src/external/javassist/javassist.jar"/>
+	<classpathentry kind="lib" path="src/external/JNA/jna-4.1.0.jar"/>
+	<classpathentry kind="lib" path="src/external/JNA/jna-platform-4.1.0.jar"/>
+	<classpathentry kind="lib" path="src/external/Disruptor/disruptor-3.2.1.jar" sourcepath="src/external/Disruptor/disruptor-3.2.1-sources.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="jar:platform:/resource/GGP/src/external/Disruptor/disruptor-3.2.1-javadoc.jar!/"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

@@ -117,7 +117,8 @@ while (($lMoveIndex < 0) ||
 my $lMove = ($lRecord->{moves})->[$lMoveIndex]->[$lPlayerIndex];
   $lMove =~ s/^\( //;
   $lMove =~ s/ \)$//;
-print "$lPlayerName played '$lMove'.  What should Sancho have played?\n> ";
+print "$lPlayerName played '$lMove'.  What should Sancho have played?\n" .
+      "Comma-separated list.  Start with '!:' to list unacceptable moves instead.\n> ";
 my $lAcceptable = <STDIN>;
 chomp($lAcceptable);
 

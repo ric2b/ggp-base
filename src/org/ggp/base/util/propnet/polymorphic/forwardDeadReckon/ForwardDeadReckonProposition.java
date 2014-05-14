@@ -8,31 +8,36 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
  * The Proposition class is designed to represent named latches.
  */
 @SuppressWarnings("serial")
-public final class ForwardDeadReckonProposition extends
-                                               ForwardDeadReckonComponent
-                                                                         implements
-                                                                         PolymorphicProposition
+public final class ForwardDeadReckonProposition extends ForwardDeadReckonComponent implements PolymorphicProposition
 {
   /** The name of the Proposition. */
   private GdlSentence                                    name;
-  private ForwardDeadReckonLegalMoveSet[]                owningMoveSet  = null;
-  private ForwardDeadReckonLegalMoveInfo                 associatedMove = null;
+  /** Notification handler to notify on state changes (used for legal moves), if any */
+  private ForwardDeadReckonComponentTransitionNotifier[] owningMoveSet  = null;
+  /** Trigger index to notify on state changes (if any) */
+  private int                                            associatedMoveIndex = -1;
+  /** Opaque information higher layers may associate with this component */
   private ForwardDeadReckonPropositionInfo               opaqueInfo     = null;
 
   /**
    * Creates a new Proposition with name <tt>name</tt>.
    *
-   * @param numOutputs
-   * @param name
+   * @param numOutputs Number of outputs if known, else -1.  If a specific number (other than -1)
+   *        is specified then no subsequent changes to the outputs are permitted
+   * @param theName
    *          The name of the Proposition.
    */
-  public ForwardDeadReckonProposition(int numOutputs, GdlSentence name)
+  public ForwardDeadReckonProposition(int numOutputs, GdlSentence theName)
   {
     super(1, numOutputs);
 
-    this.name = name;
+    this.name = theName;
   }
 
+  /**
+   * Retrieve the opaque info et against this component
+   * @return opaque info previously set
+   */
   public ForwardDeadReckonPropositionInfo getInfo()
   {
     return opaqueInfo;
@@ -46,17 +51,37 @@ public final class ForwardDeadReckonProposition extends
     owningMoveSet = new ForwardDeadReckonLegalMoveSet[numInstances];
   }
 
+  /**
+   * Set opaque info against this component - not semantically interpreted
+   * @param info info to set
+   */
   public void setInfo(ForwardDeadReckonPropositionInfo info)
   {
     opaqueInfo = info;
   }
 
-  public void setTransitionSet(ForwardDeadReckonLegalMoveInfo associatedMove,
+  /**
+   * Set an instance of a notification handler to be called when this proposition
+   * changes value
+   * @param triggerIndex notification index to raise (actually opaque at this level)
+   * @param instanceId Instance this notifier is bound for
+   * @param activeLegalMovesNotifier notifier to call
+   */
+  public void setTransitionSet(int triggerIndex,
                                int instanceId,
-                               ForwardDeadReckonLegalMoveSet activeLegalMoves)
+                               ForwardDeadReckonComponentTransitionNotifier activeLegalMovesNotifier)
   {
-    this.owningMoveSet[instanceId] = activeLegalMoves;
-    this.associatedMove = associatedMove;
+    owningMoveSet[instanceId] = activeLegalMovesNotifier;
+    associatedMoveIndex = triggerIndex;
+  }
+
+  /**
+   * Retrieve the trigger index (if any) associated with this proposition
+   * @return associated trigger index, or -1 if none
+   */
+  public int getAssociatedTriggerIndex()
+  {
+    return associatedMoveIndex;
   }
 
   /**
@@ -73,8 +98,6 @@ public final class ForwardDeadReckonProposition extends
   /**
    * Setter method. This should only be rarely used; the name of a proposition
    * is usually constant over its entire lifetime.
-   *
-   * @return The name of the Proposition.
    */
   @Override
   public void setName(GdlSentence newName)
@@ -87,7 +110,14 @@ public final class ForwardDeadReckonProposition extends
                                    int instanceId,
                                    ForwardDeadReckonComponent source)
   {
-    cachedValue[instanceId] = newState;
+    if ( newState )
+    {
+      state[instanceId] |= cachedStateMask;
+    }
+    else
+    {
+      state[instanceId] &= ~cachedStateMask;
+    }
 
     if (owningMoveSet[instanceId] != null)
     {
@@ -96,11 +126,11 @@ public final class ForwardDeadReckonProposition extends
       {
         if (newState)
         {
-          owningMoveSet[instanceId].add(associatedMove);
+          owningMoveSet[instanceId].add(associatedMoveIndex);
         }
         else
         {
-          owningMoveSet[instanceId].remove(associatedMove);
+          owningMoveSet[instanceId].remove(associatedMoveIndex);
         }
       }
       //finally
@@ -109,14 +139,7 @@ public final class ForwardDeadReckonProposition extends
       //}
     }
 
-    if (queuePropagation)
-    {
-      queuePropagation(instanceId);
-    }
-    else
-    {
-      propagate(instanceId);
-    }
+    propagate(instanceId);
   }
 
   /**
@@ -124,21 +147,23 @@ public final class ForwardDeadReckonProposition extends
    *
    * @param value
    *          The new value of the Proposition.
+   * @param instanceId
+   *          Instance within which the value change is occurring
    */
   public void setValue(boolean value, int instanceId)
   {
-    if (cachedValue[instanceId] != value)
+    if (((state[instanceId] & cachedStateMask) != 0) != value)
     {
-      cachedValue[instanceId] = value;
-
-      if (queuePropagation)
+      if ( value )
       {
-        queuePropagation(instanceId);
+        state[instanceId] |= cachedStateMask;
       }
       else
       {
-        propagate(instanceId);
+        state[instanceId] &= ~cachedStateMask;
       }
+
+      propagate(instanceId);
     }
   }
 
@@ -148,7 +173,7 @@ public final class ForwardDeadReckonProposition extends
   @Override
   public String toString()
   {
-    return toDot("circle", cachedValue[0] ? "red" : "white", name.toString());
+    return toDot("circle", (state[0] & cachedStateMask) != 0 ? "red" : "white", name.toString());
   }
 
   @Override

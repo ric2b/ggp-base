@@ -1,0 +1,36 @@
+{
+  "cases" : [
+    {
+      "case" : "Tiltyard 6b34ffb9c48407f9db29c3fcf68063a097c7aec9, player 1, move 8",
+      "repo" : "games.ggp.org/base",
+      "game" : "3pConnectFour",
+      "start" : "100",
+      "play" : "30",
+      "limit" : 8,
+      "players" : [
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "drop 7,noop,noop,drop 7,noop,noop,drop 7,noop"
+          ]
+        },
+        {
+          "type" : "Sancho",
+          "args" : [
+            "plan=noop,drop 4,noop,noop,drop 3,noop,noop"
+          ]
+        },
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "noop,noop,drop 4,noop,noop,drop 8,noop,noop"
+          ]
+        }
+      ],
+      "check" : {
+        "player" : "1",
+        "acceptable" : "drop 7"
+      }
+    }
+  ]
+}

@@ -165,6 +165,17 @@ sub checkAcceptable
   my ($xiPlayerIndex, $xiAcceptable, $xiFilename) = @_;
 
   #***************************************************************************#
+  #* Check whether the move list is a list of acceptable or unacceptable     *#
+  #* moves.                                                                  *#
+  #***************************************************************************#
+  my $lSpecifiedMoveAllowed = 1;
+  if ($xiAcceptable =~ /^!:(.*)/)
+  {
+    $lSpecifiedMoveAllowed = 0;
+    $xiAcceptable = $1;
+  }
+
+  #***************************************************************************#
   #* Read the record.                                                        *#
   #***************************************************************************#
   open(RECORD, "<$xiFilename") or die "Failed to open $xiFilename: $!\n";
@@ -181,7 +192,9 @@ sub checkAcceptable
   #***************************************************************************#
   #* Check if the move is in the acceptable list.                            *#
   #***************************************************************************#
-  if (index(",$xiAcceptable,", ",$lLastMove,") == -1)
+  my $lSpecifiedMoveMade = (index(",$xiAcceptable,", ",$lLastMove,") != -1);
+  if (($lSpecifiedMoveMade && !$lSpecifiedMoveAllowed) ||
+      ($lSpecifiedMoveAllowed && !$lSpecifiedMoveMade))
   {
     return "FAILED - Unacceptable move: $lLastMove, see $xiFilename";
   }

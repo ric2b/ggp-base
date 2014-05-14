@@ -44,6 +44,14 @@ public class CombinedHeuristic implements Heuristic
     }
   }
 
+  /**
+   * Remove all underlying heuristics
+   */
+  public void pruneAll()
+  {
+    mHeuristics.clear();
+  }
+
   @Override
   public void tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine, RoleOrdering xiRoleOrdering)
   {

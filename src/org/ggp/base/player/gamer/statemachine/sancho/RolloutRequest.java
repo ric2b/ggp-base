@@ -3,94 +3,111 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeRef;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
+/**
+ * Request object holding all the information about a rollout.
+ *
+ * These objects are pre-allocated by the pipeline and taken/released by various threads, each performing their own part
+ * of the rollout.
+ */
 class RolloutRequest
 {
-  /**
-   *
-   */
-  private final RolloutProcessorPool           pool;
-  public TreeNodeRef                           node;
-  public ForwardDeadReckonInternalMachineState state;
-  public Factor                                factor = null;
-  public double[]                              averageScores;
-  public double[]                              averageSquaredScores;
-  public int                                   sampleSize;
-  public TreePath                              path;
+  public TreeNodeRef                           mNode;
+  public TreePath                              mPath;
+  public ForwardDeadReckonInternalMachineState mState;
+  public Factor                                mFactor = null;
+  public int                                   mSampleSize;
+  public final double[]                        mAverageScores;
+  public final double[]                        mAverageSquaredScores;
+  public int                                   mMinScore;
+  public int                                   mMaxScore;
+  public long                                  mEnqueueTime;
+  public long                                  mQueueLatency;
+  public int                                   mThreadId;
 
-  public RolloutRequest(RolloutProcessorPool pool)
+  /**
+   * Create a rollout request.
+   *
+   * @param xiNumRoles - the number of roles in the game (used to size arrays).
+   */
+  public RolloutRequest(int xiNumRoles)
   {
-    this.pool = pool;
-    averageScores = new double[pool.numRoles];
-    averageSquaredScores = new double[pool.numRoles];
+    mAverageScores = new double[xiNumRoles];
+    mAverageSquaredScores = new double[xiNumRoles];
   }
 
-  public void process(ForwardDeadReckonPropnetStateMachine stateMachine)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
+  /**
+   * Process this rollout request.
+   *
+   * @param stateMachine - a state machine to handle perform the rollouts.
+   * @param xiOurRole - our role.
+   * @param xiRoleOrdering - the role ordering.
+   */
+  public void process(ForwardDeadReckonPropnetStateMachine stateMachine,
+                      Role xiOurRole,
+                      RoleOrdering xiRoleOrdering)
   {
+    int lNumRoles = stateMachine.getRoles().size();
+
+    mQueueLatency = System.nanoTime() - mEnqueueTime;
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.rollOut");
     try
     {
-      synchronized (pool)
-      {
-        pool.dequeuedRollouts++;
-      }
-      double[] scores = new double[pool.numRoles];
-
       //playedMoveWeights = stateMachine.createMoveWeights();
 
-      for (int roleIndex = 0; roleIndex < pool.numRoles; roleIndex++)
+      // Reset the scores.
+      for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
       {
-        averageScores[roleIndex] = 0;
-        averageSquaredScores[roleIndex] = 0;
+        mAverageScores[roleIndex] = 0;
+        mAverageSquaredScores[roleIndex] = 0;
       }
+      mMinScore = 1000;
+      mMaxScore = -100;
 
-      for (int i = 0; i < sampleSize; i++)
+      // Perform the request number of samples.
+      for (int i = 0; i < mSampleSize; i++)
       {
-        //long startTime = System.nanoTime();
-        //System.out.println("Perform rollout from state: " + state);
-         stateMachine.getDepthChargeResult(state, factor, pool.ourRole, null, null, null);
+        // Do the rollout.
+        stateMachine.getDepthChargeResult(mState, mFactor, xiOurRole, null, null, null);
 
-        //long rolloutTime = System.nanoTime() - startTime;
-        //System.out.println("Rollout took: " + rolloutTime);
-        for (int roleIndex = 0; roleIndex < pool.numRoles; roleIndex++)
+        // Record the results.
+        for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
         {
-          int score = stateMachine.getGoal(pool.roleOrdering.roleIndexToRole(roleIndex));
-          averageScores[roleIndex] += score;
-          averageSquaredScores[roleIndex] += score * score;
-          scores[pool.roleOrdering.roleIndexToRawRoleIndex(roleIndex)] = score;
+          int lScore = stateMachine.getGoal(xiRoleOrdering.roleIndexToRole(roleIndex));
+          mAverageScores[roleIndex] += lScore;
+          mAverageSquaredScores[roleIndex] += lScore * lScore;
 
+          // Check for new min/max.
           if (roleIndex == 0)
           {
-            if (score > pool.highestRolloutScoreSeen)
+            if (lScore > mMaxScore)
             {
-              pool.highestRolloutScoreSeen = score;
+              mMaxScore = lScore;
             }
-            if (score < pool.lowestRolloutScoreSeen)
+            if (lScore < mMinScore)
             {
-              pool.lowestRolloutScoreSeen = score;
+              mMinScore = lScore;
             }
           }
         }
       }
 
-      for (int roleIndex = 0; roleIndex < pool.numRoles; roleIndex++)
+      // Normalize the results for the number of samples.
+      for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
       {
-        averageScores[roleIndex] /= sampleSize;
-        averageSquaredScores[roleIndex] /= sampleSize;
+        mAverageScores[roleIndex] /= mSampleSize;
+        mAverageSquaredScores[roleIndex] /= mSampleSize;
       }
-
-      pool.completedRollouts.add(this);
-      synchronized (pool)
-      {
-        pool.enqueuedCompletedRollouts++;
-      }
+    }
+    catch (TransitionDefinitionException | MoveDefinitionException | GoalDefinitionException lEx)
+    {
+      lEx.printStackTrace();
     }
     finally
     {

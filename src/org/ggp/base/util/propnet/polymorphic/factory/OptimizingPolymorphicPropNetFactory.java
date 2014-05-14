@@ -1307,10 +1307,10 @@ public class OptimizingPolymorphicPropNetFactory
               PolymorphicComponent positive = components.get(transformed);
               //No, because then that will be attached to "negations", which could be bad
 
-              if ( positive == null && transformed.arity() == 0 )
-              {
-                 positive = components.get(GdlPool.getProposition(transformed.getName()));
-              }
+//              if ( positive == null && transformed.arity() == 0 )
+//              {
+//                 positive = components.get(GdlPool.getProposition(transformed.getName()));
+//              }
               if (positive == null)
               {
                 //So the positive can't possibly be true (unless we have recursion)
@@ -1627,6 +1627,14 @@ public class OptimizingPolymorphicPropNetFactory
       }
     }
 
+    for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
+    {
+      for( PolymorphicProposition c : legals)
+      {
+        recursiveFindReachable(pn, c, reachableComponents);
+      }
+    }
+
     //  What can we eliminate?
     Set<PolymorphicComponent> unreachable = new HashSet<>();
     boolean result = false;
@@ -1653,17 +1661,6 @@ public class OptimizingPolymorphicPropNetFactory
       else if ( !reachableComponents.contains(c) )
       {
         unreachable.add(c);
-      }
-    }
-    for(PolymorphicProposition[] roleLegals : pn.getLegalPropositions().values())
-    {
-      for( PolymorphicProposition c : roleLegals)
-      {
-        if ( !reachableComponents.contains(c))
-        {
-          unreachable.add(c);
-          result = true;
-        }
       }
     }
 
@@ -3182,6 +3179,33 @@ public class OptimizingPolymorphicPropNetFactory
     }
   }
 
+  private static boolean hasNoNonGoalDependents(PolymorphicComponent c)
+  {
+    for(PolymorphicComponent output : c.getOutputs())
+    {
+      if ( output instanceof PolymorphicTransition )
+      {
+        return false;
+      }
+      if ( output instanceof PolymorphicProposition )
+      {
+        GdlConstant name = ((PolymorphicProposition)output).getName()
+            .getName();
+
+        if (name != GOAL)
+        {
+          return false;
+        }
+      }
+
+      if ( !hasNoNonGoalDependents(output))
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+
   public static void removeGoalPropositions(PolymorphicPropNet propNet)
   {
     List<PolymorphicComponent> removedComponents = new LinkedList<PolymorphicComponent>();
@@ -3191,7 +3215,10 @@ public class OptimizingPolymorphicPropNetFactory
     {
       for (PolymorphicProposition c : roleGoals)
       {
-        propNet.removeComponent(c);
+        if ( hasNoNonGoalDependents(c) )
+        {
+          propNet.removeComponent(c);
+        }
       }
     }
   }
@@ -3608,6 +3635,29 @@ public class OptimizingPolymorphicPropNetFactory
     return c.getSignature();
   }
 
+  public static void removeNonBaseOrDoesPropositionOutputs(PolymorphicPropNet pn)
+  {
+    for(PolymorphicComponent c : pn.getComponents())
+    {
+      if ( c instanceof PolymorphicProposition &&
+           !pn.getBasePropositions().containsValue(c) &&
+           !pn.getInputPropositions().containsValue(c) &&
+           pn.getInitProposition() != c )
+      {
+        PolymorphicComponent input = c.getSingleInput();
+
+        for(PolymorphicComponent output : c.getOutputs())
+        {
+          output.removeInput(c);
+          output.addInput(input);
+          input.addOutput(output);
+        }
+
+        c.removeAllOutputs();
+      }
+    }
+  }
+
   public static void optimizeInputSets(PolymorphicPropNet pn)
   {
     //	First find the input proposition sets for each role
@@ -3654,41 +3704,280 @@ public class OptimizingPolymorphicPropNetFactory
     //	them by their complements
     int possibleSavings = 0;
 
-    for (PolymorphicComponent c : pn.getComponents())
+//    for (PolymorphicComponent c : pn.getComponents())
+//    {
+//      if ((c instanceof PolymorphicAnd || c instanceof PolymorphicOr) &&
+//          c.getInputs().size() > minInputSizeToConsider)
+//      {
+//        for (Set<PolymorphicProposition> roleSet : roleInputMap.values())
+//        {
+//          Set<PolymorphicComponent> inputSet = new HashSet<PolymorphicComponent>();
+//
+//          for (PolymorphicComponent input : c.getInputs())
+//          {
+//            if (input instanceof PolymorphicProposition &&
+//                roleSet.contains(input))
+//            {
+//              inputSet.add(input);
+//            }
+//          }
+//
+//          if (inputSet.size() > roleSet.size() / 2)
+//          {
+//            possibleSavings += 2 * inputSet.size() - roleSet.size();
+//            System.out.println("Identified input set of size " +
+//                               inputSet.size() +
+//                               " that can be replaced by complement of size " +
+//                               (roleSet.size() - inputSet.size()));
+//          }
+//        }
+//      }
+//    }
+
+    Set<PolymorphicComponent> allInputs = new HashSet<>();
+
+    //  Noops can present some issues for factorization in terms of replacement
+    //  or ORs of does props by the not of the OR of their converse.  This is because
+    //  the ability to artificially noop in one factor (for games where there is choice
+    //  of which factor to play in) means that it is no longer true that SOME move is played
+    //  by each player in every factor.  We treat this somewhat empirically by special-casing
+    //  noops and coping with the no-legal-moves case in state transition.  To do this we
+    //  must not add noop to the converse sets when replacing large ORs of does props except
+    //  in the very special case where it was originally an OR of everything except noop.
+    //  Accordingly we need to identify the noops - for now we use the rather iffy test of
+    //  their being a does prop with arity 0 in the move specifier.
+    //  TODO - replace this by a somewhat more robust dependency-based approach (a does prop on
+    //  which no base props are dependent can be considered a noop)
+    Set<PolymorphicComponent> noops = new HashSet<>();
+    for (Set<PolymorphicProposition> roleInputs : roleInputMap.values())
     {
-      if ((c instanceof PolymorphicAnd || c instanceof PolymorphicOr) &&
-          c.getInputs().size() > minInputSizeToConsider)
+      allInputs.addAll(roleInputs);
+
+      for(PolymorphicProposition input : roleInputs)
       {
-        for (Set<PolymorphicProposition> roleSet : roleInputMap.values())
+        if ( input.getName().get(1).toSentence().arity() == 0 )
         {
-          Set<PolymorphicComponent> inputSet = new HashSet<PolymorphicComponent>();
-
-          for (PolymorphicComponent input : c.getInputs())
-          {
-            if (input instanceof PolymorphicProposition &&
-                roleSet.contains(input))
-            {
-              inputSet.add(input);
-            }
-          }
-
-          if (inputSet.size() > roleSet.size() / 2)
-          {
-            possibleSavings += 2 * inputSet.size() - roleSet.size();
-            System.out.println("Identified input set of size " +
-                               inputSet.size() +
-                               " that can be replaced by complement of size " +
-                               (roleSet.size() - inputSet.size()));
-          }
+          noops.add(input);
         }
       }
     }
 
-    if (possibleSavings > 0)
+    Set<PolymorphicComponent> newComponents = new HashSet<>();
+    Set<PolymorphicComponent> removedComponents = new HashSet<>();
+
+    for(PolymorphicComponent c : pn.getComponents())
     {
-      System.out.println("Possible input connectivity savings: " +
-                         possibleSavings);
+      if ( c instanceof PolymorphicOr )
+      {
+        Map<Role,Set<PolymorphicComponent>> disjunctiveInputs = new HashMap<>();
+
+        for (Role role : pn.getRoles())
+        {
+          Set<PolymorphicProposition> roleInputs = roleInputMap.get(role);
+          Set<PolymorphicComponent> inputSet = new HashSet<>();
+
+          if ( !recursiveCalculateDisjunctiveRoleInputs(c, inputSet, roleInputs, allInputs) )
+          {
+            disjunctiveInputs.clear();
+            break;
+          }
+
+          if ( inputSet.size() > (3*roleInputs.size())/4 )
+          {
+            disjunctiveInputs.put(role, inputSet);
+          }
+        }
+
+        if ( !disjunctiveInputs.isEmpty())
+        {
+          Set<PolymorphicComponent> newNots = new HashSet<>();
+
+          removedComponents.add(c);
+
+          //  If we wind up with JUST noops for all roles then actually
+          //  since all roles must have a move this is just TRUE, so detect this
+          //  case.  Also note that if we DO perform this optimization then the
+          //  net is no longer suitable for factorization because the introduction
+          //  of a factor pseudo-noop will break the all-must-have-a-move assumption
+          //  TODO - this case is really rare (just Pentago/PentagoSuicide that I know of)
+          //  and does not occur in any known factorized game, but at some point we should add
+          //  a factorization inhibitor such that if a game arises in which the network does
+          //  go through this transform then it cannot be played factored
+          boolean noopsOnly = true;
+          for (Role role : pn.getRoles())
+          {
+            Set<PolymorphicComponent> roleInputs = disjunctiveInputs.get(role);
+
+            if ( roleInputs != null )
+            {
+              PolymorphicOr newOr = pn.getComponentFactory().createOr(-1, -1);
+
+              for(PolymorphicComponent input : roleInputMap.get(role))
+              {
+                if ( !roleInputs.contains(input) )
+                {
+                  //  Don't add noops to the converse sets - this is somewhat
+                  //  empirical and it would be possible to construct GDL it doesn't work for
+                  //  but it works for the typical idioms that result from distincts and
+                  //  tend to give rise to these large ORs
+                  if ( noops.contains(input) )
+                  {
+                    continue;
+                  }
+                  newOr.addInput(input);
+                  input.addOutput(newOr);
+                }
+                else
+                {
+                  c.removeInput(input);
+                  input.removeOutput(c);
+                }
+              }
+
+              //  In the special case where nothing is left we need to use the noop since
+              //  it was an OR of every other move previously
+              if ( newOr.getInputs().isEmpty())
+              {
+                //  Asymmetric cases where it was all moves for one role but a specific
+                //  subset for another should NOT include the noop for the non-gating role
+                if ( noopsOnly )
+                {
+                  for(PolymorphicComponent noop : noops)
+                  {
+                    if ( roleInputMap.get(role).contains(noop) && !roleInputs.contains(noop))
+                    {
+                      newOr.addInput(noop);
+                      noop.addOutput(newOr);
+                    }
+                  }
+                }
+              }
+              else
+              {
+                //  Asymmetric cases where it was all moves for one role but a specific
+                //  subset for another should NOT include the noop for the non-gating role
+                if ( noopsOnly && !newNots.isEmpty() )
+                {
+                  newNots.clear();
+                }
+                noopsOnly = false;
+
+                if ( disjunctiveInputs.size() == 1 )
+                {
+                  for(PolymorphicComponent noop : noops)
+                  {
+                    if ( roleInputMap.get(role).contains(noop) && !roleInputs.contains(noop))
+                    {
+                      newOr.addInput(noop);
+                      noop.addOutput(newOr);
+                    }
+                  }
+                }
+              }
+
+              if ( !newOr.getInputs().isEmpty() )
+              {
+                PolymorphicNot newNot = pn.getComponentFactory().createNot(-1);
+
+                if ( newOr.getInputs().size() > 1 )
+                {
+                  newComponents.add(newOr);
+                  newOr.addOutput(newNot);
+                  newNot.addInput(newOr);
+                }
+                else
+                {
+                  PolymorphicComponent source = newOr.getSingleInput();
+
+                  source.removeOutput(newOr);
+                  source.addOutput(newNot);
+                  newNot.addInput(source);
+                }
+
+                newNots.add(newNot);
+                newComponents.add(newNot);
+              }
+            }
+          }
+
+          PolymorphicComponent newOutput;
+
+          if ( newNots.size() == 1 )
+          {
+            newOutput = newNots.iterator().next();
+          }
+          else
+          {
+            if ( noopsOnly )
+            {
+              newOutput = pn.getComponentFactory().createConstant(-1, true);
+            }
+            else
+            {
+              newOutput = pn.getComponentFactory().createAnd(-1, -1);
+
+              for(PolymorphicComponent newNot : newNots)
+              {
+                newNot.addOutput(newOutput);
+                newOutput.addInput(newNot);
+              }
+            }
+            newComponents.add(newOutput);
+          }
+
+          for(PolymorphicComponent output : c.getOutputs())
+          {
+            newOutput.addOutput(output);
+            output.removeInput(c);
+            output.addInput(newOutput);
+          }
+
+          c.removeAllOutputs();
+        }
+      }
     }
+
+    for(PolymorphicComponent c : newComponents)
+    {
+      pn.addComponent(c);
+    }
+
+    for(PolymorphicComponent c : removedComponents)
+    {
+      pn.removeComponent(c);
+    }
+  }
+
+  private static boolean recursiveCalculateDisjunctiveRoleInputs(PolymorphicComponent c, Set<PolymorphicComponent> inputs, Set<PolymorphicProposition> inputSet, Set<PolymorphicComponent> allowableInputs)
+  {
+    if ( c instanceof PolymorphicOr )
+    {
+      for(PolymorphicComponent input : c.getInputs())
+      {
+        if ( !recursiveCalculateDisjunctiveRoleInputs(input, inputs, inputSet, allowableInputs))
+        {
+          return false;
+        }
+      }
+
+      return true;
+    }
+    else if ( c instanceof PolymorphicProposition )
+    {
+      if ( !allowableInputs.contains(c) )
+      {
+        return false;
+      }
+
+      if ( inputSet.contains(c))
+      {
+        inputs.add(c);
+      }
+
+      return true;
+    }
+
+    return false;
   }
 
   public static void OptimizeInvertedInputs(PolymorphicPropNet pn)

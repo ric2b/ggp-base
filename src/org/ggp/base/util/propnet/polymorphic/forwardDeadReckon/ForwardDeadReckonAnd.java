@@ -1,47 +1,42 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Set;
-
-import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
-import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
 
 /**
- * The And class is designed to represent logical AND gates.
+ * The ForwardDeadReckonAnd class is designed to represent logical AND gates in
+ * the ForwardDeadReckon family of PolymorphicComponents
  */
 @SuppressWarnings("serial")
 public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
                                                                           implements
                                                                           PolymorphicAnd
 {
-  private int[] falseInputCount;
-
-  public ForwardDeadReckonAnd(int numInputs, int numOutput)
+  /**
+   * Construct a new AND component
+   *
+   * @param numInputs Number of inputs if known, else -1.  If a specific number (other than -1)
+   *        is specified then no subsequent changes to the inputs are permitted
+   * @param numOutputs Number of outputs if known, else -1.  If a specific number (other than -1)
+   *        is specified then no subsequent changes to the outputs are permitted
+   */
+  public ForwardDeadReckonAnd(int numInputs, int numOutputs)
   {
-    super(numInputs, numOutput);
+    super(numInputs, numOutputs);
   }
 
   @Override
   public void reset(int instanceId)
   {
     super.reset(instanceId);
-    cachedValue[instanceId] = false;
-    falseInputCount[instanceId] = inputsArray.length;
+    state[instanceId] = inputsArray.length;
   }
 
   @Override
   public void crystalize(int numInstances)
   {
     super.crystalize(numInstances);
-
-    falseInputCount = new int[numInstances];
   }
 
   @Override
@@ -49,36 +44,37 @@ public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
                                    int instanceId,
                                    ForwardDeadReckonComponent source)
   {
+    int stateVal;
+
     if (newState)
     {
-      falseInputCount[instanceId]--;
+      stateVal = --state[instanceId];
     }
     else
     {
-      falseInputCount[instanceId]++;
+      stateVal = ++state[instanceId];
     }
-    //System.out.println("AND " + Integer.toHexString(hashCode()) + " with value " + cachedValue + " received new input " + newState + ", causing false count to become " + falseInputCount);
 
-    if (cachedValue[instanceId] != (falseInputCount[instanceId] == 0))
+    boolean countIsZero = ((stateVal & opaqueValueMask) == 0);
+    if (((state[instanceId] & cachedStateMask) != 0) != countIsZero)
     {
-      cachedValue[instanceId] = (falseInputCount[instanceId] == 0);
-      //System.out.println("AND value set to "+ cachedValue);
-
-      if (queuePropagation)
+      if ( countIsZero )
       {
-        queuePropagation(instanceId);
+        state[instanceId] |= cachedStateMask;
       }
       else
       {
-        propagate(instanceId);
+        state[instanceId] &= ~cachedStateMask;
       }
+
+      propagate(instanceId);
     }
   }
 
   @Override
   public void validate()
   {
-    for (int instanceId = 0; instanceId < cachedValue.length; instanceId++)
+    for (int instanceId = 0; instanceId < state.length; instanceId++)
     {
       int falseInputCount = 0;
 
@@ -91,7 +87,7 @@ public final class ForwardDeadReckonAnd extends ForwardDeadReckonComponent
         }
       }
 
-      if ((falseInputCount == 0) != cachedValue[instanceId])
+      if ((falseInputCount == 0) != ((state[instanceId] & cachedStateMask) != 0))
       {
         System.out.println("Validation failure for " + toString());
       }

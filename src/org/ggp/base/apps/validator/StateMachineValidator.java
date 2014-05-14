@@ -10,10 +10,7 @@ import org.ggp.base.util.game.GameRepository;
 import org.ggp.base.util.game.LocalGameRepository;
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.logging.GamerLogger;
-import org.ggp.base.util.propnet.polymorphic.learning.LearningComponentFactory;
-import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponentFactory;
 import org.ggp.base.util.statemachine.StateMachine;
-import org.ggp.base.util.statemachine.implementation.propnet.TestPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 import org.ggp.base.util.statemachine.verifier.StateMachineVerifier;
@@ -51,9 +48,11 @@ public class StateMachineValidator
     //exceptedGames.add("simple3space");
     exceptedGames.add("modifiedTicTacToe2");
     exceptedGames.add("wallmaze");
+    exceptedGames.add("slidingpieces");
     exceptedGames.add("ad_game_2x2");
+    exceptedGames.add("ticTacHeavenFC");//  Allows both players to noop at once which we don't currently handle
 
-    String startGame = "reversi"; // Game to begin with if desired
+    String startGame = "ticTacToe"; // Game to begin with if desired
     boolean foundStartGame = true; // Set to true to just start at the beginning
     boolean stopOnError = true; // Whether to stop on first failing game or continue
 
@@ -71,7 +70,7 @@ public class StateMachineValidator
         //  line in place of the basic prover
         //TestPropnetStateMachine theMachine = new TestPropnetStateMachine(new LearningComponentFactory());
         ForwardDeadReckonPropnetStateMachine theMachine = new ForwardDeadReckonPropnetStateMachine();
-        //StateMachine theMachine = new ProverStateMachine(); // Replace this line with your state machine instantiation           
+        //StateMachine theMachine = new ProverStateMachine(); // Replace this line with your state machine instantiation
 
         System.out.println("Precheck game " + gameKey + ".");
         if (gameKey.equals(startGame))
@@ -85,13 +84,14 @@ public class StateMachineValidator
         System.out.println("Checking consistency in game " + gameKey + ".");
         List<Gdl> description = theRepository.getGame(gameKey).getRules();
         theReference.initialize(description);
-        theMachine.initialize(description);
-        theMachine.disableGreedyRollouts();
 
         boolean result = false;
 
         try
         {
+          theMachine.initialize(description);
+          theMachine.disableGreedyRollouts();
+
           result = StateMachineVerifier.checkMachineConsistency(theReference,
                                                                 theMachine,
                                                                 10000);
@@ -111,11 +111,6 @@ public class StateMachineValidator
             break;
         }
       }
-
-      for (String failure : failureCases)
-      {
-        System.out.println("Failed in game " + failure);
-      }
     }
     finally
     {
@@ -126,6 +121,11 @@ public class StateMachineValidator
       {
         ((LocalGameRepository)theRepository).cleanUp();
       }
+    }
+
+    for (String failure : failureCases)
+    {
+      System.out.println("Failed in game " + failure);
     }
   }
 }

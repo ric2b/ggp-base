@@ -5,72 +5,74 @@ import java.util.List;
 import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.architecture.PropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponentFactory;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
+import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
 
+/**
+ * @author steve
+ * A PolymorphicPropnet of the ForwardDeadReckon family
+ */
 public class ForwardDeadReckonPropNet extends PolymorphicPropNet
 {
-  /**
-   * Creates a new PropNet from a list of Components, along with indices over
-   * those components.
-   *
-   * @param components
-   *          A list of Components.
-   */
-  private ForwardDeadReckonComponent[][]          propagationQueue          = null;
-  private ForwardDeadReckonComponent[][]          alternatePropagationQueue = null;
-  private int[]                                   propagationQueueIndex;
   private ForwardDeadReckonLegalMoveSet[]         activeLegalMoves;
   private ForwardDeadReckonLegalMoveSet           alwaysTrueLegalMoves;
   private ForwardDeadReckonInternalMachineState[] activeBasePropositions;
   private ForwardDeadReckonInternalMachineState   alwaysTrueBasePropositions;
   private int                                     numInstances;
+  /**
+   * Whether to use the fast animator to animate the propnet at runtime.
+   * This should make no functional difference, but should have higher performance
+   */
+  public static final boolean                     useFastAnimator = true;
+  /**
+   * Fast animator instance for use with this propNet
+   */
+  public ForwardDeadReckonPropnetFastAnimator     animator = null;
 
+  /**
+   * Creates a new ForwardDeadReckonPropNet from a ggp-base propNet
+   * @param sourcePropnet ggp-base propNet to topologically clone
+   * @param componentFactory Component factory to use
+   */
   public ForwardDeadReckonPropNet(PropNet sourcePropnet,
                                   PolymorphicComponentFactory componentFactory)
   {
     super(sourcePropnet, componentFactory);
 
-    propagationQueue = new ForwardDeadReckonComponent[1][getComponents()
-        .size()];
-    alternatePropagationQueue = new ForwardDeadReckonComponent[1][getComponents()
-        .size()];
-    propagationQueueIndex = new int[1];
-    propagationQueueIndex[0] = 0;
+    assert(componentFactory instanceof ForwardDeadReckonComponentFactory);
   }
 
+  /**
+   * Creates a new ForwardDeadReckonPropNet from an arbitrary polymorphic propNet
+   * @param sourcePropnet polymorphic propNet to topologically clone
+   * @param componentFactory Component factory to use   */
   public ForwardDeadReckonPropNet(PolymorphicPropNet sourcePropnet,
                                   PolymorphicComponentFactory componentFactory)
   {
     super(sourcePropnet, componentFactory);
 
-    propagationQueue = new ForwardDeadReckonComponent[1][getComponents()
-        .size()];
-    alternatePropagationQueue = new ForwardDeadReckonComponent[1][getComponents()
-        .size()];
-    propagationQueueIndex = new int[1];
-    propagationQueueIndex[0] = 0;
+    assert(componentFactory instanceof ForwardDeadReckonComponentFactory);
   }
 
-  public ForwardDeadReckonPropNet(List<Role> roles,
+  /**
+   * Creates a new ForwardDeadReckonPropNet from a specified set of components and roles
+   * @param roles Set of roles to support
+   * @param components Set of components that this propNet will encompass
+   * @param componentFactory Component factory to use   */
+public ForwardDeadReckonPropNet(List<Role> roles,
                                   Set<PolymorphicComponent> components,
                                   PolymorphicComponentFactory componentFactory)
   {
     super(roles, components, componentFactory);
 
-    propagationQueue = new ForwardDeadReckonComponent[1][getComponents()
-        .size()];
-    alternatePropagationQueue = new ForwardDeadReckonComponent[1][getComponents()
-        .size()];
-    propagationQueueIndex = new int[1];
-    propagationQueueIndex[0] = 0;
+    assert(componentFactory instanceof ForwardDeadReckonComponentFactory);
   }
 
   private void setUpActivePropositionSets(ForwardDeadReckonPropositionInfo[] masterInfoSet)
@@ -112,7 +114,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
         {
           for (int instanceId = 0; instanceId < numInstances; instanceId++)
           {
-            pfdr.setTransitionSet(info,
+            pfdr.setTransitionSet(info.masterIndex,
                                   instanceId,
                                   activeLegalMoves[instanceId]);
           }
@@ -120,6 +122,13 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
       }
 
       roleIndex++;
+    }
+
+    alwaysTrueLegalMoves.crystalize();
+
+    for (int instanceId = 0; instanceId < numInstances; instanceId++)
+    {
+      activeLegalMoves[instanceId].crystalize();
     }
 
     activeBasePropositions = new ForwardDeadReckonInternalMachineState[numInstances];
@@ -137,8 +146,7 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
         {
           ForwardDeadReckonTransition t = (ForwardDeadReckonTransition)input;
 
-          t.setTransitionSet(((ForwardDeadReckonProposition)p)
-                                 .getInfo(),
+          t.setTransitionSet(((ForwardDeadReckonProposition)p).getInfo().index,
                              instanceId,
                              activeBasePropositions[instanceId]);
         }
@@ -154,7 +162,13 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
     }
   }
 
-  public void crystalize(ForwardDeadReckonPropositionInfo[] masterInfoSet)
+  /**
+   * Crystalize this propnet into a maximally runtime efficient form
+   * Once this is done no further changes may be made to the components or their
+   * connections
+   * @param masterInfoSet set of base propositions in some defined order
+   */
+  private void crystalize(ForwardDeadReckonPropositionInfo[] masterInfoSet)
   {
     for (PolymorphicComponent c : getComponents())
     {
@@ -166,41 +180,100 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
 
     setUpActivePropositionSets(masterInfoSet);
 
-    propagationQueue = new ForwardDeadReckonComponent[numInstances][getComponents()
-        .size()];
-    alternatePropagationQueue = new ForwardDeadReckonComponent[numInstances][getComponents()
-        .size()];
-    propagationQueueIndex = new int[numInstances];
-
-    for (int instanceId = 0; instanceId < numInstances; instanceId++)
+    if ( useFastAnimator )
     {
-      propagationQueueIndex[instanceId] = 0;
+      animator = new ForwardDeadReckonPropnetFastAnimator(this);
+      animator.crystalize(numInstances);
     }
   }
 
+  /**
+   * Crystalize this propnet into a maximally runtime efficient form
+   * Once this is done no further changes may be made to the components or their
+   * connections.  A specified number of mutually thread-safe concurrently
+   * usable instances is specified
+   * @param masterInfoSet set of base propositions in some defined order
+   * @param theNumInstances Number of independent instances to support
+   */
   public void crystalize(ForwardDeadReckonPropositionInfo[] masterInfoSet,
-                         int numInstances)
+                         int theNumInstances)
   {
-    this.numInstances = numInstances;
+    numInstances = theNumInstances;
 
     crystalize(masterInfoSet);
   }
 
+  /**
+   * Retrieve the collection of legal moves for a specified instance
+   * @param instanceId Instance to retrieve for
+   * @return the set of currently legal moves
+   */
   public ForwardDeadReckonLegalMoveSet getActiveLegalProps(int instanceId)
   {
     return activeLegalMoves[instanceId];
   }
 
+  /**
+   * Retrieve the collection of active base propositions for a specified instance
+   * @param instanceId Instance to retrieve for
+   * @return the set of currently active base props
+   */
   public ForwardDeadReckonInternalMachineState getActiveBaseProps(int instanceId)
   {
     return activeBasePropositions[instanceId];
   }
 
-  public List<ForwardDeadReckonLegalMoveInfo> getMasterMoveList()
+  /**
+   * Retrieve the master list of all possible moves
+   * @return the master move list
+   */
+  public ForwardDeadReckonLegalMoveInfo[] getMasterMoveList()
   {
     return alwaysTrueLegalMoves.getMasterList();
   }
 
+  /**
+   * Set a specified proposition to a specified value
+   * @param instanceId Instance within which to set the proposition
+   * @param p Proposition to set
+   * @param value New value to set
+   */
+  public void setProposition(int instanceId, ForwardDeadReckonProposition p, boolean value)
+  {
+    if ( useFastAnimator )
+    {
+      animator.setComponentValue(instanceId, p.id, value);
+    }
+    else
+    {
+      p.setValue(value, instanceId);
+    }
+  }
+
+  /**
+   * Retrieve the current state of a specified component.  Should only
+   * be called on transitions or propositions
+   * @param instanceId Instance from which to retrieve the component state
+   * @param component Components to retrieve the state of
+   * @return the current state of the specified component
+   */
+  public boolean getComponentValue(int instanceId, ForwardDeadReckonComponent component)
+  {
+    assert( (component instanceof PolymorphicProposition) || (component instanceof PolymorphicTransition) );
+    if ( useFastAnimator )
+    {
+      return animator.getComponentValue(instanceId, component.id);
+    }
+
+    return component.getValue(instanceId);
+  }
+
+  /**
+   * Reset the state of the propNet (to the all inputs of all components
+   * assumed to be FALSE state).  Optionally then propagate any components with TRUE
+   * outputs to achieve a globally consistent network state
+   * @param fullEquilibrium whether to propagate a fully consistent network state
+   */
   public void reset(boolean fullEquilibrium)
   {
     for (int instanceId = 0; instanceId < numInstances; instanceId++)
@@ -214,28 +287,29 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
         activeLegalMoves[instanceId].merge(alwaysTrueLegalMoves);
       }
 
-      for (PolymorphicComponent c : getComponents())
+      if ( useFastAnimator )
       {
-        ((ForwardDeadReckonComponent)c).reset(instanceId);
+        animator.reset(instanceId, fullEquilibrium);
       }
-      //	Establish full reset state if required
-      if (fullEquilibrium)
+      else
       {
         for (PolymorphicComponent c : getComponents())
         {
-          ((ForwardDeadReckonComponent)c).queuePropagation(instanceId);
+          ((ForwardDeadReckonComponent)c).reset(instanceId);
         }
-        propagate(instanceId);
+        //	Establish full reset state if required
+        if (fullEquilibrium)
+        {
+          for (PolymorphicComponent c : getComponents())
+          {
+            ((ForwardDeadReckonComponent)c).propagate(instanceId);
+          }
+        }
       }
     }
   }
 
-  public void addToPropagateQueue(ForwardDeadReckonComponent component,
-                                  int instanceId)
-  {
-    propagationQueue[instanceId][propagationQueueIndex[instanceId]++] = component;
-  }
-
+  @SuppressWarnings("unused")
   private void validate()
   {
     for (PolymorphicComponent c : getComponents())
@@ -244,35 +318,11 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
     }
   }
 
-  public void propagate(int instanceId)
-  {
-    ProfileSection methodSection = ProfileSection.newInstance("ForwardDeadReckonPropNet.propagate");
-    try
-    {
-      while (propagationQueueIndex[instanceId] > 0)
-      {
-        //validate();
-
-        ForwardDeadReckonComponent[] queue = propagationQueue[instanceId];
-        int queueSize = propagationQueueIndex[instanceId];
-
-        propagationQueue[instanceId] = alternatePropagationQueue[instanceId];
-        alternatePropagationQueue[instanceId] = queue;
-
-        propagationQueueIndex[instanceId] = 0;
-
-        for (int i = 0; i < queueSize; i++)
-        {
-          queue[i].propagate(instanceId);
-        }
-      }
-    }
-    finally
-    {
-      methodSection.exitScope();
-    }
-  }
-
+  /**
+   * Find the proposition with the specified name
+   * @param queryProposition
+   * @return matching proposition (if any)
+   */
   public PolymorphicProposition findProposition(GdlSentence queryProposition)
   {
     for (PolymorphicProposition p : getPropositions())

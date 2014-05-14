@@ -17,19 +17,21 @@ public final class ForwardDeadReckonConstant extends
 
   /**
    * Creates a new Constant with value <tt>value</tt>.
-   * 
-   * @param value
+   *
+   * @param numOutputs Number of outputs if known, else -1.  If a specific number (other than -1)
+   *        is specified then no subsequent changes to the outputs are permitted
+   * @param theValue
    *          The value of the Constant.
    */
-  public ForwardDeadReckonConstant(int numOutputs, boolean value)
+  public ForwardDeadReckonConstant(int numOutputs, boolean theValue)
   {
     super(0, numOutputs);
-    this.value = value;
+    value = theValue;
   }
 
   /**
    * Gets the value of the Component.
-   * 
+   *
    * @return The value of the Component.
    */
   @Override
@@ -43,13 +45,22 @@ public final class ForwardDeadReckonConstant extends
                                    int instanceId,
                                    ForwardDeadReckonComponent source)
   {
+    //  Nothing to do here for a constant - this will actually never be called
+    assert(false);
   }
 
   @Override
   public void reset(int instanceId)
   {
     super.reset(instanceId);
-    cachedValue[instanceId] = value;
+    if ( value )
+    {
+      state[instanceId] |= cachedStateMask;
+    }
+    else
+    {
+      state[instanceId] &= ~cachedStateMask;
+    }
   }
 
   /**

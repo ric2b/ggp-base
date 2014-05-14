@@ -22,6 +22,7 @@ public class StateMachineVerifier
     {
       if (!state2.getContents().contains(sentence))
       {
+        System.out.println("Sentence is different: " + sentence);
         return false;
       }
     }
@@ -31,6 +32,7 @@ public class StateMachineVerifier
     {
       if (!state1.getContents().contains(sentence))
       {
+        System.out.println("Sentence is different: " + sentence);
         return false;
       }
     }
@@ -93,6 +95,7 @@ public class StateMachineVerifier
         }
       }
 
+      int moveNum = 0;
       while (!theMachines.get(0).isTerminal(theCurrentStates[0]))
       {
         if (System.currentTimeMillis() > startTime + timeToSpend)
@@ -100,10 +103,10 @@ public class StateMachineVerifier
           break;
         }
 
+        moveNum++;
         // Do per-state consistency checks
         for (int i = 1; i < theMachines.size(); i++)
         {
-
           for (Role theRole : theMachines.get(0).getRoles())
           {
             try
@@ -113,7 +116,7 @@ public class StateMachineVerifier
                   .get(0).getLegalMoves(theCurrentStates[0], theRole).size()))
               {
                 GamerLogger.log("StateMachine",
-                                "Inconsistency between machine #" + i +
+                                "Move " + moveNum + ": inconsistency between machine #" + i +
                                     " and ProverStateMachine over state " +
                                     theCurrentStates[0] + " vs " +
                                     theCurrentStates[i].getContents());
@@ -149,6 +152,21 @@ public class StateMachineVerifier
                                     theMachines.get(i)
                                         .getLegalMoves(theCurrentStates[i],
                                                        theRole));
+
+                for(Move m : theMachines.get(0).getLegalMoves(theCurrentStates[0], theRole))
+                {
+                  if ( !theMachines.get(i).getLegalMoves(theCurrentStates[i], theRole).contains(m))
+                  {
+                    GamerLogger.log("StateMachine", "Differs in regard to move: " + m);
+                  }
+                }
+                for(Move m : theMachines.get(i).getLegalMoves(theCurrentStates[i], theRole))
+                {
+                  if ( !theMachines.get(0).getLegalMoves(theCurrentStates[0], theRole).contains(m))
+                  {
+                    GamerLogger.log("StateMachine", "Differs in regard to move: " + m);
+                  }
+                }
                 return false;
               }
             }
