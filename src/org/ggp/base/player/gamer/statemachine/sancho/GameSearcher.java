@@ -426,7 +426,7 @@ public class GameSearcher implements Runnable, ActivityController
 
       if ( useSearchThreadToRolloutWhenBlocked )
       {
-        if (xiNeedToDoOne && !canBackPropagate)
+        if (xiNeedToDoOne && !canBackPropagate && mGameCharacteristics.getRolloutSampleSize() == 1)
         {
           //  If the rollout threads are not keeping up and the pipeline
           //  is full then perform an expansion synchronously while we
