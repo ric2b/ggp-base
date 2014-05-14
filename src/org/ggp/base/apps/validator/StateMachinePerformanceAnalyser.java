@@ -218,7 +218,7 @@ public class StateMachinePerformanceAnalyser
                              new CombinedHeuristic());
 
           endTime = System.currentTimeMillis() + numSeconds*1000;
-          gameSearcher.startSearch(endTime, initialState);
+          gameSearcher.startSearch(endTime, initialState, 0);
 
           Thread.sleep(endTime - System.currentTimeMillis());
 

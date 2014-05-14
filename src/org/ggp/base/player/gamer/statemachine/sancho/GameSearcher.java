@@ -360,7 +360,8 @@ public class GameSearcher implements Runnable, ActivityController
   }
 
   public void startSearch(long moveTimeout,
-                          ForwardDeadReckonInternalMachineState startState) throws GoalDefinitionException
+                          ForwardDeadReckonInternalMachineState startState,
+                          int rootDepth) throws GoalDefinitionException
   {
 
     // Print out some statistics from last turn.
@@ -378,7 +379,7 @@ public class GameSearcher implements Runnable, ActivityController
     {
       for(MCTSTree tree : factorTrees)
       {
-        tree.setRootState(startState);
+        tree.setRootState(startState, rootDepth);
       }
 
       lowestRolloutScoreSeen = 1000;

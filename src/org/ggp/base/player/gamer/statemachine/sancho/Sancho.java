@@ -45,6 +45,7 @@ public class Sancho extends SampleGamer
   private int                         MinRawNetScore                  = 0;
   private int                         MaxRawNetScore                  = 100;
   private int                         multiRoleAverageScoreDiff       = 0;
+  private int                         currentMoveDepth                = 0;
   private boolean                     underExpectedRangeScoreReported = false;
   private boolean                     overExpectedRangeScoreReported  = false;
   private TargetedSolutionStatePlayer puzzlePlayer                    = null;
@@ -188,6 +189,8 @@ public class Sancho extends SampleGamer
                                                                       getMetaGamingTimeout());
 
     System.gc();
+
+    currentMoveDepth = 0;
 
     return new StateMachineProxy(underlyingStateMachine, searchProcessor);
   }
@@ -753,7 +756,8 @@ public class Sancho extends SampleGamer
                             greedyRolloutsDisabled,
                             heuristic);
       searchProcessor.startSearch(System.currentTimeMillis() + 60000,
-                                  new ForwardDeadReckonInternalMachineState(initialState));
+                                  new ForwardDeadReckonInternalMachineState(initialState),
+                                  0);
 
       try
       {
@@ -828,7 +832,8 @@ public class Sancho extends SampleGamer
       //emptyTree();
       //root = null;
       //validateAll();
-      searchProcessor.startSearch(finishBy, currentState);
+      searchProcessor.startSearch(finishBy, currentState, currentMoveDepth);
+      currentMoveDepth += numRoles;
 
       searchProcessor.requestYield(false);
 

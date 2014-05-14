@@ -247,7 +247,7 @@ public class MCTSTree
     }
   }
 
-  public void setRootState(ForwardDeadReckonInternalMachineState state) throws GoalDefinitionException
+  public void setRootState(ForwardDeadReckonInternalMachineState state, int rootDepth) throws GoalDefinitionException
   {
     ForwardDeadReckonInternalMachineState factorState;
 
@@ -265,6 +265,7 @@ public class MCTSTree
     {
       root = allocateNode(underlyingStateMachine, factorState, null, false);
       root.decidingRoleIndex = numRoles - 1;
+      root.setDepth(rootDepth);
     }
     else
     {
@@ -277,9 +278,11 @@ public class MCTSTree
         empty();
         root = allocateNode(underlyingStateMachine, factorState, null, false);
         root.decidingRoleIndex = numRoles - 1;
+        root.setDepth(rootDepth);
       }
       else
       {
+        assert(newRoot.getDepth() == rootDepth);
         if (newRoot != root)
         {
           root.freeAllBut(newRoot);

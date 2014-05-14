@@ -98,12 +98,44 @@ public class TreeNode
   private double                        mostLikelyRunnerUpValue;
   boolean                               complete            = false;
   private boolean                       allChildrenComplete = false;
+  private int                           depth               = 0;
+  private int                           completionDepth;
 
   TreeNode(MCTSTree tree, int numRoles) throws GoalDefinitionException
   {
     this.tree = tree;
     averageScores = new double[tree.numRoles];
     averageSquaredScores = new double[tree.numRoles];
+  }
+
+  /**
+   * Retrieve the depth of this node from the initial state
+   * @return node's depth
+   */
+  public int getDepth()
+  {
+    return depth;
+  }
+
+  /**
+   * Set the depth of this node from the initial state
+   * @param theDepth value to set
+   */
+  public void setDepth(int theDepth)
+  {
+    depth = theDepth;
+  }
+
+  /**
+   * Retrieve the depth of the best-play terminal state known to
+   * derive from this node.  Valid only if the node is complete
+   * @return depth of the terminal state, from the initial state
+   */
+  public int getCompletionDepth()
+  {
+    assert(complete);
+
+    return completionDepth;
   }
 
   private void correctParentsForCompletion(double values[])
@@ -224,7 +256,7 @@ public class TreeNode
     }
   }
 
-  private void markComplete(double[] values)
+  private void markComplete(double[] values, int atCompletionDepth)
   {
     if (!complete)
     {
@@ -244,6 +276,7 @@ public class TreeNode
 
       tree.numCompletedBranches++;
       complete = true;
+      completionDepth = atCompletionDepth;
 
       //System.out.println("Mark complete with score " + averageScore + (ourMove == null ? " (for opponent)" : " (for us)") + " in state: " + state);
       if (this == tree.root)
@@ -328,7 +361,7 @@ public class TreeNode
       if (decidingRoleWin && !mutualWin)
       {
         // Win for whoever just moved after they got to choose so parent node is also decided
-        parent.markComplete(averageScores);
+        parent.markComplete(averageScores, completionDepth);
 
         //	Force win in this state means a very likely good move in sibling states
         //	so note that their selection probabilities should be increased
@@ -616,24 +649,9 @@ public class TreeNode
     boolean decidingRoleWin = false;
     double[] worstDeciderScore = null;
     double[] floorDeciderScore = null;
+    int determiningChildCompletionDepth = Integer.MAX_VALUE;
 
     int numUniqueChildren = 0;
-
-    //			double bestIncompleteDecidingRoleVal = 0;
-    //			if ( isSimultaneousMove )
-      //			{
-      //				for(TreeEdge edge : children)
-        //				{
-        //					TreeNodeRef cr = edge.child;
-        //					if ( cr.node.seq == cr.seq && edge.selectAs == edge && !cr.node.complete )
-          //					{
-    //						if ( cr.node.averageScores[roleIndex] > bestIncompleteDecidingRoleVal )
-    //						{
-    //							bestIncompleteDecidingRoleVal = cr.node.averageScores[roleIndex];
-    //						}
-    //					}
-    //				}
-    //			}
 
     for (TreeEdge edge : children)
     {
@@ -671,6 +689,10 @@ public class TreeNode
                 {
                   if (cr.node.averageScores[i] < 99.5)
                   {
+                    if ( determiningChildCompletionDepth > cr.node.getCompletionDepth() )
+                    {
+                      determiningChildCompletionDepth = cr.node.getCompletionDepth();
+                    }
                     mutualWin = false;
                     break;
                   }
@@ -719,6 +741,8 @@ public class TreeNode
             {
               //	Find the highest supported floor score for any of the moves equivalent to this one
               double[] worstCousinValues = null;
+              int floorCompletionDepth = Integer.MAX_VALUE;
+
               for (TreeEdge siblingEdge : children)
               {
                 if (siblingEdge.selectAs == edge)
@@ -732,6 +756,10 @@ public class TreeNode
                         worstCousinValues[roleIndex] < moveFloor[roleIndex])
                     {
                       worstCousinValues = moveFloor;
+                      if ( floorCompletionDepth > siblingEdge.child.node.getCompletionDepth() )
+                      {
+                        floorCompletionDepth = siblingEdge.child.node.getCompletionDepth();
+                      }
                     }
                   }
                 }
@@ -741,6 +769,7 @@ public class TreeNode
                   (floorDeciderScore == null || floorDeciderScore[roleIndex] < worstCousinValues[roleIndex]))
               {
                 floorDeciderScore = worstCousinValues;
+                determiningChildCompletionDepth = floorCompletionDepth;
               }
             }
           }
@@ -805,6 +834,24 @@ public class TreeNode
 
     if (allImmediateChildrenComplete || decidingRoleWin)
     {
+      if ( determiningChildCompletionDepth == Integer.MAX_VALUE )
+      {
+        for (TreeEdge edge : children)
+        {
+          TreeNodeRef cr = edge.child;
+          if (cr.seq >= 0 && cr.node.seq == cr.seq)
+          {
+            if (edge.selectAs == edge)
+            {
+              if ( determiningChildCompletionDepth > cr.node.getCompletionDepth() )
+              {
+                determiningChildCompletionDepth = cr.node.getCompletionDepth();
+              }
+            }
+          }
+        }
+      }
+
       tree.numCompletionsProcessed++;
 
       //	Opponent's choice which child to take, so take their
@@ -833,12 +880,12 @@ public class TreeNode
         {
           blendedCompletionScore = floorDeciderScore;
         }
-        markComplete(blendedCompletionScore);
+        markComplete(blendedCompletionScore, determiningChildCompletionDepth);
         //markComplete(averageValues);
       }
       else
       {
-        markComplete(bestValues);
+        markComplete(bestValues, determiningChildCompletionDepth);
       }
     }
 
@@ -1426,7 +1473,7 @@ public class TreeNode
 
         if (isTerminal)
         {
-          markComplete(averageScores);
+          markComplete(averageScores, depth);
           return;
         }
       }
@@ -1510,6 +1557,7 @@ public class TreeNode
           TreeNode newChild = newEdge.child.node;
 
           newChild.decidingRoleIndex = roleIndex;
+          newChild.depth = depth+1;
 
           if (newState == null)
           {
@@ -1629,7 +1677,7 @@ public class TreeNode
             {
               if (cr.node.isTerminal)
               {
-                cr.node.markComplete(cr.node.averageScores);
+                cr.node.markComplete(cr.node.averageScores, cr.node.depth);
                 completeChildFound = true;
               }
               if (cr.node.complete)
@@ -2397,7 +2445,7 @@ public class TreeNode
                   edge2.child.node.complete)
               {
                 System.out.println("Post-processing completion of response node");
-                markComplete(edge2.child.node.averageScores);
+                markComplete(edge2.child.node.averageScores, edge2.child.node.completionDepth);
               }
             }
           }
@@ -2538,6 +2586,7 @@ public class TreeNode
     }
   }
 
+  @SuppressWarnings("null")
   public FactorMoveChoiceInfo getBestMove(boolean traceResponses, StringBuffer pathTrace)
   {
     double bestScore = -Double.MAX_VALUE;
@@ -2621,9 +2670,21 @@ public class TreeNode
       }
       else
       {
+        int numChildVisits = child.numVisits;
+
+        //  Subtly down-weight noops in 1-player games to discourage them.  Note that
+        //  this has to be fairly subtle, and not impact asymptotic choices since it is possible
+        //  for a puzzle to require noops for a solution!
+        if ( tree.gameCharacteristics.isPuzzle )
+        {
+          if ( edge.jointPartialMove[roleIndex].inputProposition == null )
+          {
+            numChildVisits /= 2;
+          }
+        }
         selectionScore = moveScore *
             (1 - 20 * Math.log(numVisits) /
-                (20 * Math.log(numVisits) + child.numVisits));
+                (20 * Math.log(numVisits) + numChildVisits));
       }
       if (!lRecursiveCall)
       {
@@ -2654,8 +2715,8 @@ public class TreeNode
         continue;
       }
       if (selectionScore > bestScore ||
-          (selectionScore == bestScore && child.complete && (child.numVisits > mostSelected || !bestNode.complete)) ||
-          (bestNode != null && bestNode.complete && !child.complete &&
+          (selectionScore == bestScore && child.complete && (child.completionDepth < bestNode.completionDepth || !bestNode.complete)) ||
+          (bestNode.complete && !child.complete &&
           bestNode.averageScores[roleIndex] <= tree.mGameSearcher.lowestRolloutScoreSeen && tree.mGameSearcher.lowestRolloutScoreSeen < 100))
       {
         bestNode = child;
@@ -2841,9 +2902,6 @@ public class TreeNode
       }
     }
   }
-
-  private int dumpCount          = 0;
-  double      lastDebugNodeScore = 100;
 
   public void updateStats(double[] values,
                           double[] squaredValues,
