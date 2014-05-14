@@ -157,7 +157,7 @@ public class SimplePipeline
       return false;
     }
 
-    return ((mLastRolledOutCache = mLastRolledOut.get()) > mLastBackPropagated);
+    return (mLastRolledOut.get() > mLastBackPropagated);
   }
 
   /**
