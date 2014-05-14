@@ -2586,7 +2586,6 @@ public class TreeNode
     }
   }
 
-  @SuppressWarnings("null")
   public FactorMoveChoiceInfo getBestMove(boolean traceResponses, StringBuffer pathTrace)
   {
     double bestScore = -Double.MAX_VALUE;
@@ -2714,7 +2713,8 @@ public class TreeNode
       {
         continue;
       }
-      if (selectionScore > bestScore ||
+      if (bestNode == null ||
+          selectionScore > bestScore ||
           (selectionScore == bestScore && child.complete && (child.completionDepth < bestNode.completionDepth || !bestNode.complete)) ||
           (bestNode.complete && !child.complete &&
           bestNode.averageScores[roleIndex] <= tree.mGameSearcher.lowestRolloutScoreSeen && tree.mGameSearcher.lowestRolloutScoreSeen < 100))
