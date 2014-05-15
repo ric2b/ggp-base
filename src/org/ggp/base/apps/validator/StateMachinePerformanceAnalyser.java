@@ -215,7 +215,8 @@ public class StateMachinePerformanceAnalyser
                              new RoleOrdering(theMachine, theMachine.getRoles().get(0)),
                              new RuntimeGameCharacteristics(theMachine.getRoles().size()),
                              true,
-                             new CombinedHeuristic());
+                             new CombinedHeuristic(),
+                             null);
 
           endTime = System.currentTimeMillis() + numSeconds*1000;
           gameSearcher.startSearch(endTime, initialState, 0);

@@ -1,8 +1,11 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.util.List;
+
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeRef;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
@@ -21,6 +24,7 @@ class RolloutRequest
   public TreeNodeRef                           mNode;
   public TreePath                              mPath;
   public ForwardDeadReckonInternalMachineState mState;
+  public List<ForwardDeadReckonLegalMoveInfo>  mPlayedMovesForWin;
   public Factor                                mFactor = null;
   public int                                   mSampleSize;
   public final double[]                        mAverageScores;
@@ -70,11 +74,18 @@ class RolloutRequest
       mMinScore = 1000;
       mMaxScore = -100;
 
+      List<ForwardDeadReckonLegalMoveInfo> playedMoves = mPlayedMovesForWin;
+
       // Perform the request number of samples.
       for (int i = 0; i < mSampleSize; i++)
       {
+        if ( playedMoves != null )
+        {
+          playedMoves.clear();
+        }
+
         // Do the rollout.
-        stateMachine.getDepthChargeResult(mState, mFactor, xiOurRole, null, null, null);
+        stateMachine.getDepthChargeResult(mState, mFactor, xiOurRole, null, null, playedMoves);
 
         // Record the results.
         for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
@@ -94,8 +105,20 @@ class RolloutRequest
             {
               mMinScore = lScore;
             }
+
+            if ( lScore == 100 && playedMoves != null )
+            {
+              //  Stop updating the played moves list since we have now found a win
+              playedMoves = null;
+            }
           }
         }
+      }
+
+      if ( playedMoves != null )
+      {
+        //  No win was found so don't report a win sequence
+        mPlayedMovesForWin = null;
       }
 
       // Normalize the results for the number of samples.

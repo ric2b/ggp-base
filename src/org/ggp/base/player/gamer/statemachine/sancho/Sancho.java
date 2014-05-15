@@ -164,7 +164,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.58";
+    return "Sancho 1.58a";
   }
 
   @Override
@@ -753,7 +753,8 @@ public class Sancho extends SampleGamer
                             roleOrdering,
                             gameCharacteristics,
                             greedyRolloutsDisabled,
-                            heuristic);
+                            heuristic,
+                            plan);
       searchProcessor.startSearch(System.currentTimeMillis() + 60000,
                                   new ForwardDeadReckonInternalMachineState(initialState),
                                   0);

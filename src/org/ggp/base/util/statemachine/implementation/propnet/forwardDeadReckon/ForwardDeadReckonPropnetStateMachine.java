@@ -2726,6 +2726,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     do
     {
+      assert(playedMoves == null || playedMoves.size() == rolloutStackDepth);
       ForwardDeadReckonProposition winningMoveProp = transitionToNextStateInGreedyRollout(results,
                                                                                           factor,
                                                                                           hintMoveProp,
@@ -2750,6 +2751,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             RolloutDecisionState poppedState = rolloutDecisionStack[--rolloutStackDepth];
             if (playedMoves != null)
             {
+              //System.out.println("Pop move after avoidable loss");
               playedMoves.remove(playedMoves.size() - 1);
             }
             //System.out.println("...next choice=" + poppedState.nextChoiceIndex + " (base was " + poppedState.baseChoiceIndex + ")");
@@ -2788,6 +2790,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
         if (playedMoves != null)
         {
+          //System.out.println("Pop move after encountering loss");
           playedMoves.remove(playedMoves.size() - 1);
         }
 
@@ -3090,6 +3093,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                 {
                   if (playedMoves != null)
                   {
+                    //System.out.println("Play hint move [" + playedMoves.size() + "]: " + decisionState.chooserMoves[i].move);
                     playedMoves.add(decisionState.chooserMoves[i]);
                   }
                   greedyRolloutEffectiveness++;
@@ -3120,6 +3124,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                             preEnumerate ? decisionState.chooserMoves.length
                                         : 1);
       int choice = -1;
+      int lastTransitionChoice = -1;
 
       for (int i = 0; i < remainingMoves; i++)
       {
@@ -3140,6 +3145,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
 
         chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserMoves[choice].inputProposition;
+        lastTransitionChoice = choice;
 
         transitionToNextStateFromChosenMove(null, null);
 
@@ -3160,6 +3166,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           {
             if (playedMoves != null)
             {
+              //System.out.println("Play winning move [" + playedMoves.size() + "]: " + decisionState.chooserMoves[choice].move);
               playedMoves.add(decisionState.chooserMoves[choice]);
             }
             if (preEnumerate)
@@ -3179,13 +3186,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       if ( !transitioned )
       {
         chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserMoves[choice].inputProposition;
+        lastTransitionChoice = choice;
 
         transitionToNextStateFromChosenMove(null, null);
       }
 
       if (playedMoves != null)
       {
-        playedMoves.add(decisionState.chooserMoves[choice]);
+        //System.out.println("Play non-winning move [" + playedMoves.size() + "]: " + decisionState.chooserMoves[lastTransitionChoice].move);
+        playedMoves.add(decisionState.chooserMoves[lastTransitionChoice]);
       }
 
       decisionState.nextChoiceIndex = choiceIndex;
@@ -3521,31 +3530,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           totalChoices += numChoices;
           transitionToNextStateFromChosenMove(null, null);
           rolloutDepth++;
-//          System.out.println("Move " + rolloutDepth + " - " + numChoices + " moves available");
-//          String stateStr = lastInternalSetState.toString();
-//          System.out.println("New state: " + stateStr);
-//          if ( rolloutDepth > 500 )
-//          {
-//            System.exit(1);
-//          }
-//          for(int x = 1; x <=3; x++ )
-//          {
-//            for(int y = 1; y <=3; y++ )
-//            {
-//              String cellStrb = "cell " + x + " " + y + " b";
-//              String cellStrx = "cell " + x + " " + y + " x";
-//              String cellStro = "cell " + x + " " + y + " 0";
-//              if ( stateStr.contains(cellStrb) && (stateStr.contains(cellStrx) || stateStr.contains(cellStro)))
-//              {
-//                System.out.println("Illegal generated state");
-//              }
-//            }
-//          }
         }
-        //if ( rolloutDepth < 2 )
-//        {
-//          System.out.println("After game len of " + rolloutDepth + " terminal state was:" + lastInternalSetState);
-//        }
+
         if (stats != null)
         {
           stats[0] = rolloutDepth;

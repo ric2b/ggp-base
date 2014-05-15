@@ -1,11 +1,14 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
@@ -39,6 +42,7 @@ public class GameSearcher implements Runnable, ActivityController
   private int                             numIterations       = 0;
   private volatile boolean                requestYield        = false;
   private Set<MCTSTree>                   factorTrees         = new HashSet<>();
+  private GamePlan                        mPlan               = null;
   private CappedPool<TreeNode>            nodePool;
   private RolloutProcessorPool            rolloutPool         = null;
   private double                          minExplorationBias  = 0.5;
@@ -110,9 +114,11 @@ public class GameSearcher implements Runnable, ActivityController
                     RoleOrdering roleOrdering,
                     RuntimeGameCharacteristics gameCharacteristics,
                     boolean disableGreedyRollouts,
-                    Heuristic heuristic) throws GoalDefinitionException
+                    Heuristic heuristic,
+                    GamePlan plan) throws GoalDefinitionException
   {
     mGameCharacteristics = gameCharacteristics;
+    mPlan = plan;
 
     if (ThreadControl.ROLLOUT_THREADS > 0)
     {
@@ -265,6 +271,17 @@ public class GameSearcher implements Runnable, ActivityController
   {
     synchronized(getSerializationObject())
     {
+      //  If we instated a plan during this move calculation we must play from it
+      if ( !mPlan.isEmpty() )
+      {
+        Move result = mPlan.nextMove();
+        System.out.println("Playing first move from new plan: " + result);
+
+        //  No point in further searching
+        terminate();
+        return result;
+      }
+
       FactorMoveChoiceInfo bestChoice = null;
 
       System.out.println("Num tree node frees: " + nodePool.getNumFreedItems());
@@ -423,7 +440,10 @@ public class GameSearcher implements Runnable, ActivityController
       if (searchSeqRequested == searchSeqProcessing)
       {
         this.notifyAll();
-        this.wait();
+        if ( !mTerminateRequested )
+        {
+          this.wait();
+        }
       }
 
       searchSeqProcessing = searchSeqRequested;
@@ -570,6 +590,30 @@ public class GameSearcher implements Runnable, ActivityController
       if (lRequest.mNode.seq == node.seq && !node.complete)
       {
         lRequest.mPath.resetCursor();
+
+        if ( lRequest.mPlayedMovesForWin != null )
+        {
+          //  First build up the move path to the node that was rolled out from
+          List<ForwardDeadReckonLegalMoveInfo> fullPlayoutList = new LinkedList<>();
+
+          while(lRequest.mPath.hasMore())
+          {
+            lRequest.mPath.getNextNode();
+            assert(lRequest.mPath.getCurrentElement() != null);
+
+            TreeEdge edge = lRequest.mPath.getCurrentElement().getEdge();
+            fullPlayoutList.add(0, edge.jointPartialMove[edge.child.node.decidingRoleIndex]);
+          }
+
+          lRequest.mPath.resetCursor();
+
+          //  Now append the rollout path
+          fullPlayoutList.addAll(lRequest.mPlayedMovesForWin);
+
+          //  Provide this winning path for consideration as our new plan
+          mPlan.considerPlan(fullPlayoutList);
+        }
+
         node.updateStats(lRequest.mAverageScores,
                          lRequest.mAverageSquaredScores,
                          lRequest.mSampleSize,
