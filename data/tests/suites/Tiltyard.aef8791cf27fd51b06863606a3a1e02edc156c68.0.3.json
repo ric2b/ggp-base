@@ -1,0 +1,30 @@
+{
+  "cases" : [
+    {
+      "case" : "Tiltyard aef8791cf27fd51b06863606a3a1e02edc156c68, player 0, move 3",
+      "repo" : "games.ggp.org/base",
+      "game" : "2pffa",
+      "start" : "160",
+      "play" : "25",
+      "limit" : 3,
+      "players" : [
+        {
+          "type" : "Sancho",
+          "args" : [
+            "plan=move 1 4 3 3,noop"
+          ]
+        },
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "noop,move 7 4 5 5,noop"
+          ]
+        }
+      ],
+      "check" : {
+        "player" : "0",
+        "acceptable" : "move 1 4 3 5"
+      }
+    }
+  ]
+}
