@@ -1,14 +1,22 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.util.concurrent.atomic.AtomicReferenceArray;
+
 /**
  * Highly efficient, lock-free rollout request pipeline.
  */
 public class Pipeline
 {
   /**
-   * Individual per-rollout-thread pipelines.
+   * Per-rollout-thread pipelines.
    */
-  final private SimplePipeline[] mThreadPipelines;
+  private final SimplePipeline[] mThreadPipelines;
+
+  /**
+   * Per-rollout-thread performance statistics.  Use of AtomicReferenceArray gives volatile set/get on the contents of
+   * the array.
+   */
+  private final AtomicReferenceArray<RolloutPerfStats> mThreadPerfStats;
 
   /**
    * The next rollout thread to give new (expansion) work to and the next thread to drain (back-propagation) work from.
@@ -36,6 +44,7 @@ public class Pipeline
   {
     mMaxQueuedItems = xiSize;
     mThreadPipelines = new SimplePipeline[ThreadControl.ROLLOUT_THREADS];
+    mThreadPerfStats = new AtomicReferenceArray<>(ThreadControl.ROLLOUT_THREADS);
 
     // Create per-thread pipelines big enough that we'll be able to queue xiSize items across all of them.  If there's
     // a little spare capacity in the per-thread queues, that's okay.  We still limit the overall pipeline size.
@@ -168,5 +177,32 @@ public class Pipeline
     mThreadPipelines[mNextDrainThread].backPropagationComplete();
     assert(mCurrentQueuedItems > 0) : "Pipeline unexpectedly empty - num items: " + mCurrentQueuedItems;
     mCurrentQueuedItems--;
+  }
+
+  /**
+   * Publish performance statistics from a rollout thread.
+   *
+   * @param xiThreadIndex - the rollout thread publishing the statistics.
+   * @param xiStats - the statistics.
+   */
+  public void publishRolloutPerfStats(int xiThreadIndex, RolloutPerfStats xiStats)
+  {
+    mThreadPerfStats.set(xiThreadIndex, xiStats);
+  }
+
+  /**
+   * @return the most recently published statistics.
+   *
+   * There's no guarantee that stats from different threads will have be from "the same" time.  However, if stats have
+   * been written at the point this method is called, they will be returned.
+   */
+  public RolloutPerfStats[] getRolloutPerfStats()
+  {
+    final RolloutPerfStats[] lStats = new RolloutPerfStats[ThreadControl.ROLLOUT_THREADS];
+    for (int lii = 0; lii < ThreadControl.ROLLOUT_THREADS; lii++)
+    {
+      lStats[lii] = mThreadPerfStats.get(lii);
+    }
+    return lStats;
   }
 }

@@ -2,6 +2,9 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
+/**
+ * A fixed size pool of rollout processors.
+ */
 public class RolloutProcessorPool
 {
   private final Pipeline                               mPipeline;
@@ -12,12 +15,10 @@ public class RolloutProcessorPool
    *
    * @param xiPipeline - the work pipeline.
    * @param xiUnderlyingStateMachine - the underlying state machine.
-   * @param xiCharacteristics - game characteristics.
    * @param xiRoleOrdering - the role ordering.
    */
   public RolloutProcessorPool(Pipeline xiPipeline,
                               ForwardDeadReckonPropnetStateMachine xiUnderlyingStateMachine,
-                              RuntimeGameCharacteristics xiCharacteristics,
                               RoleOrdering xiRoleOrdering)
   {
     mPipeline = xiPipeline;
@@ -27,7 +28,6 @@ public class RolloutProcessorPool
       mRolloutProcessors[lii] = new RolloutProcessor(lii,
                                                      mPipeline,
                                                      xiUnderlyingStateMachine.createInstance(),
-                                                     xiCharacteristics,
                                                      xiRoleOrdering);
     }
   }

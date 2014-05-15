@@ -13,10 +13,24 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
+/**
+ * The thread that searches the game tree.  This is the only thread that can make updates to the game tree except under
+ * lock of {@link #getSerializationObject()}.
+ */
 public class GameSearcher implements Runnable, ActivityController
 {
+  /**
+   * Whether the sample size is updated as a result of thread performance measurements.
+   */
+  public static final boolean             USE_DYNAMIC_SAMPLE_SIZING = true;
+
+  /**
+   * The update interval for sample size.
+   */
+  public static final long                SAMPLE_SIZE_UPDATE_INTERVAL_MS = 10000;
+
   private static final int                PIPELINE_SIZE = 12; //  Default set to give reasonable results on 2 and 4 cores
-  private final boolean                   useSearchThreadToRolloutWhenBlocked = true;
+  private static final boolean            USE_SEARCH_THREAD_TO_ROLLOUT_WHEN_BLOCKED = true;
 
   private volatile long                   moveTime;
   private volatile long                   startTime;
@@ -40,20 +54,36 @@ public class GameSearcher implements Runnable, ActivityController
    */
   public int                              highestRolloutScoreSeen;
 
-  public long longestObservedLatency = 0;
-  public long averageLatency = 0;
-  private long numCompletedRollouts = 0;
-
   /**
    * The lowest score seen in the current turn (for our role).
    */
   public int                              lowestRolloutScoreSeen;
 
+  /**
+   * The last combined performance statistics from all rollout threads.
+   */
+  private RolloutPerfStats                mLastRolloutPerfStats = new RolloutPerfStats(0, 0);
+
+  public long longestObservedLatency = 0;
+  public long averageLatency = 0;
+  private long numCompletedRollouts = 0;
+
+  /**
+   * Create a game tree searcher with the specified maximum number of nodes.
+   *
+   * @param nodeTableSize - the maximum number of nodes.
+   */
   public GameSearcher(int nodeTableSize)
   {
     nodePool = new CappedPool<>(nodeTableSize);
   }
 
+  /**
+   * Limit the exploration bias to the specified range.
+   *
+   * @param min - the minimum exploration bias.
+   * @param max - the maximum exploration bias.
+   */
   public void setExplorationBiasRange(double min, double max)
   {
     minExplorationBias = min;
@@ -63,6 +93,18 @@ public class GameSearcher implements Runnable, ActivityController
                        ", " + maxExplorationBias + "]");
   }
 
+  /**
+   * Configure the game searcher.  This method must be called before startSearch().
+   *
+   * @param underlyingStateMachine
+   * @param initialState
+   * @param roleOrdering
+   * @param gameCharacteristics
+   * @param disableGreedyRollouts
+   * @param heuristic
+   *
+   * @throws GoalDefinitionException
+   */
   public void setup(ForwardDeadReckonPropnetStateMachine underlyingStateMachine,
                     ForwardDeadReckonInternalMachineState initialState,
                     RoleOrdering roleOrdering,
@@ -77,7 +119,7 @@ public class GameSearcher implements Runnable, ActivityController
       mPipeline = new Pipeline(PIPELINE_SIZE, underlyingStateMachine.getRoles().size());
     }
 
-    rolloutPool = new RolloutProcessorPool(mPipeline, underlyingStateMachine, mGameCharacteristics, roleOrdering);
+    rolloutPool = new RolloutProcessorPool(mPipeline, underlyingStateMachine, roleOrdering);
 
     if ( disableGreedyRollouts )
     {
@@ -130,11 +172,19 @@ public class GameSearcher implements Runnable, ActivityController
     // Register this thread.
     ThreadControl.registerSearchThread();
 
+    long lNextUpdateSampleSizeTime = 0;
+
     // TODO Auto-generated method stub
     try
     {
       while (searchAvailable() && (!mTerminateRequested))
       {
+        if (lNextUpdateSampleSizeTime == 0)
+        {
+          System.out.println("Starting sample size update timer");
+          lNextUpdateSampleSizeTime = System.currentTimeMillis() + SAMPLE_SIZE_UPDATE_INTERVAL_MS;
+        }
+
         try
         {
           boolean complete = false;
@@ -145,6 +195,12 @@ public class GameSearcher implements Runnable, ActivityController
           {
             long time = System.currentTimeMillis();
             double percentThroughTurn = Math.min(100, (time - startTime) * 100 / (moveTime - startTime));
+
+            if ((USE_DYNAMIC_SAMPLE_SIZING) && (time > lNextUpdateSampleSizeTime))
+            {
+              updateSampleSize();
+              lNextUpdateSampleSizeTime += SAMPLE_SIZE_UPDATE_INTERVAL_MS;
+            }
 
             if (requestYield)
             {
@@ -186,11 +242,14 @@ public class GameSearcher implements Runnable, ActivityController
     System.out.println("Terminating GameSearcher");
   }
 
+  /**
+   * @return whether the search is complete.  The search is complete if it's complete in all factors.
+   */
   public boolean isComplete()
   {
-    for(MCTSTree tree : factorTrees)
+    for (MCTSTree tree : factorTrees)
     {
-      if ( !tree.root.complete )
+      if (!tree.root.complete)
       {
         return false;
       }
@@ -199,6 +258,9 @@ public class GameSearcher implements Runnable, ActivityController
     return true;
   }
 
+  /**
+   * @return the best move discovered (from the current root of the tree).
+   */
   public Move getBestMove()
   {
     synchronized(getSerializationObject())
@@ -274,7 +336,19 @@ public class GameSearcher implements Runnable, ActivityController
     }
   }
 
-  public boolean expandSearch(boolean forceSynchronous) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
+  /**
+   * Expand the search tree by performing a single MCTS iteration across all factor trees.
+   *
+   * @param forceSynchronous - true if the rollout should be performed synchronously (by this thread).
+   *
+   * @return whether all factor trees have been completely explored.
+   *
+   * @throws MoveDefinitionException
+   * @throws TransitionDefinitionException
+   * @throws GoalDefinitionException
+   */
+  public boolean expandSearch(boolean forceSynchronous)
+    throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     boolean lAllTreesCompletelyExplored;
 
@@ -283,7 +357,7 @@ public class GameSearcher implements Runnable, ActivityController
     {
       boolean somethingDisposed = false;
 
-      for(MCTSTree tree : factorTrees)
+      for (MCTSTree tree : factorTrees)
       {
         if (!tree.root.complete)
         {
@@ -318,11 +392,18 @@ public class GameSearcher implements Runnable, ActivityController
     return lAllTreesCompletelyExplored;
   }
 
+  /**
+   * @return the number of iterations performed.
+   */
   public int getNumIterations()
   {
     return numIterations;
   }
 
+  /**
+   * @return the number of rollouts performed.  (This can be more than the number of iterations if the sample size is,
+   * or has been, greater than 1.)
+   */
   public int getNumRollouts()
   {
     int result = 0;
@@ -359,6 +440,15 @@ public class GameSearcher implements Runnable, ActivityController
     return mPipeline;
   }
 
+  /**
+   * Start searching the game tree (or re-root the tree at the start of a new turn).
+   *
+   * @param moveTimeout - the time (in milliseconds) at which a move must be submitted.
+   * @param startState  - the state at the root of the tree.
+   * @param rootDepth   - the current depth (in turns since the beginning of the game) of the tree root.
+   *
+   * @throws GoalDefinitionException
+   */
   public void startSearch(long moveTimeout,
                           ForwardDeadReckonInternalMachineState startState,
                           int rootDepth) throws GoalDefinitionException
@@ -367,7 +457,7 @@ public class GameSearcher implements Runnable, ActivityController
     // Print out some statistics from last turn.
     System.out.println("Last time...");
     System.out.println("  Number of MCTS iterations: " + mNumIterations);
-    if ( !useSearchThreadToRolloutWhenBlocked )
+    if (!USE_SEARCH_THREAD_TO_ROLLOUT_WHEN_BLOCKED)
     {
       System.out.println("  Tree thread blocked for:   " + mBlockedFor / 1000000 + "ms");
       mBlockedFor = 0;
@@ -397,7 +487,7 @@ public class GameSearcher implements Runnable, ActivityController
   @Override
   public void requestYield(boolean state)
   {
-    // !! ARR This is a bit course.  We could pass more useful messages about the desired state (including whether we
+    // !! ARR This is a bit coarse.  We could pass more useful messages about the desired state (including whether we
     // !! ARR should be spinning through outstanding work from a previous turn, whether this is an emergency stop
     // !! ARR request, etc.)
     requestYield = state;
@@ -411,13 +501,22 @@ public class GameSearcher implements Runnable, ActivityController
     return this;
   }
 
+  /**
+   * Process all completed rollouts in the pipeline.
+   *
+   * @param xiNeedToDoOne - whether this method should block until at least 1 rollout has been performed.
+   *
+   * @throws MoveDefinitionException
+   * @throws TransitionDefinitionException
+   * @throws GoalDefinitionException
+   */
   void processCompletedRollouts(boolean xiNeedToDoOne) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     boolean canBackPropagate;
 
     while ((canBackPropagate = mPipeline.canBackPropagate()) || xiNeedToDoOne)
     {
-      if (!useSearchThreadToRolloutWhenBlocked)
+      if (!USE_SEARCH_THREAD_TO_ROLLOUT_WHEN_BLOCKED)
       {
         if (xiNeedToDoOne)
         {
@@ -425,7 +524,7 @@ public class GameSearcher implements Runnable, ActivityController
         }
       }
 
-      if ( useSearchThreadToRolloutWhenBlocked )
+      if (USE_SEARCH_THREAD_TO_ROLLOUT_WHEN_BLOCKED)
       {
         if (xiNeedToDoOne && !canBackPropagate && mGameCharacteristics.getRolloutSampleSize() == 1)
         {
@@ -439,7 +538,7 @@ public class GameSearcher implements Runnable, ActivityController
 
       RolloutRequest lRequest = mPipeline.getNextRequestForBackPropagation();
 
-      if (!useSearchThreadToRolloutWhenBlocked)
+      if (!USE_SEARCH_THREAD_TO_ROLLOUT_WHEN_BLOCKED)
       {
         if (xiNeedToDoOne)
         {
@@ -484,6 +583,56 @@ public class GameSearcher implements Runnable, ActivityController
     }
   }
 
+  /**
+   * Update the sample size in order to try to keep the search thread busy, because it is the only thread able to access
+   * the tree (to avoid hideous locking code) and is therefore usually the bottleneck.
+   *
+   * Adjust the sample size to keep the rollout threads 80% busy.  This appears to give a happy trade-off between doing
+   * as many samples as reasonably possible whilst not leaving the pipeline full (thereby blocking the search thread)
+   * for prolonged periods.
+   */
+  private void updateSampleSize()
+  {
+    // Get the most recent combined total statistics and calculate the difference from last time round.
+    RolloutPerfStats lCombinedStatsTotal = new RolloutPerfStats(mPipeline.getRolloutPerfStats());
+    RolloutPerfStats lStatsDiff = lCombinedStatsTotal.getDifference(mLastRolloutPerfStats);
+    mLastRolloutPerfStats = lCombinedStatsTotal;
+
+    long lSampleSize = mGameCharacteristics.getRolloutSampleSize();
+
+    double lNewSampleSize = lSampleSize * 0.8 / lStatsDiff.mUsefulWorkFraction;
+
+    // The measured ratio is really quite volatile.  To prevent the sample size jumping all over the place, adjust it
+    // slowly.  The rules vary depending on whether the current sample size is very small (in which case we need to
+    // take care to avoid rounding preventing any change).
+    if (lSampleSize > 4)
+    {
+      // Only let the sample size 33% of the way towards its new value.  Also, only let it grow to 150% of its
+      // previous value in one go.
+      lNewSampleSize = (lNewSampleSize + (2 * lSampleSize)) / 3;
+      lNewSampleSize = Math.min(1.5 * lSampleSize, lNewSampleSize);
+    }
+    else
+    {
+      // Very small sample size.  Jump straight to the new size, up to a maximum of 5.  Instead of always rounding
+      // down, do normal rounding.
+      lNewSampleSize = Math.min(5,  lNewSampleSize + 0.5);
+    }
+
+    // The sample size is always absolutely bound between 1 and 100 (inclusive).
+    int lBoundedSampleSize = Math.max(1,  Math.min(100, (int)(lNewSampleSize + 0.5)));
+
+    System.out.println("Dynamic sample size");
+    System.out.println("  Useful work last time: " + (int)(lStatsDiff.mUsefulWorkFraction * 100) + "%");
+    System.out.println("  Setting sample size:   " + lBoundedSampleSize);
+    System.out.println("  Useful work total:     " + (int)(lCombinedStatsTotal.mUsefulWorkFraction * 100) + "%");
+
+    mGameCharacteristics.setRolloutSampleSize(lBoundedSampleSize);
+  }
+
+  /**
+   * Terminate the game searcher and all child threads.
+   */
   public void terminate()
   {
     synchronized(getSerializationObject())

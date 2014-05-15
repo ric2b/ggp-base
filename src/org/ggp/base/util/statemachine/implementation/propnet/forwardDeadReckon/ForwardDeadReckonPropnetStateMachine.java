@@ -3249,7 +3249,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return true;
   }
 
-  @SuppressWarnings("null")
   private int chooseRandomJointMove(Factor factor,
                                     MoveWeights moveWeights,
                                     List<ForwardDeadReckonLegalMoveInfo> playedMoves)
@@ -3326,6 +3325,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           }
         }
 
+        assert(chosen != null);
         if (validationMachine != null)
         {
           chosenMoves[index] = chosen.move;

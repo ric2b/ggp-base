@@ -12,11 +12,9 @@ class RolloutProcessor implements Runnable
   private final Pipeline                             mPipeline;
   private final ForwardDeadReckonPropnetStateMachine mStateMachine;
   private final Thread                               mThread;
-  private final RuntimeGameCharacteristics           mCharacteristics;
-  private final boolean                              USE_DYNAMIC_SAMPLE_SIZING = true;
 
-  public final Role                                  mOurRole;
-  public final RoleOrdering                          mRoleOrdering;
+  private final Role                                 mOurRole;
+  private final RoleOrdering                         mRoleOrdering;
 
   /**
    * Create (and start) a rollout processor.
@@ -30,7 +28,6 @@ class RolloutProcessor implements Runnable
   public RolloutProcessor(int xiThreadIndex,
                           Pipeline xiPipeline,
                           ForwardDeadReckonPropnetStateMachine xiStateMachine,
-                          RuntimeGameCharacteristics xiCharacteristics,
                           RoleOrdering xiRoleOrdering)
   {
     mThreadIndex = xiThreadIndex;
@@ -39,8 +36,6 @@ class RolloutProcessor implements Runnable
 
     mStateMachine = xiStateMachine;
     mStateMachine.setTerminalCheckHorizon(500);
-
-    mCharacteristics = xiCharacteristics;
 
     mRoleOrdering = xiRoleOrdering;
     mOurRole = mRoleOrdering.roleIndexToRole(0);
@@ -87,11 +82,13 @@ class RolloutProcessor implements Runnable
     // Register this thread.
     ThreadControl.registerRolloutThread();
 
-    // Update the sample size every 10 seconds.
-    final long lUpdateSampleSizeInterval = 10000000000L;
+    // Publish performance information every few seconds.  We do this moderately more frequently than the statistics are
+    // used so that it doesn't matter whether the latest set of statistics fall just one side or just the other side of
+    // a recalculation of the sample size.
+    final long lPerfStatsUpdateInterval = (GameSearcher.SAMPLE_SIZE_UPDATE_INTERVAL_MS * 1000000L) / 5;
 
     long lNow = System.nanoTime();
-    long lNextReportTime = lNow + lUpdateSampleSizeInterval;
+    long lNextPerfStatsReportTime = lNow + lPerfStatsUpdateInterval;
 
     long lUsefulWork = 0;
     long lBlockedFor = -lNow;
@@ -115,59 +112,26 @@ class RolloutProcessor implements Runnable
       lUsefulWork += lNow;
 
       // Occasionally, update the sample size
-      if (USE_DYNAMIC_SAMPLE_SIZING)
+      if ((GameSearcher.USE_DYNAMIC_SAMPLE_SIZING) && (lNow > lNextPerfStatsReportTime))
       {
-        if (lNow > lNextReportTime)
-        {
-          updateSampleSize(lUsefulWork, lBlockedFor);
-
-          lNextReportTime += lUpdateSampleSizeInterval;
-          lUsefulWork = 0;
-          lBlockedFor = 0;
-        }
+        publishPerfStats(lUsefulWork, lBlockedFor);
+        lNextPerfStatsReportTime += lPerfStatsUpdateInterval;
       }
 
       lBlockedFor -= lNow;
     }
   }
 
-  private void updateSampleSize(long xiUsefulWork, long xiBlockedFor)
+  /**
+   * Publish performance statistics.
+   *
+   * @param xiUsefulWork - the number of nanoseconds of useful work carried out by this thread.
+   * @param xiBlockedFor - the number of nanoseconds this thread has been blocked on the pipeline.
+   */
+  private void publishPerfStats(long xiUsefulWork, long xiBlockedFor)
   {
-    // Print debugging information from all threads.
-    long lSampleSize = mCharacteristics.getRolloutSampleSize();
-    double lUsefulWorkRatio = ((double)xiUsefulWork / (double)(xiUsefulWork + xiBlockedFor));
-    System.out.println("Thread " + mThreadIndex + " did " + lUsefulWorkRatio + " useful work");
-
-    // Thread 0 is responsible for setting the sample size (to avoid locking)
-    if (mThreadIndex == 0)
-    {
-      // Aim to keep the rollout threads 80% busy.  We don't want to have them fully occupied because then the tree
-      // worker thread is likely to block waiting for a rollout slot.
-      double lNewSampleSize = lSampleSize * 0.8 / lUsefulWorkRatio;
-
-      // The measured ratio is really quite volatile.  To prevent the sample size jumping all over the place, adjust it
-      // slowly.  The rules vary depending on whether the current sample size is very small (in which case we need to
-      // take care to avoid rounding preventing any change).
-      if (lSampleSize > 4)
-      {
-        // Only let the sample size 33% of the way towards its new value.  Also, only let it grow to 150% of its
-        // previous value in one go.
-        lNewSampleSize = (lNewSampleSize + (2 * lSampleSize)) / 3;
-        lNewSampleSize = Math.min(1.5 * lSampleSize, lNewSampleSize);
-      }
-      else
-      {
-        // Very small sample size.  Jump straight to the new size, up to a maximum of 5.  Instead of always rounding
-        // down, do normal rounding.
-        lNewSampleSize = Math.min(5,  lNewSampleSize + 0.5);
-      }
-
-      // The sample size is always absolutely bound between 1 and 100 (inclusive).
-      int lBoundedSampleSize = Math.max(1,  Math.min(100, (int)lNewSampleSize));
-
-      System.out.println("Setting sample size = " + lBoundedSampleSize);
-
-      mCharacteristics.setRolloutSampleSize(lBoundedSampleSize);
-    }
+    RolloutPerfStats lStats = new RolloutPerfStats(xiUsefulWork, xiBlockedFor);
+    mPipeline.publishRolloutPerfStats(mThreadIndex, lStats);
+    System.out.println(".");
   }
 }

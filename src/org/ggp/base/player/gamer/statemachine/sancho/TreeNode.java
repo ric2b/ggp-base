@@ -708,7 +708,7 @@ public class TreeNode
                     //	or wins in ALL cousin states also
                     if (roleIndex != 0 && hasSiblings())
                     {
-                      Set<Move> equivalentMoves = new HashSet<Move>();
+                      Set<Move> equivalentMoves = new HashSet<>();
                       for (TreeEdge siblingEdge : children)
                       {
                         if (siblingEdge.selectAs == edge)
