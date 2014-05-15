@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 
@@ -35,7 +34,7 @@ public class Sancho extends SampleGamer
    */
   public Role                         ourRole;
   private String                      planString                      = null;
-  private Queue<Move>                 plan                            = null;
+  private GamePlan                    plan                            = null;
   private int                         transpositionTableSize          = 2000000;
   private RuntimeGameCharacteristics  gameCharacteristics             = null;
   private RoleOrdering                roleOrdering                    = null;
@@ -225,10 +224,10 @@ public class Sancho extends SampleGamer
     // If have been configured with a plan (for test purposes), load it now.
     // We'll still do everything else as normal, but whilst there are moves in
     // the plan, when it comes to play, we'll just play the specified move.
-    plan = null;
+    plan = new GamePlan();
     if (planString != null)
     {
-      plan = convertPlanString(planString);
+      plan.considerPlan(convertPlanString(planString));
     }
 
     puzzlePlayer = null;
@@ -812,7 +811,7 @@ public class Sancho extends SampleGamer
     if ((plan != null) && (!plan.isEmpty()))
     {
       // We have a pre-prepared plan.  Simply play the next move.
-      bestMove = plan.remove();
+      bestMove = plan.nextMove();
       System.out.println("Playing pre-planned move: " + bestMove);
     }
     else if (gameCharacteristics.isIteratedGame && numRoles == 2)
