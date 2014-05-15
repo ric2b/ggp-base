@@ -2671,19 +2671,28 @@ public class TreeNode
       {
         int numChildVisits = child.numVisits;
 
-        //  Subtly down-weight noops in 1-player games to discourage them.  Note that
-        //  this has to be fairly subtle, and not impact asymptotic choices since it is possible
-        //  for a puzzle to require noops for a solution!
-        if ( tree.gameCharacteristics.isPuzzle )
+        //  Cope with the case where root expansion immediately found a complete node and never
+        //  even explored the others (which should not be selected)
+        if ( numChildVisits == 0 )
         {
-          if ( edge.jointPartialMove[roleIndex].inputProposition == null )
-          {
-            numChildVisits /= 2;
-          }
+          selectionScore = -1000;
         }
-        selectionScore = moveScore *
-            (1 - 20 * Math.log(numVisits) /
-                (20 * Math.log(numVisits) + numChildVisits));
+        else
+        {
+          //  Subtly down-weight noops in 1-player games to discourage them.  Note that
+          //  this has to be fairly subtle, and not impact asymptotic choices since it is possible
+          //  for a puzzle to require noops for a solution!
+          if ( tree.gameCharacteristics.isPuzzle )
+          {
+            if ( edge.jointPartialMove[roleIndex].inputProposition == null )
+            {
+              numChildVisits /= 2;
+            }
+          }
+          selectionScore = moveScore *
+              (1 - 20 * Math.log(numVisits) /
+                  (20 * Math.log(numVisits) + numChildVisits));
+        }
       }
       if (!lRecursiveCall)
       {
