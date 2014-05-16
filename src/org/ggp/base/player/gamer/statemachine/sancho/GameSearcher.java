@@ -52,6 +52,7 @@ public class GameSearcher implements Runnable, ActivityController
   private Pipeline                        mPipeline;
   private long                            mNumIterations      = 0;
   private long                            mBlockedFor         = 0;
+  private boolean                         mSuppressSampleSizeUpdate = false;
 
   /**
    * The highest score seen in the current turn (for our role).
@@ -211,6 +212,11 @@ public class GameSearcher implements Runnable, ActivityController
             if (requestYield)
             {
               Thread.yield();
+
+              // Because this thread has been yielding, it hasn't been filling the rollout pipeline.  Therefore, the
+              // performance stats from the rollout threads are meaningless and mustn't be used to update the sample
+              // size.
+              mSuppressSampleSizeUpdate = true;
             }
             else
             {
@@ -233,6 +239,11 @@ public class GameSearcher implements Runnable, ActivityController
           }
 
           System.out.println("Move search complete");
+
+          // Because this thread has finished searching the game tree, it will no longer fill the rollout pipeline.
+          // Therefore, the performance stats from the rollout threads are meaningless and mustn't be used to update the
+          // sample size.
+          mSuppressSampleSizeUpdate = true;
         }
         catch (TransitionDefinitionException | MoveDefinitionException | GoalDefinitionException e)
         {
@@ -651,10 +662,10 @@ public class GameSearcher implements Runnable, ActivityController
     // take care to avoid rounding preventing any change).
     if (lSampleSize > 4)
     {
-      // Only let the sample size 33% of the way towards its new value.  Also, only let it grow to 150% of its
+      // Only let the sample size 33% of the way towards its new value.  Also, only let it grow to 120% of its
       // previous value in one go.
       lNewSampleSize = (lNewSampleSize + (2 * lSampleSize)) / 3;
-      lNewSampleSize = Math.min(1.5 * lSampleSize, lNewSampleSize);
+      lNewSampleSize = Math.min(1.2 * lSampleSize, lNewSampleSize);
     }
     else
     {
@@ -665,12 +676,21 @@ public class GameSearcher implements Runnable, ActivityController
     // The sample size is always absolutely bound between 1 and 100 (inclusive).
     lNewSampleSize = Math.max(1.0,  Math.min(100.0, lNewSampleSize));
 
-    System.out.println("Dynamic sample size");
-    System.out.println("  Useful work last time: " + (int)(lStatsDiff.mUsefulWorkFraction * 100) + "%");
-    System.out.println("  Setting sample size:   " + (int)(lNewSampleSize + 0.5));
-    System.out.println("  Useful work total:     " + (int)(lCombinedStatsTotal.mUsefulWorkFraction * 100) + "%");
+    // Set the new sample size, unless it has to be suppressed because turn end processing meant we couldn't fill the
+    // pipeline (and therefore have invalid measurements from the rollout threads).
+    if (!mSuppressSampleSizeUpdate)
+    {
+      mGameCharacteristics.setRolloutSampleSize(lNewSampleSize);
+    }
 
-    mGameCharacteristics.setRolloutSampleSize(lNewSampleSize);
+    System.out.println("Dynamic sample size");
+    System.out.println("  Useful work last time:  " + (int)(lStatsDiff.mUsefulWorkFraction * 100) + "%");
+    System.out.println("  Calculated sample size: " + (int)(lNewSampleSize + 0.5));
+    System.out.println("  Suppress update:        " + mSuppressSampleSizeUpdate);
+    System.out.println("  Now using sample size:  " + mGameCharacteristics.getRolloutSampleSize());
+    System.out.println("  Useful work total:      " + (int)(lCombinedStatsTotal.mUsefulWorkFraction * 100) + "%");
+
+    mSuppressSampleSizeUpdate = false;
   }
 
   /**
