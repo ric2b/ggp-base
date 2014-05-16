@@ -2880,6 +2880,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     int index = 0;
     boolean simultaneousMove = false;
     int maxChoices = 0;
+    ForwardDeadReckonLegalMoveInfo choicelessMoveInfo = null;
 
     if (rolloutDecisionStack[rolloutStackDepth] == null)
     {
@@ -2984,6 +2985,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             else
             {
               decisionState.nonChooserProps[index++] = info.inputProposition;
+              if (info.inputProposition != null || choicelessMoveInfo == null)
+              {
+                choicelessMoveInfo = info;
+              }
               break;
             }
           }
@@ -3229,6 +3234,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       transitionToNextStateFromChosenMove(null, null);
       //System.out.println("State: " + mungedState(lastInternalSetState));
 
+      if (playedMoves != null)
+      {
+        playedMoves.add(choicelessMoveInfo);
+      }
       if (isTerminal())
       {
         results.considerResult(decisionState.choosingRole);
