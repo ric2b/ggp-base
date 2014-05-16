@@ -658,9 +658,8 @@ public class GameSearcher implements Runnable, ActivityController
     }
     else
     {
-      // Very small sample size.  Jump straight to the new size, up to a maximum of 5.  Instead of always rounding
-      // down, do normal rounding.
-      lNewSampleSize = Math.min(5,  lNewSampleSize + 0.5);
+      // Very small sample size.  Jump straight to the new size, up to a maximum of 5.
+      lNewSampleSize = Math.min(5.0,  lNewSampleSize);
     }
 
     // The sample size is always absolutely bound between 1 and 100 (inclusive).
