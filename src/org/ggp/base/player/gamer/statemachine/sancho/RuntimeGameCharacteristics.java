@@ -15,6 +15,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private volatile int                                         rolloutSampleSize                           = 4;
   final double                                                 competitivenessBonus                        = 2;
   private boolean                                              isFixedMoveCount                            = false;
+  private int                                                  earliestCompletion                          = 0;
 
   public RuntimeGameCharacteristics(int numRoles)
   {
@@ -75,5 +76,15 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   public boolean getIsFixedMoveCount()
   {
     return isFixedMoveCount;
+  }
+
+  public void setEarliestCompletionDepth(int value)
+  {
+    earliestCompletion = value;
+  }
+
+  public int getEarliestCompletionDepth()
+  {
+    return earliestCompletion;
   }
 }

@@ -1467,7 +1467,9 @@ public class TreeNode
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.expand");
     try
     {
-      if ( !tree.evaluateTerminalOnNodeCreation && children == null )
+      //  Don't bother evaluating terminality of children above the earliest completion depth
+      boolean evaluateTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation && depth >= tree.gameCharacteristics.getEarliestCompletionDepth());
+      if ( !evaluateTerminalOnNodeCreation && children == null )
       {
         calculateTerminalityAndAutoExpansion();
 
@@ -1567,7 +1569,7 @@ public class TreeNode
 
           if ( expandInOnePass )
           {
-            if ( tree.evaluateTerminalOnNodeCreation )
+            if ( evaluateTerminalOnNodeCreation )
             {
               newChild.calculateTerminalityAndAutoExpansion();
             }
@@ -1613,7 +1615,7 @@ public class TreeNode
           {
             TreeNode newChild = newChildren[index].child.node;
 
-            if ( tree.evaluateTerminalOnNodeCreation )
+            if ( evaluateTerminalOnNodeCreation )
             {
               newChild.calculateTerminalityAndAutoExpansion();
             }
@@ -1666,7 +1668,7 @@ public class TreeNode
           }
         }
 
-        if (tree.evaluateTerminalOnNodeCreation)
+        if (evaluateTerminalOnNodeCreation)
         {
           boolean completeChildFound = false;
 

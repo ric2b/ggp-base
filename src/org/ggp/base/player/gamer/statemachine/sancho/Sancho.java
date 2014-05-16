@@ -164,7 +164,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.58a";
+    return "Sancho 1.58b";
   }
 
   @Override
@@ -416,8 +416,6 @@ public class Sancho extends SampleGamer
         underlyingStateMachine.disableGreedyRollouts();
       }
     }
-    //greedyRolloutsDisabled = true;
-    //underlyingStateMachine.disableGreedyRollouts();
 
     //  If we detected that moves from multiple factors are valid in the same turn
     //  then flag the factors as requiring the inclusion of a pseudo-noop as a valid
@@ -531,6 +529,12 @@ public class Sancho extends SampleGamer
     if ( maxNumTurns == minNumTurns )
     {
       gameCharacteristics.setIsFixedMoveCount();
+      gameCharacteristics.setEarliestCompletionDepth(numRoles*minNumTurns);
+    }
+    else
+    {
+      //  Allow a little leeway since this is only an estimate
+      gameCharacteristics.setEarliestCompletionDepth(numRoles*(int)((90*(double)minNumTurns)/100));
     }
 
     //  Dump the game characteristics to trace output
