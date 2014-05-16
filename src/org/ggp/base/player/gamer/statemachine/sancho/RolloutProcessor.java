@@ -132,6 +132,5 @@ class RolloutProcessor implements Runnable
   {
     RolloutPerfStats lStats = new RolloutPerfStats(xiUsefulWork, xiBlockedFor);
     mPipeline.publishRolloutPerfStats(mThreadIndex, lStats);
-    System.out.println(".");
   }
 }
