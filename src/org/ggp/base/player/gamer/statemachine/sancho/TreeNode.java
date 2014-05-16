@@ -1743,21 +1743,18 @@ public class TreeNode
                                 int numChildVisits,
                                 int roleIndex)
   {
-    //	When we propagate adjustments due to completion we do not also adjust the variance contribution
-    //	so this can result in 'impossibly' low (aka negative) variance - take a lower bound of 0
+    // Extract the common parts of the calculation to avoid making expensive calls twice.
+    double lCommon = 2 * Math.log(Math.max(effectiveTotalVists, numChildVisits) + 1) / numChildVisits;
+
+    // When we propagate adjustments due to completion we do not also adjust the variance contribution so this can
+    // result in 'impossibly' low (aka negative) variance - take a lower bound of 0
     double varianceBound = Math.max(0, averageSquaredScores[roleIndex] -
                                     averageScores[roleIndex] *
                                     averageScores[roleIndex]) /
                                     10000 +
-                                    Math.sqrt(2 *
-                                              Math.log(Math.max(effectiveTotalVists,
-                                                                numChildVisits) + 1) /
-                                                                numChildVisits);
+                                    Math.sqrt(lCommon);
     return tree.gameCharacteristics.getExplorationBias() *
-        Math.sqrt(2 *
-                  Math.min(0.5, varianceBound) *
-                  Math.log(Math.max(effectiveTotalVists, numChildVisits) + 1) /
-                  numChildVisits) / tree.roleRationality[roleIndex];
+           Math.sqrt(Math.min(0.5, varianceBound) * lCommon) / tree.roleRationality[roleIndex];
   }
 
   private void addMoveWeightsToAncestors(Move move,
