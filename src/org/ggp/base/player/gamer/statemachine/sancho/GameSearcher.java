@@ -642,7 +642,7 @@ public class GameSearcher implements Runnable, ActivityController
     RolloutPerfStats lStatsDiff = lCombinedStatsTotal.getDifference(mLastRolloutPerfStats);
     mLastRolloutPerfStats = lCombinedStatsTotal;
 
-    long lSampleSize = mGameCharacteristics.getRolloutSampleSize();
+    double lSampleSize = mGameCharacteristics.getExactRolloutSampleSize();
 
     double lNewSampleSize = lSampleSize * 0.8 / lStatsDiff.mUsefulWorkFraction;
 
@@ -664,14 +664,14 @@ public class GameSearcher implements Runnable, ActivityController
     }
 
     // The sample size is always absolutely bound between 1 and 100 (inclusive).
-    int lBoundedSampleSize = Math.max(1,  Math.min(100, (int)(lNewSampleSize + 0.5)));
+    lNewSampleSize = Math.max(1.0,  Math.min(100.0, lNewSampleSize));
 
     System.out.println("Dynamic sample size");
     System.out.println("  Useful work last time: " + (int)(lStatsDiff.mUsefulWorkFraction * 100) + "%");
-    System.out.println("  Setting sample size:   " + lBoundedSampleSize);
+    System.out.println("  Setting sample size:   " + (int)(lNewSampleSize + 0.5));
     System.out.println("  Useful work total:     " + (int)(lCombinedStatsTotal.mUsefulWorkFraction * 100) + "%");
 
-    mGameCharacteristics.setRolloutSampleSize(lBoundedSampleSize);
+    mGameCharacteristics.setRolloutSampleSize(lNewSampleSize);
   }
 
   /**

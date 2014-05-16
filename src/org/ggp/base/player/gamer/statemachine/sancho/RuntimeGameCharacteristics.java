@@ -11,6 +11,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private final boolean                                        enableMoveActionHistory                     = false;
   private double                                               explorationBias                             = 1.0;
   private double                                               moveActionHistoryBias                       = 0;
+  private double                                               mExactRolloutSampleSize                     = 4;
   private volatile int                                         rolloutSampleSize                           = 4;
   final double                                                 competitivenessBonus                        = 2;
   private boolean                                              isFixedMoveCount                            = false;
@@ -45,14 +46,20 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     moveActionHistoryBias = value;
   }
 
+  public double getExactRolloutSampleSize()
+  {
+    return mExactRolloutSampleSize;
+  }
+
   public int getRolloutSampleSize()
   {
     return rolloutSampleSize;
   }
 
-  public void setRolloutSampleSize(int value)
+  public void setRolloutSampleSize(double xiExactSampleSize)
   {
-    rolloutSampleSize = value;
+    mExactRolloutSampleSize = xiExactSampleSize;
+    rolloutSampleSize = (int)(xiExactSampleSize + 0.5);
   }
 
   public double getCompetitivenessBonus()
