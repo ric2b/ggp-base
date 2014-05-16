@@ -57,8 +57,11 @@ public class RolloutPerfStats
 
     for (RolloutPerfStats lStats : xiStats)
     {
-      lUsefulWork += lStats.mUsefulWork;
-      lBlockedFor += lStats.mBlockedFor;
+      if ( lStats != null )
+      {
+        lUsefulWork += lStats.mUsefulWork;
+        lBlockedFor += lStats.mBlockedFor;
+      }
     }
 
     mUsefulWork = lUsefulWork;
