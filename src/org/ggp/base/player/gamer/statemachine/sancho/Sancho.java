@@ -989,7 +989,8 @@ public class Sancho extends SampleGamer
     cleanupAfterMatch();
 
     // Prompt the JVM to do garbage collection, because we've hopefully just freed a lot of stuff.
-    for (int ii = 0; ii < 1000; ii++)
+    long endGCTime = System.currentTimeMillis() + 5000;
+    for (int ii = 0; ii < 1000 && System.currentTimeMillis() < endGCTime; ii++)
     {
       System.gc();
       try {Thread.sleep(1);} catch (InterruptedException lEx) {/* Whatever */}
