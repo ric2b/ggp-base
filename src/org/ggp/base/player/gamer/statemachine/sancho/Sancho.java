@@ -528,15 +528,10 @@ public class Sancho extends SampleGamer
       gameCharacteristics.isIteratedGame = false;
     }
 
+    gameCharacteristics.setEarliestCompletionDepth(numRoles*minNumTurns);
     if ( maxNumTurns == minNumTurns )
     {
       gameCharacteristics.setIsFixedMoveCount();
-      gameCharacteristics.setEarliestCompletionDepth(numRoles*minNumTurns);
-    }
-    else
-    {
-      //  Allow a little leeway since this is only an estimate
-      gameCharacteristics.setEarliestCompletionDepth(numRoles*(int)((90*(double)minNumTurns)/100));
     }
 
     //  Dump the game characteristics to trace output
