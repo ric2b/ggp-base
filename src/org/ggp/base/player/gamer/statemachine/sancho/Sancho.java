@@ -182,6 +182,8 @@ public class Sancho extends SampleGamer
       lSearchProcessorThread.start();
     }
 
+    System.out.println("Beginning new game: " + getMatch().getMatchId() + " at " + getMatch().getStartTime());
+
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
     underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
