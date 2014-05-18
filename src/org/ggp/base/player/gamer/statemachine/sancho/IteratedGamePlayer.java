@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
@@ -21,6 +23,8 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 public class IteratedGamePlayer
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
   private StateMachineGamer gamer;
   private boolean isPseudoSimultaneousMove;
@@ -145,16 +149,14 @@ public class IteratedGamePlayer
       ForwardDeadReckonInternalMachineState state = new ForwardDeadReckonInternalMachineState(currentState);
       Map<Move, Integer> moveWeights = opponentMoveSelectionCounts.get(move);
 
-      System.out.println("Considering move: " + move);
+      LOGGER.info("Considering move: " + move);
       if (responderInNonSimultaneousGame)
       {
-        System.out
-            .println("We are responder so assuming opponent continues to play " +
-                     lastPlayedOpponentChoice);
+        LOGGER.info("We are responder so assuming opponent continues to play " + lastPlayedOpponentChoice);
       }
       else if (moveWeights != null)
       {
-        System.out.println("Response weights: " + moveWeights.values());
+        LOGGER.info("Response weights: " + moveWeights.values());
       }
 
       while (!underlyingStateMachine.isTerminal(state))
@@ -175,8 +177,7 @@ public class IteratedGamePlayer
           {
             if (!roleMoves.contains(move))
             {
-              System.out
-                  .println("Unexpectedly cannot play intended move in iterated game!");
+              LOGGER.warn("Unexpectedly cannot play intended move in iterated game!");
             }
             jointMove[roleIndex] = move;
           }

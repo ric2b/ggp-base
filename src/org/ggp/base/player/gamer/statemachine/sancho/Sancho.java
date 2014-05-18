@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.player.gamer.statemachine.sample.SampleGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic;
@@ -29,6 +31,8 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 public class Sancho extends SampleGamer
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
@@ -62,7 +66,7 @@ public class Sancho extends SampleGamer
 
     if (ASSERTIONS_ENABLED)
     {
-      System.err.println("WARNING: Assertions are enabled - this will impact performance");
+      LOGGER.warn("WARNING: Assertions are enabled - this will impact performance");
     }
   }
 
@@ -121,13 +125,13 @@ public class Sancho extends SampleGamer
       {
         normalizedResult = 100;
         overExpectedRangeScoreReported = true;
-        System.out.println("Saw score that nornmalized to > 100");
+        LOGGER.warn("Saw score that nornmalized to > 100");
       }
       else if (normalizedResult < 0 && !underExpectedRangeScoreReported)
       {
         normalizedResult = 0;
         underExpectedRangeScoreReported = true;
-        System.out.println("Saw score that nornmalized to < 0");
+        LOGGER.warn("Saw score that nornmalized to < 0");
       }
 
       return normalizedResult;
@@ -182,7 +186,7 @@ public class Sancho extends SampleGamer
       lSearchProcessorThread.start();
     }
 
-    System.out.println("Beginning new game: " + getMatch().getMatchId() + " at " + getMatch().getStartTime());
+    LOGGER.info("Beginning new game: " + getMatch().getMatchId() + " at " + getMatch().getStartTime());
 
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
@@ -219,7 +223,7 @@ public class Sancho extends SampleGamer
   {
     if (ASSERTIONS_ENABLED)
     {
-      System.err.println("WARNING: Assertions are enabled - this will impact performance");
+      LOGGER.warn("WARNING: Assertions are enabled - this will impact performance");
     }
 
     Random r = new Random();
@@ -234,7 +238,7 @@ public class Sancho extends SampleGamer
 
     puzzlePlayer = null;
     ourRole = getRole();
-    System.out.println("We are: " + ourRole);
+    LOGGER.info("We are: " + ourRole);
 
     numRoles = underlyingStateMachine.getRoles().size();
 
@@ -403,7 +407,7 @@ public class Sancho extends SampleGamer
       gameCharacteristics.isIteratedGame = false;
       heuristic.pruneAll();
 
-      System.out.println("Insufficient sampling time to reliably ascertain game characteristics");
+      LOGGER.warn("Insufficient sampling time to reliably ascertain game characteristics");
     }
     else
     {
@@ -503,7 +507,7 @@ public class Sancho extends SampleGamer
                                 (simulationsPerformed - 1) + rolloutStats[1]) /
                                simulationsPerformed;
 
-      //System.out.println("Saw score of " + netScore);
+      //LOGGER.debug("Saw score of ", netScore);
       if (netScore < observedMinNetScore)
       {
         observedMinNetScore = netScore;
@@ -518,9 +522,8 @@ public class Sancho extends SampleGamer
     // Complete heuristic tuning.
     heuristic.tuningComplete();
 
-    System.out.println("branchingFactorApproximation = " +
-                       branchingFactorApproximation +
-                       ", averageBranchingFactor = " + averageBranchingFactor);
+    LOGGER.info("branchingFactorApproximation = " + branchingFactorApproximation +
+                ", averageBranchingFactor = " + averageBranchingFactor);
     //	Massive hack - assume that a game longer than 30 turns is not really an iterated game unless it's of fixed length
     if (gameCharacteristics.isIteratedGame &&
         (Math.abs(branchingFactorApproximation - averageBranchingFactor) > 0.1 || (maxNumTurns > 30 && maxNumTurns != minNumTurns)))
@@ -540,11 +543,10 @@ public class Sancho extends SampleGamer
     double stdDevNumTurns = Math.sqrt(averageSquaredNumTurns -
                                       averageNumTurns * averageNumTurns);
 
-    System.out.println("Range of lengths of sample games seen: [" +
-                       minNumTurns + "," + maxNumTurns +
-                       "], branching factor: " + averageBranchingFactor);
-    System.out.println("Average num turns: " + averageNumTurns);
-    System.out.println("Std deviation num turns: " + stdDevNumTurns);
+    LOGGER.info("Range of lengths of sample games seen: [" +
+                minNumTurns + "," + maxNumTurns + "], branching factor: " + averageBranchingFactor);
+    LOGGER.info("Average num turns: " + averageNumTurns);
+    LOGGER.info("Std deviation num turns: " + stdDevNumTurns);
 
     double explorationBias = 18 / (averageNumTurns + ((maxNumTurns + minNumTurns) / 2 - averageNumTurns) *
                                               stdDevNumTurns / averageNumTurns) + 0.4;
@@ -576,19 +578,17 @@ public class Sancho extends SampleGamer
       gameCharacteristics.setMoveActionBias(0);
     }
 
-    System.out
-        .println("Set moveActionHistoryBias to " + gameCharacteristics.getMoveActionHistoryBias());
+    LOGGER.info("Set moveActionHistoryBias to " + gameCharacteristics.getMoveActionHistoryBias());
 
     if (underlyingStateMachine.numRolloutDecisionNodeExpansions > 0)
     {
-      System.out
-          .println("Greedy rollout terminal discovery effectiveness: " +
-                   (underlyingStateMachine.greedyRolloutEffectiveness * 100) /
-                   underlyingStateMachine.numRolloutDecisionNodeExpansions);
-      System.out.println("Num terminal props seen: " +
-                         underlyingStateMachine.getNumTerminatingMoveProps() +
-                         " out of " +
-                         underlyingStateMachine.getBasePropositions().size());
+      LOGGER.info("Greedy rollout terminal discovery effectiveness: " +
+                  (underlyingStateMachine.greedyRolloutEffectiveness * 100) /
+                  underlyingStateMachine.numRolloutDecisionNodeExpansions);
+      LOGGER.info("Num terminal props seen: " +
+                  underlyingStateMachine.getNumTerminatingMoveProps() +
+                  " out of " +
+                  underlyingStateMachine.getBasePropositions().size());
     }
 
     if (simulationsPerformed > 100)
@@ -610,7 +610,7 @@ public class Sancho extends SampleGamer
                                                                                               (1 - underlyingStateMachine.greedyRolloutEffectiveness /
                                                                                                    (underlyingStateMachine.numRolloutDecisionNodeExpansions)));
 
-    System.out.println("Estimated greedy rollout cost: " + greedyRolloutCost);
+    LOGGER.info("Estimated greedy rollout cost: " + greedyRolloutCost);
     if (minNumTurns == maxNumTurns ||
         ((greedyRolloutCost > 8 || stdDevNumTurns < 0.15 * averageNumTurns || underlyingStateMachine.greedyRolloutEffectiveness < underlyingStateMachine.numRolloutDecisionNodeExpansions / 3) && !gameCharacteristics.isPuzzle))
     {
@@ -631,7 +631,7 @@ public class Sancho extends SampleGamer
         observedMaxNetScore < 100 && factors == null )
     {
       //	8-puzzle type stuff
-      System.out.println("Puzzle with no observed solution");
+      LOGGER.info("Puzzle with no observed solution");
 
       MachineState terminalState;
       Set<MachineState> goalStates = underlyingStateMachine.findGoalStates(getRole(), 90, 100, 20);
@@ -672,13 +672,13 @@ public class Sancho extends SampleGamer
       {
         terminalState = cleanedStates.iterator().next();
 
-        System.out.println("Found target state: " + terminalState);
+        LOGGER.info("Found target state: " + terminalState);
 
         int targetStateSize = terminalState.getContents().size();
 
         if (targetStateSize < Math.max(2, initialState.size() / 2))
         {
-          System.out.println("Unsuitable target state based on state elimination - ignoring");
+          LOGGER.info("Unsuitable target state based on state elimination - ignoring");
         }
         else
         {
@@ -688,17 +688,15 @@ public class Sancho extends SampleGamer
       }
     }
 
-    System.out.println("Min raw score = " + observedMinNetScore + ", max = " +
-                       observedMaxNetScore);
-    System.out.println("multiRoleAverageScoreDiff = " +
-                       multiRoleAverageScoreDiff);
+    LOGGER.info("Min raw score = " + observedMinNetScore + ", max = " + observedMaxNetScore);
+    LOGGER.info("multiRoleAverageScoreDiff = " + multiRoleAverageScoreDiff);
 
     if (observedMinNetScore == observedMaxNetScore)
     {
       observedMinNetScore = 0;
       observedMaxNetScore = 100;
 
-      System.out.println("No score discrimination seen during simulation - resetting to [0,100]");
+      LOGGER.info("No score discrimination seen during simulation - resetting to [0,100]");
     }
 
     if (gameCharacteristics.isPuzzle)
@@ -706,7 +704,7 @@ public class Sancho extends SampleGamer
       observedMinNetScore = 0;
       observedMaxNetScore = 100;
 
-      System.out.println("Game is a puzzle so not normalizing scores");
+      LOGGER.info("Game is a puzzle so not normalizing scores");
     }
 
     //	Normalize score ranges
@@ -732,10 +730,10 @@ public class Sancho extends SampleGamer
     }
 
     gameCharacteristics.setRolloutSampleSize(rolloutSampleSize);
-    System.out.println(simulationsPerformed *
-                       1000 /
-                       (simulationStopTime - simulationStartTime) +
-                       " simulations/second performed - setting rollout sample size to " + rolloutSampleSize);
+    LOGGER.info(simulationsPerformed *
+                1000 /
+                (simulationStopTime - simulationStartTime) +
+                " simulations/second performed - setting rollout sample size to " + rolloutSampleSize);
 
     if (ProfilerContext.getContext() != null)
     {
@@ -791,30 +789,29 @@ public class Sancho extends SampleGamer
 
     searchProcessor.requestYield(true);
 
-    System.out.println("Calculating current state, current time: " +
-                       System.currentTimeMillis());
+    LOGGER.info("Calculating current state, current time: " + System.currentTimeMillis());
 
     synchronized (searchProcessor.getSerializationObject())
     {
       currentState = underlyingStateMachine.createInternalState(getCurrentState());
       moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
 
-      //System.out.println("Received current state: " + getCurrentState());
-      //System.out.println("Using current state: " + currentState);
+      //LOGGER.debug("Received current state: ", getCurrentState());
+      //LOGGER.debug("Using current state: ", currentState);
 
       if (underlyingStateMachine.isTerminal(currentState))
       {
-        System.out.println("Asked to search in terminal state!");
+        LOGGER.warn("Asked to search in terminal state!");
       }
     }
 
-    System.out.println("Setting search root, current time: " + System.currentTimeMillis());
+    LOGGER.info("Setting search root, current time: " + System.currentTimeMillis());
 
     if ((plan != null) && (!plan.isEmpty()))
     {
       // We have a pre-prepared plan.  Simply play the next move.
       bestMove = plan.nextMove();
-      System.out.println("Playing pre-planned move: " + bestMove);
+      LOGGER.info("Playing pre-planned move: " + bestMove);
 
       //  We need to keep the search 'up with' the plan to make forced-play
       //  testing work properly, or else the search will not be 'primed'
@@ -826,13 +823,13 @@ public class Sancho extends SampleGamer
     {
       IteratedGamePlayer iteratedPlayer = new IteratedGamePlayer(underlyingStateMachine, this, gameCharacteristics.isPseudoSimultaneousMove, roleOrdering, gameCharacteristics.competitivenessBonus);
       bestMove = iteratedPlayer.selectMove(moves, timeout);
-      System.out.println("Playing best iterated game move: " + bestMove);
+      LOGGER.info("Playing best iterated game move: " + bestMove);
     }
     else if (puzzlePlayer != null)
     {
       //bestMove = selectAStarMove(moves, timeout);
       bestMove = puzzlePlayer.selectMove(moves, timeout);
-      System.out.println("Playing best puzzle move: " + bestMove);
+      LOGGER.info("Playing best puzzle move: " + bestMove);
     }
     else
     {
@@ -844,8 +841,7 @@ public class Sancho extends SampleGamer
 
       searchProcessor.requestYield(false);
 
-      System.out.println("Waiting for processing, current time: " +
-                         System.currentTimeMillis());
+      LOGGER.info("Waiting for processing, current time: " + System.currentTimeMillis());
 
       try
       {
@@ -868,25 +864,23 @@ public class Sancho extends SampleGamer
       }
       if ( searchProcessor.isComplete() )
       {
-        System.out.println("Complete root");
+        LOGGER.info("Complete root");
       }
 
-      System.out.println("Timer expired, current time: " +
-                         System.currentTimeMillis());
+      LOGGER.info("Timer expired, current time: " + System.currentTimeMillis());
 
       searchProcessor.requestYield(true);
 
       //validateAll();
       bestMove = searchProcessor.getBestMove();
-      System.out.println("Num iterations: " +
-          searchProcessor.getNumIterations());
+      LOGGER.info("Num iterations: " + searchProcessor.getNumIterations());
 
       if (!moves.contains(bestMove))
       {
-        System.out.println("Selected illegal move!!");
+        LOGGER.warn("Selected illegal move!!");
         bestMove = moves.get(0);
       }
-      System.out.println("Playing move: " + bestMove);
+      LOGGER.info("Playing move: " + bestMove);
 
       searchProcessor.requestYield(false);
 
@@ -905,11 +899,11 @@ public class Sancho extends SampleGamer
 
     Thread.currentThread().setPriority(Thread.NORM_PRIORITY);
 
-    System.out.println("Move took: " + (stop - start));
+    LOGGER.info("Move took: " + (stop - start));
 
     if (bestMove == null)
     {
-      System.out.println("NO MOVE FOUND!");
+      LOGGER.warn("NO MOVE FOUND!");
       System.exit(0);
     }
     /**

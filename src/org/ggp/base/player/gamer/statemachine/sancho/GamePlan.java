@@ -5,6 +5,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.Move;
 
@@ -16,6 +18,8 @@ import org.ggp.base.util.statemachine.Move;
  */
 public class GamePlan
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private Queue<Move>                 plan                            = new LinkedList<>();
   private boolean                     enacting                        = false;
 
@@ -60,7 +64,7 @@ public class GamePlan
             plan.add(move.move);
           }
 
-          System.out.println("Cached new best plan: " + plan);
+          LOGGER.info("Cached new best plan: " + plan);
         }
       }
     }

@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.gdl.grammar.GdlFunction;
@@ -23,6 +25,8 @@ import org.ggp.base.util.stats.PearsonCorrelation;
  */
 public class PieceHeuristic implements Heuristic
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private static final int                                               MIN_PIECE_PROP_ARITY      = 3;    // Assume board of at least 2 dimensions + piece type
   private static final int                                               MAX_PIECE_PROP_ARITY      = 4;    // For now (until we can do game-specific learning) restrict to exactly 2-d boards
   private static final int                                               MIN_PIECES_THRESHOLD      = 6;
@@ -226,10 +230,10 @@ public class PieceHeuristic implements Heuristic
 
         if (pieceSetSentences.size() >= MIN_PIECES_THRESHOLD)
         {
-          System.out.println("Possible piece set: " + pieceSetSentences);
+          LOGGER.info("Possible piece set: " + pieceSetSentences);
 
-          ForwardDeadReckonInternalMachineState pieceMask = stateMachine
-              .createInternalState(new MachineState(pieceSetSentences));
+          ForwardDeadReckonInternalMachineState pieceMask = stateMachine.createInternalState(
+                                                                                   new MachineState(pieceSetSentences));
 
           propGroupScoreSets.put(pieceMask, new HeuristicScoreInfo(numRoles));
         }
@@ -299,30 +303,28 @@ public class PieceHeuristic implements Heuristic
     {
       if (e.getValue().noChangeTurnRate < 0.5)
       {
-        System.out
-            .println("Eliminating potential piece set with no-change rate: " +
-                     e.getValue().noChangeTurnRate + ": " + e.getKey());
+        LOGGER.info("Eliminating potential piece set with no-change rate: " +
+                    e.getValue().noChangeTurnRate + ": " + e.getKey());
       }
       else
       {
         double[] roleCorrelations = e.getValue().getRoleCorrelations();
 
-        System.out.println("Correlations for piece set: " + e.getKey());
+        LOGGER.info("Correlations for piece set: " + e.getKey());
         for (int i = 0; i < numRoles; i++)
         {
-          System.out.println("  Role " + i + ": " + roleCorrelations[i]);
+          LOGGER.info("  Role " + i + ": " + roleCorrelations[i]);
 
           if (roleCorrelations[i] >= MIN_HEURISTIC_CORRELATION)
           {
             if (!e.getValue().hasRoleChanges[i])
             {
-              System.out
-                  .println("Eliminating potential piece set with no role decision changes for correlated role: " +
-                           e.getKey());
+              LOGGER.info("Eliminating potential piece set with no role decision changes for correlated role: " +
+                          e.getKey());
             }
             else
             {
-              System.out.println("Using piece set for role");
+              LOGGER.info("Using piece set for role");
               if (pieceSets == null)
               {
                 pieceSets = new ForwardDeadReckonInternalMachineState[numRoles];
@@ -340,7 +342,7 @@ public class PieceHeuristic implements Heuristic
           }
           else
           {
-            System.out.println("Piece set insufficiently correlated for role");
+            LOGGER.info("Piece set insufficiently correlated for role");
           }
         }
       }
@@ -349,23 +351,23 @@ public class PieceHeuristic implements Heuristic
     // Check that all roles have a set of pieces.  If not, disable the heuristic.
     if (pieceSets != null)
     {
-      System.out.println("Some roles have piece sets");
+      LOGGER.info("Some roles have piece sets");
       for (int i = 0; i < numRoles; i++)
       {
-        System.out.println("  Checking role " + i);
+        LOGGER.info("  Checking role " + i);
         if (pieceSets[i] == null)
         {
-          System.out.println("      No piece set for this role");
-          System.out.println("Heuristics only identified for a subset of roles - disabling");
+          LOGGER.info("      No piece set for this role");
+          LOGGER.info("Heuristics only identified for a subset of roles - disabling");
           pieceSets = null;
           break;
         }
-        System.out.println("    Final piece set is: " + pieceSets[i]);
+        LOGGER.info("    Final piece set is: " + pieceSets[i]);
       }
 
       if (pieceSets != null)
       {
-        System.out.println("All roles have piece sets");
+        LOGGER.info("All roles have piece sets");
       }
     }
   }

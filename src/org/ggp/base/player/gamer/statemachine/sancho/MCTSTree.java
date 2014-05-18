@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeRef;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
@@ -24,6 +26,8 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 public class MCTSTree
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   class LRUNodeMoveWeightsCache extends LinkedHashMap<TreeNode, MoveWeightsCollection>
   {
     /**
@@ -192,13 +196,13 @@ public class MCTSTree
       {
         numUniqueTreeNodes++;
 
-        //System.out.println("Add state " + state);
+        //LOGGER.debug("Add state " + state);
         result = nodePool.allocate(mTreeNodeAllocator);
         result.state = state;
 
         //if ( positions.values().contains(result))
         //{
-        //  System.out.println("Node already referenced by a state!");
+        //  LOGGER.info("Node already referenced by a state!");
         //}
         if (state != null && !disallowTransposition)
         {
@@ -209,11 +213,11 @@ public class MCTSTree
       {
         if (result.freed)
         {
-          System.out.println("Bad ref in positions table!");
+          LOGGER.warn("Bad ref in positions table!");
         }
         if (result.decidingRoleIndex != numRoles - 1)
         {
-          System.out.println("Non-null move in position cache");
+          LOGGER.warn("Non-null move in position cache");
         }
       }
 
@@ -274,7 +278,7 @@ public class MCTSTree
                                            .size() + 1);
       if (newRoot == null)
       {
-        System.out.println("Unable to find root node in existing tree");
+        LOGGER.warn("Unable to find root node in existing tree");
         empty();
         root = allocateNode(underlyingStateMachine, factorState, null, false);
         root.decidingRoleIndex = numRoles - 1;
@@ -295,8 +299,7 @@ public class MCTSTree
 
     if (root.complete && root.children == null)
     {
-      System.out
-          .println("Encountered complete root with trimmed children - must re-expand");
+      LOGGER.info("Encountered complete root with trimmed children - must re-expand");
       root.complete = false;
       numCompletedBranches--;
     }
@@ -329,31 +332,26 @@ public class MCTSTree
   {
     FactorMoveChoiceInfo bestMoveInfo = root.getBestMove(true, null);
 
-    System.out.println("Num total tree node allocations: " +
-        numTotalTreeNodes);
-    System.out.println("Num unique tree node allocations: " +
-        numUniqueTreeNodes);
-    System.out.println("Num true rollouts added: " + numNonTerminalRollouts);
-    System.out.println("Num terminal nodes revisited: " +
-        numTerminalRollouts);
-    System.out.println("Num incomplete nodes: " + numIncompleteNodes);
-    System.out.println("Num selections through incomplete nodes: " +
-        numSelectionsThroughIncompleteNodes);
-    System.out.println("Num node re-expansions: " + numReExpansions);
-    System.out.println("Num completely explored branches: " +
-        numCompletedBranches);
-    if ( numAutoExpansions + numNormalExpansions > 0 )
+    LOGGER.info("Num total tree node allocations: " + numTotalTreeNodes);
+    LOGGER.info("Num unique tree node allocations: " + numUniqueTreeNodes);
+    LOGGER.info("Num true rollouts added: " + numNonTerminalRollouts);
+    LOGGER.info("Num terminal nodes revisited: " + numTerminalRollouts);
+    LOGGER.info("Num incomplete nodes: " + numIncompleteNodes);
+    LOGGER.info("Num selections through incomplete nodes: " + numSelectionsThroughIncompleteNodes);
+    LOGGER.info("Num node re-expansions: " + numReExpansions);
+    LOGGER.info("Num completely explored branches: " + numCompletedBranches);
+    if (numAutoExpansions + numNormalExpansions > 0)
     {
-      System.out.println("Percentage forced single-choice expansion: " +
-          ((double)numAutoExpansions/(numAutoExpansions+numNormalExpansions)));
-      System.out.println("Average depth of auto-expansion instances: " + averageAutoExpansionDepth);
-      System.out.println("Maximum depth of auto-expansion instances: " + maxAutoExpansionDepth);
+      LOGGER.info("Percentage forced single-choice expansion: " +
+                  ((double)numAutoExpansions / (numAutoExpansions + numNormalExpansions)));
+      LOGGER.info("Average depth of auto-expansion instances: " + averageAutoExpansionDepth);
+      LOGGER.info("Maximum depth of auto-expansion instances: " + maxAutoExpansionDepth);
     }
-    System.out.println("Current rollout sample size: " + gameCharacteristics.getRolloutSampleSize());
-    System.out.println("Current observed rollout score range: [" +
-                       mGameSearcher.lowestRolloutScoreSeen + ", " +
-                       mGameSearcher.highestRolloutScoreSeen + "]");
-    System.out.println("Heuristic bias: " + heuristic.getSampleWeight());
+    LOGGER.info("Current rollout sample size: " + gameCharacteristics.getRolloutSampleSize());
+    LOGGER.info("Current observed rollout score range: [" +
+                mGameSearcher.lowestRolloutScoreSeen + ", " +
+                mGameSearcher.highestRolloutScoreSeen + "]");
+    LOGGER.info("Heuristic bias: " + heuristic.getSampleWeight());
 
     numSelectionsThroughIncompleteNodes = 0;
     numReExpansions = 0;
@@ -372,11 +370,11 @@ public class MCTSTree
     {
       if (e.getValue().decidingRoleIndex != numRoles - 1)
       {
-        System.out.println("Position references bad type");
+        LOGGER.warn("Position references bad type");
       }
       if (!e.getValue().state.equals(e.getKey()))
       {
-        System.out.println("Position state mismatch");
+        LOGGER.warn("Position state mismatch");
       }
     }
 
@@ -394,10 +392,9 @@ public class MCTSTree
         {
           if (node != positions.get(node.state))
           {
-            System.out.println("Missing reference in positions table");
-            System.out.print("node state is: " + node.state + " with hash " +
-                             node.state.hashCode());
-            System.out.print(positions.get(node.state));
+            LOGGER.warn("Missing reference in positions table");
+            LOGGER.warn("node state is: " + node.state + " with hash " + node.state.hashCode());
+            LOGGER.warn(positions.get(node.state));
           }
         }
       }
@@ -405,7 +402,7 @@ public class MCTSTree
 
     if (incompleteCount != numIncompleteNodes)
     {
-      System.out.println("Incomplete count mismatch");
+      LOGGER.warn("Incomplete count mismatch");
     }
   }
 
@@ -499,7 +496,7 @@ public class MCTSTree
       //  Add a pseudo-edge that represents the link into the unexplored part of the tree
       //visited.push(null);
       //validateAll();
-      //System.out.println("Rollout from: " + newNode.state);
+      //LOGGER.warn("Rollout from: " + newNode.state);
 
       // Perform the rollout request.
       newNode.rollOut(visited, mGameSearcher.getPipeline(), forceSynchronous);

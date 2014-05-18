@@ -1,5 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 
 import com.sun.jna.LastErrorException;
@@ -22,6 +24,8 @@ import com.sun.jna.platform.win32.WinDef.DWORD;
  */
 public class ThreadControl
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   /**
    * The number of vCPUs available on the system.  (For a hyper-threaded system, each hyper-thread counts as a CPU.)
    */
@@ -108,7 +112,7 @@ public class ThreadControl
       {
         // Bind this thread to the selected virtual CPU.
         ThreadControl.setThreadAffinity(1 << sNextSearchThreadCPUIndex);
-        System.out.println("  Bound search thread to vCPU:  " + sNextSearchThreadCPUIndex);
+        LOGGER.info("  Bound search thread to vCPU:  " + sNextSearchThreadCPUIndex);
 
         // Calculate the next available virtual CPU for search threads.
         // If we're striping rollout threads with a stride greater than 1 then
@@ -138,7 +142,7 @@ public class ThreadControl
       {
         // Bind this thread to the selected virtual CPU.
         ThreadControl.setThreadAffinity(1 << sNextRolloutThreadCPUIndex);
-        System.out.println("  Bound rollout processor to vCPU: " + sNextRolloutThreadCPUIndex);
+        LOGGER.info("  Bound rollout processor to vCPU: " + sNextRolloutThreadCPUIndex);
 
         // Calculate the next available virtual CPU for rollout threads, wrapping as required and leaving a gap for the
         // search thread if required.

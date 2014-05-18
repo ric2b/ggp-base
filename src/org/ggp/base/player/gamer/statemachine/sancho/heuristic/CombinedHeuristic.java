@@ -4,6 +4,8 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -16,6 +18,8 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
  */
 public class CombinedHeuristic implements Heuristic
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private final List<Heuristic> mHeuristics;
   private int mNumRoles;
 
@@ -29,7 +33,7 @@ public class CombinedHeuristic implements Heuristic
     mHeuristics = new LinkedList<>();
     for (Heuristic lHeuristic : xiHeuristics)
     {
-      System.out.println("CombinedHeuristic: Adding " + lHeuristic.getClass().getSimpleName());
+      LOGGER.info("CombinedHeuristic: Adding " + lHeuristic.getClass().getSimpleName());
       mHeuristics.add(lHeuristic);
     }
   }
@@ -209,7 +213,7 @@ public class CombinedHeuristic implements Heuristic
       Heuristic lHeuristic = lIterator.next();
       if (!lHeuristic.isEnabled())
       {
-        System.out.println("CombinedHeuristic: Removing disabled " + lHeuristic.getClass().getSimpleName());
+        LOGGER.info("CombinedHeuristic: Removing disabled " + lHeuristic.getClass().getSimpleName());
         lIterator.remove();
       }
     }

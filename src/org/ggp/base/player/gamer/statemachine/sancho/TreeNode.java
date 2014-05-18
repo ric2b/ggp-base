@@ -10,6 +10,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.CappedPool.ObjectAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.MCTSTree.MoveScoreInfo;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
@@ -25,6 +27,8 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 
 public class TreeNode
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   public static class TreeNodeRef
   {
     public TreeNode node;
@@ -257,7 +261,7 @@ public class TreeNode
 
     if (!matchesAll && !matchesDecider)
     {
-      System.out.println("Inexplicable completion!");
+      LOGGER.warn("Inexplicable completion!");
     }
   }
 
@@ -283,10 +287,10 @@ public class TreeNode
       complete = true;
       completionDepth = atCompletionDepth;
 
-      //System.out.println("Mark complete with score " + averageScore + (ourMove == null ? " (for opponent)" : " (for us)") + " in state: " + state);
+      //LOGGER.debug("Mark complete with score " + averageScore + (ourMove == null ? " (for opponent)" : " (for us)") + " in state: " + state);
       if (this == tree.root)
       {
-        System.out.println("Mark root complete");
+        LOGGER.info("Mark root complete");
       }
       else
       {
@@ -299,7 +303,7 @@ public class TreeNode
         tree.numIncompleteNodes--;
         if (tree.numIncompleteNodes < 0)
         {
-          System.out.println("Unexpected negative count of incomplete nodes");
+          LOGGER.warn("Unexpected negative count of incomplete nodes");
         }
       }
       //validateAll();
@@ -309,7 +313,7 @@ public class TreeNode
   void processCompletion()
   {
     //validateCompletionValues(averageScores);
-    //System.out.println("Process completion of node seq: " + seq);
+    //LOGGER.debug("Process completion of node seq: " + seq);
     //validateAll();
     //	Children can all be freed, at least from this parentage
     if (children != null && tree.freeCompletedNodeChildren)
@@ -338,7 +342,7 @@ public class TreeNode
       }
       else
       {
-        System.out.println("Impossible!");
+        LOGGER.warn("Impossible!");
       }
     }
 
@@ -386,7 +390,7 @@ public class TreeNode
   {
     //if ( sweepParent == ancestor && sweepSeq == sweepInstance)
     //{
-    //	System.out.println("Removing sweep parent");
+    //	LOGGER.info("Removing sweep parent");
     //}
     parents.remove(ancestor);
 
@@ -957,18 +961,18 @@ public class TreeNode
           {
             if (!cr.node.parents.contains(this))
             {
-              System.out.println("Missing parent link");
+              LOGGER.error("Missing parent link");
             }
             if (cr.node.complete &&
                 cr.node.averageScores[decidingRoleIndex] > 99.5 &&
                 !complete && !tree.completedNodeQueue.contains(cr.node))
             {
-              System.out.println("Completeness constraint violation");
+              LOGGER.error("Completeness constraint violation");
             }
             if ((cr.node.decidingRoleIndex) == decidingRoleIndex &&
                 !tree.gameCharacteristics.isPuzzle)
             {
-              System.out.println("Descendant type error");
+              LOGGER.error("Descendant type error");
             }
 
             if (recursive)
@@ -985,7 +989,7 @@ public class TreeNode
 
       if (missingChildren != trimmedChildren)
       {
-        System.out.println("Trimmed child count incorrect");
+        LOGGER.error("Trimmed child count incorrect");
       }
     }
 
@@ -1007,7 +1011,7 @@ public class TreeNode
 
       if (numInwardVisits > numVisits)
       {
-        System.out.println("Linkage counts do not add up");
+        LOGGER.error("Linkage counts do not add up");
       }
     }
   }
@@ -1025,7 +1029,7 @@ public class TreeNode
           {
             //if ( !cr.node.parents.contains(this))
             //{
-            //	System.out.println("Child relation inverse missing");
+            //	LOGGER.warn("Child relation inverse missing");
             //}
             //cr.node.sweepParent = this;
             edge.child.node.markTreeForSweep();
@@ -1044,19 +1048,19 @@ public class TreeNode
 
       if (freed)
       {
-        System.out.println("Freeing already free node!");
+        LOGGER.warn("Freeing already free node!");
       }
       if (decidingRoleIndex == tree.numRoles - 1)
       {
         //if ( positions.get(state) != this )
         //{
-        //	System.out.println("Position index does not point to freed node");
+        //	LOGGER.warn("Position index does not point to freed node");
         //}
         tree.positions.remove(state);
       }
       //if ( positions.containsValue(this))
       //{
-      //	System.out.println("Node still referenced!");
+      //	LOGGER.warn("Node still referenced!");
       //}
 
       tree.nodeMoveWeightsCache.remove(this);
@@ -1066,7 +1070,7 @@ public class TreeNode
         tree.numIncompleteNodes--;
         if (tree.numIncompleteNodes < 0)
         {
-          System.out.println("Unexpected negative count of incomplete nodes");
+          LOGGER.warn("Unexpected negative count of incomplete nodes");
         }
       }
       if (complete)
@@ -1087,12 +1091,12 @@ public class TreeNode
                 int numRemainingParents = edge.child.node.parents.size();
                 //if ( cr.node.sweepParent == this && sweepSeq == sweepInstance)
                 //{
-                //	System.out.println("Removing sweep parent");
+                //	LOGGER.info("Removing sweep parent");
                 //}
                 edge.child.node.parents.remove(this);
                 if (numRemainingParents == 0)
                 {
-                  System.out.println("Orphaned child node");
+                  LOGGER.warn("Orphaned child node");
                 }
                 else
                 {
@@ -1105,7 +1109,7 @@ public class TreeNode
         }
       }
 
-      // System.out.println("    Freeing (" + ourIndex + "): " + state);
+      // LOGGER.debug("    Freeing (" + ourIndex + "): " + state);
       seq = CappedPool.FREED_ITEM_SEQ;
       freed = true;
       tree.nodePool.free(this);
@@ -1121,8 +1125,7 @@ public class TreeNode
   {
     if (descendant != null)
     {
-      //System.out
-      //.println("Free all but rooted in state: " + descendant.state);
+      //LOGGER.debug("Free all but rooted in state: " + descendant.state);
       tree.sweepInstance++;
 
       descendant.markTreeForSweep();
@@ -1132,7 +1135,7 @@ public class TreeNode
 
     if (descendant == this || sweepSeq == tree.sweepInstance)
     {
-      //System.out.println("    Leaving: " + state);
+      //LOGGER.info("    Leaving: " + state);
       return;
     }
 
@@ -1216,10 +1219,10 @@ public class TreeNode
     tree.cousinMovesCachedFor = null;
 
     //validateAll();
-    //System.out.println("Select LEAST in " + state);
+    //LOGGER.debug("Select LEAST in " + state);
     if (freed)
     {
-      System.out.println("Encountered freed node in tree walk");
+      LOGGER.warn("Encountered freed node in tree walk");
     }
     if (children != null)
     {
@@ -1291,8 +1294,7 @@ public class TreeNode
               {
                 if (c.freed)
                 {
-                  System.out
-                  .println("Encountered freed child node in tree walk");
+                  LOGGER.warn("Encountered freed child node in tree walk");
                 }
                 //  Don't allow trimming at the immediate children of the root or the root itself
                 if ( depth >= 1 || c.hasUntrimmedChildren() )
@@ -1323,7 +1325,7 @@ public class TreeNode
                   //	uctValue += uctValue/(depth+1);
                   //}
 
-                  //System.out.println("  child score of " + uctValue + " in state "+ c.state);
+                  //LOGGER.debug("  child score of " + uctValue + " in state "+ c.state);
                   if (uctValue > bestValue)
                   {
                     selectedIndex = i;
@@ -1346,14 +1348,14 @@ public class TreeNode
     {
       leastLikelyWinner = selectedIndex;
       trimCount++;
-      //System.out.println("  selected: " + selected.state);
+      //LOGGER.debug("  selected: " + selected.state);
       return children[selectedIndex].child.node
           .selectLeastLikelyNode(children[selectedIndex], depth + 1);
     }
 
     if (depth < 2)
     {
-      System.out.println("Attempt to select unlikely node at depth " + depth);
+      LOGGER.warn("Attempt to select unlikely node at depth " + depth);
       //tree.root.dumpTree("c:\\temp\\treeDump.txt");
 
       return null;
@@ -1492,7 +1494,7 @@ public class TreeNode
         Role choosingRole = tree.roleOrdering.roleIndexToRole(roleIndex);
         //validateAll();
 
-        //System.out.println("Expand our moves from state: " + state);
+        //LOGGER.debug("Expand our moves from state: " + state);
         Iterable<ForwardDeadReckonLegalMoveInfo> moves = tree.underlyingStateMachine.getLegalMoves(state,
                                                                                                    choosingRole,
                                                                                                    tree.factor);
@@ -1669,7 +1671,7 @@ public class TreeNode
           tree.numIncompleteNodes--;
           if (tree.numIncompleteNodes < 0)
           {
-            System.out.println("Unexpected negative count of incomplete nodes");
+            LOGGER.warn("Unexpected negative count of incomplete nodes");
           }
         }
 
@@ -1719,7 +1721,7 @@ public class TreeNode
 
     if (total > 0 && Math.abs(total - 100) > EPSILON)
     {
-      System.out.println("Bad score vector");
+      LOGGER.warn("Bad score vector");
     }
 
     if (total > 0 && children != null)
@@ -1739,7 +1741,7 @@ public class TreeNode
       if (visitTotal > 200 &&
           Math.abs(averageScores[0] - total / visitTotal) > 10)
       {
-        System.out.println("Parent stats do not match children");
+        LOGGER.warn("Parent stats do not match children");
       }
     }
   }
@@ -1865,8 +1867,7 @@ public class TreeNode
         .get(relativeTo.jointPartialMove[relativeTo.child.node.decidingRoleIndex].move);
     if (accumulatedMoveInfo == null)
     {
-      System.out
-      .println("No newphews found for search move including own child!");
+      LOGGER.warn("No newphews found for search move including own child!");
       tree.cousinMovesCachedFor = null;
       //getAverageCousinMoveValue(relativeTo);
       return relativeTo.child.node.averageScores[roleIndex] / 100;
@@ -1991,7 +1992,7 @@ public class TreeNode
     int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
 
     tree.cousinMovesCachedFor = null;
-    //System.out.println("Select in " + state);
+    //LOGGER.debug("Select in " + state);
     if (trimmedChildren == 0)
     {
       if (children != null)
@@ -2185,7 +2186,7 @@ public class TreeNode
     {
       if (children == null)
       {
-        System.out.println("select on an unexpanded node!");
+        LOGGER.warn("select on an unexpanded node!");
       }
       //	pick at random.  If we pick one that has been trimmed re-expand it
       //	FUTURE - can establish a bound on the trimmed UCT value to avoid
@@ -2201,21 +2202,21 @@ public class TreeNode
         tree.numReExpansions++;
         if (trimmedChildren == 0)
         {
-          System.out.println("Found trimmed child where none should exist!");
+          LOGGER.warn("Found trimmed child where none should exist!");
         }
         expand(from);
         selected = children[childIndex];
 
         if (selected.child.node.freed)
         {
-          System.out.println("Selected freed node!");
+          LOGGER.warn("Selected freed node!");
         }
         if (selected.child.node.complete && !tree.gameCharacteristics.isMultiPlayer && !tree.gameCharacteristics.isPuzzle)
         {
           if (!tree.completeSelectionFromIncompleteParentWarned)
           {
             tree.completeSelectionFromIncompleteParentWarned = true;
-            System.out.println("Selected complete node from incomplete parent");
+            LOGGER.warn("Selected complete node from incomplete parent");
           }
         }
       }
@@ -2227,7 +2228,7 @@ public class TreeNode
 
       if (selected.child.node.freed)
       {
-        System.out.println("Selected freed node!");
+        LOGGER.warn("Selected freed node!");
       }
     }
 
@@ -2339,8 +2340,7 @@ public class TreeNode
   {
     if (children == null)
     {
-      System.out.println("    No choice response scores " +
-          stringizeScoreVector());
+      LOGGER.info("    No choice response scores " + stringizeScoreVector());
     }
     else if (children.length > 1)
     {
@@ -2348,8 +2348,7 @@ public class TreeNode
       {
         if (edge2.child.seq >= 0 && edge2.child.seq == edge2.child.node.seq)
         {
-          System.out
-          .println("    Response " +
+          LOGGER.info("    Response " +
               edge2.jointPartialMove[edge2.child.node.decidingRoleIndex].move +
               " scores " + edge2.child.node.stringizeScoreVector() +
               ", visits " + edge2.child.node.numVisits +
@@ -2448,7 +2447,7 @@ public class TreeNode
               if (edge2.child.node.averageScores[0] <= tree.mGameSearcher.lowestRolloutScoreSeen &&
                   edge2.child.node.complete)
               {
-                System.out.println("Post-processing completion of response node");
+                LOGGER.info("Post-processing completion of response node");
                 markComplete(edge2.child.node.averageScores, edge2.child.node.completionDepth);
               }
             }
@@ -2562,8 +2561,7 @@ public class TreeNode
 
       for (Entry<Move, MoveFrequencyInfo> e : moveChoices.entrySet())
       {
-        System.out
-        .println("Move " +
+        LOGGER.info("Move " +
             e.getKey() +
             " weight " +
             e.getValue().averageWeight +
@@ -2576,8 +2574,7 @@ public class TreeNode
 
       for (Entry<Move, MoveFrequencyInfo> e : responseChoices.entrySet())
       {
-        System.out
-        .println("Response " +
+        LOGGER.info("Response " +
             e.getKey() +
             " weight " +
             e.getValue().averageWeight +
@@ -2618,7 +2615,7 @@ public class TreeNode
     assert(lRecursiveCall || roleIndex == 0);
     if ( children == null )
     {
-      System.out.println("NO CHILDREN!");
+      LOGGER.warn("NO CHILDREN!");
     }
     assert(children != null);
 
@@ -2700,11 +2697,11 @@ public class TreeNode
       }
       if (!lRecursiveCall)
       {
-        System.out.println("Move " + edge.descriptiveName(roleIndex) +
-                           " scores " + moveScore + " (selectionScore score " +
-                           selectionScore + ", selection count " +
-                           child.numVisits + ", seq " + child.seq +
-                           (child.complete ? ", complete" : "") + ")");
+        LOGGER.info("Move " + edge.descriptiveName(roleIndex) +
+                    " scores " + moveScore + " (selectionScore score " +
+                    selectionScore + ", selection count " +
+                    child.numVisits + ", seq " + child.seq +
+                    (child.complete ? " + complete" : "") + ")");
       }
 
       if (child.children != null && !child.complete && traceResponses)
@@ -2754,13 +2751,11 @@ public class TreeNode
     {
       if (bestEdge == null && tree.factor == null)
       {
-        System.out.println("No move found!");
+        LOGGER.warn("No move found!");
       }
       if (rawBestEdgeResult != bestEdge)
       {
-        System.out
-        .println("1 level minimax result differed from best raw move: " +
-            rawBestEdgeResult);
+        LOGGER.info("1 level minimax result differed from best raw move: " + rawBestEdgeResult);
       }
     }
 
@@ -2782,7 +2777,7 @@ public class TreeNode
     }
     else
     {
-      System.out.println(pathTrace.toString());
+      LOGGER.info(pathTrace.toString());
     }
 
     if ( bestEdge == null )
@@ -2911,7 +2906,7 @@ public class TreeNode
 
       if (childEdge.numChildVisits > childEdge.child.node.numVisits)
       {
-        System.out.println("Edge count greater than target visit count");
+        LOGGER.warn("Edge count greater than target visit count");
       }
     }
 
@@ -2984,7 +2979,7 @@ public class TreeNode
 
         if (numChildVisits > childEdge.child.node.numVisits)
         {
-          System.out.println("Unexpected edge strength greater than total child strength");
+          LOGGER.warn("Unexpected edge strength greater than total child strength");
         }
         //	Propagate a value that is a blend of this rollout value and the current score for the child node
         //	being propagated from, according to how much of that child's value was accrued through this path

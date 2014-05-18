@@ -4,6 +4,8 @@ package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
 import java.util.Arrays;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -17,6 +19,8 @@ import org.ggp.base.util.stats.PearsonCorrelation;
  */
 public class MobilityHeuristic implements Heuristic
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private static final double MIN_HEURISTIC_CORRELATION = 0.1;
 
   private boolean mEnabled;
@@ -82,7 +86,7 @@ public class MobilityHeuristic implements Heuristic
     }
     catch (MoveDefinitionException lEx)
     {
-      System.err.println("Unexpected error getting legal moves");
+      LOGGER.warn("Unexpected error getting legal moves");
       lEx.printStackTrace();
     }
   }
@@ -116,17 +120,17 @@ public class MobilityHeuristic implements Heuristic
     for (int lii = 0; lii < mTuningData.mNumRoles; lii++)
     {
       double lCorrelation = mCorrelationForRole[lii].getCorrelation();
-      System.out.println("Mobility heuristic correlation for role " + lii + " = " + lCorrelation);
+      LOGGER.info("Mobility heuristic correlation for role " + lii + " = " + lCorrelation);
       if (lCorrelation < MIN_HEURISTIC_CORRELATION)
       {
-        System.out.println("Disabling mobility heuristic");
+        LOGGER.info("Disabling mobility heuristic");
         mEnabled = false;
       }
     }
 
     if (mEnabled)
     {
-      System.out.println("Mobility heuristic enabled");
+      LOGGER.info("Mobility heuristic enabled");
     }
   }
 
@@ -147,7 +151,7 @@ public class MobilityHeuristic implements Heuristic
     {
       // If there's no data in xiPreviousState this must be the very first call to getHeuristicValue, in the initial
       // state of the game.
-      System.out.println("Creating MobilityData in initial state");
+      LOGGER.info("Creating MobilityData in initial state");
       lMobilityData = new MobilityData(mTuningData.mNumRoles);
       try
       {
@@ -164,7 +168,7 @@ public class MobilityHeuristic implements Heuristic
       }
       catch (MoveDefinitionException lEx)
       {
-        System.err.println("Unexpected error getting legal moves");
+        LOGGER.warn("Unexpected error getting legal moves");
         lEx.printStackTrace();
       }
 
@@ -194,7 +198,7 @@ public class MobilityHeuristic implements Heuristic
     }
     catch (MoveDefinitionException lEx)
     {
-      System.err.println("Unexpected error getting legal moves");
+      LOGGER.warn("Unexpected error getting legal moves");
       lEx.printStackTrace();
     }
 

@@ -79,7 +79,7 @@ public class SimplePipeline
    * @return a blank rollout request to be filled in.
    *
    * The caller must ensure (or know) that {@link #canExpand()} is true before calling this method.  After calling
-   * this method, the caller must call {@link #expandComplete()}.
+   * this method, the caller MUST call {@link #expandComplete()}.
    *
    * Called by the tree thread only.
    */
