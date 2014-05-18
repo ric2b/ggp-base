@@ -138,6 +138,11 @@ public class TreeNode
     return completionDepth;
   }
 
+  private boolean isFreed()
+  {
+    return seq < 0;
+  }
+
   private void correctParentsForCompletion(double values[])
   {
     //	Cannot do an a-priori correction of scores based on known child scores
@@ -2842,6 +2847,14 @@ public class TreeNode
     {
       // Synchronous rollouts - use the single request object.
       lRequest = tree.mNodeSynchronousRequest;
+    }
+
+    //  Processing completions above could have resulted in the node we were about to
+    //  rollout from being freed (because it has been determined to be complete or an
+    //  ancestor has).  In such cases abort the rollout.
+    if ( isFreed() )
+    {
+      return;
     }
 
     lRequest.mState = state;
