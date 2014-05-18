@@ -21,5 +21,8 @@
 			<attribute name="javadoc_location" value="jar:platform:/resource/GGP/src/external/Disruptor/disruptor-3.2.1-javadoc.jar!/"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="src/external/Log4J/log4j-api-2.0-rc1.jar" sourcepath="src/external/Log4J/log4j-api-2.0-rc1-sources.jar"/>
+	<classpathentry kind="lib" path="src/external/Log4J/log4j-core-2.0-rc1.jar" sourcepath="src/external/Log4J/log4j-core-2.0-rc1-sources.jar"/>
+	<classpathentry kind="lib" path="data/cfg"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

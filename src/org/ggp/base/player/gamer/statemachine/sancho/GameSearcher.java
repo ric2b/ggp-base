@@ -5,6 +5,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -22,6 +24,8 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
  */
 public class GameSearcher implements Runnable, ActivityController
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   /**
    * Whether the sample size is updated as a result of thread performance measurements.
    */
@@ -94,8 +98,7 @@ public class GameSearcher implements Runnable, ActivityController
     minExplorationBias = min;
     maxExplorationBias = max;
 
-    System.out.println("Set explorationBias range to [" + minExplorationBias +
-                       ", " + maxExplorationBias + "]");
+    LOGGER.info("Set explorationBias range to [" + minExplorationBias + ", " + maxExplorationBias + "]");
   }
 
   /**
@@ -130,7 +133,7 @@ public class GameSearcher implements Runnable, ActivityController
 
     if ( disableGreedyRollouts )
     {
-      System.out.println("Disabling greedy rollouts");
+      LOGGER.info("Disabling greedy rollouts");
       underlyingStateMachine.disableGreedyRollouts();
       rolloutPool.disableGreedyRollouts();
     }
@@ -188,7 +191,7 @@ public class GameSearcher implements Runnable, ActivityController
       {
         if (lNextUpdateSampleSizeTime == 0)
         {
-          System.out.println("Starting sample size update timer");
+          LOGGER.info("Starting sample size update timer");
           lNextUpdateSampleSizeTime = System.currentTimeMillis() + SAMPLE_SIZE_UPDATE_INTERVAL_MS;
         }
 
@@ -196,7 +199,7 @@ public class GameSearcher implements Runnable, ActivityController
         {
           boolean complete = false;
 
-          System.out.println("Move search started");
+          LOGGER.info("Move search started");
 
           while (!complete && !mTerminateRequested)
           {
@@ -238,7 +241,7 @@ public class GameSearcher implements Runnable, ActivityController
             }
           }
 
-          System.out.println("Move search complete");
+          LOGGER.info("Move search complete");
 
           // Because this thread has finished searching the game tree, it will no longer fill the rollout pipeline.
           // Therefore, the performance stats from the rollout threads are meaningless and mustn't be used to update the
@@ -256,7 +259,7 @@ public class GameSearcher implements Runnable, ActivityController
       e.printStackTrace();
     }
 
-    System.out.println("Terminating GameSearcher");
+    LOGGER.info("Terminating GameSearcher");
   }
 
   /**
@@ -286,7 +289,7 @@ public class GameSearcher implements Runnable, ActivityController
       if ( !mPlan.isEmpty() )
       {
         Move result = mPlan.nextMove();
-        System.out.println("Playing first move from new plan: " + result);
+        LOGGER.info("Playing first move from new plan: " + result);
 
         //  No point in further searching
         terminate();
@@ -295,15 +298,15 @@ public class GameSearcher implements Runnable, ActivityController
 
       FactorMoveChoiceInfo bestChoice = null;
 
-      System.out.println("Num tree node frees: " + nodePool.getNumFreedItems());
-      System.out.println("Num tree nodes currently in use: " + nodePool.getNumUsedItems());
-      System.out.println("Searching for best move amongst factors:");
+      LOGGER.info("Num tree node frees: " + nodePool.getNumFreedItems());
+      LOGGER.info("Num tree nodes currently in use: " + nodePool.getNumUsedItems());
+      LOGGER.info("Searching for best move amongst factors:");
       for(MCTSTree tree : factorTrees)
       {
         FactorMoveChoiceInfo factorChoice = tree.getBestMove();
         if ( factorChoice.bestMove != null )
         {
-          System.out.println("  Factor best move: " + factorChoice.bestMove);
+          LOGGER.info("  Factor best move: " + factorChoice.bestMove);
 
           if ( bestChoice == null )
           {
@@ -317,19 +320,19 @@ public class GameSearcher implements Runnable, ActivityController
             {
               //  If no-oping this factor is a certain loss but the same is not true of the other
               //  factor then take this factor
-              System.out.println("  Factor move is avoids a loss so selecting");
+              LOGGER.info("  Factor move is avoids a loss so selecting");
               bestChoice = factorChoice;
             }
             // Complete win dominates everything else
             else if ( factorChoice.bestMoveValue == 100 )
             {
-              System.out.println("  Factor move is a win so selecting");
+              LOGGER.info("  Factor move is a win so selecting");
               bestChoice = factorChoice;
             }
             else if ( (bestChoice.bestMoveValue == 100 && bestChoice.bestMoveIsComplete) ||
                       (factorChoice.bestMoveValue <= 0 && factorChoice.bestMoveIsComplete) )
             {
-              System.out.println("  Already selected factor move is a win or this move is a loss - not selecting");
+              LOGGER.info("  Already selected factor move is a win or this move is a loss - not selecting");
               continue;
             }
             // otherwise choose the one that reduces the resulting net chances the least weighted
@@ -342,18 +345,18 @@ public class GameSearcher implements Runnable, ActivityController
                    factorChoice.bestMoveValue*(factorChoice.bestMoveValue - factorChoice.pseudoNoopValue))
               {
                 bestChoice = factorChoice;
-                System.out.println("  This factor score is superior - selecting");
+                LOGGER.info("  This factor score is superior - selecting");
               }
               else
               {
-                System.out.println("  This factor score is inferior - not selecting");
+                LOGGER.info("  This factor score is inferior - not selecting");
               }
             }
           }
         }
         else
         {
-          System.out.println("  Factor best move is NULL");
+          LOGGER.info("  Factor best move is NULL");
         }
 
         //tree.root.dumpTree("c:\\temp\\treeDump_factor" + factorIndex + ".txt");
@@ -486,16 +489,16 @@ public class GameSearcher implements Runnable, ActivityController
   {
 
     // Print out some statistics from last turn.
-    System.out.println("Last time...");
-    System.out.println("  Number of MCTS iterations: " + mNumIterations);
+    LOGGER.info("Last time...");
+    LOGGER.info("  Number of MCTS iterations: " + mNumIterations);
     if (!USE_SEARCH_THREAD_TO_ROLLOUT_WHEN_BLOCKED)
     {
-      System.out.println("  Tree thread blocked for:   " + mBlockedFor / 1000000 + "ms");
+      LOGGER.info("  Tree thread blocked for:   " + mBlockedFor / 1000000 + "ms");
       mBlockedFor = 0;
     }
     mNumIterations = 0;
 
-    System.out.println("Start move search...");
+    LOGGER.info("Start move search...");
     synchronized (this)
     {
       for(MCTSTree tree : factorTrees)
@@ -683,12 +686,12 @@ public class GameSearcher implements Runnable, ActivityController
       mGameCharacteristics.setRolloutSampleSize(lNewSampleSize);
     }
 
-    System.out.println("Dynamic sample size");
-    System.out.println("  Useful work last time:  " + (int)(lStatsDiff.mUsefulWorkFraction * 100) + "%");
-    System.out.println("  Calculated sample size: " + (int)(lNewSampleSize + 0.5));
-    System.out.println("  Suppress update:        " + mSuppressSampleSizeUpdate);
-    System.out.println("  Now using sample size:  " + mGameCharacteristics.getRolloutSampleSize());
-    System.out.println("  Useful work total:      " + (int)(lCombinedStatsTotal.mUsefulWorkFraction * 100) + "%");
+    LOGGER.debug("Dynamic sample size");
+    LOGGER.debug("  Useful work last time:  " + (int)(lStatsDiff.mUsefulWorkFraction * 100) + "%");
+    LOGGER.debug("  Calculated sample size: " + (int)(lNewSampleSize + 0.5));
+    LOGGER.debug("  Suppress update:        " + mSuppressSampleSizeUpdate);
+    LOGGER.info ("  Now using sample size:  " + mGameCharacteristics.getRolloutSampleSize());
+    LOGGER.debug("  Useful work total:      " + (int)(lCombinedStatsTotal.mUsefulWorkFraction * 100) + "%");
 
     mSuppressSampleSizeUpdate = false;
   }

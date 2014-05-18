@@ -2,12 +2,17 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * Highly efficient, lock-free rollout request pipeline.
  */
 public class Pipeline
 {
-  /**
+  private static final Logger LOGGER = LogManager.getLogger();
+
+/**
    * Per-rollout-thread pipelines.
    */
   private final SimplePipeline[] mThreadPipelines;
@@ -52,7 +57,7 @@ public class Pipeline
 
     // Per-thread pipeline size must be a power of 2.
     lPerThreadSize = Integer.highestOneBit(lPerThreadSize - 1) * 2;
-    System.out.println("Per-rollout-thread pipeline size = " + lPerThreadSize);
+    LOGGER.info("Per-rollout-thread pipeline size = " + lPerThreadSize);
 
     for (int lii = 0; lii < ThreadControl.ROLLOUT_THREADS; lii++)
     {

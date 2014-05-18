@@ -5,11 +5,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * Class giving access to machine-specific configuration.
  */
 public class MachineSpecificConfiguration
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   /**
    * Available configuration items.
    */
@@ -38,12 +43,12 @@ public class MachineSpecificConfiguration
       }
       catch (IOException lEx)
       {
-        System.err.println("Missing/invalid machine-specific configuration for " + lComputerName);
+        LOGGER.error("Missing/invalid machine-specific configuration for " + lComputerName);
       }
     }
     else
     {
-      System.err.println("Failed to identify computer name - no environment variable COMPUTERNAME");
+      LOGGER.error("Failed to identify computer name - no environment variable COMPUTERNAME");
     }
   }
 

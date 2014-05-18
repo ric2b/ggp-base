@@ -1,5 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 /**
@@ -7,6 +9,8 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
  */
 public class RolloutProcessorPool
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private final Pipeline                               mPipeline;
   private final RolloutProcessor[]                     mRolloutProcessors;
 
@@ -37,14 +41,14 @@ public class RolloutProcessorPool
    */
   public void stop()
   {
-    System.out.println("Stop rollout processors");
+    LOGGER.info("Stop rollout processors");
 
     for (int lii = 0; lii < ThreadControl.ROLLOUT_THREADS; lii++)
     {
       mRolloutProcessors[lii].stop();
     }
 
-    System.out.println("Finished stopping rollout processors");
+    LOGGER.info("Finished stopping rollout processors");
   }
 
   /**

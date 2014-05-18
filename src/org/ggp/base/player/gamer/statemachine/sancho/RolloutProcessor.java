@@ -1,5 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
@@ -8,6 +10,8 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
  */
 class RolloutProcessor implements Runnable
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private final int                                  mThreadIndex;
   private final Pipeline                             mPipeline;
   private final ForwardDeadReckonPropnetStateMachine mStateMachine;
@@ -67,12 +71,12 @@ class RolloutProcessor implements Runnable
     }
     catch (InterruptedException lEx)
     {
-      System.err.println("Unexpectedly interrupted whilst stopping rollout processor " + mThreadIndex);
+      LOGGER.warn("Unexpectedly interrupted whilst stopping rollout processor " + mThreadIndex);
     }
 
     if (mThread.getState() != Thread.State.TERMINATED)
     {
-      System.err.println("Failed to stop rollout processor " + mThreadIndex);
+      LOGGER.error("Failed to stop rollout processor " + mThreadIndex);
     }
   }
 
