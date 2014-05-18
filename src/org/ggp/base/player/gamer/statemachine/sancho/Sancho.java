@@ -164,7 +164,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.58b";
+    return "Sancho 1.58c";
   }
 
   @Override
@@ -815,6 +815,12 @@ public class Sancho extends SampleGamer
       // We have a pre-prepared plan.  Simply play the next move.
       bestMove = plan.nextMove();
       System.out.println("Playing pre-planned move: " + bestMove);
+
+      //  We need to keep the search 'up with' the plan to make forced-play
+      //  testing work properly, or else the search will not be 'primed'
+      //  during forced play when the plan runs out
+      searchProcessor.startSearch(finishBy, currentState, currentMoveDepth);
+      currentMoveDepth += numRoles;
     }
     else if (gameCharacteristics.isIteratedGame && numRoles == 2)
     {

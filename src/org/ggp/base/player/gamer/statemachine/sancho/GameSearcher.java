@@ -563,6 +563,14 @@ public class GameSearcher implements Runnable, ActivityController
           //  is full then perform an expansion synchronously while we
           //  wait for the rollout pool to have results for us
           expandSearch(true);
+          mNumIterations++;
+
+          //  This method can be called re-entrantly from the above, which means that the rollout
+          //  pipeline may no longer be blocked, in which case we should return immediately
+          if ( mPipeline.canExpand() )
+          {
+            return;
+          }
           continue;
         }
       }

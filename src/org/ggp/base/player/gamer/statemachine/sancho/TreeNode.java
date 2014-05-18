@@ -2840,6 +2840,14 @@ public class TreeNode
         // The pipeline is full.  We can't expand it until we've done some back-propagation.  Even though none was
         // available at the start of the expansion, we'll just have to wait.
         tree.mGameSearcher.processCompletedRollouts(true);
+
+        //  Processing completions above could have resulted in the node we were about to
+        //  rollout from being freed (because it has been determined to be complete or an
+        //  ancestor has).  In such cases abort the rollout.
+        if ( isFreed() )
+        {
+          return;
+        }
       }
       lRequest = xiPipeline.getNextExpandSlot();
     }
@@ -2847,14 +2855,6 @@ public class TreeNode
     {
       // Synchronous rollouts - use the single request object.
       lRequest = tree.mNodeSynchronousRequest;
-    }
-
-    //  Processing completions above could have resulted in the node we were about to
-    //  rollout from being freed (because it has been determined to be complete or an
-    //  ancestor has).  In such cases abort the rollout.
-    if ( isFreed() )
-    {
-      return;
     }
 
     lRequest.mState = state;
