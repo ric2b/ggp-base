@@ -102,6 +102,12 @@ public class TreeNode
   private double                        mostLikelyRunnerUpValue;
   boolean                               complete            = false;
   private boolean                       allChildrenComplete = false;
+  //  Note - the 'depth' of a node is an indicative measure of its distance from the
+  //  initial state.  However, it is not an absolute count of the oath length.  This
+  //  is because in some games the same state can occur at different depths (English Draughts
+  //  exhibits this), which means that transitions to the same node can occur at multiple
+  //  depths.  This approximate nature good enough for our current usage, but should be borne
+  //  in mind if that usage is expanded.
   private int                           depth               = 0;
   private int                           completionDepth;
 

@@ -286,7 +286,12 @@ public class MCTSTree
       }
       else
       {
-        assert(newRoot.getDepth() == rootDepth);
+        //  Note - we cannot assert that the root depth matches what we're given.  This
+        //  is because in some games the same state can occur at different depths (English Draughts
+        //  exhibits this), which means that transitions to the same node can occur at multiple
+        //  depths.  The result is that the 'depth' of a node can only be considered indicative
+        //  rather than absolute.  This is good enough for our current usage, but should be borne
+        //  in mind if that usage is expanded.
         if (newRoot != root)
         {
           root.freeAllBut(newRoot);
