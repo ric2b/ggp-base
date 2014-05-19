@@ -23,7 +23,8 @@ public class RolloutProcessorPool
    */
   public RolloutProcessorPool(Pipeline xiPipeline,
                               ForwardDeadReckonPropnetStateMachine xiUnderlyingStateMachine,
-                              RoleOrdering xiRoleOrdering)
+                              RoleOrdering xiRoleOrdering,
+                              String xiLogName)
   {
     mPipeline = xiPipeline;
     mRolloutProcessors = new RolloutProcessor[ThreadControl.ROLLOUT_THREADS];
@@ -32,7 +33,8 @@ public class RolloutProcessorPool
       mRolloutProcessors[lii] = new RolloutProcessor(lii,
                                                      mPipeline,
                                                      xiUnderlyingStateMachine.createInstance(),
-                                                     xiRoleOrdering);
+                                                     xiRoleOrdering,
+                                                     xiLogName);
     }
   }
 

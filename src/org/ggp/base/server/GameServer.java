@@ -11,8 +11,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.ggp.base.server.event.ServerAbortedMatchEvent;
 import org.ggp.base.server.event.ServerCompletedMatchEvent;
 import org.ggp.base.server.event.ServerConnectionErrorEvent;
@@ -44,8 +42,6 @@ import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 
 public final class GameServer extends Thread implements Subject
 {
-  private static final Logger LOGGER = LogManager.getLogger();
-
   private final Match          match;
   private final StateMachine   stateMachine;
   private MachineState         currentState;
@@ -300,7 +296,7 @@ public final class GameServer extends Thread implements Subject
       try
       {
         spectatorServerKey = MatchPublisher.publishToSpectatorServer(spectatorServerURL, match);
-        LOGGER.info("matches.ggp.org database ID: " + spectatorServerKey);
+        System.out.println("matches.ggp.org database ID: " + spectatorServerKey);
         return spectatorServerKey;
       }
       catch (IOException e)

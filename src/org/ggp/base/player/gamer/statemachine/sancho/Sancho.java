@@ -10,6 +10,7 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.ThreadContext;
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.player.gamer.statemachine.sample.SampleGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic;
@@ -174,10 +175,14 @@ public class Sancho extends SampleGamer
   @Override
   public StateMachine getInitialStateMachine()
   {
+    String lMatchID = getMatch().getMatchId();
+    String lLogName = lMatchID + "-" + getRole();
+    ThreadContext.put("matchID", lLogName);
+
     ThreadControl.CPUIdParity = (getPort()%2 == 0);
     ThreadControl.reset();
 
-    searchProcessor = new GameSearcher(transpositionTableSize);
+    searchProcessor = new GameSearcher(transpositionTableSize, lLogName);
 
     if (!ThreadControl.RUN_SYNCHRONOUSLY)
     {
@@ -186,7 +191,7 @@ public class Sancho extends SampleGamer
       lSearchProcessorThread.start();
     }
 
-    LOGGER.info("Beginning new game: " + getMatch().getMatchId() + " at " + getMatch().getStartTime());
+    LOGGER.info("Beginning new game: " + lMatchID + " at " + getMatch().getStartTime());
 
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());

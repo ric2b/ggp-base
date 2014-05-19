@@ -7,6 +7,7 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.ThreadContext;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -57,6 +58,7 @@ public class GameSearcher implements Runnable, ActivityController
   private long                            mNumIterations      = 0;
   private long                            mBlockedFor         = 0;
   private boolean                         mSuppressSampleSizeUpdate = false;
+  private final String                    mLogName;
 
   /**
    * The highest score seen in the current turn (for our role).
@@ -81,10 +83,12 @@ public class GameSearcher implements Runnable, ActivityController
    * Create a game tree searcher with the specified maximum number of nodes.
    *
    * @param nodeTableSize - the maximum number of nodes.
+   * @param xiLogName - the name of the log.
    */
-  public GameSearcher(int nodeTableSize)
+  public GameSearcher(int nodeTableSize, String xiLogName)
   {
     nodePool = new CappedPool<>(nodeTableSize);
+    mLogName = xiLogName;
   }
 
   /**
@@ -129,7 +133,7 @@ public class GameSearcher implements Runnable, ActivityController
       mPipeline = new Pipeline(PIPELINE_SIZE, underlyingStateMachine.getRoles().size());
     }
 
-    rolloutPool = new RolloutProcessorPool(mPipeline, underlyingStateMachine, roleOrdering);
+    rolloutPool = new RolloutProcessorPool(mPipeline, underlyingStateMachine, roleOrdering, mLogName);
 
     if ( disableGreedyRollouts )
     {
@@ -180,6 +184,7 @@ public class GameSearcher implements Runnable, ActivityController
   public void run()
   {
     // Register this thread.
+    ThreadContext.put("matchID", mLogName);
     ThreadControl.registerSearchThread();
 
     long lNextUpdateSampleSizeTime = 0;

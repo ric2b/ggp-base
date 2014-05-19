@@ -4,10 +4,23 @@
     <Console name="Console" target="SYSTEM_OUT">
       <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
     </Console>
+    <Routing name="MatchLogs">
+      <Routes pattern="$${ctx:matchID}">
+        <Route>
+          <RandomAccessFile name="MatchLog-${ctx:matchID}" fileName="logs/${ctx:matchID}.log">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+          </RandomAccessFile>
+        </Route>
+      </Routes>
+    </Routing>
+    <Async name="AsyncWrapper">
+      <AppenderRef ref="MatchLogs"/>
+      <AppenderRef ref="Console"/>
+    </Async>        
   </Appenders>
   <Loggers>
     <Root level="info">
-      <AppenderRef ref="Console"/>
+      <AppenderRef ref="AsyncWrapper"/>
     </Root>
   </Loggers>
 </Configuration>

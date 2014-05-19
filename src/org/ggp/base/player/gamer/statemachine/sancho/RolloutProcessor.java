@@ -2,6 +2,7 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.ThreadContext;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
@@ -16,6 +17,7 @@ class RolloutProcessor implements Runnable
   private final Pipeline                             mPipeline;
   private final ForwardDeadReckonPropnetStateMachine mStateMachine;
   private final Thread                               mThread;
+  private final String                               mLogName;
 
   private final Role                                 mOurRole;
   private final RoleOrdering                         mRoleOrdering;
@@ -28,11 +30,13 @@ class RolloutProcessor implements Runnable
    * @param xiStateMachine - a state machine for performing the work.
    * @param xiCharacteristics - game characteristics.
    * @param xiRoleOrdering - role ordering.
+   * @param xiLogName - the name of the log.
    */
   public RolloutProcessor(int xiThreadIndex,
                           Pipeline xiPipeline,
                           ForwardDeadReckonPropnetStateMachine xiStateMachine,
-                          RoleOrdering xiRoleOrdering)
+                          RoleOrdering xiRoleOrdering,
+                          String xiLogName)
   {
     mThreadIndex = xiThreadIndex;
 
@@ -43,6 +47,8 @@ class RolloutProcessor implements Runnable
 
     mRoleOrdering = xiRoleOrdering;
     mOurRole = mRoleOrdering.roleIndexToRole(0);
+
+    mLogName = xiLogName;
 
     mThread = new Thread(this, "Rollout Processor " + mThreadIndex);
     mThread.setDaemon(true);
@@ -84,6 +90,7 @@ class RolloutProcessor implements Runnable
   public void run()
   {
     // Register this thread.
+    ThreadContext.put("matchID", mLogName);
     ThreadControl.registerRolloutThread();
 
     // Publish performance information every few seconds.  We do this moderately more frequently than the statistics are
