@@ -1476,7 +1476,8 @@ public class TreeNode
     {
       //  Don't bother evaluating terminality of children above the earliest completion depth
       boolean evaluateTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation && depth >= tree.gameCharacteristics.getEarliestCompletionDepth());
-      if ( !evaluateTerminalOnNodeCreation && children == null )
+      boolean parentEvaluatedTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation && depth > tree.gameCharacteristics.getEarliestCompletionDepth());
+      if ( !parentEvaluatedTerminalOnNodeCreation && children == null )
       {
         calculateTerminalityAndAutoExpansion();
 
@@ -1504,6 +1505,9 @@ public class TreeNode
         {
           moveInfos.add(move);
         }
+
+        assert(moveInfos.size() > 0);
+
         TreeEdge[] newChildren = new TreeEdge[moveInfos.size()];
 
         int index = 0;
