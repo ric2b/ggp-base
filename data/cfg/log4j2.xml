@@ -2,24 +2,24 @@
 <Configuration status="WARN">
   <Appenders>
     <Console name="Console" target="SYSTEM_OUT">
-      <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+      <PatternLayout pattern="%d{HH:mm:ss.SSS} %level{length=1} %msg%n"/>
     </Console>
     <Routing name="MatchLogs">
       <Routes pattern="$${ctx:matchID}">
         <Route>
           <RandomAccessFile name="MatchLog-${ctx:matchID}" fileName="logs/${ctx:matchID}.log">
-            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+            <PatternLayout pattern="%d{ISO8601} %-5level %-30.30logger{1} %msg%n"/>
           </RandomAccessFile>
         </Route>
       </Routes>
     </Routing>
     <Async name="AsyncWrapper">
-      <AppenderRef ref="MatchLogs"/>
-      <AppenderRef ref="Console"/>
+      <AppenderRef ref="MatchLogs" level="debug"/>
+      <AppenderRef ref="Console" level = "info"/>
     </Async>        
   </Appenders>
   <Loggers>
-    <Root level="info">
+    <Root level="debug">
       <AppenderRef ref="AsyncWrapper"/>
     </Root>
   </Loggers>

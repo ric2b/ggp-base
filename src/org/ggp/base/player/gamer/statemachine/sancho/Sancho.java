@@ -176,7 +176,7 @@ public class Sancho extends SampleGamer
   public StateMachine getInitialStateMachine()
   {
     String lMatchID = getMatch().getMatchId();
-    String lLogName = lMatchID + "-" + getRole();
+    String lLogName = lMatchID + "-" + getPort();
     ThreadContext.put("matchID", lLogName);
 
     ThreadControl.CPUIdParity = (getPort()%2 == 0);
@@ -191,7 +191,7 @@ public class Sancho extends SampleGamer
       lSearchProcessorThread.start();
     }
 
-    LOGGER.info("Beginning new game: " + lMatchID + " at " + getMatch().getStartTime());
+    LOGGER.info("Beginning new game: " + lMatchID);
 
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
@@ -785,6 +785,8 @@ public class Sancho extends SampleGamer
     Move bestMove;
     List<Move> moves;
 
+    LOGGER.info("New turn");
+
     if (ProfilerContext.getContext() != null)
     {
       ProfilerContext.getContext().resetStats();
@@ -794,7 +796,7 @@ public class Sancho extends SampleGamer
 
     searchProcessor.requestYield(true);
 
-    LOGGER.info("Calculating current state, current time: " + System.currentTimeMillis());
+    LOGGER.debug("Calculating current state");
 
     synchronized (searchProcessor.getSerializationObject())
     {
@@ -810,7 +812,7 @@ public class Sancho extends SampleGamer
       }
     }
 
-    LOGGER.info("Setting search root, current time: " + System.currentTimeMillis());
+    LOGGER.debug("Setting search root");
 
     if ((plan != null) && (!plan.isEmpty()))
     {
@@ -846,7 +848,7 @@ public class Sancho extends SampleGamer
 
       searchProcessor.requestYield(false);
 
-      LOGGER.info("Waiting for processing, current time: " + System.currentTimeMillis());
+      LOGGER.info("Waiting for processing");
 
       try
       {
@@ -872,7 +874,7 @@ public class Sancho extends SampleGamer
         LOGGER.info("Complete root");
       }
 
-      LOGGER.info("Timer expired, current time: " + System.currentTimeMillis());
+      LOGGER.info("Timer expired");
 
       searchProcessor.requestYield(true);
 

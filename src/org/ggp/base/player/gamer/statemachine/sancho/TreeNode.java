@@ -2358,12 +2358,12 @@ public class TreeNode
       {
         if (edge2.child.seq >= 0 && edge2.child.seq == edge2.child.node.seq)
         {
-          LOGGER.info("    Response " +
-              edge2.jointPartialMove[edge2.child.node.decidingRoleIndex].move +
-              " scores " + edge2.child.node.stringizeScoreVector() +
-              ", visits " + edge2.child.node.numVisits +
-              ", seq : " + edge2.child.seq +
-              (edge2.child.node.complete ? " (complete)" : ""));
+          LOGGER.debug("    Response " +
+                       edge2.jointPartialMove[edge2.child.node.decidingRoleIndex].move +
+                       " scores " + edge2.child.node.stringizeScoreVector() +
+                       ", visits " + edge2.child.node.numVisits +
+                       ", seq : " + edge2.child.seq +
+                       (edge2.child.node.complete ? " (complete)" : ""));
         }
       }
     }
