@@ -2,7 +2,7 @@
 <Configuration status="WARN">
   <Appenders>
     <Console name="Console" target="SYSTEM_OUT">
-      <PatternLayout pattern="%d{HH:mm:ss.SSS} %level{length=1} %msg%n"/>
+      <PatternLayout pattern="%d{HH:mm:ss.SSS} %level{ERROR=!, WARN=?, INFO=-, DEBUG=., TRACE=.} %msg%n"/>
     </Console>
     <Routing name="MatchLogs">
       <Routes pattern="$${ctx:matchID}">

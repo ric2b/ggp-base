@@ -16,6 +16,8 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.concurrency.ConcurrencyUtils;
 import org.ggp.base.util.gdl.GdlUtils;
 import org.ggp.base.util.gdl.grammar.Gdl;
@@ -61,7 +63,6 @@ import org.ggp.base.util.statemachine.Role;
 
 import com.google.common.collect.Multimap;
 
-
 /*
  * A propnet factory meant to optimize the propnet before it's even built,
  * mostly through transforming the GDL. (The transformations identify certain
@@ -88,6 +89,8 @@ import com.google.common.collect.Multimap;
  */
 public class OptimizingPropNetFactory
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   static final private GdlConstant    LEGAL     = GdlPool.getConstant("legal");
   static final private GdlConstant    NEXT      = GdlPool.getConstant("next");
   static final private GdlConstant    TRUE      = GdlPool.getConstant("true");
@@ -106,52 +109,41 @@ public class OptimizingPropNetFactory
 
   /**
    * Creates a PropNet for the game with the given description.
-   * 
+   *
    * @throws InterruptedException
    *           if the thread is interrupted during PropNet creation.
    */
-  public static PropNet create(List<Gdl> description)
-      throws InterruptedException
+  public static PropNet create(List<Gdl> description) throws InterruptedException
   {
-    return create(description, false);
-  }
-
-  public static PropNet create(List<Gdl> description, boolean verbose)
-      throws InterruptedException
-  {
-    System.out.println("Building propnet...");
+    LOGGER.info("Building propnet...");
 
     long startTime = System.currentTimeMillis();
 
     description = GdlCleaner.run(description);
     description = DeORer.run(description);
-    description = VariableConstrainer
-        .replaceFunctionValuedVariables(description);
+    description = VariableConstrainer.replaceFunctionValuedVariables(description);
     description = Relationizer.run(description);
 
     description = CondensationIsolator.run(description);
 
 
-    if (verbose)
-      for (Gdl gdl : description)
-        System.out.println(gdl);
+    for (Gdl gdl : description)
+    {
+      LOGGER.trace(gdl);
+    }
 
     //We want to start with a rule graph and follow the rule graph.
     //Start by finding general information about the game
-    SentenceDomainModel model = SentenceDomainModelFactory
-        .createWithCartesianDomains(description);
+    SentenceDomainModel model = SentenceDomainModelFactory.createWithCartesianDomains(description);
     //Restrict domains to values that could actually come up in rules.
     //See chinesecheckers4's "count" relation for an example of why this
     //could be useful.
     model = SentenceDomainModelOptimizer.restrictDomainsToUsefulValues(model);
 
-    if (verbose)
-      System.out.println("Setting constants...");
+    LOGGER.trace("Setting constants...");
 
-    ConstantChecker constantChecker = ConstantCheckerFactory
-        .createWithForwardChaining(model);
-    if (verbose)
-      System.out.println("Done setting constants");
+    ConstantChecker constantChecker = ConstantCheckerFactory.createWithForwardChaining(model);
+    LOGGER.trace("Done setting constants");
 
     Set<String> sentenceFormNames = SentenceForms.getNames(model
         .getSentenceForms());
@@ -163,20 +155,14 @@ public class OptimizingPropNetFactory
     //particular restriction on the dependency graph:
     //Recursive loops may only contain one sentence form.
     //This describes most games, but not all legal games.
-    Multimap<SentenceForm, SentenceForm> dependencyGraph = model
-        .getDependencyGraph();
-    if (verbose)
-    {
-      System.out.print("Computing topological ordering... ");
-      System.out.flush();
-    }
+    Multimap<SentenceForm, SentenceForm> dependencyGraph = model.getDependencyGraph();
+    LOGGER.trace("Computing topological ordering... ");
     ConcurrencyUtils.checkForInterruption();
     List<SentenceForm> topologicalOrdering = getTopologicalOrdering(model.getSentenceForms(),
                                                                     dependencyGraph,
                                                                     usingBase,
                                                                     usingInput);
-    if (verbose)
-      System.out.println("done");
+    LOGGER.trace("done");
 
     List<Role> roles = Role.computeRoles(description);
     Map<GdlSentence, Component> components = new HashMap<GdlSentence, Component>();
@@ -189,15 +175,10 @@ public class OptimizingPropNetFactory
     {
       ConcurrencyUtils.checkForInterruption();
 
-      if (verbose)
-      {
-        System.out.print("Adding sentence form " + form);
-        System.out.flush();
-      }
+      LOGGER.trace("Adding sentence form " + form);
       if (constantChecker.isConstantForm(form))
       {
-        if (verbose)
-          System.out.println(" (constant)");
+        LOGGER.trace(" (constant)");
         //Only add it if it's important
         if (form.getName().equals(LEGAL) || form.getName().equals(GOAL) ||
             form.getName().equals(INIT))
@@ -213,9 +194,7 @@ public class OptimizingPropNetFactory
           }
         }
 
-        if (verbose)
-          System.out.println("Checking whether " + form +
-                             " is a functional constant...");
+        LOGGER.trace("Checking whether " + form + " is a functional constant...");
         addConstantsToFunctionInfo(form, constantChecker, functionInfoMap);
         addFormToCompletedValues(form,
                                  completedSentenceFormValues,
@@ -223,8 +202,6 @@ public class OptimizingPropNetFactory
 
         continue;
       }
-      if (verbose)
-        System.out.println();
       //TODO: Adjust "recursive forms" appropriately
       //Add a temporary sentence form thingy? ...
       Map<GdlSentence, Component> temporaryComponents = new HashMap<GdlSentence, Component>();
@@ -244,8 +221,7 @@ public class OptimizingPropNetFactory
                       constantChecker,
                       completedSentenceFormValues);
       //TODO: Pass these over groups of multiple sentence forms
-      if (verbose && !temporaryComponents.isEmpty())
-        System.out.println("Processing temporary components...");
+      LOGGER.trace("Processing temporary components...");
       processTemporaryComponents(temporaryComponents,
                                  temporaryNegations,
                                  components,
@@ -258,50 +234,38 @@ public class OptimizingPropNetFactory
       //System.out.println("  "+completedSentenceFormValues.get(form).size() + " components added");
     }
     //Connect "next" to "true"
-    if (verbose)
-      System.out.println("Adding transitions...");
+    LOGGER.trace("Adding transitions...");
     addTransitions(components);
     //Set up "init" proposition
-    if (verbose)
-      System.out.println("Setting up 'init' proposition...");
+    LOGGER.trace("Setting up 'init' proposition...");
     setUpInit(components, trueComponent, falseComponent);
     //Now we can safely...
-    if (verbose)
-      System.out.println("Num components before useless removed: " +
-                         components.size());
+    LOGGER.trace("Num components before useless removed: " + components.size());
 
     removeUselessBasePropositions(components,
                                   negations,
                                   trueComponent,
                                   falseComponent);
-    if (verbose)
-      System.out.println("Num components after useless removed: " +
-                         components.size());
-    if (verbose)
-      System.out.println("Creating component set...");
+    LOGGER.trace("Num components after useless removed: " + components.size());
+    LOGGER.trace("Creating component set...");
     Set<Component> componentSet = new HashSet<Component>(components.values());
     //Try saving some memory here...
     components = null;
     negations = null;
     completeComponentSet(componentSet);
     ConcurrencyUtils.checkForInterruption();
-    if (verbose)
-      System.out.println("Initializing propnet object...");
+    LOGGER.trace("Initializing propnet object...");
     //Make it look the same as the PropNetFactory results, until we decide
     //how we want it to look
     normalizePropositions(componentSet);
     PropNet propnet = new PropNet(roles, componentSet);
-    if (verbose)
-    {
-      System.out
-          .println("Done setting up propnet; took " +
+    LOGGER.trace("Done setting up propnet; took " +
                    (System.currentTimeMillis() - startTime) + "ms, has " +
                    componentSet.size() + " components and " +
                    propnet.getNumLinks() + " links");
-      System.out.println("Propnet has " + propnet.getNumAnds() + " ands; " +
+    LOGGER.trace("Propnet has " + propnet.getNumAnds() + " ands; " +
                          propnet.getNumOrs() + " ors; " +
                          propnet.getNumNots() + " nots");
-    }
     //System.out.println(propnet);
     return propnet;
   }
@@ -341,7 +305,7 @@ public class OptimizingPropNetFactory
    * to the outputs of the PropNetFactory. This is for consistency and for
    * backwards compatibility with respect to state machines designed for the
    * old propnet factory. Feel free to remove this for your player.
-   * 
+   *
    * @param componentSet
    */
   private static void normalizePropositions(Set<Component> componentSet)
@@ -464,7 +428,7 @@ public class OptimizingPropNetFactory
    * TrueComponent and falseComponent are required. Doesn't actually work that
    * way... shoot. Need something that will remove the component from the
    * propnet entirely.
-   * 
+   *
    * @throws InterruptedException
    */
   private static void optimizeAwayTrueAndFalse(Map<GdlSentence, Component> components,
@@ -1488,7 +1452,7 @@ public class OptimizingPropNetFactory
 
   /**
    * Currently requires the init propositions to be left in the graph.
-   * 
+   *
    * @param pn
    */
   static enum Type {
@@ -2021,7 +1985,7 @@ public class OptimizingPropNetFactory
    * Optimizes an already-existing propnet by removing useless leaves. These
    * are components that have no outputs, but have no special meaning in GDL
    * that requires them to stay. TODO: Currently fails on propnets with cycles.
-   * 
+   *
    * @param pn
    */
   public static void lopUselessLeaves(PropNet pn)
@@ -2059,7 +2023,7 @@ public class OptimizingPropNetFactory
   /**
    * Optimizes an already-existing propnet by removing propositions of the form
    * (init ?x). Does NOT remove the proposition "INIT".
-   * 
+   *
    * @param pn
    */
   public static void removeInits(PropNet pn)
@@ -2198,8 +2162,7 @@ public class OptimizingPropNetFactory
     }
     while (redundantComponents.size() > 0);
 
-    System.out.println("Removed " + removedRedundantComponentCount +
-                       " redundant components");
+    LOGGER.debug("Removed " + removedRedundantComponentCount + " redundant components");
   }
 
   /**
@@ -2207,7 +2170,7 @@ public class OptimizingPropNetFactory
    * with no special meaning. The inputs and outputs of those propositions are
    * connected to one another. This is unlikely to improve performance unless
    * values of every single component are stored (outside the propnet).
-   * 
+   *
    * @param pn
    */
   public static void removeAnonymousPropositions(PropNet pn)
