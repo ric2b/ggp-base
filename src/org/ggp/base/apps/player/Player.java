@@ -7,6 +7,7 @@ import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import javax.swing.AbstractAction;
@@ -100,6 +101,16 @@ public final class Player extends JPanel
     playersTabbedPane = new JTabbedPane();
 
     portTextField.setColumns(15);
+
+    // Sort the list of gamers before displaying it to the user
+    java.util.Collections.sort(gamers, new Comparator<Class<? extends Gamer>>()
+    {
+      @Override
+      public int compare(Class<? extends Gamer> left, Class<? extends Gamer> right)
+      {
+        return left.getSimpleName().compareTo(right.getSimpleName());
+      }
+    });
 
     // Sancho's name varies (with a version number).  Grab it on the way
     // through because we want to select it in the list.
