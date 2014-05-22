@@ -25,7 +25,8 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
  */
 public class GameSearcher implements Runnable, ActivityController
 {
-  private static final Logger LOGGER = LogManager.getLogger();
+  private static final Logger LOGGER       = LogManager.getLogger();
+  private static final Logger STATS_LOGGER = LogManager.getLogger("stats");
 
   /**
    * Whether the sample size is updated as a result of thread performance measurements.
@@ -37,8 +38,8 @@ public class GameSearcher implements Runnable, ActivityController
    */
   public static final long                SAMPLE_SIZE_UPDATE_INTERVAL_MS = 10000;
 
+  private static final long               STATS_LOG_INTERVAL_MS = 1000;
   private static final int                PIPELINE_SIZE = 12; //  Default set to give reasonable results on 2 and 4 cores
-  private static final boolean            USE_SEARCH_THREAD_TO_ROLLOUT_WHEN_BLOCKED = true;
 
   private volatile long                   moveTime;
   private volatile long                   startTime;
@@ -55,8 +56,9 @@ public class GameSearcher implements Runnable, ActivityController
   private volatile boolean                mTerminateRequested = false;
   private RuntimeGameCharacteristics      mGameCharacteristics;
   private Pipeline                        mPipeline;
+  private long                            mLastNumIterations  = 0;
   private long                            mNumIterations      = 0;
-  private long                            mBlockedFor         = 0;
+  private long                            mNumDepthCharges    = 0;
   private boolean                         mSuppressSampleSizeUpdate = false;
   private final String                    mLogName;
 
@@ -75,8 +77,19 @@ public class GameSearcher implements Runnable, ActivityController
    */
   private RolloutPerfStats                mLastRolloutPerfStats = new RolloutPerfStats(0, 0);
 
+  /**
+   * Longest observed latency for a rollout.  Used by the performance analysis test.
+   */
   public long longestObservedLatency = 0;
+
+  /**
+   * Average latency.  Used by the performance analysis test.
+   */
   public long averageLatency = 0;
+
+  /**
+   * Number of completed rollouts.  !! ARR Appears to be a duplicate of mNumIterations (or perhaps mNumDepthCharges)
+   */
   private long numCompletedRollouts = 0;
 
   /**
@@ -114,6 +127,7 @@ public class GameSearcher implements Runnable, ActivityController
    * @param gameCharacteristics
    * @param disableGreedyRollouts
    * @param heuristic
+   * @param plan - pre-prepared set of moves to use (or null for none).
    *
    * @throws GoalDefinitionException
    */
@@ -135,7 +149,7 @@ public class GameSearcher implements Runnable, ActivityController
 
     rolloutPool = new RolloutProcessorPool(mPipeline, underlyingStateMachine, roleOrdering, mLogName);
 
-    if ( disableGreedyRollouts )
+    if (disableGreedyRollouts)
     {
       LOGGER.info("Disabling greedy rollouts");
       underlyingStateMachine.disableGreedyRollouts();
@@ -146,7 +160,7 @@ public class GameSearcher implements Runnable, ActivityController
     factorTrees.clear();
 
     Set<Factor> factors = underlyingStateMachine.getFactors();
-    if ( factors == null )
+    if (factors == null)
     {
       factorTrees.add(new MCTSTree(underlyingStateMachine,
                                    null,
@@ -188,6 +202,7 @@ public class GameSearcher implements Runnable, ActivityController
     ThreadControl.registerSearchThread();
 
     long lNextUpdateSampleSizeTime = 0;
+    long lNextStatsTime = System.currentTimeMillis() + STATS_LOG_INTERVAL_MS;
 
     // TODO Auto-generated method stub
     try
@@ -210,6 +225,13 @@ public class GameSearcher implements Runnable, ActivityController
           {
             long time = System.currentTimeMillis();
             double percentThroughTurn = Math.min(100, (time - startTime) * 100 / (moveTime - startTime));
+
+            if (time > lNextStatsTime)
+            {
+              STATS_LOGGER.info(time + ",Perf.NodeExpansions," + mNumIterations + "\n" +
+                                time + ",Perf.DepthCharges," + mNumDepthCharges + "\n");
+              lNextStatsTime += STATS_LOG_INTERVAL_MS;
+            }
 
             if ((USE_DYNAMIC_SAMPLE_SIZING) && (time > lNextUpdateSampleSizeTime))
             {
@@ -291,7 +313,7 @@ public class GameSearcher implements Runnable, ActivityController
     synchronized(getSerializationObject())
     {
       //  If we instated a plan during this move calculation we must play from it
-      if ( !mPlan.isEmpty() )
+      if (!mPlan.isEmpty())
       {
         Move result = mPlan.nextMove();
         LOGGER.info("Playing first move from new plan: " + result);
@@ -309,19 +331,19 @@ public class GameSearcher implements Runnable, ActivityController
       for(MCTSTree tree : factorTrees)
       {
         FactorMoveChoiceInfo factorChoice = tree.getBestMove();
-        if ( factorChoice.bestMove != null )
+        if (factorChoice.bestMove != null)
         {
           LOGGER.info("  Factor best move: " + factorChoice.bestMove);
 
-          if ( bestChoice == null )
+          if (bestChoice == null)
           {
             bestChoice = factorChoice;
           }
           else
           {
-            if ( factorChoice.pseudoNoopValue <= 0 && factorChoice.pseudoMoveIsComplete &&
-                 factorChoice.bestMoveValue > 0 &&
-                 (!bestChoice.pseudoMoveIsComplete || bestChoice.pseudoNoopValue > 0) )
+            if (factorChoice.pseudoNoopValue <= 0 && factorChoice.pseudoMoveIsComplete &&
+                factorChoice.bestMoveValue > 0 &&
+                (!bestChoice.pseudoMoveIsComplete || bestChoice.pseudoNoopValue > 0))
             {
               //  If no-oping this factor is a certain loss but the same is not true of the other
               //  factor then take this factor
@@ -329,13 +351,13 @@ public class GameSearcher implements Runnable, ActivityController
               bestChoice = factorChoice;
             }
             // Complete win dominates everything else
-            else if ( factorChoice.bestMoveValue == 100 )
+            else if (factorChoice.bestMoveValue == 100)
             {
               LOGGER.info("  Factor move is a win so selecting");
               bestChoice = factorChoice;
             }
-            else if ( (bestChoice.bestMoveValue == 100 && bestChoice.bestMoveIsComplete) ||
-                      (factorChoice.bestMoveValue <= 0 && factorChoice.bestMoveIsComplete) )
+            else if ((bestChoice.bestMoveValue == 100 && bestChoice.bestMoveIsComplete) ||
+                     (factorChoice.bestMoveValue <= 0 && factorChoice.bestMoveIsComplete))
             {
               LOGGER.info("  Already selected factor move is a win or this move is a loss - not selecting");
               continue;
@@ -346,8 +368,8 @@ public class GameSearcher implements Runnable, ActivityController
             // the factor you are behind in could be rather bad too!)
             else
             {
-              if ( bestChoice.bestMoveValue*(bestChoice.bestMoveValue - bestChoice.pseudoNoopValue) <
-                   factorChoice.bestMoveValue*(factorChoice.bestMoveValue - factorChoice.pseudoNoopValue))
+              if (bestChoice.bestMoveValue*(bestChoice.bestMoveValue - bestChoice.pseudoNoopValue) <
+                  factorChoice.bestMoveValue*(factorChoice.bestMoveValue - factorChoice.pseudoNoopValue))
               {
                 bestChoice = factorChoice;
                 LOGGER.info("  This factor score is superior - selecting");
@@ -459,7 +481,7 @@ public class GameSearcher implements Runnable, ActivityController
       if (searchSeqRequested == searchSeqProcessing)
       {
         this.notifyAll();
-        if ( !mTerminateRequested )
+        if (!mTerminateRequested)
         {
           this.wait();
         }
@@ -494,14 +516,8 @@ public class GameSearcher implements Runnable, ActivityController
   {
 
     // Print out some statistics from last turn.
-    LOGGER.info("Last time...");
-    LOGGER.info("  Number of MCTS iterations: " + mNumIterations);
-    if (!USE_SEARCH_THREAD_TO_ROLLOUT_WHEN_BLOCKED)
-    {
-      LOGGER.info("  Tree thread blocked for:   " + mBlockedFor / 1000000 + "ms");
-      mBlockedFor = 0;
-    }
-    mNumIterations = 0;
+    LOGGER.info("MCTS iterations last turn = " + (mNumIterations - mLastNumIterations));
+    mLastNumIterations = mNumIterations;
 
     LOGGER.info("Start move search...");
     synchronized (this)
@@ -555,45 +571,27 @@ public class GameSearcher implements Runnable, ActivityController
 
     while ((canBackPropagate = mPipeline.canBackPropagate()) || xiNeedToDoOne)
     {
-      if (!USE_SEARCH_THREAD_TO_ROLLOUT_WHEN_BLOCKED)
+      if (xiNeedToDoOne && !canBackPropagate && mGameCharacteristics.getRolloutSampleSize() == 1)
       {
-        if (xiNeedToDoOne)
-        {
-          mBlockedFor -= System.nanoTime();
-        }
-      }
+        //  If the rollout threads are not keeping up and the pipeline
+        //  is full then perform an expansion synchronously while we
+        //  wait for the rollout pool to have results for us
+        expandSearch(true);
+        mNumIterations++;
+        mNumDepthCharges += mGameCharacteristics.getRolloutSampleSize();
 
-      if (USE_SEARCH_THREAD_TO_ROLLOUT_WHEN_BLOCKED)
-      {
-        if (xiNeedToDoOne && !canBackPropagate && mGameCharacteristics.getRolloutSampleSize() == 1)
+        //  This method can be called re-entrantly from the above, which means that the rollout
+        //  pipeline may no longer be blocked, in which case we should return immediately
+        if (mPipeline.canExpand())
         {
-          //  If the rollout threads are not keeping up and the pipeline
-          //  is full then perform an expansion synchronously while we
-          //  wait for the rollout pool to have results for us
-          expandSearch(true);
-          mNumIterations++;
-
-          //  This method can be called re-entrantly from the above, which means that the rollout
-          //  pipeline may no longer be blocked, in which case we should return immediately
-          if ( mPipeline.canExpand() )
-          {
-            return;
-          }
-          continue;
+          return;
         }
+        continue;
       }
 
       RolloutRequest lRequest = mPipeline.getNextRequestForBackPropagation();
 
-      if (!USE_SEARCH_THREAD_TO_ROLLOUT_WHEN_BLOCKED)
-      {
-        if (xiNeedToDoOne)
-        {
-          mBlockedFor += System.nanoTime();
-        }
-      }
-
-      if ( longestObservedLatency < lRequest.mQueueLatency )
+      if (longestObservedLatency < lRequest.mQueueLatency)
       {
         longestObservedLatency = lRequest.mQueueLatency;
       }
@@ -618,7 +616,7 @@ public class GameSearcher implements Runnable, ActivityController
       {
         lRequest.mPath.resetCursor();
 
-        if ( lRequest.mPlayedMovesForWin != null )
+        if (lRequest.mPlayedMovesForWin != null)
         {
           //  First build up the move path to the node that was rolled out from
           List<ForwardDeadReckonLegalMoveInfo> fullPlayoutList = new LinkedList<>();
@@ -651,6 +649,7 @@ public class GameSearcher implements Runnable, ActivityController
       mPipeline.completedBackPropagation();
       xiNeedToDoOne = false;
       mNumIterations++;
+      mNumDepthCharges += lRequest.mSampleSize;
     }
   }
 

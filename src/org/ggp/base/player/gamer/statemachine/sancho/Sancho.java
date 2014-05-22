@@ -54,6 +54,8 @@ public class Sancho extends SampleGamer
   private boolean                     overExpectedRangeScoreReported  = false;
   private TargetedSolutionStatePlayer puzzlePlayer                    = null;
   private GameSearcher                searchProcessor                 = null;
+  private String                      mLogName                        = null;
+  private SystemStatsLogger           mSysStatsLogger                 = null;
   private static final boolean        ASSERTIONS_ENABLED;
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
@@ -176,13 +178,13 @@ public class Sancho extends SampleGamer
   public StateMachine getInitialStateMachine()
   {
     String lMatchID = getMatch().getMatchId();
-    String lLogName = lMatchID + "-" + getPort();
-    ThreadContext.put("matchID", lLogName);
+    mLogName = lMatchID + "-" + getPort();
+    ThreadContext.put("matchID", mLogName);
 
     ThreadControl.CPUIdParity = (getPort()%2 == 0);
     ThreadControl.reset();
 
-    searchProcessor = new GameSearcher(transpositionTableSize, lLogName);
+    searchProcessor = new GameSearcher(transpositionTableSize, mLogName);
 
     if (!ThreadControl.RUN_SYNCHRONOUSLY)
     {
@@ -762,17 +764,17 @@ public class Sancho extends SampleGamer
       searchProcessor.startSearch(System.currentTimeMillis() + 60000,
                                   new ForwardDeadReckonInternalMachineState(initialState),
                                   0);
-
       try
       {
         Thread.sleep(Math.max(timeout - 3000 - System.currentTimeMillis(), 0));
       }
-      catch (InterruptedException e)
+      catch (InterruptedException lEx)
       {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
+        LOGGER.error("Unexpected interruption during meta-gaming", lEx);
       }
     }
+
+    mSysStatsLogger = new SystemStatsLogger(mLogName);
   }
 
   @Override
@@ -982,6 +984,12 @@ public class Sancho extends SampleGamer
     {
       searchProcessor.terminate();
       searchProcessor = null;
+    }
+
+    if (mSysStatsLogger != null)
+    {
+      mSysStatsLogger.stop();
+      mSysStatsLogger = null;
     }
 
     // Free off all our references.

@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
   <Appenders>
+  
     <Console name="Console" target="SYSTEM_OUT">
       <PatternLayout pattern="%d{HH:mm:ss.SSS} %level{ERROR=!, WARN=?, INFO=-, DEBUG=., TRACE=.} %msg%n"/>
     </Console>
+    
     <Routing name="MatchLogs">
       <Routes pattern="$${ctx:matchID}">
         <Route>
@@ -16,11 +18,32 @@
     <Async name="AsyncWrapper">
       <AppenderRef ref="MatchLogs" level="debug"/>
       <AppenderRef ref="Console" level = "info"/>
-    </Async>        
+    </Async>
+            
+    <Routing name="MatchStatsLogs">
+      <Routes pattern="$${ctx:matchID}">
+        <Route>
+          <RandomAccessFile name="MatchStatsLog-${ctx:matchID}" fileName="logs/${ctx:matchID}_stats.log">
+            <PatternLayout pattern="%msg"/>
+          </RandomAccessFile>
+        </Route>
+      </Routes>
+    </Routing>
+    <Async name="AsyncStatsWrapper">
+      <AppenderRef ref="MatchStatsLogs" level="debug"/>
+    </Async>
+            
   </Appenders>
+  
+  
   <Loggers>
+    <Logger name="stats" level="trace" additivity="false">
+      <AppenderRef ref="AsyncStatsWrapper"/>
+    </Logger>
     <Root level="debug">
       <AppenderRef ref="AsyncWrapper"/>
     </Root>
   </Loggers>
+  
+  
 </Configuration>
