@@ -9,27 +9,37 @@
     <Routing name="MatchLogs">
       <Routes pattern="$${ctx:matchID}">
         <Route>
-          <RandomAccessFile name="MatchLog-${ctx:matchID}" fileName="logs/${ctx:matchID}.log">
+          <RandomAccessFile name="MatchLog-${ctx:matchID}" fileName="logs/${ctx:matchID}.txt">
             <PatternLayout pattern="%d{ISO8601} %-5level %-30.30logger{1} %msg%n"/>
           </RandomAccessFile>
         </Route>
       </Routes>
     </Routing>
-    <Async name="AsyncWrapper">
+    <Routing name="JSONMatchLogs">
+      <Routes pattern="$${ctx:matchID}">
+        <Route>
+          <RandomAccessFile name="MatchLog-${ctx:matchID}" fileName="logs/${ctx:matchID}.json" charset="UTF-8">
+            <JSONLayout/>
+          </RandomAccessFile>
+        </Route>
+      </Routes>
+    </Routing>
+    <Async name="AsyncMatchWrapper">
       <AppenderRef ref="MatchLogs" level="debug"/>
+      <AppenderRef ref="JSONMatchLogs" level="debug"/>
       <AppenderRef ref="Console" level = "info"/>
     </Async>
             
     <Routing name="MatchStatsLogs">
       <Routes pattern="$${ctx:matchID}">
         <Route>
-          <RandomAccessFile name="MatchStatsLog-${ctx:matchID}" fileName="logs/${ctx:matchID}_stats.log">
+          <RandomAccessFile name="MatchStatsLog-${ctx:matchID}" fileName="logs/${ctx:matchID}.csv">
             <PatternLayout pattern="%msg"/>
           </RandomAccessFile>
         </Route>
       </Routes>
     </Routing>
-    <Async name="AsyncStatsWrapper">
+    <Async name="AsyncMatchStatsWrapper">
       <AppenderRef ref="MatchStatsLogs" level="debug"/>
     </Async>
             
@@ -38,10 +48,10 @@
   
   <Loggers>
     <Logger name="stats" level="trace" additivity="false">
-      <AppenderRef ref="AsyncStatsWrapper"/>
+      <AppenderRef ref="AsyncMatchStatsWrapper"/>
     </Logger>
     <Root level="debug">
-      <AppenderRef ref="AsyncWrapper"/>
+      <AppenderRef ref="AsyncMatchWrapper"/>
     </Root>
   </Loggers>
   

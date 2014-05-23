@@ -8,6 +8,7 @@ import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
+import org.ggp.base.player.gamer.statemachine.sancho.StatsLogUtils.Series;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -228,8 +229,9 @@ public class GameSearcher implements Runnable, ActivityController
 
             if (time > lNextStatsTime)
             {
-              STATS_LOGGER.info(time + ",Perf.NodeExpansions," + mNumIterations + "\n" +
-                                time + ",Perf.DepthCharges," + mNumDepthCharges + "\n");
+              StringBuffer lLogBuf = new StringBuffer(1024);
+              Series.NODE_EXPANSIONS.logDataPoint(lLogBuf, time, mNumIterations);
+              Series.DEPTH_CHARGES.logDataPoint(lLogBuf, time, mNumDepthCharges);
               lNextStatsTime += STATS_LOG_INTERVAL_MS;
             }
 

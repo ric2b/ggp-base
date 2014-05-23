@@ -9,6 +9,7 @@ import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
+import org.ggp.base.player.gamer.statemachine.sancho.StatsLogUtils.Series;
 
 /**
  * Class for logging of system statistics.
@@ -76,34 +77,29 @@ public class SystemStatsLogger implements Runnable
   /**
    * Dump system statistics.
    */
-  private void makeStatsLog()
+  private static void makeStatsLog()
   {
-    String lNow = "" + System.currentTimeMillis();
+    long lNow = System.currentTimeMillis();
     MemoryUsage lMemUsage = MEMORY_BEAN.getHeapMemoryUsage();
 
-    StringBuffer lLogBuf = new StringBuffer(1024);
-    appendStatistic(lLogBuf, lNow, "Mem.Init", lMemUsage.getInit());
-    appendStatistic(lLogBuf, lNow, "Mem.Used", lMemUsage.getUsed());
-    appendStatistic(lLogBuf, lNow, "Mem.Committed", lMemUsage.getCommitted());
-    appendStatistic(lLogBuf, lNow, "Mem.Max", lMemUsage.getMax());
+    long lGCTime = 0;
+    long lGCCount = 0;
 
     for (GarbageCollectorMXBean lGCBean : GC_BEANS)
     {
-      appendStatistic(lLogBuf, lNow, "GC." + lGCBean.getName() + ".Count", lGCBean.getCollectionCount());
-      appendStatistic(lLogBuf, lNow, "GC." + lGCBean.getName() + ".Time", lGCBean.getCollectionTime());
+      lGCTime  += lGCBean.getCollectionTime();
+      lGCCount += lGCBean.getCollectionCount();
     }
 
-    STATS_LOGGER.info(lLogBuf.toString());
-  }
+    StringBuffer lLogBuf = new StringBuffer(1024);
+    Series.MEM_USED.logDataPoint(lLogBuf, lNow, lMemUsage.getUsed());
+    Series.MEM_COMMITTED.logDataPoint(lLogBuf, lNow, lMemUsage.getCommitted());
+    Series.MEM_MAX.logDataPoint(lLogBuf, lNow, lMemUsage.getMax());
 
-  private void appendStatistic(StringBuffer xiBuffer, String xiTime, String xiName, long xiValue)
-  {
-    xiBuffer.append(xiTime);
-    xiBuffer.append(',');
-    xiBuffer.append(xiName);
-    xiBuffer.append(',');
-    xiBuffer.append(xiValue);
-    xiBuffer.append('\n');
+    Series.GC_TIME.logDataPoint(lLogBuf, lNow, lGCTime);
+    Series.GC_COUNT.logDataPoint(lLogBuf, lNow, lGCCount);
+
+    STATS_LOGGER.info(lLogBuf.toString());
   }
 
   /**

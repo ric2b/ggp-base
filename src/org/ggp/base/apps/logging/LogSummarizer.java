@@ -20,12 +20,12 @@ import external.JSON.JSONException;
  * INVOCATION (when running locally):
  * ResourceLoader.load_raw('http://127.0.0.1:9199/matchABC'); The Log
  * Summarizer Server replies with a JSON summary of the logs for "matchABC".
- * 
+ *
  * @author Sam Schreiber
  */
 public class LogSummarizer
 {
-  public static LogSummaryGenerator theGenerator;
+  public static LogSummaryGenerator theGenerator = new LogSummaryGenerator();
   public static final int           SERVER_PORT = 9199;
 
   static class SummarizeLogThread extends Thread
