@@ -13,6 +13,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.player.gamer.statemachine.sample.SampleGamer;
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
@@ -171,7 +172,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return "Sancho 1.58d";
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.58d");
   }
 
   @Override
@@ -264,8 +265,16 @@ public class Sancho extends SampleGamer
 
     multiRoleAverageScoreDiff = 0;
 
-    // mHeuristic = new CombinedHeuristic(new PieceHeuristic(), new MobilityHeuristic());
-    CombinedHeuristic heuristic = new CombinedHeuristic(new PieceHeuristic());
+    CombinedHeuristic heuristic;
+
+    if ( MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_PIECE_HEURISTIC, false) )
+    {
+      heuristic = new CombinedHeuristic();
+    }
+    else
+    {
+      heuristic = new CombinedHeuristic(new PieceHeuristic());
+    }
     heuristic.tuningInitialise(underlyingStateMachine, roleOrdering);
 
     ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine.createInternalState(getCurrentState());

@@ -14,6 +14,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.CappedPool.ObjectAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.MCTSTree.MoveScoreInfo;
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
@@ -28,6 +29,7 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 public class TreeNode
 {
   private static final Logger LOGGER = LogManager.getLogger();
+  private static final boolean USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false);
 
   public static class TreeNodeRef
   {
@@ -1390,8 +1392,6 @@ public class TreeNode
     return false;
   }
 
-  private final boolean expandInOnePass = false;
-
   private void calculateTerminalityAndAutoExpansion() throws MoveDefinitionException, GoalDefinitionException
   {
     // Check if the goal value is latched.
@@ -1504,9 +1504,10 @@ public class TreeNode
         //	Find the role this node is choosing for
         int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
         Role choosingRole = tree.roleOrdering.roleIndexToRole(roleIndex);
-        int topMoveWeight;
+        int topMoveWeight = 0;
         final int numTopMoveCandidates = 4;
-        ForwardDeadReckonLegalMoveInfo[] topMoveCandidates = new ForwardDeadReckonLegalMoveInfo[numTopMoveCandidates];
+        ForwardDeadReckonLegalMoveInfo[] topMoveCandidates = (USE_STATE_SIMILARITY_IN_EXPANSION ? new ForwardDeadReckonLegalMoveInfo[numTopMoveCandidates] : null);
+
         //validateAll();
 
         //LOGGER.debug("Expand our moves from state: " + state);
@@ -1537,18 +1538,12 @@ public class TreeNode
               index++;
             }
           }
-
-          topMoveWeight = 0;
         }
-        else
+        else if ( USE_STATE_SIMILARITY_IN_EXPANSION )
         {
           if ( from != null && newChildren.length > 1 )
           {
             topMoveWeight = tree.mStateSimilarityMap.getTopMoves(state, from.jointPartialMove, topMoveCandidates);
-          }
-          else
-          {
-            topMoveWeight = 0;
           }
         }
 
@@ -1605,139 +1600,94 @@ public class TreeNode
             newChild.autoExpand = autoExpand;
           }
 
-          if ( expandInOnePass )
+          index++;
+        }
+
+        if ( roleIndex == tree.numRoles - 1 )
+        {
+          for (index = firstNewIndex; index < newChildren.length; index++)
           {
+            TreeNode newChild = newChildren[index].child.node;
+
+            if ( evaluateTerminalOnNodeCreation )
+            {
+              newChild.calculateTerminalityAndAutoExpansion();
+            }
+          }
+        }
+
+        if ( USE_STATE_SIMILARITY_IN_EXPANSION && topMoveWeight > 0 )
+        {
+          for (index = firstNewIndex; index < newChildren.length; index++)
+          {
+            TreeNode newChild = newChildren[index].child.node;
+
+            if ( newChild.numVisits == 0 && !newChild.isTerminal )
+            {
+              for(int i = 0; i < topMoveCandidates.length; i++)
+              {
+                if ( newChildren[index].jointPartialMove[roleIndex] == topMoveCandidates[i] )
+                {
+                  newChild.averageScores[roleIndex] = 100;
+                  newChild.numUpdates = (topMoveWeight*(topMoveCandidates.length + 1 - i)*2)/topMoveCandidates.length;
+                  newChild.numVisits = newChild.numUpdates;
+
+                  //System.out.println("Applied top move weight: " + newChild.numUpdates);
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        if ( roleIndex == tree.numRoles - 1 )
+        {
+          for (index = firstNewIndex; index < newChildren.length; index++)
+          {
+            TreeNode newChild = newChildren[index].child.node;
+
             if ( evaluateTerminalOnNodeCreation )
             {
               newChild.calculateTerminalityAndAutoExpansion();
             }
 
-            // Determine the heuristic value for this child (provided that it's a new non-terminal child).
-            int lSampleWeight = tree.heuristic.getSampleWeight();
-            if ((newChild.numVisits == 0) &&
-                (!newChild.isTerminal) &&
-                (lSampleWeight > 0) &&
-                !newChild.autoExpand)
+            if ( newChild.numVisits == 0 && !newChild.isTerminal )
             {
-              double[] heuristicScores = tree.heuristic.getHeuristicValue(newChild.state, state);
-              double heuristicSquaredDeviation = 0;
-
-              //validateScoreVector(heuristicScores);
-
-              // Set the heuristic values, although note that this doesn't actually apply them.  There need to be some
-              // recorded samples before the averageScores have any meaning.
-              for (int i = 0; i < tree.numRoles; i++)
+              // Determine the heuristic value for this child (provided that it's a new non-terminal child).
+              int lSampleWeight = tree.heuristic.getSampleWeight();
+              if ((lSampleWeight > 0) &&
+                  !newChild.autoExpand)
               {
-                newChild.averageScores[i] = heuristicScores[i];
-                double lDeviation = tree.root.averageScores[i] - heuristicScores[i];
-                heuristicSquaredDeviation += (lDeviation * lDeviation);
-              }
+                double[] heuristicScores = tree.heuristic.getHeuristicValue(newChild.state, state);
+                double heuristicSquaredDeviation = 0;
 
-              // Only apply the heuristic values if the current root has sufficient visits and there is some deviation
-              // between the root's scores and the heuristic scores in the new child.
-              if (heuristicSquaredDeviation > 0.01 && tree.root.numVisits > 50)
-              {
-                // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
-                // the new child.
-                newChild.numUpdates = lSampleWeight;
-                newChild.numVisits = lSampleWeight;
-              }
-            }
-          }
-          index++;
-        }
+                //validateScoreVector(heuristicScores);
 
-        if (!expandInOnePass )
-        {
-          if ( roleIndex == tree.numRoles - 1 )
-          {
-            for (index = firstNewIndex; index < newChildren.length; index++)
-            {
-              TreeNode newChild = newChildren[index].child.node;
-
-              if ( evaluateTerminalOnNodeCreation )
-              {
-                newChild.calculateTerminalityAndAutoExpansion();
-              }
-            }
-          }
-
-          if ( topMoveWeight > 0 )
-          {
-            for (index = firstNewIndex; index < newChildren.length; index++)
-            {
-              TreeNode newChild = newChildren[index].child.node;
-
-              if ( newChild.numVisits == 0 && !newChild.isTerminal )
-              {
-                for(int i = 0; i < topMoveCandidates.length; i++)
+                // Set the heuristic values, although note that this doesn't actually apply them.  There need to be some
+                // recorded samples before the averageScores have any meaning.
+                for (int i = 0; i < tree.numRoles; i++)
                 {
-                  if ( newChildren[index].jointPartialMove[roleIndex] == topMoveCandidates[i] )
-                  {
-                    newChild.averageScores[roleIndex] = 100;
-                    newChild.numUpdates = (topMoveWeight*(topMoveCandidates.length + 1 - i)*2)/topMoveCandidates.length;
-                    newChild.numVisits = newChild.numUpdates;
-
-                    //System.out.println("Applied top move weight: " + newChild.numUpdates);
-                    break;
-                  }
+                  //newChild.averageScores[i] = heuristicScores[i];
+                  double lDeviation = tree.root.averageScores[i] - heuristicScores[i];
+                  heuristicSquaredDeviation += (lDeviation * lDeviation);
                 }
-              }
-            }
-          }
 
-          if ( roleIndex == tree.numRoles - 1 )
-          {
-            for (index = firstNewIndex; index < newChildren.length; index++)
-            {
-              TreeNode newChild = newChildren[index].child.node;
-
-              if ( evaluateTerminalOnNodeCreation )
-              {
-                newChild.calculateTerminalityAndAutoExpansion();
-              }
-
-              if ( newChild.numVisits == 0 && !newChild.isTerminal )
-              {
-                //newChild.numUpdates = tree.mStateSimilarityMap.getScoreEstimate(newChild.state, newChild.averageScores);
-                //assert(!Double.isNaN(newChild.averageScores[0]));
-
-                // Determine the heuristic value for this child (provided that it's a new non-terminal child).
-                int lSampleWeight = tree.heuristic.getSampleWeight();
-                if ((lSampleWeight > 0) &&
-                    !newChild.autoExpand)
+                // Only apply the heuristic values if the current root has sufficient visits and there is some deviation
+                // between the root's scores and the heuristic scores in the new child.
+                if (heuristicSquaredDeviation > 0.01 && tree.root.numVisits > 50)
                 {
-                  double[] heuristicScores = tree.heuristic.getHeuristicValue(newChild.state, state);
-                  double heuristicSquaredDeviation = 0;
-
-                  //validateScoreVector(heuristicScores);
-
-                  // Set the heuristic values, although note that this doesn't actually apply them.  There need to be some
-                  // recorded samples before the averageScores have any meaning.
                   for (int i = 0; i < tree.numRoles; i++)
                   {
-                    //newChild.averageScores[i] = heuristicScores[i];
-                    double lDeviation = tree.root.averageScores[i] - heuristicScores[i];
-                    heuristicSquaredDeviation += (lDeviation * lDeviation);
+                    newChild.averageScores[i] = (newChild.averageScores[i]*newChild.numUpdates + heuristicScores[i]*lSampleWeight)/(newChild.numUpdates+lSampleWeight);
                   }
-
-                  // Only apply the heuristic values if the current root has sufficient visits and there is some deviation
-                  // between the root's scores and the heuristic scores in the new child.
-                  if (heuristicSquaredDeviation > 0.01 && tree.root.numVisits > 50)
-                  {
-                    for (int i = 0; i < tree.numRoles; i++)
-                    {
-                      newChild.averageScores[i] = (newChild.averageScores[i]*newChild.numUpdates + heuristicScores[i]*lSampleWeight)/(newChild.numUpdates+lSampleWeight);
-                    }
-                    // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
-                    // the new child.
-                    newChild.numUpdates += lSampleWeight;
-                    assert(!Double.isNaN(newChild.averageScores[0]));
-                  }
+                  // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
+                  // the new child.
+                  newChild.numUpdates += lSampleWeight;
+                  assert(!Double.isNaN(newChild.averageScores[0]));
                 }
-
-                newChild.numVisits = newChild.numUpdates;
               }
+
+              newChild.numVisits = newChild.numUpdates;
             }
           }
         }
@@ -1783,7 +1733,7 @@ public class TreeNode
           }
         }
 
-        if ( !complete && roleIndex == 0 )
+        if ( USE_STATE_SIMILARITY_IN_EXPANSION && !complete && roleIndex == 0 )
         {
           tree.mStateSimilarityMap.add(getRef());
         }

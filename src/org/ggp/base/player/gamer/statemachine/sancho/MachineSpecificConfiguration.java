@@ -3,6 +3,7 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map.Entry;
 import java.util.Properties;
 
 import org.apache.logging.log4j.LogManager;
@@ -28,7 +29,23 @@ public class MachineSpecificConfiguration
     /**
      * Whether to bind CPU-intensive threads to vCPUs.
      */
-    USE_AFFINITY;
+    USE_AFFINITY,
+
+    /**
+     * Whether to disable the use of piece heuristics
+     */
+    DISABLE_PIECE_HEURISTIC,
+
+    /**
+     * Whether to disable the use of state-similarity detection
+     * for node expansion weighting
+     */
+    DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING,
+
+    /**
+     * Player name to report
+     */
+    PLAYER_NAME;
   }
 
   private static final Properties MACHINE_PROPERTIES = new Properties();
@@ -40,6 +57,8 @@ public class MachineSpecificConfiguration
       try (InputStream lPropStream = new FileInputStream("data/cfg/" + lComputerName + ".properties"))
       {
         MACHINE_PROPERTIES.load(lPropStream);
+
+        dumpConfig();
       }
       catch (IOException lEx)
       {
@@ -83,5 +102,14 @@ public class MachineSpecificConfiguration
   public static boolean getCfgVal(CfgItem xiKey, boolean xiDefault)
   {
     return Boolean.parseBoolean(getCfgVal(xiKey, xiDefault ? "true" : "false"));
+  }
+
+  private static void dumpConfig()
+  {
+    LOGGER.info("Running with machine-specific properties:");
+    for(Entry<Object, Object> e : MACHINE_PROPERTIES.entrySet())
+    {
+      LOGGER.info("\t" + e.getKey() + " = " + e.getValue());
+    }
   }
 }

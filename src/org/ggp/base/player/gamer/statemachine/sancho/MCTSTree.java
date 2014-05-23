@@ -10,6 +10,7 @@ import java.util.Random;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeRef;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
@@ -110,7 +111,7 @@ public class MCTSTree
 
   public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
                   Factor factor,
-                  CappedPool nodePool,
+                  CappedPool<TreeNode> nodePool,
                   RoleOrdering roleOrdering,
                   RolloutProcessorPool rolloutPool,
                   RuntimeGameCharacteristics gameCharacateristics,
@@ -119,7 +120,7 @@ public class MCTSTree
   {
     underlyingStateMachine = stateMachine;
     numRoles = stateMachine.getRoles().size();
-    mStateSimilarityMap = new StateSimilarityMap(stateMachine.getFullPropNet());
+    mStateSimilarityMap = (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false) ? null : new StateSimilarityMap(stateMachine.getFullPropNet()));
     this.nodePool = nodePool;
     this.factor = factor;
     this.roleOrdering = roleOrdering;
