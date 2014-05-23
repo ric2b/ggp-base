@@ -114,6 +114,16 @@ public class CappedPool<ItemType>
   }
 
   /**
+   * Get the age of an object with specified seq
+   * @param seq of the object whose age is being queried
+   * @return age in number of allocations
+   */
+  public int getAge(int seq)
+  {
+    return mNextSeq - seq;
+  }
+
+  /**
    * @return the number of times that free() has been called for this pool.
    */
   public int getNumFreedItems()

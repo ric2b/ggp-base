@@ -101,6 +101,7 @@ public class MCTSTree
   boolean                                              evaluateTerminalOnNodeCreation;
   private final TreeNodeAllocator                      mTreeNodeAllocator;
   final GameSearcher                                   mGameSearcher;
+  final StateSimilarityMap                             mStateSimilarityMap;
 
   // Scratch variables for tree nodes to use to avoid unnecessary object allocation.
   final double[] mNodeAverageScores;
@@ -118,6 +119,7 @@ public class MCTSTree
   {
     underlyingStateMachine = stateMachine;
     numRoles = stateMachine.getRoles().size();
+    mStateSimilarityMap = new StateSimilarityMap(stateMachine.getFullPropNet());
     this.nodePool = nodePool;
     this.factor = factor;
     this.roleOrdering = roleOrdering;
@@ -204,9 +206,12 @@ public class MCTSTree
         //{
         //  LOGGER.info("Node already referenced by a state!");
         //}
-        if (state != null && !disallowTransposition)
+        if (state != null)
         {
-          positions.put(state, result);
+          if (!disallowTransposition)
+          {
+            positions.put(state, result);
+          }
         }
       }
       else

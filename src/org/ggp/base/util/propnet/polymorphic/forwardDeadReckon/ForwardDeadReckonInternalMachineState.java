@@ -73,6 +73,15 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
   }
 
   /**
+   * Getter
+   * @return BitSet of active base propositions
+   */
+  public BitSet getContents()
+  {
+    return contents;
+  }
+
+  /**
    * Clone an existing state
    * Note - this does NOT preserve any attached heuristic info
    * @param copyFrom state to copy
