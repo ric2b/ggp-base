@@ -25,8 +25,8 @@ import external.JSON.JSONException;
  */
 public class LogSummarizer
 {
-  public static LogSummaryGenerator theGenerator = new LogSummaryGenerator();
-  public static final int           SERVER_PORT = 9199;
+  public static final int                 SERVER_PORT = 9199;
+  public static final LogSummaryGenerator SUMMARY_GENERATOR = new LogSummaryGenerator();
 
   static class SummarizeLogThread extends Thread
   {
@@ -44,7 +44,7 @@ public class LogSummarizer
       try
       {
         String matchId = HttpReader.readAsServer(connection);
-        String theResponse = theGenerator.getLogSummary(matchId);
+        String theResponse = SUMMARY_GENERATOR.getLogSummary(matchId);
         HttpWriter.writeAsServer(connection, theResponse);
         connection.close();
       }

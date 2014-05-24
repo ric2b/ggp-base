@@ -123,6 +123,8 @@ public class StatsLogUtils
 
     private void addDataPoint(String xiXValue, String xiYValue)
     {
+      assert(mXValues.size() == mYValues.size()) : mXValues.size() + " X-values but " + mYValues.size() + " Y-values";
+
       mXValues.add(xiXValue);
       mYValues.add(xiYValue);
     }
@@ -136,6 +138,8 @@ public class StatsLogUtils
      */
     public void appendToJSON(StringBuffer xiBuffer)
     {
+      assert(mXValues.size() == mYValues.size()) : mXValues.size() + " X-values but " + mYValues.size() + " Y-values";
+
       xiBuffer.append("{\"showon\":\"");
       xiBuffer.append(mGraph);
       xiBuffer.append("\",\"type\":\"line\",\"name\":\"");
@@ -163,6 +167,8 @@ public class StatsLogUtils
      */
     public boolean isEmpty()
     {
+      assert(mXValues.size() == mYValues.size()) : mXValues.size() + " X-values but " + mYValues.size() + " Y-values";
+
       return mXValues.isEmpty();
     }
 
@@ -175,6 +181,9 @@ public class StatsLogUtils
     {
       mXValues.clear();
       mYValues.clear();
+
+      assert(mXValues.size() == 0) : "X-values not cleared";
+      assert(mYValues.size() == 0) : "Y-values not cleared";
     }
 
   }

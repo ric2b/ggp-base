@@ -15,8 +15,9 @@ public class LogSummaryGenerator
 {
   private static final File LOGS_DIRECTORY = new File("logs");
 
-  public String getLogSummary(String xiMatchID)
+  public synchronized String getLogSummary(String xiMatchID)
   {
+    System.out.println("Generating logs for " + xiMatchID + " at " + System.currentTimeMillis());
     final String lFilePrefix = xiMatchID + "-9147";
     FilenameFilter lFilter = new FilenameFilter()
     {
@@ -34,7 +35,9 @@ public class LogSummaryGenerator
       return null;
     }
 
-    return getSummaryFromLogsDirectory(lLogFiles);
+    String lSummary = getSummaryFromLogsDirectory(lLogFiles);
+    System.out.println("Finished generating logs for " + xiMatchID + " at " + System.currentTimeMillis());
+    return lSummary;
   }
 
   private String getSummaryFromLogsDirectory(String[] xiLogFiles)
