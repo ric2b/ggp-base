@@ -1267,7 +1267,7 @@ public class TreeNode
               else
               {
                 uctValue = -explorationUCT(numVisits,
-                                           edge.numChildVisits,
+                                           edge,
                                            roleIndex) -
                                            exploitationUCT(edge, roleIndex);
                 //uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[leastLikelyWinner])+1) / numChildVisits[leastLikelyWinner]);
@@ -1326,7 +1326,7 @@ public class TreeNode
                   else
                   {
                     uctValue = -explorationUCT(numVisits,
-                                               edge.numChildVisits,
+                                               edge,
                                                roleIndex) -
                                                exploitationUCT(edge, roleIndex);
                     //uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
@@ -1628,9 +1628,10 @@ public class TreeNode
               {
                 if ( newChildren[index].jointPartialMove[roleIndex] == topMoveCandidates[i] )
                 {
-                  newChild.averageScores[roleIndex] = 100;
-                  newChild.numUpdates = (topMoveWeight*(topMoveCandidates.length + 1 - i)*2)/topMoveCandidates.length;
-                  newChild.numVisits = newChild.numUpdates;
+                  newChildren[index].explorationAmplifier = (topMoveWeight*(topMoveCandidates.length + 1 - i)*2)/(topMoveCandidates.length+1);
+                  //newChild.averageScores[roleIndex] = 100;
+                  //newChild.numUpdates = (topMoveWeight*(topMoveCandidates.length + 1 - i)*2)/topMoveCandidates.length;
+                  //newChild.numVisits = newChild.numUpdates;
 
                   //System.out.println("Applied top move weight: " + newChild.numUpdates);
                   break;
@@ -1783,11 +1784,11 @@ public class TreeNode
   }
 
   private double explorationUCT(int effectiveTotalVists,
-                                int numChildVisits,
+                                TreeEdge edge,
                                 int roleIndex)
   {
     // Extract the common parts of the calculation to avoid making expensive calls twice.
-    double lCommon = 2 * Math.log(Math.max(effectiveTotalVists, numChildVisits) + 1) / numChildVisits;
+    double lCommon = 2 * Math.log(Math.max(effectiveTotalVists, edge.numChildVisits) + 1) / edge.numChildVisits;
 
     // When we propagate adjustments due to completion we do not also adjust the variance contribution so this can
     // result in 'impossibly' low (aka negative) variance - take a lower bound of 0
@@ -1796,8 +1797,11 @@ public class TreeNode
                                     averageScores[roleIndex]) /
                                     10000 +
                                     Math.sqrt(lCommon);
-    return tree.gameCharacteristics.getExplorationBias() *
+    double result = tree.gameCharacteristics.getExplorationBias() *
            Math.sqrt(Math.min(0.5, varianceBound) * lCommon) / tree.roleRationality[roleIndex];
+
+    result *= (1 + edge.explorationAmplifier);
+    return result;
   }
 
   private void addMoveWeightsToAncestors(Move move,
@@ -2080,7 +2084,7 @@ public class TreeNode
               if (children[mostLikelyWinner].numChildVisits == 0 && !c.complete)
               {
                 // small random number to break ties randomly in unexpanded nodes
-                uctValue = 1000 + tree.r.nextDouble() * EPSILON;
+                uctValue = 1000 + tree.r.nextDouble() * EPSILON + children[mostLikelyWinner].explorationAmplifier;
               }
               else
               {
@@ -2092,7 +2096,7 @@ public class TreeNode
                 //  in highly transpositional games) does not seem to work as well (even with a
                 //  'corrected' parent visit count obtained by summing the number of visits to all
                 //  the child's parents)
-                uctValue = explorationUCT(numVisits, children[mostLikelyWinner].numChildVisits, roleIndex) +
+                uctValue = explorationUCT(numVisits, children[mostLikelyWinner], roleIndex) +
                            exploitationUCT(children[mostLikelyWinner], roleIndex);;
               }
 
@@ -2141,7 +2145,7 @@ public class TreeNode
                   if (children[i].numChildVisits == 0)
                   {
                     // small random number to break ties randomly in unexpanded nodes
-                    uctValue = 1000 + tree.r.nextDouble() * EPSILON;
+                    uctValue = 1000 + tree.r.nextDouble() * EPSILON + children[i].explorationAmplifier;
                   }
                   else
                   {
@@ -2158,10 +2162,10 @@ public class TreeNode
                     //  applying it (both of which can be rationalized!) seem to fare worse in at
                     //  least some games
                     uctValue = (c.complete ? explorationUCT(numVisits,
-                                                            children[i].numChildVisits,
+                                                            children[i],
                                                             roleIndex)/2
                                                             : explorationUCT(numVisits,
-                                                                             children[i].numChildVisits,
+                                                                             children[i],
                                                                              roleIndex)) +
                                                                              exploitationUCT(children[i], roleIndex);
                   }
@@ -2268,6 +2272,8 @@ public class TreeNode
       }
     }
 
+    final double explorationAmplifierDecayRate = 0.6;
+    selected.explorationAmplifier *= explorationAmplifierDecayRate;
     TreePathElement result = path.new TreePathElement(selected);
 
     //  If the node that should have been selected through was complete

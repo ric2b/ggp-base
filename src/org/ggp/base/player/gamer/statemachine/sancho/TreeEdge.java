@@ -30,4 +30,5 @@ class TreeEdge
   TreeEdge                                 selectAs;
   boolean                                  hasCachedPatternMatchValue = false;
   double                                   cachedPatternMatchValue;
+  double                                   explorationAmplifier       = 0;
 }
