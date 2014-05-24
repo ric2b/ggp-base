@@ -197,40 +197,46 @@ public class StateSimilarityMap
 
     numMovesBuffered = 0;
 
-    StateSimilarityBucket bucket = buckets[hash];
-    if ( bucket != null )
+    int hammingCloseHash = hash;
+
+    for(int nearbyHashIndex = 0; nearbyHashIndex <= StateSimilarityHashGenerator.hashSize; nearbyHashIndex++)
     {
-      double totalWeight = 0;
-
-      for(int i = 0; i < bucket.size; i++)
+      StateSimilarityBucket bucket = buckets[hammingCloseHash];
+      if ( bucket != null )
       {
-        TreeNodeRef nodeRef = bucket.refs[i];
-
-        if ( nodeRef.seq == nodeRef.node.seq && nodeRef.node.numVisits > 0 && state != nodeRef.node.state )
+        for(int i = 0; i < bucket.size; i++)
         {
-          double distanceWeight = (1 - state.distance(nodeRef.node.state));
-          double weight = distanceWeight*distanceWeight*Math.log10(nodeRef.node.numVisits+1);
+          TreeNodeRef nodeRef = bucket.refs[i];
 
-          TreeNode node = getJointMoveParent(nodeRef.node, partialJointMove);
-          if ( node != null && node.children != null )
+          if ( nodeRef.seq == nodeRef.node.seq && nodeRef.node.numVisits > 0 && state != nodeRef.node.state )
           {
-            for(TreeEdge childEdge : node.children)
+            double distanceWeight = (1 - state.distance(nodeRef.node.state));
+            double weight = distanceWeight*distanceWeight*Math.log10(nodeRef.node.numVisits+1);
+
+            TreeNode node = getJointMoveParent(nodeRef.node, partialJointMove);
+            if ( node != null && node.children != null )
             {
-              if ( childEdge.child.seq >= 0 &&
-                   childEdge.child.seq == childEdge.child.node.seq &&
-                   childEdge.child.node.numVisits > 0 )
+              for(TreeEdge childEdge : node.children)
               {
-                ForwardDeadReckonLegalMoveInfo move = childEdge.jointPartialMove[childEdge.child.node.decidingRoleIndex];
-                int moveSlotIndex = getMoveSlot(move);
+                if ( childEdge.child.seq >= 0 &&
+                     childEdge.child.seq == childEdge.child.node.seq &&
+                     childEdge.child.node.numVisits > 0 )
+                {
+                  ForwardDeadReckonLegalMoveInfo move = childEdge.jointPartialMove[childEdge.child.node.decidingRoleIndex];
+                  int moveSlotIndex = getMoveSlot(move);
 
-                double moveVal = weight*(childEdge.child.node.averageScores[childEdge.child.node.decidingRoleIndex]);
+                  double moveVal = weight*(childEdge.child.node.averageScores[childEdge.child.node.decidingRoleIndex]);
 
-                moveValueBuffer[moveSlotIndex] = (moveValueBuffer[moveSlotIndex]*moveWeightBuffer[moveSlotIndex] + moveVal)/(moveWeightBuffer[moveSlotIndex] + weight);
-                moveWeightBuffer[moveSlotIndex] += weight;
+                  moveValueBuffer[moveSlotIndex] = (moveValueBuffer[moveSlotIndex]*moveWeightBuffer[moveSlotIndex] + moveVal)/(moveWeightBuffer[moveSlotIndex] + weight);
+                  moveWeightBuffer[moveSlotIndex] += weight;
+                }
               }
             }
           }
         }
+
+        //  We look at all hashes within a Hamming distance of 1 from the original
+        hammingCloseHash = hash ^ (1<<nearbyHashIndex);
       }
 
       //System.out.println("Found " + numMovesBuffered + " moves to buffer");
@@ -266,8 +272,17 @@ public class StateSimilarityMap
       }
 
       int i;
+      double totalWeight = 0;
+      double bestScore = topValues[0];
+      final double ratioToBestCutoff = 0.8;
+
       for(i = 0; i < numTopMoves; i++)
       {
+        if ( topValues[i] < ratioToBestCutoff*bestScore )
+        {
+          numTopMoves = i;
+          break;
+        }
         totalWeight += topWeights[i];
       }
       while(i < result.length)

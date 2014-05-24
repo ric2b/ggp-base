@@ -172,7 +172,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.58d");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.58e");
   }
 
   @Override
