@@ -42,6 +42,8 @@ public class GameSearcher implements Runnable, ActivityController
   private static final long               STATS_LOG_INTERVAL_MS = 1000;
   private static final int                PIPELINE_SIZE = 12; //  Default set to give reasonable results on 2 and 4 cores
 
+  private static final boolean            ADJUST_EXPLORATION_BIAS_FROM_TREE_SHAPE = false;
+
   private volatile long                   moveTime;
   private volatile long                   startTime;
   private volatile int                    searchSeqRequested  = 0;
@@ -60,8 +62,16 @@ public class GameSearcher implements Runnable, ActivityController
   private long                            mLastNumIterations  = 0;
   private long                            mNumIterations      = 0;
   private long                            mNumDepthCharges    = 0;
+  private int                             mRootDepth          = 0;
   private boolean                         mSuppressSampleSizeUpdate = false;
   private final String                    mLogName;
+
+  private final SampleAverageMean         mAverageFringeDepth = new SampleAverageMean();
+  private final SampleAverageRMS          mRMSFringeDepth = new SampleAverageRMS();
+  /**
+   * Average observed branching factor from ode expansions
+   */
+  public final SampleAverageGeometricMean mAverageBranchingFactor = new SampleAverageGeometricMean();
 
   /**
    * The highest score seen in the current turn (for our role).
@@ -93,6 +103,8 @@ public class GameSearcher implements Runnable, ActivityController
    */
   private long numCompletedRollouts = 0;
 
+  private double currentExplorationBias;
+
   /**
    * Create a game tree searcher with the specified maximum number of nodes.
    *
@@ -115,6 +127,7 @@ public class GameSearcher implements Runnable, ActivityController
   {
     minExplorationBias = min;
     maxExplorationBias = max;
+    currentExplorationBias = (min + max)/2;
 
     LOGGER.info("Set explorationBias range to [" + minExplorationBias + ", " + maxExplorationBias + "]");
   }
@@ -232,7 +245,37 @@ public class GameSearcher implements Runnable, ActivityController
               StringBuffer lLogBuf = new StringBuffer(1024);
               Series.NODE_EXPANSIONS.logDataPoint(lLogBuf, time, mNumIterations);
               Series.DEPTH_CHARGES.logDataPoint(lLogBuf, time, mNumDepthCharges);
+
+              //Future intent will be to add these to the stats logger when it is stable
+              //double fringeDepth = mAverageFringeDepth.getMean();
+              //Series.FRINGE_DEPTH.logDataPoint(lLogBuf, time, (long)(fringeDepth+0.5));
+              //Series.TREE_ASPECT_RATIO.logDataPoint(lLogBuf, time, (long)(nodePool.getNumUsedItems()/(fringeDepth*fringeDepth)));
+              //mAverageFringeDepth.clear();
+
               lNextStatsTime += STATS_LOG_INTERVAL_MS;
+
+              if ( ADJUST_EXPLORATION_BIAS_FROM_TREE_SHAPE )
+              {
+                double fringeDepth = mAverageFringeDepth.getAverage();
+                double branchingFactor = mAverageBranchingFactor.getAverage();
+                if ( fringeDepth > 0 && branchingFactor > 0 )
+                {
+                  //  Calculate the tree aspect ratio, which is the ratio of the observed average fringe
+                  //  depth to its expected depth given its observed branching factor
+                  double aspect = fringeDepth/(Math.log(nodePool.getNumUsedItems())/Math.log(branchingFactor));
+
+                  if ( aspect < 1.2 && currentExplorationBias > 0.2 )//minExplorationBias )
+                  {
+                    currentExplorationBias /= 1.1;
+                    LOGGER.info("Decreasing exploration bias to: " + currentExplorationBias);
+                  }
+                  else if ( aspect > 1.3 && currentExplorationBias < maxExplorationBias )
+                  {
+                    currentExplorationBias *= 1.1;
+                    LOGGER.info("Increasing exploration bias to: " + currentExplorationBias);
+                  }
+                }
+              }
             }
 
             if ((USE_DYNAMIC_SAMPLE_SIZING) && (time > lNextUpdateSampleSizeTime))
@@ -259,10 +302,11 @@ public class GameSearcher implements Runnable, ActivityController
                 {
                   for (MCTSTree tree : factorTrees)
                   {
-                    tree.gameCharacteristics.setExplorationBias(maxExplorationBias -
-                                                                percentThroughTurn *
-                                                                (maxExplorationBias - minExplorationBias) /
-                                                                100);
+                    tree.gameCharacteristics.setExplorationBias(currentExplorationBias);
+//                  tree.gameCharacteristics.setExplorationBias(maxExplorationBias -
+//                                                              percentThroughTurn *
+//                                                              (maxExplorationBias - minExplorationBias) /
+//                                                              100);
                   }
                   complete = expandSearch(false);
                 }
@@ -329,6 +373,24 @@ public class GameSearcher implements Runnable, ActivityController
 
       LOGGER.info("Num tree node frees: " + nodePool.getNumFreedItems());
       LOGGER.info("Num tree nodes currently in use: " + nodePool.getNumUsedItems());
+      //  The following will move to (or also reflect in) the stats logger once it is stable
+      double fringeDepth = mAverageFringeDepth.getAverage();
+      double RMSFringDepth = mRMSFringeDepth.getAverage();
+      double branchingFactor = mAverageBranchingFactor.getAverage();
+      if ( fringeDepth > 0 && branchingFactor > 0 )
+      {
+        LOGGER.info("Average fringe depth: " + fringeDepth);
+        LOGGER.info("Fringe depth variability: " + (RMSFringDepth - fringeDepth)/fringeDepth);
+        LOGGER.info("Average branching factor: " + branchingFactor);
+        //  Calculate the tree aspect ratio, which is the ratio of the observed average fringe
+        //  depth to its expected depth given its observed branching factor
+        double aspect = fringeDepth/(Math.log(nodePool.getNumUsedItems())/Math.log(branchingFactor));
+        LOGGER.info("Tree aspect ratio: " + aspect);
+      }
+      mAverageFringeDepth.clear();
+      mRMSFringeDepth.clear();
+      mAverageBranchingFactor.clear();
+
       LOGGER.info("Searching for best move amongst factors:");
       for(MCTSTree tree : factorTrees)
       {
@@ -536,6 +598,7 @@ public class GameSearcher implements Runnable, ActivityController
       startTime = System.currentTimeMillis();
       searchSeqRequested++;
       numIterations = 0;
+      mRootDepth = rootDepth;
 
       this.notify();
     }
@@ -616,6 +679,8 @@ public class GameSearcher implements Runnable, ActivityController
       TreeNode node = lRequest.mNode.node;
       if (lRequest.mNode.seq == node.seq && !node.complete)
       {
+        mAverageFringeDepth.addSample(lRequest.mNode.node.getDepth() - mRootDepth);
+        mRMSFringeDepth.addSample(lRequest.mNode.node.getDepth() - mRootDepth);
         lRequest.mPath.resetCursor();
 
         if (lRequest.mPlayedMovesForWin != null)

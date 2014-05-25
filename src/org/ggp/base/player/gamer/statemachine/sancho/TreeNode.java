@@ -1525,6 +1525,7 @@ public class TreeNode
 
         TreeEdge[] newChildren = new TreeEdge[moveInfos.size()];
 
+        tree.mGameSearcher.mAverageBranchingFactor.addSample(newChildren.length);
         int index = 0;
         if (children != null)
         {
