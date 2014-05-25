@@ -31,6 +31,29 @@ public class StatsLogUtils
   }
 
   /**
+   * Series types.
+   */
+  public static enum SeriesType
+  {
+    /**
+     * Raw series.  Y-values plotted are the recorded y-values.
+     */
+    RAW,
+
+    /**
+     * Difference series.  Y-values plotted are the difference between the consecutive recorded y-values.  So, a series
+     * with y-values 1,2,2,3,4 would be plotted as -,1,0,1,1.
+     */
+    DIFF,
+
+    /**
+     * Rate series.  Y-values plotted are the difference between the consecutive recorded y-values divided by the
+     * difference between the corresponding x-values.
+     */
+    RATE;
+  }
+
+  /**
    * Statistics series for logging.
    */
   public static enum Series
@@ -38,53 +61,55 @@ public class StatsLogUtils
     /**
      * Currently used heap (bytes).
      */
-    MEM_USED       (Graph.MEM,  0, "Used"),
+    MEM_USED       (Graph.MEM,  0, SeriesType.RAW,  "Used"),
 
     /**
      * Memory allocated from the O.S. for heap usage (bytes).
      */
-    MEM_COMMITTED  (Graph.MEM,  0, "Committed"),
+    MEM_COMMITTED  (Graph.MEM,  0, SeriesType.RAW,  "Committed"),
 
     /**
      * Maximum configured heap size (bytes).
      */
-    MEM_MAX        (Graph.MEM,  0, "Max"),
+    MEM_MAX        (Graph.MEM,  0, SeriesType.RAW,  "Max"),
 
     /**
      * Garbage collection time (ms).
      */
-    GC_TIME        (Graph.GC,   0, "Time"),
+    GC_TIME        (Graph.GC,   0, SeriesType.DIFF, "Time"),
 
     /**
      * Garbage collection count.
      */
-    GC_COUNT       (Graph.GC,   1, "Count"),
+    GC_COUNT       (Graph.GC,   1, SeriesType.DIFF, "Count"),
 
     /**
      * Node expansions.
      */
-    NODE_EXPANSIONS(Graph.PERF, 0, "Expansions"),
+    NODE_EXPANSIONS(Graph.PERF, 0, SeriesType.RATE, "Expansions"),
 
     /**
      * Depth charges.
      */
-    DEPTH_CHARGES  (Graph.PERF, 1, "Depth charges");
+    DEPTH_CHARGES  (Graph.PERF, 1, SeriesType.RATE, "Depth charges");
 
-    private final Graph  mGraph;
-    private final int    mAxis;
-    private final String mName;
+    private final Graph          mGraph;
+    private final int            mAxis;
+    private final SeriesType     mSeriesType;
+    private final String         mName;
     private final Vector<String> mXValues;
     private final Vector<String> mYValues;
 
     private static final Pattern LINE_PATTERN = Pattern.compile("^([^,]+),(\\d+),(\\d+)");
 
-    private Series(Graph xiGraph, int xiAxis, String xiName)
+    private Series(Graph xiGraph, int xiAxis, SeriesType xiSeriesType, String xiName)
     {
-      mGraph   = xiGraph;
-      mAxis    = xiAxis;
-      mName    = xiName;
-      mXValues = new Vector<>();
-      mYValues = new Vector<>();
+      mGraph      = xiGraph;
+      mAxis       = xiAxis;
+      mSeriesType = xiSeriesType;
+      mName       = xiName;
+      mXValues    = new Vector<>();
+      mYValues    = new Vector<>();
     }
 
     /**
