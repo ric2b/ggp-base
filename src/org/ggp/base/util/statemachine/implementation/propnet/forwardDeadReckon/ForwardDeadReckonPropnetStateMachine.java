@@ -3106,16 +3106,20 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       int choice = -1;
       int lastTransitionChoice = -1;
 
-      for (int i = 0; i < remainingMoves; i++)
+      for (int i = remainingMoves-1; i >= 0; i--)
       {
         choice = (i + choiceIndex) % decisionState.chooserMoves.length;
 
-        //	Don't reprocess the hint move that we looked at first
-        if (decisionState.propProcessed[choice] ||
-            hintMoveProp == decisionState.chooserMoves[choice].inputProposition ||
-            (preEnumerate && !terminatingMoveProps.contains(decisionState.chooserMoves[choice].inputProposition)))
+        //	Don't re-process the hint move that we looked at first unless this is the specific requested
+        //  move
+        if ( i > 0 )
         {
-          continue;
+          if (decisionState.propProcessed[choice] ||
+              hintMoveProp == decisionState.chooserMoves[choice].inputProposition ||
+              (preEnumerate && !terminatingMoveProps.contains(decisionState.chooserMoves[choice].inputProposition)))
+          {
+            continue;
+          }
         }
 
         if (transitioned)
@@ -3177,7 +3181,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         playedMoves.add(decisionState.chooserMoves[lastTransitionChoice]);
       }
 
-      decisionState.nextChoiceIndex = choiceIndex;
+      decisionState.nextChoiceIndex = lastTransitionChoice;
       do
       {
         decisionState.nextChoiceIndex = (decisionState.nextChoiceIndex + 1) %
