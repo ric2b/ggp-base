@@ -41,19 +41,19 @@
                      opposite: true}
                    ]
           });
-
-          var lPretendLoaded =
-          {
-            showon : 'GC',
-            type : 'line',
-            name : 'Count',
-            data : [[1400793953791,1], [1400793954791,2], [1400793955791,3], [1400793956791,4], [1400793962791,10]],
-            yAxis: 0
-          };
-
-          $('#' + lPretendLoaded.showon).highcharts().addSeries(lPretendLoaded);
       });
 
+      function receiveMessage(xiEvent)
+      {
+        lLogData = JSON.parse(xiEvent.data);
+        $.each(lLogData.statistics, function()
+        {
+          $('#' + this.showon).highcharts().addSeries(this);
+        });
+      }
+
+      window.addEventListener("message", receiveMessage, false);
+      parent.postMessage("", "*");
 
       //]]>
     </script>

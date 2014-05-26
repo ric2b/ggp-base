@@ -93,12 +93,23 @@ public class StatsLogUtils
      */
     DEPTH_CHARGES  (Graph.PERF, 1, SeriesType.RATE, "Depth charges");
 
+    /**
+     * Fixed data defining the series.
+     */
     private final Graph          mGraph;
     private final int            mAxis;
     private final SeriesType     mSeriesType;
     private final String         mName;
-    private final Vector<String> mXValues;
+
+    /**
+     * Temporary variables for converting series data.
+     *
+     * For use by the log summariser only.
+     */
+    private final Vector<Long>   mXValues;
     private final Vector<String> mYValues;
+    private long                 mLastXValue;
+    private long                 mLastYValue;
 
     private static final Pattern LINE_PATTERN = Pattern.compile("^([^,]+),(\\d+),(\\d+)");
 
@@ -108,8 +119,11 @@ public class StatsLogUtils
       mAxis       = xiAxis;
       mSeriesType = xiSeriesType;
       mName       = xiName;
+
       mXValues    = new Vector<>();
       mYValues    = new Vector<>();
+      mLastXValue = 0;
+      mLastYValue = 0;
     }
 
     /**
@@ -142,16 +156,43 @@ public class StatsLogUtils
       if (lMatcher.matches())
       {
         Series lSeries = Series.valueOf(lMatcher.group(1));
-        lSeries.addDataPoint(lMatcher.group(2), lMatcher.group(3));
+        lSeries.addDataPoint(Long.parseLong(lMatcher.group(2)), Long.parseLong(lMatcher.group(3)));
       }
     }
 
-    private void addDataPoint(String xiXValue, String xiYValue)
+    private void addDataPoint(long xiXValue, long xiYValue)
     {
       assert(mXValues.size() == mYValues.size()) : mXValues.size() + " X-values but " + mYValues.size() + " Y-values";
 
-      mXValues.add(xiXValue);
-      mYValues.add(xiYValue);
+      switch (mSeriesType)
+      {
+        case RAW:
+        {
+          mXValues.add(xiXValue);
+          mYValues.add("" + xiYValue);
+        }
+        break;
+
+        case DIFF:
+        {
+          mXValues.add(xiXValue);
+          mYValues.add("" + (xiYValue - mLastYValue));
+        }
+        break;
+
+        case RATE:
+        {
+          mXValues.add(xiXValue);
+          mYValues.add("" + ((double)(xiYValue - mLastYValue) / (double)(xiXValue - mLastXValue)));
+        }
+        break;
+
+        default:
+          throw new IllegalStateException("Invalid series type: " + mSeriesType);
+      }
+
+      mLastXValue = xiXValue;
+      mLastYValue = xiYValue;
     }
 
     /**
@@ -172,7 +213,8 @@ public class StatsLogUtils
       xiBuffer.append("\",\"yAxis\":");
       xiBuffer.append(mAxis);
       xiBuffer.append(",\"data\":[");
-      for (int lii = 0; lii < mXValues.size(); lii++)
+      int lStart = (mSeriesType == SeriesType.RAW) ? 0 : 1;
+      for (int lii = lStart; lii < mXValues.size(); lii++)
       {
         xiBuffer.append('[');
         xiBuffer.append(mXValues.get(lii));
@@ -194,7 +236,8 @@ public class StatsLogUtils
     {
       assert(mXValues.size() == mYValues.size()) : mXValues.size() + " X-values but " + mYValues.size() + " Y-values";
 
-      return mXValues.isEmpty();
+      int lThreshold = (mSeriesType == SeriesType.RAW) ? 1 : 2;
+      return mXValues.size() < lThreshold;
     }
 
     /**
@@ -206,10 +249,11 @@ public class StatsLogUtils
     {
       mXValues.clear();
       mYValues.clear();
+      mLastXValue = 0;
+      mLastYValue = 0;
 
       assert(mXValues.size() == 0) : "X-values not cleared";
       assert(mYValues.size() == 0) : "Y-values not cleared";
     }
-
   }
 }

@@ -4,6 +4,10 @@ package org.ggp.base.apps.logging;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.List;
 
 import org.ggp.base.util.http.HttpReader;
 import org.ggp.base.util.http.HttpWriter;
@@ -43,9 +47,41 @@ public class LogSummarizer
     {
       try
       {
-        String matchId = HttpReader.readAsServer(connection);
-        String theResponse = SUMMARY_GENERATOR.getLogSummary(matchId);
-        HttpWriter.writeAsServer(connection, theResponse);
+        String lRequest = HttpReader.readAsServer(connection);
+        String lResponse;
+        String lContentType;
+
+        if (lRequest.equals("viz.html"))
+        {
+          lContentType = "text/html";
+          StringBuffer lBuffer = new StringBuffer();
+          List<String> lLines = Files.readAllLines(Paths.get("src_viz/viz.html"), StandardCharsets.UTF_8);
+          for (String lLine : lLines)
+          {
+            lBuffer.append(lLine);
+            lBuffer.append('\n');
+          }
+          lResponse = lBuffer.toString();
+        }
+        else if (lRequest.startsWith("localview/"))
+        {
+          lContentType = "text/html";
+          StringBuffer lBuffer = new StringBuffer();
+          List<String> lLines = Files.readAllLines(Paths.get("src_viz/localview.html"), StandardCharsets.UTF_8);
+          for (String lLine : lLines)
+          {
+            lBuffer.append(lLine);
+            lBuffer.append('\n');
+          }
+          lResponse = lBuffer.toString();
+        }
+        else
+        {
+          lContentType = "text/acl";
+          lResponse = SUMMARY_GENERATOR.getLogSummary(lRequest);
+        }
+
+        HttpWriter.writeAsServer(connection, lResponse, lContentType);
         connection.close();
       }
       catch (IOException e)
