@@ -29,7 +29,7 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 public class TreeNode
 {
   private static final Logger LOGGER = LogManager.getLogger();
-  private static final boolean USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false);
+  private static final boolean USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, true);
 
   public static class TreeNodeRef
   {
