@@ -18,8 +18,8 @@
     <Routing name="JSONMatchLogs">
       <Routes pattern="$${ctx:matchID}">
         <Route>
-          <RandomAccessFile name="MatchLog-${ctx:matchID}" fileName="logs/${ctx:matchID}.json" charset="UTF-8">
-            <JSONLayout/>
+          <RandomAccessFile name="MatchLog-${ctx:matchID}" fileName="logs/${ctx:matchID}.json">
+            <JSONLayout charset="UTF-8"/>
           </RandomAccessFile>
         </Route>
       </Routes>
