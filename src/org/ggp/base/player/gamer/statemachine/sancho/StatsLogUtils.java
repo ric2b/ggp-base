@@ -183,7 +183,9 @@ public class StatsLogUtils
         case RATE:
         {
           mXValues.add(xiXValue);
-          mYValues.add("" + ((double)(xiYValue - mLastYValue) / (double)(xiXValue - mLastXValue)));
+          mYValues.add((xiXValue == mLastXValue) ?
+                                            "0" :
+                                            "" + ((double)(xiYValue - mLastYValue) / (double)(xiXValue - mLastXValue)));
         }
         break;
 

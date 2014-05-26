@@ -252,6 +252,7 @@ public class GameSearcher implements Runnable, ActivityController
               //Series.TREE_ASPECT_RATIO.logDataPoint(lLogBuf, time, (long)(nodePool.getNumUsedItems()/(fringeDepth*fringeDepth)));
               //mAverageFringeDepth.clear();
 
+              STATS_LOGGER.info(lLogBuf.toString());
               lNextStatsTime += STATS_LOG_INTERVAL_MS;
 
               if ( ADJUST_EXPLORATION_BIAS_FROM_TREE_SHAPE )
