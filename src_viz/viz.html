@@ -10,22 +10,29 @@
     <script type='text/javascript'>//<![CDATA[
       $(function ()
       {
+          Highcharts.setOptions(
+          {
+            chart:   {marginRight: 80},
+            credits: {
+                       text: 'Sancho Stats',
+                       href: 'http://sanchoggp.blogspot.com/'
+                     }
+          });
+
           $('#MEM').highcharts(
           {
-            chart: {marginRight: 80},
-            title: {text: 'Memory'},
-            xAxis: {type: 'datetime'},
-            yAxis: [
-                     {
-                       title: {text: 'GB'},
-                       min: 0
-                     }
-                   ]
+            title:   {text: 'Memory'},
+            xAxis:   {type: 'datetime'},
+            yAxis:   [
+                       {
+                         title: {text: 'bytes'},
+                         min: 0
+                       }
+                    ]
           });
 
           $('#GC').highcharts(
           {
-            chart: {marginRight: 80},
             title: {text: 'Garbage Collection'},
             xAxis: {type: 'datetime'},
             yAxis: [
@@ -43,7 +50,6 @@
 
           $('#PERF').highcharts(
           {
-            chart: {marginRight: 80},
             title: {text: 'Performance'},
             xAxis: {type: 'datetime'},
             yAxis: [
@@ -69,6 +75,26 @@
           {
             if (this.name === 'Turn')
             {
+              var lMatchStartTime = this.data[0][0];
+              var lMatchEndTime   = this.data[this.data.length - 1][0];
+              $.each(this.data, function()
+              {
+                var lTurnTime = this[0];
+                var lTurnNum  = this[1];
+                $('.SanchoGraph').each(function(xiIndex, xiGraph)
+                {
+                  $(xiGraph).highcharts().xAxis[0].addPlotLine(
+                  {
+                    color:     '#e0e0e0',
+                    dashStyle: 'ShortDash',
+                    value:     lTurnTime,
+                    width:     1,
+                    label:     {text: '' + lTurnNum}
+                  });
+                  $(xiGraph).highcharts().xAxis[0].setExtremes(lMatchStartTime,
+                                                               lMatchEndTime);
+                });
+              });
               // Add plot lines to all graphs
             }
           }
@@ -87,9 +113,9 @@
   </head>
 
   <body>
-    <div id="MEM"   style="height: 300px"></div>
-    <div id="GC"    style="height: 300px"></div>
-    <div id="PERF"  style="height: 300px"></div>
+    <div id="MEM"  class="SanchoGraph" style="height: 300px"></div>
+    <div id="GC"   class="SanchoGraph" style="height: 300px"></div>
+    <div id="PERF" class="SanchoGraph" style="height: 300px"></div>
   </body>
 
 </html>

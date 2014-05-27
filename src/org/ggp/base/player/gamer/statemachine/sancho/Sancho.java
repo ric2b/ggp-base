@@ -235,6 +235,8 @@ public class Sancho extends SampleGamer
       LOGGER.warn("WARNING: Assertions are enabled - this will impact performance");
     }
 
+    mSysStatsLogger = new SystemStatsLogger(mLogName);
+
     Random r = new Random();
 
     // If have been configured with a plan (for test purposes), load it now.
@@ -786,8 +788,6 @@ public class Sancho extends SampleGamer
         LOGGER.error("Unexpected interruption during meta-gaming", lEx);
       }
     }
-
-    mSysStatsLogger = new SystemStatsLogger(mLogName);
   }
 
   @Override
@@ -994,6 +994,8 @@ public class Sancho extends SampleGamer
    */
   private void tidyUp()
   {
+    StatsLogUtils.Series.TURN.logDataPoint(System.currentTimeMillis(), 999);
+
     // Terminate all other threads.
     if (searchProcessor != null)
     {
