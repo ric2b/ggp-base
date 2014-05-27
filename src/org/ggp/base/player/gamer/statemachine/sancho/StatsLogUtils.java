@@ -86,20 +86,20 @@ public class StatsLogUtils
     /**
      * Node expansions.
      */
-    NODE_EXPANSIONS(Graph.PERF, 0, SeriesType.RATE, "Expansions"),
+    NODE_EXPANSIONS(Graph.PERF, 0, SeriesType.RATE, "Node expansions"),
 
     /**
-     * Depth charges.
+     * Sample rate (rollouts per node expansion).
      */
-    DEPTH_CHARGES  (Graph.PERF, 1, SeriesType.RATE, "Depth charges");
+    SAMPLE_RATE    (Graph.PERF, 1, SeriesType.RAW,  "Sample rate");
 
     /**
      * Fixed data defining the series.
      */
-    private final Graph          mGraph;
-    private final int            mAxis;
-    private final SeriesType     mSeriesType;
-    private final String         mName;
+    private final Graph      mGraph;
+    private final int        mAxis;
+    private final SeriesType mSeriesType;
+    private final String     mName;
 
     /**
      * Temporary variables for converting series data.

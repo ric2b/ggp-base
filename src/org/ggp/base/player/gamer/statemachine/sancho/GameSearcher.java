@@ -61,7 +61,6 @@ public class GameSearcher implements Runnable, ActivityController
   private Pipeline                        mPipeline;
   private long                            mLastNumIterations  = 0;
   private long                            mNumIterations      = 0;
-  private long                            mNumDepthCharges    = 0;
   private int                             mRootDepth          = 0;
   private boolean                         mSuppressSampleSizeUpdate = false;
   private final String                    mLogName;
@@ -99,7 +98,7 @@ public class GameSearcher implements Runnable, ActivityController
   public long averageLatency = 0;
 
   /**
-   * Number of completed rollouts.  !! ARR Appears to be a duplicate of mNumIterations (or perhaps mNumDepthCharges)
+   * Number of completed rollouts.  !! ARR Appears to be a duplicate of mNumIterations?
    */
   private long numCompletedRollouts = 0;
 
@@ -238,13 +237,11 @@ public class GameSearcher implements Runnable, ActivityController
           while (!complete && !mTerminateRequested)
           {
             long time = System.currentTimeMillis();
-            double percentThroughTurn = Math.min(100, (time - startTime) * 100 / (moveTime - startTime));
 
             if (time > lNextStatsTime)
             {
               StringBuffer lLogBuf = new StringBuffer(1024);
               Series.NODE_EXPANSIONS.logDataPoint(lLogBuf, time, mNumIterations);
-              Series.DEPTH_CHARGES.logDataPoint(lLogBuf, time, mNumDepthCharges);
 
               //Future intent will be to add these to the stats logger when it is stable
               //double fringeDepth = mAverageFringeDepth.getMean();
@@ -644,7 +641,6 @@ public class GameSearcher implements Runnable, ActivityController
         //  wait for the rollout pool to have results for us
         expandSearch(true);
         mNumIterations++;
-        mNumDepthCharges += mGameCharacteristics.getRolloutSampleSize();
 
         //  This method can be called re-entrantly from the above, which means that the rollout
         //  pipeline may no longer be blocked, in which case we should return immediately
@@ -717,7 +713,6 @@ public class GameSearcher implements Runnable, ActivityController
       mPipeline.completedBackPropagation();
       xiNeedToDoOne = false;
       mNumIterations++;
-      mNumDepthCharges += lRequest.mSampleSize;
     }
   }
 

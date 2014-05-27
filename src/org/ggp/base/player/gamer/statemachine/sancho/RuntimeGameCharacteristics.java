@@ -1,5 +1,9 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.ggp.base.player.gamer.statemachine.sancho.StatsLogUtils.Series;
+
 /**
  * @author steve
  *
@@ -8,11 +12,13 @@ package org.ggp.base.player.gamer.statemachine.sancho;
  */
 public class RuntimeGameCharacteristics extends GameCharacteristics
 {
+  private static final Logger STATS_LOGGER = LogManager.getLogger("stats");
+
   private final boolean                                        enableMoveActionHistory                     = false;
   private double                                               explorationBias                             = 1.0;
   private double                                               moveActionHistoryBias                       = 0;
   private double                                               mExactRolloutSampleSize                     = 4;
-  private volatile int                                         rolloutSampleSize                           = 4;
+  private volatile int                                         mRolloutSampleSize                          = 4;
   final double                                                 competitivenessBonus                        = 2;
   private boolean                                              isFixedMoveCount                            = false;
   private int                                                  earliestCompletion                          = 0;
@@ -54,13 +60,23 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
 
   public int getRolloutSampleSize()
   {
-    return rolloutSampleSize;
+    return mRolloutSampleSize;
   }
 
   public void setRolloutSampleSize(double xiExactSampleSize)
   {
     mExactRolloutSampleSize = xiExactSampleSize;
-    rolloutSampleSize = (int)(xiExactSampleSize + 0.5);
+
+    int lOldSampleSize = mRolloutSampleSize;
+    mRolloutSampleSize = (int)(xiExactSampleSize + 0.5);
+
+    if (lOldSampleSize != mRolloutSampleSize)
+    {
+      // Log the new sample rate.
+      StringBuffer lLogBuf = new StringBuffer(1024);
+      Series.SAMPLE_RATE.logDataPoint(lLogBuf, System.currentTimeMillis(), mRolloutSampleSize);
+      STATS_LOGGER.info(lLogBuf.toString());
+    }
   }
 
   public double getCompetitivenessBonus()

@@ -15,7 +15,12 @@
             chart: {marginRight: 80},
             title: {text: 'Memory'},
             xAxis: {type: 'datetime'},
-            yAxis: [{title: {text: 'GB'}},]
+            yAxis: [
+                     {
+                       title: {text: 'GB'},
+                       min: 0
+                     }
+                   ]
           });
 
           $('#GC').highcharts(
@@ -24,9 +29,15 @@
             title: {text: 'Garbage Collection'},
             xAxis: {type: 'datetime'},
             yAxis: [
-                    {title: {text: 'ms'}},
-                    {title: {text: 'count'},
-                     opposite: true}
+                     {
+                       title:    {text: 'ms'},
+                       min:      0
+                     },
+                     {
+                       title:    {text: 'count'},
+                       opposite: true,
+                       min:      0
+                     }
                    ]
           });
 
@@ -36,9 +47,15 @@
             title: {text: 'Performance'},
             xAxis: {type: 'datetime'},
             yAxis: [
-                    {title: {text: 'Expansions/ms'}},
-                    {title: {text: 'Depth charges/ms'},
-                     opposite: true}
+                     {
+                       title: {text: 'Expansions/ms'},
+                       min:   0
+                     },
+                     {
+                       title: {text: 'Rollouts/expansion'},
+                       opposite: true,
+                       min: 0
+                     }
                    ]
           });
       });
@@ -60,9 +77,9 @@
   </head>
 
   <body>
-    <div id="MEM" style="height: 400px"></div>
-    <div id="GC" style="height: 400px"></div>
-    <div id="PERF" style="height: 400px"></div>
+    <div id="MEM"   style="height: 300px"></div>
+    <div id="GC"    style="height: 300px"></div>
+    <div id="PERF"  style="height: 300px"></div>
   </body>
 
 </html>
