@@ -1734,11 +1734,11 @@ public class TreeNode
             checkChildCompletion(true);
           }
         }
-
-        if ( USE_STATE_SIMILARITY_IN_EXPANSION && !complete && roleIndex == 0 )
-        {
-          tree.mStateSimilarityMap.add(getRef());
-        }
+//
+//        if ( USE_STATE_SIMILARITY_IN_EXPANSION && !complete && roleIndex == 0 )
+//        {
+//          tree.mStateSimilarityMap.add(getRef());
+//        }
         //validateAll();
       }
     }
@@ -2270,6 +2270,11 @@ public class TreeNode
       if (selected.child.node.freed)
       {
         LOGGER.warn("Selected freed node!");
+      }
+
+      if ( USE_STATE_SIMILARITY_IN_EXPANSION && !complete && roleIndex == 0 )
+      {
+        tree.mStateSimilarityMap.add(getRef());
       }
     }
 

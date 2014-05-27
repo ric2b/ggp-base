@@ -16,6 +16,14 @@ public class StateSimilarityMap
 
     public void addNode(TreeNodeRef nodeRef)
     {
+      for(int i = 0; i < size; i++)
+      {
+        if ( nodeRef.seq == refs[i].seq )
+        {
+          //  Already present
+          return;
+        }
+      }
       if ( size < capacity )
       {
         refs[size++] = nodeRef;
@@ -34,7 +42,7 @@ public class StateSimilarityMap
             break;
           }
 
-          double evictionMeasure = ref.node.getAge()/(ref.node.numVisits+1);
+          double evictionMeasure = -Math.log(ref.node.numVisits+1);//ref.node.getAge()/(ref.node.numVisits+1);
 
           if ( evictionMeasure > highestEvictionMeasure )
           {
