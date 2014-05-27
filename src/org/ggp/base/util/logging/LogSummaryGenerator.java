@@ -11,10 +11,21 @@ import java.util.List;
 
 import org.ggp.base.player.gamer.statemachine.sancho.StatsLogUtils.Series;
 
+/**
+ * Log parser and formatter for uploading to Tiltyard / the local log viewer.
+ */
 public class LogSummaryGenerator
 {
   private static final File LOGS_DIRECTORY = new File("logs");
 
+  // Dumping of logs is disabled because they're too big for Tiltyard.
+  private static final boolean DUMP_LOGS = false;
+
+  /**
+   * @return the logs for the specified match.
+   *
+   * @param xiMatchID - the match.
+   */
   public synchronized String getLogSummary(String xiMatchID)
   {
     System.out.println("Generating logs for " + xiMatchID + " at " + System.currentTimeMillis());
@@ -40,7 +51,7 @@ public class LogSummaryGenerator
     return lSummary;
   }
 
-  private String getSummaryFromLogsDirectory(String[] xiLogFiles)
+  private static String getSummaryFromLogsDirectory(String[] xiLogFiles)
   {
     StringBuffer lBuffer = new StringBuffer(1024 * 1024);
 
@@ -59,20 +70,23 @@ public class LogSummaryGenerator
         // This is the regular log file
         lBuffer.append("\"logs\":[");
 
-        try
+        if (DUMP_LOGS)
         {
-          List<String> lLines = Files.readAllLines(Paths.get(LOGS_DIRECTORY.getPath(), lLogFile),
-                                                   StandardCharsets.UTF_8);
-          for (String lLine : lLines)
+          try
           {
-            lBuffer.append(lLine);
-            lBuffer.append('\n');
+            List<String> lLines = Files.readAllLines(Paths.get(LOGS_DIRECTORY.getPath(), lLogFile),
+                                                     StandardCharsets.UTF_8);
+            for (String lLine : lLines)
+            {
+              lBuffer.append(lLine);
+              lBuffer.append('\n');
+            }
           }
-        }
-        catch (IOException lEx)
-        {
-          System.err.println("Failed to read log file: " + lLogFile);
-          lEx.printStackTrace();
+          catch (IOException lEx)
+          {
+            System.err.println("Failed to read log file: " + lLogFile);
+            lEx.printStackTrace();
+          }
         }
 
         lBuffer.append("],");
@@ -83,7 +97,7 @@ public class LogSummaryGenerator
     return lBuffer.toString();
   }
 
-  private void formatStatistics(StringBuffer xiBuffer, String xiLogFilename)
+  private static void formatStatistics(StringBuffer xiBuffer, String xiLogFilename)
   {
     List<String> lLines = null;
 
