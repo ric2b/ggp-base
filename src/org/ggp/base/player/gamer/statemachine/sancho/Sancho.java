@@ -39,6 +39,7 @@ public class Sancho extends SampleGamer
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
   public Role                         ourRole;
+  private int                         mTurn                           = 0;
   private String                      planString                      = null;
   private GamePlan                    plan                            = null;
   private int                         transpositionTableSize          = 2000000;
@@ -235,6 +236,7 @@ public class Sancho extends SampleGamer
     }
 
     Random r = new Random();
+
     // If have been configured with a plan (for test purposes), load it now.
     // We'll still do everything else as normal, but whilst there are moves in
     // the plan, when it comes to play, we'll just play the specified move.
@@ -245,12 +247,14 @@ public class Sancho extends SampleGamer
     }
 
     puzzlePlayer = null;
+
     ourRole = getRole();
     LOGGER.info("We are: " + ourRole);
-
     numRoles = underlyingStateMachine.getRoles().size();
-
     roleOrdering = new RoleOrdering(underlyingStateMachine, ourRole);
+
+    mTurn = 0;
+    StatsLogUtils.Series.TURN.logDataPoint(System.currentTimeMillis(), mTurn);
 
     MinRawNetScore = 0;
     MaxRawNetScore = 100;
@@ -796,7 +800,9 @@ public class Sancho extends SampleGamer
     Move bestMove;
     List<Move> moves;
 
-    LOGGER.info("New turn");
+    mTurn++;
+    LOGGER.info("Starting turn " + mTurn);
+    StatsLogUtils.Series.TURN.logDataPoint(start, mTurn);
 
     if (ProfilerContext.getContext() != null)
     {

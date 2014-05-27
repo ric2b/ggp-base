@@ -4,6 +4,9 @@ import java.util.Vector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * Utility methods for logging statistics.
  */
@@ -14,6 +17,11 @@ public class StatsLogUtils
    */
   public static enum Graph
   {
+    /**
+     * Null-graph.  Used for series that aren't directly plotted.
+     */
+    NONE,
+
     /**
      * Memory usage.
      */
@@ -91,7 +99,12 @@ public class StatsLogUtils
     /**
      * Sample rate (rollouts per node expansion).
      */
-    SAMPLE_RATE    (Graph.PERF, 1, SeriesType.RAW,  "Sample rate");
+    SAMPLE_RATE    (Graph.PERF, 1, SeriesType.RAW,  "Sample rate"),
+
+    /**
+     * The current turn (0 during meta-gaming).
+     */
+    TURN           (Graph.NONE, 1, SeriesType.RAW,  "Turn");
 
     /**
      * Fixed data defining the series.
@@ -111,6 +124,8 @@ public class StatsLogUtils
     private long                 mLastXValue;
     private long                 mLastYValue;
 
+    private static final Logger STATS_LOGGER = LogManager.getLogger("stats");
+
     private static final Pattern LINE_PATTERN = Pattern.compile("^([^,]+),(\\d+),(\\d+)");
 
     private Series(Graph xiGraph, int xiAxis, SeriesType xiSeriesType, String xiName)
@@ -124,6 +139,19 @@ public class StatsLogUtils
       mYValues    = new Vector<>();
       mLastXValue = 0;
       mLastYValue = 0;
+    }
+
+    /**
+     * Log a data point.
+     *
+     * @param xiTime   - the x-value (usually a time in ms).
+     * @param xiValue  - the y-value.
+     */
+    public void logDataPoint(long xiTime, long xiValue)
+    {
+      StringBuffer lLogBuf = new StringBuffer();
+      logDataPoint(lLogBuf, xiTime, xiValue);
+      STATS_LOGGER.info(lLogBuf.toString());
     }
 
     /**

@@ -65,7 +65,17 @@
         lLogData = JSON.parse(xiEvent.data);
         $.each(lLogData.statistics, function()
         {
-          $('#' + this.showon).highcharts().addSeries(this);
+          if (this.showon === 'NONE')
+          {
+            if (this.name === 'Turn')
+            {
+              // Add plot lines to all graphs
+            }
+          }
+          else
+          {
+            $('#' + this.showon).highcharts().addSeries(this);
+          }
         });
       }
 
