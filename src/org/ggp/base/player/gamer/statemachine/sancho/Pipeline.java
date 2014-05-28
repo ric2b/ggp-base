@@ -160,14 +160,19 @@ public class Pipeline
     // don't yield until we've looked at all threads once.  Always starting at a fixed thread would be in danger of
     // starving some threads - but we always completely drain the pipeline of back-propagation work (whenever we do any
     // such work) so that isn't a problem.
+    long startSpin = System.currentTimeMillis();
     for (mNextDrainThread = (ThreadControl.ROLLOUT_THREADS == 1 ? 0 : 1);
          !mThreadPipelines[mNextDrainThread].canBackPropagate();
          mNextDrainThread = (mNextDrainThread + 1) % ThreadControl.ROLLOUT_THREADS)
     {
       if (mNextDrainThread == 0)
       {
-        // Don't completely busy-wait.  At least yield once per time round all the threads.
-        Thread.yield();
+        //  Spin for 1-2ms before yielding else we introduce a timeslice latency
+        //  for what could be a substantially sub-timeslice wait
+        if ( startSpin >= System.currentTimeMillis()-1 )
+        {
+          Thread.yield();
+        }
       }
     }
 
