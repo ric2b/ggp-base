@@ -6,12 +6,25 @@
 
     <script type='text/javascript' src='//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js'></script>
     <script src="//code.highcharts.com/highcharts.js"></script>
+    <script src="b64utf8utils.js"></script>
+    <script src="bzip2.js"></script>
 
     <script type='text/javascript'>//<![CDATA[
       $(function ()
       {
+          Number.prototype.pad = function(xiSize)
+          {
+            var lString = String(this);
+            while (lString.length < xiSize)
+            {
+              lString = "0" + lString;
+            }
+            return lString;
+          };
+
           Highcharts.setOptions(
           {
+            global:  {useUTC: false},
             chart:   {marginRight: 80},
             credits: {
                        text: 'Sancho Stats',
@@ -68,7 +81,7 @@
 
       function receiveMessage(xiEvent)
       {
-        lLogData = JSON.parse(xiEvent.data);
+        var lLogData = JSON.parse(xiEvent.data);
         $.each(lLogData.statistics, function()
         {
           if (this.showon === 'NONE')
@@ -103,6 +116,22 @@
             $('#' + this.showon).highcharts().addSeries(this);
           }
         });
+
+        if (lLogData.compressed_logs)
+        {
+          var lLogs = (bzip2.simple(bzip2.array(base64DecToArr(
+                                                    lLogData.compressed_logs))));
+          var lLogTable = $('#LOGS tbody');
+          var lJSONLogs = JSON.parse(lLogs);
+          $.each(lJSONLogs, function()
+          {
+            var lDate = new Date(parseInt(this.timestamp));
+            lLogTable.append('<tr><td>' +
+                             lDate.toLocaleString() + '.' + lDate.getMilliseconds().pad(3) +
+                             '</td><td>' + this.level + '</td><td>' +
+                             this.message + '</td></tr>');
+          });
+        }
       }
 
       window.addEventListener("message", receiveMessage, false);
@@ -116,7 +145,10 @@
     <div id="MEM"  class="SanchoGraph" style="height: 300px"></div>
     <div id="GC"   class="SanchoGraph" style="height: 300px"></div>
     <div id="PERF" class="SanchoGraph" style="height: 300px"></div>
+    <table id="LOGS">
+      <thead><tr><th>Time</th><th>Severity</th><th>Log</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </body>
-
 </html>
 

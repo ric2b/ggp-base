@@ -1,6 +1,7 @@
 
 package org.ggp.base.util.logging;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -9,6 +10,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 
+import org.apache.commons.codec.binary.Base64OutputStream;
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream;
 import org.ggp.base.player.gamer.statemachine.sancho.StatsLogUtils.Series;
 
 /**
@@ -19,7 +22,7 @@ public class LogSummaryGenerator
   private static final File LOGS_DIRECTORY = new File("logs");
 
   // Dumping of logs is disabled because they're too big for Tiltyard.
-  private static final boolean DUMP_LOGS = false;
+  private static final boolean DUMP_LOGS = true;
 
   /**
    * @return the logs for the specified match.
@@ -68,19 +71,30 @@ public class LogSummaryGenerator
       else if (lLogFile.endsWith(".json"))
       {
         // This is the regular log file
-        lBuffer.append("\"logs\":[");
+        lBuffer.append("\"compressed_logs\":\"");
 
         if (DUMP_LOGS)
         {
-          try
+          try (ByteArrayOutputStream lBOS = new ByteArrayOutputStream();
+               Base64OutputStream lB64OS = new Base64OutputStream(lBOS);
+               BZip2CompressorOutputStream lCompressor = new BZip2CompressorOutputStream(lB64OS))
           {
             List<String> lLines = Files.readAllLines(Paths.get(LOGS_DIRECTORY.getPath(), lLogFile),
                                                      StandardCharsets.UTF_8);
+
+            lCompressor.write("[".getBytes(StandardCharsets.UTF_8));
             for (String lLine : lLines)
             {
-              lBuffer.append(lLine);
-              lBuffer.append('\n');
+              lCompressor.write(lLine.getBytes(StandardCharsets.UTF_8));
+              lCompressor.write("\n".getBytes(StandardCharsets.UTF_8));
             }
+            lCompressor.write("]".getBytes(StandardCharsets.UTF_8));
+
+            lCompressor.close();
+            lB64OS.close();
+            lBOS.close();
+
+            lBuffer.append(new String(lBOS.toByteArray(), StandardCharsets.UTF_8).replace("\r\n", ""));
           }
           catch (IOException lEx)
           {
@@ -89,7 +103,7 @@ public class LogSummaryGenerator
           }
         }
 
-        lBuffer.append("],");
+        lBuffer.append("\",");
       }
     }
     lBuffer.append("\"version\":1}");

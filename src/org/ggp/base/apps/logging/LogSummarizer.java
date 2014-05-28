@@ -56,11 +56,12 @@ public class LogSummarizer
         String lResponse;
         String lContentType;
 
-        if (lRequest.equals("viz.html"))
+        if (lRequest.equals("viz.html") ||
+            lRequest.endsWith(".js"))
         {
           lContentType = "text/html";
           StringBuffer lBuffer = new StringBuffer();
-          List<String> lLines = Files.readAllLines(Paths.get("src_viz/viz.html"), StandardCharsets.UTF_8);
+          List<String> lLines = Files.readAllLines(Paths.get("src_viz/" + lRequest), StandardCharsets.UTF_8);
           for (String lLine : lLines)
           {
             lBuffer.append(lLine);

@@ -84,9 +84,7 @@ public final class Player extends JPanel
 
   private Integer                      defaultPort = 9147;
 
-  private List<Class<? extends Gamer>> gamers      = Lists
-                                                       .newArrayList(ProjectSearcher.GAMERS
-                                                           .getConcreteClasses());
+  private List<Class<? extends Gamer>> gamers      = Lists.newArrayList(ProjectSearcher.GAMERS.getConcreteClasses());
 
   /**
    * Create a Player.
