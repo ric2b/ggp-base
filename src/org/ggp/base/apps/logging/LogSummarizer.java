@@ -13,8 +13,6 @@ import org.ggp.base.util.http.HttpReader;
 import org.ggp.base.util.http.HttpWriter;
 import org.ggp.base.util.logging.LogSummaryGenerator;
 
-import external.JSON.JSONException;
-
 /**
  * The "Exponent" Log Summarizer Server is a multi-threaded web server that
  * makes log summaries and sends them back to remote clients. These log
@@ -29,17 +27,24 @@ import external.JSON.JSONException;
  */
 public class LogSummarizer
 {
-  public static final int                 SERVER_PORT = 9199;
-  public static final LogSummaryGenerator SUMMARY_GENERATOR = new LogSummaryGenerator();
+  private static final int                 SERVER_PORT = 9199;
+  private static final LogSummaryGenerator SUMMARY_GENERATOR = new LogSummaryGenerator();
 
+  /**
+   * Request handling thread for generating log summaries for upload to Tiltyard.
+   */
   static class SummarizeLogThread extends Thread
   {
-    private Socket connection;
+    private Socket mConnection;
 
-    public SummarizeLogThread(Socket connection)
-        throws IOException, JSONException
+    /**
+     * Create a thread for handling a request.
+     *
+     * @param xiConnection - the connection from which to read the request.
+     */
+    public SummarizeLogThread(Socket xiConnection)
     {
-      this.connection = connection;
+      mConnection = xiConnection;
     }
 
     @Override
@@ -47,7 +52,7 @@ public class LogSummarizer
     {
       try
       {
-        String lRequest = HttpReader.readAsServer(connection);
+        String lRequest = HttpReader.readAsServer(mConnection);
         String lResponse;
         String lContentType;
 
@@ -81,8 +86,8 @@ public class LogSummarizer
           lResponse = SUMMARY_GENERATOR.getLogSummary(lRequest);
         }
 
-        HttpWriter.writeAsServer(connection, lResponse, lContentType);
-        connection.close();
+        HttpWriter.writeAsServer(mConnection, lResponse, lContentType);
+        mConnection.close();
       }
       catch (IOException e)
       {
@@ -92,7 +97,13 @@ public class LogSummarizer
     }
   }
 
-  public static void main(String[] args)
+  /**
+   * Start the log summarizer.
+   *
+   * @param xiArgs - none.
+   */
+  @SuppressWarnings("resource")
+  public static void main(String[] xiArgs)
   {
     ServerSocket listener = null;
     try
@@ -101,23 +112,29 @@ public class LogSummarizer
     }
     catch (IOException e)
     {
-      System.err.println("Could not open server on port " + SERVER_PORT +
-                         ": " + e);
+      System.err.println("Could not open server on port " + SERVER_PORT + ": " + e);
       e.printStackTrace();
       return;
     }
 
     while (true)
     {
+      Socket connection = null;
+
       try
       {
-        Socket connection = listener.accept();
+        connection = listener.accept();
+      }
+      catch (IOException lEx)
+      {
+        System.err.println("Failed to accept connection");
+        lEx.printStackTrace();
+      }
+
+      if (connection != null)
+      {
         Thread handlerThread = new SummarizeLogThread(connection);
         handlerThread.start();
-      }
-      catch (Exception e)
-      {
-        System.err.println(e);
       }
     }
   }

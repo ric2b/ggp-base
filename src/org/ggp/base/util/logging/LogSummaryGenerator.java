@@ -43,7 +43,7 @@ public class LogSummaryGenerator
     if (lLogFiles.length == 0)
     {
       System.err.println("No logs for match: " + xiMatchID);
-      return null;
+      return "No logs for match: " + xiMatchID;
     }
 
     String lSummary = getSummaryFromLogsDirectory(lLogFiles);
