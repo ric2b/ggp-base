@@ -274,6 +274,14 @@ public class GameSearcher implements Runnable, ActivityController
                   }
                 }
               }
+              else
+              {
+                double percentThroughTurn = Math.min(100, (time - startTime) * 100 / (moveTime - startTime));
+                currentExplorationBias = maxExplorationBias -
+                                          percentThroughTurn *
+                                          (maxExplorationBias - minExplorationBias) /
+                                          100;
+              }
             }
 
             if ((USE_DYNAMIC_SAMPLE_SIZING) && (time > lNextUpdateSampleSizeTime))
@@ -301,10 +309,6 @@ public class GameSearcher implements Runnable, ActivityController
                   for (MCTSTree tree : factorTrees)
                   {
                     tree.gameCharacteristics.setExplorationBias(currentExplorationBias);
-//                  tree.gameCharacteristics.setExplorationBias(maxExplorationBias -
-//                                                              percentThroughTurn *
-//                                                              (maxExplorationBias - minExplorationBias) /
-//                                                              100);
                   }
                   complete = expandSearch(false);
                 }
