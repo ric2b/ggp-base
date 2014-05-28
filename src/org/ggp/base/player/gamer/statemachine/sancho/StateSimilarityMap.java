@@ -31,18 +31,19 @@ public class StateSimilarityMap
       else
       {
         int evictee = -1;
-        double highestEvictionMeasure = -Double.MAX_VALUE;
+        double highestEvictionMeasure = -Math.log(nodeRef.node.numVisits+1);
 
         for(int i = 0; i < capacity; i++)
         {
           TreeNodeRef ref = refs[i];
           if ( ref.seq != ref.node.seq )
           {
+            //  Effectively a free slot - no loss to evict it
             evictee = i;
             break;
           }
 
-          double evictionMeasure = -Math.log(ref.node.numVisits+1);//ref.node.getAge()/(ref.node.numVisits+1);
+          double evictionMeasure = -Math.log(ref.node.numVisits+1);
 
           if ( evictionMeasure > highestEvictionMeasure )
           {
@@ -51,7 +52,11 @@ public class StateSimilarityMap
           }
         }
 
-        refs[evictee] = nodeRef;
+        //  If the cache contained something less useful than the new entry replace it
+        if ( evictee != -1 )
+        {
+          refs[evictee] = nodeRef;
+        }
       }
     }
   }
