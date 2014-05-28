@@ -120,7 +120,7 @@ public class MCTSTree
   {
     underlyingStateMachine = stateMachine;
     numRoles = stateMachine.getRoles().size();
-    mStateSimilarityMap = (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, true) ? null : new StateSimilarityMap(stateMachine.getFullPropNet()));
+    mStateSimilarityMap = (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false) ? null : new StateSimilarityMap(stateMachine.getFullPropNet()));
     this.nodePool = nodePool;
     this.factor = factor;
     this.roleOrdering = roleOrdering;
