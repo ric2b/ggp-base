@@ -183,8 +183,15 @@ public class StatsLogUtils
       Matcher lMatcher = LINE_PATTERN.matcher(lLine);
       if (lMatcher.matches())
       {
-        Series lSeries = Series.valueOf(lMatcher.group(1));
-        lSeries.addDataPoint(Long.parseLong(lMatcher.group(2)), Long.parseLong(lMatcher.group(3)));
+        try
+        {
+          Series lSeries = Series.valueOf(lMatcher.group(1));
+          lSeries.addDataPoint(Long.parseLong(lMatcher.group(2)), Long.parseLong(lMatcher.group(3)));
+        }
+        catch (IllegalArgumentException lEx)
+        {
+          // Must be a data series from an old version - ignore.
+        }
       }
     }
 
