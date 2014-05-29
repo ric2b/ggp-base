@@ -2,6 +2,7 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.io.File;
 import java.io.PrintWriter;
+import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -30,6 +31,8 @@ public class TreeNode
 {
   private static final Logger LOGGER = LogManager.getLogger();
   private static final boolean USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false);
+
+  private static final DecimalFormat FORMAT_2DP = new DecimalFormat("####0.00");
 
   public static class TreeNodeRef
   {
@@ -2368,7 +2371,7 @@ public class TreeNode
       {
         sb.append(", ");
       }
-      sb.append(averageScores[i]);
+      sb.append(FORMAT_2DP.format(averageScores[i]));
     }
     sb.append("]");
     if (complete)
@@ -2384,7 +2387,7 @@ public class TreeNode
     return stringizeScoreVector(averageScores, complete);
   }
 
-  private void traceFirstChoiceNode()
+  private int traceFirstChoiceNode(int xiResponsesTraced)
   {
     if (children == null)
     {
@@ -2396,19 +2399,35 @@ public class TreeNode
       {
         if (edge2.child.seq >= 0 && edge2.child.seq == edge2.child.node.seq)
         {
-          LOGGER.debug("    Response " +
-                       edge2.jointPartialMove[edge2.child.node.decidingRoleIndex].move +
-                       " scores " + edge2.child.node.stringizeScoreVector() +
-                       ", visits " + edge2.child.node.numVisits +
-                       ", seq : " + edge2.child.seq +
-                       (edge2.child.node.complete ? " (complete)" : ""));
+          String lLog = "    Response " +
+                        edge2.jointPartialMove[edge2.child.node.decidingRoleIndex].move +
+                        " scores " + edge2.child.node.stringizeScoreVector() +
+                        ", visits " + edge2.child.node.numVisits +
+                        ", seq : " + edge2.child.seq +
+                        (edge2.child.node.complete ? " (complete)" : "");
+
+          if (xiResponsesTraced < 400)
+          {
+            LOGGER.debug(lLog);
+          }
+          else
+          {
+            if (xiResponsesTraced == 400)
+            {
+              LOGGER.debug("(Further responses output at trace level)");
+            }
+            LOGGER.trace(lLog);
+          }
+          xiResponsesTraced++;
         }
       }
     }
     else
     {
-      children[0].child.node.traceFirstChoiceNode();
+      xiResponsesTraced = children[0].child.node.traceFirstChoiceNode(xiResponsesTraced);
     }
+
+    return xiResponsesTraced;
   }
 
   private void indentedPrint(PrintWriter writer, int depth, String line)
@@ -2646,6 +2665,7 @@ public class TreeNode
     boolean anyComplete = false;
     TreeNode bestNode = null;
     FactorMoveChoiceInfo result = new FactorMoveChoiceInfo();
+    int lResponsesTraced = 0;
 
     //  If there is no pseudo-noop then there cannot be any penalty for not taking
     //  this factor's results - we simply return a pseudo-noop penalty value of 0
@@ -2746,15 +2766,15 @@ public class TreeNode
       if (!lRecursiveCall)
       {
         LOGGER.info("Move " + edge.descriptiveName(roleIndex) +
-                    " scores " + moveScore + " (selectionScore score " +
-                    selectionScore + ", selection count " +
+                    " scores " + FORMAT_2DP.format(moveScore) + " (selectionScore score " +
+                    FORMAT_2DP.format(selectionScore) + ", selection count " +
                     child.numVisits + ", seq " + child.seq +
                     (child.complete ? " + complete" : "") + ")");
       }
 
       if (child.children != null && !child.complete && traceResponses)
       {
-        child.traceFirstChoiceNode();
+        lResponsesTraced = child.traceFirstChoiceNode(lResponsesTraced);
       }
 
       if ( edge.jointPartialMove[roleIndex].isPseudoNoOp )

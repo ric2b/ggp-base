@@ -54,7 +54,13 @@ public final class RequestFactory
         // This is the first we've seen of this match.  Set the match ID for logging.
         String lMatchID = ((SymbolAtom)list.get(1)).getValue();
         ThreadContext.put("matchID", lMatchID + "-" + gamer.getPort());
-        LOGGER.info("Beginning new game: " + lMatchID);
+
+        if (gamer.getPort() == 9147)
+        {
+          LOGGER.info("======================================================");
+          LOGGER.info("Beginning new game: " + lMatchID);
+          LOGGER.info("Logs available at:  http://localhost:9199/localview/" + lMatchID);
+        }
 
         // This is the first we've seen of the GDL.  Create a translator between the network and internal formats.
         gamer.setGDLTranslator(new GDLTranslator((SymbolList)list.get(3)));
