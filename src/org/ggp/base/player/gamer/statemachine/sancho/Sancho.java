@@ -195,8 +195,6 @@ public class Sancho extends SampleGamer
       lSearchProcessorThread.start();
     }
 
-    LOGGER.info("Beginning new game: " + lMatchID);
-
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
     underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
@@ -865,7 +863,7 @@ public class Sancho extends SampleGamer
 
       searchProcessor.requestYield(false);
 
-      LOGGER.info("Waiting for processing");
+      LOGGER.debug("Waiting for processing");
 
       try
       {
@@ -891,8 +889,7 @@ public class Sancho extends SampleGamer
         LOGGER.info("Complete root");
       }
 
-      LOGGER.info("Timer expired");
-
+      LOGGER.debug("Time to submit order - ask GameSearcher to yield");
       searchProcessor.requestYield(true);
 
       //validateAll();
@@ -923,11 +920,11 @@ public class Sancho extends SampleGamer
 
     Thread.currentThread().setPriority(Thread.NORM_PRIORITY);
 
-    LOGGER.info("Move took: " + (stop - start));
+    LOGGER.debug("Move took: " + (stop - start));
 
     if (bestMove == null)
     {
-      LOGGER.warn("NO MOVE FOUND!");
+      LOGGER.error("NO MOVE FOUND!");
       System.exit(0);
     }
     /**

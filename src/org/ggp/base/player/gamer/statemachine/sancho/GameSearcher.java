@@ -393,7 +393,7 @@ public class GameSearcher implements Runnable, ActivityController
       mRMSFringeDepth.clear();
       mAverageBranchingFactor.clear();
 
-      LOGGER.info("Searching for best move amongst factors:");
+      LOGGER.debug("Searching for best move amongst factors:");
       for(MCTSTree tree : factorTrees)
       {
         FactorMoveChoiceInfo factorChoice = tree.getBestMove();
@@ -585,7 +585,7 @@ public class GameSearcher implements Runnable, ActivityController
     LOGGER.info("MCTS iterations last turn = " + (mNumIterations - mLastNumIterations));
     mLastNumIterations = mNumIterations;
 
-    LOGGER.info("Start move search...");
+    LOGGER.debug("Start move search...");
     synchronized (this)
     {
       for(MCTSTree tree : factorTrees)

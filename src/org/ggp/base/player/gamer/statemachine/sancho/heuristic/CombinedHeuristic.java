@@ -33,7 +33,7 @@ public class CombinedHeuristic implements Heuristic
     mHeuristics = new LinkedList<>();
     for (Heuristic lHeuristic : xiHeuristics)
     {
-      LOGGER.info("CombinedHeuristic: Adding " + lHeuristic.getClass().getSimpleName());
+      LOGGER.debug("CombinedHeuristic: Adding " + lHeuristic.getClass().getSimpleName());
       mHeuristics.add(lHeuristic);
     }
   }
@@ -105,6 +105,18 @@ public class CombinedHeuristic implements Heuristic
 
     // Remove any disabled heuristics from the list.
     prune();
+
+    // Log the final heuristics.
+    Iterator<Heuristic> lIterator = mHeuristics.iterator();
+    if (!lIterator.hasNext())
+    {
+      LOGGER.info("No heuristics enabled");
+    }
+    while (lIterator.hasNext())
+    {
+      Heuristic lHeuristic = lIterator.next();
+      LOGGER.info("Will use " + lHeuristic.getClass().getSimpleName());
+    }
   }
 
   @Override
@@ -213,7 +225,7 @@ public class CombinedHeuristic implements Heuristic
       Heuristic lHeuristic = lIterator.next();
       if (!lHeuristic.isEnabled())
       {
-        LOGGER.info("CombinedHeuristic: Removing disabled " + lHeuristic.getClass().getSimpleName());
+        LOGGER.debug("CombinedHeuristic: Removing disabled " + lHeuristic.getClass().getSimpleName());
         lIterator.remove();
       }
     }

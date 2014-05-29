@@ -123,7 +123,7 @@ public class OptimizingPolymorphicPropNetFactory
                                           PolymorphicComponentFactory componentFactory)
       throws InterruptedException
   {
-    LOGGER.info("Building propnet...");
+    LOGGER.debug("Building propnet");
 
     long startTime = System.currentTimeMillis();
 
@@ -3031,9 +3031,9 @@ public class OptimizingPolymorphicPropNetFactory
 
     int outputToInputFactorizationNetRemovedCount = outputFanoutFactorizationRemovedCount -
                                                     outputFanoutFactorizationAddedCount;
-    LOGGER.info("Fanout reduction by factorization of size: " +
-                outputFactorizationFanoutReduction + " at a cost of " +
-                -outputToInputFactorizationNetRemovedCount + " gates");
+    LOGGER.debug("Fanout reduction by factorization of size: " +
+                 outputFactorizationFanoutReduction + " at a cost of " +
+                 -outputToInputFactorizationNetRemovedCount + " gates");
   }
 
   /**

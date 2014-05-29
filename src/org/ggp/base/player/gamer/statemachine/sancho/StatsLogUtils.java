@@ -69,42 +69,42 @@ public class StatsLogUtils
     /**
      * Currently used heap (bytes).
      */
-    MEM_USED       (Graph.MEM,  0, SeriesType.RAW,  "Used"),
+    MEM_USED       (Graph.MEM,  0, SeriesType.RAW,  false, "Used"),
 
     /**
      * Memory allocated from the O.S. for heap usage (bytes).
      */
-    MEM_COMMITTED  (Graph.MEM,  0, SeriesType.RAW,  "Committed"),
+    MEM_COMMITTED  (Graph.MEM,  0, SeriesType.RAW,  false, "Committed"),
 
     /**
      * Maximum configured heap size (bytes).
      */
-    MEM_MAX        (Graph.MEM,  0, SeriesType.RAW,  "Max"),
+    MEM_MAX        (Graph.MEM,  0, SeriesType.RAW,  false, "Max"),
 
     /**
      * Garbage collection time (ms).
      */
-    GC_TIME        (Graph.GC,   0, SeriesType.DIFF, "Time"),
+    GC_TIME        (Graph.GC,   0, SeriesType.DIFF, false, "Time"),
 
     /**
      * Garbage collection count.
      */
-    GC_COUNT       (Graph.GC,   1, SeriesType.DIFF, "Count"),
+    GC_COUNT       (Graph.GC,   1, SeriesType.DIFF, false, "Count"),
 
     /**
      * Node expansions.
      */
-    NODE_EXPANSIONS(Graph.PERF, 0, SeriesType.RATE, "Node expansions"),
+    NODE_EXPANSIONS(Graph.PERF, 0, SeriesType.RATE, false, "Node expansions"),
 
     /**
      * Sample rate (rollouts per node expansion).
      */
-    SAMPLE_RATE    (Graph.PERF, 1, SeriesType.RAW,  "Sample rate"),
+    SAMPLE_RATE    (Graph.PERF, 1, SeriesType.RAW,  true,  "Sample rate"),
 
     /**
      * The current turn (0 during meta-gaming).
      */
-    TURN           (Graph.NONE, 1, SeriesType.RAW,  "Turn");
+    TURN           (Graph.NONE, 1, SeriesType.RAW,  true,  "Turn");
 
     /**
      * Fixed data defining the series.
@@ -112,6 +112,7 @@ public class StatsLogUtils
     private final Graph      mGraph;
     private final int        mAxis;
     private final SeriesType mSeriesType;
+    private final boolean    mStep;
     private final String     mName;
 
     /**
@@ -128,11 +129,12 @@ public class StatsLogUtils
 
     private static final Pattern LINE_PATTERN = Pattern.compile("^([^,]+),(\\d+),(\\d+)");
 
-    private Series(Graph xiGraph, int xiAxis, SeriesType xiSeriesType, String xiName)
+    private Series(Graph xiGraph, int xiAxis, SeriesType xiSeriesType, boolean xiStep, String xiName)
     {
       mGraph      = xiGraph;
       mAxis       = xiAxis;
       mSeriesType = xiSeriesType;
+      mStep       = xiStep;
       mName       = xiName;
 
       mXValues    = new Vector<>();
@@ -249,6 +251,10 @@ public class StatsLogUtils
       xiBuffer.append(mName);
       xiBuffer.append("\",\"yAxis\":");
       xiBuffer.append(mAxis);
+      if (mStep)
+      {
+        xiBuffer.append(",\"step\":\"left\"");
+      }
       xiBuffer.append(",\"data\":[");
       int lStart = (mSeriesType == SeriesType.RAW) ? 0 : 1;
       for (int lii = lStart; lii < mXValues.size(); lii++)

@@ -230,7 +230,7 @@ public class PieceHeuristic implements Heuristic
 
         if (pieceSetSentences.size() >= MIN_PIECES_THRESHOLD)
         {
-          LOGGER.info("Possible piece set: " + pieceSetSentences);
+          LOGGER.debug("Possible piece set: " + pieceSetSentences);
 
           ForwardDeadReckonInternalMachineState pieceMask = stateMachine.createInternalState(
                                                                                    new MachineState(pieceSetSentences));
@@ -303,28 +303,28 @@ public class PieceHeuristic implements Heuristic
     {
       if (e.getValue().noChangeTurnRate < 0.5)
       {
-        LOGGER.info("Eliminating potential piece set with no-change rate: " +
-                    e.getValue().noChangeTurnRate + ": " + e.getKey());
+        LOGGER.debug("Eliminating potential piece set with no-change rate: " +
+                     e.getValue().noChangeTurnRate + ": " + e.getKey());
       }
       else
       {
         double[] roleCorrelations = e.getValue().getRoleCorrelations();
 
-        LOGGER.info("Correlations for piece set: " + e.getKey());
+        LOGGER.debug("Correlations for piece set: " + e.getKey());
         for (int i = 0; i < numRoles; i++)
         {
-          LOGGER.info("  Role " + i + ": " + roleCorrelations[i]);
+          LOGGER.debug("  Role " + i + ": " + roleCorrelations[i]);
 
           if (roleCorrelations[i] >= MIN_HEURISTIC_CORRELATION)
           {
             if (!e.getValue().hasRoleChanges[i])
             {
-              LOGGER.info("Eliminating potential piece set with no role decision changes for correlated role: " +
-                          e.getKey());
+              LOGGER.debug("Eliminating potential piece set with no role decision changes for correlated role: " +
+                           e.getKey());
             }
             else
             {
-              LOGGER.info("Using piece set for role");
+              LOGGER.debug("Using piece set above for role above");
               if (pieceSets == null)
               {
                 pieceSets = new ForwardDeadReckonInternalMachineState[numRoles];
@@ -342,7 +342,7 @@ public class PieceHeuristic implements Heuristic
           }
           else
           {
-            LOGGER.info("Piece set insufficiently correlated for role");
+            LOGGER.debug("Piece set insufficiently correlated for role");
           }
         }
       }
@@ -351,14 +351,14 @@ public class PieceHeuristic implements Heuristic
     // Check that all roles have a set of pieces.  If not, disable the heuristic.
     if (pieceSets != null)
     {
-      LOGGER.info("Some roles have piece sets");
+      LOGGER.debug("Some roles have piece sets");
       for (int i = 0; i < numRoles; i++)
       {
-        LOGGER.info("  Checking role " + i);
+        LOGGER.debug("  Checking role " + i);
         if (pieceSets[i] == null)
         {
-          LOGGER.info("      No piece set for this role");
-          LOGGER.info("Heuristics only identified for a subset of roles - disabling");
+          LOGGER.debug("      No piece set for this role");
+          LOGGER.debug("Piece heuristic only identified for a subset of roles - disabling");
           pieceSets = null;
           break;
         }
@@ -367,7 +367,11 @@ public class PieceHeuristic implements Heuristic
 
       if (pieceSets != null)
       {
-        LOGGER.info("All roles have piece sets");
+        LOGGER.debug("All roles have piece sets");
+        for (int i = 0; i < numRoles; i++)
+        {
+          LOGGER.info("Role " + i + " will use piece set " + pieceSets[i]);
+        }
       }
     }
   }

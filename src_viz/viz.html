@@ -24,12 +24,13 @@
 
           Highcharts.setOptions(
           {
-            global:  {useUTC: false},
-            chart:   {marginRight: 80},
-            credits: {
-                       text: 'Sancho Stats',
-                       href: 'http://sanchoggp.blogspot.com/'
-                     }
+            global:      {useUTC: false},
+            chart:       {marginRight: 80},
+            credits:     {
+                           text: 'Sancho Stats',
+                           href: 'http://sanchoggp.blogspot.com/'
+                         },
+            plotOptions: {line: {marker: {enabled: false}}}
           });
 
           $('#MEM').highcharts(
@@ -126,10 +127,26 @@
           $.each(lJSONLogs, function()
           {
             var lDate = new Date(parseInt(this.timestamp));
-            lLogTable.append('<tr><td>' +
-                             lDate.toLocaleString() + '.' + lDate.getMilliseconds().pad(3) +
-                             '</td><td>' + this.level + '</td><td>' +
-                             this.message + '</td></tr>');
+            var lColour;
+            if ((this.level === 'WARN') || (this.level === 'ERROR'))
+            {
+              lColour = '#FF8888';
+            }
+            else if (this.level === 'INFO')
+            {
+              lColour = '#DDDDFF';
+            }
+            else
+            {
+              lColour = '#FFFFFF';
+            }
+            var lRow = '<tr style="background-color:' + lColour + '" ' +
+                       'title="By ' + this.thread + ' from ' + this.logger + '">' +
+                       '<td style="white-space:nowrap" valign="top">' +
+                       lDate.toLocaleString() + '.' + lDate.getMilliseconds().pad(3) +
+                       '</td><td valign="top">' + this.level + '</td><td>' +
+                       this.message + '</td></tr>'
+            lLogTable.append(lRow);
           });
         }
       }
@@ -145,7 +162,8 @@
     <div id="MEM"  class="SanchoGraph" style="height: 300px"></div>
     <div id="GC"   class="SanchoGraph" style="height: 300px"></div>
     <div id="PERF" class="SanchoGraph" style="height: 300px"></div>
-    <table id="LOGS">
+    <hr/>
+    <table id="LOGS" style="border-collapse:collapse">
       <thead><tr><th>Time</th><th>Severity</th><th>Log</th></tr></thead>
       <tbody></tbody>
     </table>

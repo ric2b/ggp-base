@@ -1254,7 +1254,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       if (XSentence != null)
       {
-        LOGGER.debug("Reducing with respect to XSentence: " + XSentence);
+        LOGGER.info("Reducing with respect to XSentence: " + XSentence);
         OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, XSentence, true);
 
         //	If the reduced net always transitions it's own hard-wired sentence into the opposite state
@@ -1383,12 +1383,13 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       OptimizingPolymorphicPropNetFactory.minimizeNetwork(propNetOWithoutGoals);
       propNetXWithoutGoals.renderToFile("c:\\temp\\propnet_070_XWithoutGoals.dot");
       propNetOWithoutGoals.renderToFile("c:\\temp\\propnet_080_ROWithoutGoals.dot");
-      LOGGER.info("Num components remaining in goal-less X-net: " + propNetXWithoutGoals.getComponents().size());
-      LOGGER.info("Num components remaining in goal-less O-net: " + propNetOWithoutGoals.getComponents().size());
 
       goalsNet.RemoveAllButGoals();
-      LOGGER.info("Goal net left with " + goalsNet.getComponents().size() + " components");
       goalsNet.renderToFile("c:\\temp\\propnet_090_GoalsReduced.dot");
+
+      LOGGER.info("Num components in goal-less X-net: " + propNetXWithoutGoals.getComponents().size());
+      LOGGER.info("Num components in goal-less O-net: " + propNetOWithoutGoals.getComponents().size());
+      LOGGER.info("Num components in goal net:        " + goalsNet.getComponents().size());
 
       //masterInfoSet = new ForwardDeadReckonPropositionCrossReferenceInfo[fullPropNet
       //    .getBasePropositions().size()];

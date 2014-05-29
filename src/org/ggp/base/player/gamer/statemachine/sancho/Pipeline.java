@@ -57,7 +57,7 @@ public class Pipeline
 
     // Per-thread pipeline size must be a power of 2.
     lPerThreadSize = Integer.highestOneBit(lPerThreadSize - 1) * 2;
-    LOGGER.info("Per-rollout-thread pipeline size = " + lPerThreadSize);
+    LOGGER.debug("Per-rollout-thread pipeline size = " + lPerThreadSize);
 
     for (int lii = 0; lii < ThreadControl.ROLLOUT_THREADS; lii++)
     {

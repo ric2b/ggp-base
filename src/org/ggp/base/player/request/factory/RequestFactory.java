@@ -4,6 +4,8 @@ package org.ggp.base.player.request.factory;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
 import org.ggp.base.player.gamer.Gamer;
 import org.ggp.base.player.request.factory.exceptions.RequestFormatException;
@@ -27,6 +29,8 @@ import org.ggp.base.util.symbol.grammar.SymbolList;
 
 public final class RequestFactory
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   public Request create(Gamer gamer, String source)
       throws RequestFormatException
   {
@@ -48,7 +52,9 @@ public final class RequestFactory
       else if (type.equals("start"))
       {
         // This is the first we've seen of this match.  Set the match ID for logging.
-        ThreadContext.put("matchID", ((SymbolAtom)list.get(1)).getValue() + "-" + gamer.getPort());
+        String lMatchID = ((SymbolAtom)list.get(1)).getValue();
+        ThreadContext.put("matchID", lMatchID + "-" + gamer.getPort());
+        LOGGER.info("Beginning new game: " + lMatchID);
 
         // This is the first we've seen of the GDL.  Create a translator between the network and internal formats.
         gamer.setGDLTranslator(new GDLTranslator((SymbolList)list.get(3)));
