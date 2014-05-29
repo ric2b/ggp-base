@@ -291,12 +291,13 @@ public class PieceHeuristic implements Heuristic
   @Override
   public void tuningComplete()
   {
+    mTuningComplete = true;
+
     for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
     {
       HeuristicScoreInfo heuristicInfo = e.getValue();
 
       heuristicInfo.noChangeTurnRate /= totalSimulatedTurns;
-      mTuningComplete = true;
     }
 
     for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
