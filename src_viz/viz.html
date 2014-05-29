@@ -9,7 +9,24 @@
     <script src="b64utf8utils.js"></script>
     <script src="bzip2.js"></script>
 
+    <style>
+      .LEVEL_INFO {background-color: #DDDDFF;}
+      .LEVEL_WARN {background-color: #FF8888;}
+      .LEVEL_ERROR {background-color: #FF8888;}
+    </style>
+
     <script type='text/javascript'>//<![CDATA[
+
+      var gDebugLogs;
+      var gInfoLogs;
+      var gWarnLogs;
+      var gErrorLogs;
+
+      var gShowingDebug = true;
+      var gShowingInfo  = true;
+      var gShowingWarn  = true;
+      var gShowingError = true;
+
       $(function ()
       {
           Number.prototype.pad = function(xiSize)
@@ -127,20 +144,7 @@
           $.each(lJSONLogs, function()
           {
             var lDate = new Date(parseInt(this.timestamp));
-            var lColour;
-            if ((this.level === 'WARN') || (this.level === 'ERROR'))
-            {
-              lColour = '#FF8888';
-            }
-            else if (this.level === 'INFO')
-            {
-              lColour = '#DDDDFF';
-            }
-            else
-            {
-              lColour = '#FFFFFF';
-            }
-            var lRow = '<tr style="background-color:' + lColour + '" ' +
+            var lRow = '<tr class="LEVEL_' + this.level + '" ' +
                        'title="By ' + this.thread + ' from ' + this.logger + '">' +
                        '<td style="white-space:nowrap" valign="top">' +
                        lDate.toLocaleString() + '.' + lDate.getMilliseconds().pad(3) +
@@ -149,6 +153,104 @@
             lLogTable.append(lRow);
           });
         }
+
+        gDebugLogs = $('.LEVEL_DEBUG');
+        gInfoLogs = $('.LEVEL_INFO');
+        gWarnLogs = $('.LEVEL_WARN');
+        gErrorLogs = $('.LEVEL_ERROR');
+      }
+
+      function filterLogs(xiObject)
+      {
+        var lShowDebug;
+        var lShowInfo;
+        var lShowWarn;
+        var lShowError;
+
+        if (xiObject.value === 'LEVEL_DEBUG')
+        {
+          lShowDebug = true;
+          lShowInfo  = true;
+          lShowWarn  = true;
+          lShowError = true;
+        }
+        else if (xiObject.value === 'LEVEL_INFO')
+        {
+          lShowDebug = false;
+          lShowInfo  = true;
+          lShowWarn  = true;
+          lShowError = true;
+        }
+        else if (xiObject.value === 'LEVEL_WARN')
+        {
+          lShowDebug = false;
+          lShowInfo  = false;
+          lShowWarn  = true;
+          lShowError = true;
+        }
+        else if (xiObject.value === 'LEVEL_ERROR')
+        {
+          lShowDebug = false;
+          lShowInfo  = false;
+          lShowWarn  = false;
+          lShowError = true;
+        }
+
+        if (lShowDebug != gShowingDebug)
+        {
+          if (lShowDebug)
+          {
+            gDebugLogs.show();
+          }
+          else
+          {
+            gDebugLogs.hide();
+          }
+
+          gShowingDebug = lShowDebug;
+        }
+
+        if (lShowInfo != gShowingInfo)
+        {
+          if (lShowInfo)
+          {
+            gInfoLogs.show();
+          }
+          else
+          {
+            gInfoLogs.hide();
+          }
+
+          gShowingInfo = lShowInfo;
+        }
+
+        if (lShowWarn != gShowingWarn)
+        {
+          if (lShowWarn)
+          {
+            gWarnLogs.show();
+          }
+          else
+          {
+            gWarnLogs.hide();
+          }
+
+          gShowingWarn = lShowWarn;
+        }
+
+        if (lShowError != gShowingError)
+        {
+          if (lShowError)
+          {
+            gErrorLogs.show();
+          }
+          else
+          {
+            gErrorLogs.hide();
+          }
+        }
+
+        gShowingError = lShowError;
       }
 
       window.addEventListener("message", receiveMessage, false);
@@ -163,6 +265,16 @@
     <div id="GC"   class="SanchoGraph" style="height: 300px"></div>
     <div id="PERF" class="SanchoGraph" style="height: 300px"></div>
     <hr/>
+    <p>Show logs at level
+      <select onchange="filterLogs(this);">
+        <option value="LEVEL_DEBUG">Debug</option>
+        <option value="LEVEL_INFO">Informational</option>
+        <option value="LEVEL_WARN">Warning</option>
+        <option value="LEVEL_ERROR">Error</option>
+      </select>
+      and higher.
+    </p>
+
     <table id="LOGS" style="border-collapse:collapse">
       <thead><tr><th>Time</th><th>Severity</th><th>Log</th></tr></thead>
       <tbody></tbody>
