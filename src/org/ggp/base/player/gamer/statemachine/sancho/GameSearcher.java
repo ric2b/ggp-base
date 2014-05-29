@@ -389,9 +389,6 @@ public class GameSearcher implements Runnable, ActivityController
         double aspect = fringeDepth/(Math.log(nodePool.getNumUsedItems())/Math.log(branchingFactor));
         LOGGER.info("Tree aspect ratio: " + aspect);
       }
-      mAverageFringeDepth.clear();
-      mRMSFringeDepth.clear();
-      mAverageBranchingFactor.clear();
 
       LOGGER.debug("Searching for best move amongst factors:");
       for(MCTSTree tree : factorTrees)
@@ -601,6 +598,11 @@ public class GameSearcher implements Runnable, ActivityController
       searchSeqRequested++;
       numIterations = 0;
       mRootDepth = rootDepth;
+
+      //  Clear stat averages
+      mAverageFringeDepth.clear();
+      mRMSFringeDepth.clear();
+      mAverageBranchingFactor.clear();
 
       this.notify();
     }
