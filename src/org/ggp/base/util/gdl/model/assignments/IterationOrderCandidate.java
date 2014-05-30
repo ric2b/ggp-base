@@ -562,7 +562,9 @@ public class IterationOrderCandidate implements
           !varOrdering.contains(term) && varsToAssign.contains(term))
         candidateVars.add((GdlVariable)term);
     }
-    //Now we look at the domains, trying to find the largest
+    //TODO: Should we just generate the candidate vars with a call to getProducibleVars?
+    Set<GdlVariable> producibleVars = functionInfo.getProducibleVars(functionalSentence);
+    candidateVars.retainAll(producibleVars);    //Now we look at the domains, trying to find the largest
     GdlVariable bestVar = null;
     int bestDomainSize = 0;
     for (GdlVariable var : candidateVars)
