@@ -771,7 +771,7 @@ public class GameSearcher implements Runnable, ActivityController
     LOGGER.debug("  Useful work last time:  " + (int)(lStatsDiff.mUsefulWorkFraction * 100) + "%");
     LOGGER.debug("  Calculated sample size: " + (int)(lNewSampleSize + 0.5));
     LOGGER.debug("  Suppress update:        " + mSuppressSampleSizeUpdate);
-    LOGGER.info ("  Now using sample size:  " + mGameCharacteristics.getRolloutSampleSize());
+    LOGGER.debug("  Now using sample size:  " + mGameCharacteristics.getRolloutSampleSize());
     LOGGER.debug("  Useful work total:      " + (int)(lCombinedStatsTotal.mUsefulWorkFraction * 100) + "%");
 
     mSuppressSampleSizeUpdate = false;

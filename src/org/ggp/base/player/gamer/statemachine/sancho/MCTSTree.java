@@ -358,7 +358,6 @@ public class MCTSTree
       LOGGER.info("Average depth of auto-expansion instances: " + averageAutoExpansionDepth);
       LOGGER.info("Maximum depth of auto-expansion instances: " + maxAutoExpansionDepth);
     }
-    LOGGER.info("Current rollout sample size: " + gameCharacteristics.getRolloutSampleSize());
     LOGGER.info("Current observed rollout score range: [" +
                 mGameSearcher.lowestRolloutScoreSeen + ", " +
                 mGameSearcher.highestRolloutScoreSeen + "]");
