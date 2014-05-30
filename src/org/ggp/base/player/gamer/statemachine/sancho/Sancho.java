@@ -568,7 +568,7 @@ public class Sancho extends SampleGamer
     LOGGER.info("Average num turns: " + averageNumTurns);
     LOGGER.info("Std deviation num turns: " + stdDevNumTurns);
 
-    double explorationBias = 18 / (averageNumTurns + ((maxNumTurns + minNumTurns) / 2 - averageNumTurns) *
+    double explorationBias = 15 / (averageNumTurns + ((maxNumTurns + minNumTurns) / 2 - averageNumTurns) *
                                               stdDevNumTurns / averageNumTurns) + 0.4;
     if (explorationBias < 0.5)
     {
@@ -583,7 +583,7 @@ public class Sancho extends SampleGamer
     {
       //	Empirically games with piece count heuristics seem to like lower
       //	exploration bias - not entirely sure why!
-      explorationBias = explorationBias * 0.6;
+      explorationBias = explorationBias * 0.7;
     }
 
     gameCharacteristics.setExplorationBias(explorationBias);
