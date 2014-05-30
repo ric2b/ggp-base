@@ -59,6 +59,7 @@ public class MCTSTree
 
   final boolean                                        freeCompletedNodeChildren                   = true;                                                          //true;
   final boolean                                        disableOnelevelMinimax                      = true;
+  final private boolean                                SUPPORT_TRANSITIONS                         = true;
   /**
    * For reasons not well understood, allowing select() to select complete children and propagate
    * upward their values (while playing out something that adds information at the level below) seems
@@ -188,14 +189,14 @@ public class MCTSTree
     ProfileSection methodSection = ProfileSection.newInstance("allocateNode");
     try
     {
-      TreeNode result = ((state != null && !disallowTransposition) ? positions.get(state) : null);
+      TreeNode result = ((state != null && SUPPORT_TRANSITIONS && !disallowTransposition) ? positions.get(state) : null);
 
       //validateAll();
       numTotalTreeNodes++;
       //  Use of pseudo-noops in factors can result in recreation of the root state (only)
       //  a lower level with a joint move of (pseudo-noop, noop, noop, ..., noop).  This
       //  must not be linked back to or else a loop will be created
-      if (result == null || result == root)
+      if ((!SUPPORT_TRANSITIONS || result == null) || result == root)
       {
         numUniqueTreeNodes++;
 
@@ -209,7 +210,7 @@ public class MCTSTree
         //}
         if (state != null)
         {
-          if (!disallowTransposition)
+          if ( SUPPORT_TRANSITIONS && !disallowTransposition)
           {
             positions.put(state, result);
           }
