@@ -19,7 +19,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private double                                               explorationBias                             = 1.0;
   private double                                               moveActionHistoryBias                       = 0;
   private double                                               mExactRolloutSampleSize                     = 4;
-  private volatile int                                         mRolloutSampleSize                          = 4;
+  private volatile int                                         mRolloutSampleSize;
   final double                                                 competitivenessBonus                        = 2;
   private boolean                                              isFixedMoveCount                            = false;
   private int                                                  earliestCompletion                          = 0;
@@ -28,6 +28,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   public RuntimeGameCharacteristics(int numRoles)
   {
     super(numRoles);
+    setRolloutSampleSize(4);
   }
 
   public double getExplorationBias()
