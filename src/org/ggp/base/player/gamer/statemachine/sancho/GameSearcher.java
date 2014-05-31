@@ -40,7 +40,7 @@ public class GameSearcher implements Runnable, ActivityController
   public static final long                SAMPLE_SIZE_UPDATE_INTERVAL_MS = 10000;
 
   private static final long               STATS_LOG_INTERVAL_MS = 1000;
-  private static final int                PIPELINE_SIZE = 12; //  Default set to give reasonable results on 2 and 4 cores
+  private static final int                PIPELINE_SIZE = 24; //  Default set to give reasonable results on 2 and 4 cores
 
   private static final boolean            ADJUST_EXPLORATION_BIAS_FROM_TREE_SHAPE = false;
 
