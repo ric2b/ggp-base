@@ -173,7 +173,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.58i");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.58j");
   }
 
   @Override
@@ -753,7 +753,7 @@ public class Sancho extends SampleGamer
     LOGGER.info(simulationsPerformed *
                 1000 /
                 (simulationStopTime - simulationStartTime) +
-                " simulations/second performed - setting rollout sample size to " + rolloutSampleSize);
+                " simulations/second performed - setting rollout sample size to " + gameCharacteristics.getRolloutSampleSize());
 
     if (ProfilerContext.getContext() != null)
     {

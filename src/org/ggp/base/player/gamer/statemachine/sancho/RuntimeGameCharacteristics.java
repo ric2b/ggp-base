@@ -2,6 +2,7 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.StatsLogUtils.Series;
 
 /**
@@ -22,6 +23,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   final double                                                 competitivenessBonus                        = 2;
   private boolean                                              isFixedMoveCount                            = false;
   private int                                                  earliestCompletion                          = 0;
+  final private int                                            fixedSampleSize                             = MachineSpecificConfiguration.getCfgVal(CfgItem.FIXED_SAMPLE_SIZE, -1);
 
   public RuntimeGameCharacteristics(int numRoles)
   {
@@ -65,12 +67,20 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
 
   public void setRolloutSampleSize(double xiExactSampleSize)
   {
-    mExactRolloutSampleSize = xiExactSampleSize;
-
     int lOldSampleSize = mRolloutSampleSize;
-    mRolloutSampleSize = (int)(xiExactSampleSize + 0.5);
 
-    if (lOldSampleSize != mRolloutSampleSize)
+    if (fixedSampleSize <= 0)
+    {
+      mExactRolloutSampleSize = xiExactSampleSize;
+
+      mRolloutSampleSize = (int)(xiExactSampleSize + 0.5);
+    }
+    else
+    {
+      mRolloutSampleSize = fixedSampleSize;
+    }
+
+    if (lOldSampleSize != mRolloutSampleSize )
     {
       // Log the new sample rate.
       StringBuffer lLogBuf = new StringBuffer(1024);

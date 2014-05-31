@@ -45,7 +45,13 @@ public class MachineSpecificConfiguration
     /**
      * Player name to report
      */
-    PLAYER_NAME;
+    PLAYER_NAME,
+
+    /**
+     * If specified and strictly positive used as the rollout sample
+     * size, without any dynamic tuning
+     */
+    FIXED_SAMPLE_SIZE;
   }
 
   private static final Properties MACHINE_PROPERTIES = new Properties();

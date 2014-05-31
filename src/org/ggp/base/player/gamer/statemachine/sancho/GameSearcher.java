@@ -597,7 +597,7 @@ public class GameSearcher implements Runnable, ActivityController
       startTime = System.currentTimeMillis();
       searchSeqRequested++;
       numIterations = 0;
-      mRootDepth = rootDepth;
+      setRootDepth(rootDepth);
 
       //  Clear stat averages
       mAverageFringeDepth.clear();
@@ -682,8 +682,8 @@ public class GameSearcher implements Runnable, ActivityController
       TreeNode node = lRequest.mNode.node;
       if (lRequest.mNode.seq == node.seq && !node.complete)
       {
-        mAverageFringeDepth.addSample(lRequest.mNode.node.getDepth() - mRootDepth);
-        mRMSFringeDepth.addSample(lRequest.mNode.node.getDepth() - mRootDepth);
+        mAverageFringeDepth.addSample(lRequest.mNode.node.getDepth() - getRootDepth());
+        mRMSFringeDepth.addSample(lRequest.mNode.node.getDepth() - getRootDepth());
         lRequest.mPath.resetCursor();
 
         if (lRequest.mPlayedMovesForWin != null)
@@ -793,5 +793,18 @@ public class GameSearcher implements Runnable, ActivityController
       mTerminateRequested = true;
       notifyAll();
     }
+  }
+
+  /**
+   * @return depth of root in game tree from initial state
+   */
+  public int getRootDepth()
+  {
+    return mRootDepth;
+  }
+
+  private void setRootDepth(int xiRootDepth)
+  {
+    mRootDepth = xiRootDepth;
   }
 }
