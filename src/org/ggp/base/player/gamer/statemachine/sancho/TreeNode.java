@@ -2727,11 +2727,10 @@ public class TreeNode
       //	If we have complete nodes with equal scores choose the one with the highest variance
       if (child.complete)
       {
-        double varianceMeasure = child.averageSquaredScores[roleIndex] / 100;
-
         if (moveScore < 0.1)
         {
-          moveScore = varianceMeasure - 100;
+          //  Prefer more distant losses to closer ones
+          moveScore = (child.completionDepth - tree.mGameSearcher.getRootDepth()) - 100;
         }
 
         selectionScore = moveScore;
