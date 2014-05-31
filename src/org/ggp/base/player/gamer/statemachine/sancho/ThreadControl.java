@@ -46,11 +46,10 @@ public class ThreadControl
    *
    * Unless configured otherwise, use half the available vCPUs.
    */
-  public static final int CPU_INTENSIVE_THREADS =
+  public static final int CPU_INTENSIVE_THREADS = RUN_SYNCHRONOUSLY ?
+               1 :
                MachineSpecificConfiguration.getCfgVal(CfgItem.CPU_INTENSIVE_THREADS,
-                                                      RUN_SYNCHRONOUSLY ? 1 :
-                                                                          HALF_STRENGTH ? ((((NUM_CPUS + 1) / 2) + 1) / 2) :
-                                                                                          ((NUM_CPUS + 1) / 2));
+                                                      HALF_STRENGTH ? ((((NUM_CPUS + 1) / 2) + 1) / 2) : ((NUM_CPUS + 1) / 2));
 
   /**
    * Whether to pin the CPU intensive threads to fixed cores to prevent core thrashing
