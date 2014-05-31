@@ -1372,7 +1372,7 @@ public class TreeNode
     if (depth < 2)
     {
       LOGGER.warn("Attempt to select unlikely node at depth " + depth);
-      tree.root.dumpTree("c:\\temp\\treeDump.txt");
+      //tree.root.dumpTree("c:\\temp\\treeDump.txt");
 
       return null;
     }
