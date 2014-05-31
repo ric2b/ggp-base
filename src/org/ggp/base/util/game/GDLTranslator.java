@@ -285,6 +285,8 @@ public class GDLTranslator
     final File lDir = new File(lDirName);
     lDir.mkdirs();
 
+    LOGGER.warn("Unrecognised game.  Created new game directory: " + lDirName);
+
     // Convert the GDL to a string.
     final StringBuffer lGDLBuffer = new StringBuffer();
     for (final Symbol lSymbol : xiFlatGDL)
