@@ -19,6 +19,8 @@ import org.ggp.base.util.profile.ProfilerSampleSetSimple;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
+import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
+import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 /**
@@ -207,8 +209,12 @@ public class StateMachinePerformanceAnalyser
         try
         {
           Thread lSearchProcessorThread = new Thread(gameSearcher, "Search Processor");
-          lSearchProcessorThread.setDaemon(true);
-          lSearchProcessorThread.start();
+
+          if (!ThreadControl.RUN_SYNCHRONOUSLY)
+          {
+            lSearchProcessorThread.setDaemon(true);
+            lSearchProcessorThread.start();
+          }
 
           gameSearcher.setup(theMachine,
                              initialState,
@@ -221,7 +227,25 @@ public class StateMachinePerformanceAnalyser
           endTime = System.currentTimeMillis() + numSeconds*1000;
           gameSearcher.startSearch(endTime, initialState, 0);
 
-          Thread.sleep(endTime - System.currentTimeMillis());
+          if (ThreadControl.RUN_SYNCHRONOUSLY)
+          {
+            try
+            {
+              while (System.currentTimeMillis() < endTime && !gameSearcher.isComplete())
+              {
+                gameSearcher.expandSearch(true);
+              }
+            }
+            catch (MoveDefinitionException | TransitionDefinitionException e)
+            {
+              // TODO Auto-generated catch block
+              e.printStackTrace();
+            }
+          }
+          else
+          {
+            Thread.sleep(endTime - System.currentTimeMillis());
+          }
 
           PerformanceInfo perfInfo = gamesList.get(gameKey);
           if ( perfInfo == null )
