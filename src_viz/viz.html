@@ -186,7 +186,9 @@
                        '<td style="white-space:nowrap" valign="top">' +
                        lDate.toLocaleString() + '.' + lDate.getMilliseconds().pad(3) +
                        '</td><td valign="top">' + this.level + '</td><td>' +
-                       this.message + '</td></tr>'
+                       this.message +
+                       ((this.throwable) ? '<br/>' + this.throwable : '') +
+                       '</td></tr>'
             lLogTable.append(lRow);
           });
         }

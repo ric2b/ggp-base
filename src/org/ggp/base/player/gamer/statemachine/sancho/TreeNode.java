@@ -2683,7 +2683,7 @@ public class TreeNode
     assert(lRecursiveCall || roleIndex == 0);
     if ( children == null )
     {
-      LOGGER.warn("NO CHILDREN!");
+      LOGGER.error("NO CHILDREN!");
     }
     assert(children != null);
 

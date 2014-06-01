@@ -115,7 +115,7 @@ class RolloutProcessor implements Runnable
       {
         // Get timing information
         lNow = System.nanoTime();
-        lUsefulWork -= lNow;
+        long lStart = lNow;
         lBlockedFor += lNow;
 
         // Do the rollouts
@@ -125,7 +125,7 @@ class RolloutProcessor implements Runnable
 
         // Get timing information
         lNow = System.nanoTime();
-        lUsefulWork += lNow;
+        lUsefulWork += (lNow - lStart);
 
         // Occasionally, update the sample size
         if ((GameSearcher.USE_DYNAMIC_SAMPLE_SIZING) && (lNow > lNextPerfStatsReportTime))
@@ -133,8 +133,6 @@ class RolloutProcessor implements Runnable
           publishPerfStats(lUsefulWork, lBlockedFor);
           lNextPerfStatsReportTime += lPerfStatsUpdateInterval;
         }
-
-        lBlockedFor -= lNow;
       }
       catch (Exception lEx)
       {
@@ -147,12 +145,17 @@ class RolloutProcessor implements Runnable
         {
           // Unexpected exception handling a piece of work.  Attempt to carry on.  If there's an outstanding call to
           // completedRollout on the pipeline, it's crucial that we call it now - otherwise we'll leak a pipeline slot.
-          LOGGER.error("Exception in RolloutProcessor: " + lEx);
+          LOGGER.error("Exception in RolloutProcessor", lEx);
           if (lCompleteOutstanding)
           {
             mPipeline.completedRollout(mThreadIndex);
           }
         }
+      }
+      finally
+      {
+        lNow = System.nanoTime();
+        lBlockedFor -= lNow;
       }
     }
   }

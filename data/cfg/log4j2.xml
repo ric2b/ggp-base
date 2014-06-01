@@ -2,7 +2,11 @@
 <Configuration status="WARN">
   <Appenders>
   
-    <Console name="Console" target="SYSTEM_OUT">
+    <Console name="ConsoleOut" target="SYSTEM_OUT">
+      <PatternLayout pattern="%d{HH:mm:ss.SSS} %level{ERROR=!, WARN=?, INFO=-, DEBUG=., TRACE=.} %msg%n"/>
+    </Console>
+    
+    <Console name="ConsoleErr" target="SYSTEM_ERR">
       <PatternLayout pattern="%d{HH:mm:ss.SSS} %level{ERROR=!, WARN=?, INFO=-, DEBUG=., TRACE=.} %msg%n"/>
     </Console>
     
@@ -25,9 +29,10 @@
       </Routes>
     </Routing>
     <Async name="AsyncMatchWrapper">
-      <AppenderRef ref="MatchLogs" level="debug"/>
+      <AppenderRef ref="MatchLogs"     level="debug"/>
       <AppenderRef ref="JSONMatchLogs" level="debug"/>
-      <AppenderRef ref="Console" level = "info"/>
+      <AppenderRef ref="ConsoleOut"    level="info"/>
+      <AppenderRef ref="ConsoleErr"    level="error"/>
     </Async>
             
     <Routing name="MatchStatsLogs">
