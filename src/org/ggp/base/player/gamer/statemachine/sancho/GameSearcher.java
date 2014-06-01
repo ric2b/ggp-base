@@ -14,6 +14,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.Move;
+import org.ggp.base.util.statemachine.exceptions.GDLException;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
@@ -217,23 +218,21 @@ public class GameSearcher implements Runnable, ActivityController
     long lNextUpdateSampleSizeTime = 0;
     long lNextStatsTime = System.currentTimeMillis() + STATS_LOG_INTERVAL_MS;
 
-    // TODO Auto-generated method stub
     try
     {
       while (searchAvailable() && (!mTerminateRequested))
       {
-        if (lNextUpdateSampleSizeTime == 0)
-        {
-          LOGGER.info("Starting sample size update timer");
-          lNextUpdateSampleSizeTime = System.currentTimeMillis() + SAMPLE_SIZE_UPDATE_INTERVAL_MS;
-        }
-
         try
         {
-          boolean complete = false;
-
           LOGGER.info("Move search started");
 
+          if (lNextUpdateSampleSizeTime == 0)
+          {
+            LOGGER.info("Starting sample size update timer");
+            lNextUpdateSampleSizeTime = System.currentTimeMillis() + SAMPLE_SIZE_UPDATE_INTERVAL_MS;
+          }
+
+          boolean complete = false;
           while (!complete && !mTerminateRequested)
           {
             long time = System.currentTimeMillis();
@@ -324,14 +323,21 @@ public class GameSearcher implements Runnable, ActivityController
           // sample size.
           mSuppressSampleSizeUpdate = true;
         }
-        catch (TransitionDefinitionException | MoveDefinitionException | GoalDefinitionException e)
+        catch (GDLException lEx)
         {
-          e.printStackTrace();
+          LOGGER.error("GDLException: " + lEx);
+          lEx.printStackTrace();
+        }
+        catch (AssertionError lEx)
+        {
+          LOGGER.error("AssertionError: " + lEx);
+          throw new AssertionError("Rethrown AssertionError", lEx);
         }
       }
     }
     catch (InterruptedException e)
     {
+      LOGGER.warn("Game search unexpectedly interrupted");
       e.printStackTrace();
     }
 

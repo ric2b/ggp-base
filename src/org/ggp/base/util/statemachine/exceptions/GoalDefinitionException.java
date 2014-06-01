@@ -5,7 +5,7 @@ import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Role;
 
 @SuppressWarnings("serial")
-public final class GoalDefinitionException extends Exception
+public final class GoalDefinitionException extends GDLException
 {
 
   private final Role         role;

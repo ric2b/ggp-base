@@ -1953,10 +1953,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   }
 
   /**
-   * Checks whether a specified move is legal for role in state.
+   * @return whether a specified move is legal for a role in a state.
+   *
+   * @param state - the state.
+   * @param role  - the role.
+   * @param move  - the proposed move.
+   *
+   * @throws MoveDefinitionException if the GDL is malformed.
    */
-  public boolean isLegalMove(MachineState state, Role role, Move move)
-      throws MoveDefinitionException
+  public boolean isLegalMove(MachineState state, Role role, Move move) throws MoveDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.isLegalMove");
     try
@@ -1964,18 +1969,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       setPropNetUsage(state);
       setBasePropositionsFromState(state);
 
-      Map<GdlSentence, PolymorphicProposition> inputProps = propNet
-          .getInputPropositions();
+      Map<GdlSentence, PolymorphicProposition> inputProps = propNet.getInputPropositions();
 
       GdlSentence moveSentence = ProverQueryBuilder.toDoes(role, move);
-      PolymorphicProposition moveInputProposition = inputProps
-          .get(moveSentence);
-      PolymorphicProposition legalProp = propNet.getLegalInputMap()
-          .get(moveInputProposition);
+      PolymorphicProposition moveInputProposition = inputProps.get(moveSentence);
+      PolymorphicProposition legalProp = propNet.getLegalInputMap().get(moveInputProposition);
       if (legalProp != null)
       {
-        return ((ForwardDeadReckonComponent)legalProp.getSingleInput())
-            .getValue(instanceId);
+        return ((ForwardDeadReckonComponent)legalProp.getSingleInput()).getValue(instanceId);
       }
 
       throw new MoveDefinitionException(state, role);
@@ -2592,8 +2593,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           recentLegalMoveSetsList.keySet().contains(role))
       {
         previouslyAvailableMoves = recentLegalMoveSetsList.get(role);
-        Move result = previouslyAvailableMoves
-            .get(getRandom(previouslyAvailableMoves.size()));
+        Move result = previouslyAvailableMoves.get(getRandom(previouslyAvailableMoves.size()));
 
         if (isLegalMove(state, role, result))
         {

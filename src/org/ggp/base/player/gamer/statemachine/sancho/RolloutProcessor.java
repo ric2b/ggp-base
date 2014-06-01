@@ -105,31 +105,55 @@ class RolloutProcessor implements Runnable
     long lBlockedFor = -lNow;
 
     // Continually process requests until interrupted.
+    boolean lCompleteOutstanding = false;
     for (RolloutRequest lRequest = mPipeline.getNextRolloutRequest(mThreadIndex);
          !Thread.interrupted();
          lRequest = mPipeline.getNextRolloutRequest(mThreadIndex))
     {
-      // Get timing information
-      lNow = System.nanoTime();
-      lUsefulWork -= lNow;
-      lBlockedFor += lNow;
-
-      // Do the rollouts
-      lRequest.process(mStateMachine, mOurRole, mRoleOrdering);
-      mPipeline.completedRollout(mThreadIndex);
-
-      // Get timing information
-      lNow = System.nanoTime();
-      lUsefulWork += lNow;
-
-      // Occasionally, update the sample size
-      if ((GameSearcher.USE_DYNAMIC_SAMPLE_SIZING) && (lNow > lNextPerfStatsReportTime))
+      lCompleteOutstanding = true;
+      try
       {
-        publishPerfStats(lUsefulWork, lBlockedFor);
-        lNextPerfStatsReportTime += lPerfStatsUpdateInterval;
-      }
+        // Get timing information
+        lNow = System.nanoTime();
+        lUsefulWork -= lNow;
+        lBlockedFor += lNow;
 
-      lBlockedFor -= lNow;
+        // Do the rollouts
+        lRequest.process(mStateMachine, mOurRole, mRoleOrdering);
+        mPipeline.completedRollout(mThreadIndex);
+        lCompleteOutstanding = false;
+
+        // Get timing information
+        lNow = System.nanoTime();
+        lUsefulWork += lNow;
+
+        // Occasionally, update the sample size
+        if ((GameSearcher.USE_DYNAMIC_SAMPLE_SIZING) && (lNow > lNextPerfStatsReportTime))
+        {
+          publishPerfStats(lUsefulWork, lBlockedFor);
+          lNextPerfStatsReportTime += lPerfStatsUpdateInterval;
+        }
+
+        lBlockedFor -= lNow;
+      }
+      catch (Exception lEx)
+      {
+        if (lEx instanceof InterruptedException)
+        {
+          // We expect to be interrupted and handle it in the loop condition.  Just interrupt the thread again.
+          Thread.currentThread().interrupt();
+        }
+        else
+        {
+          // Unexpected exception handling a piece of work.  Attempt to carry on.  If there's an outstanding call to
+          // completedRollout on the pipeline, it's crucial that we call it now - otherwise we'll leak a pipeline slot.
+          LOGGER.error("Exception in RolloutProcessor: " + lEx);
+          if (lCompleteOutstanding)
+          {
+            mPipeline.completedRollout(mThreadIndex);
+          }
+        }
+      }
     }
   }
 

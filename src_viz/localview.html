@@ -10,6 +10,7 @@
 
     <script type="text/javascript">
       var lMatchID = window.location.pathname.split("/")[2];
+      // var expURL = 'http://99.129.135.39:9199/' + lMatchID;
       var expURL = 'http://localhost:9199/' + lMatchID;
       var expData = ResourceLoader.load_raw(expURL);
       if (expData == null)
