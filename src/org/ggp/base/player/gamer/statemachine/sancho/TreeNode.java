@@ -2307,7 +2307,7 @@ public class TreeNode
       //	FUTURE - can establish a bound on the trimmed UCT value to avoid
       //	randomization for a while at least
       int childIndex = tree.r.nextInt(children.length);
-      selected = children[childIndex];
+      selected = children[childIndex].selectAs;
       TreeNodeRef cr = selected.child;
 
       tree.numSelectionsThroughIncompleteNodes++;
