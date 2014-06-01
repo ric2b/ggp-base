@@ -1,6 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeRef;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 
 class TreeEdge
@@ -25,10 +26,9 @@ class TreeEdge
   }
 
   int                                      numChildVisits             = 0;
-  TreeNodeRef                              child;
+  TreeNodeRef                              child                      = null;
   ForwardDeadReckonLegalMoveInfo[]         jointPartialMove;
   TreeEdge                                 selectAs;
-  boolean                                  hasCachedPatternMatchValue = false;
-  double                                   cachedPatternMatchValue;
+  ForwardDeadReckonInternalMachineState    state;
   double                                   explorationAmplifier       = 0;
 }

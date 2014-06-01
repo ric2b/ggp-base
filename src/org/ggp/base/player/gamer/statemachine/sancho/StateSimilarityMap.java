@@ -231,7 +231,8 @@ public class StateSimilarityMap
             {
               for(TreeEdge childEdge : node.children)
               {
-                if ( childEdge.child.seq >= 0 &&
+                if ( childEdge.child != null &&
+                     childEdge.child.seq >= 0 &&
                      childEdge.child.seq == childEdge.child.node.seq &&
                      childEdge.child.node.numVisits > 0 )
                 {

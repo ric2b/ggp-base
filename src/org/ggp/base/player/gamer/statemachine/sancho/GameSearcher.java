@@ -156,6 +156,8 @@ public class GameSearcher implements Runnable, ActivityController
     mGameCharacteristics = gameCharacteristics;
     mPlan = plan;
 
+    StateInfo.createBuffer(underlyingStateMachine.getRoles().size());
+
     if (ThreadControl.ROLLOUT_THREADS > 0)
     {
       mPipeline = new Pipeline(PIPELINE_SIZE, underlyingStateMachine.getRoles().size());
@@ -717,7 +719,6 @@ public class GameSearcher implements Runnable, ActivityController
 
         node.updateStats(lRequest.mAverageScores,
                          lRequest.mAverageSquaredScores,
-                         lRequest.mSampleSize,
                          lRequest.mPath,
                          false);
       }
