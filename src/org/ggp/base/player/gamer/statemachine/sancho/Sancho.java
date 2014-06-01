@@ -742,7 +742,7 @@ public class Sancho extends SampleGamer
     else
     {
       rolloutSampleSize = (int)(simulationsPerformed /
-                                (2.5 * (simulationStopTime - simulationStartTime)) + 1);
+                                (5 * (simulationStopTime - simulationStartTime)) + 1);
       if (rolloutSampleSize > 100)
       {
         rolloutSampleSize = 100;
