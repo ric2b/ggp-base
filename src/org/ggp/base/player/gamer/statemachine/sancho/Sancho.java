@@ -894,7 +894,6 @@ public class Sancho extends SampleGamer
 
       //validateAll();
       bestMove = searchProcessor.getBestMove();
-      LOGGER.info("Num iterations: " + searchProcessor.getNumIterations());
 
       if (!moves.contains(bestMove))
       {

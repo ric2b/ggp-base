@@ -42,24 +42,55 @@
           Highcharts.setOptions(
           {
             global:      {useUTC: false},
-            chart:       {marginRight: 80},
+            chart:       {
+                           marginRight: 80,
+                           alignTicks:  false
+                         },
             credits:     {
                            text: 'Sancho Stats',
                            href: 'http://sanchoggp.blogspot.com/'
                          },
-            plotOptions: {line: {marker: {enabled: false}}}
+            plotOptions: {
+                           line:
+                           {
+                             marker: {enabled: false},
+                             stickyTracking: false
+                           }
+                         }
+          });
+
+          $('#SCORE').highcharts(
+          {
+            title:   {text: 'Score'},
+            xAxis:   {type: 'datetime'},
+            yAxis:   [
+                       {
+                         title: {text: 'Score'},
+                         min: 0,
+                         max: 100
+                       }
+                    ]
           });
 
           $('#MEM').highcharts(
           {
-            title:   {text: 'Memory'},
-            xAxis:   {type: 'datetime'},
-            yAxis:   [
-                       {
-                         title: {text: 'bytes'},
-                         min: 0
-                       }
-                    ]
+            title: {text: 'Memory'},
+            xAxis: {type: 'datetime'},
+            yAxis: [
+                     {
+                       title: {text: 'Bytes'},
+                       min: 0
+                     },
+                     {
+                       opposite: true,
+                       gridLineWidth: 0,
+                       tickWidth: 1,
+
+                       title: {text: 'Percentage'},
+                       min: 0,
+                       max: 100
+                     }
+                  ]
           });
 
           $('#GC').highcharts(
@@ -72,8 +103,11 @@
                        min:      0
                      },
                      {
-                       title:    {text: 'count'},
                        opposite: true,
+                       gridLineWidth: 0,
+                       tickWidth: 1,
+
+                       title:    {text: 'Count'},
                        min:      0
                      }
                    ]
@@ -89,8 +123,11 @@
                        min:   0
                      },
                      {
-                       title: {text: 'Rollouts/expansion'},
                        opposite: true,
+                       gridLineWidth: 0,
+                       tickWidth: 1,
+
+                       title: {text: 'Rollouts/expansion'},
                        min: 0
                      }
                    ]
@@ -261,9 +298,10 @@
   </head>
 
   <body>
-    <div id="MEM"  class="SanchoGraph" style="height: 300px"></div>
-    <div id="GC"   class="SanchoGraph" style="height: 300px"></div>
-    <div id="PERF" class="SanchoGraph" style="height: 300px"></div>
+    <div id="SCORE" class="SanchoGraph" style="height: 300px"></div>
+    <div id="MEM"   class="SanchoGraph" style="height: 300px"></div>
+    <div id="GC"    class="SanchoGraph" style="height: 300px"></div>
+    <div id="PERF"  class="SanchoGraph" style="height: 300px"></div>
     <hr/>
     <p>Show logs at level
       <select onchange="filterLogs(this);">

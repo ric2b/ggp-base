@@ -242,6 +242,7 @@ public class GameSearcher implements Runnable, ActivityController
             {
               StringBuffer lLogBuf = new StringBuffer(1024);
               Series.NODE_EXPANSIONS.logDataPoint(lLogBuf, time, mNumIterations);
+              Series.POOL_USAGE.logDataPoint(lLogBuf, time, nodePool.getPoolUsage());
 
               //Future intent will be to add these to the stats logger when it is stable
               //double fringeDepth = mAverageFringeDepth.getMean();
@@ -260,7 +261,7 @@ public class GameSearcher implements Runnable, ActivityController
                 {
                   //  Calculate the tree aspect ratio, which is the ratio of the observed average fringe
                   //  depth to its expected depth given its observed branching factor
-                  double aspect = fringeDepth/(Math.log(nodePool.getNumUsedItems())/Math.log(branchingFactor));
+                  double aspect = fringeDepth/(Math.log(nodePool.getNumItemsInUse())/Math.log(branchingFactor));
 
                   if ( aspect < 1.2 && currentExplorationBias > 0.2 )//minExplorationBias )
                   {
@@ -373,8 +374,6 @@ public class GameSearcher implements Runnable, ActivityController
 
       FactorMoveChoiceInfo bestChoice = null;
 
-      LOGGER.info("Num tree node frees: " + nodePool.getNumFreedItems());
-      LOGGER.info("Num tree nodes currently in use: " + nodePool.getNumUsedItems());
       //  The following will move to (or also reflect in) the stats logger once it is stable
       double fringeDepth = mAverageFringeDepth.getAverage();
       double RMSFringDepth = mRMSFringeDepth.getAverage();
@@ -386,7 +385,7 @@ public class GameSearcher implements Runnable, ActivityController
         LOGGER.info("Average branching factor: " + branchingFactor);
         //  Calculate the tree aspect ratio, which is the ratio of the observed average fringe
         //  depth to its expected depth given its observed branching factor
-        double aspect = fringeDepth/(Math.log(nodePool.getNumUsedItems())/Math.log(branchingFactor));
+        double aspect = fringeDepth/(Math.log(nodePool.getNumItemsInUse())/Math.log(branchingFactor));
         LOGGER.info("Tree aspect ratio: " + aspect);
       }
 
@@ -396,7 +395,7 @@ public class GameSearcher implements Runnable, ActivityController
         FactorMoveChoiceInfo factorChoice = tree.getBestMove();
         if (factorChoice.bestMove != null)
         {
-          LOGGER.info("  Factor best move: " + factorChoice.bestMove);
+          LOGGER.debug("  Factor best move: " + factorChoice.bestMove);
 
           if (bestChoice == null)
           {
@@ -410,19 +409,19 @@ public class GameSearcher implements Runnable, ActivityController
             {
               //  If no-oping this factor is a certain loss but the same is not true of the other
               //  factor then take this factor
-              LOGGER.info("  Factor move is avoids a loss so selecting");
+              LOGGER.debug("  Factor move avoids a loss so selecting");
               bestChoice = factorChoice;
             }
             // Complete win dominates everything else
-            else if (factorChoice.bestMoveValue == 100)
+            else if (factorChoice.bestMoveValue > 99.9)
             {
-              LOGGER.info("  Factor move is a win so selecting");
+              LOGGER.debug("  Factor move is a win so selecting");
               bestChoice = factorChoice;
             }
-            else if ((bestChoice.bestMoveValue == 100 && bestChoice.bestMoveIsComplete) ||
-                     (factorChoice.bestMoveValue <= 0 && factorChoice.bestMoveIsComplete))
+            else if ((bestChoice.bestMoveValue > 99.9 && bestChoice.bestMoveIsComplete) ||
+                     (factorChoice.bestMoveValue <= 0.1 && factorChoice.bestMoveIsComplete))
             {
-              LOGGER.info("  Already selected factor move is a win or this move is a loss - not selecting");
+              LOGGER.debug("  Already selected factor move is a win or this move is a loss - not selecting");
               continue;
             }
             // otherwise choose the one that reduces the resulting net chances the least weighted
@@ -435,24 +434,25 @@ public class GameSearcher implements Runnable, ActivityController
                   factorChoice.bestMoveValue*(factorChoice.bestMoveValue - factorChoice.pseudoNoopValue))
               {
                 bestChoice = factorChoice;
-                LOGGER.info("  This factor score is superior - selecting");
+                LOGGER.debug("  This factor score is superior - selecting");
               }
               else
               {
-                LOGGER.info("  This factor score is inferior - not selecting");
+                LOGGER.debug("  This factor score is inferior - not selecting");
               }
             }
           }
         }
         else
         {
-          LOGGER.info("  Factor best move is NULL");
+          LOGGER.warn("  Factor best move is NULL");
         }
 
         //tree.root.dumpTree("c:\\temp\\treeDump_factor" + factorIndex + ".txt");
       }
 
       assert(bestChoice != null);
+      StatsLogUtils.Series.SCORE.logDataPoint((long)(bestChoice.bestMoveValue + 0.5));
       return bestChoice.bestMove;
     }
   }

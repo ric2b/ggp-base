@@ -81,8 +81,6 @@ public class MCTSTree
   double[]                                             roleRationality                             = null;
   long                                                 numCompletionsProcessed                     = 0;
   Random                                               r                                           = new Random();
-  int                                                  numUniqueTreeNodes                          = 0;
-  int                                                  numTotalTreeNodes                           = 0;
   int                                                  numTerminalRollouts                         = 0;
   int                                                  numNonTerminalRollouts                      = 0;
   int                                                  numIncompleteNodes                          = 0;
@@ -163,8 +161,6 @@ public class MCTSTree
 
   public void empty()
   {
-    numUniqueTreeNodes = 0;
-    numTotalTreeNodes = 0;
     numCompletedBranches = 0;
     numNormalExpansions = 0;
     numAutoExpansions = 0;
@@ -192,14 +188,11 @@ public class MCTSTree
       TreeNode result = ((state != null && SUPPORT_TRANSITIONS && !disallowTransposition) ? positions.get(state) : null);
 
       //validateAll();
-      numTotalTreeNodes++;
       //  Use of pseudo-noops in factors can result in recreation of the root state (only)
       //  a lower level with a joint move of (pseudo-noop, noop, noop, ..., noop).  This
       //  must not be linked back to or else a loop will be created
       if ((!SUPPORT_TRANSITIONS || result == null) || result == root)
       {
-        numUniqueTreeNodes++;
-
         //LOGGER.debug("Add state " + state);
         result = nodePool.allocate(mTreeNodeAllocator);
         result.state = state;
@@ -340,12 +333,13 @@ public class MCTSTree
     return root.complete;
   }
 
-  FactorMoveChoiceInfo getBestMove()
+  /**
+   * @return the best top-level move from this tree.
+   */
+  public FactorMoveChoiceInfo getBestMove()
   {
     FactorMoveChoiceInfo bestMoveInfo = root.getBestMove(true, null);
 
-    LOGGER.info("Num total tree node allocations: " + numTotalTreeNodes);
-    LOGGER.info("Num unique tree node allocations: " + numUniqueTreeNodes);
     LOGGER.info("Num true rollouts added: " + numNonTerminalRollouts);
     LOGGER.info("Num terminal nodes revisited: " + numTerminalRollouts);
     LOGGER.info("Num incomplete nodes: " + numIncompleteNodes);

@@ -58,7 +58,7 @@ public class CappedPool<ItemType>
   }
 
   // Maximum number of items to allocate.
-  private final int                                    mTableSize;
+  private final int                                    mPoolSize;
 
   // The pool of items.
   private final ItemType[]                             mItems;
@@ -68,7 +68,7 @@ public class CappedPool<ItemType>
 
   // Array index of the largest allocated item.  Used to track whether an attempt to allocate a new item should really
   // allocate a new item (if we're not yet at the maximum) or re-use and existing item.  This can never exceed
-  // mTableSize.
+  // mPoolSize.
   private int                                          mLargestUsedIndex = -1;
 
   // The sequence number to assign to the next allocated item.  Every call to allocate() results in a unique sequence
@@ -78,21 +78,19 @@ public class CappedPool<ItemType>
 
   // Statistical information about pool usage.
   //
-  // - The number of items that are currently in use.
-  // - The number of times that items have been returned to the pool.
-  private int                                          mNumUsedItems     = 0;
-  private int                                          mNumFreedItems    = 0;
+  // - The number of items currently is use.
+  private int                                          mNumItemsInUse = 0;
 
   /**
    * Create a new pool of the specified maximum size.
    *
-   * @param tableSize - the pool size.
+   * @param xiPoolSize - the pool size.
    */
   @SuppressWarnings("unchecked")
-  public CappedPool(int tableSize)
+  public CappedPool(int xiPoolSize)
   {
-    mTableSize = tableSize;
-    mItems = (ItemType[])(new Object[tableSize]);
+    mPoolSize = xiPoolSize;
+    mItems = (ItemType[])(new Object[xiPoolSize]);
   }
 
   /**
@@ -108,9 +106,17 @@ public class CappedPool<ItemType>
   /**
    * @return the number of items currently in active use.
    */
-  public int getNumUsedItems()
+  public int getNumItemsInUse()
   {
-    return mNumUsedItems;
+    return mNumItemsInUse;
+  }
+
+  /**
+   * @return the percentage of this pool that is in use.
+   */
+  public int getPoolUsage()
+  {
+    return mNumItemsInUse * 100 / mPoolSize;
   }
 
   /**
@@ -121,14 +127,6 @@ public class CappedPool<ItemType>
   public int getAge(int seq)
   {
     return mNextSeq - seq;
-  }
-
-  /**
-   * @return the number of times that free() has been called for this pool.
-   */
-  public int getNumFreedItems()
-  {
-    return mNumFreedItems;
   }
 
   /**
@@ -144,7 +142,7 @@ public class CappedPool<ItemType>
   {
     ItemType lAllocatedItem;
 
-    if (mLargestUsedIndex < mTableSize - 1)
+    if (mLargestUsedIndex < mPoolSize - 1)
     {
       // If we haven't allocated the maximum number of items yet, just allocate another.
       lAllocatedItem = xiAllocator.newObject(mNextSeq++);
@@ -153,14 +151,14 @@ public class CappedPool<ItemType>
     else
     {
       // We've allocated the maximum number of items, so grab one from the freed list.
-      assert(!mFreeList.isEmpty()) : "Unexpectedly full transition table";
+      assert(!mFreeList.isEmpty()) : "Unexpectedly full pool";
       lAllocatedItem = mFreeList.remove(0);
 
       // Reset the item so that it's ready for re-use.
       xiAllocator.resetObject(lAllocatedItem, false, mNextSeq++);
     }
 
-    mNumUsedItems++;
+    mNumItemsInUse++;
     return lAllocatedItem;
   }
 
@@ -173,8 +171,7 @@ public class CappedPool<ItemType>
    */
   public void free(ItemType xiItem)
   {
-    mNumFreedItems++;
-    mNumUsedItems--;
+    mNumItemsInUse--;
     mFreeList.add(xiItem);
   }
 
@@ -185,7 +182,7 @@ public class CappedPool<ItemType>
    */
   public boolean isFull()
   {
-    return (mNumUsedItems > mTableSize - 200);
+    return (mNumItemsInUse > mPoolSize - 200);
   }
 
   /**
@@ -208,9 +205,7 @@ public class CappedPool<ItemType>
         mFreeList.add(mItems[i]);
       }
 
-      mNumUsedItems = 0;
-      mNumFreedItems = 0;
-      mNumFreedItems = 0;
+      mNumItemsInUse = 0;
       mNextSeq = 0;
     }
     else
@@ -222,9 +217,7 @@ public class CappedPool<ItemType>
         {
           xiAllocator.resetObject(mItems[i], true, NULL_ITEM_SEQ);
           mFreeList.add(mItems[i]);
-          mNumUsedItems--;
-          // We don't increment numFreedItems here since what it is (intentionally) measuring and reporting is how
-          // much forced trimming is going on.
+          mNumItemsInUse--;
         }
       }
     }
