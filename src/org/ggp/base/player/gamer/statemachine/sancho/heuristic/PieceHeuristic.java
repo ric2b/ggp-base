@@ -19,6 +19,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.stats.PearsonCorrelation;
+import org.w3c.tidy.MutableInteger;
 
 /**
  * Heuristic which assumes that it's better to have more pieces than few.
@@ -39,7 +40,6 @@ public class PieceHeuristic implements Heuristic
   //  The following track runtime usage state and are dependent on the current game-state
   private TreeNode                                                       rootNode                  = null;
   private int                                                            heuristicSampleWeight     = 10;
-  private double[]                                                       heuristicStateValueBuffer = null;
   private int[]                                                          rootPieceCounts           = null;
   private boolean                                                        mTuningComplete           = false;
 
@@ -121,13 +121,12 @@ public class PieceHeuristic implements Heuristic
 
   private PieceHeuristic(PieceHeuristic copyFrom)
   {
-    propGroupScoreSets        = copyFrom.propGroupScoreSets;
-    numRoles                  = copyFrom.numRoles;
-    pieceSets                 = copyFrom.pieceSets;
-    totalSimulatedTurns       = copyFrom.totalSimulatedTurns;
+    propGroupScoreSets         = copyFrom.propGroupScoreSets;
+    numRoles                   = copyFrom.numRoles;
+    pieceSets                  = copyFrom.pieceSets;
+    totalSimulatedTurns        = copyFrom.totalSimulatedTurns;
     //  The following track runtime usage state and are dependent on the current game-state
-    heuristicStateValueBuffer = new double[numRoles];
-    rootPieceCounts           = new int[numRoles];
+    rootPieceCounts            = new int[numRoles];
   }
 
   @Override
@@ -136,7 +135,6 @@ public class PieceHeuristic implements Heuristic
   {
     pieceSets = null;
     numRoles = stateMachine.getRoles().size();
-    heuristicStateValueBuffer = new double[numRoles];
     rootPieceCounts = new int[numRoles];
 
     Map<String, GdlFunctionInfo> basePropFns = new HashMap<>();
@@ -380,8 +378,10 @@ public class PieceHeuristic implements Heuristic
   }
 
   @Override
-  public double[] getHeuristicValue(ForwardDeadReckonInternalMachineState state,
-                                    ForwardDeadReckonInternalMachineState previousState)
+  public void getHeuristicValue(ForwardDeadReckonInternalMachineState state,
+                                ForwardDeadReckonInternalMachineState previousState,
+                                double[] xoHeuristicValue,
+                                MutableInteger xoHeuristicWeight)
   {
     double total = 0;
     double rootTotal = 0;
@@ -391,7 +391,7 @@ public class PieceHeuristic implements Heuristic
       // Set the initial heuristic value for this role according to the difference in number of pieces between this
       // state and the current state in the tree root.
       int numPieces = pieceSets[i].intersectionSize(state);
-      heuristicStateValueBuffer[i] = numPieces - rootPieceCounts[i];
+      xoHeuristicValue[i] = numPieces - rootPieceCounts[i];
 
       total += numPieces;
       rootTotal += rootPieceCounts[i];
@@ -401,13 +401,13 @@ public class PieceHeuristic implements Heuristic
       if (numPieces == rootPieceCounts[i] &&
           previousNumPieces < rootPieceCounts[i])
       {
-        heuristicStateValueBuffer[i] += 0.1;
+        xoHeuristicValue[i] += 0.1;
         total += 0.1;
       }
       else if (numPieces == rootPieceCounts[i] &&
                previousNumPieces > rootPieceCounts[i])
       {
-        heuristicStateValueBuffer[i] -= 0.1;
+        xoHeuristicValue[i] -= 0.1;
         total -= 0.1;
       }
     }
@@ -418,16 +418,14 @@ public class PieceHeuristic implements Heuristic
       {
         // There has been an overall change in the number of pieces.  Calculate the proportion of that total gained/lost
         // by this role and use that to generate a new average heuristic value for the role.
-        double proportion = (heuristicStateValueBuffer[i] - (total - rootTotal) /
-                                                            numRoles) /
-                            (total / numRoles);
-        heuristicStateValueBuffer[i] = 100 / (1 + Math.exp(-proportion * 10));
+        double proportion = (xoHeuristicValue[i] - (total - rootTotal) / numRoles) / (total / numRoles);
+        xoHeuristicValue[i] = 100 / (1 + Math.exp(-proportion * 10));
       }
       else
       {
         // There has been no overall change to the number of pieces.  Assume an average value.
         // !! ARR Why?
-        heuristicStateValueBuffer[i] = 50;
+        xoHeuristicValue[i] = 50;
       }
 
       // Normalize against the root score since this is relative to the root state material balance.  Only do this if
@@ -440,31 +438,24 @@ public class PieceHeuristic implements Heuristic
         //
         // This assumes that the root's score is a very good basis as the initial estimate for this child node and is
         // certainly better than the heuristic value alone.
-        if (heuristicStateValueBuffer[i] > 50)
+        if (xoHeuristicValue[i] > 50)
         {
-          heuristicStateValueBuffer[i] = rootNode.averageScores[i] +
-                                         (100 - rootNode.averageScores[i]) *
-                                         (heuristicStateValueBuffer[i] - 50) /
-                                         50;
+          xoHeuristicValue[i] = rootNode.averageScores[i] +
+                                (100 - rootNode.averageScores[i]) *
+                                (xoHeuristicValue[i] - 50) /
+                                50;
         }
         else
         {
-          heuristicStateValueBuffer[i] = rootNode.averageScores[i] -
-                                         (rootNode.averageScores[i]) *
-                                         (50 - heuristicStateValueBuffer[i]) /
-                                         50;
+          xoHeuristicValue[i] = rootNode.averageScores[i] -
+                                (rootNode.averageScores[i]) *
+                                (50 - xoHeuristicValue[i]) /
+                                50;
         }
       }
     }
 
-
-    return heuristicStateValueBuffer;
-  }
-
-  @Override
-  public int getSampleWeight()
-  {
-    return heuristicSampleWeight;
+    xoHeuristicWeight.value = heuristicSampleWeight;
   }
 
   @Override

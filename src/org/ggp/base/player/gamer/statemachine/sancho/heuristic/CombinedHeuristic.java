@@ -10,6 +10,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.w3c.tidy.MutableInteger;
 
 /**
  * Heuristic whose value comes from combining other heuristics.
@@ -134,64 +135,46 @@ public class CombinedHeuristic implements Heuristic
   }
 
   @Override
-  public double[] getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                    ForwardDeadReckonInternalMachineState xiPreviousState)
+  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
+                                ForwardDeadReckonInternalMachineState xiPreviousState,
+                                double[] xoHeuristicValue,
+                                MutableInteger xoHeuristicWeight)
   {
-    double[] lValues = new double[mNumRoles];
+    int lTotalWeight = 0;
+    int lMaxWeight = 0;
+    xoHeuristicWeight.value = 0;
 
-    // Combine the values from the underlying heuristics.
+    // Combine the values from the underlying heuristics by taking a weighted average.
+    for (Heuristic lHeuristic : mHeuristics)
+    {
+      double[] lNewValues = new double[xoHeuristicValue.length];
+      lHeuristic.getHeuristicValue(xiState, xiPreviousState, lNewValues, xoHeuristicWeight);
+      lTotalWeight += xoHeuristicWeight.value;
+      for (int lii = 0; lii < xoHeuristicValue.length; lii++)
+      {
+        xoHeuristicValue[lii] += (lNewValues[lii] * xoHeuristicWeight.value);
+      }
+
+      if (xoHeuristicWeight.value > lMaxWeight)
+      {
+        lMaxWeight = xoHeuristicWeight.value;
+      }
+    }
+
+    if (lTotalWeight > 0)
+    {
+      for (int lii = 0; lii < xoHeuristicValue.length; lii++)
+      {
+        xoHeuristicValue[lii] /= lTotalWeight;
+      }
+    }
+
+    // Take the maximum-weighted heuristic.
     //
-    // For now, take a simple average.  This could be enhanced to take an average that is weighted by the sample weight.
-    // Additionally, as the heuristic values vary, the combined weight should decrease (reflecting the increased
-    // uncertainty in the combined heuristic value).
-    int lNumUsefulHeuristics = 0;
-    for (Heuristic lHeuristic : mHeuristics)
-    {
-      double[] lNewValues = lHeuristic.getHeuristicValue(xiState, xiPreviousState);
-      if (lHeuristic.getSampleWeight() != 0)
-      {
-        for (int lii = 0; lii < lValues.length; lii++)
-        {
-          lValues[lii] += lNewValues[lii];
-        }
-        lNumUsefulHeuristics++;
-      }
-    }
-
-    if (lNumUsefulHeuristics > 1)
-    {
-      for (int lii = 0; lii < lValues.length; lii++)
-      {
-        lValues[lii] /= lNumUsefulHeuristics;
-      }
-    }
-
-    return lValues;
-  }
-
-  @Override
-  public int getSampleWeight()
-  {
-    // For now, take a simple average of the underlying weights.
-    double lTotalWeight = 0;
-    int lNumUsefulHeuristics = 0;
-
-    for (Heuristic lHeuristic : mHeuristics)
-    {
-      int lSampleWeight = lHeuristic.getSampleWeight();
-      if (lSampleWeight != 0)
-      {
-        lTotalWeight += lHeuristic.getSampleWeight();
-        lNumUsefulHeuristics++;
-      }
-    }
-
-    if (lNumUsefulHeuristics > 1)
-    {
-      lTotalWeight /= lNumUsefulHeuristics;
-    }
-
-    return (int)lTotalWeight;
+    // We could do something more clever, whereby if all the heuristics were pointing in the same direction, we
+    // increased the weight and if they were all pulling if different directions, we decreased the weight.
+    // But hopefully this is good enough for now.
+    xoHeuristicWeight.value = lMaxWeight;
   }
 
   @Override

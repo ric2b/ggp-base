@@ -13,6 +13,7 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.stats.PearsonCorrelation;
+import org.w3c.tidy.MutableInteger;
 
 /**
  * Heuristic which assumes that it's better to have more choices of move (greater "mobility").
@@ -143,8 +144,10 @@ public class MobilityHeuristic implements Heuristic
   }
 
   @Override
-  public double[] getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                    ForwardDeadReckonInternalMachineState xiPreviousState)
+  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
+                                ForwardDeadReckonInternalMachineState xiPreviousState,
+                                double[] xoHeuristicValue,
+                                MutableInteger xoHeuristicWeight)
   {
     // Get the total mobility data from the previous state.
     MobilityData lMobilityData = ((MobilityData)(xiPreviousState.getHeuristicData(this)));
@@ -209,13 +212,12 @@ public class MobilityHeuristic implements Heuristic
 
     // Normalise the data to get heuristic values for the new state.
     double lAverageMobilityPerTurn = lGrandTotalChoices / lGrandTotalMovesWithChoices;
-    double[] lHeuristicValue = new double[lMobilityData.mNumRoles];
     for (int lii = 0; lii < lMobilityData.mNumRoles; lii++)
     {
       if (lMobilityData.mMovesWithChoiceForRole[lii] == 0)
       {
         // This role hasn't had any moves where it can make a choice yet.  Assume it'll get an average result.
-        lHeuristicValue[lii] = 50;
+        xoHeuristicValue[lii] = 50;
       }
       else
       {
@@ -223,17 +225,11 @@ public class MobilityHeuristic implements Heuristic
         double lRoleAverage = (double)lMobilityData.mTotalChoicesForRole[lii] /
                               (double)lMobilityData.mMovesWithChoiceForRole[lii];
         double lDeviation = (lRoleAverage - lAverageMobilityPerTurn) / lAverageMobilityPerTurn;
-        lHeuristicValue[lii] = 100 / (1 + Math.exp(-lDeviation));
+        xoHeuristicValue[lii] = 100 / (1 + Math.exp(-lDeviation));
       }
     }
 
-    return lHeuristicValue;
-  }
-
-  @Override
-  public int getSampleWeight()
-  {
-    return mWeight;
+    xoHeuristicWeight.value = mWeight;
   }
 
   @Override

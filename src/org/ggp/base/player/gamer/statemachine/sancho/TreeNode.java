@@ -26,6 +26,7 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
+import org.w3c.tidy.MutableInteger;
 
 public class TreeNode
 {
@@ -1566,8 +1567,7 @@ public class TreeNode
   }
 
   public void expand(TreeEdge from)
-      throws MoveDefinitionException, TransitionDefinitionException,
-      GoalDefinitionException
+    throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.expand");
     try
@@ -1733,6 +1733,7 @@ public class TreeNode
           }
         }
 
+        MutableInteger lWeight = new MutableInteger();
         if ( roleIndex == tree.numRoles - 1 )
         {
           for (index = firstNewIndex; index < newChildren.length; index++)
@@ -1742,11 +1743,11 @@ public class TreeNode
             {
               assert(newEdge.numChildVisits == 0);
 
-              // Determine the heuristic value for this child (provided that it's a new non-terminal child).
-              int lSampleWeight = tree.heuristic.getSampleWeight();
-              if ( lSampleWeight > 0 )
+              // Determine the heuristic value for this child.
+              double[] heuristicScores = new double[tree.numRoles];
+              tree.heuristic.getHeuristicValue(newEdge.state, state, heuristicScores, lWeight);
+              if (lWeight.value > 0)
               {
-                double[] heuristicScores = tree.heuristic.getHeuristicValue(newEdge.state, state);
                 double heuristicSquaredDeviation = 0;
 
                 //validateScoreVector(heuristicScores);
@@ -1774,11 +1775,11 @@ public class TreeNode
                   {
                     for (int i = 0; i < tree.numRoles; i++)
                     {
-                      newChild.averageScores[i] = (newChild.averageScores[i]*newChild.numUpdates + heuristicScores[i]*lSampleWeight)/(newChild.numUpdates+lSampleWeight);
+                      newChild.averageScores[i] = (newChild.averageScores[i]*newChild.numUpdates + heuristicScores[i]*lWeight.value)/(newChild.numUpdates+lWeight.value);
                     }
                     // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
                     // the new child.
-                    newChild.numUpdates = lSampleWeight;
+                    newChild.numUpdates = lWeight.value;
                     assert(!Double.isNaN(newChild.averageScores[0]));
 
                     newChild.numVisits = newChild.numUpdates;

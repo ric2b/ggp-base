@@ -356,7 +356,6 @@ public class MCTSTree
     LOGGER.info("Current observed rollout score range: [" +
                 mGameSearcher.lowestRolloutScoreSeen + ", " +
                 mGameSearcher.highestRolloutScoreSeen + "]");
-    LOGGER.info("Heuristic bias: " + heuristic.getSampleWeight());
 
     numSelectionsThroughIncompleteNodes = 0;
     numReExpansions = 0;

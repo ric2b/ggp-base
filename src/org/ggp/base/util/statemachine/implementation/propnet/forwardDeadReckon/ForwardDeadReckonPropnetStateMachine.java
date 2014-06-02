@@ -548,6 +548,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return null;
   }
 
+  public boolean hasNegativelyLatchedGoals()
+  {
+    return (mNegativeGoalLatches != null);
+  }
+
   public Set<MachineState> findTerminalStates(int maxResultSet, int maxDepth)
   {
     PolymorphicProposition terminal = fullPropNet.getTerminalProposition();
