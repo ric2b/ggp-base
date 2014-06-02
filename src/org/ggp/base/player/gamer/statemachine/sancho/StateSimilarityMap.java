@@ -159,7 +159,8 @@ public class StateSimilarityMap
         {
           childFound = true;
 
-          if ( childEdge.child.seq >= 0 &&
+          if ( childEdge.child != null &&
+               childEdge.child.seq >= 0 &&
                childEdge.child.seq == childEdge.child.node.seq &&
                childEdge.child.node.children != null )
           {
