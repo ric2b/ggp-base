@@ -173,7 +173,7 @@ public class TreeNode
         {
           for (TreeEdge child : parent.children)
           {
-            if (child.child.node == this)
+            if (child.child != null && child.child.node == this)
             {
               if (child.numChildVisits > mostSelectedRouteCount)
               {
@@ -203,7 +203,7 @@ public class TreeNode
 
         for (TreeEdge edge : primaryPathParent.children)
         {
-          if (edge.selectAs == edge && edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq)
+          if (edge.selectAs == edge && edge.child != null && edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq)
           {
             double exploitationUct = primaryPathParent
                 .exploitationUCT(edge, edge.child.node.decidingRoleIndex);
@@ -249,7 +249,7 @@ public class TreeNode
     {
       for (TreeEdge edge : children)
       {
-        if (edge.selectAs == edge && edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq)
+        if (edge.selectAs == edge && edge.child != null && edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq)
         {
           if (edge.child.node.complete)
           {
@@ -475,10 +475,15 @@ public class TreeNode
     {
       for (TreeEdge edge : parent.children)
       {
-        TreeNode child = edge.child.node;
-
         if (edge.selectAs == edge)
         {
+          if ( edge.child == null )
+          {
+            return false;
+          }
+
+          TreeNode child = edge.child.node;
+
           if (edge.child.seq >= 0 && edge.child.seq == child.seq)
           {
             if (!child.complete)
@@ -487,11 +492,19 @@ public class TreeNode
               {
                 for (TreeEdge nephewEdge : child.children)
                 {
-                  TreeNode nephew = nephewEdge.child.node;
-
-                  if (nephewEdge.child.seq != nephew.seq || !nephew.complete)
+                  if ( nephewEdge.selectAs == nephewEdge )
                   {
-                    return false;
+                    if ( nephewEdge.child == null )
+                    {
+                      return false;
+                    }
+
+                    TreeNode nephew = nephewEdge.child.node;
+
+                    if (nephewEdge.child.seq != nephew.seq || !nephew.complete)
+                    {
+                      return false;
+                    }
                   }
                 }
               }
@@ -518,6 +531,11 @@ public class TreeNode
     {
       for (TreeEdge edge : parent.children)
       {
+        if ( edge.child == null || edge.selectAs != edge )
+        {
+          continue;
+        }
+
         TreeNode child = edge.child.node;
 
         if (child != this && edge.child.seq >= 0 && edge.child.seq == child.seq &&
@@ -535,6 +553,10 @@ public class TreeNode
     {
       for (TreeEdge edge : parent.children)
       {
+        if ( edge.child == null || edge.selectAs != edge )
+        {
+          continue;
+        }
         TreeNode child = edge.child.node;
 
         if (child != this)
@@ -551,6 +573,10 @@ public class TreeNode
             double thisMoveScore = -Double.MAX_VALUE;
             for (TreeEdge nephewEdge : child.children)
             {
+              if ( nephewEdge.child == null )
+              {
+                continue;
+              }
               TreeNode nephew = nephewEdge.child.node;
 
               if (nephewEdge.child.seq >= 0 && nephewEdge.child.seq == nephew.seq)
@@ -598,10 +624,14 @@ public class TreeNode
     {
       for (TreeEdge edge : parent.children)
       {
-        TreeNode child = edge.child.node;
-
         if (edge.selectAs == edge)
         {
+          if ( edge.child == null )
+          {
+            return null;
+          }
+          TreeNode child = edge.child.node;
+
           if (edge.child.seq != child.seq ||
               (child.children == null && !child.complete))
           {
@@ -612,19 +642,29 @@ public class TreeNode
           {
             for (TreeEdge nephewEdge : child.children)
             {
-              TreeNode nephew = nephewEdge.child.node;
-
-              if (nephewEdge.child.seq >= 0 && nephewEdge.child.seq == nephew.seq &&
-                  move == nephewEdge.jointPartialMove[nephew.decidingRoleIndex].move)
+              if (move == nephewEdge.jointPartialMove[(decidingRoleIndex+1)%tree.numRoles].move)
               {
-                if (!nephew.complete)
+                if ( nephewEdge.child == null )
                 {
                   return null;
                 }
-                if (result == null ||
-                    nephew.averageScores[roleIndex] < result[roleIndex])
+                TreeNode nephew = nephewEdge.child.node;
+
+                if (nephewEdge.child.seq >= 0 && nephewEdge.child.seq == nephew.seq )
                 {
-                  result = nephew.averageScores;
+                  if (!nephew.complete)
+                  {
+                    return null;
+                  }
+                  if (result == null ||
+                      nephew.averageScores[roleIndex] < result[roleIndex])
+                  {
+                    result = nephew.averageScores;
+                  }
+                }
+                else
+                {
+                  return null;
                 }
               }
             }
@@ -647,6 +687,11 @@ public class TreeNode
     {
       for (TreeEdge edge : parent.children)
       {
+        if ( edge.child == null || edge.selectAs != edge)
+        {
+          continue;
+        }
+
         TreeNode child = edge.child.node;
 
         if (child != this && edge.child.seq >= 0 && edge.child.seq == child.seq &&
@@ -769,7 +814,7 @@ public class TreeNode
 
               for (TreeEdge siblingEdge : children)
               {
-                if (siblingEdge.selectAs == edge)
+                if (siblingEdge.selectAs == edge )
                 {
                   double[] moveFloor = worstCompleteCousinValues(siblingEdge.jointPartialMove[roleIndex].move,
                                                                  roleIndex);
@@ -780,9 +825,9 @@ public class TreeNode
                         worstCousinValues[roleIndex] < moveFloor[roleIndex])
                     {
                       worstCousinValues = moveFloor;
-                      if ( floorCompletionDepth > siblingEdge.child.node.getCompletionDepth() )
+                      if ( floorCompletionDepth > edge.child.node.getCompletionDepth() )
                       {
-                        floorCompletionDepth = siblingEdge.child.node.getCompletionDepth();
+                        floorCompletionDepth = edge.child.node.getCompletionDepth();
                       }
                     }
                   }
@@ -1648,18 +1693,22 @@ public class TreeNode
           for (index = firstNewIndex; index < newChildren.length; index++)
           {
             TreeEdge newEdge = newChildren[index];
-            StateInfo info = calculateTerminalityAndAutoExpansion(newEdge.state);
 
-            if ( info.isTerminal || info.autoExpand )
+            if ( newEdge.selectAs == newEdge )
             {
-              createChildNodeForEdge(newEdge);
+              StateInfo info = calculateTerminalityAndAutoExpansion(newEdge.state);
 
-              TreeNode newChild = newEdge.child.node;
-              newChild.isTerminal = info.isTerminal;
-              newChild.autoExpand = info.autoExpand;
-              if ( info.isTerminal )
+              if ( info.isTerminal || info.autoExpand )
               {
-                newChild.markComplete(info.terminalScore, depth+1);
+                createChildNodeForEdge(newEdge);
+
+                TreeNode newChild = newEdge.child.node;
+                newChild.isTerminal = info.isTerminal;
+                newChild.autoExpand = info.autoExpand;
+                if ( info.isTerminal )
+                {
+                  newChild.markComplete(info.terminalScore, depth+1);
+                }
               }
             }
           }
@@ -1915,6 +1964,11 @@ public class TreeNode
       {
         for (TreeEdge edge : parent.children)
         {
+          if ( edge.child == null )
+          {
+            continue;
+          }
+
           TreeNode child = edge.child.node;
 
           if (edge.child.seq >= 0 && edge.child.seq == child.seq && child.children != null)
@@ -1923,6 +1977,11 @@ public class TreeNode
 
             for (TreeEdge nephewEdge : child.children)
             {
+              if ( nephewEdge.child == null )
+              {
+                continue;
+              }
+
               TreeNode nephew = nephewEdge.child.node;
 
               if (nephewEdge.child.seq >= 0 && nephewEdge.child.seq == nephew.seq)
