@@ -131,7 +131,7 @@ public class PieceHeuristic implements Heuristic
   }
 
   @Override
-  public void tuningInitialise(ForwardDeadReckonPropnetStateMachine stateMachine,
+  public boolean tuningInitialise(ForwardDeadReckonPropnetStateMachine stateMachine,
                                RoleOrdering xiRoleOrdering)
   {
     pieceSets = null;
@@ -239,6 +239,8 @@ public class PieceHeuristic implements Heuristic
         }
       }
     }
+
+    return propGroupScoreSets.size() > 0;
   }
 
   @Override

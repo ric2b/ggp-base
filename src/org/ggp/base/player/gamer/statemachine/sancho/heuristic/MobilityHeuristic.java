@@ -34,7 +34,7 @@ public class MobilityHeuristic implements Heuristic
   public int mWeight = 10; // !! ARR Hack
 
   @Override
-  public void tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine,
+  public boolean tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine,
                                RoleOrdering xiRoleOrdering)
   {
     mEnabled = true;
@@ -50,6 +50,8 @@ public class MobilityHeuristic implements Heuristic
     }
 
     tuningInitRollout();
+
+    return true;
   }
 
   /**

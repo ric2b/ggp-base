@@ -59,6 +59,7 @@ public class Sancho extends SampleGamer
   private String                      mLogName                        = null;
   private SystemStatsLogger           mSysStatsLogger                 = null;
   private static final boolean        ASSERTIONS_ENABLED;
+  private static final int            MIN_PRIMARY_SIMULATION_SAMPLES  = 100;
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
@@ -279,7 +280,8 @@ public class Sancho extends SampleGamer
     {
       heuristic = new CombinedHeuristic(new PieceHeuristic());
     }
-    heuristic.tuningInitialise(underlyingStateMachine, roleOrdering);
+
+    boolean hasHeuristicCandidates = heuristic.tuningInitialise(underlyingStateMachine, roleOrdering);
 
     ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine.createInternalState(getCurrentState());
 
@@ -321,10 +323,22 @@ public class Sancho extends SampleGamer
     long lMetaGameStopTime = timeout - 5000;
     int numSamples = 0;
 
-    // Spend half the time determining heuristic weights
-    long lHeuristicStopTime = (lMetaGameStartTime + lMetaGameStopTime) / 2;
+    // Spend half the time determining heuristic weights if there are any heuristics, else spend
+    //  a short time just establishing the type of game
+    long lHeuristicStopTime;
 
-    while (System.currentTimeMillis() < lHeuristicStopTime)
+    if ( hasHeuristicCandidates )
+    {
+      lHeuristicStopTime = (lMetaGameStartTime + lMetaGameStopTime) / 2;
+    }
+    else
+    {
+      lHeuristicStopTime = lMetaGameStartTime + 2000;
+    }
+
+    //  Slight hack, but for now we don't bother continuing to simulate for a long time after discovering we're in
+    //  a simultaneous turn game, because (for now anyway) we disable heuristics in such games anyway
+    while (System.currentTimeMillis() < lHeuristicStopTime && (numSamples < MIN_PRIMARY_SIMULATION_SAMPLES || !gameCharacteristics.isSimultaneousMove))
     {
       ForwardDeadReckonInternalMachineState sampleState = new ForwardDeadReckonInternalMachineState(initialState);
 
@@ -412,7 +426,7 @@ public class Sancho extends SampleGamer
         roleScores[i] = underlyingStateMachine.getGoal(roleOrdering.roleIndexToRole(i));
       }
 
-      // Tell the heuristic about the termainal state, for tuning purposes.
+      // Tell the heuristic about the terminal state, for tuning purposes.
       assert(underlyingStateMachine.isTerminal(sampleState));
       heuristic.tuningTerminalStateSample(sampleState, roleScores);
 
@@ -422,7 +436,7 @@ public class Sancho extends SampleGamer
 
     //  If we were able to run very few samples only don't make non-default
     //  assumptions about the game based on the inadequate sampling
-    if ( numSamples < 100 )
+    if ( numSamples < MIN_PRIMARY_SIMULATION_SAMPLES )
     {
       gameCharacteristics.isIteratedGame = false;
       heuristic.pruneAll();
@@ -432,6 +446,12 @@ public class Sancho extends SampleGamer
     else
     {
       branchingFactorApproximation /= numSamples;
+    }
+
+    //  For now we don't attempt heuristic usage in simultaneous move games
+    if ( gameCharacteristics.isSimultaneousMove )
+    {
+      heuristic.pruneAll();
     }
 
     if (gameCharacteristics.isSimultaneousMove || gameCharacteristics.isPseudoSimultaneousMove)

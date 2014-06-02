@@ -52,9 +52,10 @@ public interface Heuristic
    *
    * @param stateMachine - the state machine representation of the game.
    * @param roleOrdering - the canonical role ordering.
+   * @return true if at least one heuristic is potentially active
    */
-  public void tuningInitialise(ForwardDeadReckonPropnetStateMachine stateMachine,
-                               RoleOrdering roleOrdering);
+  public boolean tuningInitialise(ForwardDeadReckonPropnetStateMachine stateMachine,
+                                  RoleOrdering roleOrdering);
 
   /**
    * Update tuning state as a result of a single step of a rollout (i.e. a single move in a game).

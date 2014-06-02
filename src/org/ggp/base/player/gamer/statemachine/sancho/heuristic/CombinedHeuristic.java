@@ -57,12 +57,14 @@ public class CombinedHeuristic implements Heuristic
   }
 
   @Override
-  public void tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine, RoleOrdering xiRoleOrdering)
+  public boolean tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine, RoleOrdering xiRoleOrdering)
   {
+    boolean result = false;
+
     // Initialise all the underlying heuristics.
     for (Heuristic lHeuristic : mHeuristics)
     {
-      lHeuristic.tuningInitialise(xiStateMachine, xiRoleOrdering);
+      result |= lHeuristic.tuningInitialise(xiStateMachine, xiRoleOrdering);
     }
 
     // Remove any disabled heuristics from the list.
@@ -70,6 +72,8 @@ public class CombinedHeuristic implements Heuristic
 
     // Remember the number of roles.
     mNumRoles = xiStateMachine.getRoles().size();
+
+    return result;
   }
 
   @Override
