@@ -1564,6 +1564,13 @@ public class TreeNode
     {
       newChild.autoExpand = autoExpand;
     }
+
+    //  If we transition into a complete node we need to have it re-process that
+    //  completion again in the light of the new parentage
+    if ( newChild.complete )
+    {
+      tree.completedNodeQueue.add(newChild);
+    }
   }
 
   public void expand(TreeEdge from)
@@ -1572,27 +1579,32 @@ public class TreeNode
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.expand");
     try
     {
+      //  Find the role this node is choosing for
+      int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
+
       //  Don't bother evaluating terminality of children above the earliest completion depth
       boolean evaluateTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation && depth >= tree.gameCharacteristics.getEarliestCompletionDepth());
-      boolean parentEvaluatedTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation && depth > tree.gameCharacteristics.getEarliestCompletionDepth());
-      if ( !parentEvaluatedTerminalOnNodeCreation && children == null )
+
+      if ( roleIndex == 0 )
       {
-        StateInfo info = calculateTerminalityAndAutoExpansion(state);
-
-        isTerminal = info.isTerminal;
-        autoExpand = info.autoExpand;
-
-        if (isTerminal)
+        boolean parentEvaluatedTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation && depth > tree.gameCharacteristics.getEarliestCompletionDepth());
+        if ( !parentEvaluatedTerminalOnNodeCreation && children == null )
         {
-          markComplete(info.terminalScore, depth);
-          return;
+          StateInfo info = calculateTerminalityAndAutoExpansion(state);
+
+          isTerminal = info.isTerminal;
+          autoExpand = info.autoExpand;
+
+          if (isTerminal)
+          {
+            markComplete(info.terminalScore, depth);
+            return;
+          }
         }
       }
 
       if (children == null || trimmedChildren > 0)
       {
-        //	Find the role this node is choosing for
-        int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
         Role choosingRole = tree.roleOrdering.roleIndexToRole(roleIndex);
         int topMoveWeight = 0;
         final int numTopMoveCandidates = 4;
