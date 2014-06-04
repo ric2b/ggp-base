@@ -2047,7 +2047,7 @@ public class TreeNode
 
       for(TreeEdge edge2 : children)
       {
-        if ( edge2.child.node.averageScores[roleIndex] > bestChildScore )
+        if ( edge2.child != null && edge2.child.node.averageScores[roleIndex] > bestChildScore )
         {
           bestChildScore = edge2.child.node.averageScores[roleIndex];
         }
