@@ -69,7 +69,7 @@ public class MCTSTree
   final boolean                                        allowAllGamesToSelectThroughComplete        = false;
   ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
-  int                                                  numRoles;
+  final int                                            numRoles;
   LRUNodeMoveWeightsCache                              nodeMoveWeightsCache                        = null;
   CappedPool<TreeNode>                                 nodePool;
   Map<ForwardDeadReckonInternalMachineState, TreeNode> positions                                   = new HashMap<>();
@@ -251,7 +251,7 @@ public class MCTSTree
     }
   }
 
-  public void setRootState(ForwardDeadReckonInternalMachineState state, int rootDepth) throws GoalDefinitionException
+  public void setRootState(ForwardDeadReckonInternalMachineState state, short rootDepth) throws GoalDefinitionException
   {
     ForwardDeadReckonInternalMachineState factorState;
 

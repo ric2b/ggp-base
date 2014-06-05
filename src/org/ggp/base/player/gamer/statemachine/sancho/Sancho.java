@@ -51,7 +51,7 @@ public class Sancho extends SampleGamer
   private int                         MinRawNetScore                  = 0;
   private int                         MaxRawNetScore                  = 100;
   private int                         multiRoleAverageScoreDiff       = 0;
-  private int                         currentMoveDepth                = 0;
+  private short                       currentMoveDepth                = 0;
   private boolean                     underExpectedRangeScoreReported = false;
   private boolean                     overExpectedRangeScoreReported  = false;
   private TargetedSolutionStatePlayer puzzlePlayer                    = null;
@@ -793,7 +793,7 @@ public class Sancho extends SampleGamer
                             plan);
       searchProcessor.startSearch(System.currentTimeMillis() + 60000,
                                   new ForwardDeadReckonInternalMachineState(initialState),
-                                  0);
+                                  (short)0);
       try
       {
         Thread.sleep(Math.max(timeout - 3000 - System.currentTimeMillis(), 0));

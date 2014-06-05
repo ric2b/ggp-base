@@ -583,7 +583,7 @@ public class GameSearcher implements Runnable, ActivityController
    */
   public void startSearch(long moveTimeout,
                           ForwardDeadReckonInternalMachineState startState,
-                          int rootDepth) throws GoalDefinitionException
+                          short rootDepth) throws GoalDefinitionException
   {
 
     // Print out some statistics from last turn.

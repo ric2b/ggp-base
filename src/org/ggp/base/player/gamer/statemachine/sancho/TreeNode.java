@@ -89,8 +89,8 @@ public class TreeNode
   int                                   seq                 = CappedPool.NULL_ITEM_SEQ;
   public int                            numVisits           = 0;
   private int                           numUpdates          = 0;
-  public double[]                       averageScores;
-  private double[]                      averageSquaredScores;
+  public final double[]                 averageScores;
+  private final double[]                averageSquaredScores;
   ForwardDeadReckonInternalMachineState state;
   int                                   decidingRoleIndex;
   private boolean                       isTerminal          = false;
@@ -101,7 +101,6 @@ public class TreeNode
   private int                           sweepSeq;
   //private TreeNode sweepParent = null;
   boolean                               freed               = false;
-  int                                   trimCount           = 0;
   private int                           leastLikelyWinner   = -1;
   private double                        leastLikelyRunnerUpValue;
   private int                           mostLikelyWinner    = -1;
@@ -114,8 +113,8 @@ public class TreeNode
   //  exhibits this), which means that transitions to the same node can occur at multiple
   //  depths.  This approximate nature good enough for our current usage, but should be borne
   //  in mind if that usage is expanded.
-  private int                           depth               = 0;
-  private int                           completionDepth;
+  private short                         depth               = 0;
+  private short                         completionDepth;
 
   TreeNode(MCTSTree tree, int numRoles) throws GoalDefinitionException
   {
@@ -137,7 +136,7 @@ public class TreeNode
    * Set the depth of this node from the initial state
    * @param theDepth value to set
    */
-  public void setDepth(int theDepth)
+  public void setDepth(short theDepth)
   {
     depth = theDepth;
   }
@@ -147,7 +146,7 @@ public class TreeNode
    * derive from this node.  Valid only if the node is complete
    * @return depth of the terminal state, from the initial state
    */
-  public int getCompletionDepth()
+  public short getCompletionDepth()
   {
     assert(complete);
 
@@ -163,7 +162,7 @@ public class TreeNode
   {
     //	Cannot do an a-priori correction of scores based on known child scores
     //	if heuristics are in use (at least not simply, so for now, just not)
-    //if ( pieceStateMaps == null )
+    //if (pieceStateMaps == null)
     {
       TreeNode primaryPathParent = null;
       int mostSelectedRouteCount = 0;
@@ -277,7 +276,7 @@ public class TreeNode
     }
   }
 
-  private void markComplete(double[] values, int atCompletionDepth)
+  private void markComplete(double[] values, short atCompletionDepth)
   {
     if (!complete)
     {
@@ -335,7 +334,7 @@ public class TreeNode
         TreeNodeRef cr = edge.child;
         if (cr != null)
         {
-          if ( cr.seq >= 0 && cr.node.seq == cr.seq)
+          if (cr.seq >= 0 && cr.node.seq == cr.seq)
           {
             cr.node.freeFromAncestor(this);
 
@@ -400,7 +399,7 @@ public class TreeNode
 
   private void freeFromAncestor(TreeNode ancestor)
   {
-    //if ( sweepParent == ancestor && sweepSeq == sweepInstance)
+    //if (sweepParent == ancestor && sweepSeq == sweepInstance)
     //{
     //	LOGGER.info("Removing sweep parent");
     //}
@@ -478,7 +477,7 @@ public class TreeNode
       {
         if (edge.selectAs == edge)
         {
-          if ( edge.child == null )
+          if (edge.child == null)
           {
             return false;
           }
@@ -493,9 +492,9 @@ public class TreeNode
               {
                 for (TreeEdge nephewEdge : child.children)
                 {
-                  if ( nephewEdge.selectAs == nephewEdge )
+                  if (nephewEdge.selectAs == nephewEdge)
                   {
-                    if ( nephewEdge.child == null )
+                    if (nephewEdge.child == null)
                     {
                       return false;
                     }
@@ -532,7 +531,7 @@ public class TreeNode
     {
       for (TreeEdge edge : parent.children)
       {
-        if ( edge.child == null || edge.selectAs != edge )
+        if (edge.child == null || edge.selectAs != edge)
         {
           continue;
         }
@@ -554,7 +553,7 @@ public class TreeNode
     {
       for (TreeEdge edge : parent.children)
       {
-        if ( edge.child == null || edge.selectAs != edge )
+        if (edge.child == null || edge.selectAs != edge)
         {
           continue;
         }
@@ -574,7 +573,7 @@ public class TreeNode
             double thisMoveScore = -Double.MAX_VALUE;
             for (TreeEdge nephewEdge : child.children)
             {
-              if ( nephewEdge.child == null )
+              if (nephewEdge.child == null)
               {
                 continue;
               }
@@ -627,7 +626,7 @@ public class TreeNode
       {
         if (edge.selectAs == edge)
         {
-          if ( edge.child == null )
+          if (edge.child == null)
           {
             return null;
           }
@@ -645,7 +644,7 @@ public class TreeNode
             {
               if (move == nephewEdge.jointPartialMove[(decidingRoleIndex+1)%tree.numRoles].move)
               {
-                if ( nephewEdge.child == null )
+                if (nephewEdge.child == null)
                 {
                   return null;
                 }
@@ -688,7 +687,7 @@ public class TreeNode
     {
       for (TreeEdge edge : parent.children)
       {
-        if ( edge.child == null || edge.selectAs != edge)
+        if (edge.child == null || edge.selectAs != edge)
         {
           continue;
         }
@@ -715,7 +714,7 @@ public class TreeNode
     boolean decidingRoleWin = false;
     double[] worstDeciderScore = null;
     double[] floorDeciderScore = null;
-    int determiningChildCompletionDepth = Integer.MAX_VALUE;
+    short determiningChildCompletionDepth = Short.MAX_VALUE;
 
     int numUniqueChildren = 0;
 
@@ -759,7 +758,7 @@ public class TreeNode
                 {
                   if (cr.node.averageScores[i] < 99.5)
                   {
-                    if ( determiningChildCompletionDepth > cr.node.getCompletionDepth() )
+                    if (determiningChildCompletionDepth > cr.node.getCompletionDepth())
                     {
                       determiningChildCompletionDepth = cr.node.getCompletionDepth();
                     }
@@ -811,7 +810,7 @@ public class TreeNode
             {
               //	Find the highest supported floor score for any of the moves equivalent to this one
               double[] worstCousinValues = null;
-              int floorCompletionDepth = Integer.MAX_VALUE;
+              short floorCompletionDepth = Short.MAX_VALUE;
 
               for (TreeEdge siblingEdge : children)
               {
@@ -826,7 +825,7 @@ public class TreeNode
                         worstCousinValues[roleIndex] < moveFloor[roleIndex])
                     {
                       worstCousinValues = moveFloor;
-                      if ( floorCompletionDepth > edge.child.node.getCompletionDepth() )
+                      if (floorCompletionDepth > edge.child.node.getCompletionDepth())
                       {
                         floorCompletionDepth = edge.child.node.getCompletionDepth();
                       }
@@ -904,7 +903,7 @@ public class TreeNode
 
     if (allImmediateChildrenComplete || decidingRoleWin)
     {
-      if ( determiningChildCompletionDepth == Integer.MAX_VALUE )
+      if (determiningChildCompletionDepth == Integer.MAX_VALUE)
       {
         for (TreeEdge edge : children)
         {
@@ -913,7 +912,7 @@ public class TreeNode
           {
             if (edge.selectAs == edge)
             {
-              if ( determiningChildCompletionDepth > cr.node.getCompletionDepth() )
+              if (determiningChildCompletionDepth > cr.node.getCompletionDepth())
               {
                 determiningChildCompletionDepth = cr.node.getCompletionDepth();
               }
@@ -962,45 +961,43 @@ public class TreeNode
     mostLikelyWinner = -1;
   }
 
-  public void reset(MCTSTree tree)
+  /**
+   * Reset a node ready for re-use.
+   *
+   * @param xiTree - the tree in which the node is to be re-used (or null if not yet known).
+   */
+  public void reset(MCTSTree xiTree)
   {
-    freed = (tree == null);
-    this.tree = tree;
+    // Throughout this function, we do our best to reset existing objects wherever possible, rather than discarding the
+    // old ones and allocating new ones.  The reduces the GC burden.
+
+    // Reset primitives.
+    seq = CappedPool.NULL_ITEM_SEQ;
     numVisits = 0;
     numUpdates = 0;
-    if (averageScores != null)
-    {
-      if (freed)
-      {
-        averageScores = null;
-        averageSquaredScores = null;
-      }
-      else
-      {
-        for (int i = 0; i < averageScores.length; i++)
-        {
-          averageScores[i] = 0;
-          averageSquaredScores[i] = 0;
-        }
-      }
-    }
-    else if (!freed)
-    {
-      averageScores = new double[tree.numRoles];
-      averageSquaredScores = new double[tree.numRoles];
-    }
-    state = null;
     isTerminal = false;
     autoExpand = false;
-    children = null;
-    parents.clear();
     trimmedChildren = 0;
-    trimCount = 0;
     leastLikelyWinner = -1;
     mostLikelyWinner = -1;
     complete = false;
     allChildrenComplete = false;
-    seq = CappedPool.NULL_ITEM_SEQ;
+
+    // Reset arrays (without allocating new ones).
+    for (int i = 0; i < averageScores.length; i++)
+    {
+      averageScores[i] = 0;
+      averageSquaredScores[i] = 0;
+    }
+
+    // Reset objects (without allocating new ones).
+    tree = xiTree;
+    parents.clear();
+
+    // Reset remaining objects.  These will need to be re-allocated later.  That's a shame, because it produces
+    // unnecessary garbage, but sorting it won't be easy.
+    state = null;
+    children = null;
   }
 
   TreeNodeRef getRef()
@@ -1113,13 +1110,13 @@ public class TreeNode
       }
       if (decidingRoleIndex == tree.numRoles - 1)
       {
-        //if ( positions.get(state) != this )
+        //if (positions.get(state) != this)
         //{
         //	LOGGER.warn("Position index does not point to freed node");
         //}
         tree.positions.remove(state);
       }
-      //if ( positions.containsValue(this))
+      //if (positions.containsValue(this))
       //{
       //	LOGGER.warn("Node still referenced!");
       //}
@@ -1150,7 +1147,7 @@ public class TreeNode
               if (edge.child.node.parents.size() != 0)
               {
                 int numRemainingParents = edge.child.node.parents.size();
-                //if ( cr.node.sweepParent == this && sweepSeq == sweepInstance)
+                //if (cr.node.sweepParent == this && sweepSeq == sweepInstance)
                 //{
                 //	LOGGER.info("Removing sweep parent");
                 //}
@@ -1253,7 +1250,7 @@ public class TreeNode
       TreeNode leastLikely = selectLeastLikelyNode(null, 0);
 
       //leastLikely.adjustDescendantCounts(-1);
-      if ( leastLikely != null )
+      if (leastLikely != null)
       {
         leastLikely.freeNode();
         //validateAll();
@@ -1307,7 +1304,7 @@ public class TreeNode
             if (c.seq >= 0 && edge.child.seq == c.seq)
             {
               //  Don't allow trimming at the immediate children of the root or the root itself
-              if ( depth >= 1 || c.hasUntrimmedChildren())
+              if (depth >= 1 || c.hasUntrimmedChildren())
               {
                 double uctValue;
                 if (edge.numChildVisits == 0 )
@@ -1361,14 +1358,14 @@ public class TreeNode
                   LOGGER.warn("Encountered freed child node in tree walk");
                 }
                 //  Don't allow trimming at the immediate children of the root or the root itself
-                if ( depth >= 1 || c.hasUntrimmedChildren() )
+                if (depth >= 1 || c.hasUntrimmedChildren())
                 {
                   double uctValue;
                   if (edge.numChildVisits == 0)
                   {
                     uctValue = -1000;
                   }
-                  //else if ( c.complete )
+                  //else if (c.complete)
                   //{
                   //	Resist clearing away complete nodes as they potentially
                   //	represent a lot of work
@@ -1384,7 +1381,7 @@ public class TreeNode
                   }
                   uctValue /= Math.log(c.numVisits + 2); //	utcVal is negative so this makes larger subtrees score higher (less negative)
 
-                  //if ( c.isLeaf() )
+                  //if (c.isLeaf())
                   //{
                   //	uctValue += uctValue/(depth+1);
                   //}
@@ -1411,7 +1408,6 @@ public class TreeNode
     if (selectedIndex != -1)
     {
       leastLikelyWinner = selectedIndex;
-      trimCount++;
       //LOGGER.debug("  selected: " + selected.state);
       return children[selectedIndex].child.node
           .selectLeastLikelyNode(children[selectedIndex], depth + 1);
@@ -1430,11 +1426,11 @@ public class TreeNode
 
   private boolean hasUntrimmedChildren()
   {
-    if ( children != null )
+    if (children != null)
     {
       for(TreeEdge edge : children)
       {
-        if ( edge.child != null && (edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq) )
+        if (edge.child != null && (edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq))
         {
           return true;
         }
@@ -1515,9 +1511,9 @@ public class TreeNode
       {
         for(ForwardDeadReckonLegalMoveInfo info : tree.underlyingStateMachine.getLegalMoves(theState, tree.roleOrdering.roleIndexToRole(i), tree.factor))
         {
-          if ( info.inputProposition != null )
+          if (info.inputProposition != null)
           {
-            if ( nonNoopCount++ > 0 )
+            if (nonNoopCount++ > 0)
             {
               break;
             }
@@ -1525,7 +1521,7 @@ public class TreeNode
         }
       }
 
-      if ( nonNoopCount == 1 )
+      if (nonNoopCount == 1)
       {
         result.autoExpand = true;
       }
@@ -1557,7 +1553,7 @@ public class TreeNode
     assert(!edge.child.node.freed);
 
     newChild.decidingRoleIndex = roleIndex;
-    newChild.depth = depth+1;
+    newChild.depth = (short)(depth + 1);
     newChild.state = edge.state;
 
     if (roleIndex != tree.numRoles - 1)
@@ -1567,7 +1563,7 @@ public class TreeNode
 
     //  If we transition into a complete node we need to have it re-process that
     //  completion again in the light of the new parentage
-    if ( newChild.complete )
+    if (newChild.complete)
     {
       tree.completedNodeQueue.add(newChild);
     }
@@ -1585,10 +1581,10 @@ public class TreeNode
       //  Don't bother evaluating terminality of children above the earliest completion depth
       boolean evaluateTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation && depth >= tree.gameCharacteristics.getEarliestCompletionDepth());
 
-      if ( roleIndex == 0 )
+      if (roleIndex == 0)
       {
         boolean parentEvaluatedTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation && depth > tree.gameCharacteristics.getEarliestCompletionDepth());
-        if ( !parentEvaluatedTerminalOnNodeCreation && children == null )
+        if (!parentEvaluatedTerminalOnNodeCreation && children == null)
         {
           StateInfo info = calculateTerminalityAndAutoExpansion(state);
 
@@ -1642,9 +1638,9 @@ public class TreeNode
             }
           }
         }
-        else if ( USE_STATE_SIMILARITY_IN_EXPANSION )
+        else if (USE_STATE_SIMILARITY_IN_EXPANSION)
         {
-          if ( from != null && newChildren.length > 1 )
+          if (from != null && newChildren.length > 1)
           {
             topMoveWeight = tree.mStateSimilarityMap.getTopMoves(state, from.jointPartialMove, topMoveCandidates);
           }
@@ -1682,7 +1678,7 @@ public class TreeNode
           newEdge.state = newState;
 
           //	Check for multiple moves that all transition to the same state
-          if ( !isPseudoNullMove )
+          if (!isPseudoNullMove)
           {
             for (int i = 0; i < index; i++)
             {
@@ -1700,42 +1696,42 @@ public class TreeNode
           index++;
         }
 
-        if ( evaluateTerminalOnNodeCreation && roleIndex == tree.numRoles - 1 )
+        if (evaluateTerminalOnNodeCreation && roleIndex == tree.numRoles - 1)
         {
           for (index = firstNewIndex; index < newChildren.length; index++)
           {
             TreeEdge newEdge = newChildren[index];
 
-            if ( newEdge.selectAs == newEdge )
+            if (newEdge.selectAs == newEdge)
             {
               StateInfo info = calculateTerminalityAndAutoExpansion(newEdge.state);
 
-              if ( info.isTerminal || info.autoExpand )
+              if (info.isTerminal || info.autoExpand)
               {
                 createChildNodeForEdge(newEdge);
 
                 TreeNode newChild = newEdge.child.node;
                 newChild.isTerminal = info.isTerminal;
                 newChild.autoExpand = info.autoExpand;
-                if ( info.isTerminal )
+                if (info.isTerminal)
                 {
-                  newChild.markComplete(info.terminalScore, depth+1);
+                  newChild.markComplete(info.terminalScore, (short)(depth + 1));
                 }
               }
             }
           }
         }
 
-        if ( USE_STATE_SIMILARITY_IN_EXPANSION && topMoveWeight > 0 )
+        if (USE_STATE_SIMILARITY_IN_EXPANSION && topMoveWeight > 0)
         {
           for (index = firstNewIndex; index < newChildren.length; index++)
           {
             TreeEdge newEdge = newChildren[index];
-            if ( newEdge.child == null || (newEdge.child.node.numVisits == 0 && !newEdge.child.node.isTerminal) )
+            if (newEdge.child == null || (newEdge.child.node.numVisits == 0 && !newEdge.child.node.isTerminal))
             {
               for(int i = 0; i < topMoveCandidates.length; i++)
               {
-                if ( newChildren[index].jointPartialMove[roleIndex] == topMoveCandidates[i] )
+                if (newChildren[index].jointPartialMove[roleIndex] == topMoveCandidates[i])
                 {
                   newChildren[index].explorationAmplifier = (topMoveWeight*(topMoveCandidates.length + 1 - i)*2)/(topMoveCandidates.length+1);
                   break;
@@ -1746,12 +1742,12 @@ public class TreeNode
         }
 
         MutableInteger lWeight = new MutableInteger();
-        if ( roleIndex == tree.numRoles - 1 )
+        if (roleIndex == tree.numRoles - 1)
         {
           for (index = firstNewIndex; index < newChildren.length; index++)
           {
             TreeEdge newEdge = newChildren[index];
-            if ( newEdge.child == null && newEdge.selectAs == newEdge )
+            if (newEdge.child == null && newEdge.selectAs == newEdge)
             {
               assert(newEdge.numChildVisits == 0);
 
@@ -1783,7 +1779,7 @@ public class TreeNode
 
                   //  If this turns out to be a transition into an already visited child
                   //  then do not apply the heuristics
-                  if ( newChild.numVisits == 0 )
+                  if (newChild.numVisits == 0)
                   {
                     for (int i = 0; i < tree.numRoles; i++)
                     {
@@ -1844,7 +1840,7 @@ public class TreeNode
           }
         }
 //
-//        if ( USE_STATE_SIMILARITY_IN_EXPANSION && !complete && roleIndex == 0 )
+//        if (USE_STATE_SIMILARITY_IN_EXPANSION && !complete && roleIndex == 0)
 //        {
 //          tree.mStateSimilarityMap.add(getRef());
 //        }
@@ -1977,7 +1973,7 @@ public class TreeNode
       {
         for (TreeEdge edge : parent.children)
         {
-          if ( edge.child == null )
+          if (edge.child == null)
           {
             continue;
           }
@@ -1990,7 +1986,7 @@ public class TreeNode
 
             for (TreeEdge nephewEdge : child.children)
             {
-              if ( nephewEdge.child == null )
+              if (nephewEdge.child == null)
               {
                 continue;
               }
@@ -2041,19 +2037,19 @@ public class TreeNode
     //  root aas much as the best scoring node as there is a 50-50 chance we'll need to pass
     //  on this factor (well strictly (#factors-1)/#factors but 1:1 is good
     //  enough), so we need good estimates on the score for the pseudo-noop
-    if ( inboundEdge.jointPartialMove[roleIndex].isPseudoNoOp && this == tree.root)
+    if (inboundEdge.jointPartialMove[roleIndex].isPseudoNoOp && this == tree.root)
     {
       double bestChildScore = 0;
 
       for(TreeEdge edge2 : children)
       {
-        if ( edge2.child != null && edge2.child.node.averageScores[roleIndex] > bestChildScore )
+        if (edge2.child != null && edge2.child.node.averageScores[roleIndex] > bestChildScore)
         {
           bestChildScore = edge2.child.node.averageScores[roleIndex];
         }
       }
 
-      return bestChildScore/100;
+      return bestChildScore / 100;
     }
     if (tree.gameCharacteristics.isSimultaneousMove)
     {
@@ -2240,7 +2236,7 @@ public class TreeNode
             for (int i = 0; i < children.length; i++)
             {
               //  Only select one move that is state-equivalent, and don't allow selection of a pseudo-noop
-              if ( children[i].selectAs == children[i] )
+              if (children[i].selectAs == children[i])
               {
                 double uctValue;
 
@@ -2412,12 +2408,12 @@ public class TreeNode
       selected = children[selectedIndex];
     }
 
-    if ( selected.child == null )
+    if (selected.child == null)
     {
       createChildNodeForEdge(selected);
     }
 
-    if ( USE_STATE_SIMILARITY_IN_EXPANSION && !complete && roleIndex == 0 )
+    if (USE_STATE_SIMILARITY_IN_EXPANSION && !complete && roleIndex == 0)
     {
       tree.mStateSimilarityMap.add(getRef());
     }
@@ -2565,7 +2561,7 @@ public class TreeNode
         }
       }
     }
-    else if ( children[0].child != null )
+    else if (children[0].child != null)
     {
       xiResponsesTraced = children[0].child.node.traceFirstChoiceNode(xiResponsesTraced);
     }
@@ -2741,7 +2737,7 @@ public class TreeNode
 
   private void dumpStats()
   {
-    if ( tree.gameCharacteristics.getMoveActionHistoryEnabled() )
+    if (tree.gameCharacteristics.getMoveActionHistoryEnabled())
     {
       Map<Move, MoveFrequencyInfo> moveChoices = new HashMap<Move, MoveFrequencyInfo>();
       Map<Move, MoveFrequencyInfo> responseChoices = new HashMap<Move, MoveFrequencyInfo>();
@@ -2824,17 +2820,17 @@ public class TreeNode
     // (always 0), otherwise why are we trying to get the best move?
     int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
     assert(lRecursiveCall || roleIndex == 0);
-    if ( children == null )
+    if (children == null)
     {
       LOGGER.error("NO CHILDREN!");
     }
     assert(children != null);
 
-    if ( !lRecursiveCall )
+    if (!lRecursiveCall)
     {
       for (TreeEdge edge : children)
       {
-        if ( edge.child != null )
+        if (edge.child != null)
         {
           if (edge.child.node.complete)
           {
@@ -2855,7 +2851,7 @@ public class TreeNode
 
     for (TreeEdge edge : children)
     {
-      if ( edge.child == null )
+      if (edge.child == null)
       {
         continue;
       }
@@ -2864,7 +2860,7 @@ public class TreeNode
 
       //  Trimmed nodes may be encountered anywhere below the root's own child links
       //  and these should not accidentally be followed when tracing a move path
-      if ( child.seq < 0 || edge.child.seq != child.seq )
+      if (child.seq < 0 || edge.child.seq != child.seq)
       {
         continue;
       }
@@ -2892,7 +2888,7 @@ public class TreeNode
 
         //  Cope with the case where root expansion immediately found a complete node and never
         //  even explored the others (which should not be selected)
-        if ( numChildVisits == 0 )
+        if (numChildVisits == 0)
         {
           selectionScore = -1000;
         }
@@ -2901,9 +2897,9 @@ public class TreeNode
           //  Subtly down-weight noops in 1-player games to discourage them.  Note that
           //  this has to be fairly subtle, and not impact asymptotic choices since it is possible
           //  for a puzzle to require noops for a solution!
-          if ( tree.gameCharacteristics.isPuzzle )
+          if (tree.gameCharacteristics.isPuzzle)
           {
-            if ( edge.jointPartialMove[roleIndex].inputProposition == null )
+            if (edge.jointPartialMove[roleIndex].inputProposition == null)
             {
               numChildVisits /= 2;
             }
@@ -2927,7 +2923,7 @@ public class TreeNode
         lResponsesTraced = child.traceFirstChoiceNode(lResponsesTraced);
       }
 
-      if ( edge.jointPartialMove[roleIndex].isPseudoNoOp )
+      if (edge.jointPartialMove[roleIndex].isPseudoNoOp)
       {
         result.pseudoNoopValue = moveScore;
         result.pseudoMoveIsComplete = child.complete;
@@ -2983,7 +2979,7 @@ public class TreeNode
       pathTrace = new StringBuffer("Most likely path: ");
     }
     assert(pathTrace != null);
-    if ( bestEdge != null )
+    if (bestEdge != null)
     {
       pathTrace.append(bestEdge.descriptiveName(roleIndex));
       pathTrace.append(roleIndex == 0 ? ", " : " | ");
@@ -2998,7 +2994,7 @@ public class TreeNode
       LOGGER.info(pathTrace.toString());
     }
 
-    if ( bestEdge == null )
+    if (bestEdge == null)
     {
       result.bestMove = null;
     }
@@ -3007,7 +3003,7 @@ public class TreeNode
       ForwardDeadReckonLegalMoveInfo moveInfo = bestEdge.jointPartialMove[roleIndex];
 
       result.bestMove = (moveInfo.isPseudoNoOp ? null : moveInfo.move);
-      if ( !moveInfo.isPseudoNoOp )
+      if (!moveInfo.isPseudoNoOp)
       {
         result.bestMoveValue = bestMoveScore;
         result.bestMoveIsComplete = bestEdge.child.node.complete;
@@ -3058,7 +3054,7 @@ public class TreeNode
         //  Processing completions above could have resulted in the node we we're about to
         //  rollout from being freed (because it has been determined to be complete or an
         //  ancestor has).  In such cases abort the rollout.
-        if ( isFreed() )
+        if (isFreed())
         {
           return;
         }
@@ -3113,7 +3109,7 @@ public class TreeNode
 
     //for(TreeNode parent : parents)
     //{
-    //	if ( !parent.complete || isSimultaneousMove || isMultiPlayer )
+    //	if (!parent.complete || isSimultaneousMove || isMultiPlayer)
     //	{
     //		parent.updateVisitCounts(sampleSize, path);
     //	}
@@ -3158,7 +3154,7 @@ public class TreeNode
       nextNode = path.getNextNode();
       TreeEdge parentEdge = path.getCurrentElement().getEdge();
 
-      if ( parentEdge.child.seq != seq )
+      if (parentEdge.child.seq != seq)
       {
         return;
       }
