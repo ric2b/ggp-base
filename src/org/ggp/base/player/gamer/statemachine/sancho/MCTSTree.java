@@ -305,6 +305,9 @@ public class MCTSTree
     }
 
     heuristic.newTurn(root.state, root);
+
+    // Re-rooting the tree is likely to have created lots of garbage.  Prompt the garbage collector to collect now.
+    System.gc();
   }
 
   /**

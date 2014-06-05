@@ -125,6 +125,10 @@ public final class GamePlayer extends Thread implements Subject
         GamerLogger.log("GamePlayer",
                         "[Sent at " + System.currentTimeMillis() + "] " + out,
                         GamerLogger.LOG_LEVEL_DATA_DUMP);
+
+        // Immediately after submitting an order is an ideal time to do GC because the server is unlikely to have
+        // already responded, so at best, the player is searching inefficiently here.
+        System.gc();
       }
       catch (Exception e)
       {
