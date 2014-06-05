@@ -17,6 +17,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
@@ -80,6 +81,7 @@ public class MCTSTree
   TreeNodeRef                                          cousinMovesCachedFor                        = null;
   final double[]                                       bonusBuffer;
   final ForwardDeadReckonInternalMachineState[]        childStatesBuffer;
+  final ForwardDeadReckonLegalMoveInfo[]               jointMoveBuffer;
   final double[]                                       roleRationality;
   long                                                 numCompletionsProcessed                     = 0;
   Random                                               r                                           = new Random();
@@ -137,6 +139,7 @@ public class MCTSTree
     bonusBuffer = new double[numRoles];
     roleRationality = new double[numRoles];
     childStatesBuffer = new ForwardDeadReckonInternalMachineState[MAX_SUPPORTED_BRANCHING_FACTOR];
+    jointMoveBuffer = new ForwardDeadReckonLegalMoveInfo[numRoles];
     numCompletionsProcessed = 0;
     completeSelectionFromIncompleteParentWarned = false;
     mTreeNodeAllocator = new TreeNodeAllocator(this);
@@ -419,7 +422,7 @@ public class MCTSTree
       while (!cur.isUnexpanded())
       {
         selected = cur.select(visited,
-                              selected == null ? null : selected.getEdge(),
+                              jointMoveBuffer,
                               moveWeights);
 
         cur = selected.getChildNode();
@@ -431,12 +434,12 @@ public class MCTSTree
       if (!cur.complete)
       {
         //  Expand for each role so we're back to our-move as we always rollout after joint moves
-        cur.expand(selected == null ? null : selected.getEdge());
+        cur.expand(jointMoveBuffer);
 
         if (!cur.complete)
         {
           selected = cur.select(visited,
-                                selected == null ? null : selected.getEdge(),
+                                jointMoveBuffer,
                                 moveWeights);
           newNode = selected.getChildNode();
           //visited.add(newNode);
@@ -451,10 +454,10 @@ public class MCTSTree
             {
               autoExpansionDepth++;
             }
-            newNode.expand(selected.getEdge());
+            newNode.expand(jointMoveBuffer);
             if (!newNode.complete)
             {
-              selected = newNode.select(visited, selected.getEdge(), moveWeights);
+              selected = newNode.select(visited, jointMoveBuffer, moveWeights);
               newNode = selected.getChildNode();
               //visited.add(newNode);
               visited.push(selected);

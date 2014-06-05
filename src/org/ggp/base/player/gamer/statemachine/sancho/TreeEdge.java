@@ -8,25 +8,24 @@ class TreeEdge
   /**
    *
    */
-  public TreeEdge(int numRoles)
+  public TreeEdge(ForwardDeadReckonLegalMoveInfo move)
   {
-     jointPartialMove = new ForwardDeadReckonLegalMoveInfo[numRoles];
+    partialMove = move;
   }
 
-  public String descriptiveName(int roleIndex)
+  public String descriptiveName()
   {
-    ForwardDeadReckonLegalMoveInfo moveInfo = jointPartialMove[roleIndex];
-    if ( moveInfo.isPseudoNoOp )
+    if ( partialMove.isPseudoNoOp )
     {
       return "<Pseudo no-op>";
     }
 
-    return moveInfo.move.toString();
+    return partialMove.move.toString();
   }
 
   int                                      numChildVisits             = 0;
   TreeNodeRef                              child                      = null;
-  ForwardDeadReckonLegalMoveInfo[]         jointPartialMove;
+  final ForwardDeadReckonLegalMoveInfo     partialMove;
   TreeEdge                                 selectAs;
   double                                   explorationAmplifier       = 0;
 }

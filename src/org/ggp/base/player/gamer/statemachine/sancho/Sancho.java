@@ -835,8 +835,9 @@ public class Sancho extends SampleGamer
       currentState = underlyingStateMachine.createInternalState(getCurrentState());
       moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
 
-      //LOGGER.debug("Received current state: ", getCurrentState());
-      //LOGGER.debug("Using current state: ", currentState);
+      //LOGGER.warn("Received current state: " + getCurrentState());
+      //LOGGER.warn("Using current state: " + currentState);
+      //LOGGER.warn("Legal moves: " + moves);
 
       if (underlyingStateMachine.isTerminal(currentState))
       {

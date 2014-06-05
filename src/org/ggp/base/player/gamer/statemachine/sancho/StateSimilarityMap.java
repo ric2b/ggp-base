@@ -155,7 +155,7 @@ public class StateSimilarityMap
       boolean childFound = false;
       for(TreeEdge childEdge : moveRoot.children)
       {
-        if ( childEdge.jointPartialMove[index] == partialJointMove[index] )
+        if ( childEdge.partialMove == partialJointMove[index] )
         {
           childFound = true;
 
@@ -237,7 +237,7 @@ public class StateSimilarityMap
                      childEdge.child.seq == childEdge.child.node.seq &&
                      childEdge.child.node.numVisits > 0 )
                 {
-                  ForwardDeadReckonLegalMoveInfo move = childEdge.jointPartialMove[childEdge.child.node.decidingRoleIndex];
+                  ForwardDeadReckonLegalMoveInfo move = childEdge.partialMove;
                   int moveSlotIndex = getMoveSlot(move);
 
                   double moveVal = weight*(childEdge.child.node.averageScores[childEdge.child.node.decidingRoleIndex]);
