@@ -1001,6 +1001,7 @@ public class TreeNode
     mostLikelyWinner = -1;
     complete = false;
     allChildrenComplete = false;
+    freed = (xiTree == null);
 
     // Reset arrays (without allocating new ones).
     for (int i = 0; i < averageScores.length; i++)
@@ -1123,10 +1124,8 @@ public class TreeNode
     {
       //validateAll();
 
-      if (freed)
-      {
-        LOGGER.warn("Freeing already free node!");
-      }
+      assert (!freed);
+
       if (decidingRoleIndex == tree.numRoles - 1)
       {
         //if (positions.get(state) != this)
@@ -1649,7 +1648,7 @@ public class TreeNode
         {
           for (TreeEdge edge : children)
           {
-            if (edge.child == null || (edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq))
+            if (edge.selectAs.child == null || (edge.selectAs.child.seq >= 0 && edge.selectAs.child.seq == edge.selectAs.child.node.seq))
             {
               moveInfos.remove(edge.jointPartialMove[roleIndex]);
               newChildren[index] = edge;
