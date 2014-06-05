@@ -177,9 +177,9 @@ public class MCTSTree
   }
 
   TreeNode allocateNode(ForwardDeadReckonPropnetStateMachine underlyingStateMachine,
-                                ForwardDeadReckonInternalMachineState state,
-                                TreeNode parent,
-                                boolean disallowTransposition)
+                        ForwardDeadReckonInternalMachineState state,
+                        TreeNode parent,
+                        boolean disallowTransposition)
       throws GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("allocateNode");
@@ -223,7 +223,7 @@ public class MCTSTree
 
       if (parent != null)
       {
-        result.parents.add(parent);
+        result.addParent(parent);
 
         //parent.adjustDescendantCounts(result.descendantCount+1);
       }

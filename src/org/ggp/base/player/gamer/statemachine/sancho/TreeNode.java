@@ -3,6 +3,7 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 import java.io.File;
 import java.io.PrintWriter;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -96,7 +97,7 @@ public class TreeNode
   private boolean                       isTerminal          = false;
   boolean                               autoExpand          = false;
   TreeEdge[]                            children            = null;
-  Set<TreeNode>                         parents             = new HashSet<TreeNode>();
+  private final ArrayList<TreeNode>     parents             = new ArrayList<>(1);
   int                                   trimmedChildren     = 0;
   private int                           sweepSeq;
   //private TreeNode sweepParent = null;
@@ -156,6 +157,24 @@ public class TreeNode
   private boolean isFreed()
   {
     return seq < 0;
+  }
+
+  /**
+   * Add the first parent to this tree node.
+   *
+   * Nodes can have multiple parents because the MCTS Tree isn't actually a tree at all.  It's a DAG.
+   *
+   * @param xiParent - the parent to add.
+   */
+  public void addParent(TreeNode xiParent)
+  {
+    parents.add(xiParent);
+
+    // Trim off any excess array slots from the last time this node was used.
+    if (parents.size() == 1)
+    {
+      parents.trimToSize();
+    }
   }
 
   private void correctParentsForCompletion(double values[])
