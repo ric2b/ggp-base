@@ -963,7 +963,7 @@ public class TreeNode
 
     if (allImmediateChildrenComplete || decidingRoleWin)
     {
-      if (determiningChildCompletionDepth == Integer.MAX_VALUE)
+      if (determiningChildCompletionDepth == Short.MAX_VALUE)
       {
         for (TreeEdge edge : children)
         {
@@ -1589,7 +1589,7 @@ public class TreeNode
     return result;
   }
 
-  private void createChildNodeForEdge(TreeEdge edge) throws GoalDefinitionException
+  private void createChildNodeForEdge(TreeEdge edge) throws GoalDefinitionException, TransitionDefinitionException
   {
     boolean isPseudoNullMove = (tree.factor != null);
     int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
@@ -1602,10 +1602,11 @@ public class TreeNode
       }
     }
 
+    assert(state != null);
     assert(edge.selectAs==edge);
     assert(edge.child==null);
     edge.child = tree.allocateNode(tree.underlyingStateMachine,
-                                   (roleIndex == tree.numRoles - 1 ? edge.state : null),
+                                   (roleIndex == tree.numRoles - 1 ? tree.underlyingStateMachine.getNextState(state, tree.factor, edge.jointPartialMove) : null),
                                    this,
                                    isPseudoNullMove).getRef();
     TreeNode newChild = edge.child.node;
@@ -1613,12 +1614,14 @@ public class TreeNode
 
     newChild.decidingRoleIndex = roleIndex;
     newChild.depth = (short)(depth + 1);
-    newChild.state = edge.state;
 
     if (roleIndex != tree.numRoles - 1)
     {
       newChild.autoExpand = autoExpand;
+      newChild.state = state;
     }
+
+    assert(edge.child.node.state!=null);
 
     //  If we transition into a complete node we need to have it re-process that
     //  completion again in the light of the new parentage
@@ -1679,6 +1682,7 @@ public class TreeNode
         }
 
         assert(moveInfos.size() > 0);
+        assert(moveInfos.size() <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
 
         TreeEdge[] newChildren = new TreeEdge[moveInfos.size()];
         assert(newChildren.length > 0);
@@ -1734,16 +1738,16 @@ public class TreeNode
             newState = state;
           }
           newEdge.selectAs = newEdge;
-          newEdge.state = newState;
+          tree.childStatesBuffer[index] = newState;
 
           //	Check for multiple moves that all transition to the same state
           if (!isPseudoNullMove)
           {
-            for (int i = 0; i < index; i++)
+            for (int i = firstNewIndex; i < index; i++)
             {
               if (newChildren[i] != null &&
                   roleIndex == tree.numRoles - 1 &&
-                  newChildren[i].state.equals(newState))
+                  tree.childStatesBuffer[i].equals(newState))
               {
                 newEdge.selectAs = newChildren[i];
                 break;
@@ -1763,7 +1767,7 @@ public class TreeNode
 
             if (newEdge.selectAs == newEdge)
             {
-              StateInfo info = calculateTerminalityAndAutoExpansion(newEdge.state);
+              StateInfo info = calculateTerminalityAndAutoExpansion(tree.childStatesBuffer[index]);
 
               if (info.isTerminal || info.autoExpand)
               {
@@ -1786,7 +1790,7 @@ public class TreeNode
           for (index = firstNewIndex; index < newChildren.length; index++)
           {
             TreeEdge newEdge = newChildren[index];
-            if (newEdge.child == null || (newEdge.child.node.numVisits == 0 && !newEdge.child.node.isTerminal))
+            if (newEdge.selectAs == newEdge && (newEdge.child == null || (newEdge.child.node.numVisits == 0 && !newEdge.child.node.isTerminal)))
             {
               for(int i = 0; i < topMoveCandidates.length; i++)
               {
@@ -1812,7 +1816,7 @@ public class TreeNode
 
               // Determine the heuristic value for this child.
               double[] heuristicScores = new double[tree.numRoles];
-              tree.heuristic.getHeuristicValue(newEdge.state, state, heuristicScores, lWeight);
+              tree.heuristic.getHeuristicValue(tree.childStatesBuffer[index], state, heuristicScores, lWeight);
               if (lWeight.value > 0)
               {
                 double heuristicSquaredDeviation = 0;
@@ -2930,6 +2934,8 @@ public class TreeNode
                           anyComplete ||
                           tree.disableOnelevelMinimax) ? child.averageScores[roleIndex] :
                                                          child.scoreForMostLikelyResponse();
+
+      assert(0 <= moveScore && 100 >= moveScore);
       //	If we have complete nodes with equal scores choose the one with the highest variance
       if (child.complete)
       {
@@ -2937,6 +2943,8 @@ public class TreeNode
         {
           //  Prefer more distant losses to closer ones
           moveScore = (child.completionDepth - tree.mGameSearcher.getRootDepth()) - 100;
+          assert(moveScore <= 0);
+          assert(moveScore >= -100);
         }
 
         selectionScore = moveScore;

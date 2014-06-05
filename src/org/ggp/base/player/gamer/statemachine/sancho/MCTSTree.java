@@ -60,6 +60,7 @@ public class MCTSTree
   final boolean                                        freeCompletedNodeChildren                   = true;                                                          //true;
   final boolean                                        disableOnelevelMinimax                      = true;
   final private boolean                                SUPPORT_TRANSITIONS                         = true;
+  final static int                                     MAX_SUPPORTED_BRANCHING_FACTOR              = 100;
   /**
    * For reasons not well understood, allowing select() to select complete children and propagate
    * upward their values (while playing out something that adds information at the level below) seems
@@ -77,8 +78,9 @@ public class MCTSTree
   List<TreeNode>                                       completedNodeQueue                          = new LinkedList<>();
   Map<Move, MoveScoreInfo>                             cousinMoveCache                             = new HashMap<>();
   TreeNodeRef                                          cousinMovesCachedFor                        = null;
-  double[]                                             bonusBuffer                                 = null;
-  double[]                                             roleRationality                             = null;
+  final double[]                                       bonusBuffer;
+  final ForwardDeadReckonInternalMachineState[]        childStatesBuffer;
+  final double[]                                       roleRationality;
   long                                                 numCompletionsProcessed                     = 0;
   Random                                               r                                           = new Random();
   int                                                  numTerminalRollouts                         = 0;
@@ -134,6 +136,7 @@ public class MCTSTree
 
     bonusBuffer = new double[numRoles];
     roleRationality = new double[numRoles];
+    childStatesBuffer = new ForwardDeadReckonInternalMachineState[MAX_SUPPORTED_BRANCHING_FACTOR];
     numCompletionsProcessed = 0;
     completeSelectionFromIncompleteParentWarned = false;
     mTreeNodeAllocator = new TreeNodeAllocator(this);
