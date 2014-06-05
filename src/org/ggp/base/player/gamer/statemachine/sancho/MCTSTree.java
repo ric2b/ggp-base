@@ -377,16 +377,10 @@ public class MCTSTree
       }
     }
 
-    int incompleteCount = 0;
-
     for (TreeNode node : nodePool.getItemTable())
     {
       if (node != null && !node.freed)
       {
-        if (node.trimmedChildren > 0 && !node.complete)
-        {
-          incompleteCount++;
-        }
         if (node.decidingRoleIndex == numRoles - 1)
         {
           if (node != positions.get(node.state))
@@ -397,11 +391,6 @@ public class MCTSTree
           }
         }
       }
-    }
-
-    if (incompleteCount != numIncompleteNodes)
-    {
-      LOGGER.warn("Incomplete count mismatch");
     }
   }
 

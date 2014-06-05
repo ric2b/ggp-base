@@ -29,29 +29,65 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.w3c.tidy.MutableInteger;
 
+/**
+ * A node in an MCTS "tree" (actually a DAG).
+ *
+ * OCCUPANCY CRITICAL CLASS.
+ */
 public class TreeNode
 {
   private static final Logger LOGGER = LogManager.getLogger();
-  private static final boolean USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false);
+
+  private static final double        EPSILON = 1e-6;
+
+  private static final boolean       USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(
+                                                           CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false);
 
   private static final DecimalFormat FORMAT_2DP = new DecimalFormat("####0.00");
 
+  /**
+   * A reference to a tree node, containing a pointer to the tree node and the expected sequence number of the tree
+   * node.  If, on access, the sequences numbers don't match, the underlying tree node has been recycled and is no
+   * longer available to use.
+   *
+   * OCCUPANCY CRITICAL CLASS.
+   */
   public static class TreeNodeRef
   {
+    /**
+     * Referenced tree node.
+     */
     public TreeNode node;
-    public int      seq;
 
-    public TreeNodeRef(TreeNode node)
+    /**
+     * Expected sequence number.
+     */
+    public int seq;
+
+    /**
+     * Create a reference to a tree node.
+     *
+     * @param xiNode - the tree node.
+     */
+    public TreeNodeRef(TreeNode xiNode)
     {
-      this.node = node;
-      this.seq = node.seq;
+      node = xiNode;
+      seq = xiNode.seq;
     }
   }
 
+  /**
+   * Utility class for allocating tree nodes from a CappedPool.
+   */
   public static class TreeNodeAllocator implements ObjectAllocator<TreeNode>
   {
     private MCTSTree mTree;
 
+    /**
+     * Create an allocator for nodes in the the specified MCTS tree.
+     *
+     * @param xiTree - the tree.
+     */
     public TreeNodeAllocator(MCTSTree xiTree)
     {
       mTree = xiTree;
@@ -81,11 +117,16 @@ public class TreeNode
   }
 
   /**
+   * WARNING
+   * -------
+   *
+   * This is an occupancy critical class.  Members should only be added when absolutely necessary and should use the
+   * suitable available type.
+   */
+  /**
    * The tree in which we're a node.
    */
   MCTSTree tree;
-
-  private static final double           EPSILON             = 1e-6;
 
   int                                   seq                 = CappedPool.NULL_ITEM_SEQ;
   public int                            numVisits           = 0;
@@ -96,18 +137,18 @@ public class TreeNode
   int                                   decidingRoleIndex;
   private boolean                       isTerminal          = false;
   boolean                               autoExpand          = false;
+  boolean                               complete            = false;
+  private boolean                       allChildrenComplete = false;
   TreeEdge[]                            children            = null;
   private final ArrayList<TreeNode>     parents             = new ArrayList<>(1);
-  int                                   trimmedChildren     = 0;
   private int                           sweepSeq;
   //private TreeNode sweepParent = null;
   boolean                               freed               = false;
-  private int                           leastLikelyWinner   = -1;
   private double                        leastLikelyRunnerUpValue;
-  private int                           mostLikelyWinner    = -1;
   private double                        mostLikelyRunnerUpValue;
-  boolean                               complete            = false;
-  private boolean                       allChildrenComplete = false;
+  private short                         leastLikelyWinner   = -1;
+  private short                         mostLikelyWinner    = -1;
+  private short                         trimmedChildren     = 0;
   //  Note - the 'depth' of a node is an indicative measure of its distance from the
   //  initial state.  However, it is not an absolute count of the oath length.  This
   //  is because in some games the same state can occur at different depths (English Draughts
@@ -1425,7 +1466,7 @@ public class TreeNode
     //validateAll();
     if (selectedIndex != -1)
     {
-      leastLikelyWinner = selectedIndex;
+      leastLikelyWinner = (short)selectedIndex;
       //LOGGER.debug("  selected: " + selected.state);
       return children[selectedIndex].child.node
           .selectLeastLikelyNode(children[selectedIndex], depth + 1);
@@ -2422,7 +2463,7 @@ public class TreeNode
     }
     else
     {
-      mostLikelyWinner = selectedIndex;
+      mostLikelyWinner = (short)selectedIndex;
       selected = children[selectedIndex];
     }
 
