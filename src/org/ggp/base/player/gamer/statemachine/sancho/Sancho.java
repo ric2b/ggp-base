@@ -1001,6 +1001,15 @@ public class Sancho extends SampleGamer
   @Override
   public void stateMachineStop()
   {
+    // Log the final score.
+
+    synchronized (searchProcessor.getSerializationObject())
+    {
+      ForwardDeadReckonInternalMachineState lState = underlyingStateMachine.createInternalState(getCurrentState());
+      int lFinalScore = underlyingStateMachine.getGoal(lState, ourRole);
+      StatsLogUtils.Series.SCORE.logDataPoint(lFinalScore);
+    }
+
     tidyUp();
   }
 
