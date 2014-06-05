@@ -208,12 +208,12 @@ public class MCTSTree
             positions.put(state, result);
           }
         }
-        assert(!result.freed);
+        assert(!result.freed) : "Bad ref in positions table";
       }
       else
       {
-        assert(!result.freed);
-        assert(result.decidingRoleIndex == numRoles - 1);
+        assert(!result.freed) : "Bad ref in positions table";
+        assert(result.decidingRoleIndex == numRoles - 1) : "Non-null move in position cache";
       }
 
       if (parent != null)
