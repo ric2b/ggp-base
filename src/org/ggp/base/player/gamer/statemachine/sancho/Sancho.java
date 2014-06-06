@@ -911,7 +911,12 @@ public class Sancho extends SampleGamer
       searchProcessor.requestYield(true);
 
       //validateAll();
+      long getBestMoveStartTime = System.currentTimeMillis();
       bestMove = searchProcessor.getBestMove();
+      if ( System.currentTimeMillis() - getBestMoveStartTime > 250 )
+      {
+        LOGGER.warn("Retrieveing the best move took " + (System.currentTimeMillis() - getBestMoveStartTime) + "ms");
+      }
 
       if (!moves.contains(bestMove))
       {
