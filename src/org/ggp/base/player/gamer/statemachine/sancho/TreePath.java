@@ -24,7 +24,6 @@ public class TreePath
     public TreePathElement(TreeEdge theEdge)
     {
       assert(!theEdge.child.node.freed);
-      assert(theEdge.selectAs == theEdge);
       assert(theEdge.numChildVisits <= theEdge.child.node.numVisits);
 
       this.edge = theEdge;
@@ -80,7 +79,6 @@ public class TreePath
   MCTSTree                      tree;
   private List<TreePathElement> elements              = new ArrayList<>();
   private int                   index                 = 0;
-  public MoveWeightsCollection  propagatedMoveWeights;
 
   /**
    * Construct a new selection path
@@ -89,8 +87,6 @@ public class TreePath
   public TreePath(MCTSTree theTree)
   {
     this.tree = theTree;
-
-    propagatedMoveWeights = new MoveWeightsCollection(theTree.numRoles);
   }
 
   /**
@@ -176,7 +172,7 @@ public class TreePath
       assert(getCurrentElement() != null);
 
       TreeEdge edge = getCurrentElement().getEdge();
-      if ( edge != edge.selectAs || edge.child.seq != edge.child.node.seq || edge.numChildVisits > edge.child.node.numVisits)
+      if ( edge.child.seq != edge.child.node.seq || edge.numChildVisits > edge.child.node.numVisits)
       {
         assert(false);
         return false;

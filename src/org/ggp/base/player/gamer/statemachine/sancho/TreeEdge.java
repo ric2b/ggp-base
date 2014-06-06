@@ -26,6 +26,5 @@ class TreeEdge
   int                                      numChildVisits             = 0;
   TreeNodeRef                              child                      = null;
   final ForwardDeadReckonLegalMoveInfo     partialMove;
-  TreeEdge                                 selectAs;
   double                                   explorationAmplifier       = 0;
 }

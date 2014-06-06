@@ -15,9 +15,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
 {
   private static final Logger STATS_LOGGER = LogManager.getLogger("stats");
 
-  private final boolean                                        enableMoveActionHistory                     = false;
   private double                                               explorationBias                             = 1.0;
-  private double                                               moveActionHistoryBias                       = 0;
   private double                                               mExactRolloutSampleSize                     = 4;
   private volatile int                                         mRolloutSampleSize;
   final double                                                 competitivenessBonus                        = 2;
@@ -39,21 +37,6 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   public void setExplorationBias(double value)
   {
     explorationBias = value;
-  }
-
-  public boolean getMoveActionHistoryEnabled()
-  {
-    return enableMoveActionHistory;
-  }
-
-  public double getMoveActionHistoryBias()
-  {
-    return moveActionHistoryBias;
-  }
-
-  public void setMoveActionBias(double value)
-  {
-    moveActionHistoryBias = value;
   }
 
   public double getExactRolloutSampleSize()

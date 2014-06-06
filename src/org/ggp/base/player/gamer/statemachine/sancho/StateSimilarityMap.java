@@ -153,13 +153,16 @@ public class StateSimilarityMap
       }
 
       boolean childFound = false;
-      for(TreeEdge childEdge : moveRoot.children)
+      for(Object child : moveRoot.children)
       {
-        if ( childEdge.partialMove == partialJointMove[index] )
+        ForwardDeadReckonLegalMoveInfo targetPartialMove = partialJointMove[index];
+        TreeEdge childEdge = (child instanceof TreeEdge ? (TreeEdge)child : null);
+        if ( child == targetPartialMove || (childEdge != null && childEdge.partialMove == targetPartialMove))
         {
           childFound = true;
 
-          if ( childEdge.child != null &&
+          if ( childEdge != null &&
+               childEdge.child != null &&
                childEdge.child.seq >= 0 &&
                childEdge.child.seq == childEdge.child.node.seq &&
                childEdge.child.node.children != null )
@@ -230,9 +233,11 @@ public class StateSimilarityMap
             TreeNode node = getJointMoveParent(nodeRef.node, partialJointMove);
             if ( node != null && node.children != null )
             {
-              for(TreeEdge childEdge : node.children)
+              for(Object child : node.children)
               {
-                if ( childEdge.child != null &&
+                TreeEdge childEdge = (child instanceof TreeEdge ? (TreeEdge)child : null);
+                if ( childEdge != null &&
+                     childEdge.child != null &&
                      childEdge.child.seq >= 0 &&
                      childEdge.child.seq == childEdge.child.node.seq &&
                      childEdge.child.node.numVisits > 0 )

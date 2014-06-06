@@ -1,7 +1,6 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -30,27 +29,6 @@ public class MCTSTree
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  class LRUNodeMoveWeightsCache extends LinkedHashMap<TreeNode, MoveWeightsCollection>
-  {
-    /**
-     *
-     */
-    private static final long serialVersionUID = 1L;
-    private int               maxEntries;
-
-    public LRUNodeMoveWeightsCache(int capacity)
-    {
-      super(capacity + 1, 1.0f, true);
-      maxEntries = capacity;
-    }
-
-    @Override
-    protected boolean removeEldestEntry(final Map.Entry<TreeNode, MoveWeightsCollection> eldest)
-    {
-      return super.size() > maxEntries;
-    }
-  }
-
   class MoveScoreInfo
   {
     public double averageScore = 0;
@@ -72,7 +50,6 @@ public class MCTSTree
   ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
   final int                                            numRoles;
-  LRUNodeMoveWeightsCache                              nodeMoveWeightsCache                        = null;
   CappedPool<TreeNode>                                 nodePool;
   Map<ForwardDeadReckonInternalMachineState, TreeNode> positions                                   = new HashMap<>();
   int                                                  sweepInstance                               = 0;
@@ -134,8 +111,6 @@ public class MCTSTree
 
     evaluateTerminalOnNodeCreation = !gameCharacteristics.getIsFixedMoveCount();
 
-    nodeMoveWeightsCache = new LRUNodeMoveWeightsCache(5000);
-
     bonusBuffer = new double[numRoles];
     roleRationality = new double[numRoles];
     childStatesBuffer = new ForwardDeadReckonInternalMachineState[MAX_SUPPORTED_BRANCHING_FACTOR];
@@ -176,10 +151,6 @@ public class MCTSTree
     nodePool.clear(mTreeNodeAllocator, true);
     positions.clear();
     numIncompleteNodes = 0;
-    if (nodeMoveWeightsCache != null)
-    {
-      nodeMoveWeightsCache.clear();
-    }
   }
 
   TreeNode allocateNode(ForwardDeadReckonPropnetStateMachine underlyingStateMachine,
@@ -405,9 +376,6 @@ public class MCTSTree
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.selectAction");
     try
     {
-      MoveWeightsCollection moveWeights = (gameCharacteristics.getMoveActionHistoryEnabled() ?
-                                                                            new MoveWeightsCollection(numRoles) : null);
-
       //validateAll();
       completedNodeQueue.clear();
 
@@ -419,8 +387,7 @@ public class MCTSTree
       while (!cur.isUnexpanded())
       {
         selected = cur.select(visited,
-                              jointMoveBuffer,
-                              moveWeights);
+                              jointMoveBuffer);
 
         cur = selected.getChildNode();
         //visited.add(cur);
@@ -436,8 +403,7 @@ public class MCTSTree
         if (!cur.complete)
         {
           selected = cur.select(visited,
-                                jointMoveBuffer,
-                                moveWeights);
+                                jointMoveBuffer);
           newNode = selected.getChildNode();
           //visited.add(newNode);
           visited.push(selected);
@@ -451,10 +417,15 @@ public class MCTSTree
             {
               autoExpansionDepth++;
             }
-            newNode.expand(jointMoveBuffer);
+            //  Might have transposed into an already expanded node, in which case no need
+            //  to do another
+            if ( newNode.isUnexpanded() )
+            {
+              newNode.expand(jointMoveBuffer);
+            }
             if (!newNode.complete)
             {
-              selected = newNode.select(visited, jointMoveBuffer, moveWeights);
+              selected = newNode.select(visited, jointMoveBuffer);
               newNode = selected.getChildNode();
               //visited.add(newNode);
               visited.push(selected);

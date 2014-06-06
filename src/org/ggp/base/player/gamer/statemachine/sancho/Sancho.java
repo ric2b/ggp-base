@@ -174,7 +174,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.58j");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.58k");
   }
 
   @Override
@@ -605,17 +605,6 @@ public class Sancho extends SampleGamer
 
     gameCharacteristics.setExplorationBias(explorationBias);
     searchProcessor.setExplorationBiasRange(explorationBias * 0.8, explorationBias * 1.2);
-
-    if ( gameCharacteristics.getMoveActionHistoryEnabled() && (maxNumTurns - minNumTurns) > averageNumTurns / 10)
-    {
-      gameCharacteristics.setMoveActionBias(averageBranchingFactor / 5);
-    }
-    else
-    {
-      gameCharacteristics.setMoveActionBias(0);
-    }
-
-    LOGGER.info("Set moveActionHistoryBias to " + gameCharacteristics.getMoveActionHistoryBias());
 
     if (underlyingStateMachine.numRolloutDecisionNodeExpansions > 0)
     {

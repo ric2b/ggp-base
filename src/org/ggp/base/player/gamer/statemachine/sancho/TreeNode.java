@@ -4,12 +4,9 @@ import java.io.File;
 import java.io.PrintWriter;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
@@ -139,7 +136,8 @@ public class TreeNode
   boolean                               autoExpand          = false;
   boolean                               complete            = false;
   private boolean                       allChildrenComplete = false;
-  TreeEdge[]                            children            = null;
+  Object[]                              children            = null;
+  short[]                               primaryChoiceMapping = null;
   private final ArrayList<TreeNode>     parents             = new ArrayList<>(1);
   private int                           sweepSeq;
   //private TreeNode sweepParent = null;
@@ -231,16 +229,22 @@ public class TreeNode
       {
         if (parent.numUpdates > 0)
         {
-          for (TreeEdge child : parent.children)
+          for (short index = 0; index < parent.children.length; index++)
           {
-            if (child.child != null && child.child.node == this)
+            if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
             {
-              if (child.numChildVisits > mostSelectedRouteCount)
+              Object choice = parent.children[index];
+
+              TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+              if (edge != null && edge.child != null && edge.child.node == this)
               {
-                mostSelectedRouteCount = child.numChildVisits;
-                primaryPathParent = parent;
+                if (edge.numChildVisits > mostSelectedRouteCount)
+                {
+                  mostSelectedRouteCount = edge.numChildVisits;
+                  primaryPathParent = parent;
+                }
+                break;
               }
-              break;
             }
           }
         }
@@ -261,22 +265,28 @@ public class TreeNode
           correctedAverageScores[i] = 0;
         }
 
-        for (TreeEdge edge : primaryPathParent.children)
+        for (short index = 0; index < primaryPathParent.children.length; index++)
         {
-          if (edge.selectAs == edge && edge.child != null && edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq)
+          if ( primaryPathParent.primaryChoiceMapping == null || primaryPathParent.primaryChoiceMapping[index] == index )
           {
-            double exploitationUct = primaryPathParent
-                .exploitationUCT(edge, edge.child.node.decidingRoleIndex);
+            Object choice = primaryPathParent.children[index];
 
-            double weight = (exploitationUct + 1 / Math
-                .log(primaryPathParent.numVisits + 1)) *
-                edge.child.node.numVisits + EPSILON;
-
-            totalWeight += weight;
-            for (int i = 0; i < tree.numRoles; i++)
+            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+            if (edge != null && edge.child != null && edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq)
             {
-              correctedAverageScores[i] += weight *
-                  edge.child.node.averageScores[i];
+              double exploitationUct = primaryPathParent
+                  .exploitationUCT(edge, edge.child.node.decidingRoleIndex);
+
+              double weight = (exploitationUct + 1 / Math
+                  .log(primaryPathParent.numVisits + 1)) *
+                  edge.child.node.numVisits + EPSILON;
+
+              totalWeight += weight;
+              for (int i = 0; i < tree.numRoles; i++)
+              {
+                correctedAverageScores[i] += weight *
+                    edge.child.node.averageScores[i];
+              }
             }
           }
         }
@@ -307,24 +317,30 @@ public class TreeNode
 
     if (children != null)
     {
-      for (TreeEdge edge : children)
+      for (short index = 0; index < children.length; index++)
       {
-        if (edge.selectAs == edge && edge.child != null && edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq)
+        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
         {
-          if (edge.child.node.complete)
+          Object choice = children[index];
+
+          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          if (edge != null && edge.child != null && edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq)
           {
-            if (edge.child.node.averageScores[decidingRoleIndex] == values[decidingRoleIndex])
+            if (edge.child.node.complete)
             {
-              matchesDecider = true;
+              if (edge.child.node.averageScores[decidingRoleIndex] == values[decidingRoleIndex])
+              {
+                matchesDecider = true;
+              }
+              else
+              {
+                matchesAll = false;
+              }
             }
             else
             {
               matchesAll = false;
             }
-          }
-          else
-          {
-            matchesAll = false;
           }
         }
       }
@@ -389,31 +405,34 @@ public class TreeNode
     //	Children can all be freed, at least from this parentage
     if (children != null && tree.freeCompletedNodeChildren)
     {
-      for (TreeEdge edge : children)
+      for (short index = 0; index < children.length; index++)
       {
-        TreeNodeRef cr = edge.child;
-        if (cr != null)
+        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
         {
-          if (cr.seq >= 0 && cr.node.seq == cr.seq)
-          {
-            cr.node.freeFromAncestor(this);
+          Object choice = children[index];
 
-            trimmedChildren++;
-
-            cr.seq = CappedPool.NULL_ITEM_SEQ;
-          }
-          else if (cr.seq != CappedPool.NULL_ITEM_SEQ)
+          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          if ( edge != null )
           {
-            cr.seq = CappedPool.NULL_ITEM_SEQ;
-            trimmedChildren++;
+            TreeNodeRef cr = edge.child;
+            if (cr != null)
+            {
+              if (cr.seq >= 0 && cr.node.seq == cr.seq)
+              {
+                cr.node.freeFromAncestor(this);
+
+                cr.seq = CappedPool.NULL_ITEM_SEQ;
+              }
+              else if (cr.seq != CappedPool.NULL_ITEM_SEQ)
+              {
+                cr.seq = CappedPool.NULL_ITEM_SEQ;
+              }
+            }
           }
-        }
-        else
-        {
-          trimmedChildren++;
         }
       }
 
+      trimmedChildren = (short)children.length;
       children = null;
     }
 
@@ -438,20 +457,23 @@ public class TreeNode
 
     for (TreeNode parent : parents)
     {
-      if (decidingRoleWin && !mutualWin)
+      if ( !parent.complete )
       {
-        // Win for whoever just moved after they got to choose so parent node is also decided
-        parent.markComplete(averageScores, completionDepth);
+        if (decidingRoleWin && !mutualWin)
+        {
+          // Win for whoever just moved after they got to choose so parent node is also decided
+          parent.markComplete(averageScores, completionDepth);
 
-        //	Force win in this state means a very likely good move in sibling states
-        //	so note that their selection probabilities should be increased
-        //markCousinsAsPriorityToSelect();
-      }
-      else
-      {
-        //	If all children are complete then the parent is - give it a chance to
-        //	decide
-        parent.checkChildCompletion(true);
+          //	Force win in this state means a very likely good move in sibling states
+          //	so note that their selection probabilities should be increased
+          //markCousinsAsPriorityToSelect();
+        }
+        else
+        {
+          //	If all children are complete then the parent is - give it a chance to
+          //	decide
+          parent.checkChildCompletion(true);
+        }
       }
     }
     //validateAll();
@@ -469,11 +491,17 @@ public class TreeNode
     {
       if (children != null)
       {
-        for (TreeEdge edge : children)
+        for (short index = 0; index < children.length; index++)
         {
-          if (edge.child != null && (edge.child.seq >= 0 && edge.child.node.seq == edge.child.seq))
+          if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
           {
-            edge.child.node.freeFromAncestor(this);
+            Object choice = children[index];
+
+            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+            if (edge != null && edge.child != null && (edge.child.seq >= 0 && edge.child.node.seq == edge.child.seq))
+            {
+              edge.child.node.freeFromAncestor(this);
+            }
           }
         }
       }
@@ -486,22 +514,21 @@ public class TreeNode
   {
     for (TreeNode parent : parents)
     {
-      int numChildren = 0;
-
       if (parent.children != null)
       {
-        for (TreeEdge edge : parent.children)
+        for (short index = 0; index < parent.children.length; index++)
         {
-          if (edge.selectAs == edge)
+          if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
           {
-            numChildren++;
+            Object choice = parent.children[index];
+
+            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+            if ( edge == null || edge.child.node != this )
+            {
+              return true;
+            }
           }
         }
-      }
-
-      if (numChildren > 1)
-      {
-        return true;
       }
     }
 
@@ -533,11 +560,14 @@ public class TreeNode
   {
     for (TreeNode parent : parents)
     {
-      for (TreeEdge edge : parent.children)
+      for (short index = 0; index < parent.children.length; index++)
       {
-        if (edge.selectAs == edge)
+        if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
         {
-          if (edge.child == null)
+          Object choice = parent.children[index];
+
+          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          if (edge == null || edge.child == null)
           {
             return false;
           }
@@ -550,11 +580,14 @@ public class TreeNode
             {
               if (child.children != null)
               {
-                for (TreeEdge nephewEdge : child.children)
+                for (short nephewIndex = 0; nephewIndex < child.children.length; nephewIndex++)
                 {
-                  if (nephewEdge.selectAs == nephewEdge)
+                  if ( child.primaryChoiceMapping == null || child.primaryChoiceMapping[nephewIndex] == nephewIndex )
                   {
-                    if (nephewEdge.child == null)
+                    Object nephewChoice = child.children[nephewIndex];
+
+                    TreeEdge nephewEdge = (nephewChoice instanceof TreeEdge ? (TreeEdge)nephewChoice : null);
+                    if (nephewEdge == null || nephewEdge.child == null)
                     {
                       return false;
                     }
@@ -589,19 +622,23 @@ public class TreeNode
   {
     for (TreeNode parent : parents)
     {
-      for (TreeEdge edge : parent.children)
+      for (short index = 0; index < parent.children.length; index++)
       {
-        if (edge.child == null || edge.selectAs != edge)
+        if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
         {
-          continue;
-        }
+          Object choice = parent.children[index];
 
-        TreeNode child = edge.child.node;
+          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          if ( edge != null )
+          {
+            TreeNode child = edge.child.node;
 
-        if (child != this && edge.child.seq >= 0 && edge.child.seq == child.seq &&
-            child.children != null && !child.complete)
-        {
-          child.checkChildCompletion(false);
+            if (child != this && edge.child.seq >= 0 && edge.child.seq == child.seq &&
+                child.children != null && !child.complete)
+            {
+              child.checkChildCompletion(false);
+            }
+          }
         }
       }
     }
@@ -611,63 +648,76 @@ public class TreeNode
   {
     for (TreeNode parent : parents)
     {
-      for (TreeEdge edge : parent.children)
+      for (short index = 0; index < parent.children.length; index++)
       {
-        if (edge.child == null || edge.selectAs != edge)
+        if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
         {
-          continue;
-        }
-        TreeNode child = edge.child.node;
+          Object choice = parent.children[index];
 
-        if (child != this)
-        {
-          if (edge.child.seq != child.seq ||
-              (child.children == null && !child.complete))
+          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          if ( edge == null )
           {
             return false;
           }
 
-          if (!child.complete)
+          TreeNode child = edge.child.node;
+
+          if (child != this)
           {
-            double bestOtherMoveScore = 0;
-            double thisMoveScore = -Double.MAX_VALUE;
-            for (TreeEdge nephewEdge : child.children)
-            {
-              if (nephewEdge.child == null)
-              {
-                continue;
-              }
-              TreeNode nephew = nephewEdge.child.node;
-
-              if (nephewEdge.child.seq >= 0 && nephewEdge.child.seq == nephew.seq)
-              {
-                if (moves
-                    .contains(nephewEdge.partialMove.move))
-                {
-                  if (nephew.averageScores[roleIndex] > thisMoveScore)
-                  {
-                    thisMoveScore = nephew.averageScores[roleIndex];
-                  }
-                }
-                else
-                {
-                  if (nephew.averageScores[roleIndex] > bestOtherMoveScore)
-                  {
-                    bestOtherMoveScore = nephew.averageScores[roleIndex];
-                  }
-                }
-              }
-            }
-
-            if (bestOtherMoveScore > thisMoveScore &&
-                thisMoveScore != -Double.MAX_VALUE)
+            if (edge.child.seq != child.seq ||
+                (child.children == null && !child.complete))
             {
               return false;
             }
-          }
-          else if (child.averageScores[roleIndex] < 99.5)
-          {
-            return false;
+
+            if (!child.complete)
+            {
+              double bestOtherMoveScore = 0;
+              double thisMoveScore = -Double.MAX_VALUE;
+              for (short nephewIndex = 0; nephewIndex < child.children.length; nephewIndex++)
+              {
+                if ( child.primaryChoiceMapping == null || child.primaryChoiceMapping[nephewIndex] == nephewIndex )
+                {
+                  Object nephewChoice = child.children[nephewIndex];
+
+                  TreeEdge nephewEdge = (nephewChoice instanceof TreeEdge ? (TreeEdge)nephewChoice : null);
+                  if (nephewEdge == null || nephewEdge.child == null)
+                  {
+                    continue;
+                  }
+                  TreeNode nephew = nephewEdge.child.node;
+
+                  if (nephewEdge.child.seq >= 0 && nephewEdge.child.seq == nephew.seq)
+                  {
+                    if (moves
+                        .contains(nephewEdge.partialMove.move))
+                    {
+                      if (nephew.averageScores[roleIndex] > thisMoveScore)
+                      {
+                        thisMoveScore = nephew.averageScores[roleIndex];
+                      }
+                    }
+                    else
+                    {
+                      if (nephew.averageScores[roleIndex] > bestOtherMoveScore)
+                      {
+                        bestOtherMoveScore = nephew.averageScores[roleIndex];
+                      }
+                    }
+                  }
+                }
+              }
+
+              if (bestOtherMoveScore > thisMoveScore &&
+                  thisMoveScore != -Double.MAX_VALUE)
+              {
+                return false;
+              }
+            }
+            else if (child.averageScores[roleIndex] < 99.5)
+            {
+              return false;
+            }
           }
         }
       }
@@ -682,11 +732,14 @@ public class TreeNode
 
     for (TreeNode parent : parents)
     {
-      for (TreeEdge edge : parent.children)
+      for (short index = 0; index < parent.children.length; index++)
       {
-        if (edge.selectAs == edge)
+        if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
         {
-          if (edge.child == null)
+          Object choice = parent.children[index];
+
+          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          if (edge == null || edge.child == null)
           {
             return null;
           }
@@ -700,11 +753,18 @@ public class TreeNode
 
           if (!child.complete)
           {
-            for (TreeEdge nephewEdge : child.children)
+            for (short nephewIndex = 0; nephewIndex < child.children.length; nephewIndex++)
             {
-              if (move == nephewEdge.partialMove.move)
+              Object nephewChoice = child.children[nephewIndex];
+              TreeEdge nephewEdge = (nephewChoice instanceof TreeEdge ? (TreeEdge)nephewChoice : null);
+              ForwardDeadReckonLegalMoveInfo nephewMove = (nephewEdge == null ? (ForwardDeadReckonLegalMoveInfo)nephewChoice : nephewEdge.partialMove);
+
+              if (move == nephewMove.move)
               {
-                if (nephewEdge.child == null)
+                Object primaryChoice = (child.primaryChoiceMapping == null ? nephewChoice : child.children[child.primaryChoiceMapping[nephewIndex]]);
+
+                nephewEdge = (primaryChoice instanceof TreeEdge ? (TreeEdge)primaryChoice : null);
+                if (nephewEdge == null || nephewEdge.child == null)
                 {
                   return null;
                 }
@@ -745,19 +805,23 @@ public class TreeNode
   {
     for (TreeNode parent : parents)
     {
-      for (TreeEdge edge : parent.children)
+      for (short index = 0; index < parent.children.length; index++)
       {
-        if (edge.child == null || edge.selectAs != edge)
+        if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
         {
-          continue;
-        }
+          Object choice = parent.children[index];
 
-        TreeNode child = edge.child.node;
+          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          if ( edge != null )
+          {
+            TreeNode child = edge.child.node;
 
-        if (child != this && edge.child.seq >= 0 && edge.child.seq == child.seq &&
-            child.children != null && !child.complete)
-        {
-          child.checkChildCompletion(false);
+            if (child != this && edge.child.seq >= 0 && edge.child.seq == child.seq &&
+                child.children != null && !child.complete)
+            {
+              child.checkChildCompletion(false);
+            }
+          }
         }
       }
     }
@@ -778,140 +842,161 @@ public class TreeNode
 
     int numUniqueChildren = 0;
 
-    for (TreeEdge edge : children)
+    for (short index = 0; index < children.length; index++)
     {
-      TreeNodeRef cr = edge.child;
-      if (cr == null )
+      if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
       {
-        allImmediateChildrenComplete = false;
-      }
-      else if (cr.seq >= 0 && cr.node.seq == cr.seq)
-      {
-        if (edge.selectAs == edge)
-        {
-          numUniqueChildren++;
+        Object choice = children[index];
 
-          if (!cr.node.complete)
+        TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+
+        if ( edge == null )
+        {
+          allImmediateChildrenComplete = false;
+        }
+        else
+        {
+          TreeNodeRef cr = edge.child;
+          if (cr == null )
           {
             allImmediateChildrenComplete = false;
           }
+          else if (cr.seq >= 0 && cr.node.seq == cr.seq)
+          {
+            numUniqueChildren++;
+
+            if (!cr.node.complete)
+            {
+              allImmediateChildrenComplete = false;
+            }
+            else
+            {
+              if (worstDeciderScore == null ||
+                  cr.node.averageScores[roleIndex] < worstDeciderScore[roleIndex])
+              {
+                worstDeciderScore = cr.node.averageScores;
+              }
+
+              if (cr.node.averageScores[roleIndex] >= bestValue)
+              {
+                bestValue = cr.node.averageScores[roleIndex];
+                bestValues = cr.node.averageScores;
+
+                if (bestValue > 99.5)
+                {
+                  //	Win for deciding role which they will choose unless it is also
+                  //	a mutual win
+                  boolean mutualWin = true;
+
+                  for (int i = 0; i < tree.numRoles; i++)
+                  {
+                    if (cr.node.averageScores[i] < 99.5)
+                    {
+                      if (determiningChildCompletionDepth > cr.node.getCompletionDepth())
+                      {
+                        determiningChildCompletionDepth = cr.node.getCompletionDepth();
+                      }
+                      mutualWin = false;
+                      break;
+                    }
+                  }
+
+                  if (!decidingRoleWin)
+                  {
+                    decidingRoleWin |= !mutualWin;
+
+                    if (decidingRoleWin && tree.gameCharacteristics.isSimultaneousMove)
+                    {
+                      //	Only complete on this basis if this move is our choice (complete info)
+                      //	or wins in ALL cousin states also
+                      if (roleIndex != 0 && hasSiblings())
+                      {
+                        Set<Move> equivalentMoves = new HashSet<>();
+
+                        if ( primaryChoiceMapping == null )
+                        {
+                          equivalentMoves.add(edge.partialMove.move);
+                        }
+                        else
+                        {
+                          for (short siblingIndex = 0; index < children.length; index++)
+                          {
+                            if ( primaryChoiceMapping[siblingIndex] == index )
+                            {
+                              assert(children[siblingIndex] instanceof ForwardDeadReckonLegalMoveInfo);
+                              equivalentMoves.add(((ForwardDeadReckonLegalMoveInfo)children[siblingIndex]).move);
+                            }
+                          }
+                        }
+                        if (!isBestMoveInAllUncles(equivalentMoves, roleIndex))
+                        {
+                          decidingRoleWin = false;
+                        }
+                        else
+                        {
+                          if (checkConsequentialSiblingCompletion)
+                          {
+                            checkSiblingCompletion(edge);
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+
+              if (tree.gameCharacteristics.isSimultaneousMove &&
+                  !decidingRoleWin &&
+                  roleIndex != 0 &&
+                  (floorDeciderScore == null || floorDeciderScore[roleIndex] < edge.child.node.averageScores[roleIndex]))
+              {
+                //	Find the highest supported floor score for any of the moves equivalent to this one
+                double[] worstCousinValues = null;
+                short floorCompletionDepth = Short.MAX_VALUE;
+
+                for (short siblingIndex = 0; index < children.length; index++)
+                {
+                  if ( (primaryChoiceMapping == null && siblingIndex == index) || primaryChoiceMapping[siblingIndex] == index )
+                  {
+                    Object siblingChoice = children[siblingIndex];
+                    ForwardDeadReckonLegalMoveInfo siblingMove = (siblingChoice instanceof ForwardDeadReckonLegalMoveInfo) ? (ForwardDeadReckonLegalMoveInfo)siblingChoice : ((TreeEdge)siblingChoice).partialMove;
+                    double[] moveFloor = worstCompleteCousinValues(siblingMove.move,
+                                                                   roleIndex);
+
+                    if (moveFloor != null)
+                    {
+                      if (worstCousinValues == null ||
+                          worstCousinValues[roleIndex] < moveFloor[roleIndex])
+                      {
+                        worstCousinValues = moveFloor;
+                        if (floorCompletionDepth > edge.child.node.getCompletionDepth())
+                        {
+                          floorCompletionDepth = edge.child.node.getCompletionDepth();
+                        }
+                      }
+                    }
+                  }
+                }
+
+                if (worstCousinValues != null &&
+                    (floorDeciderScore == null || floorDeciderScore[roleIndex] < worstCousinValues[roleIndex]))
+                {
+                  floorDeciderScore = worstCousinValues;
+                  determiningChildCompletionDepth = floorCompletionDepth;
+                }
+              }
+            }
+
+            for (int i = 0; i < tree.numRoles; i++)
+            {
+              averageValues[i] += cr.node.averageScores[i];
+            }
+          }
           else
           {
-            if (worstDeciderScore == null ||
-                cr.node.averageScores[roleIndex] < worstDeciderScore[roleIndex])
-            {
-              worstDeciderScore = cr.node.averageScores;
-            }
-
-            if (cr.node.averageScores[roleIndex] >= bestValue)
-            {
-              bestValue = cr.node.averageScores[roleIndex];
-              bestValues = cr.node.averageScores;
-
-              if (bestValue > 99.5)
-              {
-                //	Win for deciding role which they will choose unless it is also
-                //	a mutual win
-                boolean mutualWin = true;
-
-                for (int i = 0; i < tree.numRoles; i++)
-                {
-                  if (cr.node.averageScores[i] < 99.5)
-                  {
-                    if (determiningChildCompletionDepth > cr.node.getCompletionDepth())
-                    {
-                      determiningChildCompletionDepth = cr.node.getCompletionDepth();
-                    }
-                    mutualWin = false;
-                    break;
-                  }
-                }
-
-                if (!decidingRoleWin)
-                {
-                  decidingRoleWin |= !mutualWin;
-
-                  if (decidingRoleWin && tree.gameCharacteristics.isSimultaneousMove)
-                  {
-                    //	Only complete on this basis if this move is our choice (complete info)
-                    //	or wins in ALL cousin states also
-                    if (roleIndex != 0 && hasSiblings())
-                    {
-                      Set<Move> equivalentMoves = new HashSet<>();
-                      for (TreeEdge siblingEdge : children)
-                      {
-                        if (siblingEdge.selectAs == edge)
-                        {
-                          equivalentMoves
-                          .add(siblingEdge.partialMove.move);
-                        }
-                      }
-                      if (!isBestMoveInAllUncles(equivalentMoves, roleIndex))
-                      {
-                        decidingRoleWin = false;
-                      }
-                      else
-                      {
-                        if (checkConsequentialSiblingCompletion)
-                        {
-                          checkSiblingCompletion(edge);
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-
-            if (tree.gameCharacteristics.isSimultaneousMove &&
-                !decidingRoleWin &&
-                roleIndex != 0 &&
-                (floorDeciderScore == null || floorDeciderScore[roleIndex] < edge.child.node.averageScores[roleIndex]))
-            {
-              //	Find the highest supported floor score for any of the moves equivalent to this one
-              double[] worstCousinValues = null;
-              short floorCompletionDepth = Short.MAX_VALUE;
-
-              for (TreeEdge siblingEdge : children)
-              {
-                if (siblingEdge.selectAs == edge )
-                {
-                  double[] moveFloor = worstCompleteCousinValues(siblingEdge.partialMove.move,
-                                                                 roleIndex);
-
-                  if (moveFloor != null)
-                  {
-                    if (worstCousinValues == null ||
-                        worstCousinValues[roleIndex] < moveFloor[roleIndex])
-                    {
-                      worstCousinValues = moveFloor;
-                      if (floorCompletionDepth > edge.child.node.getCompletionDepth())
-                      {
-                        floorCompletionDepth = edge.child.node.getCompletionDepth();
-                      }
-                    }
-                  }
-                }
-              }
-
-              if (worstCousinValues != null &&
-                  (floorDeciderScore == null || floorDeciderScore[roleIndex] < worstCousinValues[roleIndex]))
-              {
-                floorDeciderScore = worstCousinValues;
-                determiningChildCompletionDepth = floorCompletionDepth;
-              }
-            }
-          }
-
-          for (int i = 0; i < tree.numRoles; i++)
-          {
-            averageValues[i] += cr.node.averageScores[i];
+            allImmediateChildrenComplete = false;
           }
         }
-      }
-      else
-      {
-        allImmediateChildrenComplete = false;
       }
     }
 
@@ -965,16 +1050,22 @@ public class TreeNode
     {
       if (determiningChildCompletionDepth == Short.MAX_VALUE)
       {
-        for (TreeEdge edge : children)
+        for (short index = 0; index < children.length; index++)
         {
-          TreeNodeRef cr = edge.child;
-          if (cr != null && (cr.seq >= 0 && cr.node.seq == cr.seq))
+          if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
           {
-            if (edge.selectAs == edge)
+            Object choice = children[index];
+
+            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+            if ( edge != null )
             {
-              if (determiningChildCompletionDepth > cr.node.getCompletionDepth())
+              TreeNodeRef cr = edge.child;
+              if (cr != null && (cr.seq >= 0 && cr.node.seq == cr.seq))
               {
-                determiningChildCompletionDepth = cr.node.getCompletionDepth();
+                if (determiningChildCompletionDepth > cr.node.getCompletionDepth())
+                {
+                  determiningChildCompletionDepth = cr.node.getCompletionDepth();
+                }
               }
             }
           }
@@ -1059,6 +1150,7 @@ public class TreeNode
     // unnecessary garbage, but sorting it won't be easy.
     state = null;
     children = null;
+    primaryChoiceMapping = null;
   }
 
   TreeNodeRef getRef()
@@ -1076,37 +1168,43 @@ public class TreeNode
     if (children != null)
     {
       int missingChildren = 0;
-      for (TreeEdge edge : children)
+      for (short index = 0; index < children.length; index++)
       {
-        if (edge != null)
+        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
         {
-          TreeNodeRef cr = edge.child;
-          if (cr.seq >= 0 && cr.node.seq == cr.seq)
-          {
-            if (!cr.node.parents.contains(this))
-            {
-              LOGGER.error("Missing parent link");
-            }
-            if (cr.node.complete &&
-                cr.node.averageScores[decidingRoleIndex] > 99.5 &&
-                !complete && !tree.completedNodeQueue.contains(cr.node))
-            {
-              LOGGER.error("Completeness constraint violation");
-            }
-            if ((cr.node.decidingRoleIndex) == decidingRoleIndex &&
-                !tree.gameCharacteristics.isPuzzle)
-            {
-              LOGGER.error("Descendant type error");
-            }
+          Object choice = children[index];
 
-            if (recursive)
-            {
-              cr.node.validate(true);
-            }
-          }
-          else
+          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          if ( edge != null )
           {
-            missingChildren++;
+            TreeNodeRef cr = edge.child;
+            if (cr.seq >= 0 && cr.node.seq == cr.seq)
+            {
+              if (!cr.node.parents.contains(this))
+              {
+                LOGGER.error("Missing parent link");
+              }
+              if (cr.node.complete &&
+                  cr.node.averageScores[decidingRoleIndex] > 99.5 &&
+                  !complete && !tree.completedNodeQueue.contains(cr.node))
+              {
+                LOGGER.error("Completeness constraint violation");
+              }
+              if ((cr.node.decidingRoleIndex) == decidingRoleIndex &&
+                  !tree.gameCharacteristics.isPuzzle)
+              {
+                LOGGER.error("Descendant type error");
+              }
+
+              if (recursive)
+              {
+                cr.node.validate(true);
+              }
+            }
+            else
+            {
+              missingChildren++;
+            }
           }
         }
       }
@@ -1123,12 +1221,18 @@ public class TreeNode
 
       for (TreeNode parent : parents)
       {
-        for (TreeEdge edge : parent.children)
+        for (short index = 0; index < parent.children.length; index++)
         {
-          if (edge.child.node == this)
+          if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
           {
-            numInwardVisits += edge.numChildVisits;
-            break;
+            Object choice = parent.children[index];
+
+            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+            if (edge.child != null && edge.child.node == this)
+            {
+              numInwardVisits += edge.numChildVisits;
+              break;
+            }
           }
         }
       }
@@ -1147,11 +1251,17 @@ public class TreeNode
       sweepSeq = tree.sweepInstance;
       if (children != null)
       {
-        for (TreeEdge edge : children)
+        for (short index = 0; index < children.length; index++)
         {
-          if (edge.child != null && edge.child.seq > 0 && edge.child.node.seq == edge.child.seq)
+          if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
           {
-            edge.child.node.markTreeForSweep();
+            Object choice = children[index];
+
+            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+            if (edge != null && edge.child != null && edge.child.seq > 0 && edge.child.node.seq == edge.child.seq)
+            {
+              edge.child.node.markTreeForSweep();
+            }
           }
         }
       }
@@ -1180,8 +1290,6 @@ public class TreeNode
       //	LOGGER.warn("Node still referenced!");
       //}
 
-      tree.nodeMoveWeightsCache.remove(this);
-
       if (trimmedChildren > 0 && !complete)
       {
         tree.numIncompleteNodes--;
@@ -1197,28 +1305,34 @@ public class TreeNode
 
       if (children != null)
       {
-        for (TreeEdge edge : children)
+        for (short index = 0; index < children.length; index++)
         {
-          if (edge != null && edge.child != null)
+          if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
           {
-            if (edge.child.seq >= 0 && edge.child.node.seq == edge.child.seq)
+            Object choice = children[index];
+
+            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+            if (edge != null && edge.child != null)
             {
-              if (edge.child.node.parents.size() != 0)
+              if (edge.child.seq >= 0 && edge.child.node.seq == edge.child.seq)
               {
-                int numRemainingParents = edge.child.node.parents.size();
-                //if (cr.node.sweepParent == this && sweepSeq == sweepInstance)
-                //{
-                //	LOGGER.info("Removing sweep parent");
-                //}
-                edge.child.node.parents.remove(this);
-                if (numRemainingParents == 0)
+                if (edge.child.node.parents.size() != 0)
                 {
-                  LOGGER.warn("Orphaned child node");
-                }
-                else
-                {
-                  //	Best estimate of likely paths to the child node given removal of parent
-                  //edge.child.node.numVisits = (edge.child.node.numVisits*numRemainingParents + numRemainingParents)/(numRemainingParents+1);
+                  int numRemainingParents = edge.child.node.parents.size();
+                  //if (cr.node.sweepParent == this && sweepSeq == sweepInstance)
+                  //{
+                  //	LOGGER.info("Removing sweep parent");
+                  //}
+                  edge.child.node.parents.remove(this);
+                  if (numRemainingParents == 0)
+                  {
+                    LOGGER.warn("Orphaned child node");
+                  }
+                  else
+                  {
+                    //	Best estimate of likely paths to the child node given removal of parent
+                    //edge.child.node.numVisits = (edge.child.node.numVisits*numRemainingParents + numRemainingParents)/(numRemainingParents+1);
+                  }
                 }
               }
             }
@@ -1258,11 +1372,17 @@ public class TreeNode
 
     if (children != null)
     {
-      for (TreeEdge edge : children)
+      for (short index = 0; index < children.length; index++)
       {
-        if (edge.child != null && edge.child.seq >= 0 && edge.child.node.seq == edge.child.seq)
+        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
         {
-          edge.child.node.freeAllBut(null);
+          Object choice = children[index];
+
+          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          if (edge != null && edge.child != null && edge.child.seq >= 0 && edge.child.node.seq == edge.child.seq)
+          {
+            edge.child.node.freeAllBut(null);
+          }
         }
       }
     }
@@ -1284,15 +1404,24 @@ public class TreeNode
 
     if (children != null)
     {
-      for (TreeEdge edge : children)
+      for (short index = 0; index < children.length; index++)
       {
-        TreeNodeRef cr = edge.child;
-        if (cr != null && cr.seq >= 0 && cr.node.seq == cr.seq)
+        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
         {
-          TreeNode childResult = cr.node.findNode(targetState, maxDepth - 1);
-          if (childResult != null)
+          Object choice = children[index];
+
+          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          if ( edge != null )
           {
-            return childResult;
+            TreeNodeRef cr = edge.child;
+            if (cr != null && cr.seq >= 0 && cr.node.seq == cr.seq)
+            {
+              TreeNode childResult = cr.node.findNode(targetState, maxDepth - 1);
+              if (childResult != null)
+              {
+                return childResult;
+              }
+            }
           }
         }
       }
@@ -1345,115 +1474,132 @@ public class TreeNode
     {
       if (children.length == 1)
       {
-        TreeEdge edge = children[0];
+        Object choice = children[0];
 
-        if (edge.child != null && (edge.child.seq >= 0 && edge.child.node.seq == edge.child.seq))
+        if ( choice instanceof TreeEdge )
         {
-          selectedIndex = 0;
+          TreeNodeRef cr = ((TreeEdge)choice).child;
+
+          if (cr != null && (cr.seq >= 0 && cr.node.seq == cr.seq))
+          {
+            selectedIndex = 0;
+          }
         }
       }
       else
       {
         if (leastLikelyWinner != -1)
         {
-          TreeEdge edge = children[leastLikelyWinner];
-          if( edge.child != null)
-          {
-            TreeNode c = edge.child.node;
-            if (c.seq >= 0 && edge.child.seq == c.seq)
-            {
-              //  Don't allow trimming at the immediate children of the root or the root itself
-              if (depth >= 1 || c.hasUntrimmedChildren())
-              {
-                double uctValue;
-                if (edge.numChildVisits == 0 )
-                {
-                  uctValue = -1000;
-                }
-                else
-                {
-                  uctValue = -explorationUCT(numVisits,
-                                             edge,
-                                             roleIndex) -
-                                             exploitationUCT(edge, roleIndex);
-                  //uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[leastLikelyWinner])+1) / numChildVisits[leastLikelyWinner]);
-                }
-                uctValue /= Math.log(c.numVisits + 2); //	utcVal is negative so this makes larger subtrees score higher (less negative)
+          Object choice = children[leastLikelyWinner];
 
-                if (uctValue >= leastLikelyRunnerUpValue)
-                {
-                  selectedIndex = leastLikelyWinner;
-                }
-              }
-            }
-          }
-        }
-
-        if (selectedIndex == -1)
-        {
-          leastLikelyRunnerUpValue = -Double.MAX_VALUE;
-          for (int i = 0; i < children.length; i++)
+          if ( choice instanceof TreeEdge )
           {
-            TreeEdge edge = children[i];
+            TreeEdge edge = (TreeEdge)choice;
             TreeNodeRef cr = edge.child;
-            if (cr != null)
+            if( cr != null)
             {
               TreeNode c = cr.node;
-              if (cr.seq < 0 || c.seq != cr.seq)
+              if (c.seq >= 0 && cr.seq == c.seq)
               {
-                if (cr.seq != CappedPool.NULL_ITEM_SEQ)
-                {
-                  if (trimmedChildren++ == 0)
-                  {
-                    tree.numIncompleteNodes++;
-                  }
-                  cr.seq = CappedPool.NULL_ITEM_SEQ;
-                }
-              }
-              else
-              {
-                if (c.freed)
-                {
-                  LOGGER.warn("Encountered freed child node in tree walk");
-                }
                 //  Don't allow trimming at the immediate children of the root or the root itself
                 if (depth >= 1 || c.hasUntrimmedChildren())
                 {
                   double uctValue;
-                  if (edge.numChildVisits == 0)
+                  if (edge.numChildVisits == 0 )
                   {
                     uctValue = -1000;
                   }
-                  //else if (c.complete)
-                  //{
-                  //	Resist clearing away complete nodes as they potentially
-                  //	represent a lot of work
-                  //	uctValue = -500;
-                  //}
                   else
                   {
                     uctValue = -explorationUCT(numVisits,
                                                edge,
                                                roleIndex) -
                                                exploitationUCT(edge, roleIndex);
-                    //uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
+                    //uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[leastLikelyWinner])+1) / numChildVisits[leastLikelyWinner]);
                   }
-                  uctValue /= Math.log(c.numVisits + 2); //	utcVal is negative so this makes larger subtrees score higher (less negative)
+                  uctValue /= Math.log(c.numVisits + 2); // utcVal is negative so this makes larger subtrees score higher (less negative)
 
-                  //if (c.isLeaf())
-                  //{
-                  //	uctValue += uctValue/(depth+1);
-                  //}
-
-                  //LOGGER.debug("  child score of " + uctValue + " in state "+ c.state);
-                  if (uctValue > bestValue)
+                  if (uctValue >= leastLikelyRunnerUpValue)
                   {
-                    selectedIndex = i;
-                    if (bestValue != -Double.MAX_VALUE)
+                    selectedIndex = leastLikelyWinner;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+
+        if (selectedIndex == -1)
+        {
+          leastLikelyRunnerUpValue = -Double.MAX_VALUE;
+          for (int i = 0; i < children.length; i++)
+          {
+            Object choice = children[i];
+
+            if ( choice instanceof TreeEdge )
+            {
+              TreeEdge edge = (TreeEdge)choice;
+              TreeNodeRef cr = edge.child;
+              if (cr != null)
+              {
+                TreeNode c = cr.node;
+                if (cr.seq < 0 || c.seq != cr.seq)
+                {
+                  if (cr.seq != CappedPool.NULL_ITEM_SEQ)
+                  {
+                    if (trimmedChildren++ == 0)
                     {
-                      leastLikelyRunnerUpValue = bestValue;
+                      tree.numIncompleteNodes++;
                     }
-                    bestValue = uctValue;
+                    cr.seq = CappedPool.NULL_ITEM_SEQ;
+                  }
+                }
+                else
+                {
+                  if (c.freed)
+                  {
+                    LOGGER.warn("Encountered freed child node in tree walk");
+                  }
+                  //  Don't allow trimming at the immediate children of the root or the root itself
+                  if (depth >= 1 || c.hasUntrimmedChildren())
+                  {
+                    double uctValue;
+                    if (edge.numChildVisits == 0)
+                    {
+                      uctValue = -1000;
+                    }
+                    //else if (c.complete)
+                    //{
+                    //	Resist clearing away complete nodes as they potentially
+                    //	represent a lot of work
+                    //	uctValue = -500;
+                    //}
+                    else
+                    {
+                      uctValue = -explorationUCT(numVisits,
+                                                 edge,
+                                                 roleIndex) -
+                                                 exploitationUCT(edge, roleIndex);
+                      //uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
+                    }
+                    uctValue /= Math.log(c.numVisits + 2); //	utcVal is negative so this makes larger subtrees score higher (less negative)
+
+                    //if (c.isLeaf())
+                    //{
+                    //	uctValue += uctValue/(depth+1);
+                    //}
+
+                    //LOGGER.debug("  child score of " + uctValue + " in state "+ c.state);
+                    if (uctValue > bestValue)
+                    {
+                      selectedIndex = i;
+                      if (bestValue != -Double.MAX_VALUE)
+                      {
+                        leastLikelyRunnerUpValue = bestValue;
+                      }
+                      bestValue = uctValue;
+                    }
                   }
                 }
               }
@@ -1468,8 +1614,9 @@ public class TreeNode
     {
       leastLikelyWinner = (short)selectedIndex;
       //LOGGER.debug("  selected: " + selected.state);
-      return children[selectedIndex].child.node
-          .selectLeastLikelyNode(children[selectedIndex], depth + 1);
+      assert(children[selectedIndex] instanceof TreeEdge);
+      TreeEdge selectedEdge = (TreeEdge)children[selectedIndex];
+      return selectedEdge.child.node.selectLeastLikelyNode(selectedEdge, depth + 1);
     }
 
     if (depth < 2)
@@ -1487,11 +1634,17 @@ public class TreeNode
   {
     if (children != null)
     {
-      for(TreeEdge edge : children)
+      for (short index = 0; index < children.length; index++)
       {
-        if (edge.child != null && (edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq))
+        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
         {
-          return true;
+          Object choice = children[index];
+
+          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          if (edge != null && edge.child != null && (edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq))
+          {
+            return true;
+          }
         }
       }
     }
@@ -1594,7 +1747,7 @@ public class TreeNode
     boolean isPseudoNullMove = (tree.factor != null);
     int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
 
-    for (int i = 0; i < roleIndex; i++)
+    for (int i = 0; i <= roleIndex; i++)
     {
       if (jointPartialMove[i].inputProposition != null)
       {
@@ -1603,7 +1756,6 @@ public class TreeNode
     }
 
     assert(state != null);
-    assert(edge.selectAs==edge);
     assert(edge.child==null);
     edge.child = tree.allocateNode(tree.underlyingStateMachine,
                                    (roleIndex == tree.numRoles - 1 ? tree.underlyingStateMachine.getNextState(state, tree.factor, jointPartialMove) : null),
@@ -1661,7 +1813,7 @@ public class TreeNode
         }
       }
 
-      if (children == null || trimmedChildren > 0)
+      assert (children == null);
       {
         Role choosingRole = tree.roleOrdering.roleIndexToRole(roleIndex);
         int topMoveWeight = 0;
@@ -1674,6 +1826,7 @@ public class TreeNode
         Iterable<ForwardDeadReckonLegalMoveInfo> moves = tree.underlyingStateMachine.getLegalMoves(state,
                                                                                                    choosingRole,
                                                                                                    tree.factor);
+        //  TODO - get rid of this intermediary list
         List<ForwardDeadReckonLegalMoveInfo> moveInfos = new LinkedList<>();
 
         for (ForwardDeadReckonLegalMoveInfo move : moves)
@@ -1684,39 +1837,26 @@ public class TreeNode
         assert(moveInfos.size() > 0);
         assert(moveInfos.size() <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
 
-        TreeEdge[] newChildren = new TreeEdge[moveInfos.size()];
-        assert(newChildren.length > 0);
+        children = new Object[moveInfos.size()];
 
-        tree.mGameSearcher.mAverageBranchingFactor.addSample(newChildren.length);
-        int index = 0;
-        if (children != null)
+        tree.mGameSearcher.mAverageBranchingFactor.addSample(children.length);
+        short index = 0;
+
+        if (USE_STATE_SIMILARITY_IN_EXPANSION)
         {
-          for (TreeEdge edge : children)
-          {
-            if (edge.selectAs.child == null || (edge.selectAs.child.seq >= 0 && edge.selectAs.child.seq == edge.selectAs.child.node.seq))
-            {
-              moveInfos.remove(edge.partialMove);
-              newChildren[index] = edge;
-              index++;
-            }
-          }
-        }
-        else if (USE_STATE_SIMILARITY_IN_EXPANSION)
-        {
-          if (newChildren.length > 1)
+          if (children.length > 1)
           {
             topMoveWeight = tree.mStateSimilarityMap.getTopMoves(state, jointPartialMove, topMoveCandidates);
           }
         }
 
-        int firstNewIndex = index;
-        while (index < newChildren.length)
+        while (index < children.length)
         {
-          TreeEdge newEdge = new TreeEdge(moveInfos.remove(0));
+          ForwardDeadReckonLegalMoveInfo newChoice = moveInfos.remove(0);
           ForwardDeadReckonInternalMachineState newState = null;
           boolean isPseudoNullMove = (tree.factor != null);
 
-          jointPartialMove[roleIndex] = newEdge.partialMove;
+          jointPartialMove[roleIndex] = newChoice;
           for (int i = 0; i <= roleIndex; i++)
           {
             if (jointPartialMove[i].inputProposition != null)
@@ -1732,40 +1872,52 @@ public class TreeNode
           {
             newState = state;
           }
-          newEdge.selectAs = newEdge;
+
+          if ( primaryChoiceMapping != null )
+          {
+            primaryChoiceMapping[index] = index;
+          }
           tree.childStatesBuffer[index] = newState;
 
           //	Check for multiple moves that all transition to the same state
           if (!isPseudoNullMove)
           {
-            for (int i = firstNewIndex; i < index; i++)
+            for (short i = 0; i < index; i++)
             {
-              if (newChildren[i] != null &&
+              if (children[i] != null &&
                   roleIndex == tree.numRoles - 1 &&
                   tree.childStatesBuffer[i].equals(newState))
               {
-                newEdge.selectAs = newChildren[i];
+                if ( primaryChoiceMapping == null )
+                {
+                  primaryChoiceMapping = new short[children.length];
+                  for(short j = 0; j < index; j++)
+                  {
+                    primaryChoiceMapping[j] = j;
+                  }
+                }
+                primaryChoiceMapping[index] = i;
                 break;
               }
             }
           }
 
-          newChildren[index] = newEdge;
+          children[index] = newChoice;
           index++;
         }
 
         if (evaluateTerminalOnNodeCreation && roleIndex == tree.numRoles - 1)
         {
-          for (index = firstNewIndex; index < newChildren.length; index++)
+          for (index = 0; index < children.length; index++)
           {
-            TreeEdge newEdge = newChildren[index];
-
-            if (newEdge.selectAs == newEdge)
+            if (primaryChoiceMapping == null || primaryChoiceMapping[index] == index)
             {
               StateInfo info = calculateTerminalityAndAutoExpansion(tree.childStatesBuffer[index]);
 
               if (info.isTerminal || info.autoExpand)
               {
+                TreeEdge newEdge = new TreeEdge((ForwardDeadReckonLegalMoveInfo)children[index]);
+                children[index] = newEdge;
                 jointPartialMove[roleIndex] = newEdge.partialMove;
                 createChildNodeForEdge(newEdge, jointPartialMove);
 
@@ -1783,17 +1935,27 @@ public class TreeNode
 
         if (USE_STATE_SIMILARITY_IN_EXPANSION && topMoveWeight > 0)
         {
-          for (index = firstNewIndex; index < newChildren.length; index++)
+          for (index = 0; index < children.length; index++)
           {
-            TreeEdge newEdge = newChildren[index];
-            if (newEdge.selectAs == newEdge && (newEdge.child == null || (newEdge.child.node.numVisits == 0 && !newEdge.child.node.isTerminal)))
+            if ((primaryChoiceMapping == null || primaryChoiceMapping[index] == index) )
             {
-              for(int i = 0; i < topMoveCandidates.length; i++)
+              Object choice = children[index];
+              TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+              if ( edge == null || !edge.child.node.isTerminal)
               {
-                if (newChildren[index].partialMove == topMoveCandidates[i])
+                for(int i = 0; i < topMoveCandidates.length; i++)
                 {
-                  newChildren[index].explorationAmplifier = (topMoveWeight*(topMoveCandidates.length + 1 - i)*2)/(topMoveCandidates.length+1);
-                  break;
+                  ForwardDeadReckonLegalMoveInfo moveCandidate = topMoveCandidates[i];
+                  if (choice == moveCandidate || (edge != null && edge.partialMove == moveCandidate))
+                  {
+                    if ( edge == null )
+                    {
+                      edge = new TreeEdge(moveCandidate);
+                      children[index] = edge;
+                    }
+                    edge.explorationAmplifier = (topMoveWeight*(topMoveCandidates.length + 1 - i)*2)/(topMoveCandidates.length+1);
+                    break;
+                  }
                 }
               }
             }
@@ -1803,13 +1965,10 @@ public class TreeNode
         MutableInteger lWeight = new MutableInteger();
         if (roleIndex == tree.numRoles - 1)
         {
-          for (index = firstNewIndex; index < newChildren.length; index++)
+          for (index = 0; index < children.length; index++)
           {
-            TreeEdge newEdge = newChildren[index];
-            if (newEdge.child == null && newEdge.selectAs == newEdge)
+            if ((primaryChoiceMapping == null || primaryChoiceMapping[index] == index) )
             {
-              assert(newEdge.numChildVisits == 0);
-
               // Determine the heuristic value for this child.
               double[] heuristicScores = new double[tree.numRoles];
               tree.heuristic.getHeuristicValue(tree.childStatesBuffer[index], state, heuristicScores, lWeight);
@@ -1832,14 +1991,26 @@ public class TreeNode
                 // between the root's scores and the heuristic scores in the new child.
                 if (heuristicSquaredDeviation > 0.01 && tree.root.numVisits > 50)
                 {
-                  jointPartialMove[roleIndex] = newEdge.partialMove;
-                  createChildNodeForEdge(newEdge, jointPartialMove);
+                  //  Create the edge if necessary
+                  TreeEdge edge;
 
-                  TreeNode newChild = newEdge.child.node;
+                  if ( children[index] instanceof TreeEdge )
+                  {
+                    edge = (TreeEdge)children[index];
+                  }
+                  else
+                  {
+                    edge = new TreeEdge((ForwardDeadReckonLegalMoveInfo)children[index]);
+                    children[index] = edge;
+                    jointPartialMove[roleIndex] = edge.partialMove;
+                    createChildNodeForEdge(edge, jointPartialMove);
+                  }
+
+                  TreeNode newChild = edge.child.node;
 
                   //  If this turns out to be a transition into an already visited child
                   //  then do not apply the heuristics
-                  if (newChild.numVisits == 0)
+                  if (newChild.numVisits == 0 && !newChild.isTerminal)
                   {
                     for (int i = 0; i < tree.numRoles; i++)
                     {
@@ -1858,9 +2029,6 @@ public class TreeNode
           }
         }
 
-        children = newChildren;
-        assert(children.length > 0);
-
         //validateAll();
 
         if (trimmedChildren > 0)
@@ -1877,19 +2045,22 @@ public class TreeNode
         {
           boolean completeChildFound = false;
 
-          for (TreeEdge edge : children)
+          for (Object choice : children)
           {
-            TreeNodeRef cr = edge.child;
-            if (cr != null && cr.seq >= 0 && cr.node.seq == cr.seq)
+            if ( choice instanceof TreeEdge )
             {
-              if (cr.node.isTerminal)
+              TreeNodeRef cr = ((TreeEdge)choice).child;
+              if (cr != null && cr.seq >= 0 && cr.node.seq == cr.seq)
               {
-                cr.node.markComplete(cr.node.averageScores, cr.node.depth);
-                completeChildFound = true;
-              }
-              if (cr.node.complete)
-              {
-                completeChildFound = true;
+                if (cr.node.isTerminal)
+                {
+                  cr.node.markComplete(cr.node.averageScores, cr.node.depth);
+                  completeChildFound = true;
+                }
+                if (cr.node.complete)
+                {
+                  completeChildFound = true;
+                }
               }
             }
           }
@@ -1932,12 +2103,18 @@ public class TreeNode
       total = 0;
       int visitTotal = 0;
 
-      for (TreeEdge edge : children)
+      for (short index = 0; index < children.length; index++)
       {
-        if (edge == edge.selectAs)
+        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
         {
-          total += edge.child.node.averageScores[0] * edge.numChildVisits;
-          visitTotal += edge.numChildVisits;
+          Object choice = children[index];
+
+          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          if ( edge != null && edge.child != null )
+          {
+            total += edge.child.node.averageScores[0] * edge.numChildVisits;
+            visitTotal += edge.numChildVisits;
+          }
         }
       }
 
@@ -1970,52 +2147,6 @@ public class TreeNode
     return result;
   }
 
-  private void addMoveWeightsToAncestors(Move move,
-                                         int roleIndex,
-                                         double weight)
-  {
-    TreeNode primaryPathParent = null;
-    int mostSelectedRouteCount = 0;
-
-    for (TreeNode parent : parents)
-    {
-      if (parent.numUpdates > 0)
-      {
-        for (TreeEdge child : parent.children)
-        {
-          if (child.child.node == this)
-          {
-            if (child.numChildVisits > mostSelectedRouteCount)
-            {
-              mostSelectedRouteCount = child.numChildVisits;
-              primaryPathParent = parent;
-            }
-            break;
-          }
-        }
-      }
-    }
-
-    if (primaryPathParent != null)
-    {
-      MoveWeightsCollection weights = tree.nodeMoveWeightsCache.get(primaryPathParent);
-
-      if (weights == null)
-      {
-        weights = new MoveWeightsCollection(tree.numRoles);
-        tree.nodeMoveWeightsCache.put(primaryPathParent, weights);
-      }
-
-      weights.addMove(move, roleIndex, weight);
-
-      primaryPathParent.mostLikelyWinner = -1;
-      primaryPathParent
-      .addMoveWeightsToAncestors(move,
-                                 roleIndex,
-                                 weight * MoveWeightsCollection.decayRate);
-    }
-  }
-
   private double getAverageCousinMoveValue(TreeEdge relativeTo, int roleIndex)
   {
     if (relativeTo.child.node.decidingRoleIndex == 0)
@@ -2031,46 +2162,58 @@ public class TreeNode
 
       for (TreeNode parent : parents)
       {
-        for (TreeEdge edge : parent.children)
+        for (short index = 0; index < parent.children.length; index++)
         {
-          if (edge.child == null)
+          if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
           {
-            continue;
-          }
+            Object choice = parent.children[index];
 
-          TreeNode child = edge.child.node;
-
-          if (edge.child.seq >= 0 && edge.child.seq == child.seq && child.children != null)
-          {
-            double thisSampleWeight = 0.1 + child.averageScores[child.decidingRoleIndex];//(child.averageScores[child.decidingRoleIndex]*(child.numVisits+1) + 50*Math.log(child.numVisits+1))/(child.numVisits+1);
-
-            for (TreeEdge nephewEdge : child.children)
+            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+            if (edge == null || edge.child == null)
             {
-              if (nephewEdge.child == null)
+              continue;
+            }
+
+            TreeNode child = edge.child.node;
+
+            if (edge.child.seq >= 0 && edge.child.seq == child.seq && child.children != null)
+            {
+              double thisSampleWeight = 0.1 + child.averageScores[child.decidingRoleIndex];//(child.averageScores[child.decidingRoleIndex]*(child.numVisits+1) + 50*Math.log(child.numVisits+1))/(child.numVisits+1);
+
+              for (short nephewIndex = 0; nephewIndex < child.children.length; nephewIndex++)
               {
-                continue;
-              }
-
-              TreeNode nephew = nephewEdge.child.node;
-
-              if (nephewEdge.child.seq >= 0 && nephewEdge.child.seq == nephew.seq)
-              {
-                Move move = nephewEdge.partialMove.move;
-                MoveScoreInfo accumulatedMoveInfo = tree.cousinMoveCache
-                    .get(move);
-                if (accumulatedMoveInfo == null)
+                if ( child.primaryChoiceMapping == null || child.primaryChoiceMapping[nephewIndex] == nephewIndex )
                 {
-                  accumulatedMoveInfo = tree.new MoveScoreInfo();
-                  tree.cousinMoveCache.put(move, accumulatedMoveInfo);
-                }
+                  Object nephewChoice = child.children[nephewIndex];
 
-                if (thisSampleWeight != 0)
-                {
-                  accumulatedMoveInfo.averageScore = (accumulatedMoveInfo.averageScore *
-                      accumulatedMoveInfo.sampleWeight + thisSampleWeight *
-                      nephew.averageScores[roleIndex]) /
-                      (accumulatedMoveInfo.sampleWeight + thisSampleWeight);
-                  accumulatedMoveInfo.sampleWeight += thisSampleWeight;
+                  TreeEdge nephewEdge = (nephewChoice instanceof TreeEdge ? (TreeEdge)nephewChoice : null);
+                  if (nephewEdge == null || nephewEdge.child == null)
+                  {
+                    continue;
+                  }
+
+                  TreeNode nephew = nephewEdge.child.node;
+
+                  if (nephewEdge.child.seq >= 0 && nephewEdge.child.seq == nephew.seq)
+                  {
+                    Move move = nephewEdge.partialMove.move;
+                    MoveScoreInfo accumulatedMoveInfo = tree.cousinMoveCache
+                        .get(move);
+                    if (accumulatedMoveInfo == null)
+                    {
+                      accumulatedMoveInfo = tree.new MoveScoreInfo();
+                      tree.cousinMoveCache.put(move, accumulatedMoveInfo);
+                    }
+
+                    if (thisSampleWeight != 0)
+                    {
+                      accumulatedMoveInfo.averageScore = (accumulatedMoveInfo.averageScore *
+                          accumulatedMoveInfo.sampleWeight + thisSampleWeight *
+                          nephew.averageScores[roleIndex]) /
+                          (accumulatedMoveInfo.sampleWeight + thisSampleWeight);
+                      accumulatedMoveInfo.sampleWeight += thisSampleWeight;
+                    }
+                  }
                 }
               }
             }
@@ -2101,11 +2244,17 @@ public class TreeNode
     {
       double bestChildScore = 0;
 
-      for(TreeEdge edge2 : children)
+      for (short index = 0; index < children.length; index++)
       {
-        if (edge2.child != null && edge2.child.node.averageScores[roleIndex] > bestChildScore)
+        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
         {
-          bestChildScore = edge2.child.node.averageScores[roleIndex];
+          Object choice = children[index];
+
+          TreeEdge edge2 = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          if (edge2 != null && edge2.child != null && edge2.child.node.averageScores[roleIndex] > bestChildScore)
+          {
+            bestChildScore = edge2.child.node.averageScores[roleIndex];
+          }
         }
       }
 
@@ -2131,70 +2280,7 @@ public class TreeNode
   private final int orderStatistic = 3;
   private double[]  orderBuffer    = new double[orderStatistic];
 
-  //	Weighted average of available responses (modified (RMS) third-order statistic currently)
-  private double getDescendantMoveWeight(MoveWeightsCollection weights,
-                                         int roleIndex)
-  {
-    double result = 0;
-    MoveWeightsCollection ourWeights = tree.nodeMoveWeightsCache.get(this);
-
-    if (children != null)
-    {
-      if (children.length > 1)
-      {
-        if ((decidingRoleIndex + 1) % tree.numRoles == roleIndex)
-        {
-          int maxOrderIndex = Math.min(children.length, orderStatistic);
-
-          for (int order = 0; order < maxOrderIndex; order++)
-          {
-            orderBuffer[order] = 0;
-          }
-
-          for (TreeEdge edge : children)
-          {
-            double ancestorVal = weights
-                .getMoveWeight(edge.partialMove.move,
-                               roleIndex);
-            double ourVal = (ourWeights == null ? 0 : ourWeights
-                                                .getMoveWeight(edge.partialMove.move,
-                                                               roleIndex));
-            double maxVal = Math.max(ancestorVal, ourVal);
-
-            for (int order = 0; order < maxOrderIndex; order++)
-            {
-              if (maxVal > orderBuffer[order])
-              {
-                for (int i = order + 1; i < maxOrderIndex; i++)
-                {
-                  orderBuffer[i] = orderBuffer[i - 1];
-                }
-
-                orderBuffer[order] = maxVal;
-                break;
-              }
-            }
-          }
-
-          for (int order = 0; order < maxOrderIndex; order++)
-          {
-            result += orderBuffer[order] * orderBuffer[order];
-          }
-
-          result = Math.sqrt(result / maxOrderIndex);
-        }
-      }
-      else
-      {
-        return children[0].child.node.getDescendantMoveWeight(weights,
-                                                              roleIndex);
-      }
-    }
-
-    return result;
-  }
-
-  TreePathElement select(TreePath path, ForwardDeadReckonLegalMoveInfo[] jointPartialMove, MoveWeightsCollection weights)
+  TreePathElement select(TreePath path, ForwardDeadReckonLegalMoveInfo[] jointPartialMove)
       throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     TreeEdge selected = null;
@@ -2216,7 +2302,18 @@ public class TreeNode
         //  If there is only one choice we have to select it
         if (children.length == 1)
         {
-          TreeEdge edge = children[0];
+          Object choice = children[0];
+          TreeEdge edge;
+
+          if ( choice instanceof TreeEdge )
+          {
+            edge = (TreeEdge)choice;
+          }
+          else
+          {
+            edge = new TreeEdge((ForwardDeadReckonLegalMoveInfo)choice);
+            children[0] = edge;
+          }
           TreeNodeRef cr = edge.child;
 
           if (cr == null || (cr.seq >= 0 && cr.node.seq == cr.seq))
@@ -2237,21 +2334,21 @@ public class TreeNode
           //  value, such as completion processing)
           mostLikelyRunnerUpValue = Double.MIN_VALUE;
 
-          //  If action histories are in use we need to accrue the weights from this node
-          if (tree.gameCharacteristics.getMoveActionHistoryEnabled())
-          {
-            MoveWeightsCollection ourWeights = tree.nodeMoveWeightsCache.get(this);
-
-            weights.decay();
-            if (ourWeights != null)
-            {
-              weights.accrue(ourWeights);
-            }
-          }
-
           if (mostLikelyWinner != -1 && (tree.factor == null || this != tree.root))
           {
-            TreeNodeRef cr = children[mostLikelyWinner].child;
+            Object choice = children[mostLikelyWinner];
+            TreeEdge edge;
+
+            if ( choice instanceof TreeEdge )
+            {
+              edge = (TreeEdge)choice;
+            }
+            else
+            {
+              edge = new TreeEdge((ForwardDeadReckonLegalMoveInfo)choice);
+              children[mostLikelyWinner] = edge;
+            }
+            TreeNodeRef cr = edge.child;
 
             if( cr != null )
             {
@@ -2260,10 +2357,10 @@ public class TreeNode
               {
                 double uctValue;
 
-                if (children[mostLikelyWinner].numChildVisits == 0 && !c.complete)
+                if (edge.numChildVisits == 0 && !c.complete)
                 {
                   // small random number to break ties randomly in unexpanded nodes
-                  uctValue = 1000 + tree.r.nextDouble() * EPSILON + children[mostLikelyWinner].explorationAmplifier;
+                  uctValue = 1000 + tree.r.nextDouble() * EPSILON + edge.explorationAmplifier;
                 }
                 else
                 {
@@ -2275,8 +2372,8 @@ public class TreeNode
                   //  in highly transpositional games) does not seem to work as well (even with a
                   //  'corrected' parent visit count obtained by summing the number of visits to all
                   //  the child's parents)
-                  uctValue = explorationUCT(numVisits, children[mostLikelyWinner], roleIndex) +
-                             exploitationUCT(children[mostLikelyWinner], roleIndex);;
+                  uctValue = explorationUCT(numVisits, edge, roleIndex) +
+                             exploitationUCT(edge, roleIndex);;
                 }
 
                 if (uctValue >= mostLikelyRunnerUpValue)
@@ -2293,15 +2390,18 @@ public class TreeNode
             //  to recalculate
             mostLikelyRunnerUpValue = Double.MIN_VALUE;
 
-            for (int i = 0; i < children.length; i++)
+            for (short i = 0; i < children.length; i++)
             {
               //  Only select one move that is state-equivalent, and don't allow selection of a pseudo-noop
-              if (children[i].selectAs == children[i])
+              if ( primaryChoiceMapping == null || primaryChoiceMapping[i] == i )
               {
-                double uctValue;
+                Object choice = children[i];
 
-                TreeNodeRef cr = children[i].child;
-                if (cr != null)
+                TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+                double uctValue;
+                TreeNodeRef cr;
+
+                if ( edge != null && (cr = edge.child) != null )
                 {
                   TreeNode c = cr.node;
                   if (c.seq != cr.seq)
@@ -2322,16 +2422,16 @@ public class TreeNode
                   //  except from the root since we just want to know the difference in cost or omitting one
                   //  move (at root level) if we play in another factor
                   else if ((!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.isMultiPlayer)) &&
-                           (tree.root == this || !children[i].partialMove.isPseudoNoOp))
+                           (tree.root == this || !edge.partialMove.isPseudoNoOp))
                   {
-                    if (children[i].numChildVisits == 0)
+                    if (edge.numChildVisits == 0)
                     {
                       // small random number to break ties randomly in unexpanded nodes
-                      uctValue = 1000 + tree.r.nextDouble() * EPSILON + children[i].explorationAmplifier;
+                      uctValue = 1000 + tree.r.nextDouble() * EPSILON + edge.explorationAmplifier;
                     }
                     else
                     {
-                      assert(children[i].numChildVisits <= c.numVisits);
+                      assert(edge.numChildVisits <= c.numVisits);
 
                       //  Various experiments have been done to try to find the best selection
                       //  weighting, and it seems that using the number of times we've visited the
@@ -2346,30 +2446,12 @@ public class TreeNode
                       //  applying it (both of which can be rationalized!) seem to fare worse in at
                       //  least some games
                       uctValue = (c.complete ? explorationUCT(numVisits,
-                                                              children[i],
+                                                              edge,
                                                               roleIndex)/2
                                                               : explorationUCT(numVisits,
-                                                                               children[i],
+                                                                               edge,
                                                                                roleIndex)) +
-                                                                               exploitationUCT(children[i], roleIndex);
-                    }
-
-                    //  If we're using move action histories add the move weight into the selection value
-                    if (tree.gameCharacteristics.getMoveActionHistoryEnabled() )
-                    {
-                      double moveWeight = 0;
-                      double opponentEnabledMoveWeight = c
-                          .getDescendantMoveWeight(weights, roleIndex);
-                      if (!c.complete && weights != null)
-                      {
-                        moveWeight = weights
-                            .getMoveWeight(children[i].partialMove.move,
-                                           roleIndex);
-                      }
-                      uctValue += (moveWeight - opponentEnabledMoveWeight) *
-                          Math.sqrt(Math.log(numVisits) /
-                                    (c.numVisits + 1)) *
-                                    tree.gameCharacteristics.getMoveActionHistoryBias();
+                                                                               exploitationUCT(edge, roleIndex);
                     }
 
                     //  If the node we most want to select through is complete (or all its
@@ -2407,7 +2489,7 @@ public class TreeNode
                   //  path which is asserted to be non-terminal and unvisited
 
                   // small random number to break ties randomly in unexpanded nodes
-                  uctValue = 1000 + tree.r.nextDouble() * EPSILON + children[i].explorationAmplifier;
+                  uctValue = 1000 + tree.r.nextDouble() * EPSILON + (edge == null ? 0 : edge.explorationAmplifier);
 
                   if (uctValue > bestValue)
                   {
@@ -2431,41 +2513,54 @@ public class TreeNode
       {
         LOGGER.warn("select on an unexpanded node!");
       }
-      //	pick at random.  If we pick one that has been trimmed re-expand it
-      //	FUTURE - can establish a bound on the trimmed UCT value to avoid
-      //	randomization for a while at least
-      int childIndex = tree.r.nextInt(children.length);
-      selected = children[childIndex].selectAs;
-      TreeNodeRef cr = selected.child;
 
       tree.numSelectionsThroughIncompleteNodes++;
 
-      if (cr != null && (cr.seq < 0 || cr.seq != cr.node.seq))
+      //	pick at random.  If we pick one that has been trimmed re-expand it
+      //	FUTURE - can establish a bound on the trimmed UCT value to avoid
+      //	randomization for a while at least
+      selectedIndex = tree.r.nextInt(children.length);
+      if ( primaryChoiceMapping != null )
       {
-        tree.numReExpansions++;
-        if (trimmedChildren == 0)
-        {
-          LOGGER.warn("Found trimmed child where none should exist!");
-        }
-        expand(jointPartialMove);
-        selected = children[childIndex].selectAs;
-        assert(selected.child == null || !selected.child.node.freed);
-        assert(selected.child == null || selected.child.node.numVisits >= selected.numChildVisits);
+        selectedIndex = primaryChoiceMapping[selectedIndex];
+      }
 
-        if (selected.child != null && selected.child.node.complete && !tree.gameCharacteristics.isMultiPlayer && !tree.gameCharacteristics.isPuzzle)
+      if ( children[selectedIndex] instanceof TreeEdge )
+      {
+        selected = (TreeEdge)children[selectedIndex];
+        TreeNodeRef cr = selected.child;
+
+        if (cr != null && (cr.seq < 0 || cr.seq != cr.node.seq))
         {
-          if (!tree.completeSelectionFromIncompleteParentWarned)
+          tree.numReExpansions++;
+          if (trimmedChildren == 0)
           {
-            tree.completeSelectionFromIncompleteParentWarned = true;
-            LOGGER.warn("Selected complete node from incomplete parent");
+            LOGGER.warn("Found trimmed child where none should exist!");
           }
+
+          //  Reset the edge so it will be re-expanded
+          selected.child = null;
+          selected.numChildVisits = 0;
+          selected.explorationAmplifier = 0;
         }
       }
     }
     else
     {
       mostLikelyWinner = (short)selectedIndex;
-      selected = children[selectedIndex];
+    }
+
+    //  Expand the edge if necessary
+    Object choice = children[selectedIndex];
+
+    if ( choice instanceof TreeEdge )
+    {
+      selected = (TreeEdge)choice;
+    }
+    else
+    {
+      selected = new TreeEdge((ForwardDeadReckonLegalMoveInfo)choice);
+      children[selectedIndex] = selected;
     }
 
     jointPartialMove[roleIndex] = selected.partialMove;
@@ -2493,19 +2588,14 @@ public class TreeNode
     if ((tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.isMultiPlayer) &&
         bestCompleteNode != null && bestCompleteValue > bestValue && !tree.gameCharacteristics.isPuzzle)
     {
-      assert(bestCompleteNode == children[bestSelectedIndex].child.node);
+      assert(children[bestSelectedIndex] instanceof TreeEdge);
+      TreeEdge bestSelectedEdge = (TreeEdge)children[bestSelectedIndex];
+      assert(bestCompleteNode == bestSelectedEdge.child.node);
 
       result.setScoreOverrides(bestCompleteNode.averageScores);
       bestCompleteNode.numVisits++;
-      children[bestSelectedIndex].numChildVisits++;
+      bestSelectedEdge.numChildVisits++;
       mostLikelyWinner = -1;
-    }
-
-    //  Decay the weights being aggregated (so that they decay progressively as
-    //  we select down the tree)
-    if (tree.gameCharacteristics.getMoveActionHistoryEnabled() && weights != null)
-    {
-      weights.decayForSelectionThrough(selected.partialMove.move, roleIndex);
     }
 
     return result;
@@ -2533,17 +2623,23 @@ public class TreeNode
     double result = 0;
     double childResult = -Double.MAX_VALUE;
 
-    for (TreeEdge edge : children)
+    for (short index = 0; index < children.length; index++)
     {
-      if (edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq)
+      if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
       {
-        double childVal = edge.child.node.averageScores[edge.child.node.decidingRoleIndex];
+        Object choice = children[index];
 
-        if (childVal > childResult)//&& edge.child.node.numVisits > 500 )
+        TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+        if (edge != null && edge.child.seq >= 0 && edge.child.seq == edge.child.node.seq)
         {
-          childResult = childVal;
-          result = edge.child.node
-              .scoreForMostLikelyResponseRecursive(this, forRoleIndex);
+          double childVal = edge.child.node.averageScores[edge.child.node.decidingRoleIndex];
+
+          if (childVal > childResult)//&& edge.child.node.numVisits > 500 )
+          {
+            childResult = childVal;
+            result = edge.child.node
+                .scoreForMostLikelyResponseRecursive(this, forRoleIndex);
+          }
         }
       }
     }
@@ -2595,36 +2691,47 @@ public class TreeNode
     }
     else if (children.length > 1)
     {
-      for (TreeEdge edge2 : children)
+      for (short index = 0; index < children.length; index++)
       {
-        if (edge2.child != null && edge2.child.seq >= 0 && edge2.child.seq == edge2.child.node.seq)
+        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
         {
-          String lLog = "    Response " +
-                        edge2.partialMove.move +
-                        " scores " + edge2.child.node.stringizeScoreVector() +
-                        ", visits " + edge2.child.node.numVisits +
-                        ", seq : " + edge2.child.seq +
-                        (edge2.child.node.complete ? " (complete)" : "");
+          Object choice = children[index];
 
-          if (xiResponsesTraced < 400)
+          TreeEdge edge2 = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          if (edge2 != null && edge2.child != null && edge2.child.seq >= 0 && edge2.child.seq == edge2.child.node.seq)
           {
-            LOGGER.debug(lLog);
-          }
-          else
-          {
-            if (xiResponsesTraced == 400)
+            String lLog = "    Response " +
+                          edge2.partialMove.move +
+                          " scores " + edge2.child.node.stringizeScoreVector() +
+                          ", visits " + edge2.child.node.numVisits +
+                          ", seq : " + edge2.child.seq +
+                          (edge2.child.node.complete ? " (complete)" : "");
+
+            if (xiResponsesTraced < 400)
             {
-              LOGGER.debug("(Further responses output at trace level)");
+              LOGGER.debug(lLog);
             }
-            LOGGER.trace(lLog);
+            else
+            {
+              if (xiResponsesTraced == 400)
+              {
+                LOGGER.debug("(Further responses output at trace level)");
+              }
+              LOGGER.trace(lLog);
+            }
+            xiResponsesTraced++;
           }
-          xiResponsesTraced++;
         }
       }
     }
-    else if (children[0].child != null)
+    else if (children[0] instanceof TreeEdge)
     {
-      xiResponsesTraced = children[0].child.node.traceFirstChoiceNode(xiResponsesTraced);
+      TreeEdge edge2 = (TreeEdge)children[0];
+
+      if ( edge2.child != null )
+      {
+        xiResponsesTraced = edge2.child.node.traceFirstChoiceNode(xiResponsesTraced);
+      }
     }
 
     return xiResponsesTraced;
@@ -2671,11 +2778,17 @@ public class TreeNode
 
       if (children != null)
       {
-        for (TreeEdge edge : children)
+        for (short index = 0; index < children.length; index++)
         {
-          if (edge.child.seq >= 0 && edge.child.node.seq == edge.child.seq)
+          if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
           {
-            edge.child.node.dumpTree(writer, depth + 1, edge);
+            Object choice = children[index];
+
+            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+            if (edge != null && edge.child != null && edge.child.seq >= 0 && edge.child.node.seq == edge.child.seq)
+            {
+              edge.child.node.dumpTree(writer, depth + 1, edge);
+            }
           }
         }
       }
@@ -2707,149 +2820,34 @@ public class TreeNode
       {
         if (decidingRoleIndex != (tree.numRoles - 1) % tree.numRoles)
         {
-          for (TreeEdge edge2 : children)
+          for (short index = 0; index < children.length; index++)
           {
-            if (edge2.child != null && edge2.child.seq >= 0 && edge2.child.seq == edge2.child.node.seq)
+            if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
             {
-              if (edge2.child.node.averageScores[0] <= tree.mGameSearcher.lowestRolloutScoreSeen &&
-                  edge2.child.node.complete)
+              Object choice = children[index];
+
+              TreeEdge edge2 = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+              if (edge2 != null && edge2.child != null && edge2.child.seq >= 0 && edge2.child.seq == edge2.child.node.seq)
               {
-                LOGGER.info("Post-processing completion of response node");
-                markComplete(edge2.child.node.averageScores, edge2.child.node.completionDepth);
+                if (edge2.child.node.averageScores[0] <= tree.mGameSearcher.lowestRolloutScoreSeen &&
+                    edge2.child.node.complete)
+                {
+                  LOGGER.info("Post-processing completion of response node");
+                  markComplete(edge2.child.node.averageScores, edge2.child.node.completionDepth);
+                }
               }
             }
           }
         }
       }
-      else
+      else if ( children[0] instanceof TreeEdge )
       {
-        children[0].child.node.postProcessResponseCompletion();
-      }
-    }
-  }
+        TreeEdge edge2 = (TreeEdge)children[0];
 
-  private class MoveFrequencyInfo
-  {
-    public int      numSamples;
-    public int      selectionFrequency;
-    public double[] weightedAverageScores;
-    public double   averageWeight;
-
-    public MoveFrequencyInfo()
-    {
-      weightedAverageScores = new double[TreeNode.this.tree.numRoles];
-    }
-  }
-
-  private void addResponseStats(Map<Move, MoveFrequencyInfo> responseInfo,
-                                MoveWeightsCollection weights)
-  {
-    weights.decay();
-
-    if (children != null)
-    {
-      if (children.length > 1)
-      {
-        MoveWeightsCollection ourWeights = tree.nodeMoveWeightsCache.get(this);
-        if (ourWeights != null)
+        if ( edge2.child != null )
         {
-          weights.accrue(ourWeights);
+          edge2.child.node.postProcessResponseCompletion();
         }
-
-        for (TreeEdge edge2 : children)
-        {
-          if (edge2.child.seq >= 0 && edge2.child.seq == edge2.child.node.seq)
-          {
-            MoveFrequencyInfo moveInfo = responseInfo
-                .get(edge2.partialMove.move);
-
-            if (moveInfo == null)
-            {
-              moveInfo = new MoveFrequencyInfo();
-              responseInfo
-              .put(edge2.partialMove.move,
-                   moveInfo);
-            }
-
-            for (int i = 0; i < tree.numRoles; i++)
-            {
-              moveInfo.weightedAverageScores[i] = (moveInfo.weightedAverageScores[i] *
-                  moveInfo.selectionFrequency + edge2.child.node.averageScores[i] *
-                  edge2.child.node.numVisits) /
-                  (moveInfo.selectionFrequency + edge2.child.node.numVisits);
-            }
-            moveInfo.selectionFrequency += edge2.child.node.numVisits;
-
-            moveInfo.averageWeight = (moveInfo.averageWeight *
-                moveInfo.numSamples + weights
-                .getMoveWeight(edge2.partialMove.move,
-                               edge2.child.node.decidingRoleIndex)) /
-                               (moveInfo.numSamples + 1);
-            moveInfo.numSamples++;
-          }
-        }
-      }
-      else
-      {
-        children[0].child.node.addResponseStats(responseInfo, weights);
-      }
-    }
-  }
-
-  private void dumpStats()
-  {
-    if (tree.gameCharacteristics.getMoveActionHistoryEnabled())
-    {
-      Map<Move, MoveFrequencyInfo> moveChoices = new HashMap<Move, MoveFrequencyInfo>();
-      Map<Move, MoveFrequencyInfo> responseChoices = new HashMap<Move, MoveFrequencyInfo>();
-      MoveWeightsCollection ourWeights = tree.nodeMoveWeightsCache.get(this);
-
-      if (children != null)
-      {
-        for (TreeEdge edge : children)
-        {
-          MoveFrequencyInfo info = new MoveFrequencyInfo();
-
-          info.selectionFrequency = edge.numChildVisits;
-          info.weightedAverageScores = edge.child.node.averageScores;
-          info.numSamples = 1;
-          info.averageWeight = (ourWeights == null ? 0 : ourWeights
-                                                   .getMoveWeight(edge.partialMove.move, 0));
-          moveChoices.put(edge.partialMove.move, info);
-
-          MoveWeightsCollection weights = new MoveWeightsCollection(tree.numRoles);
-          if (ourWeights != null)
-          {
-            weights.accrue(ourWeights);
-          }
-          edge.child.node.addResponseStats(responseChoices, weights);
-        }
-      }
-
-      for (Entry<Move, MoveFrequencyInfo> e : moveChoices.entrySet())
-      {
-        LOGGER.info("Move " +
-            e.getKey() +
-            " weight " +
-            e.getValue().averageWeight +
-            ", frequency " +
-                e.getValue().selectionFrequency +
-                ", score: " +
-                    stringizeScoreVector(e.getValue().weightedAverageScores,
-                                         false));
-      }
-
-      for (Entry<Move, MoveFrequencyInfo> e : responseChoices.entrySet())
-      {
-        LOGGER.info("Response " +
-            e.getKey() +
-            " weight " +
-            e.getValue().averageWeight +
-            ", frequency " +
-            e.getValue().selectionFrequency +
-            ", score: " +
-            stringizeScoreVector(e.getValue().weightedAverageScores,
-                                 false));
       }
     }
   }
@@ -2889,9 +2887,10 @@ public class TreeNode
 
     if (!lRecursiveCall)
     {
-      for (TreeEdge edge : children)
+      for (Object choice : children)
       {
-        if (edge.child != null)
+        TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+        if (edge != null && edge.child != null)
         {
           if (edge.child.node.complete)
           {
@@ -2910,9 +2909,10 @@ public class TreeNode
 
     tree.processNodeCompletions();
 
-    for (TreeEdge edge : children)
+    for (Object choice : children)
     {
-      if (edge.child == null)
+      TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+      if (edge == null || edge.child == null)
       {
         continue;
       }
@@ -3021,8 +3021,6 @@ public class TreeNode
         rawBestEdgeResult = edge;
       }
     }
-
-    dumpStats();
 
     //dumpTree("C:\\temp\\mctsTree.txt");
 
@@ -3182,7 +3180,6 @@ public class TreeNode
 
     if (childEdge != null)
     {
-      assert(childEdge.selectAs == childEdge);
       assert(childEdge.child.seq == childEdge.child.node.seq);
 
       childEdge.numChildVisits++;
@@ -3235,34 +3232,6 @@ public class TreeNode
     {
       values = overrides;
     }
-    else if (childEdge != null && children != null && children.length > 1 &&
-        tree.gameCharacteristics.getMoveActionHistoryEnabled())
-    {
-      //	Sigmoid response to score in move weight, biased around a score of 75
-      double newWeight = 1 / (1 + Math
-          .exp((75 - childEdge.child.node.averageScores[childEdge.child.node.decidingRoleIndex]) / 5));
-
-      if (!childEdge.child.node.complete)
-      {
-        newWeight *= (1 - Math.exp(-childEdge.child.node.numVisits / 10));
-      }
-
-      path.propagatedMoveWeights.decay();
-      path.propagatedMoveWeights
-      .addMove(childEdge.partialMove.move,
-               childEdge.child.node.decidingRoleIndex,
-               newWeight);
-
-      MoveWeightsCollection ourWeights = tree.nodeMoveWeightsCache.get(this);
-
-      if (ourWeights == null)
-      {
-        ourWeights = new MoveWeightsCollection(tree.numRoles);
-        tree.nodeMoveWeightsCache.put(this, ourWeights);
-      }
-
-      ourWeights.accrue(path.propagatedMoveWeights);
-    }
 
     for (int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
     {
@@ -3274,7 +3243,6 @@ public class TreeNode
       {
         int numChildVisits = childEdge.numChildVisits;
 
-        assert(childEdge.selectAs == childEdge);
         if (numChildVisits > childEdge.child.node.numVisits)
         {
           LOGGER.warn("Unexpected edge strength greater than total child strength");
