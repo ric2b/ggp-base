@@ -893,14 +893,6 @@ public class Sancho extends SampleGamer
           }
           else
           {
-            // If we're ~2 seconds away from the point we try to submit, suggest a GC.  This should reduce the
-            // likelihood of a big GC as we're in the middle of submitting.
-            if ((System.currentTimeMillis() + 2000 < finishBy) &&
-                (System.currentTimeMillis() + 2250 > finishBy))
-            {
-              System.gc();
-            }
-
             Thread.sleep(250);
           }
         }
