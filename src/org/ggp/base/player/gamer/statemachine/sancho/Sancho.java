@@ -42,7 +42,7 @@ public class Sancho extends SampleGamer
   private int                         mTurn                           = 0;
   private String                      planString                      = null;
   private GamePlan                    plan                            = null;
-  private int                         transpositionTableSize          = 2000000;
+  private int                         transpositionTableSize          = MachineSpecificConfiguration.getCfgVal(CfgItem.NODE_TABLE_SIZE, 2000000);
   private RuntimeGameCharacteristics  gameCharacteristics             = null;
   private RoleOrdering                roleOrdering                    = null;
   private Move[]                      canonicallyOrderedMoveBuffer    = null;

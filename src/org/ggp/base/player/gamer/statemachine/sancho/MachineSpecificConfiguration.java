@@ -51,7 +51,13 @@ public class MachineSpecificConfiguration
      * If specified and strictly positive used as the rollout sample
      * size, without any dynamic tuning
      */
-    FIXED_SAMPLE_SIZE;
+    FIXED_SAMPLE_SIZE,
+
+
+    /**
+     * Explicit transposition table size to use (aka max node count)
+     */
+    NODE_TABLE_SIZE;
   }
 
   private static final Properties MACHINE_PROPERTIES = new Properties();
