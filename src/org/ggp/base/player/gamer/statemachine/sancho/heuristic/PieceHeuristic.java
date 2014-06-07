@@ -484,6 +484,8 @@ public class PieceHeuristic implements Heuristic
       //  Weight further material gain down the more we're already ahead/behind in material
       //  because in either circumstance it's likely to be position that is more important
       heuristicSampleWeight = (int)Math.max(2, 6 - Math.abs(ourMaterialDivergence) * 3);
+
+      LOGGER.info("Piece heuristic weight set to: " + heuristicSampleWeight);
     }
     else
     {
