@@ -2347,8 +2347,6 @@ public class TreeNode
           //  the node we only have to check that the best has not fallen in value below the
           //  second best, and do a full rescan only if it has (a few operations also clear the cached
           //  value, such as completion processing)
-          mostLikelyRunnerUpValue = Double.MIN_VALUE;
-
           if (mostLikelyWinner != -1 && (tree.factor == null || this != tree.root))
           {
             Object choice = children[mostLikelyWinner];
