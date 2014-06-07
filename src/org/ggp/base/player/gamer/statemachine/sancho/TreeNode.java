@@ -441,7 +441,7 @@ public class TreeNode
 
     for (int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
     {
-      if (averageScores[roleIndex] > 99.5)
+      if (averageScores[roleIndex] > 100 - EPSILON)
       {
         if (roleIndex == decidingRoleIndex &&
             (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == 0 || hasSiblinglessParents()))
@@ -522,8 +522,9 @@ public class TreeNode
           {
             Object choice = parent.children[index];
 
+            //  An unexpanded edge or child node cannot be the same as this one
             TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-            if ( edge == null || edge.child.node != this )
+            if ( edge == null || edge.child == null || edge.child.node != this )
             {
               return true;
             }
@@ -629,7 +630,7 @@ public class TreeNode
           Object choice = parent.children[index];
 
           TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-          if ( edge != null )
+          if ( edge != null && edge.child != null )
           {
             TreeNode child = edge.child.node;
 
@@ -655,7 +656,7 @@ public class TreeNode
           Object choice = parent.children[index];
 
           TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-          if ( edge == null )
+          if ( edge == null || edge.child == null )
           {
             return false;
           }
@@ -714,7 +715,7 @@ public class TreeNode
                 return false;
               }
             }
-            else if (child.averageScores[roleIndex] < 99.5)
+            else if (child.averageScores[roleIndex] < 100-EPSILON)
             {
               return false;
             }
@@ -882,7 +883,7 @@ public class TreeNode
                 bestValue = cr.node.averageScores[roleIndex];
                 bestValues = cr.node.averageScores;
 
-                if (bestValue > 99.5)
+                if (bestValue > 100-EPSILON)
                 {
                   //	Win for deciding role which they will choose unless it is also
                   //	a mutual win
@@ -890,7 +891,7 @@ public class TreeNode
 
                   for (int i = 0; i < tree.numRoles; i++)
                   {
-                    if (cr.node.averageScores[i] < 99.5)
+                    if (cr.node.averageScores[i] < 100-EPSILON)
                     {
                       if (determiningChildCompletionDepth > cr.node.getCompletionDepth())
                       {
@@ -919,12 +920,20 @@ public class TreeNode
                         }
                         else
                         {
-                          for (short siblingIndex = 0; index < children.length; index++)
+                          for (short siblingIndex = 0; siblingIndex < children.length; siblingIndex++)
                           {
                             if ( primaryChoiceMapping[siblingIndex] == index )
                             {
-                              assert(children[siblingIndex] instanceof ForwardDeadReckonLegalMoveInfo);
-                              equivalentMoves.add(((ForwardDeadReckonLegalMoveInfo)children[siblingIndex]).move);
+                              if ( siblingIndex == index )
+                              {
+                                assert(children[siblingIndex] instanceof TreeEdge);
+                                equivalentMoves.add(((TreeEdge)children[siblingIndex]).partialMove.move);
+                              }
+                              else
+                              {
+                                assert(children[siblingIndex] instanceof ForwardDeadReckonLegalMoveInfo);
+                                equivalentMoves.add(((ForwardDeadReckonLegalMoveInfo)children[siblingIndex]).move);
+                              }
                             }
                           }
                         }
@@ -954,9 +963,9 @@ public class TreeNode
                 double[] worstCousinValues = null;
                 short floorCompletionDepth = Short.MAX_VALUE;
 
-                for (short siblingIndex = 0; index < children.length; index++)
+                for (short siblingIndex = 0; siblingIndex < children.length; siblingIndex++)
                 {
-                  if ( (primaryChoiceMapping == null && siblingIndex == index) || primaryChoiceMapping[siblingIndex] == index )
+                  if ( siblingIndex == index || (primaryChoiceMapping != null && primaryChoiceMapping[siblingIndex] == index) )
                   {
                     Object siblingChoice = children[siblingIndex];
                     ForwardDeadReckonLegalMoveInfo siblingMove = (siblingChoice instanceof ForwardDeadReckonLegalMoveInfo) ? (ForwardDeadReckonLegalMoveInfo)siblingChoice : ((TreeEdge)siblingChoice).partialMove;
@@ -1185,7 +1194,7 @@ public class TreeNode
                 LOGGER.error("Missing parent link");
               }
               if (cr.node.complete &&
-                  cr.node.averageScores[decidingRoleIndex] > 99.5 &&
+                  cr.node.averageScores[decidingRoleIndex] > 100-EPSILON &&
                   !complete && !tree.completedNodeQueue.contains(cr.node))
               {
                 LOGGER.error("Completeness constraint violation");
@@ -2933,7 +2942,7 @@ public class TreeNode
                           tree.disableOnelevelMinimax) ? child.averageScores[roleIndex] :
                                                          child.scoreForMostLikelyResponse();
 
-      assert(0 <= moveScore && 100 >= moveScore);
+      assert(-EPSILON <= moveScore && 100 + EPSILON >= moveScore);
       //	If we have complete nodes with equal scores choose the one with the highest variance
       if (child.complete)
       {
