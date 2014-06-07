@@ -270,15 +270,18 @@ public class Sancho extends SampleGamer
 
     multiRoleAverageScoreDiff = 0;
 
+    // Find latches.  This needs to be done before the AvailableGoalHeuristic is initialized.
+    underlyingStateMachine.findLatches();
+
     CombinedHeuristic heuristic;
 
-    if ( MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_PIECE_HEURISTIC, false) )
+    if (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_PIECE_HEURISTIC, false))
     {
       heuristic = new CombinedHeuristic();
     }
     else
     {
-      heuristic = new CombinedHeuristic(new PieceHeuristic());
+      heuristic = new CombinedHeuristic(new PieceHeuristic() /*, new AvailableGoalHeuristic() */);
     }
 
     boolean hasHeuristicCandidates = heuristic.tuningInitialise(underlyingStateMachine, roleOrdering);
@@ -309,9 +312,6 @@ public class Sancho extends SampleGamer
     int[] roleScores = new int[numRoles];
 
     Collection<Factor> factors = underlyingStateMachine.getFactors();
-
-    // Find latches
-    underlyingStateMachine.findLatches();
 
     //	Perform a small number of move-by-move simulations to assess how
     //	the potential piece count heuristics behave at the granularity of

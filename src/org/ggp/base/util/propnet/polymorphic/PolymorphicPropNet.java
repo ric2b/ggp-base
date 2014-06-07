@@ -704,8 +704,7 @@ public class PolymorphicPropNet
       goalPropositions = new HashMap<>();
       for (Role role : goalPropositionsMutable.keySet())
       {
-        PolymorphicProposition[] goalsForRole = new PolymorphicProposition[goalPropositionsMutable
-            .get(role).size()];
+        PolymorphicProposition[] goalsForRole = new PolymorphicProposition[goalPropositionsMutable.get(role).size()];
         int index = 0;
         for (PolymorphicProposition p : goalPropositionsMutable.get(role))
         {

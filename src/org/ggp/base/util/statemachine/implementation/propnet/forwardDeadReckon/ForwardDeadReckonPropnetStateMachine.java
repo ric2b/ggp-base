@@ -15,6 +15,7 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.profile.ProfileSection;
@@ -114,6 +115,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public long                                                          totalNumPropagates              = 0;
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mPositiveGoalLatches      = null;
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mNegativeGoalLatches      = null;
+
+  // Temporary variables used to avoid excessive object allocation.
+  private int[]                                                        mNumAvailableGoals              = null;
 
   private class TestPropnetStateMachineStats extends Stats
   {
@@ -532,6 +536,13 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
+  /**
+   * @return the latched score for the specified state, or null if there isn't one.
+   *
+   * @param xiState - the state.
+   *
+   * !! ARR 1P latches?
+   */
   public Integer getLatchedScore(ForwardDeadReckonInternalMachineState xiState)
   {
     if (mPositiveGoalLatches != null)
@@ -548,9 +559,62 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return null;
   }
 
+  /**
+   * @return whether there are any negative goal latches.
+   */
   public boolean hasNegativelyLatchedGoals()
   {
     return (mNegativeGoalLatches != null);
+  }
+
+  /**
+   * Get the average of all goals that aren't negatively latched, for each role, in the specified state.
+   *
+   * @param xiState  - the state.
+   * @param xoValues - output array of values (one for each role).
+   */
+  public void getAverageAvailableGoals(ForwardDeadReckonInternalMachineState xiState,
+                                       RoleOrdering xiRoleOrdering,
+                                       double[] xoValues)
+  {
+    int[] lNumGoalValues = new int[xoValues.length];
+
+    // By default, all goals are available.
+    // !! ARR The output of this could be pre-computed.
+    for (Entry<Role, PolymorphicProposition[]> lEntry : fullPropNet.getGoalPropositions().entrySet())
+    {
+      int lRoleIndex = xiRoleOrdering.roleToRoleIndex(lEntry.getKey());
+      for (PolymorphicProposition lProp : lEntry.getValue())
+      {
+        ForwardDeadReckonProposition lGoalProp = (ForwardDeadReckonProposition)lProp;
+        xoValues[lRoleIndex] += lGoalProp.getGoalValue();
+        lNumGoalValues[lRoleIndex]++;
+      }
+    }
+
+    if (mNegativeGoalLatches != null)
+    {
+      for (Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry : mNegativeGoalLatches.entrySet())
+      {
+        // Check if this goal is negatively latched.
+        if (xiState.intersects(lEntry.getValue()))
+        {
+          // This goal is no longer available.
+          ForwardDeadReckonProposition lGoalProp = (ForwardDeadReckonProposition)lEntry.getKey();
+          LOGGER.debug("Goal not available: " + lGoalProp);
+          int lRoleIndex = xiRoleOrdering.roleToRoleIndex(lGoalProp.getGoalRole());
+          xoValues[lRoleIndex] -= lGoalProp.getGoalValue();
+          lNumGoalValues[lRoleIndex]--;
+        }
+      }
+    }
+
+    for (int lii = 0; lii < xoValues.length; lii++)
+    {
+      assert(lNumGoalValues[lii] > 0) : "No goals remaining for " + xiRoleOrdering.roleIndexToRole(lii) +
+                                        " in state " + xiState;
+      xoValues[lii] /= lNumGoalValues[lii];
+    }
   }
 
   public Set<MachineState> findTerminalStates(int maxResultSet, int maxDepth)
@@ -989,10 +1053,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     this.maxInstances = 1;
   }
 
-  public ForwardDeadReckonPropnetStateMachine(int maxInstances, long metagameTimeout)
+  public ForwardDeadReckonPropnetStateMachine(int xiMaxInstances, long xiMetaGameTimeout)
   {
-    this.maxInstances = maxInstances;
-    this.metagameTimeout = metagameTimeout;
+    maxInstances = xiMaxInstances;
+    metagameTimeout = xiMetaGameTimeout;
+    mNumAvailableGoals = new int[numRoles];
   }
 
   private ForwardDeadReckonPropnetStateMachine(ForwardDeadReckonPropnetStateMachine master, int instanceId)
@@ -1034,6 +1099,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     previouslyChosenJointMovePropsO = new ForwardDeadReckonProposition[numRoles];
     previouslyChosenJointMovePropIdsX = new int[numRoles];
     previouslyChosenJointMovePropIdsO = new int[numRoles];
+    mNumAvailableGoals                = new int[numRoles];
 
     stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(),
                                              fullPropNet.getInputPropositions().size(),

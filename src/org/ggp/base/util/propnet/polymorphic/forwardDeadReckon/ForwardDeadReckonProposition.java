@@ -3,9 +3,10 @@ package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
+import org.ggp.base.util.statemachine.Role;
 
 /**
- * The Proposition class is designed to represent named latches.
+ * Named propositions.
  */
 @SuppressWarnings("serial")
 public final class ForwardDeadReckonProposition extends ForwardDeadReckonComponent implements PolymorphicProposition
@@ -18,6 +19,11 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
   private int                                            associatedMoveIndex = -1;
   /** Opaque information higher layers may associate with this component */
   private ForwardDeadReckonPropositionInfo               opaqueInfo     = null;
+  /**
+   * Values for goal-propositions.
+   */
+  private Role mGoalRole;
+  private int mGoalValue;
 
   /**
    * Creates a new Proposition with name <tt>name</tt>.
@@ -180,5 +186,34 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
   public void setValue(boolean value)
   {
     setValue(value, 0);
+  }
+
+  /**
+   * Set the goal information, to avoid repeated computation.
+   *
+   * @param xiRole  - the role that this goal applies to.
+   */
+  public void setGoalInfo(Role xiRole)
+  {
+    mGoalRole = xiRole;
+    mGoalValue = Integer.parseInt(getName().getBody().get(1).toString());
+  }
+
+  /**
+   * @return the role associated with this goal proposition.
+   */
+  public Role getGoalRole()
+  {
+    assert(mGoalRole != null);
+    return mGoalRole;
+  }
+
+  /**
+   * @return the value of this goal proposition.
+   */
+  public int getGoalValue()
+  {
+    assert(mGoalRole != null);
+    return mGoalValue;
   }
 }

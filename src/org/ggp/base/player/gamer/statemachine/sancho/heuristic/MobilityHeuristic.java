@@ -32,7 +32,7 @@ public class MobilityHeuristic implements Heuristic
   private PearsonCorrelation[] mCorrelationForRole;
   private MobilityData mTuningData;
 
-  public int mWeight = 10; // !! ARR Hack
+  private int mWeight = 10; // !! ARR Hack
 
   @Override
   public boolean tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine,

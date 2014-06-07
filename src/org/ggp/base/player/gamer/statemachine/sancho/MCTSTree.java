@@ -24,6 +24,7 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.w3c.tidy.MutableInteger;
 
 public class MCTSTree
 {
@@ -85,8 +86,10 @@ public class MCTSTree
   final StateSimilarityMap                             mStateSimilarityMap;
 
   // Scratch variables for tree nodes to use to avoid unnecessary object allocation.
-  final double[] mNodeAverageScores;
-  final double[] mNodeAverageSquaredScores;
+  final double[]       mNodeHeuristicValues;
+  final MutableInteger mNodeHeuristicWeight;
+  final double[]       mNodeAverageScores;
+  final double[]       mNodeAverageSquaredScores;
   final RolloutRequest mNodeSynchronousRequest;
 
   public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
@@ -135,9 +138,12 @@ public class MCTSTree
       }
     }
 
-    mNodeAverageScores = new double[numRoles];
+    // Create the variables used by TreeNodes to avoid unnecessary object allocation.
+    mNodeHeuristicValues      = new double[numRoles];
+    mNodeHeuristicWeight      = new MutableInteger();
+    mNodeAverageScores        = new double[numRoles];
     mNodeAverageSquaredScores = new double[numRoles];
-    mNodeSynchronousRequest = new RolloutRequest(numRoles);
+    mNodeSynchronousRequest   = new RolloutRequest(numRoles);
   }
 
   public void empty()

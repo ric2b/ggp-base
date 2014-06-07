@@ -97,8 +97,7 @@ public ForwardDeadReckonPropNet(List<Role> roles,
         ForwardDeadReckonLegalMoveInfo info = new ForwardDeadReckonLegalMoveInfo();
 
         info.move = new Move(pfdr.getName().getBody().get(1));
-        info.inputProposition = (ForwardDeadReckonProposition)getLegalInputMap()
-            .get(p);
+        info.inputProposition = (ForwardDeadReckonProposition)getLegalInputMap().get(p);
         info.roleIndex = roleIndex;
         info.masterIndex = alwaysTrueLegalMoves.resolveId(info);
 
@@ -179,6 +178,17 @@ public ForwardDeadReckonPropNet(List<Role> roles,
     }
 
     setUpActivePropositionSets(masterInfoSet);
+
+    // Calculate useful goal information.
+    for (Role lRole : getRoles())
+    {
+      PolymorphicProposition[] lGoalProps  = getGoalPropositions().get(lRole);
+      for (PolymorphicProposition lGoalProp : lGoalProps)
+      {
+        ForwardDeadReckonProposition lFDRGoalProp = (ForwardDeadReckonProposition)lGoalProp;
+        lFDRGoalProp.setGoalInfo(lRole);
+      }
+    }
 
     if ( useFastAnimator )
     {

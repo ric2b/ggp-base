@@ -1,5 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
+import java.util.Arrays;
+
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -16,13 +18,17 @@ import org.w3c.tidy.MutableInteger;
  */
 public class AvailableGoalHeuristic implements Heuristic
 {
-  private boolean mEnabled;
+  private boolean                              mEnabled;
+  private ForwardDeadReckonPropnetStateMachine mStateMachine;
+  private RoleOrdering                         mRoleOrdering;
 
   @Override
   public boolean tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine, RoleOrdering xiRoleOrdering)
   {
     // We're enabled iff there are any negative goal latches.
     mEnabled = xiStateMachine.hasNegativelyLatchedGoals();
+    mStateMachine = xiStateMachine;
+    mRoleOrdering = xiRoleOrdering;
     return mEnabled;
   }
 
@@ -60,7 +66,34 @@ public class AvailableGoalHeuristic implements Heuristic
                                 double[] xoHeuristicValue,
                                 MutableInteger xoHeuristicWeight)
   {
-    // !! ARR Auto-generated method stub
+    // Compute the heuristic value
+    mStateMachine.getAverageAvailableGoals(xiState, mRoleOrdering, xoHeuristicValue);
+    xiState.putHeuristicData(this, Arrays.copyOf(xoHeuristicValue, xoHeuristicValue.length));
+
+    // If the heuristic value differs from our parent, set weight 10, otherwise 0.  (In children of the root state, it
+    // isn't sufficiently interesting/reliable use.)
+    xoHeuristicWeight.value = 0;
+    if (xiPreviousState != null)
+    {
+      double[] lParentValues = (double[])xiPreviousState.getHeuristicData(this);
+      if (lParentValues == null)
+      {
+        // !! ARR Not clear under what conditions we might not have calculated the parent values, but it certainly
+        // !!     happens sometimes.
+        lParentValues = new double[xoHeuristicValue.length];
+        mStateMachine.getAverageAvailableGoals(xiPreviousState, mRoleOrdering, lParentValues);
+        xiPreviousState.putHeuristicData(this, lParentValues);
+      }
+
+      for (int lii = 0; lii < xoHeuristicValue.length; lii++)
+      {
+        if (lParentValues[lii] != xoHeuristicValue[lii])
+        {
+          xoHeuristicWeight.value = 10;
+          break;
+        }
+      }
+    }
   }
 
   @Override
@@ -72,7 +105,7 @@ public class AvailableGoalHeuristic implements Heuristic
   @Override
   public Heuristic createIndependentInstance()
   {
-    // !! ARR Auto-generated method stub
-    return null;
+    // There's no game-state-dependent persistent state, so we can re-use this instance.
+    return this;
   }
 }

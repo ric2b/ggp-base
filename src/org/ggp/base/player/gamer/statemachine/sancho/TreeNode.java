@@ -1979,9 +1979,15 @@ public class TreeNode
             if ((primaryChoiceMapping == null || primaryChoiceMapping[index] == index) )
             {
               // Determine the heuristic value for this child.
-              double[] heuristicScores = new double[tree.numRoles];
-              tree.heuristic.getHeuristicValue(tree.childStatesBuffer[index], state, heuristicScores, lWeight);
-              if (lWeight.value > 0)
+              for (int lii = 0; lii < tree.numRoles; lii++)
+              {
+                tree.mNodeHeuristicValues[lii] = 0;
+              }
+              tree.heuristic.getHeuristicValue(tree.childStatesBuffer[index],
+                                               state,
+                                               tree.mNodeHeuristicValues,
+                                               tree.mNodeHeuristicWeight);
+              if (tree.mNodeHeuristicWeight.value > 0)
               {
                 double heuristicSquaredDeviation = 0;
 
@@ -1992,7 +1998,7 @@ public class TreeNode
                 for (int i = 0; i < tree.numRoles; i++)
                 {
                   //newChild.averageScores[i] = heuristicScores[i];
-                  double lDeviation = tree.root.averageScores[i] - heuristicScores[i];
+                  double lDeviation = tree.root.averageScores[i] - tree.mNodeHeuristicValues[i];
                   heuristicSquaredDeviation += (lDeviation * lDeviation);
                 }
 
@@ -2023,11 +2029,11 @@ public class TreeNode
                   {
                     for (int i = 0; i < tree.numRoles; i++)
                     {
-                      newChild.averageScores[i] = (newChild.averageScores[i]*newChild.numUpdates + heuristicScores[i]*lWeight.value)/(newChild.numUpdates+lWeight.value);
+                      newChild.averageScores[i] = (newChild.averageScores[i]*newChild.numUpdates + tree.mNodeHeuristicValues[i]*tree.mNodeHeuristicWeight.value)/(newChild.numUpdates+tree.mNodeHeuristicWeight.value);
                     }
                     // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
                     // the new child.
-                    newChild.numUpdates = lWeight.value;
+                    newChild.numUpdates = tree.mNodeHeuristicWeight.value;
                     assert(!Double.isNaN(newChild.averageScores[0]));
 
                     newChild.numVisits = newChild.numUpdates;
@@ -2382,7 +2388,7 @@ public class TreeNode
                   //  'corrected' parent visit count obtained by summing the number of visits to all
                   //  the child's parents)
                   uctValue = explorationUCT(numVisits, edge, roleIndex) +
-                             exploitationUCT(edge, roleIndex);;
+                             exploitationUCT(edge, roleIndex);
                 }
 
                 if (uctValue >= mostLikelyRunnerUpValue)
