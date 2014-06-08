@@ -11,6 +11,9 @@ import org.apache.logging.log4j.ThreadContext;
 import org.ggp.base.player.gamer.statemachine.sancho.StatsLogUtils.Series;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
+import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
+import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool;
+import org.ggp.base.player.gamer.statemachine.sancho.pool.UncappedPool;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.Move;
@@ -53,7 +56,8 @@ public class GameSearcher implements Runnable, ActivityController
   private volatile boolean                requestYield        = false;
   private Set<MCTSTree>                   factorTrees         = new HashSet<>();
   private GamePlan                        mPlan               = null;
-  private CappedPool<TreeNode>            nodePool;
+  private final CappedPool<TreeNode>      mNodePool;
+  private final Pool<TreeEdge>            mEdgePool;
   private RolloutProcessorPool            rolloutPool         = null;
   private double                          minExplorationBias  = 0.5;
   private double                          maxExplorationBias  = 1.2;
@@ -109,11 +113,12 @@ public class GameSearcher implements Runnable, ActivityController
    * Create a game tree searcher with the specified maximum number of nodes.
    *
    * @param nodeTableSize - the maximum number of nodes.
-   * @param xiLogName - the name of the log.
+   * @param xiLogName     - the name of the log.
    */
   public GameSearcher(int nodeTableSize, String xiLogName)
   {
-    nodePool = new CappedPool<>(nodeTableSize);
+    mNodePool = new CappedPool<>(nodeTableSize);
+    mEdgePool = new UncappedPool<>();
     mLogName = xiLogName;
   }
 
@@ -172,7 +177,7 @@ public class GameSearcher implements Runnable, ActivityController
       rolloutPool.disableGreedyRollouts();
     }
 
-    nodePool.clear(new TreeNodeAllocator(null), false);
+    mNodePool.clear(new TreeNodeAllocator(null), false);
     factorTrees.clear();
 
     Set<Factor> factors = underlyingStateMachine.getFactors();
@@ -180,7 +185,8 @@ public class GameSearcher implements Runnable, ActivityController
     {
       factorTrees.add(new MCTSTree(underlyingStateMachine,
                                    null,
-                                   nodePool,
+                                   mNodePool,
+                                   mEdgePool,
                                    roleOrdering,
                                    rolloutPool,
                                    gameCharacteristics,
@@ -193,7 +199,8 @@ public class GameSearcher implements Runnable, ActivityController
       {
         factorTrees.add(new MCTSTree(underlyingStateMachine,
                                      factor,
-                                     nodePool,
+                                     mNodePool,
+                                     mEdgePool,
                                      roleOrdering,
                                      rolloutPool,
                                      gameCharacteristics,
@@ -243,7 +250,7 @@ public class GameSearcher implements Runnable, ActivityController
             {
               StringBuffer lLogBuf = new StringBuffer(1024);
               Series.NODE_EXPANSIONS.logDataPoint(lLogBuf, time, mNumIterations);
-              Series.POOL_USAGE.logDataPoint(lLogBuf, time, nodePool.getPoolUsage());
+              Series.POOL_USAGE.logDataPoint(lLogBuf, time, mNodePool.getPoolUsage());
 
               //Future intent will be to add these to the stats logger when it is stable
               //double fringeDepth = mAverageFringeDepth.getMean();
@@ -262,7 +269,7 @@ public class GameSearcher implements Runnable, ActivityController
                 {
                   //  Calculate the tree aspect ratio, which is the ratio of the observed average fringe
                   //  depth to its expected depth given its observed branching factor
-                  double aspect = fringeDepth/(Math.log(nodePool.getNumItemsInUse())/Math.log(branchingFactor));
+                  double aspect = fringeDepth/(Math.log(mNodePool.getNumItemsInUse())/Math.log(branchingFactor));
 
                   if ( aspect < 1.2 && currentExplorationBias > 0.2 )//minExplorationBias )
                   {
@@ -393,7 +400,7 @@ public class GameSearcher implements Runnable, ActivityController
         LOGGER.info("Average branching factor: " + branchingFactor);
         //  Calculate the tree aspect ratio, which is the ratio of the observed average fringe
         //  depth to its expected depth given its observed branching factor
-        double aspect = fringeDepth/(Math.log(nodePool.getNumItemsInUse())/Math.log(branchingFactor));
+        double aspect = fringeDepth/(Math.log(mNodePool.getNumItemsInUse())/Math.log(branchingFactor));
         LOGGER.info("Tree aspect ratio: " + aspect);
       }
 
@@ -482,7 +489,7 @@ public class GameSearcher implements Runnable, ActivityController
     boolean lAllTreesCompletelyExplored;
 
     numIterations++;
-    while (nodePool.isFull())
+    while (mNodePool.isFull())
     {
       boolean somethingDisposed = false;
 
@@ -687,11 +694,11 @@ public class GameSearcher implements Runnable, ActivityController
 
       //masterMoveWeights.accumulate(request.playedMoveWeights);
 
-      TreeNode node = lRequest.mNode.node;
-      if (lRequest.mNode.seq == node.seq && !node.complete)
+      TreeNode lNode = lRequest.mNode.get();
+      if (lNode != null && !lNode.complete)
       {
-        mAverageFringeDepth.addSample(lRequest.mNode.node.getDepth() - getRootDepth());
-        mRMSFringeDepth.addSample(lRequest.mNode.node.getDepth() - getRootDepth());
+        mAverageFringeDepth.addSample(lNode.getDepth() - getRootDepth());
+        mRMSFringeDepth.addSample(lNode.getDepth() - getRootDepth());
         lRequest.mPath.resetCursor();
 
         if (lRequest.mPlayedMovesForWin != null)
@@ -717,10 +724,10 @@ public class GameSearcher implements Runnable, ActivityController
           mPlan.considerPlan(fullPlayoutList);
         }
 
-        node.updateStats(lRequest.mAverageScores,
-                         lRequest.mAverageSquaredScores,
-                         lRequest.mPath,
-                         false);
+        lNode.updateStats(lRequest.mAverageScores,
+                          lRequest.mAverageSquaredScores,
+                          lRequest.mPath,
+                          false);
       }
 
       mPipeline.completedBackPropagation();

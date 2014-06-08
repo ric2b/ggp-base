@@ -2,7 +2,6 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.util.List;
 
-import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeRef;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;

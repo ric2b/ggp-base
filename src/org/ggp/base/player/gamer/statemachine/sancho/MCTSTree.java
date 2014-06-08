@@ -10,10 +10,12 @@ import java.util.Random;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
+import org.ggp.base.player.gamer.statemachine.sancho.TreeEdge.TreeEdgeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
-import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeRef;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
+import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
+import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
@@ -52,6 +54,7 @@ public class MCTSTree
   volatile TreeNode                                    root = null;
   final int                                            numRoles;
   CappedPool<TreeNode>                                 nodePool;
+  Pool<TreeEdge>                                 edgePool;
   Map<ForwardDeadReckonInternalMachineState, TreeNode> positions                                   = new HashMap<>();
   int                                                  sweepInstance                               = 0;
   List<TreeNode>                                       completedNodeQueue                          = new LinkedList<>();
@@ -82,6 +85,7 @@ public class MCTSTree
   Factor                                               factor;
   boolean                                              evaluateTerminalOnNodeCreation;
   private final TreeNodeAllocator                      mTreeNodeAllocator;
+  final TreeEdgeAllocator                              mTreeEdgeAllocator;
   final GameSearcher                                   mGameSearcher;
   final StateSimilarityMap                             mStateSimilarityMap;
 
@@ -95,6 +99,7 @@ public class MCTSTree
   public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
                   Factor factor,
                   CappedPool<TreeNode> nodePool,
+                  Pool<TreeEdge> edgePool,
                   RoleOrdering roleOrdering,
                   RolloutProcessorPool rolloutPool,
                   RuntimeGameCharacteristics gameCharacateristics,
@@ -105,6 +110,7 @@ public class MCTSTree
     numRoles = stateMachine.getRoles().size();
     mStateSimilarityMap = (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false) ? null : new StateSimilarityMap(stateMachine.getFullPropNet()));
     this.nodePool = nodePool;
+    this.edgePool = edgePool;
     this.factor = factor;
     this.roleOrdering = roleOrdering;
     this.mOurRole = roleOrdering.roleIndexToRole(0);
@@ -121,6 +127,7 @@ public class MCTSTree
     numCompletionsProcessed = 0;
     completeSelectionFromIncompleteParentWarned = false;
     mTreeNodeAllocator = new TreeNodeAllocator(this);
+    mTreeEdgeAllocator = new TreeEdgeAllocator();
     mGameSearcher = xiGameSearcher;
 
     //  For now assume players in muli-player games are somewhat irrational.
@@ -392,9 +399,7 @@ public class MCTSTree
       //visited.add(this);
       while (!cur.isUnexpanded())
       {
-        selected = cur.select(visited,
-                              jointMoveBuffer);
-
+        selected = cur.select(visited, jointMoveBuffer);
         cur = selected.getChildNode();
         //visited.add(cur);
         visited.push(selected);
@@ -408,8 +413,7 @@ public class MCTSTree
 
         if (!cur.complete)
         {
-          selected = cur.select(visited,
-                                jointMoveBuffer);
+          selected = cur.select(visited, jointMoveBuffer);
           newNode = selected.getChildNode();
           //visited.add(newNode);
           visited.push(selected);
@@ -425,7 +429,7 @@ public class MCTSTree
             }
             //  Might have transposed into an already expanded node, in which case no need
             //  to do another
-            if ( newNode.isUnexpanded() )
+            if (newNode.isUnexpanded())
             {
               newNode.expand(jointMoveBuffer);
             }

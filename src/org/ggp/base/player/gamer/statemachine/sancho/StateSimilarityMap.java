@@ -1,6 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeRef;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
@@ -16,34 +15,42 @@ public class StateSimilarityMap
 
     public void addNode(TreeNodeRef nodeRef)
     {
-      for(int i = 0; i < size; i++)
+      // Check if this node is already present.  If not, no need to store.
+      for (int i = 0; i < size; i++)
       {
-        if ( nodeRef.seq == refs[i].seq )
+        if (nodeRef.hasSameReferand(refs[i]))
         {
           //  Already present
           return;
         }
       }
-      if ( size < capacity )
+
+      if (size < capacity)
       {
+        // We still have space available.  Just store the reference.
         refs[size++] = nodeRef;
       }
       else
       {
         int evictee = -1;
-        double highestEvictionMeasure = -Math.log(nodeRef.node.numVisits+1);
 
-        for(int i = 0; i < capacity; i++)
+        TreeNode lNodeToAdd = nodeRef.get();
+        assert(lNodeToAdd != null);
+
+        double highestEvictionMeasure = -Math.log(lNodeToAdd.numVisits + 1);
+
+        for (int i = 0; i < capacity; i++)
         {
           TreeNodeRef ref = refs[i];
-          if ( ref.seq != ref.node.seq )
+          TreeNode lNode = ref.get();
+          if (lNode == null)
           {
             //  Effectively a free slot - no loss to evict it
             evictee = i;
             break;
           }
 
-          double evictionMeasure = -Math.log(ref.node.numVisits+1);
+          double evictionMeasure = -Math.log(lNode.numVisits + 1);
 
           if ( evictionMeasure > highestEvictionMeasure )
           {
@@ -79,9 +86,9 @@ public class StateSimilarityMap
 
   public void add(TreeNodeRef nodeRef)
   {
-    int hash = hashGenerator.getHash(nodeRef.node.state);
+    int hash = hashGenerator.getHash(nodeRef.get().state);
 
-    if ( buckets[hash] == null )
+    if (buckets[hash] == null)
     {
       buckets[hash] = new StateSimilarityBucket();
     }
@@ -105,15 +112,16 @@ public class StateSimilarityMap
       for(int i = 0; i < bucket.size; i++)
       {
         TreeNodeRef nodeRef = bucket.refs[i];
+        TreeNode lNode = nodeRef.get();
 
-        if ( nodeRef.seq == nodeRef.node.seq && nodeRef.node.numVisits > 0 && state != nodeRef.node.state )
+        if (lNode != null && lNode.numVisits > 0 && state != lNode.state)
         {
-          double distanceWeight = (1 - state.distance(nodeRef.node.state));
-          double weight = distanceWeight*distanceWeight*Math.log(nodeRef.node.numVisits+1);
+          double distanceWeight = (1 - state.distance(lNode.state));
+          double weight = distanceWeight*distanceWeight*Math.log(lNode.numVisits+1);
 
           for(int j = 0; j < result.length; j++)
           {
-            result[j] += nodeRef.node.averageScores[j]*weight;
+            result[j] += lNode.averageScores[j]*weight;
             assert(!Double.isNaN(result[j]));
           }
 
@@ -161,13 +169,12 @@ public class StateSimilarityMap
         {
           childFound = true;
 
-          if ( childEdge != null &&
-               childEdge.child != null &&
-               childEdge.child.seq >= 0 &&
-               childEdge.child.seq == childEdge.child.node.seq &&
-               childEdge.child.node.children != null )
+          if (childEdge != null &&
+              childEdge.child != null &&
+              childEdge.child.getLive() != null &&
+              childEdge.child.get().children != null)
           {
-            result = childEdge.child.node;
+            result = childEdge.child.get();
             moveRoot = result;
             index++;
             break;
@@ -224,13 +231,14 @@ public class StateSimilarityMap
         for(int i = 0; i < bucket.size; i++)
         {
           TreeNodeRef nodeRef = bucket.refs[i];
+          TreeNode lNode = nodeRef.get();
 
-          if ( nodeRef.seq == nodeRef.node.seq && nodeRef.node.numVisits > 0 && state != nodeRef.node.state )
+          if (lNode != null && lNode.numVisits > 0 && state != lNode.state)
           {
-            double distanceWeight = (1 - state.distance(nodeRef.node.state));
-            double weight = distanceWeight*distanceWeight*Math.log10(nodeRef.node.numVisits+1);
+            double distanceWeight = (1 - state.distance(lNode.state));
+            double weight = distanceWeight*distanceWeight*Math.log10(lNode.numVisits + 1);
 
-            TreeNode node = getJointMoveParent(nodeRef.node, partialJointMove);
+            TreeNode node = getJointMoveParent(lNode, partialJointMove);
             if ( node != null && node.children != null )
             {
               for(Object child : node.children)
@@ -238,14 +246,14 @@ public class StateSimilarityMap
                 TreeEdge childEdge = (child instanceof TreeEdge ? (TreeEdge)child : null);
                 if ( childEdge != null &&
                      childEdge.child != null &&
-                     childEdge.child.seq >= 0 &&
-                     childEdge.child.seq == childEdge.child.node.seq &&
-                     childEdge.child.node.numVisits > 0 )
+                     childEdge.child.getLive() != null &&
+                     childEdge.child.get().numVisits > 0)
                 {
+                  TreeNode lChild = childEdge.child.get();
                   ForwardDeadReckonLegalMoveInfo move = childEdge.partialMove;
                   int moveSlotIndex = getMoveSlot(move);
 
-                  double moveVal = weight*(childEdge.child.node.averageScores[childEdge.child.node.decidingRoleIndex]);
+                  double moveVal = weight*(lChild.averageScores[lChild.decidingRoleIndex]);
 
                   moveValueBuffer[moveSlotIndex] = (moveValueBuffer[moveSlotIndex]*moveWeightBuffer[moveSlotIndex] + moveVal)/(moveWeightBuffer[moveSlotIndex] + weight);
                   moveWeightBuffer[moveSlotIndex] += weight;

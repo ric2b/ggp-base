@@ -1,4 +1,4 @@
-package org.ggp.base.player.gamer.statemachine.sancho;
+package org.ggp.base.player.gamer.statemachine.sancho.pool;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -12,7 +12,7 @@ import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
  *
  * @param <ItemType> the type of item to be kept in the pool.
  */
-public class CappedPool<ItemType>
+public class CappedPool<ItemType> implements Pool<ItemType>
 {
   /**
    * A dummy sequence number for unallocated pool items.
@@ -23,39 +23,6 @@ public class CappedPool<ItemType>
    * A sequence number for pool items that have been freed.
    */
   public static final int FREED_ITEM_SEQ = -2;
-
-  /**
-   * Interface to be implemented by classes capable of allocating (and resetting) objects in a capped pool.
-   *
-   * @param <ItemType> the type of item to be allocated.
-   */
-  public interface ObjectAllocator<ItemType>
-  {
-    /**
-     * @return a newly allocated object.
-     *
-     * @param xiSeq - the sequence number for the object.
-     *
-     * @throws GoalDefinitionException if the object couldn't be allocated.
-     */
-    public ItemType newObject(int xiSeq) throws GoalDefinitionException; // !! ARR Use a more generic exception
-
-    /**
-     * Reset an object, ready for re-use.
-     *
-     * @param xiObject - the object to reset.
-     * @param xiFree   - whether to free the internals.
-     * @param xiSeq    - the sequence number for the object.
-     */
-    public void resetObject(ItemType xiObject, boolean xiFree, int xiSeq);
-
-    /**
-     *
-     * @param xiObject - the object
-     * @return whether an object should be reset.
-     */
-    public boolean shouldReset(ItemType xiObject);
-  }
 
   // Maximum number of items to allocate.
   private final int                                    mPoolSize;
@@ -111,9 +78,7 @@ public class CappedPool<ItemType>
     return mNumItemsInUse;
   }
 
-  /**
-   * @return the percentage of this pool that is in use.
-   */
+  @Override
   public int getPoolUsage()
   {
     return mNumItemsInUse * 100 / mPoolSize;
@@ -129,15 +94,7 @@ public class CappedPool<ItemType>
     return mNextSeq - seq;
   }
 
-  /**
-   * Allocate a new item from the pool.
-   *
-   * @param xiAllocator - object allocator to use if no new items are available.
-   *
-   * @return the new item.
-   *
-   * @throws GoalDefinitionException
-   */
+  @Override
   public ItemType allocate(ObjectAllocator<ItemType> xiAllocator) throws GoalDefinitionException
   {
     ItemType lAllocatedItem;
@@ -162,35 +119,20 @@ public class CappedPool<ItemType>
     return lAllocatedItem;
   }
 
-  /**
-   * Return an item to the pool.
-   *
-   * The pool promises to call resetObject() for any freed items before re-use.
-   *
-   * @param xiItem - the item.
-   */
+  @Override
   public void free(ItemType xiItem)
   {
     mNumItemsInUse--;
     mFreeList.add(xiItem);
   }
 
-  /**
-   * @return whether the pool is (nearly) full.
-   *
-   * When full, the caller needs to free() some items to ensure that subsequently allocations will continue to succeed.
-   */
+  @Override
   public boolean isFull()
   {
     return (mNumItemsInUse > mPoolSize - 200);
   }
 
-  /**
-   * Clear the pool - resetting all items that are still allocated.
-   *
-   * @param xiAllocator - an object allocator.
-   * @param xiFilter    - whether to filter the items to be reset (used to reset nodes from just one MCTSTree).
-   */
+  @Override
   public void clear(ObjectAllocator<ItemType> xiAllocator, boolean xiFilter)
   {
     if (!xiFilter)

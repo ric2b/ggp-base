@@ -3,10 +3,12 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Path through an MCTS tree.
+ */
 public class TreePath
 {
   /**
-   * @author steve
    * Individual element in a tree path
    */
   class TreePathElement
@@ -23,8 +25,9 @@ public class TreePath
      */
     public TreePathElement(TreeEdge theEdge)
     {
-      assert(!theEdge.child.node.freed);
-      assert(theEdge.numChildVisits <= theEdge.child.node.numVisits);
+      TreeNode lChild = theEdge.child.get();
+      assert(!lChild.freed);
+      assert(theEdge.numChildVisits <= lChild.numVisits);
 
       this.edge = theEdge;
     }
@@ -56,11 +59,12 @@ public class TreePath
 
     /**
      * Retrieve the node this path element leads to (downwards)
-     * @return child node
+     *
+     * @return the child node, or null if it has been freed.
      */
     public TreeNode getChildNode()
     {
-      return edge.child.node;
+      return edge.child.get();
     }
 
     /**
@@ -136,12 +140,7 @@ public class TreePath
     {
       TreePathElement element = elements.get(index - 1);
       TreeNode node = element.getChildNode();
-
-      if (node.seq == element.edge.child.seq)
-      {
-        return node;
-      }
-      return null;
+      return node;
     }
     return tree.root;
   }
@@ -172,7 +171,8 @@ public class TreePath
       assert(getCurrentElement() != null);
 
       TreeEdge edge = getCurrentElement().getEdge();
-      if ( edge.child.seq != edge.child.node.seq || edge.numChildVisits > edge.child.node.numVisits)
+      TreeNode lChild = edge.child.get();
+      if (lChild == null || edge.numChildVisits > lChild.numVisits)
       {
         assert(false);
         return false;
