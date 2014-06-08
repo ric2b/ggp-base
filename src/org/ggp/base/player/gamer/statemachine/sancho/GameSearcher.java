@@ -467,7 +467,7 @@ public class GameSearcher implements Runnable, ActivityController
       }
 
       assert(bestChoice != null);
-      StatsLogUtils.Series.SCORE.logDataPoint((long)(bestChoice.bestMoveValue + 0.5));
+      StatsLogUtils.Series.SCORE.logDataPoint((long)Math.max(0, bestChoice.bestMoveValue + 0.5));
       return bestChoice.bestMove;
     }
   }
