@@ -1055,9 +1055,16 @@ public class TreeNode
         //	so shade the score up slightly by the average (the 100:1 ratio is arbitrary)
         //	Note that just using the average also doesn't work, and will cause massive
         //	over-optimism.
-        for (int i = 0; i < tree.numRoles; i++)
+        if ( decidingRoleIndex == tree.numRoles-1 )
         {
-          blendedCompletionScore[i] = (worstDeciderScore[i] * 100 + averageValues[i]) / 101;
+          for (int i = 0; i < tree.numRoles; i++)
+          {
+            blendedCompletionScore[i] = (worstDeciderScore[i] * numUniqueChildren + averageValues[i]) / (numUniqueChildren+1);
+          }
+        }
+        else
+        {
+          blendedCompletionScore = averageValues;
         }
         //	If a move provides a better-than-worst case in all uncles it provides a support
         //	floor the the worst that we can do with perfect play, so use that if its larger than
@@ -2153,8 +2160,6 @@ public class TreeNode
             TreeNode child = edge.child.getLive();
             if (child != null && child.children != null)
             {
-              double thisSampleWeight = 0.1 + child.averageScores[child.decidingRoleIndex];//(child.averageScores[child.decidingRoleIndex]*(child.numVisits+1) + 50*Math.log(child.numVisits+1))/(child.numVisits+1);
-
               for (short nephewIndex = 0; nephewIndex < child.children.length; nephewIndex++)
               {
                 if ( child.primaryChoiceMapping == null || child.primaryChoiceMapping[nephewIndex] == nephewIndex )
@@ -2178,14 +2183,10 @@ public class TreeNode
                       tree.cousinMoveCache.put(move, accumulatedMoveInfo);
                     }
 
-                    if (thisSampleWeight != 0)
-                    {
-                      accumulatedMoveInfo.averageScore = (accumulatedMoveInfo.averageScore *
-                          accumulatedMoveInfo.sampleWeight + thisSampleWeight *
-                          nephew.averageScores[roleIndex]) /
-                          (accumulatedMoveInfo.sampleWeight + thisSampleWeight);
-                      accumulatedMoveInfo.sampleWeight += thisSampleWeight;
-                    }
+                    accumulatedMoveInfo.averageScore = (accumulatedMoveInfo.averageScore *
+                        accumulatedMoveInfo.numSamples + nephew.averageScores[roleIndex]) /
+                        (accumulatedMoveInfo.numSamples + 1);
+                    accumulatedMoveInfo.numSamples++;
                   }
                 }
               }
@@ -2241,14 +2242,11 @@ public class TreeNode
       {
         return lInboundChild.averageScores[roleIndex] / 100;
       }
-      return Math.min(lInboundChild.averageScores[roleIndex] / 100,
-                      getAverageCousinMoveValue(inboundEdge, roleIndex));
+      return getAverageCousinMoveValue(inboundEdge, roleIndex);
     }
 
     double result = lInboundChild.averageScores[roleIndex] / 100;// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
     return result;
-    //return inboundEdge.child.node.averageScores[roleIndex]/100;
-    //return inboundEdge.child.node.averageScores[roleIndex]/100 + getAverageCousinMoveValue(inboundEdge, roleIndex)/Math.log(inboundEdge.child.node.numVisits+2);// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
   }
 
   private final int orderStatistic = 3;
@@ -2697,6 +2695,37 @@ public class TreeNode
             }
             xiResponsesTraced++;
           }
+          else if (choice instanceof TreeEdge)
+          {
+            edge2 = (TreeEdge)choice;
+
+            if ( edge2.child != null )
+            {
+              xiResponsesTraced = edge2.child.node.traceFirstChoiceNode(xiResponsesTraced);
+            }
+            else
+            {
+              String lLog = "    Response " +
+                  edge2.partialMove.move +
+                  " unexpanded";
+
+              if (xiResponsesTraced < 400)
+              {
+                LOGGER.debug(lLog);
+              }
+            }
+          }
+          else
+          {
+            String lLog = "    Response " +
+                ((ForwardDeadReckonLegalMoveInfo)choice).move +
+                " unexpanded edge";
+
+            if (xiResponsesTraced < 400)
+            {
+              LOGGER.debug(lLog);
+            }
+          }
         }
       }
     }
@@ -2707,6 +2736,28 @@ public class TreeNode
       if (edge2.child != null)
       {
         xiResponsesTraced = edge2.child.get().traceFirstChoiceNode(xiResponsesTraced);
+      }
+      else
+      {
+        String lLog = "    Response " +
+            edge2.partialMove.move +
+            " unexpanded";
+
+        if (xiResponsesTraced < 400)
+        {
+          LOGGER.debug(lLog);
+        }
+      }
+    }
+    else
+    {
+      String lLog = "    Response " +
+          ((ForwardDeadReckonLegalMoveInfo)children[0]).move +
+          " unexpanded edge";
+
+      if (xiResponsesTraced < 400)
+      {
+        LOGGER.debug(lLog);
       }
     }
 
@@ -2891,6 +2942,20 @@ public class TreeNode
       TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
       if (edge == null || edge.child == null)
       {
+        if ( !lRecursiveCall )
+        {
+          ForwardDeadReckonLegalMoveInfo partialMove;
+
+          if ( edge  == null )
+          {
+            partialMove = (ForwardDeadReckonLegalMoveInfo)choice;
+          }
+          else
+          {
+            partialMove = edge.partialMove;
+          }
+          LOGGER.warn("Unexpanded child of root for move: " + partialMove.move);
+        }
         continue;
       }
 

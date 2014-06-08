@@ -35,7 +35,7 @@ public class MCTSTree
   class MoveScoreInfo
   {
     public double averageScore = 0;
-    public double sampleWeight = 0;
+    public int    numSamples = 0;
   }
 
 
