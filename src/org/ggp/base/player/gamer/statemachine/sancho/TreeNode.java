@@ -2701,7 +2701,23 @@ public class TreeNode
 
             if ( edge2.child != null )
             {
-              xiResponsesTraced = edge2.child.node.traceFirstChoiceNode(xiResponsesTraced);
+              TreeNode node = edge2.child.get();
+
+              if ( node != null )
+              {
+                xiResponsesTraced = node.traceFirstChoiceNode(xiResponsesTraced);
+              }
+              else
+              {
+                String lLog = "    Response " +
+                    edge2.partialMove.move +
+                    " trimmed";
+
+                if (xiResponsesTraced < 400)
+                {
+                  LOGGER.debug(lLog);
+                }
+              }
             }
             else
             {
