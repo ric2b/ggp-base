@@ -169,6 +169,23 @@ public class TreePath
   }
 
   /**
+   * Determine if any node on the path has been freed
+   * @return whether any traversed node is freed
+   */
+  public boolean isFreed()
+  {
+    for(TreePathElement element : elements)
+    {
+      if ( element.getEdge() == null )
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * @return whether the path through the tree is still valid.
    */
   public boolean isValid()

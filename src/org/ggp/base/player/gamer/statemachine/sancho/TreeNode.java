@@ -115,7 +115,6 @@ public class TreeNode
   private double                        mostLikelyRunnerUpValue;
   private short                         leastLikelyWinner   = -1;
   private short                         mostLikelyWinner    = -1;
-  private short                         trimmedChildren     = 0;
   //  Note - the 'depth' of a node is an indicative measure of its distance from the
   //  initial state.  However, it is not an absolute count of the oath length.  This
   //  is because in some games the same state can occur at different depths (English Draughts
@@ -345,16 +344,6 @@ public class TreeNode
       {
         tree.completedNodeQueue.add(this);
       }
-
-      if (trimmedChildren > 0)
-      {
-        //	Don't consider a complete node in the incomplete counts ever
-        tree.numIncompleteNodes--;
-        if (tree.numIncompleteNodes < 0)
-        {
-          LOGGER.warn("Unexpected negative count of incomplete nodes");
-        }
-      }
       //validateAll();
     }
   }
@@ -389,7 +378,6 @@ public class TreeNode
         }
       }
 
-      trimmedChildren = (short)children.length;
       children = null;
     }
 
@@ -1110,7 +1098,6 @@ public class TreeNode
     numUpdates = 0;
     isTerminal = false;
     autoExpand = false;
-    trimmedChildren = 0;
     leastLikelyWinner = -1;
     mostLikelyWinner = -1;
     complete = false;
@@ -1184,11 +1171,6 @@ public class TreeNode
             }
           }
         }
-      }
-
-      if (missingChildren != trimmedChildren)
-      {
-        LOGGER.error("Trimmed child count incorrect");
       }
     }
 
@@ -1265,25 +1247,9 @@ public class TreeNode
 
       if (decidingRoleIndex == tree.numRoles - 1)
       {
-        //if (positions.get(state) != this)
-        //{
-        //	LOGGER.warn("Position index does not point to freed node");
-        //}
         tree.positions.remove(state);
       }
-      //if (positions.containsValue(this))
-      //{
-      //	LOGGER.warn("Node still referenced!");
-      //}
 
-      if (trimmedChildren > 0 && !complete)
-      {
-        tree.numIncompleteNodes--;
-        if (tree.numIncompleteNodes < 0)
-        {
-          LOGGER.warn("Unexpected negative count of incomplete nodes");
-        }
-      }
       if (complete)
       {
         tree.numCompletedBranches--;
@@ -1511,11 +1477,6 @@ public class TreeNode
                 TreeNode c = cr.get();
                 if (c == null)
                 {
-                  if (trimmedChildren++ == 0)
-                  {
-                    tree.numIncompleteNodes++;
-                  }
-
                   deleteEdge(i);
                 }
                 else
@@ -2002,16 +1963,6 @@ public class TreeNode
 
         //validateAll();
 
-        if (trimmedChildren > 0)
-        {
-          trimmedChildren = 0; //	This is a fresh expansion entirely can go back to full UCT
-          tree.numIncompleteNodes--;
-          if (tree.numIncompleteNodes < 0)
-          {
-            LOGGER.warn("Unexpected negative count of incomplete nodes");
-          }
-        }
-
         if (evaluateTerminalOnNodeCreation && roleIndex == tree.numRoles - 1 )
         {
           boolean completeChildFound = false;
@@ -2254,14 +2205,22 @@ public class TreeNode
 
     tree.cousinMovesCachedFor = null;
     //LOGGER.debug("Select in " + state);
-    if (trimmedChildren == 0)
+    if (children != null)
     {
-      if (children != null)
+      //  If there is only one choice we have to select it
+      if (children.length == 1)
       {
-        //  If there is only one choice we have to select it
-        if (children.length == 1)
+         selectedIndex = 0;
+      }
+      else
+      {
+        //  We cache the best and second best selections so that on future selects through
+        //  the node we only have to check that the best has not fallen in value below the
+        //  second best, and do a full rescan only if it has (a few operations also clear the cached
+        //  value, such as completion processing)
+        if (mostLikelyWinner != -1 && (tree.factor == null || this != tree.root))
         {
-          Object choice = children[0];
+          Object choice = children[mostLikelyWinner];
           TreeEdge edge;
 
           if ( choice instanceof TreeEdge )
@@ -2272,42 +2231,9 @@ public class TreeNode
           {
             edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
             edge.partialMove = (ForwardDeadReckonLegalMoveInfo)choice;
-            children[0] = edge;
+            children[mostLikelyWinner] = edge;
           }
           TreeNodeRef cr = edge.child;
-
-          if (cr == null || cr.get() != null)
-          {
-            selectedIndex = 0;
-          }
-          else
-          {
-            trimmedChildren = 1;
-            tree.numIncompleteNodes++;
-          }
-        }
-        else
-        {
-          //  We cache the best and second best selections so that on future selects through
-          //  the node we only have to check that the best has not fallen in value below the
-          //  second best, and do a full rescan only if it has (a few operations also clear the cached
-          //  value, such as completion processing)
-          if (mostLikelyWinner != -1 && (tree.factor == null || this != tree.root))
-          {
-            Object choice = children[mostLikelyWinner];
-            TreeEdge edge;
-
-            if ( choice instanceof TreeEdge )
-            {
-              edge = (TreeEdge)choice;
-            }
-            else
-            {
-              edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-              edge.partialMove = (ForwardDeadReckonLegalMoveInfo)choice;
-              children[mostLikelyWinner] = edge;
-            }
-            TreeNodeRef cr = edge.child;
 
             if(cr != null)
             {
@@ -2317,146 +2243,133 @@ public class TreeNode
                 double uctValue;
 
                 if (edge.numChildVisits == 0 && !c.complete)
-                {
-                  // small random number to break ties randomly in unexpanded nodes
-                  uctValue = 1000 + tree.r.nextDouble() * EPSILON + edge.explorationAmplifier;
-                }
-                else
-                {
-                  //  Various experiments have been done to try to find the best selection
-                  //  weighting, and it seems that using the number of times we've visited the
-                  //  child FROM THIS PARENT coupled with the num visits here in standard UCT
-                  //  manner works best.  In particular using the visit count on the child node
-                  //  (rather than through the child edge to it, which can be radically different
-                  //  in highly transpositional games) does not seem to work as well (even with a
-                  //  'corrected' parent visit count obtained by summing the number of visits to all
-                  //  the child's parents)
-                  uctValue = explorationUCT(numVisits, edge, roleIndex) +
-                             exploitationUCT(edge, roleIndex);
-                }
-
-                if (uctValue >= mostLikelyRunnerUpValue)
-                {
-                  selectedIndex = mostLikelyWinner;
-                }
-              }
-            }
-          }
-
-          if (selectedIndex == -1)
-          {
-            //  Previous second best now preferred over previous best so we need
-            //  to recalculate
-            mostLikelyRunnerUpValue = Double.MIN_VALUE;
-
-            for (short i = 0; i < children.length; i++)
-            {
-              //  Only select one move that is state-equivalent, and don't allow selection of a pseudo-noop
-              if ( primaryChoiceMapping == null || primaryChoiceMapping[i] == i )
               {
-                Object choice = children[i];
+                // small random number to break ties randomly in unexpanded nodes
+                uctValue = 1000 + tree.r.nextDouble() * EPSILON + edge.explorationAmplifier;
+              }
+              else
+              {
+                //  Various experiments have been done to try to find the best selection
+                //  weighting, and it seems that using the number of times we've visited the
+                //  child FROM THIS PARENT coupled with the num visits here in standard UCT
+                //  manner works best.  In particular using the visit count on the child node
+                //  (rather than through the child edge to it, which can be radically different
+                //  in highly transpositional games) does not seem to work as well (even with a
+                //  'corrected' parent visit count obtained by summing the number of visits to all
+                //  the child's parents)
+                uctValue = explorationUCT(numVisits, edge, roleIndex) +
+                           exploitationUCT(edge, roleIndex);
+              }
 
-                TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-                double uctValue;
-                TreeNodeRef cr;
+              if (uctValue >= mostLikelyRunnerUpValue)
+              {
+                selectedIndex = mostLikelyWinner;
+              }
+            }
+          }
+        }
 
-                if (edge != null && (cr = edge.child) != null)
+        if (selectedIndex == -1)
+        {
+          //  Previous second best now preferred over previous best so we need
+          //  to recalculate
+          mostLikelyRunnerUpValue = Double.MIN_VALUE;
+
+          for (short i = 0; i < children.length; i++)
+          {
+            //  Only select one move that is state-equivalent, and don't allow selection of a pseudo-noop
+            if ( primaryChoiceMapping == null || primaryChoiceMapping[i] == i )
+            {
+              Object choice = children[i];
+
+              TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+              double uctValue;
+              TreeNodeRef cr;
+              TreeNode c;
+
+              if ( edge != null && (cr = edge.child) != null && (c = cr.get()) != null )
+              {
+                //  Don't allow selection of a pseudo-noop
+                //  except from the root since we just want to know the difference in cost or omitting one
+                //  move (at root level) if we play in another factor
+                if ((!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.isMultiPlayer)) &&
+                         (tree.root == this || !edge.partialMove.isPseudoNoOp))
                 {
-                  TreeNode c = cr.get();
-                  if (c == null)
+                  if (edge.numChildVisits == 0)
                   {
-                    if (trimmedChildren++ == 0)
-                    {
-                      tree.numIncompleteNodes++;
-                    }
-
-                    deleteEdge(i);
-
-                    selectedIndex = -1;
-                    break;
+                    // small random number to break ties randomly in unexpanded nodes
+                    uctValue = 1000 + tree.r.nextDouble() * EPSILON + edge.explorationAmplifier;
                   }
-                  //  Don't allow selection of a pseudo-noop
-                  //  except from the root since we just want to know the difference in cost or omitting one
-                  //  move (at root level) if we play in another factor
-                  else if ((!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.isMultiPlayer)) &&
-                           (tree.root == this || !edge.partialMove.isPseudoNoOp))
+                  else
                   {
-                    if (edge.numChildVisits == 0)
-                    {
-                      // small random number to break ties randomly in unexpanded nodes
-                      uctValue = 1000 + tree.r.nextDouble() * EPSILON + edge.explorationAmplifier;
-                    }
-                    else
-                    {
-                      assert(edge.numChildVisits <= c.numVisits);
+                    assert(edge.numChildVisits <= c.numVisits);
 
-                      //  Various experiments have been done to try to find the best selection
-                      //  weighting, and it seems that using the number of times we've visited the
-                      //  child FROM THIS PARENT coupled with the num visits here in standard UCT
-                      //  manner works best.  In particular using the visit count on the child node
-                      //  (rather than through the child edge to it, which can be radically different
-                      //  in highly transpositional games) does not seem to work as well (even with a
-                      //  'corrected' parent visit count obtained by summing the number of visits to all
-                      //  the child's parents)
-                      //  Empirically the half value for the exploration term applied to complete
-                      //  children seems to give decent results.  Both applying it in full and not
-                      //  applying it (both of which can be rationalized!) seem to fare worse in at
-                      //  least some games
-                      uctValue = (c.complete ? explorationUCT(numVisits,
-                                                              edge,
-                                                              roleIndex)/2
-                                                              : explorationUCT(numVisits,
-                                                                               edge,
-                                                                               roleIndex)) +
-                                                                               exploitationUCT(edge, roleIndex);
-                    }
+                    //  Various experiments have been done to try to find the best selection
+                    //  weighting, and it seems that using the number of times we've visited the
+                    //  child FROM THIS PARENT coupled with the num visits here in standard UCT
+                    //  manner works best.  In particular using the visit count on the child node
+                    //  (rather than through the child edge to it, which can be radically different
+                    //  in highly transpositional games) does not seem to work as well (even with a
+                    //  'corrected' parent visit count obtained by summing the number of visits to all
+                    //  the child's parents)
+                    //  Empirically the half value for the exploration term applied to complete
+                    //  children seems to give decent results.  Both applying it in full and not
+                    //  applying it (both of which can be rationalized!) seem to fare worse in at
+                    //  least some games
+                    uctValue = (c.complete ? explorationUCT(numVisits,
+                                                            edge,
+                                                            roleIndex)/2
+                                                            : explorationUCT(numVisits,
+                                                                             edge,
+                                                                             roleIndex)) +
+                                                                             exploitationUCT(edge, roleIndex);
+                  }
 
-                    //  If the node we most want to select through is complete (or all its
-                    //  children are, in either case of which there is nothing further to
-                    //  learn) we select the best non-compleet choice but record the fact
-                    //  so that on propagation of the result we can propagate upwards from this
-                    //  node the score of the complete node that in some sense 'should' have
-                    //  been selected
-                    if (!c.complete && !c.allChildrenComplete)
+                  //  If the node we most want to select through is complete (or all its
+                  //  children are, in either case of which there is nothing further to
+                  //  learn) we select the best non-compleet choice but record the fact
+                  //  so that on propagation of the result we can propagate upwards from this
+                  //  node the score of the complete node that in some sense 'should' have
+                  //  been selected
+                  if (!c.complete && !c.allChildrenComplete)
+                  {
+                    if (uctValue > bestValue)
                     {
-                      if (uctValue > bestValue)
+                      selectedIndex = i;
+                      if (bestValue != Double.MIN_VALUE)
                       {
-                        selectedIndex = i;
-                        if (bestValue != Double.MIN_VALUE)
-                        {
-                          mostLikelyRunnerUpValue = bestValue;
-                        }
-                        bestValue = uctValue;
+                        mostLikelyRunnerUpValue = bestValue;
                       }
+                      bestValue = uctValue;
                     }
-                    else
+                  }
+                  else
+                  {
+                    if (uctValue > bestCompleteValue)
                     {
-                      if (uctValue > bestCompleteValue)
-                      {
-                        bestCompleteValue = uctValue;
-                        bestCompleteNode = c;
-                        bestSelectedIndex = i;
-                      }
+                      bestCompleteValue = uctValue;
+                      bestCompleteNode = c;
+                      bestSelectedIndex = i;
                     }
                   }
                 }
-                else
+              }
+              else
+              {
+                //  A null child ref in an extant edge is a not-yet selected through
+                //  path which is asserted to be non-terminal and unvisited
+
+                // small random number to break ties randomly in unexpanded nodes
+                uctValue = 1000 + tree.r.nextDouble() * EPSILON + (edge == null ? 0 : edge.explorationAmplifier);
+
+                if (uctValue > bestValue)
                 {
-                  //  A null child ref in an extant edge is a not-yet selected through
-                  //  path which is asserted to be non-terminal and unvisited
-
-                  // small random number to break ties randomly in unexpanded nodes
-                  uctValue = 1000 + tree.r.nextDouble() * EPSILON + (edge == null ? 0 : edge.explorationAmplifier);
-
-                  if (uctValue > bestValue)
+                  selectedIndex = i;
+                  if (bestValue != Double.MIN_VALUE)
                   {
-                    selectedIndex = i;
-                    if (bestValue != Double.MIN_VALUE)
-                    {
-                      mostLikelyRunnerUpValue = bestValue;
-                    }
-                    bestValue = uctValue;
+                    mostLikelyRunnerUpValue = bestValue;
                   }
+                  bestValue = uctValue;
                 }
               }
             }
@@ -2464,48 +2377,10 @@ public class TreeNode
         }
       }
     }
-    if (selectedIndex == -1)
-    {
-      if (children == null)
-      {
-        LOGGER.warn("select on an unexpanded node!");
-      }
 
-      tree.numSelectionsThroughIncompleteNodes++;
-      trimmedChildren = 0; // !! ARR Hack at Steve's suggestion (also see ~20 lines below).
+    assert(selectedIndex != -1);
 
-      //	pick at random.  If we pick one that has been trimmed re-expand it
-      //	FUTURE - can establish a bound on the trimmed UCT value to avoid
-      //	randomization for a while at least
-      selectedIndex = tree.r.nextInt(children.length);
-      if ( primaryChoiceMapping != null )
-      {
-        selectedIndex = primaryChoiceMapping[selectedIndex];
-      }
-
-      if ( children[selectedIndex] instanceof TreeEdge )
-      {
-        selected = (TreeEdge)children[selectedIndex];
-        TreeNodeRef cr = selected.child;
-
-        if (cr != null && cr.get() == null)
-        {
-          tree.numReExpansions++;
-
-          // !! ARR Remove this assert because we're forgetting about trimming above.
-          // assert(trimmedChildren != 0) : "Found trimmed child where none should exist";
-
-          //  Reset the edge so it will be re-expanded
-          selected.child = null;
-          selected.numChildVisits = 0;
-          selected.explorationAmplifier = 0;
-        }
-      }
-    }
-    else
-    {
-      mostLikelyWinner = (short)selectedIndex;
-    }
+    mostLikelyWinner = (short)selectedIndex;
 
     //  Expand the edge if necessary
     Object choice = children[selectedIndex];
@@ -2525,6 +2400,24 @@ public class TreeNode
     jointPartialMove[roleIndex] = selected.partialMove;
     if (selected.child == null)
     {
+      createChildNodeForEdge(selected, jointPartialMove);
+    }
+    else if (selected.child.get() == null)
+    {
+      //  this case arises when a node has been trimmed.  At this point our stats
+      //  are off but since the trimmed node must have been the least likely to be
+      //  selected at the time this hopefully will not distort things too much
+      tree.numSelectionsThroughIncompleteNodes++;
+
+      tree.numReExpansions++;
+
+      //  Reset the edge for re-expansion.
+      //  Note - we do NOT reset the edge visit count because if we do this edge
+      //  (which in all likelihood is not useful since it was the least selectable
+      //  at the point it was trimmed) will be preferentially selected many times
+      //  until it 'catches up' with the counts in its siblings
+      selected.child = null;
+      selected.explorationAmplifier = 0;
       createChildNodeForEdge(selected, jointPartialMove);
     }
 
@@ -2882,7 +2775,6 @@ public class TreeNode
     double bestScore = -Double.MAX_VALUE;
     double bestMoveScore = -Double.MAX_VALUE;
     double bestRawScore = -Double.MAX_VALUE;
-    int mostSelected = -Integer.MAX_VALUE;
     TreeEdge rawBestEdgeResult = null;
     TreeEdge bestEdge = null;
     boolean anyComplete = false;
@@ -3047,7 +2939,6 @@ public class TreeNode
         bestNode = child;
         bestScore = selectionScore;
         bestMoveScore = bestScore;
-        mostSelected = child.numVisits;
         bestEdge = edge;
       }
       if (child.averageScores[roleIndex] > bestRawScore ||
@@ -3154,10 +3045,10 @@ public class TreeNode
         // available at the start of the expansion, we'll just have to wait.
         tree.mGameSearcher.processCompletedRollouts(true);
 
-        //  Processing completions above could have resulted in the node we we're about to
-        //  rollout from being freed (because it has been determined to be complete or an
+        //  Processing completions above could have resulted in a node on the rollout
+        //  path from being freed (because it has been determined to be complete or an
         //  ancestor has).  In such cases abort the rollout.
-        if (!path.isValid())
+        if (path.isFreed())
         {
           return;
         }
@@ -3280,13 +3171,13 @@ public class TreeNode
       if ((!complete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.isMultiPlayer) &&
           childEdge != null)
       {
-        int numChildVisits = childEdge.numChildVisits;
-
         TreeNode lChild = childEdge.child.get();
-        if (numChildVisits > lChild.numVisits)
-        {
-          LOGGER.warn("Unexpected edge strength greater than total child strength");
-        }
+        //  Take the min of the apparent edge selection and the total num visits in the child
+        //  This is necessary because when we re-expand a node that was previously trimmed we
+        //  leave the edge with its old selection count even though the child node will be
+        //  reset.
+        int numChildVisits = Math.min(childEdge.numChildVisits,lChild.numVisits);
+
         //	Propagate a value that is a blend of this rollout value and the current score for the child node
         //	being propagated from, according to how much of that child's value was accrued through this path
         if (values != overrides)
