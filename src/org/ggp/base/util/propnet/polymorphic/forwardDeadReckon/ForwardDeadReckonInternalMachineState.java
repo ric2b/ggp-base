@@ -22,7 +22,7 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
     private ForwardDeadReckonInternalMachineState parent;
     int                                           index;
 
-    public InternalMachineStateIterator(ForwardDeadReckonInternalMachineState template)
+    public void reset(ForwardDeadReckonInternalMachineState template)
     {
       this.parent = template;
       index = template.contents.nextSetBit(0);
@@ -48,6 +48,8 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
       // TODO Auto-generated method stub
     }
   }
+
+  private final InternalMachineStateIterator mIterator = new InternalMachineStateIterator();
 
   /**
    * Master list of propositions which may be included or not in the state
@@ -337,7 +339,8 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
   @Override
   public Iterator<ForwardDeadReckonPropositionInfo> iterator()
   {
-    return new InternalMachineStateIterator(this);
+    mIterator.reset(this);
+    return mIterator;
   }
 
   /**
