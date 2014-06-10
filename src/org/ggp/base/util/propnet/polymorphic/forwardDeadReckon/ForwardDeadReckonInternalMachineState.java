@@ -14,31 +14,40 @@ import org.ggp.base.util.statemachine.MachineState;
  * @author steve
  * Internal representation of a machine state, intended for efficient runtime usage
  */
-public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDeadReckonPropositionInfo>,
-                                                              ForwardDeadReckonComponentTransitionNotifier
+public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonComponentTransitionNotifier
 {
-  private class InternalMachineStateIterator implements Iterator<ForwardDeadReckonPropositionInfo>
+  /**
+   * An iterator over the propositions that are set in a machine state.
+   *
+   * This iterator must be used by a single thread at a time and cannot be used in nested form.
+   */
+  public static class InternalMachineStateIterator implements Iterator<ForwardDeadReckonPropositionInfo>
   {
-    private ForwardDeadReckonInternalMachineState parent;
-    int                                           index;
+    private ForwardDeadReckonInternalMachineState mState;
+    int                                           mIndex;
 
-    public void reset(ForwardDeadReckonInternalMachineState template)
+    /**
+     * Reset the iterator for the specified state.
+     *
+     * @param xiState - the state.
+     */
+    public void reset(ForwardDeadReckonInternalMachineState xiState)
     {
-      this.parent = template;
-      index = template.contents.nextSetBit(0);
+      this.mState = xiState;
+      mIndex = xiState.contents.nextSetBit(0);
     }
 
     @Override
     public boolean hasNext()
     {
-      return (index != -1);
+      return (mIndex != -1);
     }
 
     @Override
     public ForwardDeadReckonPropositionInfo next()
     {
-      ForwardDeadReckonPropositionInfo result = parent.infoSet[index];
-      index = parent.contents.nextSetBit(index + 1);
+      ForwardDeadReckonPropositionInfo result = mState.infoSet[mIndex];
+      mIndex = mState.contents.nextSetBit(mIndex + 1);
       return result;
     }
 
@@ -48,8 +57,6 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
       // TODO Auto-generated method stub
     }
   }
-
-  private final InternalMachineStateIterator mIterator = new InternalMachineStateIterator();
 
   /**
    * Master list of propositions which may be included or not in the state
@@ -334,13 +341,6 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
     sb.append(" )");
 
     return sb.toString();
-  }
-
-  @Override
-  public Iterator<ForwardDeadReckonPropositionInfo> iterator()
-  {
-    mIterator.reset(this);
-    return mIterator;
   }
 
   /**

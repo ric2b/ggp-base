@@ -31,6 +31,7 @@ import org.ggp.base.util.propnet.polymorphic.factory.OptimizingPolymorphicPropNe
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonComponent;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonComponentFactory;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState.InternalMachineStateIterator;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
@@ -118,6 +119,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   // Temporary variables used to avoid excessive object allocation.
   private int[]                                                        mNumAvailableGoals              = null;
+
+  // A per-thread iterator over the propositions in a machine state.
+  private final ThreadLocal<InternalMachineStateIterator>              mThreadLocalIterator = new ThreadLocal<>();
 
   private class TestPropnetStateMachineStats extends Stats
   {
@@ -1593,6 +1597,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.setBasePropositionsInternal");
     try
     {
+      InternalMachineStateIterator lIterator = getIterator();
+
       //System.out.println("Set state for instance " + instanceId + ": " + state);
       //System.out.println("Last set state for instance " + instanceId + " was: " + lastInternalSetState);
       if (lastInternalSetState != null)
@@ -1638,27 +1644,31 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
             if ( propNet == propNetX)
             {
-              for (ForwardDeadReckonPropositionInfo info : lastInternalSetState)
+              lIterator.reset(lastInternalSetState);
+              while (lIterator.hasNext())
               {
+                ForwardDeadReckonPropositionInfo info = lIterator.next();
                 ForwardDeadReckonPropositionCrossReferenceInfo infoCr = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
-
                 propNet.animator.changeComponentValueTo(instanceInfo, infoCr.xNetProp.id, nextInternalSetState.contains(info));
               }
             }
             else
             {
-              for (ForwardDeadReckonPropositionInfo info : lastInternalSetState)
+              lIterator.reset(lastInternalSetState);
+              while (lIterator.hasNext())
               {
+                ForwardDeadReckonPropositionInfo info = lIterator.next();
                 ForwardDeadReckonPropositionCrossReferenceInfo infoCr = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
-
                 propNet.animator.changeComponentValueTo(instanceInfo, infoCr.oNetProp.id, nextInternalSetState.contains(info));
               }
             }
           }
           else
           {
-            for (ForwardDeadReckonPropositionInfo info : lastInternalSetState)
+            lIterator.reset(lastInternalSetState);
+            while (lIterator.hasNext())
             {
+              ForwardDeadReckonPropositionInfo info = lIterator.next();
               ForwardDeadReckonPropositionCrossReferenceInfo infoCr = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
 
               //if ( factor == null || factor.getStateMask().contains(infoCr))
@@ -1774,8 +1784,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             ((ForwardDeadReckonProposition)p).setValue(false, instanceId);
           }
         }
-        for (ForwardDeadReckonPropositionInfo s : state)
+
+        lIterator.reset(state);
+        while (lIterator.hasNext())
         {
+          ForwardDeadReckonPropositionInfo s = lIterator.next();
           ForwardDeadReckonPropositionCrossReferenceInfo sCr = (ForwardDeadReckonPropositionCrossReferenceInfo)s;
           if (propNet == propNetX)
           {
@@ -1806,6 +1819,20 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     {
     	methodSection.exitScope();
     }
+  }
+
+  /**
+   * @return the iterator for this thread.
+   */
+  private InternalMachineStateIterator getIterator()
+  {
+    InternalMachineStateIterator lIterator = mThreadLocalIterator.get();
+    if (lIterator == null)
+    {
+      lIterator = new InternalMachineStateIterator();
+      mThreadLocalIterator.set(lIterator);
+    }
+    return lIterator;
   }
 
   /**
@@ -2615,8 +2642,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //RuntimeOptimizedComponent.getCount = 0;
 
       ForwardDeadReckonInternalMachineState result = new ForwardDeadReckonInternalMachineState(masterInfoSet);
-      for (ForwardDeadReckonPropositionInfo info : propNet.getActiveBaseProps(instanceId))
+      InternalMachineStateIterator lIterator = getIterator();
+      lIterator.reset(propNet.getActiveBaseProps(instanceId));
+      while (lIterator.hasNext())
       {
+        ForwardDeadReckonPropositionInfo info = lIterator.next();
         result.add(info);
 
         if (info.sentence == XSentence)
@@ -3685,6 +3715,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getGoal");
     try
     {
+      InternalMachineStateIterator lIterator = getIterator();
+
       ForwardDeadReckonPropNet net;
 
       if (enableGreedyRollouts)
@@ -3713,8 +3745,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             net.setProposition(instanceId, (ForwardDeadReckonProposition)p, false);
             //((ForwardDeadReckonProposition)p).setValue(false, instanceId);
           }
-          for (ForwardDeadReckonPropositionInfo s : state)
+
+          lIterator.reset(state);
+          while (lIterator.hasNext())
           {
+            ForwardDeadReckonPropositionInfo s = lIterator.next();
             ForwardDeadReckonPropositionCrossReferenceInfo scr = (ForwardDeadReckonPropositionCrossReferenceInfo)s;
             if (scr.goalsNetProp != null)
             {
@@ -3745,8 +3780,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
           lastGoalState.xor(state);
 
-          for (ForwardDeadReckonPropositionInfo info : lastGoalState)
+          lIterator.reset(lastGoalState);
+          while (lIterator.hasNext())
           {
+            ForwardDeadReckonPropositionInfo info = lIterator.next();
             ForwardDeadReckonProposition goalsNetProp = ((ForwardDeadReckonPropositionCrossReferenceInfo)info).goalsNetProp;
             if (goalsNetProp != null)
             {
