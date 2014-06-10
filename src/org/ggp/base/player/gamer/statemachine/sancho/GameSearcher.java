@@ -466,7 +466,7 @@ public class GameSearcher implements Runnable, ActivityController
         //tree.root.dumpTree("c:\\temp\\treeDump_factor" + factorIndex + ".txt");
       }
 
-      assert(bestChoice != null);
+      assert(bestChoice != null) : "No move choice found";
       StatsLogUtils.Series.SCORE.logDataPoint((long)Math.max(0, bestChoice.bestMoveValue + 0.5));
       return bestChoice.bestMove;
     }
