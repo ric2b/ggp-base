@@ -2214,6 +2214,16 @@ public class TreeNode
       }
       else
       {
+        //  It is clearly a bug to reset mostLikelyRunnerUpValue here, but empirically it is significantly
+        //  useful in some games (D&B, D&B suicide notably).  The only games where a clear negative impact
+        //  has been observed is the Breakthrough family.  Hypothetically this is probably because the
+        //  repeated selection it results in amplifies heuristic-induced distortions.
+        //  FOR NOW (and it is a priority to understand this better and replace with a more
+        //  controlled mechanism) we perform the 'buggy' reset for non-heuristic games
+        if ( !tree.heuristic.isEnabled() )
+        {
+          mostLikelyRunnerUpValue = Double.MIN_VALUE;
+        }
         //  We cache the best and second best selections so that on future selects through
         //  the node we only have to check that the best has not fallen in value below the
         //  second best, and do a full rescan only if it has (a few operations also clear the cached
@@ -2412,10 +2422,17 @@ public class TreeNode
       tree.numReExpansions++;
 
       //  Reset the edge for re-expansion.
-      //  Note - we do NOT reset the edge visit count because if we do this edge
+      //  Note - we could choose to NOT reset the edge visit count because if we do this edge
       //  (which in all likelihood is not useful since it was the least selectable
       //  at the point it was trimmed) will be preferentially selected many times
-      //  until it 'catches up' with the counts in its siblings
+      //  until it 'catches up' with the counts in its siblings.  However, if we do not
+      //  then the converse problem exists that if the first playout directed through it
+      //  happens to be a loss it will will acquire a score of 0 with a falsely large visit
+      //  count and probably never be visited again.  Since it is likely that (because it was previously
+      //  the least selectable choice) it actually has a low score, it should anyway not take too
+      //  many re-selections to get back to equilibrium.  Possibly we could consider just
+      //  decaying the edge viit coutn a bit, but for now we'll stick with 0
+      selected.numChildVisits = 0;
       selected.child = null;
       selected.explorationAmplifier = 0;
       createChildNodeForEdge(selected, jointPartialMove);
