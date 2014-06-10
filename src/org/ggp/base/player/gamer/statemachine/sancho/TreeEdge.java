@@ -23,13 +23,13 @@ public class TreeEdge
     }
 
     @Override
-    public TreeEdge newObject(int xiSeq)
+    public TreeEdge newObject()
     {
       return new TreeEdge();
     }
 
     @Override
-    public void resetObject(TreeEdge xiEdge, boolean xiFree, int xiSeq)
+    public void resetObject(TreeEdge xiEdge, boolean xiFree)
     {
       xiEdge.reset();
     }

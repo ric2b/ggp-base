@@ -118,7 +118,7 @@ public class GameSearcher implements Runnable, ActivityController
   public GameSearcher(int nodeTableSize, String xiLogName)
   {
     mNodePool = new CappedPool<>(nodeTableSize);
-    mEdgePool = new UncappedPool<>();
+    mEdgePool = new UncappedPool<>(nodeTableSize * 2);
     mLogName = xiLogName;
   }
 

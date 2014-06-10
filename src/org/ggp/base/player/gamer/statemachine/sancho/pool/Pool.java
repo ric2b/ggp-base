@@ -20,20 +20,17 @@ public interface Pool<ItemType>
     /**
      * @return a newly allocated object.
      *
-     * @param xiSeq - the sequence number for the object.
-     *
      * @throws GoalDefinitionException if the object couldn't be allocated.
      */
-    public ItemType newObject(int xiSeq) throws GoalDefinitionException; // !! ARR Use a more generic exception
+    public ItemType newObject() throws GoalDefinitionException; // !! ARR Use a more generic exception
 
     /**
      * Reset an object, ready for re-use.
      *
      * @param xiObject - the object to reset.
      * @param xiFree   - whether to free the internals.
-     * @param xiSeq    - the sequence number for the object.
      */
-    public void resetObject(ItemType xiObject, boolean xiFree, int xiSeq);
+    public void resetObject(ItemType xiObject, boolean xiFree);
 
     /**
      *

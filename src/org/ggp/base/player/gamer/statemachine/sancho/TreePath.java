@@ -3,40 +3,51 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * Path through an MCTS tree.
  */
 public class TreePath
 {
+  static final Logger LOGGER       = LogManager.getLogger();
+
   /**
    * Individual element in a tree path
    */
   class TreePathElement
   {
-    /**
-     * Edge being traversed in this path element
-     */
-    TreeEdge edge;
+    // The parent node, the edge leading from it and the child.  It is only valid to access the edge if both node
+    // references are still valid.
+    private final TreeNodeRef mParent;
+    private final TreeEdge    mEdge;
+    private final TreeNodeRef mChild;
+
+    // Score overrides to use above this point in the path.
     private double[] scoreOverrides = null;
 
     /**
      * Construct a new element suitable for adding to a selection path
+     *
+     * @param xiParent - the parent, used to check child validity
      * @param theEdge the edge to encapsulate
      */
-    public TreePathElement(TreeEdge theEdge)
+    public TreePathElement(TreeNode xiParent, TreeEdge xiEdge)
     {
-      TreeNode lChild = theEdge.child.get();
-      assert(!lChild.freed);
-      assert(theEdge.numChildVisits <= lChild.numVisits);
+      mParent = xiParent.getRef();
+      mEdge = xiEdge;
+      mChild = mEdge.child;
 
-      this.edge = theEdge;
+      assert(mChild.get() != null) : "Can't add invalid node ref to path";
+      assert(xiEdge.numChildVisits <= mChild.get().numVisits) : "Edge has more visits than child";
     }
 
     /**
-     * Set override scores that are to be fed upward from this element
-     * During update propagation, rather than those flowing from lower
-     * in the path
-     * @param scores
+     * Set override scores that are to be fed upward from this element during update propagation, rather than those
+     * flowing from lower in the path.
+     *
+     * @param scores - the scores to use.
      */
     public void setScoreOverrides(double[] scores)
     {
@@ -49,8 +60,9 @@ public class TreePath
     }
 
     /**
-     * Retrieve override score vector (if any)
-     * @return overrides, or null if there are none
+     * Retrieve override score vector (if any).
+     *
+     * @return overrides, or null if there are none.
      */
     public double[] getScoreOverrides()
     {
@@ -58,22 +70,27 @@ public class TreePath
     }
 
     /**
-     * Retrieve the node this path element leads to (downwards)
+     * Retrieve the node this path element leads to (downwards).
      *
      * @return the child node, or null if it has been freed.
      */
     public TreeNode getChildNode()
     {
-      return edge.child.get();
+      return mChild.get();
     }
 
     /**
-     * Retrieve the edge this element encapsulates
-     * @return edge
+     * @return the edge this element encapsulates, or null if the edge has become invalid (because the parent and/or the
+     *         child has been freed).
      */
     public TreeEdge getEdge()
     {
-      return edge;
+      // Check that the edge is still valid before returning it.
+      if ((mParent.get() == null) || (mChild.get() == null))
+      {
+        return null;
+      }
+      return mEdge;
     }
   }
 
@@ -104,14 +121,6 @@ public class TreePath
   }
 
   /**
-   * @return number of elements in thepath
-   */
-  public int size()
-  {
-    return elements.size();
-  }
-
-  /**
    * Reset enumeration cursor to the leaf of the path
    */
   public void resetCursor()
@@ -129,9 +138,10 @@ public class TreePath
   }
 
   /**
-   * Advance to the next element during enumeration.  Note that
-   * this enumerates from deepest point first up to the root
-   * @return next node
+   * Advance to the next element during enumeration.  Note that this enumerates from deepest point first up to the root.
+   *
+   * @return the next node in the path, or null if the path has become invalid at this point (because the node has been
+   *         recycled).
    */
   public TreeNode getNextNode()
   {
@@ -159,24 +169,28 @@ public class TreePath
   }
 
   /**
-   * Test validity of the path.  Intended for use as the argument to
-   * an assert() rather than in normal (assert-disabled) runtime usage
-   * @return validity
+   * @return whether the path through the tree is still valid.
    */
   public boolean isValid()
   {
     while(hasMore())
     {
+      // Get the edge in the path.  If this returns null, the path has become invalid at this point.
       getNextNode();
       assert(getCurrentElement() != null);
 
-      TreeEdge edge = getCurrentElement().getEdge();
-      TreeNode lChild = edge.child.get();
-      if (lChild == null || edge.numChildVisits > lChild.numVisits)
+      TreeEdge lEdge = getCurrentElement().getEdge();
+      if (lEdge == null)
       {
-        assert(false);
         return false;
       }
+
+      // The edge can't have been visited more often than its child.  (The converse isn't true because children can
+      // have multiple parents.)
+      assert(getCurrentElement().getChildNode() != null) : "Child is null even after edge validated";
+      assert(lEdge.numChildVisits <= getCurrentElement().getChildNode().numVisits) :
+        "Edge " + lEdge + " has been visited " + lEdge.numChildVisits + " times, but the child (" +
+        getCurrentElement().getChildNode() + ") only has " + getCurrentElement().getChildNode().numVisits + " visits!";
     }
     resetCursor();
     return true;

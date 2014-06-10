@@ -14,7 +14,6 @@ import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.MCTSTree.MoveScoreInfo;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
-import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool.ObjectAllocator;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
@@ -25,7 +24,6 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.w3c.tidy.MutableInteger;
 
 /**
  * A node in an MCTS "tree" (actually a DAG).
@@ -61,18 +59,16 @@ public class TreeNode
     }
 
     @Override
-    public TreeNode newObject(int xiSeq) throws GoalDefinitionException
+    public TreeNode newObject() throws GoalDefinitionException
     {
       TreeNode lNode = new TreeNode(mTree, mTree.numRoles);
-      lNode.seq = xiSeq;
       return lNode;
     }
 
     @Override
-    public void resetObject(TreeNode xiNode, boolean xiFree, int xiSeq)
+    public void resetObject(TreeNode xiNode, boolean xiFree)
     {
       xiNode.reset(xiFree ? null : mTree);
-      xiNode.seq = xiSeq;
     }
 
     @Override
@@ -95,7 +91,10 @@ public class TreeNode
    */
   MCTSTree tree;
 
-  int                                   seq                 = CappedPool.NULL_ITEM_SEQ;
+  // A sequence number for this node.  Nodes are re-used.  When a node is re-used the sequence number is incremented.
+  // Several nodes can have the same sequence number because the sequence number is specific to a node instance.
+  private int                           seq                 = 0;
+
   public int                            numVisits           = 0;
   private int                           numUpdates          = 0;
   public final double[]                 averageScores;
@@ -161,11 +160,6 @@ public class TreeNode
     assert(complete);
 
     return completionDepth;
-  }
-
-  private boolean isFreed()
-  {
-    return seq < 0;
   }
 
   /**
@@ -242,7 +236,7 @@ public class TreeNode
             Object choice = primaryPathParent.children[index];
 
             TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-            if (edge != null && edge.child != null && edge.child.getLive() != null)
+            if (edge != null && edge.child != null && edge.child.get() != null)
             {
               TreeNode lChild = edge.child.get();
               double exploitationUct = primaryPathParent.exploitationUCT(edge, lChild.decidingRoleIndex);
@@ -291,7 +285,7 @@ public class TreeNode
           Object choice = children[index];
 
           TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-          if (edge != null && edge.child != null && edge.child.getLive() != null)
+          if (edge != null && edge.child != null && edge.child.get() != null)
           {
             TreeNode lChild = edge.child.get();
             if (lChild.complete)
@@ -373,28 +367,24 @@ public class TreeNode
     //	Children can all be freed, at least from this parentage
     if (children != null && tree.freeCompletedNodeChildren)
     {
-      for (short index = 0; index < children.length; index++)
+      for (int index = 0; index < children.length; index++)
       {
         if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
         {
           Object choice = children[index];
 
           TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-          if ( edge != null )
+          if (edge != null)
           {
             TreeNodeRef cr = edge.child;
             if (cr != null)
             {
-              if (cr.getLive() != null)
+              if (cr.get() != null)
               {
-                cr.get().freeFromAncestor(this);
-                cr.clearRef();
-              }
-              else if (!cr.isNullRef())
-              {
-                cr.clearRef();
+                cr.get().freeFromAncestor(this, null);
               }
             }
+            deleteEdge(index);
           }
         }
       }
@@ -446,13 +436,22 @@ public class TreeNode
     //validateAll();
   }
 
-  private void freeFromAncestor(TreeNode ancestor)
+  private void freeFromAncestor(TreeNode ancestor, TreeNode xiKeep)
   {
     //if (sweepParent == ancestor && sweepSeq == sweepInstance)
     //{
     //	LOGGER.info("Removing sweep parent");
     //}
     parents.remove(ancestor);
+
+    if ((xiKeep != null) && (sweepSeq == tree.sweepInstance))
+    {
+      // We're re-rooting the tree and have already calculated that this node (which we happen to have reached through
+      // a part of the tree that's being pruned) is reachable from the new root.  Therefore, we know it needs to be
+      // kept.
+      assert(parents.size() != 0) : "Oops - no link left to new root";
+      return;
+    }
 
     if (parents.size() == 0)
     {
@@ -465,9 +464,15 @@ public class TreeNode
             Object choice = children[index];
 
             TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-            if (edge != null && edge.child != null && edge.child.getLive() != null)
+            if (edge != null && edge.child != null && edge.child.get() != null)
             {
-              edge.child.get().freeFromAncestor(this);
+              // Free the child (at least from us) and free our edge to it.
+              TreeNode lChild = edge.child.get();
+              if (lChild != xiKeep)
+              {
+                lChild.freeFromAncestor(this, xiKeep);
+              }
+              deleteEdge(index);
             }
           }
         }
@@ -540,7 +545,7 @@ public class TreeNode
             return false;
           }
 
-          TreeNode child = edge.child.getLive();
+          TreeNode child = edge.child.get();
           if (child != null)
           {
             if (!child.complete)
@@ -598,7 +603,7 @@ public class TreeNode
           TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
           if ( edge != null && edge.child != null )
           {
-            TreeNode child = edge.child.getLive();
+            TreeNode child = edge.child.get();
             if (child != null && child != this && child.children != null && !child.complete)
             {
               child.checkChildCompletion(false);
@@ -649,7 +654,7 @@ public class TreeNode
                   {
                     continue;
                   }
-                  TreeNode nephew = nephewEdge.child.getLive();
+                  TreeNode nephew = nephewEdge.child.get();
                   if (nephew != null)
                   {
                     if (moves.contains(nephewEdge.partialMove.move))
@@ -729,7 +734,7 @@ public class TreeNode
                   return null;
                 }
 
-                TreeNode nephew = nephewEdge.child.getLive();
+                TreeNode nephew = nephewEdge.child.get();
                 if (nephew != null)
                 {
                   if (!nephew.complete)
@@ -774,7 +779,7 @@ public class TreeNode
           TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
           if ( edge != null )
           {
-            TreeNode child = edge.child.getLive();
+            TreeNode child = edge.child.get();
             if (child != null && child != this && child.children != null && !child.complete)
             {
               child.checkChildCompletion(false);
@@ -819,7 +824,7 @@ public class TreeNode
           {
             allImmediateChildrenComplete = false;
           }
-          else if (cr.getLive() != null)
+          else if (cr.get() != null)
           {
             TreeNode lNode = cr.get();
             numUniqueChildren++;
@@ -1026,7 +1031,7 @@ public class TreeNode
             if ( edge != null )
             {
               TreeNodeRef cr = edge.child;
-              if (cr != null && cr.getLive() != null)
+              if (cr != null && cr.get() != null)
               {
                 TreeNode lNode = cr.get();
                 if (determiningChildCompletionDepth > lNode.getCompletionDepth())
@@ -1096,8 +1101,11 @@ public class TreeNode
     // Throughout this function, we do our best to reset existing objects wherever possible, rather than discarding the
     // old ones and allocating new ones.  The reduces the GC burden.
 
+    // Increment the sequence number for this node so that any remaining TreeNodeRefs pointing to the previous
+    // incarnation can spot that we've re-used this node under their feet.
+    seq++;
+
     // Reset primitives.
-    seq = CappedPool.NULL_ITEM_SEQ;
     numVisits = 0;
     numUpdates = 0;
     isTerminal = false;
@@ -1132,11 +1140,6 @@ public class TreeNode
     return new TreeNodeRef(this);
   }
 
-  int getAge()
-  {
-    return tree.nodePool.getAge(seq);
-  }
-
   void validate(boolean recursive)
   {
     if (children != null)
@@ -1152,7 +1155,7 @@ public class TreeNode
           if ( edge != null )
           {
             TreeNodeRef cr = edge.child;
-            TreeNode lNode = cr.getLive();
+            TreeNode lNode = cr.get();
             if (lNode != null)
             {
               if (!lNode.parents.contains(this))
@@ -1218,6 +1221,10 @@ public class TreeNode
     }
   }
 
+  /**
+   * Mark all the nodes that will be in the live part of the graph with a sequence number.  When clearing out the graph,
+   * if we meet a marked node, we know that it can't be deleted because it's still reachable.
+   */
   private void markTreeForSweep()
   {
     if (sweepSeq != tree.sweepInstance)
@@ -1232,7 +1239,7 @@ public class TreeNode
             Object choice = children[index];
 
             TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-            if (edge != null && edge.child != null && edge.child.getLive() != null)
+            if (edge != null && edge.child != null && edge.child.get() != null)
             {
               edge.child.get().markTreeForSweep();
             }
@@ -1242,6 +1249,11 @@ public class TreeNode
     }
   }
 
+  /**
+   * Free this node.
+   *
+   * Before calling this method, the caller must have freed all children for whom this is the only parent.
+   */
   private void freeNode()
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.freeNode");
@@ -1249,7 +1261,7 @@ public class TreeNode
     {
       //validateAll();
 
-      assert (!freed);
+      assert (!freed) : "Attempt to free a node that has already been freed";
 
       if (decidingRoleIndex == tree.numRoles - 1)
       {
@@ -1277,48 +1289,10 @@ public class TreeNode
         tree.numCompletedBranches--;
       }
 
-      if (children != null)
-      {
-        for (int index = 0; index < children.length; index++)
-        {
-          if (primaryChoiceMapping == null || primaryChoiceMapping[index] == index)
-          {
-            Object choice = children[index];
-
-            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-            if (edge != null && edge.child != null)
-            {
-              if (edge.child.getLive() != null)
-              {
-                TreeNode lNode = edge.child.get();
-                if (lNode.parents.size() != 0)
-                {
-                  //if (cr.node.sweepParent == this && sweepSeq == sweepInstance)
-                  //{
-                  //	LOGGER.info("Removing sweep parent");
-                  //}
-                  lNode.parents.remove(this);
-                  int numRemainingParents = lNode.parents.size();
-                  if (numRemainingParents == 0)
-                  {
-                    LOGGER.warn("Orphaned child node");
-                  }
-                  else
-                  {
-                    // Best estimate of likely paths to the child node given removal of parent
-                    // edge.child.node.numVisits = (edge.child.node.numVisits*numRemainingParents + numRemainingParents)/(numRemainingParents+1);
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
       // LOGGER.debug("    Freeing (" + ourIndex + "): " + state);
-      seq = CappedPool.FREED_ITEM_SEQ;
       freed = true;
       tree.nodePool.free(this);
+      seq++; // !! ARR Shouldn't be needed - we shouldn't be looking at nodes with "freed" set.
       //validateAll();
     }
     finally
@@ -1329,21 +1303,14 @@ public class TreeNode
 
   public void freeAllBut(TreeNode descendant)
   {
-    if (descendant != null)
-    {
-      //LOGGER.debug("Free all but rooted in state: " + descendant.state);
-      tree.sweepInstance++;
+    //LOGGER.debug("Free all but rooted in state: " + descendant.state);
 
-      descendant.markTreeForSweep();
-      descendant.parents.clear(); //	Do this here to allow generic orphan checking in node freeing
-                                  //	without tripping over this special case
-    }
-
-    if (descendant == this || sweepSeq == tree.sweepInstance)
-    {
-      //LOGGER.info("    Leaving: " + state);
-      return;
-    }
+    // Mark the live portions of the tree.  This allows us to tidy up the state without repeatedly visiting live parts
+    // of the tree.
+    tree.sweepInstance++;
+    descendant.markTreeForSweep();
+    descendant.parents.clear(); //	Do this here to allow generic orphan checking in node freeing
+                                //	without tripping over this special case
 
     if (children != null)
     {
@@ -1354,15 +1321,39 @@ public class TreeNode
           Object choice = children[index];
 
           TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-          if (edge != null && edge.child != null && edge.child.getLive() != null)
+          if (edge != null &&
+              edge.child != null &&
+              edge.child.get() != null)
           {
-            edge.child.get().freeAllBut(null);
+            TreeNode lNode = edge.child.get();
+
+            if (lNode != descendant)
+            {
+              // Free the child (at least from us)
+              lNode.freeFromAncestor(this, descendant);
+            }
+
+            // Delete our edge to the child anyway.  (We only set "descendant" when re-rooting the tree.  In that case,
+            // we don't need the edge any more.)
+            deleteEdge(index);
           }
         }
       }
     }
 
     freeNode();
+  }
+
+  private void deleteEdge(int xiChildIndex)
+  {
+    assert(children[xiChildIndex] instanceof TreeEdge) : "Asked to delete a non-edge";
+    TreeEdge lEdge = (TreeEdge)children[xiChildIndex];
+
+    // Replace the edge with its move (so that it can be re-expanded later if required).
+    children[xiChildIndex] = lEdge.partialMove;
+
+    // Return the edge to the pool.
+    tree.edgePool.free(lEdge);
   }
 
   public TreeNode findNode(ForwardDeadReckonInternalMachineState targetState, int maxDepth)
@@ -1388,7 +1379,7 @@ public class TreeNode
           if ( edge != null )
           {
             TreeNodeRef cr = edge.child;
-            if (cr != null && cr.getLive() != null)
+            if (cr != null && cr.get() != null)
             {
               TreeNode childResult = cr.get().findNode(targetState, maxDepth - 1);
               if (childResult != null)
@@ -1454,7 +1445,7 @@ public class TreeNode
         {
           TreeNodeRef cr = ((TreeEdge)choice).child;
 
-          if (cr != null && cr.getLive() != null)
+          if (cr != null && cr.get() != null)
           {
             selectedIndex = 0;
           }
@@ -1473,7 +1464,7 @@ public class TreeNode
             if( cr != null)
             {
               TreeNode c = cr.get();
-              if (c != null && c.seq >= 0)
+              if (c != null)
               {
                 //  Don't allow trimming at the immediate children of the root or the root itself
                 if (depth >= 1 || c.hasUntrimmedChildren())
@@ -1517,17 +1508,15 @@ public class TreeNode
               TreeNodeRef cr = edge.child;
               if (cr != null)
               {
-                TreeNode c = cr.getLive();
+                TreeNode c = cr.get();
                 if (c == null)
                 {
-                  if (!cr.isNullRef())
+                  if (trimmedChildren++ == 0)
                   {
-                    if (trimmedChildren++ == 0)
-                    {
-                      tree.numIncompleteNodes++;
-                    }
-                    cr.clearRef();
+                    tree.numIncompleteNodes++;
                   }
+
+                  deleteEdge(i);
                 }
                 else
                 {
@@ -1615,7 +1604,7 @@ public class TreeNode
           Object choice = children[index];
 
           TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-          if (edge != null && edge.child != null && edge.child.getLive() != null)
+          if (edge != null && edge.child != null && edge.child.get() != null)
           {
             return true;
           }
@@ -1730,7 +1719,7 @@ public class TreeNode
     }
 
     assert(state != null);
-    assert(edge.child==null);
+    assert(edge.child == null);
     edge.child = tree.allocateNode(tree.underlyingStateMachine,
                                    (roleIndex == tree.numRoles - 1 ? tree.underlyingStateMachine.getNextState(state, tree.factor, jointPartialMove) : null),
                                    this,
@@ -1938,7 +1927,6 @@ public class TreeNode
           }
         }
 
-        MutableInteger lWeight = new MutableInteger();
         if (roleIndex == tree.numRoles - 1)
         {
           for (index = 0; index < children.length; index++)
@@ -2033,7 +2021,7 @@ public class TreeNode
             if ( choice instanceof TreeEdge )
             {
               TreeNodeRef cr = ((TreeEdge)choice).child;
-              if (cr != null && cr.getLive() != null)
+              if (cr != null && cr.get() != null)
               {
                 TreeNode lNode = cr.get();
                 if (lNode.isTerminal)
@@ -2157,7 +2145,7 @@ public class TreeNode
               continue;
             }
 
-            TreeNode child = edge.child.getLive();
+            TreeNode child = edge.child.get();
             if (child != null && child.children != null)
             {
               for (short nephewIndex = 0; nephewIndex < child.children.length; nephewIndex++)
@@ -2172,7 +2160,7 @@ public class TreeNode
                     continue;
                   }
 
-                  TreeNode nephew = nephewEdge.child.getLive();
+                  TreeNode nephew = nephewEdge.child.get();
                   if (nephew != null)
                   {
                     Move move = nephewEdge.partialMove.move;
@@ -2196,8 +2184,7 @@ public class TreeNode
       }
     }
 
-    MoveScoreInfo accumulatedMoveInfo = tree.cousinMoveCache
-        .get(relativeTo.partialMove.move);
+    MoveScoreInfo accumulatedMoveInfo = tree.cousinMoveCache.get(relativeTo.partialMove.move);
     if (accumulatedMoveInfo == null)
     {
       LOGGER.warn("No newphews found for search move including own child!");
@@ -2289,7 +2276,7 @@ public class TreeNode
           }
           TreeNodeRef cr = edge.child;
 
-          if (cr == null || cr.getLive() != null)
+          if (cr == null || cr.get() != null)
           {
             selectedIndex = 0;
           }
@@ -2324,7 +2311,7 @@ public class TreeNode
 
             if(cr != null)
             {
-              TreeNode c = cr.getLive();
+              TreeNode c = cr.get();
               if (c != null && (!c.complete) && !c.allChildrenComplete)
               {
                 double uctValue;
@@ -2373,19 +2360,17 @@ public class TreeNode
                 double uctValue;
                 TreeNodeRef cr;
 
-                if ( edge != null && (cr = edge.child) != null )
+                if (edge != null && (cr = edge.child) != null)
                 {
                   TreeNode c = cr.get();
                   if (c == null)
                   {
-                    if (!cr.isNullRef())
+                    if (trimmedChildren++ == 0)
                     {
-                      if (trimmedChildren++ == 0)
-                      {
-                        tree.numIncompleteNodes++;
-                      }
-                      cr.clearRef();
+                      tree.numIncompleteNodes++;
                     }
+
+                    deleteEdge(i);
 
                     selectedIndex = -1;
                     break;
@@ -2487,6 +2472,7 @@ public class TreeNode
       }
 
       tree.numSelectionsThroughIncompleteNodes++;
+      trimmedChildren = 0; // !! ARR Hack at Steve's suggestion (also see ~20 lines below).
 
       //	pick at random.  If we pick one that has been trimmed re-expand it
       //	FUTURE - can establish a bound on the trimmed UCT value to avoid
@@ -2502,13 +2488,12 @@ public class TreeNode
         selected = (TreeEdge)children[selectedIndex];
         TreeNodeRef cr = selected.child;
 
-        if (cr != null && cr.getLive() == null)
+        if (cr != null && cr.get() == null)
         {
           tree.numReExpansions++;
-          if (trimmedChildren == 0)
-          {
-            LOGGER.warn("Found trimmed child where none should exist!");
-          }
+
+          // !! ARR Remove this assert because we're forgetting about trimming above.
+          // assert(trimmedChildren != 0) : "Found trimmed child where none should exist";
 
           //  Reset the edge so it will be re-expanded
           selected.child = null;
@@ -2528,6 +2513,7 @@ public class TreeNode
     if ( choice instanceof TreeEdge )
     {
       selected = (TreeEdge)choice;
+      assert(selected.child == null || selected.child.get() != null);
     }
     else
     {
@@ -2542,6 +2528,8 @@ public class TreeNode
       createChildNodeForEdge(selected, jointPartialMove);
     }
 
+    assert(selected.child.get() != null);
+
     if (USE_STATE_SIMILARITY_IN_EXPANSION && !complete && roleIndex == 0)
     {
       tree.mStateSimilarityMap.add(getRef());
@@ -2549,7 +2537,7 @@ public class TreeNode
 
     final double explorationAmplifierDecayRate = 0.6;
     selected.explorationAmplifier *= explorationAmplifierDecayRate;
-    TreePathElement result = path.new TreePathElement(selected);
+    TreePathElement result = path.new TreePathElement(this, selected);
 
     //  If the node that should have been selected through was complete
     //  note that in the path, so that on application of the update
@@ -2603,7 +2591,7 @@ public class TreeNode
         Object choice = children[index];
 
         TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-        if (edge != null && edge.child.getLive() != null)
+        if (edge != null && edge.child.get() != null)
         {
           TreeNode lNode = edge.child.get();
           double childVal = lNode.averageScores[lNode.decidingRoleIndex];
@@ -2671,7 +2659,7 @@ public class TreeNode
           Object choice = children[index];
 
           TreeEdge edge2 = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-          if (edge2 != null && edge2.child != null && edge2.child.getLive() != null)
+          if (edge2 != null && edge2.child != null && edge2.child.get() != null)
           {
             TreeNode lNode2 = edge2.child.get();
             String lLog = "    Response " +
@@ -2709,9 +2697,7 @@ public class TreeNode
               }
               else
               {
-                String lLog = "    Response " +
-                    edge2.partialMove.move +
-                    " trimmed";
+                String lLog = "    Response " + edge2.partialMove.move + " trimmed";
 
                 if (xiResponsesTraced < 400)
                 {
@@ -2721,9 +2707,7 @@ public class TreeNode
             }
             else
             {
-              String lLog = "    Response " +
-                  edge2.partialMove.move +
-                  " unexpanded";
+              String lLog = "    Response " + edge2.partialMove.move + " unexpanded";
 
               if (xiResponsesTraced < 400)
               {
@@ -2755,9 +2739,7 @@ public class TreeNode
       }
       else
       {
-        String lLog = "    Response " +
-            edge2.partialMove.move +
-            " unexpanded";
+        String lLog = "    Response " + edge2.partialMove.move + " unexpanded";
 
         if (xiResponsesTraced < 400)
         {
@@ -2828,7 +2810,7 @@ public class TreeNode
             Object choice = children[index];
 
             TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-            if (edge != null && edge.child != null && edge.child.getLive() != null)
+            if (edge != null && edge.child != null && edge.child.get() != null)
             {
               edge.child.get().dumpTree(writer, depth + 1, edge);
             }
@@ -2870,7 +2852,7 @@ public class TreeNode
               Object choice = children[index];
 
               TreeEdge edge2 = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-              if (edge2 != null && edge2.child != null && edge2.child.getLive() != null)
+              if (edge2 != null && edge2.child != null && edge2.child.get() != null)
               {
                 TreeNode lNode2 = edge2.child.get();
                 if (lNode2.averageScores[0] <= tree.mGameSearcher.lowestRolloutScoreSeen && lNode2.complete)
@@ -2922,11 +2904,7 @@ public class TreeNode
     // (always 0), otherwise why are we trying to get the best move?
     int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
     assert(lRecursiveCall || roleIndex == 0);
-    if (children == null)
-    {
-      LOGGER.error("NO CHILDREN!");
-    }
-    assert(children != null);
+    assert(children != null) : "Asked to get best move when there are NO CHILDREN!";
 
     if (!lRecursiveCall)
     {
@@ -2979,7 +2957,7 @@ public class TreeNode
 
       //  Trimmed nodes may be encountered anywhere below the root's own child links
       //  and these should not accidentally be followed when tracing a move path
-      if (child == null || child.seq < 0)
+      if (child == null)
       {
         continue;
       }
@@ -3136,7 +3114,8 @@ public class TreeNode
 
   public void rollOut(TreePath path, Pipeline xiPipeline, boolean forceSynchronous) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
-    assert(path.isValid());
+    assert(!freed) : "Rollout node is a freed node";
+    assert(path.isValid()) : "Rollout path isn't valid";
 
     if (complete)
     {
@@ -3161,6 +3140,9 @@ public class TreeNode
 
     assert(decidingRoleIndex == tree.numRoles - 1) : "Attempt to rollout from an incomplete-information node";
 
+    assert(!freed) : "Rollout node is a freed node";
+    assert(path.isValid()) : "Rollout path isn't valid";
+
     // Get a rollout request object.
     RolloutRequest lRequest;
     if (ThreadControl.ROLLOUT_THREADS > 0 && !forceSynchronous)
@@ -3175,7 +3157,7 @@ public class TreeNode
         //  Processing completions above could have resulted in the node we we're about to
         //  rollout from being freed (because it has been determined to be complete or an
         //  ancestor has).  In such cases abort the rollout.
-        if (isFreed())
+        if (!path.isValid())
         {
           return;
         }
@@ -3187,6 +3169,9 @@ public class TreeNode
       // Synchronous rollouts - use the single request object.
       lRequest = tree.mNodeSynchronousRequest;
     }
+
+    assert(!freed) : "Rollout node is a freed node";
+    assert(path.isValid()) : "Rollout path isn't valid";
 
     lRequest.mState = state;
     lRequest.mNode = getRef();
@@ -3270,9 +3255,7 @@ public class TreeNode
     if (path.hasMore())
     {
       nextNode = path.getNextNode();
-      TreeEdge parentEdge = path.getCurrentElement().getEdge();
-
-      if (parentEdge.child.get() != this)
+      if (nextNode == null)
       {
         return;
       }
@@ -3350,5 +3333,10 @@ public class TreeNode
                            path,
                            isCompletePseudoRollout);
     }
+  }
+
+  public int getSequenceNumber()
+  {
+    return seq;
   }
 }

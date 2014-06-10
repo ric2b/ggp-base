@@ -171,7 +171,7 @@ public class StateSimilarityMap
 
           if (childEdge != null &&
               childEdge.child != null &&
-              childEdge.child.getLive() != null &&
+              childEdge.child.get() != null &&
               childEdge.child.get().children != null)
           {
             result = childEdge.child.get();
@@ -246,7 +246,7 @@ public class StateSimilarityMap
                 TreeEdge childEdge = (child instanceof TreeEdge ? (TreeEdge)child : null);
                 if ( childEdge != null &&
                      childEdge.child != null &&
-                     childEdge.child.getLive() != null &&
+                     childEdge.child.get() != null &&
                      childEdge.child.get().numVisits > 0)
                 {
                   TreeNode lChild = childEdge.child.get();

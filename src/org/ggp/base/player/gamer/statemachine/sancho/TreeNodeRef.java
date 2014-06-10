@@ -1,6 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
 
 /**
  * A reference to a tree node, containing a pointer to the tree node and the expected sequence number of the tree
@@ -14,12 +13,12 @@ public class TreeNodeRef
   /**
    * Referenced tree node.
    */
-  private TreeNode node;
+  private final TreeNode mNode;
 
   /**
-   * Expected sequence number.
+   * Expected sequence number in the referenced node.
    */
-  private int seq;
+  private final int mExpectedSequenceNumber;
 
   /**
    * Create a reference to a tree node.
@@ -28,8 +27,9 @@ public class TreeNodeRef
    */
   public TreeNodeRef(TreeNode xiNode)
   {
-    node = xiNode;
-    seq = xiNode.seq;
+    assert(!xiNode.freed) : "Attempt to create reference to freed node";
+    mNode = xiNode;
+    mExpectedSequenceNumber = xiNode.getSequenceNumber();
   }
 
   /**
@@ -38,45 +38,13 @@ public class TreeNodeRef
    */
   public TreeNode get()
   {
-    if (node.seq == seq)
+    if (mNode.getSequenceNumber() == mExpectedSequenceNumber)
     {
-      return node;
+      assert(!mNode.freed) : "Invalid to successfully retrieve reference to freed node";
+      return mNode;
     }
 
     return null;
-  }
-
-  /**
-   * @return the referenced tree node provided that it is (a) still a valid reference and (b) not a reference to a
-   *         null or freed node.
-   */
-  public TreeNode getLive()
-  {
-    if ((node.seq == seq) && (node.seq > 0))
-    {
-      return node;
-    }
-
-    return null;
-  }
-
-  /**
-   * @return whether this is a reference to an unallocated node (i.e. one with the null sequence number).
-   */
-  public boolean isNullRef()
-  {
-    return seq == CappedPool.NULL_ITEM_SEQ;
-  }
-
-  /**
-   * Mark this as referencing an unallocated node (i.e. one with the null sequence number).
-   *
-   * !! ARR Does this not indicate that the reference itself should be freed and nulled out it whatever variable it's
-   * !! ARR currently being stored in by the caller?
-   */
-  public void clearRef()
-  {
-    seq = CappedPool.NULL_ITEM_SEQ;
   }
 
   /**
@@ -86,6 +54,12 @@ public class TreeNodeRef
    */
   public boolean hasSameReferand(TreeNodeRef xiOther)
   {
-    return seq == xiOther.seq;
+    return mExpectedSequenceNumber == xiOther.mExpectedSequenceNumber;
+  }
+
+  @Override
+  public String toString()
+  {
+    return "Ref(" + Integer.toHexString(mNode.hashCode()) + ") = " + mExpectedSequenceNumber + ", node seq = " + mNode.getSequenceNumber();
   }
 }

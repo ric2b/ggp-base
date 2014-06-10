@@ -1,8 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.sancho.pool;
 
-import java.util.LinkedList;
-import java.util.List;
-
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 
 /**
@@ -14,38 +11,43 @@ import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
  */
 public class UncappedPool<ItemType> implements Pool<ItemType>
 {
-  /**
-   * A dummy sequence number for unallocated pool items.
-   */
-  public static final int NULL_ITEM_SEQ = -1;
-
-  /**
-   * A sequence number for pool items that have been freed.
-   */
-  public static final int FREED_ITEM_SEQ = -2;
-
-  // List of items that are free to be re-used.
-  private List<ItemType>                               mFreeList         = new LinkedList<>();
+  // Items that are available for re-use.
+  private final int                                    mMaxFreeItems;
+  private final ItemType[]                             mFreeItems;
+  private int                                          mNumFreeItems;
 
   // Statistical information about pool usage.
   //
   // - The number of items currently is use.
   private int                                          mNumItemsInUse = 0;
 
+  /**
+   * Create an pool with no maximum size.  The pool keeps freed objects for re-use, up to the specified maximum.
+   *
+   * @param xiMaxFreeItems - the number of freed items to keep for re-use.
+   */
+  @SuppressWarnings("unchecked")
+  public UncappedPool(int xiMaxFreeItems)
+  {
+    mMaxFreeItems = xiMaxFreeItems;
+    mFreeItems = (ItemType[])(new Object[xiMaxFreeItems]);
+  }
+
   @Override
   public ItemType allocate(ObjectAllocator<ItemType> xiAllocator) throws GoalDefinitionException
   {
     ItemType lAllocatedItem;
 
-    if (!mFreeList.isEmpty())
+    if (mNumFreeItems > 0)
     {
       // Re-use an item from the free list.
-      lAllocatedItem = mFreeList.remove(0);
+      lAllocatedItem = mFreeItems[--mNumFreeItems];
+      xiAllocator.resetObject(lAllocatedItem, false);
     }
     else
     {
       // Allocate a new item.
-      lAllocatedItem = xiAllocator.newObject(0);
+      lAllocatedItem = xiAllocator.newObject();
     }
 
     mNumItemsInUse++;
@@ -56,7 +58,10 @@ public class UncappedPool<ItemType> implements Pool<ItemType>
   public void free(ItemType xiItem)
   {
     mNumItemsInUse--;
-    mFreeList.add(xiItem);
+    if (mNumFreeItems < mMaxFreeItems)
+    {
+      mFreeItems[mNumFreeItems++] = xiItem;
+    }
   }
 
   @Override

@@ -11,16 +11,6 @@ import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
  */
 public class CappedPool<ItemType> implements Pool<ItemType>
 {
-  /**
-   * A dummy sequence number for unallocated pool items.
-   */
-  public static final int NULL_ITEM_SEQ = -1;
-
-  /**
-   * A sequence number for pool items that have been freed.
-   */
-  public static final int FREED_ITEM_SEQ = -2;
-
   // Maximum number of items to allocate.
   private final int                                    mPoolSize;
 
@@ -35,11 +25,6 @@ public class CappedPool<ItemType> implements Pool<ItemType>
   // allocate a new item (if we're not yet at the maximum) or re-use and existing item.  This can never exceed
   // mPoolSize.
   private int                                          mLargestUsedIndex = -1;
-
-  // The sequence number to assign to the next allocated item.  Every call to allocate() results in a unique sequence
-  // number, even (or especially) when a item is being re-used.  This, in combination with TreeNodeRef, allows the
-  // calling code to lazily tidy up references to items, whilst still permitting their re-use in the mean time.
-  private int                                          mNextSeq          = 0;
 
   // Statistical information about pool usage.
   //
@@ -83,16 +68,6 @@ public class CappedPool<ItemType> implements Pool<ItemType>
     return mNumItemsInUse * 100 / mPoolSize;
   }
 
-  /**
-   * Get the age of an object with specified seq
-   * @param seq of the object whose age is being queried
-   * @return age in number of allocations
-   */
-  public int getAge(int seq)
-  {
-    return mNextSeq - seq;
-  }
-
   @Override
   public ItemType allocate(ObjectAllocator<ItemType> xiAllocator) throws GoalDefinitionException
   {
@@ -101,7 +76,7 @@ public class CappedPool<ItemType> implements Pool<ItemType>
     if (mLargestUsedIndex < mPoolSize - 1)
     {
       // If we haven't allocated the maximum number of items yet, just allocate another.
-      lAllocatedItem = xiAllocator.newObject(mNextSeq++);
+      lAllocatedItem = xiAllocator.newObject();
       mItems[++mLargestUsedIndex] = lAllocatedItem;
     }
     else
@@ -111,7 +86,7 @@ public class CappedPool<ItemType> implements Pool<ItemType>
       lAllocatedItem = mFreeItems[--mNumFreeItems];
 
       // Reset the item so that it's ready for re-use.
-      xiAllocator.resetObject(lAllocatedItem, false, mNextSeq++);
+      xiAllocator.resetObject(lAllocatedItem, false);
     }
 
     mNumItemsInUse++;
@@ -136,25 +111,30 @@ public class CappedPool<ItemType> implements Pool<ItemType>
   {
     if (!xiFilter)
     {
+      // This is called during meta-gaming when we've finished doing the true meta-gaming tasks and are about to kick
+      // off the regular searched.
+
       // Reset every allocated object and add it to the free list.
       for (int i = 0; i <= mLargestUsedIndex; i++)
       {
-        xiAllocator.resetObject(mItems[i], true, NULL_ITEM_SEQ);
+        xiAllocator.resetObject(mItems[i], true);
         mFreeItems[i] = mItems[i];
       }
 
       mNumFreeItems = mLargestUsedIndex + 1;
       mNumItemsInUse = 0;
-      mNextSeq = 0;
     }
     else
     {
+      // This is called at the start of a turn when the new root state isn't to be found in on of the trees (i.e. only
+      // if things have gone badly wrong).
+
       for (int i = 0; i <= mLargestUsedIndex; i++)
       {
         // Just reset the items that match the filter.
         if (xiAllocator.shouldReset(mItems[i]))
         {
-          xiAllocator.resetObject(mItems[i], true, NULL_ITEM_SEQ);
+          xiAllocator.resetObject(mItems[i], true);
           mFreeItems[mNumFreeItems++] = mItems[i];
           mNumItemsInUse--;
         }

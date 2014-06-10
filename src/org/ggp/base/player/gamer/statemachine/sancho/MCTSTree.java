@@ -258,9 +258,7 @@ public class MCTSTree
     }
     else
     {
-      TreeNode newRoot = root.findNode(factorState,
-                                       underlyingStateMachine.getRoles()
-                                           .size() + 1);
+      TreeNode newRoot = root.findNode(factorState, underlyingStateMachine.getRoles().size() + 1);
       if (newRoot == null)
       {
         LOGGER.warn("Unable to find root node in existing tree");
@@ -280,7 +278,7 @@ public class MCTSTree
         if (newRoot != root)
         {
           root.freeAllBut(newRoot);
-
+          assert(!newRoot.freed) : "Root node has been freed";
           root = newRoot;
         }
       }
@@ -474,6 +472,7 @@ public class MCTSTree
       //LOGGER.warn("Rollout from: " + newNode.state);
 
       // Perform the rollout request.
+      assert(!newNode.freed);
       newNode.rollOut(visited, mGameSearcher.getPipeline(), forceSynchronous);
     }
     finally
