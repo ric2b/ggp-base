@@ -1155,7 +1155,7 @@ public class TreeNode
               {
                 LOGGER.error("Completeness constraint violation");
               }
-              if ((lNode.decidingRoleIndex) == decidingRoleIndex && !tree.gameCharacteristics.isPuzzle)
+              if ((lNode.decidingRoleIndex) == decidingRoleIndex && tree.gameCharacteristics.numRoles != 1)
               {
                 LOGGER.error("Descendant type error");
               }
@@ -1763,7 +1763,6 @@ public class TreeNode
 
         children = new Object[moveInfos.size()];
 
-        tree.mGameSearcher.mAverageBranchingFactor.addSample(children.length);
         short index = 0;
 
         if (USE_STATE_SIMILARITY_IN_EXPANSION)
@@ -2205,8 +2204,10 @@ public class TreeNode
 
     tree.cousinMovesCachedFor = null;
     //LOGGER.debug("Select in " + state);
-    if (children != null)
+    assert (children != null);
     {
+      tree.mGameSearcher.mAverageBranchingFactor.addSample(children.length);
+
       //  If there is only one choice we have to select it
       if (children.length == 1)
       {
@@ -2302,7 +2303,7 @@ public class TreeNode
                 //  Don't allow selection of a pseudo-noop
                 //  except from the root since we just want to know the difference in cost or omitting one
                 //  move (at root level) if we play in another factor
-                if ((!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.isMultiPlayer)) &&
+                if ((!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2)) &&
                          (tree.root == this || !edge.partialMove.isPseudoNoOp))
                 {
                   if (edge.numChildVisits == 0)
@@ -2456,8 +2457,8 @@ public class TreeNode
     //  which happens to do well from the distorted stats you get without it.  This
     //  is due to the particular circumstance in MaxKnights that scores can only
     //  go up!
-    if ((tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.isMultiPlayer) &&
-        bestCompleteNode != null && bestCompleteValue > bestValue && !tree.gameCharacteristics.isPuzzle)
+    if ((tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2) &&
+        bestCompleteNode != null && bestCompleteValue > bestValue && tree.gameCharacteristics.numRoles != 1)
     {
       assert(children[bestSelectedIndex] instanceof TreeEdge);
       TreeEdge bestSelectedEdge = (TreeEdge)children[bestSelectedIndex];
@@ -2828,7 +2829,7 @@ public class TreeNode
             anyComplete = true;
           }
           else if (lNode.children != null &&
-              tree.mGameSearcher.lowestRolloutScoreSeen < 100 && !tree.gameCharacteristics.isMultiPlayer &&
+              tree.mGameSearcher.lowestRolloutScoreSeen < 100 && tree.gameCharacteristics.numRoles <= 2 &&
               !tree.gameCharacteristics.isSimultaneousMove)
           {
             //	Post-process completions of children with respect the the observed rollout score range
@@ -2873,7 +2874,7 @@ public class TreeNode
 
       double selectionScore;
       double moveScore = (tree.gameCharacteristics.isSimultaneousMove ||
-                          tree.gameCharacteristics.isMultiPlayer ||
+                          tree.gameCharacteristics.numRoles > 2 ||
                           anyComplete ||
                           tree.disableOnelevelMinimax) ? child.averageScores[roleIndex] :
                                                          child.scoreForMostLikelyResponse();
@@ -2907,7 +2908,7 @@ public class TreeNode
           //  Subtly down-weight noops in 1-player games to discourage them.  Note that
           //  this has to be fairly subtle, and not impact asymptotic choices since it is possible
           //  for a puzzle to require noops for a solution!
-          if (tree.gameCharacteristics.isPuzzle)
+          if (tree.gameCharacteristics.numRoles == 1)
           {
             if (edge.partialMove.inputProposition == null)
             {
@@ -3086,7 +3087,7 @@ public class TreeNode
     lRequest.mSampleSize = tree.gameCharacteristics.getRolloutSampleSize();
     lRequest.mPath = path;
     lRequest.mFactor = tree.factor;
-    lRequest.mPlayedMovesForWin = ((tree.gameCharacteristics.isPuzzle && tree.factor == null) ? new LinkedList<ForwardDeadReckonLegalMoveInfo>() : null);
+    lRequest.mPlayedMovesForWin = ((tree.gameCharacteristics.numRoles == 1 && tree.factor == null) ? new LinkedList<ForwardDeadReckonLegalMoveInfo>() : null);
 
     //request.moveWeights = masterMoveWeights.copy();
     tree.numNonTerminalRollouts += lRequest.mSampleSize;
@@ -3185,7 +3186,7 @@ public class TreeNode
       oldAverageScores[roleIndex] = averageScores[roleIndex];
       oldAverageSquaredScores[roleIndex] = averageSquaredScores[roleIndex];
 
-      if ((!complete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.isMultiPlayer) &&
+      if ((!complete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2) &&
           childEdge != null)
       {
         TreeNode lChild = childEdge.child.get();
@@ -3222,7 +3223,7 @@ public class TreeNode
     {
       numVisits++;
 
-      if ((!complete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.isMultiPlayer) &&
+      if ((!complete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2) &&
           childEdge != null)
       {
         childEdge.numChildVisits++;

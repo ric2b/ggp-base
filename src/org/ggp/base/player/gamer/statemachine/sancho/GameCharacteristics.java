@@ -18,13 +18,9 @@ public class GameCharacteristics
    */
   boolean                                              isSimultaneousMove             = false;
   /**
-   * Whether the game is a puzzle (same as single player)
+   * Number of roles in the game
    */
-  boolean                                              isPuzzle                       = false;
-  /**
-   * Whether the game involves more than 2 players
-   */
-  boolean                                              isMultiPlayer                  = false;
+  int                                                  numRoles;
   /**
    * Whether the game always offers the same move choices every turn
    */
@@ -45,10 +41,9 @@ public class GameCharacteristics
    * Constructor
    * @param numRoles Number of roles in the game
    */
-  public GameCharacteristics(int numRoles)
+  public GameCharacteristics(int roleCount)
   {
-    isPuzzle = (numRoles == 1);
-    isMultiPlayer = (numRoles > 2);
+    numRoles = roleCount;
   }
 
   /**
@@ -74,11 +69,11 @@ public class GameCharacteristics
       LOGGER.info("Game is not a simultaneous turn game");
     }
 
-    if (isPuzzle)
+    if (numRoles == 1)
     {
       LOGGER.info("Game is a 1-player puzzle");
     }
-    else if (isMultiPlayer)
+    else if (numRoles > 2)
     {
       LOGGER.info("Game is a 3+-player game");
     }

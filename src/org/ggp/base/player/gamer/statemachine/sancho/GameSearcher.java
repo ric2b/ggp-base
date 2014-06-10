@@ -75,7 +75,7 @@ public class GameSearcher implements Runnable, ActivityController
   /**
    * Average observed branching factor from ode expansions
    */
-  public final SampleAverageGeometricMean mAverageBranchingFactor = new SampleAverageGeometricMean();
+  public final SampleAverage              mAverageBranchingFactor = new SampleAverageMean();
 
   /**
    * The highest score seen in the current turn (for our role).
@@ -265,6 +265,12 @@ public class GameSearcher implements Runnable, ActivityController
               {
                 double fringeDepth = mAverageFringeDepth.getAverage();
                 double branchingFactor = mAverageBranchingFactor.getAverage();
+
+                //  Adjust the branching factor to the correct geometric mean
+                if ( !mGameCharacteristics.isSimultaneousMove )
+                {
+                  branchingFactor = Math.exp(Math.log(branchingFactor*mGameCharacteristics.numRoles)/mGameCharacteristics.numRoles);
+                }
                 if ( fringeDepth > 0 && branchingFactor > 0 )
                 {
                   //  Calculate the tree aspect ratio, which is the ratio of the observed average fringe
@@ -391,12 +397,17 @@ public class GameSearcher implements Runnable, ActivityController
 
       //  The following will move to (or also reflect in) the stats logger once it is stable
       double fringeDepth = mAverageFringeDepth.getAverage();
-      double RMSFringDepth = mRMSFringeDepth.getAverage();
+      double RMSFringeDepth = mRMSFringeDepth.getAverage();
       double branchingFactor = mAverageBranchingFactor.getAverage();
       if ( fringeDepth > 0 && branchingFactor > 0 )
       {
+        //  Adjust the branching factor to the correct geometric mean
+        if ( !mGameCharacteristics.isSimultaneousMove )
+        {
+          branchingFactor = Math.exp(Math.log(branchingFactor*mGameCharacteristics.numRoles)/mGameCharacteristics.numRoles);
+        }
         LOGGER.info("Average fringe depth: " + fringeDepth);
-        LOGGER.info("Fringe depth variability: " + (RMSFringDepth - fringeDepth)/fringeDepth);
+        LOGGER.info("Fringe depth variability: " + (RMSFringeDepth - fringeDepth)/fringeDepth);
         LOGGER.info("Average branching factor: " + branchingFactor);
         //  Calculate the tree aspect ratio, which is the ratio of the observed average fringe
         //  depth to its expected depth given its observed branching factor

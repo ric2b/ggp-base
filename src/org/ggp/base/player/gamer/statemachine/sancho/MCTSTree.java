@@ -135,7 +135,7 @@ public class MCTSTree
     //  scores
     for (int i = 0; i < numRoles; i++)
     {
-      if (gameCharacateristics.isMultiPlayer)
+      if (gameCharacateristics.numRoles > 2)
       {
         roleRationality[i] = (i == 0 ? 1 : 0.8);
       }

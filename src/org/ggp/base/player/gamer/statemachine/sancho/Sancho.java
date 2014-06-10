@@ -123,7 +123,7 @@ public class Sancho extends SampleGamer
           winBonus += 5;
         }
       }
-      int rawResult = (gameCharacteristics.isPuzzle ? result : ((result + winBonus) * 100) / 110);
+      int rawResult = (gameCharacteristics.numRoles == 1 ? result : ((result + winBonus) * 100) / 110);
       int normalizedResult = ((rawResult - MinRawNetScore) * 100) /
                              (MaxRawNetScore - MinRawNetScore);
 
@@ -503,7 +503,7 @@ public class Sancho extends SampleGamer
       {
         roleScores[i] = underlyingStateMachine.getGoal(roleOrdering.roleIndexToRole(i));
 
-        if (i != 0 && gameCharacteristics.isMultiPlayer)
+        if (i != 0 && gameCharacteristics.numRoles > 2)
         {
           //	If there are several enemy players involved extract a measure
           //	of their goal correlation
@@ -638,7 +638,7 @@ public class Sancho extends SampleGamer
 
     LOGGER.info("Estimated greedy rollout cost: " + greedyRolloutCost);
     if (minNumTurns == maxNumTurns ||
-        ((greedyRolloutCost > 8 || stdDevNumTurns < 0.15 * averageNumTurns || underlyingStateMachine.greedyRolloutEffectiveness < underlyingStateMachine.numRolloutDecisionNodeExpansions / 3) && !gameCharacteristics.isPuzzle))
+        ((greedyRolloutCost > 8 || stdDevNumTurns < 0.15 * averageNumTurns || underlyingStateMachine.greedyRolloutEffectiveness < underlyingStateMachine.numRolloutDecisionNodeExpansions / 3) && gameCharacteristics.numRoles != 1))
     {
       if (!greedyRolloutsDisabled)
       {
@@ -653,7 +653,7 @@ public class Sancho extends SampleGamer
 
     //	Special case handling for puzzles with hard-to-find wins
     //	WEAKEN THIS WHEN WE HAVE TRIAL A*
-    if (gameCharacteristics.isPuzzle && observedMinNetScore == observedMaxNetScore &&
+    if (gameCharacteristics.numRoles == 1 && observedMinNetScore == observedMaxNetScore &&
         observedMaxNetScore < 100 && factors == null )
     {
       //	8-puzzle type stuff
@@ -725,7 +725,7 @@ public class Sancho extends SampleGamer
       LOGGER.info("No score discrimination seen during simulation - resetting to [0,100]");
     }
 
-    if (gameCharacteristics.isPuzzle)
+    if (gameCharacteristics.numRoles == 1)
     {
       observedMinNetScore = 0;
       observedMaxNetScore = 100;
