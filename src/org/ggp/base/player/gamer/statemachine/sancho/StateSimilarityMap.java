@@ -1,5 +1,6 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
@@ -10,15 +11,15 @@ public class StateSimilarityMap
   {
     private final int capacity = 4;
 
-    public final TreeNodeRef[] refs = new TreeNodeRef[capacity];
+    public final long[] refs = new long[capacity];
     public int  size = 0;
 
-    public void addNode(TreeNodeRef nodeRef)
+    public void addNode(long xiNodeRef)
     {
       // Check if this node is already present.  If not, no need to store.
       for (int i = 0; i < size; i++)
       {
-        if (nodeRef.hasSameReferand(refs[i]))
+        if (xiNodeRef == refs[i])
         {
           //  Already present
           return;
@@ -28,21 +29,20 @@ public class StateSimilarityMap
       if (size < capacity)
       {
         // We still have space available.  Just store the reference.
-        refs[size++] = nodeRef;
+        refs[size++] = xiNodeRef;
       }
       else
       {
         int evictee = -1;
 
-        TreeNode lNodeToAdd = nodeRef.get();
+        TreeNode lNodeToAdd = getNode(xiNodeRef);
         assert(lNodeToAdd != null);
 
         double highestEvictionMeasure = -Math.log(lNodeToAdd.numVisits + 1);
 
         for (int i = 0; i < capacity; i++)
         {
-          TreeNodeRef ref = refs[i];
-          TreeNode lNode = ref.get();
+          TreeNode lNode = getNode(refs[i]);
           if (lNode == null)
           {
             //  Effectively a free slot - no loss to evict it
@@ -62,37 +62,39 @@ public class StateSimilarityMap
         //  If the cache contained something less useful than the new entry replace it
         if ( evictee != -1 )
         {
-          refs[evictee] = nodeRef;
+          refs[evictee] = xiNodeRef;
         }
       }
     }
   }
 
-  final private StateSimilarityBucket[] buckets;
-  final private StateSimilarityHashGenerator hashGenerator;
-  final private int maxMovesConsidered = 64;
-  final private ForwardDeadReckonLegalMoveInfo[] moveBuffer = new ForwardDeadReckonLegalMoveInfo[maxMovesConsidered];
-  final private double[] moveValueBuffer = new double[maxMovesConsidered];
-  final private double[] moveWeightBuffer = new double[maxMovesConsidered];
-  final private double[] topValues = new double[maxMovesConsidered];
-  final private double[] topWeights = new double[maxMovesConsidered];
+  private final StateSimilarityBucket[] buckets;
+  private final StateSimilarityHashGenerator hashGenerator;
+  private final int maxMovesConsidered = 64;
+  private final ForwardDeadReckonLegalMoveInfo[] moveBuffer = new ForwardDeadReckonLegalMoveInfo[maxMovesConsidered];
+  private final double[] moveValueBuffer = new double[maxMovesConsidered];
+  private final double[] moveWeightBuffer = new double[maxMovesConsidered];
+  private final double[] topValues = new double[maxMovesConsidered];
+  private final double[] topWeights = new double[maxMovesConsidered];
+  private final CappedPool<TreeNode> mNodePool;
   private int numMovesBuffered;
 
-  public StateSimilarityMap(ForwardDeadReckonPropNet propNet)
+  public StateSimilarityMap(ForwardDeadReckonPropNet propNet, CappedPool<TreeNode> xiNodePool)
   {
     hashGenerator = new StateSimilarityHashGenerator(propNet);
     buckets = new StateSimilarityBucket[1<<StateSimilarityHashGenerator.hashSize];
+    mNodePool = xiNodePool;
   }
 
-  public void add(TreeNodeRef nodeRef)
+  public void add(TreeNode xiNode)
   {
-    int hash = hashGenerator.getHash(nodeRef.get().state);
+    int hash = hashGenerator.getHash(xiNode.state);
 
     if (buckets[hash] == null)
     {
       buckets[hash] = new StateSimilarityBucket();
     }
-    buckets[hash].addNode(nodeRef);
+    buckets[hash].addNode(xiNode.getRef());
   }
 
   public int getScoreEstimate(ForwardDeadReckonInternalMachineState state, double[] result)
@@ -111,8 +113,7 @@ public class StateSimilarityMap
 
       for(int i = 0; i < bucket.size; i++)
       {
-        TreeNodeRef nodeRef = bucket.refs[i];
-        TreeNode lNode = nodeRef.get();
+        TreeNode lNode = getNode(bucket.refs[i]);
 
         if (lNode != null && lNode.numVisits > 0 && state != lNode.state)
         {
@@ -170,11 +171,11 @@ public class StateSimilarityMap
           childFound = true;
 
           if (childEdge != null &&
-              childEdge.child != null &&
-              childEdge.child.get() != null &&
-              childEdge.child.get().children != null)
+              childEdge.mChildRef != TreeNode.NULL_REF &&
+              getNode(childEdge.mChildRef) != null &&
+              getNode(childEdge.mChildRef).children != null)
           {
-            result = childEdge.child.get();
+            result = getNode(childEdge.mChildRef);
             moveRoot = result;
             index++;
             break;
@@ -230,8 +231,7 @@ public class StateSimilarityMap
       {
         for(int i = 0; i < bucket.size; i++)
         {
-          TreeNodeRef nodeRef = bucket.refs[i];
-          TreeNode lNode = nodeRef.get();
+          TreeNode lNode = getNode(bucket.refs[i]);
 
           if (lNode != null && lNode.numVisits > 0 && state != lNode.state)
           {
@@ -245,11 +245,11 @@ public class StateSimilarityMap
               {
                 TreeEdge childEdge = (child instanceof TreeEdge ? (TreeEdge)child : null);
                 if ( childEdge != null &&
-                     childEdge.child != null &&
-                     childEdge.child.get() != null &&
-                     childEdge.child.get().numVisits > 0)
+                     childEdge.mChildRef != TreeNode.NULL_REF &&
+                     getNode(childEdge.mChildRef) != null &&
+                     getNode(childEdge.mChildRef).numVisits > 0)
                 {
-                  TreeNode lChild = childEdge.child.get();
+                  TreeNode lChild = getNode(childEdge.mChildRef);
                   ForwardDeadReckonLegalMoveInfo move = childEdge.partialMove;
                   int moveSlotIndex = getMoveSlot(move);
 
@@ -327,5 +327,10 @@ public class StateSimilarityMap
     }
 
     return 0;
+  }
+
+  private TreeNode getNode(long xiNodeRef)
+  {
+    return TreeNode.get(mNodePool, xiNodeRef);
   }
 }

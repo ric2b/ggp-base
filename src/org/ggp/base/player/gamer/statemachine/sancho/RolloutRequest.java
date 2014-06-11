@@ -20,7 +20,7 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
  */
 class RolloutRequest
 {
-  public TreeNodeRef                           mNode;
+  public long                                  mNodeRef;
   public TreePath                              mPath;
   public ForwardDeadReckonInternalMachineState mState;
   public List<ForwardDeadReckonLegalMoveInfo>  mPlayedMovesForWin;

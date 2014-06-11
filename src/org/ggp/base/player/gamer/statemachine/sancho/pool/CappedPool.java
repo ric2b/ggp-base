@@ -76,8 +76,9 @@ public class CappedPool<ItemType> implements Pool<ItemType>
     if (mLargestUsedIndex < mPoolSize - 1)
     {
       // If we haven't allocated the maximum number of items yet, just allocate another.
-      lAllocatedItem = xiAllocator.newObject();
-      mItems[++mLargestUsedIndex] = lAllocatedItem;
+      mLargestUsedIndex++;
+      lAllocatedItem = xiAllocator.newObject(mLargestUsedIndex);
+      mItems[mLargestUsedIndex] = lAllocatedItem;
     }
     else
     {
@@ -91,6 +92,18 @@ public class CappedPool<ItemType> implements Pool<ItemType>
 
     mNumItemsInUse++;
     return lAllocatedItem;
+  }
+
+  /**
+   * Get an item that has already been allocated.
+   *
+   * @param xiIndex - the index of the item.
+   *
+   * @return the item.
+   */
+  public ItemType get(int xiIndex)
+  {
+    return mItems[xiIndex];
   }
 
   @Override

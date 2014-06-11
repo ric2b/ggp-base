@@ -23,7 +23,7 @@ public class TreeEdge
     }
 
     @Override
-    public TreeEdge newObject()
+    public TreeEdge newObject(int xiPoolIndex)
     {
       return new TreeEdge();
     }
@@ -51,10 +51,10 @@ public class TreeEdge
    * The child node reached by performing the (partial) move in the parent state.  (The parent doesn't need to be
    * explicitly referenced in an edge.  It is implicit in the node from which this edge is referenced.)
    */
-  TreeNodeRef                    child                      = null;
+  long   mChildRef                  = TreeNode.NULL_REF;
 
-  int                            numChildVisits             = 0;
-  double                         explorationAmplifier       = 0;
+  int    numChildVisits             = 0;
+  double explorationAmplifier       = 0;
 
   /**
    * Create a tree edge.
@@ -85,7 +85,7 @@ public class TreeEdge
   public void reset()
   {
     numChildVisits = 0;
-    child = null;
+    mChildRef = TreeNode.NULL_REF;
     partialMove = null;
     explorationAmplifier = 0;
   }

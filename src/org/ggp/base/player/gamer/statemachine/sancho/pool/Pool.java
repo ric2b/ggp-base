@@ -20,9 +20,11 @@ public interface Pool<ItemType>
     /**
      * @return a newly allocated object.
      *
+     * @param xiPoolIndex - index in the pool from which this object was allocated.
+     *
      * @throws GoalDefinitionException if the object couldn't be allocated.
      */
-    public ItemType newObject() throws GoalDefinitionException; // !! ARR Use a more generic exception
+    public ItemType newObject(int xiPoolIndex) throws GoalDefinitionException; // !! ARR Use a more generic exception
 
     /**
      * Reset an object, ready for re-use.

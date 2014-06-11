@@ -59,7 +59,7 @@ public class MCTSTree
   int                                                  sweepInstance                               = 0;
   List<TreeNode>                                       completedNodeQueue                          = new LinkedList<>();
   Map<Move, MoveScoreInfo>                             cousinMoveCache                             = new HashMap<>();
-  TreeNodeRef                                          cousinMovesCachedFor                        = null;
+  long                                                 cousinMovesCachedFor                        = TreeNode.NULL_REF;
   final double[]                                       bonusBuffer;
   final ForwardDeadReckonInternalMachineState[]        childStatesBuffer;
   final ForwardDeadReckonLegalMoveInfo[]               jointMoveBuffer;
@@ -108,7 +108,7 @@ public class MCTSTree
   {
     underlyingStateMachine = stateMachine;
     numRoles = stateMachine.getRoles().size();
-    mStateSimilarityMap = (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false) ? null : new StateSimilarityMap(stateMachine.getFullPropNet()));
+    mStateSimilarityMap = (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false) ? null : new StateSimilarityMap(stateMachine.getFullPropNet(), nodePool));
     this.nodePool = nodePool;
     this.edgePool = edgePool;
     this.factor = factor;

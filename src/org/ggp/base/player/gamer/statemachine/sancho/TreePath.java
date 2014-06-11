@@ -20,9 +20,9 @@ public class TreePath
   {
     // The parent node, the edge leading from it and the child.  It is only valid to access the edge if both node
     // references are still valid.
-    private final TreeNodeRef mParent;
-    private final TreeEdge    mEdge;
-    private final TreeNodeRef mChild;
+    private final long     mParentRef;
+    private final TreeEdge mEdge;
+    private final long     mChildRef;
 
     // Score overrides to use above this point in the path.
     private double[] scoreOverrides = null;
@@ -30,17 +30,17 @@ public class TreePath
     /**
      * Construct a new element suitable for adding to a selection path
      *
-     * @param xiParent - the parent, used to check child validity
-     * @param theEdge the edge to encapsulate
+     * @param xiParent - the parent, used to check child validity.
+     * @param theEdge  - the edge to encapsulate.
      */
     public TreePathElement(TreeNode xiParent, TreeEdge xiEdge)
     {
-      mParent = xiParent.getRef();
-      mEdge = xiEdge;
-      mChild = mEdge.child;
+      mParentRef = xiParent.getRef();
+      mEdge      = xiEdge;
+      mChildRef  = mEdge.mChildRef;
 
-      assert(mChild.get() != null) : "Can't add invalid node ref to path";
-      assert(xiEdge.numChildVisits <= mChild.get().numVisits) : "Edge has more visits than child";
+      assert(getNode(mChildRef) != null) : "Can't add invalid node ref to path";
+      assert(xiEdge.numChildVisits <= getNode(mChildRef).numVisits) : "Edge has more visits than child";
     }
 
     /**
@@ -76,7 +76,7 @@ public class TreePath
      */
     public TreeNode getChildNode()
     {
-      return mChild.get();
+      return getNode(mChildRef);
     }
 
     /**
@@ -86,11 +86,16 @@ public class TreePath
     public TreeEdge getEdge()
     {
       // Check that the edge is still valid before returning it.
-      if ((mParent.get() == null) || (mChild.get() == null))
+      if ((getNode(mParentRef) == null) || (getNode(mChildRef) == null))
       {
         return null;
       }
       return mEdge;
+    }
+
+    private TreeNode getNode(long xiNodeRef)
+    {
+      return TreeNode.get(tree.nodePool, xiNodeRef);
     }
   }
 

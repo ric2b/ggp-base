@@ -47,7 +47,7 @@ public class UncappedPool<ItemType> implements Pool<ItemType>
     else
     {
       // Allocate a new item.
-      lAllocatedItem = xiAllocator.newObject();
+      lAllocatedItem = xiAllocator.newObject(-1);
     }
 
     mNumItemsInUse++;
