@@ -196,8 +196,8 @@ public class StateMachinePerformanceAnalyser
     {
       if ( theRepository.getGameKeys().contains(gameKey))
       {
-        GameSearcher gameSearcher = new GameSearcher(1000000, "PerfTest");
         ForwardDeadReckonPropnetStateMachine theMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,25000);
+        GameSearcher gameSearcher = new GameSearcher(1000000, theMachine.getRoles().size(), "PerfTest");
 
         System.out.println("Measure game " + gameKey + " state machine performance.");
 

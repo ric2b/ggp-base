@@ -49,13 +49,13 @@ public class TreePath
      *
      * @param scores - the scores to use.
      */
-    public void setScoreOverrides(double[] scores)
+    public void setScoreOverrides(TreeNode overridingNode)
     {
       scoreOverrides = new double[tree.numRoles];
 
       for (int i = 0; i < tree.numRoles; i++)
       {
-        scoreOverrides[i] = scores[i];
+        scoreOverrides[i] = overridingNode.getAverageScore(i);
       }
     }
 

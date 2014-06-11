@@ -438,17 +438,18 @@ public class PieceHeuristic implements Heuristic
         //
         // This assumes that the root's score is a very good basis as the initial estimate for this child node and is
         // certainly better than the heuristic value alone.
+        double rootAverageScore = rootNode.getAverageScore(i);
         if (xoHeuristicValue[i] > 50)
         {
-          xoHeuristicValue[i] = rootNode.averageScores[i] +
-                                (100 - rootNode.averageScores[i]) *
+          xoHeuristicValue[i] = rootAverageScore +
+                                (100 - rootAverageScore) *
                                 (xoHeuristicValue[i] - 50) /
                                 50;
         }
         else
         {
-          xoHeuristicValue[i] = rootNode.averageScores[i] -
-                                (rootNode.averageScores[i]) *
+          xoHeuristicValue[i] = rootAverageScore -
+                                (rootAverageScore) *
                                 (50 - xoHeuristicValue[i]) /
                                 50;
         }

@@ -58,6 +58,7 @@ public class GameSearcher implements Runnable, ActivityController
   private GamePlan                        mPlan               = null;
   private final CappedPool<TreeNode>      mNodePool;
   private final Pool<TreeEdge>            mEdgePool;
+  private final ScoreVectorPool           mScoreVectorPool;
   private RolloutProcessorPool            rolloutPool         = null;
   private double                          minExplorationBias  = 0.5;
   private double                          maxExplorationBias  = 1.2;
@@ -115,10 +116,11 @@ public class GameSearcher implements Runnable, ActivityController
    * @param nodeTableSize - the maximum number of nodes.
    * @param xiLogName     - the name of the log.
    */
-  public GameSearcher(int nodeTableSize, String xiLogName)
+  public GameSearcher(int nodeTableSize, int numRoles, String xiLogName)
   {
     mNodePool = new CappedPool<>(nodeTableSize);
     mEdgePool = new UncappedPool<>(nodeTableSize * 2);
+    mScoreVectorPool = new ScoreVectorPool(nodeTableSize, numRoles);
     mLogName = xiLogName;
   }
 
@@ -186,6 +188,7 @@ public class GameSearcher implements Runnable, ActivityController
       factorTrees.add(new MCTSTree(underlyingStateMachine,
                                    null,
                                    mNodePool,
+                                   mScoreVectorPool,
                                    mEdgePool,
                                    roleOrdering,
                                    rolloutPool,
@@ -200,6 +203,7 @@ public class GameSearcher implements Runnable, ActivityController
         factorTrees.add(new MCTSTree(underlyingStateMachine,
                                      factor,
                                      mNodePool,
+                                     mScoreVectorPool,
                                      mEdgePool,
                                      roleOrdering,
                                      rolloutPool,

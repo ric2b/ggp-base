@@ -47,6 +47,7 @@ public class Sancho extends SampleGamer
   private RoleOrdering                roleOrdering                    = null;
   private Move[]                      canonicallyOrderedMoveBuffer    = null;
   private ForwardDeadReckonPropnetStateMachine underlyingStateMachine = null;
+  private StateMachineProxy           stateMachineProxy               = null;
   private int                         numRoles                        = 0;
   private int                         MinRawNetScore                  = 0;
   private int                         MaxRawNetScore                  = 100;
@@ -174,7 +175,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.58o");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.58p");
   }
 
   @Override
@@ -187,15 +188,6 @@ public class Sancho extends SampleGamer
     ThreadControl.CPUIdParity = (getPort()%2 == 0);
     ThreadControl.reset();
 
-    searchProcessor = new GameSearcher(transpositionTableSize, mLogName);
-
-    if (!ThreadControl.RUN_SYNCHRONOUSLY)
-    {
-      Thread lSearchProcessorThread = new Thread(searchProcessor, "Search Processor");
-      lSearchProcessorThread.setDaemon(true);
-      lSearchProcessorThread.start();
-    }
-
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
     underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
@@ -205,7 +197,8 @@ public class Sancho extends SampleGamer
 
     currentMoveDepth = 0;
 
-    return new StateMachineProxy(underlyingStateMachine, searchProcessor);
+    stateMachineProxy = new StateMachineProxy(underlyingStateMachine);
+    return stateMachineProxy;
   }
 
   private int unNormalizedStateDistance(MachineState queriedState,
@@ -235,6 +228,16 @@ public class Sancho extends SampleGamer
     }
 
     mSysStatsLogger = new SystemStatsLogger(mLogName);
+
+    searchProcessor = new GameSearcher(transpositionTableSize, underlyingStateMachine.getRoles().size(), mLogName);
+    stateMachineProxy.setController(searchProcessor);
+
+    if (!ThreadControl.RUN_SYNCHRONOUSLY)
+    {
+      Thread lSearchProcessorThread = new Thread(searchProcessor, "Search Processor");
+      lSearchProcessorThread.setDaemon(true);
+      lSearchProcessorThread.start();
+    }
 
     Random r = new Random();
 

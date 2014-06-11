@@ -122,7 +122,7 @@ public class StateSimilarityMap
 
           for(int j = 0; j < result.length; j++)
           {
-            result[j] += lNode.averageScores[j]*weight;
+            result[j] += lNode.getAverageScore(j)*weight;
             assert(!Double.isNaN(result[j]));
           }
 
@@ -253,7 +253,7 @@ public class StateSimilarityMap
                   ForwardDeadReckonLegalMoveInfo move = childEdge.partialMove;
                   int moveSlotIndex = getMoveSlot(move);
 
-                  double moveVal = weight*(lChild.averageScores[lChild.decidingRoleIndex]);
+                  double moveVal = weight*(lChild.getAverageScore(lChild.decidingRoleIndex));
 
                   moveValueBuffer[moveSlotIndex] = (moveValueBuffer[moveSlotIndex]*moveWeightBuffer[moveSlotIndex] + moveVal)/(moveWeightBuffer[moveSlotIndex] + weight);
                   moveWeightBuffer[moveSlotIndex] += weight;

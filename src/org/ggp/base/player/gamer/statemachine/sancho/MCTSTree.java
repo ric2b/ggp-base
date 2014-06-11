@@ -53,8 +53,9 @@ public class MCTSTree
   ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
   final int                                            numRoles;
-  CappedPool<TreeNode>                                 nodePool;
-  Pool<TreeEdge>                                 edgePool;
+  final CappedPool<TreeNode>                           nodePool;
+  final ScoreVectorPool                                scoreVectorPool;
+  final Pool<TreeEdge>                                 edgePool;
   Map<ForwardDeadReckonInternalMachineState, TreeNode> positions                                   = new HashMap<>();
   int                                                  sweepInstance                               = 0;
   List<TreeNode>                                       completedNodeQueue                          = new LinkedList<>();
@@ -99,6 +100,7 @@ public class MCTSTree
   public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
                   Factor factor,
                   CappedPool<TreeNode> nodePool,
+                  ScoreVectorPool scorePool,
                   Pool<TreeEdge> edgePool,
                   RoleOrdering roleOrdering,
                   RolloutProcessorPool rolloutPool,
@@ -110,6 +112,7 @@ public class MCTSTree
     numRoles = stateMachine.getRoles().size();
     mStateSimilarityMap = (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false) ? null : new StateSimilarityMap(stateMachine.getFullPropNet(), nodePool));
     this.nodePool = nodePool;
+    scoreVectorPool = scorePool;
     this.edgePool = edgePool;
     this.factor = factor;
     this.roleOrdering = roleOrdering;
