@@ -705,40 +705,44 @@ public class GameSearcher implements Runnable, ActivityController
 
       //masterMoveWeights.accumulate(request.playedMoveWeights);
 
-      TreeNode lNode = TreeNode.get(mNodePool, lRequest.mNodeRef);
-      if (lNode != null && !lNode.complete)
+      if (!lRequest.mPath.isFreed())
       {
-        mAverageFringeDepth.addSample(lNode.getDepth() - getRootDepth());
-        mRMSFringeDepth.addSample(lNode.getDepth() - getRootDepth());
-        lRequest.mPath.resetCursor();
+        TreeNode lNode = TreeNode.get(mNodePool, lRequest.mNodeRef);
+        if (lNode != null && !lNode.complete)
 
-        if (lRequest.mPlayedMovesForWin != null)
         {
-          //  First build up the move path to the node that was rolled out from
-          List<ForwardDeadReckonLegalMoveInfo> fullPlayoutList = new LinkedList<>();
-
-          while(lRequest.mPath.hasMore())
-          {
-            lRequest.mPath.getNextNode();
-            assert(lRequest.mPath.getCurrentElement() != null);
-
-            TreeEdge edge = lRequest.mPath.getCurrentElement().getEdge();
-            fullPlayoutList.add(0, edge.partialMove);
-          }
-
+          mAverageFringeDepth.addSample(lNode.getDepth() - getRootDepth());
+          mRMSFringeDepth.addSample(lNode.getDepth() - getRootDepth());
           lRequest.mPath.resetCursor();
 
-          //  Now append the rollout path
-          fullPlayoutList.addAll(lRequest.mPlayedMovesForWin);
+          if (lRequest.mPlayedMovesForWin != null)
+          {
+            //  First build up the move path to the node that was rolled out from
+            List<ForwardDeadReckonLegalMoveInfo> fullPlayoutList = new LinkedList<>();
 
-          //  Provide this winning path for consideration as our new plan
-          mPlan.considerPlan(fullPlayoutList);
+            while(lRequest.mPath.hasMore())
+            {
+              lRequest.mPath.getNextNode();
+              assert(lRequest.mPath.getCurrentElement() != null);
+
+              TreeEdge edge = lRequest.mPath.getCurrentElement().getEdge();
+              fullPlayoutList.add(0, edge.partialMove);
+            }
+
+            lRequest.mPath.resetCursor();
+
+            //  Now append the rollout path
+            fullPlayoutList.addAll(lRequest.mPlayedMovesForWin);
+
+            //  Provide this winning path for consideration as our new plan
+            mPlan.considerPlan(fullPlayoutList);
+          }
+
+          lNode.updateStats(lRequest.mAverageScores,
+                            lRequest.mAverageSquaredScores,
+                            lRequest.mPath,
+                            false);
         }
-
-        lNode.updateStats(lRequest.mAverageScores,
-                          lRequest.mAverageSquaredScores,
-                          lRequest.mPath,
-                          false);
       }
 
       mPipeline.completedBackPropagation();

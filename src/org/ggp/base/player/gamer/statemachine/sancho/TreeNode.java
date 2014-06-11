@@ -2781,7 +2781,7 @@ public class TreeNode
       {
         TreeEdge edge2 = (TreeEdge)children[0];
 
-        if (edge2.mChildRef != NULL_REF)
+        if (edge2.mChildRef != NULL_REF && get(edge2.mChildRef) != null)
         {
           get(edge2.mChildRef).postProcessResponseCompletion();
         }

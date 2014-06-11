@@ -181,7 +181,12 @@ public class TreePath
   {
     for(TreePathElement element : elements)
     {
-      if ( element.getEdge() == null )
+      TreeEdge edge = element.getEdge();
+      //  In some cases the edge's child can have been freed and re-expanded so the edge
+      //  points to a totally different node now than does the child!  This also indicates a
+      //  freed path, but is probably a temporary problem which will be resolved when
+      //  edges are removed from TreePathElement
+      if ( edge == null || edge.child.get() != null )
       {
         return true;
       }
