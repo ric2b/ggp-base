@@ -186,7 +186,7 @@ public class TreePath
       //  points to a totally different node now than does the child!  This also indicates a
       //  freed path, but is probably a temporary problem which will be resolved when
       //  edges are removed from TreePathElement
-      if ( edge == null || edge.child.get() != null )
+      if ( edge == null || TreeNode.get(tree.nodePool, edge.mChildRef) != null )
       {
         return true;
       }
