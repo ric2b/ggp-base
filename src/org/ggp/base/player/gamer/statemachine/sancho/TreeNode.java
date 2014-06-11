@@ -4,9 +4,9 @@ import java.io.File;
 import java.io.PrintWriter;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
@@ -1747,21 +1747,13 @@ public class TreeNode
         //validateAll();
 
         //LOGGER.debug("Expand our moves from state: " + state);
-        Iterable<ForwardDeadReckonLegalMoveInfo> moves = tree.underlyingStateMachine.getLegalMoves(state,
+        Collection<ForwardDeadReckonLegalMoveInfo> moves = tree.underlyingStateMachine.getLegalMoves(state,
                                                                                                    choosingRole,
                                                                                                    tree.factor);
-        //  TODO - get rid of this intermediary list
-        List<ForwardDeadReckonLegalMoveInfo> moveInfos = new LinkedList<>();
+        assert(moves.size() > 0);
+        assert(moves.size() <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
 
-        for (ForwardDeadReckonLegalMoveInfo move : moves)
-        {
-          moveInfos.add(move);
-        }
-
-        assert(moveInfos.size() > 0);
-        assert(moveInfos.size() <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
-
-        children = new Object[moveInfos.size()];
+        children = new Object[moves.size()];
 
         short index = 0;
 
@@ -1773,9 +1765,8 @@ public class TreeNode
           }
         }
 
-        while (index < children.length)
+        for(ForwardDeadReckonLegalMoveInfo newChoice : moves)
         {
-          ForwardDeadReckonLegalMoveInfo newChoice = moveInfos.remove(0);
           ForwardDeadReckonInternalMachineState newState = null;
           boolean isPseudoNullMove = (tree.factor != null);
 
@@ -2389,6 +2380,13 @@ public class TreeNode
       }
     }
 
+    if ( selectedIndex == -1 )
+    {
+      assert(tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2);
+      assert(bestSelectedIndex != -1);
+      selectedIndex = bestSelectedIndex;
+      bestValue = bestCompleteValue;
+    }
     assert(selectedIndex != -1);
 
     mostLikelyWinner = (short)selectedIndex;
