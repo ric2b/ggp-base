@@ -1134,6 +1134,10 @@ public class TreeNode
     allChildrenComplete = false;
     freed = (xiTree == null);
 
+    // Reset objects (without allocating new ones).
+    tree = xiTree;
+    parents.clear();
+
     // Reset score values
     if ( xiTree != null )
     {
@@ -1143,10 +1147,6 @@ public class TreeNode
         setAverageSquaredScore(i, 0);
       }
     }
-
-    // Reset objects (without allocating new ones).
-    tree = xiTree;
-    parents.clear();
 
     // Reset remaining objects.  These will need to be re-allocated later.  That's a shame, because it produces
     // unnecessary garbage, but sorting it won't be easy.
@@ -1977,6 +1977,10 @@ public class TreeNode
                     edge.partialMove = (ForwardDeadReckonLegalMoveInfo)children[index];
                     children[index] = edge;
                     jointPartialMove[roleIndex] = edge.partialMove;
+                  }
+
+                  if ( edge.mChildRef == NULL_REF )
+                  {
                     createChildNodeForEdge(edge, jointPartialMove);
                   }
 
@@ -2437,10 +2441,35 @@ public class TreeNode
 
     if ( selectedIndex == -1 )
     {
-      assert(tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2);
-      assert(bestSelectedIndex != -1);
-      selectedIndex = bestSelectedIndex;
-      bestValue = bestCompleteValue;
+      //  This can happen only if all children are complete.  If we are explicitly allowing
+      //  selection through complete nodes then the best one will have been determined and
+      //  we should use it.  If this is not the case then what has happened is that a child
+      //  has been completed by an expansion, and when completions are processed this node will
+      //  also be completed, but that has not happened yet.  In that case a random selection
+      //  will be fine as this node is already actually fully determined
+      if(bestSelectedIndex != -1)
+      {
+        selectedIndex = bestSelectedIndex;
+        bestValue = bestCompleteValue;
+      }
+      else
+      {
+        TreeEdge chosenEdge;
+
+        do
+        {
+          selectedIndex = tree.r.nextInt(children.length);
+          if ( primaryChoiceMapping != null )
+          {
+            selectedIndex = primaryChoiceMapping[selectedIndex];
+          }
+          assert(children[selectedIndex] instanceof TreeEdge);
+          chosenEdge = (TreeEdge)children[selectedIndex];
+        } while(tree.root != this && chosenEdge.partialMove.isPseudoNoOp);
+
+        assert(get(chosenEdge.mChildRef) != null);
+        assert(chosenEdge.partialMove.isPseudoNoOp || get(chosenEdge.mChildRef).complete);
+      }
     }
     assert(selectedIndex != -1);
 
