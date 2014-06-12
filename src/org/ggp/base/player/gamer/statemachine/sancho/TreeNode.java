@@ -1512,11 +1512,11 @@ public class TreeNode
               if (cr != NULL_REF)
               {
                 TreeNode c = get(cr);
-                if (c == null)
-                {
-                  deleteEdge(i);
-                }
-                else
+                //  Note - if the node has been trimmed we must not delete the edge
+                //  because an unexpended edge asserts non-terminality of its child which
+                //  we do not know.  Only selecting back through this edge can establish
+                //  correct semantics
+                if (c != null)
                 {
                   if (c.freed)
                   {
@@ -1967,6 +1967,8 @@ public class TreeNode
                   if ( edge.mChildRef == NULL_REF )
                   {
                     createChildNodeForEdge(edge, jointPartialMove);
+
+                    assert(!calculateTerminalityAndAutoExpansion(get(edge.mChildRef).state).isTerminal);
                   }
 
                   TreeNode newChild = get(edge.mChildRef);
@@ -2463,7 +2465,6 @@ public class TreeNode
     if ( choice instanceof TreeEdge )
     {
       selected = (TreeEdge)choice;
-      assert(selected.mChildRef == NULL_REF || get(selected.mChildRef) != null);
     }
     else
     {
@@ -2476,6 +2477,10 @@ public class TreeNode
     if (selected.mChildRef == NULL_REF)
     {
       createChildNodeForEdge(selected, jointPartialMove);
+
+      assert(!tree.evaluateTerminalOnNodeCreation ||
+             depth < tree.gameCharacteristics.getEarliestCompletionDepth() ||
+             !calculateTerminalityAndAutoExpansion(get(selected.mChildRef).state).isTerminal);
     }
     else if (get(selected.mChildRef) == null)
     {
@@ -2496,11 +2501,26 @@ public class TreeNode
       //  count and probably never be visited again.  Since it is likely that (because it was previously
       //  the least selectable choice) it actually has a low score, it should anyway not take too
       //  many re-selections to get back to equilibrium.  Possibly we could consider just
-      //  decaying the edge viit coutn a bit, but for now we'll stick with 0
+      //  decaying the edge visit count a bit, but for now we'll stick with 0
       selected.numChildVisits = 0;
       selected.mChildRef = NULL_REF;
       selected.explorationAmplifier = 0;
       createChildNodeForEdge(selected, jointPartialMove);
+
+      //  In this case it is possible that the trimmed node was terminal and we must
+      //  check that now
+      TreeNode reExpandedChild = get(selected.mChildRef);
+
+      StateInfo info = calculateTerminalityAndAutoExpansion(reExpandedChild.state);
+
+      if (info.isTerminal)
+      {
+        reExpandedChild.isTerminal = info.isTerminal;
+        if (info.isTerminal)
+        {
+          reExpandedChild.markComplete(info.terminalScore, (short)(depth + 1));
+        }
+      }
     }
 
     assert(get(selected.mChildRef) != null);
