@@ -61,10 +61,8 @@ public class MCTSTree
   List<TreeNode>                                       completedNodeQueue                          = new LinkedList<>();
   Map<Move, MoveScoreInfo>                             cousinMoveCache                             = new HashMap<>();
   long                                                 cousinMovesCachedFor                        = TreeNode.NULL_REF;
-  final double[]                                       bonusBuffer;
-  final ForwardDeadReckonInternalMachineState[]        childStatesBuffer;
-  final ForwardDeadReckonLegalMoveInfo[]               jointMoveBuffer;
   final double[]                                       roleRationality;
+  final double[]                                       bonusBuffer;
   long                                                 numCompletionsProcessed                     = 0;
   Random                                               r                                           = new Random();
   int                                                  numTerminalRollouts                         = 0;
@@ -91,11 +89,17 @@ public class MCTSTree
   final StateSimilarityMap                             mStateSimilarityMap;
 
   // Scratch variables for tree nodes to use to avoid unnecessary object allocation.
-  final double[]       mNodeHeuristicValues;
-  final MutableInteger mNodeHeuristicWeight;
-  final double[]       mNodeAverageScores;
-  final double[]       mNodeAverageSquaredScores;
-  final RolloutRequest mNodeSynchronousRequest;
+  // Note - several of these could probably be collapsed into a lesser number since they are not
+  // concurrently used, but it's not worth the risk currently
+  final double[]                                      mNodeHeuristicValues;
+  final MutableInteger                                mNodeHeuristicWeight;
+  final double[]                                      mNodeAverageScores;
+  final double[]                                      mNodeAverageSquaredScores;
+  final RolloutRequest                                mNodeSynchronousRequest;
+  final ForwardDeadReckonInternalMachineState[]       mChildStatesBuffer;
+  final ForwardDeadReckonLegalMoveInfo[]              mJointMoveBuffer;
+  final double[]                                      mCorrectedAverageScoresBuffer;
+  final double[]                                      mBlendedCompletionScoreBuffer;
 
   public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
                   Factor factor,
@@ -123,15 +127,14 @@ public class MCTSTree
 
     evaluateTerminalOnNodeCreation = !gameCharacteristics.getIsFixedMoveCount();
 
-    bonusBuffer = new double[numRoles];
-    roleRationality = new double[numRoles];
-    childStatesBuffer = new ForwardDeadReckonInternalMachineState[MAX_SUPPORTED_BRANCHING_FACTOR];
-    jointMoveBuffer = new ForwardDeadReckonLegalMoveInfo[numRoles];
     numCompletionsProcessed = 0;
     completeSelectionFromIncompleteParentWarned = false;
     mTreeNodeAllocator = new TreeNodeAllocator(this);
     mTreeEdgeAllocator = new TreeEdgeAllocator();
     mGameSearcher = xiGameSearcher;
+
+    bonusBuffer = new double[numRoles];
+    roleRationality = new double[numRoles];
 
     //  For now assume players in muli-player games are somewhat irrational.
     //  FUTURE - adjust during the game based on correlations with expected
@@ -149,11 +152,15 @@ public class MCTSTree
     }
 
     // Create the variables used by TreeNodes to avoid unnecessary object allocation.
-    mNodeHeuristicValues      = new double[numRoles];
-    mNodeHeuristicWeight      = new MutableInteger();
-    mNodeAverageScores        = new double[numRoles];
-    mNodeAverageSquaredScores = new double[numRoles];
-    mNodeSynchronousRequest   = new RolloutRequest(numRoles);
+    mNodeHeuristicValues          = new double[numRoles];
+    mNodeHeuristicWeight          = new MutableInteger();
+    mNodeAverageScores            = new double[numRoles];
+    mNodeAverageSquaredScores     = new double[numRoles];
+    mNodeSynchronousRequest       = new RolloutRequest(numRoles);
+    mCorrectedAverageScoresBuffer = new double[numRoles];
+    mChildStatesBuffer            = new ForwardDeadReckonInternalMachineState[MAX_SUPPORTED_BRANCHING_FACTOR];
+    mJointMoveBuffer              = new ForwardDeadReckonLegalMoveInfo[numRoles];
+    mBlendedCompletionScoreBuffer = new double[numRoles];
   }
 
   public void empty()
@@ -400,7 +407,7 @@ public class MCTSTree
       //visited.add(this);
       while (!cur.isUnexpanded())
       {
-        selected = cur.select(visited, jointMoveBuffer);
+        selected = cur.select(visited, mJointMoveBuffer);
         cur = selected.getChildNode();
         //visited.add(cur);
         visited.push(selected);
@@ -410,11 +417,11 @@ public class MCTSTree
       if (!cur.complete)
       {
         //  Expand for each role so we're back to our-move as we always rollout after joint moves
-        cur.expand(jointMoveBuffer);
+        cur.expand(mJointMoveBuffer);
 
         if (!cur.complete)
         {
-          selected = cur.select(visited, jointMoveBuffer);
+          selected = cur.select(visited, mJointMoveBuffer);
           newNode = selected.getChildNode();
           //visited.add(newNode);
           visited.push(selected);
@@ -432,11 +439,11 @@ public class MCTSTree
             //  to do another
             if (newNode.isUnexpanded())
             {
-              newNode.expand(jointMoveBuffer);
+              newNode.expand(mJointMoveBuffer);
             }
             if (!newNode.complete)
             {
-              selected = newNode.select(visited, jointMoveBuffer);
+              selected = newNode.select(visited, mJointMoveBuffer);
               newNode = selected.getChildNode();
               //visited.add(newNode);
               visited.push(selected);

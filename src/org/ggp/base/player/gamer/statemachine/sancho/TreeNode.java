@@ -225,9 +225,7 @@ public class TreeNode
 
       if (primaryPathParent != null && !primaryPathParent.complete)
       {
-        double[] correctedAverageScores = new double[tree.numRoles];
         boolean propagate = true;
-
 
         //validateScoreVector(primaryPathParent.averageScores);
 
@@ -235,7 +233,7 @@ public class TreeNode
 
         for (int i = 0; i < tree.numRoles; i++)
         {
-          correctedAverageScores[i] = 0;
+          tree.mCorrectedAverageScoresBuffer[i] = 0;
         }
 
         for (short index = 0; index < primaryPathParent.children.length; index++)
@@ -255,7 +253,7 @@ public class TreeNode
               totalWeight += weight;
               for (int i = 0; i < tree.numRoles; i++)
               {
-                correctedAverageScores[i] += weight * lChild.getAverageScore(i);
+                tree.mCorrectedAverageScoresBuffer[i] += weight * lChild.getAverageScore(i);
               }
             }
           }
@@ -263,12 +261,12 @@ public class TreeNode
 
         for (int i = 0; i < tree.numRoles; i++)
         {
-          correctedAverageScores[i] /= totalWeight;
+          tree.mCorrectedAverageScoresBuffer[i] /= totalWeight;
         }
 
         for (int i = 0; i < tree.numRoles; i++)
         {
-          primaryPathParent.setAverageScore(i, correctedAverageScores[i]);
+          primaryPathParent.setAverageScore(i, tree.mCorrectedAverageScoresBuffer[i]);
         }
 
         if (propagate)
@@ -784,42 +782,23 @@ public class TreeNode
     return result;
   }
 
-  private void checkSiblingCompletion(TreeEdge withRespectTo)
-  {
-    for (TreeNode parent : parents)
-    {
-      for (short index = 0; index < parent.children.length; index++)
-      {
-        if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
-        {
-          Object choice = parent.children[index];
-
-          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-          if ( edge != null )
-          {
-            TreeNode child = get(edge.mChildRef);
-            if (child != null && child != this && child.children != null && !child.complete)
-            {
-              child.checkChildCompletion(false);
-            }
-          }
-        }
-      }
-    }
-  }
-
   @SuppressWarnings("null")
   private void checkChildCompletion(boolean checkConsequentialSiblingCompletion)
   {
     boolean allImmediateChildrenComplete = true;
     double bestValue = -1000;
     TreeNode bestValueNode = null;
-    double[] averageValues = new double[tree.numRoles];
     int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
     boolean decidingRoleWin = false;
     TreeNode worstDeciderNode = null;
     TreeNode floorDeciderNode = null;
     short determiningChildCompletionDepth = Short.MAX_VALUE;
+    boolean siblingCheckNeeded = false;
+
+    for (int i = 0; i < tree.numRoles; i++)
+    {
+      tree.mNodeAverageScores[i] = 0;
+    }
 
     int numUniqueChildren = 0;
 
@@ -924,7 +903,7 @@ public class TreeNode
                         {
                           if (checkConsequentialSiblingCompletion)
                           {
-                            checkSiblingCompletion(edge);
+                            siblingCheckNeeded = true;
                           }
                         }
                       }
@@ -976,7 +955,7 @@ public class TreeNode
 
             for (int i = 0; i < tree.numRoles; i++)
             {
-              averageValues[i] += lNode.getAverageScore(i);
+              tree.mNodeAverageScores[i] += lNode.getAverageScore(i);
             }
           }
           else
@@ -989,7 +968,7 @@ public class TreeNode
 
     for (int i = 0; i < tree.numRoles; i++)
     {
-      averageValues[i] /= numUniqueChildren;
+      tree.mNodeAverageScores[i] /= numUniqueChildren;
     }
 
     if (allImmediateChildrenComplete && !decidingRoleWin &&
@@ -1017,7 +996,7 @@ public class TreeNode
 
         for (int i = 0; i < tree.numRoles; i++)
         {
-          if (Math.abs(averageValues[i] - bestValueNode.getAverageScore(i)) > EPSILON)
+          if (Math.abs(tree.mNodeAverageScores[i] - bestValueNode.getAverageScore(i)) > EPSILON)
           {
             allImmediateChildrenComplete = allNephewsComplete;
 
@@ -1029,7 +1008,7 @@ public class TreeNode
       if (allImmediateChildrenComplete &&
           checkConsequentialSiblingCompletion)
       {
-        checkSiblingCompletion();
+        siblingCheckNeeded = true;
       }
     }
 
@@ -1067,7 +1046,6 @@ public class TreeNode
       //	opponents cannot make the pessimal (for us) choice reliably
       if (tree.gameCharacteristics.isSimultaneousMove && !decidingRoleWin && decidingRoleIndex == 0)
       {
-        double[] blendedCompletionScore = new double[tree.numRoles];
         //	This feels a bit of a hack, but it seems to work - in general when the outcome
         //	is complete for all choices but varies we err on the pessimistic side.
         //	However, if we just choose the worst result then a move with many bad results
@@ -1079,12 +1057,15 @@ public class TreeNode
         {
           for (int i = 0; i < tree.numRoles; i++)
           {
-            blendedCompletionScore[i] = (worstDeciderNode.getAverageScore(i) * numUniqueChildren + averageValues[i]) / (numUniqueChildren+1);
+            tree.mBlendedCompletionScoreBuffer[i] = (worstDeciderNode.getAverageScore(i) * numUniqueChildren + tree.mNodeAverageScores[i]) / (numUniqueChildren+1);
           }
         }
         else
         {
-          blendedCompletionScore = averageValues;
+          for (int i = 0; i < tree.numRoles; i++)
+          {
+            tree.mBlendedCompletionScoreBuffer[i] = tree.mNodeAverageScores[i];
+          }
         }
         //	If a move provides a better-than-worst case in all uncles it provides a support
         //	floor the the worst that we can do with perfect play, so use that if its larger than
@@ -1094,15 +1075,19 @@ public class TreeNode
         {
           for (int i = 0; i < tree.numRoles; i++)
           {
-            blendedCompletionScore[i] = floorDeciderNode.getAverageScore(i);
+            tree.mBlendedCompletionScoreBuffer[i] = floorDeciderNode.getAverageScore(i);
           }
         }
-        markComplete(blendedCompletionScore, determiningChildCompletionDepth);
-        //markComplete(averageValues);
+        markComplete(tree.mBlendedCompletionScoreBuffer, determiningChildCompletionDepth);
       }
       else
       {
         markComplete(bestValueNode, determiningChildCompletionDepth);
+      }
+
+      if ( siblingCheckNeeded )
+      {
+        checkSiblingCompletion();
       }
     }
 
@@ -1843,7 +1828,7 @@ public class TreeNode
           {
             primaryChoiceMapping[index] = index;
           }
-          tree.childStatesBuffer[index] = newState;
+          tree.mChildStatesBuffer[index] = newState;
 
           //	Check for multiple moves that all transition to the same state
           if (!isPseudoNullMove)
@@ -1852,7 +1837,7 @@ public class TreeNode
             {
               if (children[i] != null &&
                   roleIndex == tree.numRoles - 1 &&
-                  tree.childStatesBuffer[i].equals(newState))
+                  tree.mChildStatesBuffer[i].equals(newState))
               {
                 if ( primaryChoiceMapping == null )
                 {
@@ -1878,7 +1863,7 @@ public class TreeNode
           {
             if (primaryChoiceMapping == null || primaryChoiceMapping[index] == index)
             {
-              StateInfo info = calculateTerminalityAndAutoExpansion(tree.childStatesBuffer[index]);
+              StateInfo info = calculateTerminalityAndAutoExpansion(tree.mChildStatesBuffer[index]);
 
               if (info.isTerminal || info.autoExpand)
               {
@@ -1941,7 +1926,7 @@ public class TreeNode
               {
                 tree.mNodeHeuristicValues[lii] = 0;
               }
-              tree.heuristic.getHeuristicValue(tree.childStatesBuffer[index],
+              tree.heuristic.getHeuristicValue(tree.mChildStatesBuffer[index],
                                                state,
                                                tree.mNodeHeuristicValues,
                                                tree.mNodeHeuristicWeight);
@@ -2235,9 +2220,6 @@ public class TreeNode
     double result = lInboundChild.getAverageScore(roleIndex) / 100;// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
     return result;
   }
-
-  private final int orderStatistic = 3;
-  private double[]  orderBuffer    = new double[orderStatistic];
 
   TreePathElement select(TreePath path, ForwardDeadReckonLegalMoveInfo[] jointPartialMove)
       throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
