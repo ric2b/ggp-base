@@ -120,8 +120,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   // Temporary variables used to avoid excessive object allocation.
   private int[]                                                        mNumAvailableGoals              = null;
 
-  // A per-thread iterator over the propositions in a machine state.
-  private final ThreadLocal<InternalMachineStateIterator>              mThreadLocalIterator = new ThreadLocal<>();
+  // A re-usable iterator over the propositions in a machine state.
+  private final InternalMachineStateIterator                           mStateIterator = new InternalMachineStateIterator();
 
   private class TestPropnetStateMachineStats extends Stats
   {
@@ -1597,7 +1597,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.setBasePropositionsInternal");
     try
     {
-      InternalMachineStateIterator lIterator = getIterator();
+      InternalMachineStateIterator lIterator = mStateIterator ;
 
       //System.out.println("Set state for instance " + instanceId + ": " + state);
       //System.out.println("Last set state for instance " + instanceId + " was: " + lastInternalSetState);
@@ -1819,20 +1819,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     {
     	methodSection.exitScope();
     }
-  }
-
-  /**
-   * @return the iterator for this thread.
-   */
-  private InternalMachineStateIterator getIterator()
-  {
-    InternalMachineStateIterator lIterator = mThreadLocalIterator.get();
-    if (lIterator == null)
-    {
-      lIterator = new InternalMachineStateIterator();
-      mThreadLocalIterator.set(lIterator);
-    }
-    return lIterator;
   }
 
   /**
@@ -2642,7 +2628,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //RuntimeOptimizedComponent.getCount = 0;
 
       ForwardDeadReckonInternalMachineState result = new ForwardDeadReckonInternalMachineState(masterInfoSet);
-      InternalMachineStateIterator lIterator = getIterator();
+      InternalMachineStateIterator lIterator = mStateIterator;
       lIterator.reset(propNet.getActiveBaseProps(instanceId));
       while (lIterator.hasNext())
       {
@@ -3715,7 +3701,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getGoal");
     try
     {
-      InternalMachineStateIterator lIterator = getIterator();
+      InternalMachineStateIterator lIterator = mStateIterator;
 
       ForwardDeadReckonPropNet net;
 

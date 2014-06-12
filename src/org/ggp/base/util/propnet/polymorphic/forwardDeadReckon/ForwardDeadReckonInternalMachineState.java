@@ -54,7 +54,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
     @Override
     public void remove()
     {
-      // TODO Auto-generated method stub
+      assert(false) : "InternalMachineStateIterator doesn't support remove()";
     }
   }
 
