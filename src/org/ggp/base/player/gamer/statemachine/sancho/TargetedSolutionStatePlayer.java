@@ -114,8 +114,7 @@ public class TargetedSolutionStatePlayer
             .createInternalState(gamer.getCurrentState()), null, null));
       }
 
-      stepStateMask = new ForwardDeadReckonInternalMachineState(underlyingStateMachine
-          .getInfoSet());
+      stepStateMask = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
 
       stepStateMask.clear();
       for (ForwardDeadReckonPropositionInfo info : underlyingStateMachine

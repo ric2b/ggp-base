@@ -49,6 +49,11 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBuilder;
 import org.ggp.base.util.stats.Stats;
 
+/**
+ * A state machine.
+ *
+ * This class is not thread-safe.  Each instance must be accessed by a single thread.
+ */
 public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 {
   private static final Logger LOGGER = LogManager.getLogger();
@@ -1054,7 +1059,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   public ForwardDeadReckonPropnetStateMachine()
   {
-    this.maxInstances = 1;
+    maxInstances = 1;
   }
 
   public ForwardDeadReckonPropnetStateMachine(int xiMaxInstances, long xiMetaGameTimeout)
@@ -1066,30 +1071,30 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private ForwardDeadReckonPropnetStateMachine(ForwardDeadReckonPropnetStateMachine master, int instanceId)
   {
-    this.maxInstances = -1;
+    maxInstances = -1;
     this.instanceId = instanceId;
-    this.propNetX = master.propNetX;
-    this.propNetO = master.propNetO;
-    this.propNetXWithoutGoals = master.propNetXWithoutGoals;
-    this.propNetOWithoutGoals = master.propNetOWithoutGoals;
-    this.goalsNet = master.goalsNet;
-    this.XSentence = master.XSentence;
-    this.OSentence = master.OSentence;
-    this.XSentenceInfo = master.XSentenceInfo;
-    this.OSentenceInfo = master.OSentenceInfo;
-    this.legalPropositionMovesX = master.legalPropositionMovesX;
-    this.legalPropositionMovesO = master.legalPropositionMovesO;
-    this.legalPropositionsX = master.legalPropositionsX;
-    this.legalPropositionsO = master.legalPropositionsO;
-    this.legalPropositions = master.legalPropositions;
-    this.initialState = master.initialState;
-    this.roles = master.roles;
-    this.numRoles = master.numRoles;
-    this.fullPropNet = master.fullPropNet;
-    this.masterInfoSet = master.masterInfoSet;
-    this.factors = master.factors;
-    this.mPositiveGoalLatches = master.mPositiveGoalLatches;
-    this.mNegativeGoalLatches = master.mNegativeGoalLatches;
+    propNetX = master.propNetX;
+    propNetO = master.propNetO;
+    propNetXWithoutGoals = master.propNetXWithoutGoals;
+    propNetOWithoutGoals = master.propNetOWithoutGoals;
+    goalsNet = master.goalsNet;
+    XSentence = master.XSentence;
+    OSentence = master.OSentence;
+    XSentenceInfo = master.XSentenceInfo;
+    OSentenceInfo = master.OSentenceInfo;
+    legalPropositionMovesX = master.legalPropositionMovesX;
+    legalPropositionMovesO = master.legalPropositionMovesO;
+    legalPropositionsX = master.legalPropositionsX;
+    legalPropositionsO = master.legalPropositionsO;
+    legalPropositions = master.legalPropositions;
+    initialState = master.initialState;
+    roles = master.roles;
+    numRoles = master.numRoles;
+    fullPropNet = master.fullPropNet;
+    masterInfoSet = master.masterInfoSet;
+    factors = master.factors;
+    mPositiveGoalLatches = master.mPositiveGoalLatches;
+    mNegativeGoalLatches = master.mNegativeGoalLatches;
 
     stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
     stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -1615,13 +1620,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             {
               if (propNet == propNetX)
               {
-                nextInternalSetState = (lastInternalSetState == stateBufferX1 ? stateBufferX2
-                                                                             : stateBufferX1);
+                nextInternalSetState = (lastInternalSetState == stateBufferX1 ? stateBufferX2 : stateBufferX1);
               }
               else
               {
-                nextInternalSetState = (lastInternalSetState == stateBufferO1 ? stateBufferO2
-                                                                             : stateBufferO1);
+                nextInternalSetState = (lastInternalSetState == stateBufferO1 ? stateBufferO2 : stateBufferO1);
               }
               //nextInternalSetState = new ForwardDeadReckonInternalMachineState(state);
               nextInternalSetState.copy(state);
@@ -3564,11 +3567,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   }
 
   public void getDepthChargeResult(ForwardDeadReckonInternalMachineState state,
-                                  Factor factor,
-                                  Role role,
-                                  final int[] stats,
-                                  MoveWeights moveWeights,
-                                  List<ForwardDeadReckonLegalMoveInfo> playedMoves)
+                                   Factor factor,
+                                   Role role,
+                                   final int[] stats,
+                                   MoveWeights moveWeights,
+                                   List<ForwardDeadReckonLegalMoveInfo> playedMoves)
       throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getDepthChargeResult");
