@@ -34,5 +34,6 @@
 			<attribute name="javadoc_location" value="jar:platform:/resource/GGP/src/external/Commons/commons-codec-1.9/commons-codec-1.9-javadoc.jar!/"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="src/external/Lucene/lucene-core-4.8.1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

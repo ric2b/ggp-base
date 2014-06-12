@@ -1,17 +1,16 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
-import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 
+import org.apache.lucene.util.OpenBitSet;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.statemachine.MachineState;
 
 /**
- * @author steve
  * Internal representation of a machine state, intended for efficient runtime usage
  */
 public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonComponentTransitionNotifier
@@ -58,19 +57,19 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
     }
   }
 
-  /**
-   * Master list of propositions which may be included or not in the state
-   */
-  ForwardDeadReckonPropositionInfo[]         infoSet;
-  private HashMap<Heuristic, Object>         heuristicData = null;
-  /**
-   * BitSet of which propositions are true in the state
-   */
-  BitSet                                     contents = new BitSet();
+  // Master list of propositions which may be included or not in the state.
+  private final ForwardDeadReckonPropositionInfo[] infoSet;
+
+  // Optional heuristic data associated with the state.
+  private HashMap<Heuristic, Object>               heuristicData = null;
+
+  // BitSet of which propositions are true in the state
+  private final OpenBitSet                         contents;
+
   /**
    * Whether the state is one handled by the X-split of the state machine (else the O split)
    */
-  public boolean                             isXState = false;
+  public boolean                                   isXState = false;
 
   /**
    * Construct a new empty state for the given set of possible base propositions
@@ -79,26 +78,29 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   public ForwardDeadReckonInternalMachineState(ForwardDeadReckonPropositionInfo[] masterInfoSet)
   {
     infoSet = masterInfoSet;
+    contents = new OpenBitSet(infoSet.length);
+  }
+
+  /**
+   * Clone an existing state.
+   *
+   * Note - this does NOT preserve any attached heuristic info. !! ARR Doesn't seem to be true
+   *
+   * @param copyFrom - the state to copy.
+   */
+  public ForwardDeadReckonInternalMachineState(ForwardDeadReckonInternalMachineState copyFrom)
+  {
+    this(copyFrom.infoSet);
+    copy(copyFrom);
   }
 
   /**
    * Getter
    * @return BitSet of active base propositions
    */
-  public BitSet getContents()
+  public OpenBitSet getContents()
   {
     return contents;
-  }
-
-  /**
-   * Clone an existing state
-   * Note - this does NOT preserve any attached heuristic info
-   * @param copyFrom state to copy
-   */
-  public ForwardDeadReckonInternalMachineState(ForwardDeadReckonInternalMachineState copyFrom)
-  {
-    this.infoSet = copyFrom.infoSet;
-    copy(copyFrom);
   }
 
   /**
@@ -127,9 +129,9 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   }
 
   /**
-   * @return num propositions set in th state
+   * @return the number of propositions set in the state
    */
-  public int size()
+  public long size()
   {
     return contents.cardinality();
   }
@@ -180,18 +182,15 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   }
 
   /**
-   * Determine the size of intersection (num common propositions) with a specified
-   * other state
-   * @param other Other state to check the intersection size with
+   * Determine the size of intersection (num common propositions) with a specified other state.
+   *
+   * @param other - Other state to check the intersection size with.
+   *
    * @return Number of common propositions
    */
   public int intersectionSize(ForwardDeadReckonInternalMachineState other)
   {
-    ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(other);
-
-    temp.intersect(this);
-
-    return temp.contents.cardinality();
+    return (int)OpenBitSet.intersectionCount(contents, other.contents);
   }
 
   /**
@@ -200,7 +199,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    */
   public void copy(ForwardDeadReckonInternalMachineState other)
   {
-    contents.clear();
+    contents.xor(contents);
     contents.or(other.contents);
 
     isXState = other.isXState;
@@ -222,14 +221,8 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    */
   public double distance(ForwardDeadReckonInternalMachineState other)
   {
-    ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(other);
-
-    temp.xor(this);
-    int diff = temp.contents.cardinality();
-    temp.copy(other);
-    temp.merge(this);
-    int jointSize = temp.contents.cardinality();
-
+    long diff = OpenBitSet.xorCount(contents, other.contents);
+    long jointSize = OpenBitSet.unionCount(contents, other.contents);
     return (double)diff / jointSize;
   }
 
@@ -238,7 +231,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    */
   public void clear()
   {
-    contents.clear();
+    contents.xor(contents);
   }
 
   /**
@@ -313,7 +306,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
       return true;
     }
 
-    if ((o != null) && (o instanceof ForwardDeadReckonInternalMachineState))
+    if (o instanceof ForwardDeadReckonInternalMachineState)
     {
       ForwardDeadReckonInternalMachineState state = (ForwardDeadReckonInternalMachineState)o;
       return state.contents.equals(contents);
@@ -350,9 +343,6 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    */
   public boolean contains(ForwardDeadReckonInternalMachineState other)
   {
-    ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(other);
-
-    temp.intersect(this);
-    return other.contents.cardinality() == temp.contents.cardinality();
+    return (OpenBitSet.intersectionCount(contents, other.contents) == other.contents.cardinality());
   }
 }

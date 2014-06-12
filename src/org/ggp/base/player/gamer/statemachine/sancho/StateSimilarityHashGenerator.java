@@ -1,8 +1,8 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-import java.util.BitSet;
 import java.util.Random;
 
+import org.apache.lucene.util.OpenBitSet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
 
@@ -73,7 +73,7 @@ public class StateSimilarityHashGenerator
   public int getHash(ForwardDeadReckonInternalMachineState state)
   {
     int nextSetPropIndex = -1;
-    BitSet activeBaseProps = state.getContents();
+    OpenBitSet activeBaseProps = state.getContents();
     int result = 0;
 
     for(int i = 0; i < numPartitions; i++)
