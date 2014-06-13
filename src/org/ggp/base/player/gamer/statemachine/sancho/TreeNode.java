@@ -3004,7 +3004,7 @@ public class TreeNode
                     " scores " + FORMAT_2DP.format(moveScore) + " (selectionScore score " +
                     FORMAT_2DP.format(selectionScore) + ", selection count " +
                     child.numVisits + ", ref " + child.mRef +
-                    (child.complete ? " + complete" : "") + ")");
+                    (child.complete ? (", complete [" + ((child.completionDepth - tree.root.depth)/tree.numRoles) + "]") : "") + ")");
       }
 
       if (child.children != null && !child.complete && traceResponses)
