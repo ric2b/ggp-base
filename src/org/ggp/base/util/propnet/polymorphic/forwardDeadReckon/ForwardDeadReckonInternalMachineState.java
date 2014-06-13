@@ -233,6 +233,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   public void clear()
   {
     contents.xor(contents);
+    isXState = false;
   }
 
   /**

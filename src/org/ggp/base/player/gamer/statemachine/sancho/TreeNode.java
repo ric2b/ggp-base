@@ -1728,23 +1728,13 @@ public class TreeNode
     assert(state != null);
     assert(edge.mChildRef == NULL_REF);
 
-    TreeNode newChild;
-    if (false) // !! ARR Why doesn't this work?  (It leads to belief that the root is complete after a handful of searches.)
+    ForwardDeadReckonInternalMachineState newState = null;
+    if (roleIndex == tree.numRoles - 1)
     {
-      ForwardDeadReckonInternalMachineState newState = null;
-      if (roleIndex == tree.numRoles - 1)
-      {
-        newState = tree.mNextStateBuffer;
-        tree.underlyingStateMachine.getNextState(state, tree.factor, jointPartialMove, newState);
-      }
-      newChild = tree.allocateNode(newState, this, isPseudoNullMove);
+      newState = tree.mNextStateBuffer;
+      tree.underlyingStateMachine.getNextState(state, tree.factor, jointPartialMove, newState);
     }
-    else
-    {
-      newChild = tree.allocateNode((roleIndex == tree.numRoles - 1 ? tree.underlyingStateMachine.getNextState(state, tree.factor, jointPartialMove) : null),
-                                            this,
-                                            isPseudoNullMove);
-    }
+    TreeNode newChild = tree.allocateNode(newState, this, isPseudoNullMove);
 
     assert(!newChild.freed);
     edge.mChildRef = newChild.getRef();
