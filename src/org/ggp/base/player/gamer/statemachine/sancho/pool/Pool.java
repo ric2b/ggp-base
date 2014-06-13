@@ -1,7 +1,6 @@
 
 package org.ggp.base.player.gamer.statemachine.sancho.pool;
 
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 
 /**
  * An pool of items.
@@ -21,10 +20,8 @@ public interface Pool<ItemType>
      * @return a newly allocated object.
      *
      * @param xiPoolIndex - index in the pool from which this object was allocated.
-     *
-     * @throws GoalDefinitionException if the object couldn't be allocated.
      */
-    public ItemType newObject(int xiPoolIndex) throws GoalDefinitionException; // !! ARR Use a more generic exception
+    public ItemType newObject(int xiPoolIndex);
 
     /**
      * Reset an object, ready for re-use.
@@ -48,10 +45,8 @@ public interface Pool<ItemType>
    * @param xiAllocator - object allocator to use if no new items are available.
    *
    * @return the new item.
-   *
-   * @throws GoalDefinitionException
    */
-  public ItemType allocate(ObjectAllocator<ItemType> xiAllocator) throws GoalDefinitionException;
+  public ItemType allocate(ObjectAllocator<ItemType> xiAllocator);
 
   /**
    * Return an item to the pool.

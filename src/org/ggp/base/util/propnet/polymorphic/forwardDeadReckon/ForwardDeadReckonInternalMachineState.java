@@ -194,7 +194,8 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   }
 
   /**
-   * Copy another state into this one
+   * Copy another state into this one.
+   *
    * @param other State to copy
    */
   public void copy(ForwardDeadReckonInternalMachineState other)
@@ -206,7 +207,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
 
     if ( other.heuristicData != null )
     {
-      if ( heuristicData == null )
+      if (heuristicData == null)
       {
         heuristicData = new HashMap<>();
       }

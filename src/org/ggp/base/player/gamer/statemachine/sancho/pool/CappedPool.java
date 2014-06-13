@@ -1,6 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.sancho.pool;
 
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 
 /**
  * A pool with a fixed maximum size.
@@ -69,7 +68,7 @@ public class CappedPool<ItemType> implements Pool<ItemType>
   }
 
   @Override
-  public ItemType allocate(ObjectAllocator<ItemType> xiAllocator) throws GoalDefinitionException
+  public ItemType allocate(ObjectAllocator<ItemType> xiAllocator)
   {
     ItemType lAllocatedItem;
 

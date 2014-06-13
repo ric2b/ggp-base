@@ -149,8 +149,6 @@ public class GameSearcher implements Runnable, ActivityController
    * @param disableGreedyRollouts
    * @param heuristic
    * @param plan - pre-prepared set of moves to use (or null for none).
-   *
-   * @throws GoalDefinitionException
    */
   public void setup(ForwardDeadReckonPropnetStateMachine underlyingStateMachine,
                     ForwardDeadReckonInternalMachineState initialState,
@@ -158,7 +156,7 @@ public class GameSearcher implements Runnable, ActivityController
                     RuntimeGameCharacteristics gameCharacteristics,
                     boolean disableGreedyRollouts,
                     Heuristic heuristic,
-                    GamePlan plan) throws GoalDefinitionException
+                    GamePlan plan)
   {
     mGameCharacteristics = gameCharacteristics;
     mPlan = plan;
@@ -215,7 +213,7 @@ public class GameSearcher implements Runnable, ActivityController
 
     for(MCTSTree tree : factorTrees)
     {
-      tree.root = tree.allocateNode(underlyingStateMachine, initialState, null, false);
+      tree.root = tree.allocateNode(initialState, null, false);
       tree.root.decidingRoleIndex = underlyingStateMachine.getRoles().size() - 1;
     }
   }
@@ -600,12 +598,10 @@ public class GameSearcher implements Runnable, ActivityController
    * @param moveTimeout - the time (in milliseconds) at which a move must be submitted.
    * @param startState  - the state at the root of the tree.
    * @param rootDepth   - the current depth (in turns since the beginning of the game) of the tree root.
-   *
-   * @throws GoalDefinitionException
    */
   public void startSearch(long moveTimeout,
                           ForwardDeadReckonInternalMachineState startState,
-                          short rootDepth) throws GoalDefinitionException
+                          short rootDepth)
   {
 
     // Print out some statistics from last turn.

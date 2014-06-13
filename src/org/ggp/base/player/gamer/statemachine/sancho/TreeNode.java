@@ -62,7 +62,7 @@ public class TreeNode
     }
 
     @Override
-    public TreeNode newObject(int xiPoolIndex) throws GoalDefinitionException
+    public TreeNode newObject(int xiPoolIndex)
     {
       TreeNode lNode = new TreeNode(mTree, xiPoolIndex);
       return lNode;
@@ -102,7 +102,7 @@ public class TreeNode
 
   public int                            numVisits           = 0;
   private int                           numUpdates          = 0;
-  ForwardDeadReckonInternalMachineState state;
+  final ForwardDeadReckonInternalMachineState state;
   int                                   decidingRoleIndex;
   private boolean                       isTerminal          = false;
   boolean                               autoExpand          = false;
@@ -132,13 +132,22 @@ public class TreeNode
    *
    * @param tree        - the tree in which this node is to be found.
    * @param xiPoolIndex - the index in the pool from which this node was allocated.
-   *
-   * @throws GoalDefinitionException
    */
-  TreeNode(MCTSTree xiTree, int xiPoolIndex) throws GoalDefinitionException
+  TreeNode(MCTSTree xiTree, int xiPoolIndex)
   {
-    this.tree = xiTree;
+    tree = xiTree;
     mRef = xiPoolIndex;
+    state = new ForwardDeadReckonInternalMachineState(tree.underlyingStateMachine.getInfoSet());
+  }
+
+  /**
+   * Set the game state represented by this node.
+   *
+   * @param xiState - the state.
+   */
+  public void setState(ForwardDeadReckonInternalMachineState xiState)
+  {
+    state.copy(xiState);
   }
 
   /**
@@ -383,7 +392,7 @@ public class TreeNode
     //LOGGER.debug("Process completion of node seq: " + seq);
     //validateAll();
     //	Children can all be freed, at least from this parentage
-    if (children != null && tree.freeCompletedNodeChildren)
+    if (children != null && MCTSTree.FREE_COMPLETED_NODE_CHILDREN)
     {
       for (int index = 0; index < children.length; index++)
       {
@@ -1122,6 +1131,7 @@ public class TreeNode
     // Reset objects (without allocating new ones).
     tree = xiTree;
     parents.clear();
+    state.clear();
 
     // Reset score values
     if ( xiTree != null )
@@ -1135,7 +1145,6 @@ public class TreeNode
 
     // Reset remaining objects.  These will need to be re-allocated later.  That's a shame, because it produces
     // unnecessary garbage, but sorting it won't be easy.
-    state = null;
     children = null;
     primaryChoiceMapping = null;
   }
@@ -1703,7 +1712,7 @@ public class TreeNode
     return result;
   }
 
-  private void createChildNodeForEdge(TreeEdge edge, ForwardDeadReckonLegalMoveInfo[] jointPartialMove) throws GoalDefinitionException, TransitionDefinitionException
+  private void createChildNodeForEdge(TreeEdge edge, ForwardDeadReckonLegalMoveInfo[] jointPartialMove)
   {
     boolean isPseudoNullMove = (tree.factor != null);
     int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
@@ -1718,10 +1727,25 @@ public class TreeNode
 
     assert(state != null);
     assert(edge.mChildRef == NULL_REF);
-    TreeNode newChild = tree.allocateNode(tree.underlyingStateMachine,
-                                          (roleIndex == tree.numRoles - 1 ? tree.underlyingStateMachine.getNextState(state, tree.factor, jointPartialMove) : null),
-                                          this,
-                                          isPseudoNullMove);
+
+    TreeNode newChild;
+    if (false) // !! ARR Why doesn't this work?  (It leads to belief that the root is complete after a handful of searches.)
+    {
+      ForwardDeadReckonInternalMachineState newState = null;
+      if (roleIndex == tree.numRoles - 1)
+      {
+        newState = tree.mNextStateBuffer;
+        tree.underlyingStateMachine.getNextState(state, tree.factor, jointPartialMove, newState);
+      }
+      newChild = tree.allocateNode(newState, this, isPseudoNullMove);
+    }
+    else
+    {
+      newChild = tree.allocateNode((roleIndex == tree.numRoles - 1 ? tree.underlyingStateMachine.getNextState(state, tree.factor, jointPartialMove) : null),
+                                            this,
+                                            isPseudoNullMove);
+    }
+
     assert(!newChild.freed);
     edge.mChildRef = newChild.getRef();
 
@@ -1730,11 +1754,10 @@ public class TreeNode
 
     if (roleIndex != tree.numRoles - 1)
     {
+      // assert(newState == null);
       newChild.autoExpand = autoExpand;
-      newChild.state = state;
+      newChild.setState(state);
     }
-
-    assert(newChild.state != null);
 
     //  If we transition into a complete node we need to have it re-process that
     //  completion again in the light of the new parentage
@@ -1785,14 +1808,12 @@ public class TreeNode
 
         //LOGGER.debug("Expand our moves from state: " + state);
         Collection<ForwardDeadReckonLegalMoveInfo> moves = tree.underlyingStateMachine.getLegalMoves(state,
-                                                                                                   choosingRole,
-                                                                                                   tree.factor);
+                                                                                                     choosingRole,
+                                                                                                     tree.factor);
         assert(moves.size() > 0);
         assert(moves.size() <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
 
         children = new Object[moves.size()];
-
-        short index = 0;
 
         if (USE_STATE_SIMILARITY_IN_EXPANSION)
         {
@@ -1802,9 +1823,9 @@ public class TreeNode
           }
         }
 
-        for(ForwardDeadReckonLegalMoveInfo newChoice : moves)
+        short lMoveIndex = 0;
+        for (ForwardDeadReckonLegalMoveInfo newChoice : moves)
         {
-          ForwardDeadReckonInternalMachineState newState = null;
           boolean isPseudoNullMove = (tree.factor != null);
 
           jointPartialMove[roleIndex] = newChoice;
@@ -1815,61 +1836,66 @@ public class TreeNode
               isPseudoNullMove = false;
             }
           }
+
+          ForwardDeadReckonInternalMachineState newState = tree.mChildStatesBuffer[lMoveIndex];
           if (roleIndex == tree.numRoles - 1)
           {
-            newState = tree.underlyingStateMachine.getNextState(state, tree.factor, jointPartialMove);
+            newState = tree.mChildStatesBuffer[lMoveIndex];
+            tree.underlyingStateMachine.getNextState(state,
+                                                     tree.factor,
+                                                     jointPartialMove,
+                                                     newState);
           }
           else
           {
-            newState = state;
+            newState.copy(state);
           }
 
           if ( primaryChoiceMapping != null )
           {
-            primaryChoiceMapping[index] = index;
+            primaryChoiceMapping[lMoveIndex] = lMoveIndex;
           }
-          tree.mChildStatesBuffer[index] = newState;
 
           //	Check for multiple moves that all transition to the same state
           if (!isPseudoNullMove)
           {
-            for (short i = 0; i < index; i++)
+            for (short i = 0; i < lMoveIndex; i++)
             {
               if (children[i] != null &&
                   roleIndex == tree.numRoles - 1 &&
-                  tree.mChildStatesBuffer[i].equals(newState))
+                  tree.mChildStatesBuffer[i].equals(tree.mChildStatesBuffer[lMoveIndex]))
               {
                 if ( primaryChoiceMapping == null )
                 {
                   primaryChoiceMapping = new short[children.length];
-                  for(short j = 0; j < index; j++)
+                  for(short j = 0; j < lMoveIndex; j++)
                   {
                     primaryChoiceMapping[j] = j;
                   }
                 }
-                primaryChoiceMapping[index] = i;
+                primaryChoiceMapping[lMoveIndex] = i;
                 break;
               }
             }
           }
 
-          children[index] = newChoice;
-          index++;
+          children[lMoveIndex] = newChoice;
+          lMoveIndex++;
         }
 
         if (evaluateTerminalOnNodeCreation && roleIndex == tree.numRoles - 1)
         {
-          for (index = 0; index < children.length; index++)
+          for (lMoveIndex = 0; lMoveIndex < children.length; lMoveIndex++)
           {
-            if (primaryChoiceMapping == null || primaryChoiceMapping[index] == index)
+            if (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex)
             {
-              StateInfo info = calculateTerminalityAndAutoExpansion(tree.mChildStatesBuffer[index]);
+              StateInfo info = calculateTerminalityAndAutoExpansion(tree.mChildStatesBuffer[lMoveIndex]);
 
               if (info.isTerminal || info.autoExpand)
               {
                 TreeEdge newEdge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-                newEdge.partialMove = (ForwardDeadReckonLegalMoveInfo)children[index];
-                children[index] = newEdge;
+                newEdge.partialMove = (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex];
+                children[lMoveIndex] = newEdge;
                 jointPartialMove[roleIndex] = newEdge.partialMove;
                 createChildNodeForEdge(newEdge, jointPartialMove);
 
@@ -1887,11 +1913,11 @@ public class TreeNode
 
         if (USE_STATE_SIMILARITY_IN_EXPANSION && topMoveWeight > 0)
         {
-          for (index = 0; index < children.length; index++)
+          for (lMoveIndex = 0; lMoveIndex < children.length; lMoveIndex++)
           {
-            if ((primaryChoiceMapping == null || primaryChoiceMapping[index] == index) )
+            if ((primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) )
             {
-              Object choice = children[index];
+              Object choice = children[lMoveIndex];
               TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
               if (edge == null || !get(edge.mChildRef).isTerminal)
               {
@@ -1904,7 +1930,7 @@ public class TreeNode
                     {
                       edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
                       edge.partialMove = moveCandidate;
-                      children[index] = edge;
+                      children[lMoveIndex] = edge;
                     }
                     edge.explorationAmplifier = (topMoveWeight*(topMoveCandidates.length + 1 - i)*2)/(topMoveCandidates.length+1);
                     break;
@@ -1917,16 +1943,16 @@ public class TreeNode
 
         if (roleIndex == tree.numRoles - 1)
         {
-          for (index = 0; index < children.length; index++)
+          for (lMoveIndex = 0; lMoveIndex < children.length; lMoveIndex++)
           {
-            if ((primaryChoiceMapping == null || primaryChoiceMapping[index] == index) )
+            if ((primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) )
             {
               // Determine the heuristic value for this child.
               for (int lii = 0; lii < tree.numRoles; lii++)
               {
                 tree.mNodeHeuristicValues[lii] = 0;
               }
-              tree.heuristic.getHeuristicValue(tree.mChildStatesBuffer[index],
+              tree.heuristic.getHeuristicValue(tree.mChildStatesBuffer[lMoveIndex],
                                                state,
                                                tree.mNodeHeuristicValues,
                                                tree.mNodeHeuristicWeight);
@@ -1952,15 +1978,15 @@ public class TreeNode
                   //  Create the edge if necessary
                   TreeEdge edge;
 
-                  if ( children[index] instanceof TreeEdge )
+                  if ( children[lMoveIndex] instanceof TreeEdge )
                   {
-                    edge = (TreeEdge)children[index];
+                    edge = (TreeEdge)children[lMoveIndex];
                   }
                   else
                   {
                     edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-                    edge.partialMove = (ForwardDeadReckonLegalMoveInfo)children[index];
-                    children[index] = edge;
+                    edge.partialMove = (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex];
+                    children[lMoveIndex] = edge;
                     jointPartialMove[roleIndex] = edge.partialMove;
                   }
 
@@ -2954,8 +2980,8 @@ public class TreeNode
       double moveScore = (tree.gameCharacteristics.isSimultaneousMove ||
                           tree.gameCharacteristics.numRoles > 2 ||
                           anyComplete ||
-                          tree.disableOnelevelMinimax) ? child.getAverageScore(roleIndex) :
-                                                         child.scoreForMostLikelyResponse();
+                          MCTSTree.DISABLE_ONE_LEVEL_MINIMAX) ? child.getAverageScore(roleIndex) :
+                                                                child.scoreForMostLikelyResponse();
 
       assert(-EPSILON <= moveScore && 100 + EPSILON >= moveScore);
       //	If we have complete nodes with equal scores choose the one with the highest variance

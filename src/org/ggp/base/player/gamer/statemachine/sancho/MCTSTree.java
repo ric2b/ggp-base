@@ -38,11 +38,11 @@ public class MCTSTree
     public int    numSamples = 0;
   }
 
+  public static final boolean                          FREE_COMPLETED_NODE_CHILDREN                = true;                                                          //true;
+  public static final boolean                          DISABLE_ONE_LEVEL_MINIMAX                   = true;
+  private static final boolean                         SUPPORT_TRANSITIONS                         = true;
+  public static final int                              MAX_SUPPORTED_BRANCHING_FACTOR              = 100;
 
-  final boolean                                        freeCompletedNodeChildren                   = true;                                                          //true;
-  final boolean                                        disableOnelevelMinimax                      = true;
-  final private boolean                                SUPPORT_TRANSITIONS                         = true;
-  final static int                                     MAX_SUPPORTED_BRANCHING_FACTOR              = 100;
   /**
    * For reasons not well understood, allowing select() to select complete children and propagate
    * upward their values (while playing out something that adds information at the level below) seems
@@ -97,6 +97,7 @@ public class MCTSTree
   final double[]                                      mNodeAverageSquaredScores;
   final RolloutRequest                                mNodeSynchronousRequest;
   final ForwardDeadReckonInternalMachineState[]       mChildStatesBuffer;
+  final ForwardDeadReckonInternalMachineState         mNextStateBuffer;
   final ForwardDeadReckonLegalMoveInfo[]              mJointMoveBuffer;
   final double[]                                      mCorrectedAverageScoresBuffer;
   final double[]                                      mBlendedCompletionScoreBuffer;
@@ -158,9 +159,14 @@ public class MCTSTree
     mNodeAverageSquaredScores     = new double[numRoles];
     mNodeSynchronousRequest       = new RolloutRequest(numRoles);
     mCorrectedAverageScoresBuffer = new double[numRoles];
-    mChildStatesBuffer            = new ForwardDeadReckonInternalMachineState[MAX_SUPPORTED_BRANCHING_FACTOR];
     mJointMoveBuffer              = new ForwardDeadReckonLegalMoveInfo[numRoles];
     mBlendedCompletionScoreBuffer = new double[numRoles];
+    mNextStateBuffer              = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+    mChildStatesBuffer            = new ForwardDeadReckonInternalMachineState[MAX_SUPPORTED_BRANCHING_FACTOR];
+    for (int lii = 0; lii < MAX_SUPPORTED_BRANCHING_FACTOR; lii++)
+    {
+      mChildStatesBuffer[lii] = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+    }
   }
 
   public void empty()
@@ -176,11 +182,9 @@ public class MCTSTree
     numIncompleteNodes = 0;
   }
 
-  TreeNode allocateNode(ForwardDeadReckonPropnetStateMachine underlyingStateMachine,
-                        ForwardDeadReckonInternalMachineState state,
+  TreeNode allocateNode(ForwardDeadReckonInternalMachineState state,
                         TreeNode parent,
                         boolean disallowTransposition)
-      throws GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("allocateNode");
     try
@@ -195,7 +199,6 @@ public class MCTSTree
       {
         //LOGGER.debug("Add state " + state);
         result = nodePool.allocate(mTreeNodeAllocator);
-        result.state = state;
 
         //if ( positions.values().contains(result))
         //{
@@ -203,9 +206,10 @@ public class MCTSTree
         //}
         if (state != null)
         {
-          if ( SUPPORT_TRANSITIONS && !disallowTransposition)
+          result.setState(state);
+          if (SUPPORT_TRANSITIONS && !disallowTransposition)
           {
-            positions.put(state, result);
+            positions.put(result.state, result);
           }
         }
         assert(!result.freed) : "Bad ref in positions table";
@@ -246,7 +250,7 @@ public class MCTSTree
     }
   }
 
-  public void setRootState(ForwardDeadReckonInternalMachineState state, short rootDepth) throws GoalDefinitionException
+  public void setRootState(ForwardDeadReckonInternalMachineState state, short rootDepth)
   {
     ForwardDeadReckonInternalMachineState factorState;
 
@@ -262,7 +266,7 @@ public class MCTSTree
 
     if (root == null)
     {
-      root = allocateNode(underlyingStateMachine, factorState, null, false);
+      root = allocateNode(factorState, null, false);
       root.decidingRoleIndex = numRoles - 1;
       root.setDepth(rootDepth);
     }
@@ -273,7 +277,7 @@ public class MCTSTree
       {
         LOGGER.warn("Unable to find root node in existing tree");
         empty();
-        root = allocateNode(underlyingStateMachine, factorState, null, false);
+        root = allocateNode(factorState, null, false);
         root.decidingRoleIndex = numRoles - 1;
         root.setDepth(rootDepth);
       }
@@ -362,8 +366,7 @@ public class MCTSTree
     if (root != null)
       root.validate(true);
 
-    for (Entry<ForwardDeadReckonInternalMachineState, TreeNode> e : positions
-        .entrySet())
+    for (Entry<ForwardDeadReckonInternalMachineState, TreeNode> e : positions.entrySet())
     {
       if (e.getValue().decidingRoleIndex != numRoles - 1)
       {

@@ -1286,7 +1286,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       fullPropNet.reset(false);
       fullPropNet.setProposition(0, (ForwardDeadReckonProposition)fullPropNet.getInitProposition(), true);
       propNet = fullPropNet;
-      initialState = getInternalStateFromBase().getMachineState();
+      initialState = getInternalStateFromBase(null).getMachineState();
       fullPropNet.reset(true);
 
       measuringBasePropChanges = true;
@@ -2116,7 +2116,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
    */
   @Override
   public MachineState getNextState(MachineState state, List<Move> moves)
-      throws TransitionDefinitionException
   {
     //System.out.println("Get next state after " + moves + " from: " + state);
     //RuntimeOptimizedComponent.getCount = 0;
@@ -2150,7 +2149,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       setBasePropositionsFromState(state);
 
-      MachineState result = getInternalStateFromBase().getMachineState();
+      MachineState result = getInternalStateFromBase(null).getMachineState();
 
       //System.out.println("After move " + moves + " in state " + state + " resulting state is " + result);
       //totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
@@ -2219,7 +2218,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         setBasePropositionsFromState(state, null, true);
 
-        result = getInternalStateFromBase();
+        result = getInternalStateFromBase(null);
 
         //System.out.println("After move " + moves + " in state " + state + " resulting state is " + result);
         //totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
@@ -2288,7 +2287,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       setBasePropositionsFromState(state, null, true);
 
-      ForwardDeadReckonInternalMachineState result = getInternalStateFromBase();
+      ForwardDeadReckonInternalMachineState result = getInternalStateFromBase(null);
 
       //System.out.println("After move " + moves + " in state " + state + " resulting state is " + result);
       //totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
@@ -2316,10 +2315,67 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
+  /**
+   * Get the next state given the current state and a set of moves.  Write the resulting state directly into the
+   * supplied new state buffer.
+   *
+   * @param state       - the original state.
+   * @param factor      - the factor.
+   * @param moves       - the moves to make from the original state.
+   * @param xbNewState  - the buffer into which the new state is written.
+   */
+  public void getNextState(ForwardDeadReckonInternalMachineState state,
+                           Factor factor,
+                           ForwardDeadReckonLegalMoveInfo[] moves,
+                           ForwardDeadReckonInternalMachineState xbNewState)
+  {
+    assert(xbNewState != null);
+    xbNewState.clear();
+
+    setPropNetUsage(state);
+
+    int movesCount = 0;
+
+    for (ForwardDeadReckonLegalMoveInfo move : moves)
+    {
+      if ( !move.isPseudoNoOp)
+      {
+        ForwardDeadReckonProposition moveInputProposition = move.inputProposition;
+        if (moveInputProposition != null)
+        {
+          propNet.setProposition(instanceId, moveInputProposition, true);
+          moveProps[movesCount++] = moveInputProposition;
+        }
+      }
+    }
+
+    setBasePropositionsFromState(state, factor, true);
+
+    getInternalStateFromBase(xbNewState);
+
+    for (int i = 0; i < movesCount; i++)
+    {
+      propNet.setProposition(instanceId, moveProps[i], false);
+    }
+
+    if ( movesCount == 0 && factor != null )
+    {
+      //  Hack - re-impose the base props from the starting state.  We need to do it this
+      //  way in order for the non-factor turn logic (control prop, step, etc) to generate
+      //  correctly, but then make sure we have not changed any factor-specific base props
+      //  which can happen because no moves were played (consider distinct clauses on moves)
+      ForwardDeadReckonInternalMachineState basePropState = new ForwardDeadReckonInternalMachineState(state);
+
+      basePropState.intersect(factor.getStateMask(true));
+      xbNewState.intersect(factor.getInverseStateMask(true));
+      xbNewState.merge(basePropState);
+    }
+  }
+
+  // !! ARR This can go - it's no longer used.
   public ForwardDeadReckonInternalMachineState getNextState(ForwardDeadReckonInternalMachineState state,
                                                             Factor factor,
                                                             ForwardDeadReckonLegalMoveInfo[] moves)
-      throws TransitionDefinitionException
   {
     //System.out.println("Get next state after " + moves + " from: " + state);
     //RuntimeOptimizedComponent.getCount = 0;
@@ -2349,7 +2405,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       setBasePropositionsFromState(state, factor, true);
 
-      result = getInternalStateFromBase();
+      result = getInternalStateFromBase(null);
 
       //totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
       //totalNumPropagates += ForwardDeadReckonComponent.numPropagates;
@@ -2623,47 +2679,28 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
-  private ForwardDeadReckonInternalMachineState getInternalStateFromBase()
+  private ForwardDeadReckonInternalMachineState getInternalStateFromBase(ForwardDeadReckonInternalMachineState xbState)
   {
-    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getStateFromBase");
-    try
+    // Allocate a new state if we haven't been supplied with one to override.
+    if (xbState == null)
     {
-      //RuntimeOptimizedComponent.getCount = 0;
+      xbState = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+    }
 
-      ForwardDeadReckonInternalMachineState result = new ForwardDeadReckonInternalMachineState(masterInfoSet);
-      InternalMachineStateIterator lIterator = mStateIterator;
-      lIterator.reset(propNet.getActiveBaseProps(instanceId));
-      while (lIterator.hasNext())
+    InternalMachineStateIterator lIterator = mStateIterator;
+    lIterator.reset(propNet.getActiveBaseProps(instanceId));
+    while (lIterator.hasNext())
+    {
+      ForwardDeadReckonPropositionInfo info = lIterator.next();
+      xbState.add(info);
+
+      if (info.sentence == XSentence)
       {
-        ForwardDeadReckonPropositionInfo info = lIterator.next();
-        result.add(info);
-
-        if (info.sentence == XSentence)
-        {
-          result.isXState = true;
-        }
+        xbState.isXState = true;
       }
-
-      return result;
-      //Set<GdlSentence> contents = new HashSet<GdlSentence>();
-      //nt numBaseProps = basePropositionTransitions.length;
-
-      //for (int i = 0; i < numBaseProps; i++)
-      //{
-      //	PolymorphicComponent t = basePropositionTransitions[i];
-      //	if (t.getValue())
-      //	{
-      //		contents.add(propNet.getBasePropositionsArray()[i].getName());
-      //	}
-      //}
-      //stats.addGetCount(RuntimeOptimizedComponent.getCount);
-
-      //return new MachineState(contents);
     }
-    finally
-    {
-      methodSection.exitScope();
-    }
+
+    return xbState;
   }
 
   private Map<Role, List<Move>> recentLegalMoveSetsList = new HashMap<>();
@@ -2827,15 +2864,13 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           }
           else
           {
-            results
-                .considerResult(rolloutDecisionStack[rolloutStackDepth].choosingRole);
+            results.considerResult(rolloutDecisionStack[rolloutStackDepth].choosingRole);
             break;
           }
         }
         else
         {
-          results
-              .considerResult(rolloutDecisionStack[rolloutStackDepth].choosingRole);
+          results.considerResult(rolloutDecisionStack[rolloutStackDepth].choosingRole);
           break;
         }
       }
