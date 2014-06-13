@@ -157,7 +157,7 @@ public class MCTSTree
     mNodeHeuristicWeight          = new MutableInteger();
     mNodeAverageScores            = new double[numRoles];
     mNodeAverageSquaredScores     = new double[numRoles];
-    mNodeSynchronousRequest       = new RolloutRequest(numRoles);
+    mNodeSynchronousRequest       = new RolloutRequest(numRoles, underlyingStateMachine);
     mCorrectedAverageScoresBuffer = new double[numRoles];
     mJointMoveBuffer              = new ForwardDeadReckonLegalMoveInfo[numRoles];
     mBlendedCompletionScoreBuffer = new double[numRoles];

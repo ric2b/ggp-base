@@ -165,7 +165,7 @@ public class GameSearcher implements Runnable, ActivityController
 
     if (ThreadControl.ROLLOUT_THREADS > 0)
     {
-      mPipeline = new Pipeline(PIPELINE_SIZE, underlyingStateMachine.getRoles().size());
+      mPipeline = new Pipeline(PIPELINE_SIZE, underlyingStateMachine.getRoles().size(), underlyingStateMachine);
     }
 
     rolloutPool = new RolloutProcessorPool(mPipeline, underlyingStateMachine, roleOrdering, mLogName);

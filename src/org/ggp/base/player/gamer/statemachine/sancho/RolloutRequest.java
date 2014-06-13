@@ -22,7 +22,7 @@ class RolloutRequest
 {
   public long                                  mNodeRef;
   public TreePath                              mPath;
-  public ForwardDeadReckonInternalMachineState mState;
+  public final ForwardDeadReckonInternalMachineState mState;
   public List<ForwardDeadReckonLegalMoveInfo>  mPlayedMovesForWin;
   public Factor                                mFactor = null;
   public int                                   mSampleSize;
@@ -38,11 +38,13 @@ class RolloutRequest
    * Create a rollout request.
    *
    * @param xiNumRoles - the number of roles in the game (used to size arrays).
+   * @param underlyingStateMachine  - state machine of the game
    */
-  public RolloutRequest(int xiNumRoles)
+  public RolloutRequest(int xiNumRoles, ForwardDeadReckonPropnetStateMachine underlyingStateMachine)
   {
     mAverageScores = new double[xiNumRoles];
     mAverageSquaredScores = new double[xiNumRoles];
+    mState = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
   }
 
   /**

@@ -1,5 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+
 import com.lmax.disruptor.Sequence;
 
 /**
@@ -49,8 +51,9 @@ public class SimplePipeline
    *
    * @param xiSize - the maximum number of objects that can be in the pipeline.
    * @param xiNumRoles number of roles in the game
+   * @param underlyingStateMachine state machine of the game
    */
-  public SimplePipeline(int xiSize, int xiNumRoles)
+  public SimplePipeline(int xiSize, int xiNumRoles, ForwardDeadReckonPropnetStateMachine underlyingStateMachine)
   {
     assert(Integer.bitCount(xiSize) == 1) : "Store size must be a power of 2 and > 0";
 
@@ -61,7 +64,7 @@ public class SimplePipeline
     mStore = new RolloutRequest[mSize];
     for (int lii = 0; lii < mSize; lii++)
     {
-      mStore[lii] = new RolloutRequest(xiNumRoles);
+      mStore[lii] = new RolloutRequest(xiNumRoles, underlyingStateMachine);
     }
   }
 

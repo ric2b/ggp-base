@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 /**
  * Highly efficient, lock-free rollout request pipeline.
@@ -44,8 +45,9 @@ public class Pipeline
    *
    * @param xiSize - the maximum number of objects that can be in the pipeline.
    * @param xiNumRoles number of roles in the game
+   * @param underlyingStateMachine state machine of the game
    */
-  public Pipeline(int xiSize, int xiNumRoles)
+  public Pipeline(int xiSize, int xiNumRoles, ForwardDeadReckonPropnetStateMachine underlyingStateMachine)
   {
     mMaxQueuedItems = xiSize;
     mThreadPipelines = new SimplePipeline[ThreadControl.ROLLOUT_THREADS];
@@ -61,7 +63,7 @@ public class Pipeline
 
     for (int lii = 0; lii < ThreadControl.ROLLOUT_THREADS; lii++)
     {
-      mThreadPipelines[lii] = new SimplePipeline(lPerThreadSize, xiNumRoles);
+      mThreadPipelines[lii] = new SimplePipeline(lPerThreadSize, xiNumRoles, underlyingStateMachine);
     }
   }
 

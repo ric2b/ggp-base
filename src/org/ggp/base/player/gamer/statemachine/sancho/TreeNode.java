@@ -3176,7 +3176,7 @@ public class TreeNode
     assert(!freed) : "Rollout node is a freed node";
     assert(path.isValid()) : "Rollout path isn't valid";
 
-    lRequest.mState = state;
+    lRequest.mState.copy(state);
     lRequest.mNodeRef = getRef();
     lRequest.mSampleSize = tree.gameCharacteristics.getRolloutSampleSize();
     lRequest.mPath = path;
