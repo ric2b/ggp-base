@@ -1968,7 +1968,7 @@ public class TreeNode
                   {
                     createChildNodeForEdge(edge, jointPartialMove);
 
-                    assert(!calculateTerminalityAndAutoExpansion(get(edge.mChildRef).state).isTerminal);
+                    assert(!evaluateTerminalOnNodeCreation || !calculateTerminalityAndAutoExpansion(get(edge.mChildRef).state).isTerminal);
                   }
 
                   TreeNode newChild = get(edge.mChildRef);
