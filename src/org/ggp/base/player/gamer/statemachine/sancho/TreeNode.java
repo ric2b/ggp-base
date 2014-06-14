@@ -1159,7 +1159,8 @@ public class TreeNode
 
   private int getInstanceId()
   {
-    return (int)(mRef & 0xFFFFFFFFL);
+    // The instance ID is packed into the bottom 32 bits of the node reference.
+    return (int)mRef;
   }
 
   public double getAverageScore(int roleIndex)
@@ -3271,9 +3272,6 @@ public class TreeNode
 
     assert(numUpdates <= numVisits);
 
-    double[] oldAverageScores = new double[tree.numRoles];
-    double[] oldAverageSquaredScores = new double[tree.numRoles];
-
     double[] overrides = (element == null ? null : element.getScoreOverrides());
     if (overrides != null)
     {
@@ -3282,9 +3280,6 @@ public class TreeNode
 
     for (int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
     {
-      oldAverageScores[roleIndex] = getAverageScore(roleIndex);
-      oldAverageSquaredScores[roleIndex] = getAverageSquaredScore(roleIndex);
-
       if ((!complete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2) &&
           childEdge != null)
       {
@@ -3334,6 +3329,7 @@ public class TreeNode
     numUpdates++;
     assert(numUpdates <= numVisits);
 
+    // !! ARR Icky.  Convert tail recursion to iteration.
     if (nextNode != null)
     {
       nextNode.updateStats(values,
