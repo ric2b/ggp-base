@@ -416,7 +416,6 @@ public class MCTSTree
       {
         selected = cur.select(visited, mJointMoveBuffer);
         cur = selected.getChildNode();
-        visited.push(selected);
       }
 
       TreeNode newNode;
@@ -429,7 +428,6 @@ public class MCTSTree
         {
           selected = cur.select(visited, mJointMoveBuffer);
           newNode = selected.getChildNode();
-          visited.push(selected);
 
           int autoExpansionDepth = 0;
 
@@ -450,8 +448,6 @@ public class MCTSTree
             {
               selected = newNode.select(visited, mJointMoveBuffer);
               newNode = selected.getChildNode();
-              //visited.add(newNode);
-              visited.push(selected);
             }
           }
 

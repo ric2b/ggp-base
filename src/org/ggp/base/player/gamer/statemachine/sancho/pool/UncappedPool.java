@@ -1,5 +1,8 @@
 package org.ggp.base.player.gamer.statemachine.sancho.pool;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 
 /**
  * A pool with no maximum size.
@@ -10,6 +13,8 @@ package org.ggp.base.player.gamer.statemachine.sancho.pool;
  */
 public class UncappedPool<ItemType> implements Pool<ItemType>
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   // Items that are available for re-use.
   private final int                                    mMaxFreeItems;
   private final ItemType[]                             mFreeItems;
@@ -60,6 +65,10 @@ public class UncappedPool<ItemType> implements Pool<ItemType>
     if (mNumFreeItems < mMaxFreeItems)
     {
       mFreeItems[mNumFreeItems++] = xiItem;
+    }
+    else
+    {
+      LOGGER.warn("Discarding " + xiItem.getClass().getSimpleName() + " on return to UncappedPool");
     }
   }
 

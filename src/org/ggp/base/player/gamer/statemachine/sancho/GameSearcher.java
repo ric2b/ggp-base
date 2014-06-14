@@ -747,10 +747,11 @@ public class GameSearcher implements Runnable, ActivityController
                             lRequest.mAverageSquaredScores,
                             lRequest.mPath,
                             false);
-          mPathPool.free(lRequest.mPath);
         }
       }
 
+      mPathPool.free(lRequest.mPath);
+      lRequest.mPath = null;
       mPipeline.completedBackPropagation();
       xiNeedToDoOne = false;
       mNumIterations++;

@@ -42,6 +42,9 @@ public class TreeNode
 
   private static final DecimalFormat FORMAT_2DP = new DecimalFormat("####0.00");
 
+  /**
+   * Dummy reference value to use when a reference doesn't currently refer to a tree node.
+   */
   public static final long NULL_REF = -1L;
 
   /**
@@ -2546,7 +2549,7 @@ public class TreeNode
 
     final double explorationAmplifierDecayRate = 0.6;
     selected.explorationAmplifier *= explorationAmplifierDecayRate;
-    TreePathElement result = path.new TreePathElement(this, selected);
+    TreePathElement result = path.push(this, selected);
 
     //  If the node that should have been selected through was complete
     //  note that in the path, so that on application of the update
@@ -3161,6 +3164,7 @@ public class TreeNode
         //  ancestor has).  In such cases abort the rollout.
         if (path.isFreed())
         {
+          tree.mPathPool.free(path);
           return;
         }
       }
@@ -3193,7 +3197,7 @@ public class TreeNode
 
       // Whilst waiting for the request to be rolled out, update the visit count of this node to encourage the search to
       // go down a different path when selecting the next node for rollout.
-      updateVisitCounts(path);
+      updateVisitCounts(lRequest.mPath);
     }
     else
     {
@@ -3202,9 +3206,10 @@ public class TreeNode
       lRequest.process(tree.underlyingStateMachine, tree.mOurRole, tree.roleOrdering);
       updateStats(lRequest.mAverageScores,
                   lRequest.mAverageSquaredScores,
-                  path,
+                  lRequest.mPath,
                   true);
-      tree.mPathPool.free(path);
+      tree.mPathPool.free(lRequest.mPath);
+      lRequest.mPath = null;
     }
   }
 

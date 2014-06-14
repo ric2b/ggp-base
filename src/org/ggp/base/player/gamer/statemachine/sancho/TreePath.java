@@ -1,8 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool.ObjectAllocator;
 
 /**
@@ -10,6 +7,8 @@ import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool.ObjectAllocator;
  */
 public class TreePath
 {
+  private static final int MAX_PATH_LEN = 1000;
+
   /**
    * Utility class for allocating tree paths from a pool.
    */
@@ -54,20 +53,29 @@ public class TreePath
   {
     // The parent node, the edge leading from it and the child.  It is only valid to access the edge if both node
     // references are still valid.
-    private final long     mParentRef;
-    private final TreeEdge mEdge;
-    private final long     mChildRef;
+    private long     mParentRef;
+    private TreeEdge mEdge;
+    private long     mChildRef;
 
     // Score overrides to use above this point in the path.
-    private double[] scoreOverrides = null;
+    private double[] scoreOverrides;
 
     /**
-     * Construct a new element suitable for adding to a selection path
+     * Create a TreePathElement.  For use in pre-allocation.
+     */
+    public TreePathElement()
+    {
+      scoreOverrides = null; // !! ARR Pre-allocate this too.
+      reset();
+    }
+
+    /**
+     * Set up the TreePathElement.
      *
      * @param xiParent - the parent, used to check child validity.
      * @param xiEdge   - the edge to encapsulate.
      */
-    public TreePathElement(TreeNode xiParent, TreeEdge xiEdge)
+    public void set(TreeNode xiParent, TreeEdge xiEdge)
     {
       mParentRef = xiParent.getRef();
       mEdge      = xiEdge;
@@ -131,32 +139,60 @@ public class TreePath
     {
       return TreeNode.get(mTree.nodePool, xiNodeRef);
     }
+
+    /**
+     * Reset this tree path element, ready for re-use.
+     */
+    public void reset()
+    {
+      mParentRef     = TreeNode.NULL_REF;
+      mEdge          = null;
+      mChildRef      = TreeNode.NULL_REF;
+      scoreOverrides = null; // !! ARR Don't do this.
+    }
   }
 
   /**
    * The tree through which this is a path.
    */
-  MCTSTree                      mTree;
-  private List<TreePathElement> mElements = new ArrayList<>();
-  private int                   mIndex    = 0;
+  MCTSTree mTree;
+
+  // The elements that make up the path.  There are very few paths allocated (<50) and they're always recycled, so it's
+  // simpler just to ensure this array is big enough for the longest possible path that we'll ever see in any game.
+  private final TreePathElement[] mElements    = new TreePathElement[MAX_PATH_LEN];
+  private int                     mNumElements = 0;
+
+  // A cursor to an item in the path.  Used for iteration.
+  private int mCursor = 0;
 
   /**
-   * Construct a new selection path
-   * @param xiTree tree the path will be within
+   * Construct a new selection path.
+   *
+   * @param xiTree - tree the path will be within.
    */
   public TreePath(MCTSTree xiTree)
   {
-    mTree = xiTree;
+    reset(xiTree);
+    for (int lii = 0; lii < MAX_PATH_LEN; lii++)
+    {
+      mElements[lii] = new TreePathElement();
+    }
   }
 
   /**
-   * Add a new element to the path (building up from root first downwards)
-   * @param element new element to add
+   * Add a new element to the path (building up from root first downwards).
+   *
+   * @param xiParent - the parent node to add.
+   * @param xiEdge   - the selected edge from the parent node.
+   *
+   * @return the added element.
    */
-  public void push(TreePathElement element)
+  public TreePathElement push(TreeNode xiParent, TreeEdge xiEdge)
   {
-    mElements.add(element);
-    mIndex++;
+    TreePathElement lElement = mElements[mNumElements++];
+    lElement.set(xiParent, xiEdge);
+    mCursor++;
+    return lElement;
   }
 
   /**
@@ -164,7 +200,7 @@ public class TreePath
    */
   public void resetCursor()
   {
-    mIndex = mElements.size();
+    mCursor = mNumElements;
   }
 
   /**
@@ -173,7 +209,7 @@ public class TreePath
    */
   public boolean hasMore()
   {
-    return mIndex > 0;
+    return mCursor > 0;
   }
 
   /**
@@ -184,10 +220,10 @@ public class TreePath
    */
   public TreeNode getNextNode()
   {
-    mIndex--;
+    mCursor--;
     if (hasMore())
     {
-      TreePathElement element = mElements.get(mIndex - 1);
+      TreePathElement element = mElements[mCursor - 1];
       TreeNode node = element.getChildNode();
       return node;
     }
@@ -195,27 +231,25 @@ public class TreePath
   }
 
   /**
-   * Get the current path element during enumeration
-   * @return current element
+   * @return the current path element during enumeration.
    */
   public TreePathElement getCurrentElement()
   {
-    if (mIndex == mElements.size())
+    if (mCursor == mNumElements)
     {
       return null;
     }
-    return mElements.get(mIndex);
+    return mElements[mCursor];
   }
 
   /**
-   * Determine if any node on the path has been freed
-   * @return whether any traversed node is freed
+   * @return whether any node on the path has been freed.
    */
   public boolean isFreed()
   {
-    for(TreePathElement element : mElements)
+    for (int lii = 0; lii < mNumElements; lii++)
     {
-      TreeEdge edge = element.getEdge();
+      TreeEdge edge = mElements[lii].getEdge();
       //  In some cases the edge's child can have been freed and re-expanded so the edge
       //  points to a totally different node now than does the child!  This also indicates a
       //  freed path, but is probably a temporary problem which will be resolved when
@@ -237,8 +271,12 @@ public class TreePath
   public void reset(MCTSTree xiTree)
   {
     mTree = xiTree;
-    mElements.clear();
-    mIndex = 0;
+    for (int lii = 0; lii < mNumElements; lii++)
+    {
+      mElements[lii].reset();
+    }
+    mNumElements = 0;
+    mCursor = 0;
   }
 
   /**
