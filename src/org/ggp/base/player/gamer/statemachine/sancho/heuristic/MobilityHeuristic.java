@@ -10,7 +10,6 @@ import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Role;
-import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.stats.PearsonCorrelation;
 import org.w3c.tidy.MutableInteger;
@@ -74,23 +73,15 @@ public class MobilityHeuristic implements Heuristic
 
     // During a rollout, accumulate the total mobility for each role.  In cases where a role has a single move, assume
     // that it's a forced no-op.  !! ARR Could do better here by actually looking for likely no-op statements.
-    try
+    for (int lii = 0; lii < mTuningData.mNumRoles; lii++)
     {
-      for (int lii = 0; lii < mTuningData.mNumRoles; lii++)
+      Role lRole = mRoleOrdering.roleIndexToRole(lii);
+      int lMobility = mStateMachine.getLegalMoves(xiState, lRole).size();
+      if (lMobility > 1)
       {
-        Role lRole = mRoleOrdering.roleIndexToRole(lii);
-        int lMobility = mStateMachine.getLegalMoves(xiState, lRole).size();
-        if (lMobility > 1)
-        {
-          mTuningData.mMovesWithChoiceForRole[lii]++;
-          mTuningData.mTotalChoicesForRole[lii] += lMobility;
-        }
+        mTuningData.mMovesWithChoiceForRole[lii]++;
+        mTuningData.mTotalChoicesForRole[lii] += lMobility;
       }
-    }
-    catch (MoveDefinitionException lEx)
-    {
-      LOGGER.warn("Unexpected error getting legal moves");
-      lEx.printStackTrace();
     }
   }
 
@@ -158,23 +149,15 @@ public class MobilityHeuristic implements Heuristic
       // state of the game.
       LOGGER.info("Creating MobilityData in initial state");
       lMobilityData = new MobilityData(mTuningData.mNumRoles);
-      try
+      for (int lii = 0; lii < lMobilityData.mNumRoles; lii++)
       {
-        for (int lii = 0; lii < lMobilityData.mNumRoles; lii++)
+        Role lRole = mRoleOrdering.roleIndexToRole(lii);
+        int lMobility = mStateMachine.getLegalMoves(xiPreviousState, lRole).size();
+        if (lMobility > 1)
         {
-          Role lRole = mRoleOrdering.roleIndexToRole(lii);
-          int lMobility = mStateMachine.getLegalMoves(xiPreviousState, lRole).size();
-          if (lMobility > 1)
-          {
-            lMobilityData.mMovesWithChoiceForRole[lii]++;
-            lMobilityData.mTotalChoicesForRole[lii] += lMobility;
-          }
+          lMobilityData.mMovesWithChoiceForRole[lii]++;
+          lMobilityData.mTotalChoicesForRole[lii] += lMobility;
         }
-      }
-      catch (MoveDefinitionException lEx)
-      {
-        LOGGER.warn("Unexpected error getting legal moves");
-        lEx.printStackTrace();
       }
 
       xiPreviousState.putHeuristicData(this, lMobilityData);
@@ -186,25 +169,17 @@ public class MobilityHeuristic implements Heuristic
     // Add the mobility for this state.
     int lGrandTotalChoices = 0;
     int lGrandTotalMovesWithChoices = 0;
-    try
+    for (int lii = 0; lii < lMobilityData.mNumRoles; lii++)
     {
-      for (int lii = 0; lii < lMobilityData.mNumRoles; lii++)
+      Role lRole = mRoleOrdering.roleIndexToRole(lii);
+      int lMobility = mStateMachine.getLegalMoves(xiState, lRole).size();
+      if (lMobility > 1)
       {
-        Role lRole = mRoleOrdering.roleIndexToRole(lii);
-        int lMobility = mStateMachine.getLegalMoves(xiState, lRole).size();
-        if (lMobility > 1)
-        {
-          lMobilityData.mMovesWithChoiceForRole[lii]++;
-          lMobilityData.mTotalChoicesForRole[lii] += lMobility;
-        }
-        lGrandTotalMovesWithChoices += lMobilityData.mMovesWithChoiceForRole[lii];
-        lGrandTotalChoices += lMobilityData.mTotalChoicesForRole[lii];
+        lMobilityData.mMovesWithChoiceForRole[lii]++;
+        lMobilityData.mTotalChoicesForRole[lii] += lMobility;
       }
-    }
-    catch (MoveDefinitionException lEx)
-    {
-      LOGGER.warn("Unexpected error getting legal moves");
-      lEx.printStackTrace();
+      lGrandTotalMovesWithChoices += lMobilityData.mMovesWithChoiceForRole[lii];
+      lGrandTotalChoices += lMobilityData.mTotalChoicesForRole[lii];
     }
 
     // Store the updated mobility data against the new state.

@@ -19,9 +19,6 @@ import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.StateMachine;
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 
 
@@ -47,8 +44,6 @@ public class KioskGamer extends StateMachineGamer implements Observer
 
   @Override
   public void stateMachineMetaGame(long timeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
   {
     if (theCanvas == null)
       System.err.println("KioskGamer did not receive a canvas.");
@@ -72,8 +67,6 @@ public class KioskGamer extends StateMachineGamer implements Observer
 
   @Override
   public Move stateMachineSelectMove(long timeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
   {
     theGUI.beginPlay();
     theQueue.clear();

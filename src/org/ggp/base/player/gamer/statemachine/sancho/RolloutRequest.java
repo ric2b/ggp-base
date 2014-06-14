@@ -6,9 +6,6 @@ import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.Role;
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
@@ -128,10 +125,6 @@ class RolloutRequest
         mAverageScores[roleIndex] /= mSampleSize;
         mAverageSquaredScores[roleIndex] /= mSampleSize;
       }
-    }
-    catch (TransitionDefinitionException | MoveDefinitionException | GoalDefinitionException lEx)
-    {
-      lEx.printStackTrace();
     }
     finally
     {

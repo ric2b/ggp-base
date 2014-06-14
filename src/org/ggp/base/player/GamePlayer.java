@@ -34,7 +34,7 @@ public final class GamePlayer extends Thread implements Subject
   private ServerSocket         listener;
   private final List<Observer> observers;
 
-  public GamePlayer(int port, Gamer gamer) throws IOException
+  public GamePlayer(int port, Gamer gamer)
   {
     observers = new ArrayList<Observer>();
     listener = null;

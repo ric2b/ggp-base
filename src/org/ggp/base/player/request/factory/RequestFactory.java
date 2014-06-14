@@ -19,7 +19,6 @@ import org.ggp.base.player.request.grammar.StopRequest;
 import org.ggp.base.util.game.GDLTranslator;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.gdl.factory.GdlFactory;
-import org.ggp.base.util.gdl.factory.exceptions.GdlFormatException;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
 import org.ggp.base.util.symbol.factory.SymbolFactory;
@@ -91,7 +90,6 @@ public final class RequestFactory
   }
 
   private PlayRequest createPlay(Gamer gamer, SymbolList list)
-      throws GdlFormatException
   {
     if (list.size() != 3)
     {
@@ -108,7 +106,6 @@ public final class RequestFactory
   }
 
   private StartRequest createStart(Gamer gamer, SymbolList list)
-      throws GdlFormatException
   {
     if (list.size() < 6)
     {
@@ -140,7 +137,6 @@ public final class RequestFactory
   }
 
   private StopRequest createStop(Gamer gamer, SymbolList list)
-      throws GdlFormatException
   {
     if (list.size() != 3)
     {
@@ -157,7 +153,6 @@ public final class RequestFactory
   }
 
   private AbortRequest createAbort(Gamer gamer, SymbolList list)
-      throws GdlFormatException
   {
     if (list.size() != 2)
     {
@@ -171,7 +166,6 @@ public final class RequestFactory
   }
 
   private InfoRequest createInfo(Gamer gamer, SymbolList list)
-      throws GdlFormatException
   {
     if (list.size() != 1)
     {
@@ -182,7 +176,6 @@ public final class RequestFactory
   }
 
   private PreviewRequest createPreview(Gamer gamer, SymbolList list)
-      throws GdlFormatException
   {
     if (list.size() != 3)
     {
@@ -199,7 +192,7 @@ public final class RequestFactory
     return new PreviewRequest(gamer, theReceivedGame, previewClock);
   }
 
-  private List<GdlTerm> parseMoves(Symbol symbol) throws GdlFormatException
+  private List<GdlTerm> parseMoves(Symbol symbol)
   {
     if (symbol instanceof SymbolAtom)
     {

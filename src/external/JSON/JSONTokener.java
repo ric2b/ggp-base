@@ -30,7 +30,7 @@ import java.io.StringReader;
  * A JSONTokener takes a source string and extracts characters and tokens from
  * it. It is used by the JSONObject and JSONArray constructors to parse JSON
  * source strings.
- * 
+ *
  * @author JSON.org
  * @version 2010-12-24
  */
@@ -48,7 +48,7 @@ public class JSONTokener
 
   /**
    * Construct a JSONTokener from a Reader.
-   * 
+   *
    * @param reader
    *          A reader.
    */
@@ -67,7 +67,7 @@ public class JSONTokener
   /**
    * Construct a JSONTokener from an InputStream.
    */
-  public JSONTokener(InputStream inputStream) throws JSONException
+  public JSONTokener(InputStream inputStream)
   {
     this(new InputStreamReader(inputStream));
   }
@@ -75,7 +75,7 @@ public class JSONTokener
 
   /**
    * Construct a JSONTokener from a string.
-   * 
+   *
    * @param s
    *          A source string.
    */
@@ -105,7 +105,7 @@ public class JSONTokener
 
   /**
    * Get the hex value of a character (base16).
-   * 
+   *
    * @param c
    *          A character between '0' and '9' or between 'A' and 'F' or between
    *          'a' and 'f'.
@@ -137,7 +137,7 @@ public class JSONTokener
   /**
    * Determine if the source string still contains characters that next() can
    * consume.
-   * 
+   *
    * @return true if not yet at the end of the source.
    */
   public boolean more() throws JSONException
@@ -154,7 +154,7 @@ public class JSONTokener
 
   /**
    * Get the next character in the source string.
-   * 
+   *
    * @return The next character, or 0 if past the end of the source string.
    */
   public char next() throws JSONException
@@ -205,7 +205,7 @@ public class JSONTokener
   /**
    * Consume the next character, and check that it matches a specified
    * character.
-   * 
+   *
    * @param c
    *          The character to match.
    * @return The character.
@@ -225,7 +225,7 @@ public class JSONTokener
 
   /**
    * Get the next n characters.
-   * 
+   *
    * @param n
    *          The number of characters to take.
    * @return A string of n characters.
@@ -258,7 +258,7 @@ public class JSONTokener
 
   /**
    * Get the next char in the string, skipping whitespace.
-   * 
+   *
    * @throws JSONException
    * @return A character, or 0 if there are no more characters.
    */
@@ -279,7 +279,7 @@ public class JSONTokener
    * Return the characters up to the next close quote character. Backslash
    * processing is done. The formal JSON format does not allow strings in
    * single quotes, but an implementation is allowed to accept them.
-   * 
+   *
    * @param quote
    *          The quoting character, either <code>"</code>&nbsp;<small>(double
    *          quote)</small> or <code>'</code>&nbsp;<small>(single
@@ -347,7 +347,7 @@ public class JSONTokener
   /**
    * Get the text up but not including the specified character or the end of
    * line, whichever comes first.
-   * 
+   *
    * @param delimiter
    *          A delimiter character.
    * @return A string.
@@ -374,7 +374,7 @@ public class JSONTokener
   /**
    * Get the text up but not including one of the specified delimiter
    * characters or the end of line, whichever comes first.
-   * 
+   *
    * @param delimiters
    *          A set of delimiter characters.
    * @return A string, trimmed.
@@ -402,7 +402,7 @@ public class JSONTokener
   /**
    * Get the next value. The value can be a Boolean, Double, Integer,
    * JSONArray, JSONObject, Long, or String, or the JSONObject.NULL object.
-   * 
+   *
    * @throws JSONException
    *           If syntax error.
    * @return An object.
@@ -452,7 +452,7 @@ public class JSONTokener
   /**
    * Skip characters until the next character is the requested character. If
    * the requested character is not found, no characters are skipped.
-   * 
+   *
    * @param to
    *          A character to skip to.
    * @return The requested character, or zero if the requested character is not
@@ -493,7 +493,7 @@ public class JSONTokener
 
   /**
    * Make a JSONException to signal a syntax error.
-   * 
+   *
    * @param message
    *          The error message.
    * @return A JSONException object, suitable for throwing
@@ -506,7 +506,7 @@ public class JSONTokener
 
   /**
    * Make a printable string of this JSONTokener.
-   * 
+   *
    * @return " at {index} [character {character} line {line}]"
    */
   @Override

@@ -1621,7 +1621,7 @@ public class TreeNode
     return false;
   }
 
-  private StateInfo calculateTerminalityAndAutoExpansion(ForwardDeadReckonInternalMachineState theState) throws MoveDefinitionException, GoalDefinitionException
+  private StateInfo calculateTerminalityAndAutoExpansion(ForwardDeadReckonInternalMachineState theState)
   {
     StateInfo result = StateInfo.bufferInstance;
 
@@ -1758,7 +1758,6 @@ public class TreeNode
   }
 
   public void expand(ForwardDeadReckonLegalMoveInfo[] jointPartialMove)
-    throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.expand");
     try
@@ -2240,7 +2239,6 @@ public class TreeNode
   }
 
   TreePathElement select(TreePath path, ForwardDeadReckonLegalMoveInfo[] jointPartialMove)
-      throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     TreeEdge selected = null;
     int selectedIndex = -1;

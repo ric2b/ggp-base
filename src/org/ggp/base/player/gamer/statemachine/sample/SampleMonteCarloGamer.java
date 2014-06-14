@@ -7,9 +7,7 @@ import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.StateMachine;
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 
 /**
  * SampleMonteCarloGamer is a simple state-machine-based Gamer. It will use a
@@ -20,7 +18,7 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
  * doesn't even block obvious one-move wins. This is partially due to the speed
  * of the default state machine (which is slow) and mostly due to the algorithm
  * assuming that the opponent plays completely randomly, which is inaccurate.
- * 
+ *
  * @author Sam Schreiber
  */
 public final class SampleMonteCarloGamer extends SampleGamer
@@ -30,8 +28,7 @@ public final class SampleMonteCarloGamer extends SampleGamer
    */
   @Override
   public Move stateMachineSelectMove(long timeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
+      throws MoveDefinitionException
   {
     StateMachine theMachine = getStateMachine();
     long start = System.currentTimeMillis();

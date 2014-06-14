@@ -21,7 +21,7 @@ import org.ggp.base.util.statemachine.verifier.StateMachineVerifier;
  */
 public class StateMachineValidator
 {
-  public static void main(String args[]) throws InterruptedException
+  public static void main(String args[])
   {
     Set<String> exceptedGames = new HashSet<String>();
 

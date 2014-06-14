@@ -43,7 +43,6 @@ import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.StateMachine;
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBuilder;
@@ -1945,7 +1944,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
    */
   @Override
   public List<Move> getLegalMoves(MachineState state, Role role)
-      throws MoveDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getLegalMoves");
     try
@@ -1979,7 +1977,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   }
 
   public List<Move> getLegalMoves(ForwardDeadReckonInternalMachineState state,
-                                  Role role) throws MoveDefinitionException
+                                  Role role)
   {
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getLegalMoves");
     try
@@ -2179,7 +2177,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   public ForwardDeadReckonInternalMachineState getNextState(ForwardDeadReckonInternalMachineState state,
                                                             List<Move> moves)
-      throws TransitionDefinitionException
   {
     //System.out.println("Get next state after " + moves + " from: " + state);
     //RuntimeOptimizedComponent.getCount = 0;
@@ -2253,7 +2250,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   public ForwardDeadReckonInternalMachineState getNextState(ForwardDeadReckonInternalMachineState state,
                                                             Move[] moves)
-      throws TransitionDefinitionException
   {
     //System.out.println("Get next state after " + moves + " from: " + state);
     //RuntimeOptimizedComponent.getCount = 0;
@@ -2372,75 +2368,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
-  // !! ARR This can go - it's no longer used.
-  public ForwardDeadReckonInternalMachineState getNextState(ForwardDeadReckonInternalMachineState state,
-                                                            Factor factor,
-                                                            ForwardDeadReckonLegalMoveInfo[] moves)
-  {
-    //System.out.println("Get next state after " + moves + " from: " + state);
-    //RuntimeOptimizedComponent.getCount = 0;
-    //RuntimeOptimizedComponent.dirtyCount = 0;
-    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getNextState");
-    try
-    {
-      ForwardDeadReckonInternalMachineState result;
-
-      setPropNetUsage(state);
-
-      int movesCount = 0;
-
-      for (ForwardDeadReckonLegalMoveInfo move : moves)
-      {
-        if ( !move.isPseudoNoOp)
-        {
-          ForwardDeadReckonProposition moveInputProposition = move.inputProposition;
-          if (moveInputProposition != null)
-          {
-            propNet.setProposition(instanceId, moveInputProposition, true);
-            //moveInputProposition.setValue(true, instanceId);
-            moveProps[movesCount++] = moveInputProposition;
-          }
-        }
-      }
-
-      setBasePropositionsFromState(state, factor, true);
-
-      result = getInternalStateFromBase(null);
-
-      //totalNumGatesPropagated += ForwardDeadReckonComponent.numGatesPropagated;
-      //totalNumPropagates += ForwardDeadReckonComponent.numPropagates;
-
-      for (int i = 0; i < movesCount; i++)
-      {
-        propNet.setProposition(instanceId, moveProps[i], false);
-        //moveProps[i].setValue(false, instanceId);
-      }
-
-      if ( movesCount == 0 && factor != null )
-      {
-        //  Hack - re-impose the base props from the starting state.  We need to do it this
-        //  way in order for the non-factor turn logic (control prop, step, etc) to generate
-        //  correctly, but then make sure we have not changed any factor-specific base props
-        //  which can happen because no moves were played (consider distinct clauses on moves)
-        ForwardDeadReckonInternalMachineState basePropState = new ForwardDeadReckonInternalMachineState(state);
-
-        basePropState.intersect(factor.getStateMask(true));
-        result.intersect(factor.getInverseStateMask(true));
-        result.merge(basePropState);
-      }
-
-      //System.out.println("After move " + moves + " in state " + state + " resulting state is " + result);
-      return result;
-    }
-    finally
-    {
-      methodSection.exitScope();
-    }
-  }
-
   private boolean transitionToNextStateFromChosenMove(Role choosingRole,
                                                       List<TerminalResultVector> resultVectors)
-      throws GoalDefinitionException
   {
     //System.out.println("Get next state after " + moves + " from: " + state);
     //RuntimeOptimizedComponent.getCount = 0;
@@ -2819,7 +2748,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                         Factor factor,
                                         MoveWeights moveWeights,
                                         List<ForwardDeadReckonLegalMoveInfo> playedMoves)
-      throws MoveDefinitionException, GoalDefinitionException
   {
     //		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.doRecursiveGreedyRoleout");
     //		try
@@ -2915,7 +2843,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                         Factor factor,
                                         MoveWeights moveWeights,
                                         List<ForwardDeadReckonLegalMoveInfo> playedMoves)
-      throws MoveDefinitionException, GoalDefinitionException
   {
     rolloutSeq++;
     rolloutStackDepth = 0;
@@ -2971,7 +2898,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                                                             ForwardDeadReckonProposition hintMoveProp,
                                                                             MoveWeights moveWeights,
                                                                             List<ForwardDeadReckonLegalMoveInfo> playedMoves)
-      throws MoveDefinitionException, GoalDefinitionException
   {
     //		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.transitionToNextStateInGreedyRollout");
     //		try
@@ -3607,7 +3533,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                    final int[] stats,
                                    MoveWeights moveWeights,
                                    List<ForwardDeadReckonLegalMoveInfo> playedMoves)
-      throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getDepthChargeResult");
     try

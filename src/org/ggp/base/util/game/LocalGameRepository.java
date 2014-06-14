@@ -354,7 +354,7 @@ public final class LocalGameRepository extends GameRepository
       return theContent;
     }
 
-    private static String readDirectory(File theDirectory) throws IOException
+    private static String readDirectory(File theDirectory)
     {
       StringBuilder response = new StringBuilder();
       // Show contents of the directory, using JSON notation.

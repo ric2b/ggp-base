@@ -3,7 +3,6 @@ package org.ggp.base.util.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 
@@ -42,19 +41,19 @@ public class ConsolePanel extends JPanel
     OutputStream out = new OutputStream()
     {
       @Override
-      public void write(int b) throws IOException
+      public void write(int b)
       {
         updateTextArea(String.valueOf((char)b));
       }
 
       @Override
-      public void write(byte[] b, int off, int len) throws IOException
+      public void write(byte[] b, int off, int len)
       {
         updateTextArea(new String(b, off, len));
       }
 
       @Override
-      public void write(byte[] b) throws IOException
+      public void write(byte[] b)
       {
         write(b, 0, b.length);
       }

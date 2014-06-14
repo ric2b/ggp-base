@@ -16,9 +16,6 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class IteratedGamePlayer
@@ -49,8 +46,6 @@ public class IteratedGamePlayer
   }
 
   public Move selectMove(List<Move> moves, long timeout)
-      throws MoveDefinitionException, TransitionDefinitionException,
-      GoalDefinitionException
   {
     List<List<GdlTerm>> moveHistory = gamer.getMatch().getMoveHistory();
     List<Set<GdlSentence>> stateHistory = gamer.getMatch().getStateHistory();

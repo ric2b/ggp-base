@@ -91,7 +91,6 @@ public class Sancho extends SampleGamer
 
   int netScore(ForwardDeadReckonPropnetStateMachine stateMachine,
                        ForwardDeadReckonInternalMachineState state)
-      throws GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.netScore");
     try
@@ -219,8 +218,6 @@ public class Sancho extends SampleGamer
 
   @Override
   public void stateMachineMetaGame(long timeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
   {
     if (ASSERTIONS_ENABLED)
     {

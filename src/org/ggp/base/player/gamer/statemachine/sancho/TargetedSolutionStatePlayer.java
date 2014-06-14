@@ -93,8 +93,6 @@ public class TargetedSolutionStatePlayer
   ForwardDeadReckonInternalMachineState         stepStateMask         = null;
 
   private Move selectAStarMove(List<Move> moves, long timeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
   {
     Move bestMove = moves.get(0);
     int[] numAtDistance = new int[50];

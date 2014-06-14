@@ -5,15 +5,12 @@ import java.util.List;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.util.logging.GamerLogger;
-import org.ggp.base.util.statemachine.Move;
-import org.ggp.base.util.statemachine.StateMachine;
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 import org.ggp.base.util.profile.ProfilerContext;
 import org.ggp.base.util.profile.ProfilerSampleSetSimple;
-import org.ggp.base.util.profile.ProfileSection;
+import org.ggp.base.util.statemachine.Move;
+import org.ggp.base.util.statemachine.StateMachine;
+import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
+import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 
 public class BaselineTestGamer extends SampleGamer
 {
@@ -33,8 +30,7 @@ public class BaselineTestGamer extends SampleGamer
    */
   @Override
   public Move stateMachineSelectMove(long timeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
+      throws MoveDefinitionException
   {
     // We get the current start time
     long start = System.currentTimeMillis();

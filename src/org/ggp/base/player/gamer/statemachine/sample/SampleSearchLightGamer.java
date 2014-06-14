@@ -43,8 +43,6 @@ public final class SampleSearchLightGamer extends StateMachineGamer
    */
   @Override
   public void stateMachineMetaGame(long timeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
   {
     // Do nothing.
   }
