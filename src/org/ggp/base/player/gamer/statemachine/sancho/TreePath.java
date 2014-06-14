@@ -3,15 +3,49 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool.ObjectAllocator;
 
 /**
  * Path through an MCTS tree.
  */
 public class TreePath
 {
-  static final Logger LOGGER       = LogManager.getLogger();
+  /**
+   * Utility class for allocating tree paths from a pool.
+   */
+  public static class TreePathAllocator implements ObjectAllocator<TreePath>
+  {
+    private final MCTSTree mAllocatorTree;
+
+    /**
+     * Create an allocator for nodes in the the specified MCTS tree.
+     *
+     * @param xiTree - the tree.
+     */
+    public TreePathAllocator(MCTSTree xiTree)
+    {
+      mAllocatorTree = xiTree;
+    }
+
+    @Override
+    public TreePath newObject(int xiPoolIndex)
+    {
+      return new TreePath(mAllocatorTree);
+    }
+
+    @Override
+    public void resetObject(TreePath xiPath, boolean xiFree)
+    {
+      xiPath.reset(mAllocatorTree);
+    }
+
+    @Override
+    public boolean shouldReset(TreePath xiPath)
+    {
+      assert(false) : "Shouldn't call shouldReset(TreePath)";
+      return false;
+    }
+  }
 
   /**
    * Individual element in a tree path
@@ -31,7 +65,7 @@ public class TreePath
      * Construct a new element suitable for adding to a selection path
      *
      * @param xiParent - the parent, used to check child validity.
-     * @param theEdge  - the edge to encapsulate.
+     * @param xiEdge   - the edge to encapsulate.
      */
     public TreePathElement(TreeNode xiParent, TreeEdge xiEdge)
     {
@@ -51,9 +85,9 @@ public class TreePath
      */
     public void setScoreOverrides(TreeNode overridingNode)
     {
-      scoreOverrides = new double[tree.numRoles];
+      scoreOverrides = new double[mTree.numRoles];
 
-      for (int i = 0; i < tree.numRoles; i++)
+      for (int i = 0; i < mTree.numRoles; i++)
       {
         scoreOverrides[i] = overridingNode.getAverageScore(i);
       }
@@ -95,24 +129,24 @@ public class TreePath
 
     private TreeNode getNode(long xiNodeRef)
     {
-      return TreeNode.get(tree.nodePool, xiNodeRef);
+      return TreeNode.get(mTree.nodePool, xiNodeRef);
     }
   }
 
   /**
-   *
+   * The tree through which this is a path.
    */
-  MCTSTree                      tree;
-  private List<TreePathElement> elements              = new ArrayList<>();
-  private int                   index                 = 0;
+  MCTSTree                      mTree;
+  private List<TreePathElement> mElements = new ArrayList<>();
+  private int                   mIndex    = 0;
 
   /**
    * Construct a new selection path
-   * @param theTree tree the path will be within
+   * @param xiTree tree the path will be within
    */
-  public TreePath(MCTSTree theTree)
+  public TreePath(MCTSTree xiTree)
   {
-    this.tree = theTree;
+    mTree = xiTree;
   }
 
   /**
@@ -121,8 +155,8 @@ public class TreePath
    */
   public void push(TreePathElement element)
   {
-    elements.add(element);
-    index++;
+    mElements.add(element);
+    mIndex++;
   }
 
   /**
@@ -130,7 +164,7 @@ public class TreePath
    */
   public void resetCursor()
   {
-    index = elements.size();
+    mIndex = mElements.size();
   }
 
   /**
@@ -139,7 +173,7 @@ public class TreePath
    */
   public boolean hasMore()
   {
-    return index > 0;
+    return mIndex > 0;
   }
 
   /**
@@ -150,14 +184,14 @@ public class TreePath
    */
   public TreeNode getNextNode()
   {
-    index--;
+    mIndex--;
     if (hasMore())
     {
-      TreePathElement element = elements.get(index - 1);
+      TreePathElement element = mElements.get(mIndex - 1);
       TreeNode node = element.getChildNode();
       return node;
     }
-    return tree.root;
+    return mTree.root;
   }
 
   /**
@@ -166,11 +200,11 @@ public class TreePath
    */
   public TreePathElement getCurrentElement()
   {
-    if (index == elements.size())
+    if (mIndex == mElements.size())
     {
       return null;
     }
-    return elements.get(index);
+    return mElements.get(mIndex);
   }
 
   /**
@@ -179,20 +213,32 @@ public class TreePath
    */
   public boolean isFreed()
   {
-    for(TreePathElement element : elements)
+    for(TreePathElement element : mElements)
     {
       TreeEdge edge = element.getEdge();
       //  In some cases the edge's child can have been freed and re-expanded so the edge
       //  points to a totally different node now than does the child!  This also indicates a
       //  freed path, but is probably a temporary problem which will be resolved when
       //  edges are removed from TreePathElement
-      if ( edge == null || edge.mChildRef == TreeNode.NULL_REF || TreeNode.get(tree.nodePool, edge.mChildRef) == null )
+      if ( edge == null || edge.mChildRef == TreeNode.NULL_REF || TreeNode.get(mTree.nodePool, edge.mChildRef) == null )
       {
         return true;
       }
     }
 
     return false;
+  }
+
+  /**
+   * Reset the tree path for re-use.
+   *
+   * @param xiTree - the tree that it will be used in.
+   */
+  public void reset(MCTSTree xiTree)
+  {
+    mTree = xiTree;
+    mElements.clear();
+    mIndex = 0;
   }
 
   /**

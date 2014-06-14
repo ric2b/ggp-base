@@ -12,6 +12,7 @@ import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeEdge.TreeEdgeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
+import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
@@ -56,6 +57,7 @@ public class MCTSTree
   final CappedPool<TreeNode>                           nodePool;
   final ScoreVectorPool                                scoreVectorPool;
   final Pool<TreeEdge>                                 edgePool;
+  final Pool<TreePath>                                 mPathPool;
   Map<ForwardDeadReckonInternalMachineState, TreeNode> positions                                   = new HashMap<>();
   int                                                  sweepInstance                               = 0;
   List<TreeNode>                                       completedNodeQueue                          = new LinkedList<>();
@@ -85,6 +87,7 @@ public class MCTSTree
   boolean                                              evaluateTerminalOnNodeCreation;
   private final TreeNodeAllocator                      mTreeNodeAllocator;
   final TreeEdgeAllocator                              mTreeEdgeAllocator;
+  private final TreePathAllocator                      mTreePathAllocator;
   final GameSearcher                                   mGameSearcher;
   final StateSimilarityMap                             mStateSimilarityMap;
 
@@ -102,29 +105,31 @@ public class MCTSTree
   final double[]                                      mCorrectedAverageScoresBuffer;
   final double[]                                      mBlendedCompletionScoreBuffer;
 
-  public MCTSTree(ForwardDeadReckonPropnetStateMachine stateMachine,
-                  Factor factor,
-                  CappedPool<TreeNode> nodePool,
-                  ScoreVectorPool scorePool,
-                  Pool<TreeEdge> edgePool,
-                  RoleOrdering roleOrdering,
-                  RolloutProcessorPool rolloutPool,
-                  RuntimeGameCharacteristics gameCharacateristics,
-                  Heuristic heuristic,
+  public MCTSTree(ForwardDeadReckonPropnetStateMachine xiStateMachine,
+                  Factor xiFactor,
+                  CappedPool<TreeNode> xiNodePool,
+                  ScoreVectorPool xiScorePool,
+                  Pool<TreeEdge> xiEdgePool,
+                  Pool<TreePath> xiPathPool,
+                  RoleOrdering xiRoleOrdering,
+                  RolloutProcessorPool xiRolloutPool,
+                  RuntimeGameCharacteristics xiGameCharacateristics,
+                  Heuristic xiHeuristic,
                   GameSearcher xiGameSearcher)
   {
-    underlyingStateMachine = stateMachine;
-    numRoles = stateMachine.getRoles().size();
-    mStateSimilarityMap = (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false) ? null : new StateSimilarityMap(stateMachine.getFullPropNet(), nodePool));
-    this.nodePool = nodePool;
-    scoreVectorPool = scorePool;
-    this.edgePool = edgePool;
-    this.factor = factor;
-    this.roleOrdering = roleOrdering;
-    this.mOurRole = roleOrdering.roleIndexToRole(0);
-    this.heuristic = heuristic;
-    this.gameCharacteristics = gameCharacateristics;
-    this.rolloutPool = rolloutPool;
+    underlyingStateMachine = xiStateMachine;
+    numRoles = xiStateMachine.getRoles().size();
+    mStateSimilarityMap = (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false) ? null : new StateSimilarityMap(xiStateMachine.getFullPropNet(), xiNodePool));
+    nodePool = xiNodePool;
+    scoreVectorPool = xiScorePool;
+    edgePool = xiEdgePool;
+    mPathPool = xiPathPool;
+    factor = xiFactor;
+    roleOrdering = xiRoleOrdering;
+    mOurRole = xiRoleOrdering.roleIndexToRole(0);
+    heuristic = xiHeuristic;
+    gameCharacteristics = xiGameCharacateristics;
+    rolloutPool = xiRolloutPool;
 
     evaluateTerminalOnNodeCreation = !gameCharacteristics.getIsFixedMoveCount();
 
@@ -132,6 +137,7 @@ public class MCTSTree
     completeSelectionFromIncompleteParentWarned = false;
     mTreeNodeAllocator = new TreeNodeAllocator(this);
     mTreeEdgeAllocator = new TreeEdgeAllocator();
+    mTreePathAllocator = new TreePathAllocator(this);
     mGameSearcher = xiGameSearcher;
 
     bonusBuffer = new double[numRoles];
@@ -142,7 +148,7 @@ public class MCTSTree
     //  scores
     for (int i = 0; i < numRoles; i++)
     {
-      if (gameCharacateristics.numRoles > 2)
+      if (xiGameCharacateristics.numRoles > 2)
       {
         roleRationality[i] = (i == 0 ? 1 : 0.8);
       }
@@ -403,16 +409,13 @@ public class MCTSTree
       //validateAll();
       completedNodeQueue.clear();
 
-      //List<TreeNode> visited = new LinkedList<TreeNode>();
-      TreePath visited = new TreePath(this);
+      TreePath visited = mPathPool.allocate(mTreePathAllocator);
       TreeNode cur = root;
       TreePathElement selected = null;
-      //visited.add(this);
       while (!cur.isUnexpanded())
       {
         selected = cur.select(visited, mJointMoveBuffer);
         cur = selected.getChildNode();
-        //visited.add(cur);
         visited.push(selected);
       }
 
@@ -426,7 +429,6 @@ public class MCTSTree
         {
           selected = cur.select(visited, mJointMoveBuffer);
           newNode = selected.getChildNode();
-          //visited.add(newNode);
           visited.push(selected);
 
           int autoExpansionDepth = 0;
@@ -478,11 +480,6 @@ public class MCTSTree
         //  from it so its value gets a weight increase via back propagation
         newNode = cur;
       }
-
-      //  Add a pseudo-edge that represents the link into the unexplored part of the tree
-      //visited.push(null);
-      //validateAll();
-      //LOGGER.warn("Rollout from: " + newNode.state);
 
       // Perform the rollout request.
       assert(!newNode.freed);

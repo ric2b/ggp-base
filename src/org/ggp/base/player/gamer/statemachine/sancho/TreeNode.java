@@ -49,7 +49,7 @@ public class TreeNode
    */
   public static class TreeNodeAllocator implements ObjectAllocator<TreeNode>
   {
-    private MCTSTree mTree;
+    private final MCTSTree mTree;
 
     /**
      * Create an allocator for nodes in the the specified MCTS tree.
@@ -130,7 +130,7 @@ public class TreeNode
   /**
    * Create a tree node.
    *
-   * @param tree        - the tree in which this node is to be found.
+   * @param mTree        - the tree in which this node is to be found.
    * @param xiPoolIndex - the index in the pool from which this node was allocated.
    */
   TreeNode(MCTSTree xiTree, int xiPoolIndex)
@@ -3135,6 +3135,7 @@ public class TreeNode
                   tree.mNodeAverageSquaredScores,
                   path,
                   true);
+      tree.mPathPool.free(path);
 
       return;
     }
@@ -3203,6 +3204,7 @@ public class TreeNode
                   lRequest.mAverageSquaredScores,
                   path,
                   true);
+      tree.mPathPool.free(path);
     }
   }
 

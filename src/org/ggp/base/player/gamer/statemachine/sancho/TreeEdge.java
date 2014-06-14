@@ -9,19 +9,10 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 public class TreeEdge
 {
   /**
-   * Utility class for allocating tree edges from a CappedPool.
+   * Utility class for allocating tree edges from a pool.
    */
   public static class TreeEdgeAllocator implements ObjectAllocator<TreeEdge>
   {
-    /**
-     * Create an allocator for nodes in the the specified MCTS tree.
-     *
-     * @param xiTree - the tree.
-     */
-    public TreeEdgeAllocator()
-    {
-    }
-
     @Override
     public TreeEdge newObject(int xiPoolIndex)
     {

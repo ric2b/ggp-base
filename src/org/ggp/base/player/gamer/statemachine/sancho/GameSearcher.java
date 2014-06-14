@@ -58,6 +58,7 @@ public class GameSearcher implements Runnable, ActivityController
   private GamePlan                        mPlan               = null;
   private final CappedPool<TreeNode>      mNodePool;
   private final Pool<TreeEdge>            mEdgePool;
+  private final UncappedPool<TreePath>    mPathPool;
   private final ScoreVectorPool           mScoreVectorPool;
   private RolloutProcessorPool            rolloutPool         = null;
   private double                          minExplorationBias  = 0.5;
@@ -114,12 +115,14 @@ public class GameSearcher implements Runnable, ActivityController
    * Create a game tree searcher with the specified maximum number of nodes.
    *
    * @param nodeTableSize - the maximum number of nodes.
+   * @param numRoles      - the number of roles in the game.
    * @param xiLogName     - the name of the log.
    */
   public GameSearcher(int nodeTableSize, int numRoles, String xiLogName)
   {
     mNodePool = new CappedPool<>(nodeTableSize);
     mEdgePool = new UncappedPool<>(nodeTableSize * 2);
+    mPathPool = new UncappedPool<>(PIPELINE_SIZE * 2);
     mScoreVectorPool = new ScoreVectorPool(nodeTableSize, numRoles);
     mLogName = xiLogName;
   }
@@ -188,6 +191,7 @@ public class GameSearcher implements Runnable, ActivityController
                                    mNodePool,
                                    mScoreVectorPool,
                                    mEdgePool,
+                                   mPathPool,
                                    roleOrdering,
                                    rolloutPool,
                                    gameCharacteristics,
@@ -203,6 +207,7 @@ public class GameSearcher implements Runnable, ActivityController
                                      mNodePool,
                                      mScoreVectorPool,
                                      mEdgePool,
+                                     mPathPool,
                                      roleOrdering,
                                      rolloutPool,
                                      gameCharacteristics,
@@ -742,6 +747,7 @@ public class GameSearcher implements Runnable, ActivityController
                             lRequest.mAverageSquaredScores,
                             lRequest.mPath,
                             false);
+          mPathPool.free(lRequest.mPath);
         }
       }
 
