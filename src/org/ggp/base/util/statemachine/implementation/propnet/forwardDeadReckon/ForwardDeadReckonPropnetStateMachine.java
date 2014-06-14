@@ -88,7 +88,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private Map<Role, Move[]>                                            legalPropositionMovesO          = null;
   private Map<Role, ForwardDeadReckonComponent[]>                      legalPropositions               = null;
   /** The player roles */
-  private int                                                          numRoles;
+  int                                                                  numRoles;
   private List<Role>                                                   roles;
   private ForwardDeadReckonInternalMachineState                        lastInternalSetStateX           = null;
   private ForwardDeadReckonInternalMachineState                        lastInternalSetStateO           = null;
@@ -120,9 +120,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public long                                                          totalNumPropagates              = 0;
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mPositiveGoalLatches      = null;
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mNegativeGoalLatches      = null;
-
-  // Temporary variables used to avoid excessive object allocation.
-  private int[]                                                        mNumAvailableGoals              = null;
 
   // A re-usable iterator over the propositions in a machine state.
   private final InternalMachineStateIterator                           mStateIterator = new InternalMachineStateIterator();
@@ -1065,7 +1062,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   {
     maxInstances = xiMaxInstances;
     metagameTimeout = xiMetaGameTimeout;
-    mNumAvailableGoals = new int[numRoles];
   }
 
   private ForwardDeadReckonPropnetStateMachine(ForwardDeadReckonPropnetStateMachine master, int instanceId)
@@ -1100,6 +1096,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     stateBufferO1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
     stateBufferO2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
 
+    for(int i = 0; i < rolloutDecisionStack.length; i++)
+    {
+      rolloutDecisionStack[i] = new RolloutDecisionState();
+    }
+
     moveProps = new ForwardDeadReckonProposition[numRoles];
     chosenJointMoveProps = new ForwardDeadReckonProposition[numRoles];
     chosenMoves = new Move[numRoles];
@@ -1107,7 +1108,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     previouslyChosenJointMovePropsO = new ForwardDeadReckonProposition[numRoles];
     previouslyChosenJointMovePropIdsX = new int[numRoles];
     previouslyChosenJointMovePropIdsO = new int[numRoles];
-    mNumAvailableGoals                = new int[numRoles];
 
     stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(),
                                              fullPropNet.getInputPropositions().size(),
@@ -1281,6 +1281,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
       stateBufferO1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
       stateBufferO2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+
+      for(int i = 0; i < rolloutDecisionStack.length; i++)
+      {
+        rolloutDecisionStack[i] = new RolloutDecisionState();
+      }
 
       fullPropNet.reset(false);
       fullPropNet.setProposition(0, (ForwardDeadReckonProposition)fullPropNet.getInitProposition(), true);
@@ -1547,10 +1552,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       setupAllMovesArrayFromList(allMoves);
 
-      stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
-      stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
-      stateBufferO1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
-      stateBufferO2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+//      stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+//      stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+//      stateBufferO1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+//      stateBufferO2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
 
       propNetX.reset(true);
       propNetO.reset(true);
@@ -2696,15 +2701,47 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private class RolloutDecisionState
   {
+    public RolloutDecisionState()
+    {
+      // TODO Auto-generated constructor stub
+    }
+
+    //  The following arrays may be null or point to a pre-allocated buffers
     public ForwardDeadReckonLegalMoveInfo[] chooserMoves;
-    public ForwardDeadReckonProposition[]   nonChooserProps;
+    public boolean[]                        propProcessed;
+    public int                              numChoices;
+    //  The following are pre-allocated buffers used repeatedly to avoid GC
+    //  It is expanded as necessary but never shrunk
+    private ForwardDeadReckonLegalMoveInfo[] chooserMovesBuffer;
+    private boolean[]                       propProcessedBuffer;
+    public final ForwardDeadReckonProposition[]   nonChooserProps = new ForwardDeadReckonProposition[numRoles];
     public int                              chooserIndex;
     public int                              baseChoiceIndex;
     public int                              nextChoiceIndex;
     public int                              rolloutSeq;
-    ForwardDeadReckonInternalMachineState   state;
+    final ForwardDeadReckonInternalMachineState   state = new ForwardDeadReckonInternalMachineState(getInfoSet());
     Role                                    choosingRole;
-    public boolean[]                        propProcessed;
+
+    void  clearMoveChoices()
+    {
+      numChoices = -1;
+      chooserMoves = null;
+      propProcessed = null;
+    }
+
+    void  setNumMoveChoices(int numMoveChoices)
+    {
+      if ( chooserMovesBuffer == null || chooserMovesBuffer.length < numMoveChoices )
+      {
+        //  Allow extra so we don't have to repeatedly expand
+        chooserMovesBuffer = new ForwardDeadReckonLegalMoveInfo[numMoveChoices*2];
+        propProcessedBuffer = new boolean[numMoveChoices*2];
+      }
+
+      numChoices = numMoveChoices;
+      chooserMoves = chooserMovesBuffer;
+      propProcessed = propProcessedBuffer;
+    }
   }
 
   private class TerminalResultSet
@@ -2737,7 +2774,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   }
 
   private final int              maxGameLength        = 500;                                    //	C4 larger up to 400 is largest seen
-  private RolloutDecisionState[] rolloutDecisionStack = new RolloutDecisionState[maxGameLength];
+  private final RolloutDecisionState[] rolloutDecisionStack = new RolloutDecisionState[maxGameLength];
   private int                    rolloutStackDepth;
   private int                    rolloutSeq           = 0;
 
@@ -2909,16 +2946,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     int maxChoices = 0;
     ForwardDeadReckonLegalMoveInfo choicelessMoveInfo = null;
 
-    if (rolloutDecisionStack[rolloutStackDepth] == null)
-    {
-      rolloutDecisionStack[rolloutStackDepth] = new RolloutDecisionState();
-      rolloutDecisionStack[rolloutStackDepth].nonChooserProps = new ForwardDeadReckonProposition[numRoles];
-    }
     RolloutDecisionState decisionState = rolloutDecisionStack[rolloutStackDepth];
     if (decisionState.rolloutSeq != rolloutSeq)
     {
       decisionState.rolloutSeq = rolloutSeq;
-      decisionState.chooserMoves = null;
+      decisionState.clearMoveChoices();
     }
 
     if (decisionState.chooserMoves == null)
@@ -2956,13 +2988,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             if (!simultaneousMove)
             {
               decisionState.choosingRole = role;
-              decisionState.chooserMoves = new ForwardDeadReckonLegalMoveInfo[numChoices];
-              decisionState.propProcessed = new boolean[numChoices];
+              decisionState.setNumMoveChoices(numChoices);
             }
           }
           else
           {
-            int rand = getRandom(decisionState.chooserMoves.length);
+            int rand = getRandom(decisionState.numChoices);
 
             ForwardDeadReckonLegalMoveInfo info = decisionState.chooserMoves[rand];
             chosenJointMoveProps[decisionState.chooserIndex] = info.inputProposition;
@@ -2972,8 +3003,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             }
 
             decisionState.choosingRole = null;
-            decisionState.chooserMoves = null;
-            decisionState.propProcessed = null;
+            decisionState.clearMoveChoices();
             simultaneousMove = true;
           }
         }
@@ -3043,10 +3073,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         double total = 0;
 
-        decisionState.state = new ForwardDeadReckonInternalMachineState(lastInternalSetState);
+        decisionState.state.copy(lastInternalSetState);
 
-        for (ForwardDeadReckonLegalMoveInfo chooserMove : decisionState.chooserMoves)
+        for (int i = 0; i < decisionState.numChoices; i++)
         {
+          ForwardDeadReckonLegalMoveInfo chooserMove = decisionState.chooserMoves[i];
           if (moveWeights != null)
           {
             total += moveWeights.weightScore[chooserMove.globalMoveIndex];
@@ -3065,14 +3096,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
         if (moveWeights == null)
         {
-          decisionState.baseChoiceIndex = getRandom(decisionState.chooserMoves.length);
+          decisionState.baseChoiceIndex = getRandom(decisionState.numChoices);
         }
         else
         {
           total = getRandom((int)total);
         }
 
-        for (int i = 0; i < decisionState.chooserMoves.length; i++)
+        for (int i = 0; i < decisionState.numChoices; i++)
         {
           decisionState.propProcessed[i] = false;
           if (decisionState.baseChoiceIndex == -1)
@@ -3104,11 +3135,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       //	If we're given a hint move to check for a win do that first
       //	the first time we look at this node
-      if (hintMoveProp != null && decisionState.chooserMoves.length > 1)
+      if (hintMoveProp != null && decisionState.numChoices > 1)
       {
         if (decisionState.baseChoiceIndex == choiceIndex)
         {
-          for (int i = 0; i < decisionState.chooserMoves.length; i++)
+          for (int i = 0; i < decisionState.numChoices; i++)
           {
             if (decisionState.chooserMoves[i].inputProposition == hintMoveProp)
             {
@@ -3153,14 +3184,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //	First time we visit the node try them all.  After that if we're asked to reconsider
       //	just take the next one from the last one we chose
       int remainingMoves = (decisionState.baseChoiceIndex == choiceIndex &&
-                            preEnumerate ? decisionState.chooserMoves.length
+                            preEnumerate ? decisionState.numChoices
                                         : 1);
       int choice = -1;
       int lastTransitionChoice = -1;
 
       for (int i = remainingMoves-1; i >= 0; i--)
       {
-        choice = (i + choiceIndex) % decisionState.chooserMoves.length;
+        choice = (i + choiceIndex) % decisionState.numChoices;
 
         //	Don't re-process the hint move that we looked at first unless this is the specific requested
         //  move
@@ -3237,7 +3268,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       do
       {
         decisionState.nextChoiceIndex = (decisionState.nextChoiceIndex + 1) %
-                                        decisionState.chooserMoves.length;
+                                        decisionState.numChoices;
         if (!decisionState.propProcessed[decisionState.nextChoiceIndex] ||
             decisionState.nextChoiceIndex == decisionState.baseChoiceIndex)
         {
@@ -3248,8 +3279,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       if (preEnumerate && numTerminals > 0)
       {
-        greedyRolloutEffectiveness += (decisionState.chooserMoves.length - numTerminals) /
-                                      decisionState.chooserMoves.length;
+        greedyRolloutEffectiveness += (decisionState.numChoices - numTerminals) /
+                                      decisionState.numChoices;
       }
       //System.out.println("Transition move was: " + chosenJointMoveProps[0]);
       //System.out.println("State: " + mungedState(lastInternalSetState));
