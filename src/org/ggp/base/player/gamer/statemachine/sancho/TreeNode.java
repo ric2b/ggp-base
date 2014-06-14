@@ -1794,8 +1794,6 @@ public class TreeNode
       {
         Role choosingRole = tree.roleOrdering.roleIndexToRole(roleIndex);
         int topMoveWeight = 0;
-        final int numTopMoveCandidates = 4;
-        ForwardDeadReckonLegalMoveInfo[] topMoveCandidates = (USE_STATE_SIMILARITY_IN_EXPANSION ? new ForwardDeadReckonLegalMoveInfo[numTopMoveCandidates] : null);
 
         //validateAll();
 
@@ -1812,7 +1810,7 @@ public class TreeNode
         {
           if (children.length > 1)
           {
-            topMoveWeight = tree.mStateSimilarityMap.getTopMoves(state, jointPartialMove, topMoveCandidates);
+            topMoveWeight = tree.mStateSimilarityMap.getTopMoves(state, jointPartialMove, tree.mNodeTopMoveCandidates);
           }
         }
 
@@ -1914,9 +1912,9 @@ public class TreeNode
               TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
               if (edge == null || !get(edge.mChildRef).isTerminal)
               {
-                for (int i = 0; i < topMoveCandidates.length; i++)
+                for (int i = 0; i < tree.mNodeTopMoveCandidates.length; i++)
                 {
-                  ForwardDeadReckonLegalMoveInfo moveCandidate = topMoveCandidates[i];
+                  ForwardDeadReckonLegalMoveInfo moveCandidate = tree.mNodeTopMoveCandidates[i];
                   if (choice == moveCandidate || (edge != null && edge.partialMove == moveCandidate))
                   {
                     if (edge == null)
@@ -1925,7 +1923,8 @@ public class TreeNode
                       edge.partialMove = moveCandidate;
                       children[lMoveIndex] = edge;
                     }
-                    edge.explorationAmplifier = (topMoveWeight*(topMoveCandidates.length + 1 - i)*2)/(topMoveCandidates.length+1);
+                    edge.explorationAmplifier = (topMoveWeight * (tree.mNodeTopMoveCandidates.length + 1 - i)*2) /
+                                                (tree.mNodeTopMoveCandidates.length + 1);
                     break;
                   }
                 }

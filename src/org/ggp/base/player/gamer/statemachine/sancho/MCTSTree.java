@@ -43,6 +43,7 @@ public class MCTSTree
   public static final boolean                          DISABLE_ONE_LEVEL_MINIMAX                   = true;
   private static final boolean                         SUPPORT_TRANSITIONS                         = true;
   public static final int                              MAX_SUPPORTED_BRANCHING_FACTOR              = 100;
+  private static final int                             NUM_TOP_MOVE_CANDIDATES                     = 4;
 
   /**
    * For reasons not well understood, allowing select() to select complete children and propagate
@@ -99,6 +100,7 @@ public class MCTSTree
   final double[]                                      mNodeAverageScores;
   final double[]                                      mNodeAverageSquaredScores;
   final RolloutRequest                                mNodeSynchronousRequest;
+  final ForwardDeadReckonLegalMoveInfo[]              mNodeTopMoveCandidates;
   final ForwardDeadReckonInternalMachineState[]       mChildStatesBuffer;
   final ForwardDeadReckonInternalMachineState         mNextStateBuffer;
   final ForwardDeadReckonLegalMoveInfo[]              mJointMoveBuffer;
@@ -164,6 +166,7 @@ public class MCTSTree
     mNodeAverageScores            = new double[numRoles];
     mNodeAverageSquaredScores     = new double[numRoles];
     mNodeSynchronousRequest       = new RolloutRequest(numRoles, underlyingStateMachine);
+    mNodeTopMoveCandidates        = new ForwardDeadReckonLegalMoveInfo[NUM_TOP_MOVE_CANDIDATES];
     mCorrectedAverageScoresBuffer = new double[numRoles];
     mJointMoveBuffer              = new ForwardDeadReckonLegalMoveInfo[numRoles];
     mBlendedCompletionScoreBuffer = new double[numRoles];
