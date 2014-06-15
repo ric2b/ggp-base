@@ -543,6 +543,7 @@ public class Sancho extends SampleGamer
       averageBranchingFactor = (averageBranchingFactor *
                                 (simulationsPerformed - 1) + rolloutStats[1]) /
                                simulationsPerformed;
+      gameCharacteristics.getChoicesHighWaterMark(rolloutStats[1]);
 
       //LOGGER.debug("Saw score of ", netScore);
       if (netScore < observedMinNetScore)
@@ -560,7 +561,8 @@ public class Sancho extends SampleGamer
     heuristic.tuningComplete();
 
     LOGGER.info("branchingFactorApproximation = " + branchingFactorApproximation +
-                ", averageBranchingFactor = " + averageBranchingFactor);
+                ", averageBranchingFactor = " + averageBranchingFactor +
+                ", choices high water mark = " + gameCharacteristics.getChoicesHighWaterMark(0));
     //	Massive hack - assume that a game longer than 30 turns is not really an iterated game unless it's of fixed length
     if (gameCharacteristics.isIteratedGame &&
         (Math.abs(branchingFactorApproximation - averageBranchingFactor) > 0.1 || (maxNumTurns > 30 && maxNumTurns != minNumTurns)))
@@ -580,8 +582,7 @@ public class Sancho extends SampleGamer
     double stdDevNumTurns = Math.sqrt(averageSquaredNumTurns -
                                       averageNumTurns * averageNumTurns);
 
-    LOGGER.info("Range of lengths of sample games seen: [" +
-                minNumTurns + "," + maxNumTurns + "], branching factor: " + averageBranchingFactor);
+    LOGGER.info("Range of lengths of sample games seen: [" + minNumTurns + "," + maxNumTurns + "]");
     LOGGER.info("Average num turns: " + averageNumTurns);
     LOGGER.info("Std deviation num turns: " + stdDevNumTurns);
 

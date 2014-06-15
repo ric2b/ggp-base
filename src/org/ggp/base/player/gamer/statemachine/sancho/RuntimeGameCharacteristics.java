@@ -18,6 +18,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private double                                               explorationBias                             = 1.0;
   private double                                               mExactRolloutSampleSize                     = 4;
   private volatile int                                         mRolloutSampleSize;
+  private int                                                  mMaxObservedChoices;
   final double                                                 competitivenessBonus                        = 2;
   private boolean                                              isFixedMoveCount                            = false;
   private int                                                  earliestCompletion                          = 0;
@@ -96,5 +97,19 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   public int getEarliestCompletionDepth()
   {
     return earliestCompletion;
+  }
+
+  /**
+   * @param xiNumChoices - the number of choices just observed.
+   *
+   * @return the maximum number of choices that any role has been observed to have.
+   */
+  public int getChoicesHighWaterMark(int xiNumChoices)
+  {
+    if (xiNumChoices > mMaxObservedChoices)
+    {
+      mMaxObservedChoices = xiNumChoices;
+    }
+    return mMaxObservedChoices;
   }
 }
