@@ -42,7 +42,7 @@ public class MCTSTree
   public static final boolean                          FREE_COMPLETED_NODE_CHILDREN                = true;                                                          //true;
   public static final boolean                          DISABLE_ONE_LEVEL_MINIMAX                   = true;
   private static final boolean                         SUPPORT_TRANSITIONS                         = true;
-  public static final int                              MAX_SUPPORTED_BRANCHING_FACTOR              = 100;
+  public static final int                              MAX_SUPPORTED_BRANCHING_FACTOR              = 300;
   private static final int                             NUM_TOP_MOVE_CANDIDATES                     = 4;
 
   /**
