@@ -16,6 +16,7 @@ import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
+import org.ggp.base.player.gamer.statemachine.sancho.TreePath;
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.profile.ProfileSection;
@@ -2773,8 +2774,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     public TerminalResultVector resultVector;
   }
 
-  private final int              maxGameLength        = 500;                                    //	C4 larger up to 400 is largest seen
-  private final RolloutDecisionState[] rolloutDecisionStack = new RolloutDecisionState[maxGameLength];
+  private final RolloutDecisionState[] rolloutDecisionStack = new RolloutDecisionState[TreePath.MAX_PATH_LEN];
   private int                    rolloutStackDepth;
   private int                    rolloutSeq           = 0;
 

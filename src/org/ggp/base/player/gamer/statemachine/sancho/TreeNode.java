@@ -1310,7 +1310,7 @@ public class TreeNode
       // LOGGER.debug("    Freeing (" + ourIndex + "): " + state);
       freed = true;
       tree.nodePool.free(this);
-      mRef += 0x100000000L; // !! ARR Shouldn't be needed - we shouldn't be looking at nodes with "freed" set.
+      mRef += 0x100000000L;
       //validateAll();
     }
     finally

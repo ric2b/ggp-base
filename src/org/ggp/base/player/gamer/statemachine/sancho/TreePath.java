@@ -7,7 +7,11 @@ import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool.ObjectAllocator;
  */
 public class TreePath
 {
-  private static final int MAX_PATH_LEN = 1000;
+  /**
+   * The maximum possible path length.  Game of "Connect 4 Larger" could run to 400.  We'll give a bit of room for
+   * bigger games.
+   */
+  public static final int MAX_PATH_LEN = 512;
 
   /**
    * Utility class for allocating tree paths from a pool.
