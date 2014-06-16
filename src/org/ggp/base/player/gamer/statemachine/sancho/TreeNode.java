@@ -432,6 +432,10 @@ public class TreeNode
             (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == 0 || hasSiblinglessParents()))
         {
           decidingRoleWin = true;
+          if ( tree.numRoles == 1 )
+          {
+            mutualWin = false;
+          }
         }
       }
       else
