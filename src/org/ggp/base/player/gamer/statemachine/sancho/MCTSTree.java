@@ -77,7 +77,6 @@ public class MCTSTree
   int                                                  maxAutoExpansionDepth                       = 0;
   double                                               averageAutoExpansionDepth                   = 0;
   boolean                                              completeSelectionFromIncompleteParentWarned = false;
-  int                                                  numSelectionsThroughIncompleteNodes         = 0;
   int                                                  numReExpansions                             = 0;
   Heuristic                                            heuristic;
   final RoleOrdering                                   roleOrdering;
@@ -349,7 +348,6 @@ public class MCTSTree
     LOGGER.info("Num true rollouts added: " + numNonTerminalRollouts);
     LOGGER.info("Num terminal nodes revisited: " + numTerminalRollouts);
     LOGGER.info("Num incomplete nodes: " + numIncompleteNodes);
-    LOGGER.info("Num selections through incomplete nodes: " + numSelectionsThroughIncompleteNodes);
     LOGGER.info("Num node re-expansions: " + numReExpansions);
     LOGGER.info("Num completely explored branches: " + numCompletedBranches);
     if (numAutoExpansions + numNormalExpansions > 0)
@@ -363,7 +361,6 @@ public class MCTSTree
                 mGameSearcher.lowestRolloutScoreSeen + ", " +
                 mGameSearcher.highestRolloutScoreSeen + "]");
 
-    numSelectionsThroughIncompleteNodes = 0;
     numReExpansions = 0;
     numNonTerminalRollouts = 0;
     numTerminalRollouts = 0;
@@ -425,7 +422,7 @@ public class MCTSTree
       if (!cur.complete)
       {
         //  Expand for each role so we're back to our-move as we always rollout after joint moves
-        cur.expand(mJointMoveBuffer);
+        cur.expand(selected, mJointMoveBuffer);
 
         if (!cur.complete)
         {
@@ -445,7 +442,7 @@ public class MCTSTree
             //  to do another
             if (newNode.isUnexpanded())
             {
-              newNode.expand(mJointMoveBuffer);
+              newNode.expand(selected, mJointMoveBuffer);
             }
             if (!newNode.complete)
             {
