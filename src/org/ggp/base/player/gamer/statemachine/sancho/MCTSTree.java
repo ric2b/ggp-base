@@ -90,6 +90,7 @@ public class MCTSTree
   private final TreePathAllocator                      mTreePathAllocator;
   final GameSearcher                                   mGameSearcher;
   final StateSimilarityMap                             mStateSimilarityMap;
+  private final ForwardDeadReckonInternalMachineState  mNonFactorInitialState;
 
   // Scratch variables for tree nodes to use to avoid unnecessary object allocation.
   // Note - several of these could probably be collapsed into a lesser number since they are not
@@ -131,6 +132,16 @@ public class MCTSTree
     heuristic = xiHeuristic;
     gameCharacteristics = xiGameCharacateristics;
     rolloutPool = xiRolloutPool;
+
+    if ( xiFactor != null )
+    {
+      mNonFactorInitialState = xiStateMachine.createInternalState(xiStateMachine.getInitialState());
+      mNonFactorInitialState.intersect(xiFactor.getInverseStateMask(false));
+    }
+    else
+    {
+      mNonFactorInitialState = null;
+    }
 
     evaluateTerminalOnNodeCreation = !gameCharacteristics.getIsFixedMoveCount();
 
@@ -270,6 +281,9 @@ public class MCTSTree
     {
       factorState = new ForwardDeadReckonInternalMachineState(state);
       factorState.intersect(factor.getStateMask(false));
+      //  Set the rest of the state to 'neutral' values.  We use the initial state
+      //  as this is guaranteed to be legal and non-terminal
+      factorState.merge(mNonFactorInitialState);
     }
 
     if (root == null)
