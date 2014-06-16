@@ -3969,6 +3969,13 @@ public class OptimizingPolymorphicPropNetFactory
     {
       int numInvertedInputs = 0;
 
+      //  Special case - don't refactor ORs leading directly into the
+      //  terminal prop or we'll screw up factor analysis!
+      if ( c instanceof PolymorphicOr && c.getOutputs().contains(pn.getTerminalProposition()))
+      {
+        continue;
+      }
+
       for (PolymorphicComponent input : c.getInputs())
       {
         if (input instanceof PolymorphicNot)
