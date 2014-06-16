@@ -1595,11 +1595,18 @@ public class OptimizingPolymorphicPropNetFactory
       }
     }
 
-    for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
+    //  For puzzles any moves that do not impact state on which the goals or terminality
+    //  depend are irrelevant.  However, for non-puzzles we need to preserve them as they
+    //  provide a possible source of pseudo-noops that could potentially result in
+    //  Zugzwang in a multi-player game.  Hence explicitly preserve legals in non-puzzles
+    if ( pn.getRoles().size() > 1 )
     {
-      for( PolymorphicProposition c : legals)
+      for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
       {
-        recursiveFindReachable(pn, c, reachableComponents);
+        for( PolymorphicProposition c : legals)
+        {
+          recursiveFindReachable(pn, c, reachableComponents);
+        }
       }
     }
 
@@ -1629,6 +1636,20 @@ public class OptimizingPolymorphicPropNetFactory
       else if ( !reachableComponents.contains(c) )
       {
         unreachable.add(c);
+      }
+    }
+
+    if ( pn.getRoles().size() > 1 )
+    {
+      for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
+      {
+        for( PolymorphicProposition c : legals)
+        {
+          if ( !reachableComponents.contains(c))
+          {
+            unreachable.add(c);
+          }
+        }
       }
     }
 
