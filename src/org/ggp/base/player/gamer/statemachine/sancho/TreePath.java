@@ -285,7 +285,8 @@ public class TreePath
   }
 
   /**
-   * @return whether the path through the tree is still valid.
+   * @return whether the path through the tree is still valid.  For use in asserts only.  Production code should call
+   * isFreed().
    */
   public boolean isValid()
   {
