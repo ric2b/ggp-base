@@ -307,7 +307,7 @@ public class MCTSTree
     }
     //validateAll();
 
-    if (root.complete && root.children == null)
+    if (root.complete && root.mNumChildren == 0)
     {
       LOGGER.info("Encountered complete root with trimmed children - must re-expand");
       root.complete = false;

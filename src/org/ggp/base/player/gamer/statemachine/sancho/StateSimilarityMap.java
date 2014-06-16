@@ -156,14 +156,15 @@ public class StateSimilarityMap
 
     while(index < partialJointMove.length && partialJointMove[index] != null)
     {
-      if ( moveRoot.children == null )
+      if (moveRoot.mNumChildren == 0)
       {
         return null;
       }
 
       boolean childFound = false;
-      for(Object child : moveRoot.children)
+      for (int lii = 0; lii < moveRoot.mNumChildren; lii++)
       {
+        Object child = moveRoot.children[lii];
         ForwardDeadReckonLegalMoveInfo targetPartialMove = partialJointMove[index];
         TreeEdge childEdge = (child instanceof TreeEdge ? (TreeEdge)child : null);
         if ( child == targetPartialMove || (childEdge != null && childEdge.mPartialMove == targetPartialMove))
@@ -173,7 +174,7 @@ public class StateSimilarityMap
           if (childEdge != null &&
               childEdge.mChildRef != TreeNode.NULL_REF &&
               getNode(childEdge.mChildRef) != null &&
-              getNode(childEdge.mChildRef).children != null)
+              getNode(childEdge.mChildRef).mNumChildren != 0)
           {
             result = getNode(childEdge.mChildRef);
             moveRoot = result;
@@ -239,10 +240,11 @@ public class StateSimilarityMap
             double weight = distanceWeight*distanceWeight*Math.log10(lNode.numVisits + 1);
 
             TreeNode node = getJointMoveParent(lNode, partialJointMove);
-            if ( node != null && node.children != null )
+            if (node != null && node.mNumChildren != 0)
             {
-              for(Object child : node.children)
+              for (int lii = 0; lii < node.mNumChildren; lii++)
               {
+                Object child = node.children[lii];
                 TreeEdge childEdge = (child instanceof TreeEdge ? (TreeEdge)child : null);
                 if ( childEdge != null &&
                      childEdge.mChildRef != TreeNode.NULL_REF &&
