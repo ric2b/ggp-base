@@ -685,7 +685,7 @@ public class TreeNode
                   TreeNode nephew = get(nephewEdge.mChildRef);
                   if (nephew != null)
                   {
-                    if (moves.contains(nephewEdge.partialMove.move))
+                    if (moves.contains(nephewEdge.mPartialMove.move))
                     {
                       if (nephew.getAverageScore(roleIndex) > thisMoveScore)
                       {
@@ -750,7 +750,7 @@ public class TreeNode
             {
               Object nephewChoice = child.children[nephewIndex];
               TreeEdge nephewEdge = (nephewChoice instanceof TreeEdge ? (TreeEdge)nephewChoice : null);
-              ForwardDeadReckonLegalMoveInfo nephewMove = (nephewEdge == null ? (ForwardDeadReckonLegalMoveInfo)nephewChoice : nephewEdge.partialMove);
+              ForwardDeadReckonLegalMoveInfo nephewMove = (nephewEdge == null ? (ForwardDeadReckonLegalMoveInfo)nephewChoice : nephewEdge.mPartialMove);
 
               if (move == nephewMove.move)
               {
@@ -886,7 +886,7 @@ public class TreeNode
 
                         if ( primaryChoiceMapping == null )
                         {
-                          equivalentMoves.add(edge.partialMove.move);
+                          equivalentMoves.add(edge.mPartialMove.move);
                         }
                         else
                         {
@@ -897,7 +897,7 @@ public class TreeNode
                               if ( siblingIndex == index )
                               {
                                 assert(children[siblingIndex] instanceof TreeEdge);
-                                equivalentMoves.add(((TreeEdge)children[siblingIndex]).partialMove.move);
+                                equivalentMoves.add(((TreeEdge)children[siblingIndex]).mPartialMove.move);
                               }
                               else
                               {
@@ -938,7 +938,7 @@ public class TreeNode
                   if ( siblingIndex == index || (primaryChoiceMapping != null && primaryChoiceMapping[siblingIndex] == index) )
                   {
                     Object siblingChoice = children[siblingIndex];
-                    ForwardDeadReckonLegalMoveInfo siblingMove = (siblingChoice instanceof ForwardDeadReckonLegalMoveInfo) ? (ForwardDeadReckonLegalMoveInfo)siblingChoice : ((TreeEdge)siblingChoice).partialMove;
+                    ForwardDeadReckonLegalMoveInfo siblingMove = (siblingChoice instanceof ForwardDeadReckonLegalMoveInfo) ? (ForwardDeadReckonLegalMoveInfo)siblingChoice : ((TreeEdge)siblingChoice).mPartialMove;
                     TreeNode moveFloorNode = worstCompleteCousin(siblingMove.move, roleIndex);
 
                     if (moveFloorNode != null)
@@ -1368,7 +1368,7 @@ public class TreeNode
     TreeEdge lEdge = (TreeEdge)children[xiChildIndex];
 
     // Replace the edge with its move (so that it can be re-expanded later if required).
-    children[xiChildIndex] = lEdge.partialMove;
+    children[xiChildIndex] = lEdge.mPartialMove;
 
     // Return the edge to the pool.
     tree.edgePool.free(lEdge);
@@ -1763,7 +1763,7 @@ public class TreeNode
     TreeNode newChild = tree.allocateNode(newState, this, isPseudoNullMove);
 
     assert(!newChild.freed);
-    edge.mChildRef = newChild.getRef();
+    edge.setChild(newChild);
 
     newChild.decidingRoleIndex = roleIndex;
     newChild.depth = (short)(depth + 1);
@@ -1915,9 +1915,9 @@ public class TreeNode
               if (info.isTerminal || info.autoExpand)
               {
                 TreeEdge newEdge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-                newEdge.partialMove = (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex];
+                newEdge.setParent(this, (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex]);
                 children[lMoveIndex] = newEdge;
-                jointPartialMove[roleIndex] = newEdge.partialMove;
+                jointPartialMove[roleIndex] = newEdge.mPartialMove;
                 createChildNodeForEdge(newEdge, jointPartialMove);
 
                 TreeNode newChild = get(newEdge.mChildRef);
@@ -1945,12 +1945,12 @@ public class TreeNode
                 for (int i = 0; i < tree.mNodeTopMoveCandidates.length; i++)
                 {
                   ForwardDeadReckonLegalMoveInfo moveCandidate = tree.mNodeTopMoveCandidates[i];
-                  if (choice == moveCandidate || (edge != null && edge.partialMove == moveCandidate))
+                  if (choice == moveCandidate || (edge != null && edge.mPartialMove == moveCandidate))
                   {
                     if (edge == null)
                     {
                       edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-                      edge.partialMove = moveCandidate;
+                      edge.setParent(this, moveCandidate);
                       children[lMoveIndex] = edge;
                     }
                     edge.explorationAmplifier = (topMoveWeight * (tree.mNodeTopMoveCandidates.length + 1 - i)*2) /
@@ -2007,9 +2007,9 @@ public class TreeNode
                   else
                   {
                     edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-                    edge.partialMove = (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex];
+                    edge.setParent(this, (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex]);
                     children[lMoveIndex] = edge;
-                    jointPartialMove[roleIndex] = edge.partialMove;
+                    jointPartialMove[roleIndex] = edge.mPartialMove;
                   }
 
                   if ( edge.mChildRef == NULL_REF )
@@ -2198,7 +2198,7 @@ public class TreeNode
                   TreeNode nephew = get(nephewEdge.mChildRef);
                   if (nephew != null)
                   {
-                    Move move = nephewEdge.partialMove.move;
+                    Move move = nephewEdge.mPartialMove.move;
                     MoveScoreInfo accumulatedMoveInfo = tree.cousinMoveCache.get(move);
                     if (accumulatedMoveInfo == null)
                     {
@@ -2219,7 +2219,7 @@ public class TreeNode
       }
     }
 
-    MoveScoreInfo accumulatedMoveInfo = tree.cousinMoveCache.get(relativeTo.partialMove.move);
+    MoveScoreInfo accumulatedMoveInfo = tree.cousinMoveCache.get(relativeTo.mPartialMove.move);
     if (accumulatedMoveInfo == null)
     {
       LOGGER.warn("No newphews found for search move including own child!");
@@ -2236,7 +2236,7 @@ public class TreeNode
     //  root aas much as the best scoring node as there is a 50-50 chance we'll need to pass
     //  on this factor (well strictly (#factors-1)/#factors but 1:1 is good
     //  enough), so we need good estimates on the score for the pseudo-noop
-    if (inboundEdge.partialMove.isPseudoNoOp && this == tree.root)
+    if (inboundEdge.mPartialMove.isPseudoNoOp && this == tree.root)
     {
       double bestChildScore = 0;
 
@@ -2322,7 +2322,7 @@ public class TreeNode
           else
           {
             edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-            edge.partialMove = (ForwardDeadReckonLegalMoveInfo)choice;
+            edge.setParent(this, (ForwardDeadReckonLegalMoveInfo)choice);
             children[mostLikelyWinner] = edge;
           }
           long cr = edge.mChildRef;
@@ -2385,7 +2385,7 @@ public class TreeNode
                 //  except from the root since we just want to know the difference in cost or omitting one
                 //  move (at root level) if we play in another factor
                 if ((!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2)) &&
-                         (tree.root == this || !edge.partialMove.isPseudoNoOp))
+                         (tree.root == this || !edge.mPartialMove.isPseudoNoOp))
                 {
                   if (edge.numChildVisits == 0)
                   {
@@ -2496,10 +2496,10 @@ public class TreeNode
           }
           assert(children[selectedIndex] instanceof TreeEdge);
           chosenEdge = (TreeEdge)children[selectedIndex];
-        } while(tree.root != this && chosenEdge.partialMove.isPseudoNoOp);
+        } while(tree.root != this && chosenEdge.mPartialMove.isPseudoNoOp);
 
         assert(get(chosenEdge.mChildRef) != null);
-        assert(chosenEdge.partialMove.isPseudoNoOp || get(chosenEdge.mChildRef).complete);
+        assert(chosenEdge.mPartialMove.isPseudoNoOp || get(chosenEdge.mChildRef).complete);
       }
     }
     assert(selectedIndex != -1);
@@ -2516,11 +2516,11 @@ public class TreeNode
     else
     {
       selected = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-      selected.partialMove = (ForwardDeadReckonLegalMoveInfo)choice;
+      selected.setParent(this, (ForwardDeadReckonLegalMoveInfo)choice);
       children[selectedIndex] = selected;
     }
 
-    jointPartialMove[roleIndex] = selected.partialMove;
+    jointPartialMove[roleIndex] = selected.mPartialMove;
     if (selected.mChildRef == NULL_REF)
     {
       createChildNodeForEdge(selected, jointPartialMove);
@@ -2659,7 +2659,7 @@ public class TreeNode
           {
             TreeNode lNode2 = get(edge2.mChildRef);
             String lLog = "    Response " +
-                          edge2.partialMove.move +
+                          edge2.mPartialMove.move +
                           " scores " + lNode2.stringizeScoreVector() +
                           ", visits " + lNode2.numVisits +
                           ", ref : " + lNode2.mRef +
@@ -2693,7 +2693,7 @@ public class TreeNode
               }
               else
               {
-                String lLog = "    Response " + edge2.partialMove.move + " trimmed";
+                String lLog = "    Response " + edge2.mPartialMove.move + " trimmed";
 
                 if (xiResponsesTraced < 400)
                 {
@@ -2703,7 +2703,7 @@ public class TreeNode
             }
             else
             {
-              String lLog = "    Response " + edge2.partialMove.move + " unexpanded";
+              String lLog = "    Response " + edge2.mPartialMove.move + " unexpanded";
 
               if (xiResponsesTraced < 400)
               {
@@ -2735,7 +2735,7 @@ public class TreeNode
       }
       else
       {
-        String lLog = "    Response " + edge2.partialMove.move + " unexpanded";
+        String lLog = "    Response " + edge2.mPartialMove.move + " unexpanded";
 
         if (xiResponsesTraced < 400)
         {
@@ -2783,7 +2783,7 @@ public class TreeNode
                     "@" +
                         depth +
                         ": Move " +
-                        arrivalPath.partialMove.move +
+                        arrivalPath.mPartialMove.move +
                         " scores " + stringizeScoreVector() + "(ref " + mRef +
                         ") - visits: " + numVisits + " (" +
                         arrivalPath.numChildVisits + ")");
@@ -2941,7 +2941,7 @@ public class TreeNode
           }
           else
           {
-            partialMove = edge.partialMove;
+            partialMove = edge.mPartialMove;
           }
           LOGGER.warn("Unexpanded child of root for move: " + partialMove.move);
         }
@@ -2995,7 +2995,7 @@ public class TreeNode
           //  for a puzzle to require noops for a solution!
           if (tree.gameCharacteristics.numRoles == 1)
           {
-            if (edge.partialMove.inputProposition == null)
+            if (edge.mPartialMove.inputProposition == null)
             {
               numChildVisits /= 2;
             }
@@ -3019,7 +3019,7 @@ public class TreeNode
         lResponsesTraced = child.traceFirstChoiceNode(lResponsesTraced);
       }
 
-      if (edge.partialMove.isPseudoNoOp)
+      if (edge.mPartialMove.isPseudoNoOp)
       {
         result.pseudoNoopValue = moveScore;
         result.pseudoMoveIsComplete = child.complete;
@@ -3093,7 +3093,7 @@ public class TreeNode
     }
     else
     {
-      ForwardDeadReckonLegalMoveInfo moveInfo = bestEdge.partialMove;
+      ForwardDeadReckonLegalMoveInfo moveInfo = bestEdge.mPartialMove;
 
       result.bestMove = (moveInfo.isPseudoNoOp ? null : moveInfo.move);
       if (!moveInfo.isPseudoNoOp)

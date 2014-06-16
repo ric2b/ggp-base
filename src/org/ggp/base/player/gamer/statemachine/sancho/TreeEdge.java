@@ -34,15 +34,25 @@ public class TreeEdge
   }
 
   /**
-   * The move represented by this edge.  This is final for the lifetime of the edge (until recycled).
+   * The parent node from which this edge leads.
+   *
+   * This is final for the logical lifetime of the edge (i.e. until it is recycled).  It is never TreeNode.NULL_REF.
    */
-  ForwardDeadReckonLegalMoveInfo partialMove;
+  long                           mParentRef                 = TreeNode.NULL_REF;
 
   /**
-   * The child node reached by performing the (partial) move in the parent state.  (The parent doesn't need to be
-   * explicitly referenced in an edge.  It is implicit in the node from which this edge is referenced.)
+   * The move, performed in the parent, which this edge represents.
+   *
+   * This is final for the logical lifetime of the edge (i.e. until it is recycled).
    */
-  long   mChildRef                  = TreeNode.NULL_REF;
+  ForwardDeadReckonLegalMoveInfo mPartialMove;
+
+  /**
+   * The child reached by performing the move in the parent.
+   *
+   * This may be TreeNode.NULL_REF if the child node is yet to be created.
+   */
+  long                           mChildRef                  = TreeNode.NULL_REF;
 
   int    numChildVisits             = 0;
   double explorationAmplifier       = 0;
@@ -50,11 +60,33 @@ public class TreeEdge
   /**
    * Create a tree edge.
    *
-   * Immediately after creation, the caller is expected to fill in partialMove.  (It isn't passed as a parameter here
-   * purely to make pooled creation simpler.)
+   * Immediately after creation, the caller is expected to call setParent.  (The parameters aren't passed here purely to
+   * make pooled creation simpler.)
    */
   TreeEdge()
   {
+  }
+
+  /**
+   * Set the edge's parent (and the move from the parent).
+   *
+   * @param xiParent      - the parent.
+   * @param xiPartialMove - the move.
+   */
+  public void setParent(TreeNode xiParent, ForwardDeadReckonLegalMoveInfo xiPartialMove)
+  {
+    mParentRef = xiParent.getRef();
+    mPartialMove = xiPartialMove;
+  }
+
+  /**
+   * Set the edge's child.
+   *
+   * @param xiChild - the child.
+   */
+  public void setChild(TreeNode xiChild)
+  {
+    mChildRef = xiChild.getRef();
   }
 
   /**
@@ -62,12 +94,12 @@ public class TreeEdge
    */
   public String descriptiveName()
   {
-    if ( partialMove.isPseudoNoOp )
+    if ( mPartialMove.isPseudoNoOp )
     {
       return "<Pseudo no-op>";
     }
 
-    return partialMove.move.toString();
+    return mPartialMove.move.toString();
   }
 
   /**
@@ -75,9 +107,10 @@ public class TreeEdge
    */
   public void reset()
   {
-    numChildVisits = 0;
+    mParentRef = TreeNode.NULL_REF;
     mChildRef = TreeNode.NULL_REF;
-    partialMove = null;
+    numChildVisits = 0;
+    mPartialMove = null;
     explorationAmplifier = 0;
   }
 }

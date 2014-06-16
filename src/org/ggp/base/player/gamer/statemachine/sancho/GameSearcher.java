@@ -731,7 +731,7 @@ public class GameSearcher implements Runnable, ActivityController
               assert(lRequest.mPath.getCurrentElement() != null);
 
               TreeEdge edge = lRequest.mPath.getCurrentElement().getEdge();
-              fullPlayoutList.add(0, edge.partialMove);
+              fullPlayoutList.add(0, edge.mPartialMove);
             }
 
             lRequest.mPath.resetCursor();

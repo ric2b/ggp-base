@@ -166,7 +166,7 @@ public class StateSimilarityMap
       {
         ForwardDeadReckonLegalMoveInfo targetPartialMove = partialJointMove[index];
         TreeEdge childEdge = (child instanceof TreeEdge ? (TreeEdge)child : null);
-        if ( child == targetPartialMove || (childEdge != null && childEdge.partialMove == targetPartialMove))
+        if ( child == targetPartialMove || (childEdge != null && childEdge.mPartialMove == targetPartialMove))
         {
           childFound = true;
 
@@ -250,7 +250,7 @@ public class StateSimilarityMap
                      getNode(childEdge.mChildRef).numVisits > 0)
                 {
                   TreeNode lChild = getNode(childEdge.mChildRef);
-                  ForwardDeadReckonLegalMoveInfo move = childEdge.partialMove;
+                  ForwardDeadReckonLegalMoveInfo move = childEdge.mPartialMove;
                   int moveSlotIndex = getMoveSlot(move);
 
                   double moveVal = weight*(lChild.getAverageScore(lChild.decidingRoleIndex));

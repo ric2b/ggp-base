@@ -56,10 +56,10 @@ public class TreePath
   class TreePathElement
   {
     // The parent node, the edge leading from it and the child.  It is only valid to access the edge if both node
-    // references are still valid.
+    // references are still valid and equal to the references stored in the edge.
     private long     mParentRef;
     private TreeEdge mEdge;
-    long     mChildRef;
+    private long     mChildRef;
 
     // Score overrides to use above this point in the path.
     private double[] scoreOverrides;
@@ -93,11 +93,13 @@ public class TreePath
      * Set override scores that are to be fed upward from this element during update propagation, rather than those
      * flowing from lower in the path.
      *
-     * @param scores - the scores to use.
+     * @param overridingNode - the node containing the scores to use.
      */
     public void setScoreOverrides(TreeNode overridingNode)
     {
-      scoreOverrides = new double[mTree.numRoles];
+      scoreOverrides = new double[mTree.numRoles]; // !! ARR Just store a node ref and get the scores on demand, but be
+                                                   // !! ARR careful because the array returned by getScoreOverrides()
+                                                   // !! ARR is subsequently modified.
 
       for (int i = 0; i < mTree.numRoles; i++)
       {
@@ -132,7 +134,10 @@ public class TreePath
     public TreeEdge getEdge()
     {
       // Check that the edge is still valid before returning it.
-      if ((getNode(mParentRef) == null) || (getNode(mChildRef) == null))
+      if ((getNode(mParentRef) == null) ||
+          (getNode(mChildRef) == null)  ||
+          (mEdge.mChildRef != mChildRef) ||
+          (mEdge.mParentRef != mParentRef))
       {
         return null;
       }
@@ -254,22 +259,7 @@ public class TreePath
     for (int lii = 0; lii < mNumElements; lii++)
     {
       TreeEdge edge = mElements[lii].getEdge();
-      //  In some cases the edge's child can have been freed and re-expanded so the edge
-      //  points to a totally different node now than does the child!  This also indicates a
-      //  freed path, but is probably a temporary problem which will be resolved when
-      //  edges are removed from TreePathElement
-      //  Because of edge recycling we also need to check that the edge is still pointing to the
-      //  child (if it was recycled while the rollout was in progress it probably will not).
-      //  It is even possible that the edge can have been recycled to point back at the SAME
-      //  node from a different context - there is no reliable way to spot this and it needs to be
-      //  addressed by removing the use of an edge ref in TreePaths altogether (which is intended anyway)
-      //  but for now we get the common case which will have a 0 visit count (reuse to point to the same node
-      //  with mukltiple visits all wile a rollout takes place is extremely unlikely)
-      if ( edge == null ||
-           edge.mChildRef == TreeNode.NULL_REF ||
-           edge.mChildRef != mElements[lii].mChildRef ||
-           edge.numChildVisits == 0 ||
-           TreeNode.get(mTree.nodePool, edge.mChildRef) == null )
+      if (edge == null)
       {
         return true;
       }
