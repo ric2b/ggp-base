@@ -59,7 +59,7 @@ public class TreePath
     // references are still valid.
     private long     mParentRef;
     private TreeEdge mEdge;
-    private long     mChildRef;
+    long     mChildRef;
 
     // Score overrides to use above this point in the path.
     private double[] scoreOverrides;
@@ -258,7 +258,18 @@ public class TreePath
       //  points to a totally different node now than does the child!  This also indicates a
       //  freed path, but is probably a temporary problem which will be resolved when
       //  edges are removed from TreePathElement
-      if ( edge == null || edge.mChildRef == TreeNode.NULL_REF || TreeNode.get(mTree.nodePool, edge.mChildRef) == null )
+      //  Because of edge recycling we also need to check that the edge is still pointing to the
+      //  child (if it was recycled while the rollout was in progress it probably will not).
+      //  It is even possible that the edge can have been recycled to point back at the SAME
+      //  node from a different context - there is no reliable way to spot this and it needs to be
+      //  addressed by removing the use of an edge ref in TreePaths altogether (which is intended anyway)
+      //  but for now we get the common case which will have a 0 visit count (reuse to point to the same node
+      //  with mukltiple visits all wile a rollout takes place is extremely unlikely)
+      if ( edge == null ||
+           edge.mChildRef == TreeNode.NULL_REF ||
+           edge.mChildRef != mElements[lii].mChildRef ||
+           edge.numChildVisits == 0 ||
+           TreeNode.get(mTree.nodePool, edge.mChildRef) == null )
       {
         return true;
       }
