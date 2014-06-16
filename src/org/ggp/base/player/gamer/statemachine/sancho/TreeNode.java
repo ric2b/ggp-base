@@ -1028,6 +1028,14 @@ public class TreeNode
     {
       if (determiningChildCompletionDepth == Short.MAX_VALUE)
       {
+        //  If there was no winning choice but everything is complete then
+        //  the depth is the maximum of the non-winning choice alternatives.
+        //  Note - this may be slightly misleading for non-fixed-sum games
+        //  that are expected to end at intermediate score values, but should
+        //  operate correctly in other cases, and give reasonable indicative
+        //  results in all cases
+        determiningChildCompletionDepth = 0;
+
         for (short index = 0; index < children.length; index++)
         {
           if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
@@ -1040,7 +1048,7 @@ public class TreeNode
               if (edge.mChildRef != NULL_REF && get(edge.mChildRef) != null)
               {
                 TreeNode lNode = get(edge.mChildRef);
-                if (determiningChildCompletionDepth > lNode.getCompletionDepth())
+                if (determiningChildCompletionDepth < lNode.getCompletionDepth())
                 {
                   determiningChildCompletionDepth = lNode.getCompletionDepth();
                 }
