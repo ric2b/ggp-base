@@ -1483,7 +1483,6 @@ public class TreeNode
     tree.cousinMovesCachedFor = NULL_REF;
 
     //validateAll();
-    //LOGGER.debug("Select LEAST in " + state);
     if (freed)
     {
       LOGGER.warn("Encountered freed node in tree walk");
@@ -1533,10 +1532,12 @@ public class TreeNode
                                                edge,
                                                roleIndex) -
                                                exploitationUCT(edge, roleIndex);
-                    //uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[leastLikelyWinner])+1) / numChildVisits[leastLikelyWinner]);
                   }
+                  //  Add a small amount of noise to cause the subtrees we prune from
+                  //  to spread around amongst reasonable candidates rather than pruning
+                  //  entire subtrees which will quickly back up to low depths
+                  //  in the tree which are more likely to require re-expansion
                   uctValue += tree.r.nextDouble()/20;
-                  //uctValue /= Math.log(c.numVisits + 2); // utcVal is negative so this makes larger subtrees score higher (less negative)
 
                   if (uctValue >= leastLikelyRunnerUpValue)
                   {
@@ -1581,29 +1582,19 @@ public class TreeNode
                     {
                       uctValue = -1000;
                     }
-                    //else if (c.complete)
-                    //{
-                    //	Resist clearing away complete nodes as they potentially
-                    //	represent a lot of work
-                    //	uctValue = -500;
-                    //}
                     else
                     {
                       uctValue = -explorationUCT(numVisits,
                                                  edge,
                                                  roleIndex) -
                                                  exploitationUCT(edge, roleIndex);
-                      //uctValue = -c.averageScore/100 - Math.sqrt(Math.log(Math.max(numVisits,numChildVisits[i])+1) / numChildVisits[i]);
                     }
+                    //  Add a small amount of noise to cause the subtrees we prune from
+                    //  to spread around amongst reasonable candidates rather than pruning
+                    //  entire subtrees which will quickly back up to low depths
+                    //  in the tree which are more likely to require re-expansion
                     uctValue += tree.r.nextDouble()/20;
-                    //uctValue /= Math.log(c.numVisits + 2); //	utcVal is negative so this makes larger subtrees score higher (less negative)
 
-                    //if (c.isLeaf())
-                    //{
-                    //	uctValue += uctValue/(depth+1);
-                    //}
-
-                    //LOGGER.debug("  child score of " + uctValue + " in state "+ c.state);
                     if (uctValue > bestValue)
                     {
                       selectedIndex = i;
@@ -1626,25 +1617,22 @@ public class TreeNode
     if (selectedIndex != -1)
     {
       leastLikelyWinner = (short)selectedIndex;
-      //LOGGER.debug("  selected: " + selected.state);
       assert(children[selectedIndex] instanceof TreeEdge);
       TreeEdge selectedEdge = (TreeEdge)children[selectedIndex];
 
-//      if ( depth == 0 )
-//      {
-//        System.out.println("Least likely #" + leastLikelyDisposalCount++ + ": " + selectedEdge.partialMove.move);
-//      }
       return get(selectedEdge.mChildRef).selectLeastLikelyExpandedNode(selectedEdge, depth + 1);
     }
 
     //  Children of the root should never be trimmed.  For us to have wanted to unexpand
-    //  the root all its children must be unexpanded.  This is possible in  factored game
+    //  the root all its children must be unexpanded.  This is possible in factored games
     //  where one factor has a compleet root, so all node allocation occurs in the other
     //  factor(s)'s tree(s), so it is only a warned condition at this level
     if (depth < 1)
     {
-      LOGGER.warn("Attempt to select unlikely node at depth " + depth);
-      //tree.root.dumpTree("c:\\temp\\treeDump.txt");
+      if ( tree.factor == null )
+      {
+        LOGGER.warn("Attempt to select unlikely node at depth " + depth);
+      }
 
       return null;
     }
