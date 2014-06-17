@@ -714,7 +714,6 @@ public class GameSearcher implements Runnable, ActivityController
       {
         TreeNode lNode = TreeNode.get(mNodePool, lRequest.mNodeRef);
         if (lNode != null && !lNode.complete)
-
         {
           mAverageFringeDepth.addSample(lNode.getDepth() - getRootDepth());
           mRMSFringeDepth.addSample(lNode.getDepth() - getRootDepth());

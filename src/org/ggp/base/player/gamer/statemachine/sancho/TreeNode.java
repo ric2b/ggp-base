@@ -3235,96 +3235,105 @@ public class TreeNode
     }
   }
 
-  public void updateStats(double[] values,
-                          double[] squaredValues,
-                          TreePath path,
-                          boolean isCompletePseudoRollout)
+  /**
+   * Update the tree with details from a rollout, starting with this node, then working up the path.
+   *
+   * @param xiValues                  - The per-role rollout values.
+   * @param xiSquaredValues           - The per-role squared values (for computing variance).
+   * @param xiPath                    - The path taken through the tree for the rollout.
+   * @param xiIsCompletePseudoRollout - Whether this is a complete pseudo-rollout.
+   */
+  public void updateStats(double[] xiValues,
+                          double[] xiSquaredValues,
+                          TreePath xiPath,
+                          boolean xiIsCompletePseudoRollout)
   {
-    TreePathElement element = path.getCurrentElement();
-    TreeEdge childEdge = (element == null ? null : element.getEdge());
-    TreeNode nextNode = null;
-
-    //  Across a turn end it is possible for queued paths to run into
-    //  freed nodes due to trimming of the tree at the root to advance the turn
-    //  Rather than add locking and force clearing the rollout pipeline synchronously
-    //  on turn start it is more efficient to simply abort the update when the path leads
-    //  to a no-longer extant region of the tree
-    if (path.hasMore())
+    TreeNode lNextNode;
+    for (TreeNode lNode = this; lNode != null; lNode = lNextNode)
     {
-      nextNode = path.getNextNode();
-      if (nextNode == null)
+      TreePathElement lElement = xiPath.getCurrentElement();
+      TreeEdge lChildEdge = (lElement == null ? null : lElement.getEdge());
+      lNextNode = null;
+
+      // Across a turn end it is possible for queued paths to run into freed nodes due to trimming of the tree at the
+      // root to advance the turn.  Rather than add locking and force clearing the rollout pipeline synchronously on
+      // turn start it is more efficient to simply abort the update when the path leads to a no-longer extant region of
+      // the tree.
+      if (xiPath.hasMore())
       {
-        return;
-      }
-    }
-
-    assert(numUpdates <= numVisits);
-
-    double[] overrides = (element == null ? null : element.getScoreOverrides());
-    if (overrides != null)
-    {
-      values = overrides;
-    }
-
-    for (int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
-    {
-      if ((!complete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2) &&
-          childEdge != null)
-      {
-        TreeNode lChild = get(childEdge.mChildRef);
-        //  Take the min of the apparent edge selection and the total num visits in the child
-        //  This is necessary because when we re-expand a node that was previously trimmed we
-        //  leave the edge with its old selection count even though the child node will be
-        //  reset.
-        int numChildVisits = Math.min(childEdge.numChildVisits,lChild.numVisits);
-
-        assert(numChildVisits > 0 || isCompletePseudoRollout);
-        //	Propagate a value that is a blend of this rollout value and the current score for the child node
-        //	being propagated from, according to how much of that child's value was accrued through this path
-        if (values != overrides && numChildVisits > 0)
+        lNextNode = xiPath.getNextNode();
+        if (lNextNode == null)
         {
-          values[roleIndex] = (values[roleIndex] * numChildVisits + lChild.getAverageScore(roleIndex) *
-              (lChild.numVisits - numChildVisits)) /
-              lChild.numVisits;
+          return;
         }
       }
 
-      if (!complete)
+      // Do the stats update for the selected node.
+      assert(lNode.numUpdates <= lNode.numVisits);
+
+      double[] lOverrides = (lElement == null ? null : lElement.getScoreOverrides());
+      if (lOverrides != null)
       {
-        setAverageScore(roleIndex, (getAverageScore(roleIndex) * numUpdates + values[roleIndex]) /
-            (numUpdates + 1));
-        setAverageSquaredScore(roleIndex, (getAverageSquaredScore(roleIndex) *
-            numUpdates + squaredValues[roleIndex]) /
-            (numUpdates + 1));
+        xiValues = lOverrides;
       }
 
-      leastLikelyWinner = -1;
-      mostLikelyWinner = -1;
-    }
-
-    if (isCompletePseudoRollout)
-    {
-      numVisits++;
-
-      if ((!complete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2) &&
-          childEdge != null)
+      for (int lRoleIndex = 0; lRoleIndex < tree.numRoles; lRoleIndex++)
       {
-        childEdge.numChildVisits++;
-        assert(childEdge.numChildVisits <= get(childEdge.mChildRef).numVisits);
+        if ((!lNode.complete ||
+             tree.gameCharacteristics.isSimultaneousMove ||
+             tree.gameCharacteristics.numRoles > 2) &&
+            lChildEdge != null)
+        {
+          TreeNode lChild = lNode.get(lChildEdge.mChildRef);
+          //  Take the min of the apparent edge selection and the total num visits in the child
+          //  This is necessary because when we re-expand a node that was previously trimmed we
+          //  leave the edge with its old selection count even though the child node will be
+          //  reset.
+          int lNumChildVisits = Math.min(lChildEdge.numChildVisits, lChild.numVisits);
+
+          assert(lNumChildVisits > 0 || xiIsCompletePseudoRollout);
+          //  Propagate a value that is a blend of this rollout value and the current score for the child node
+          //  being propagated from, according to how much of that child's value was accrued through this path
+          if (xiValues != lOverrides && lNumChildVisits > 0)
+          {
+            xiValues[lRoleIndex] = (xiValues[lRoleIndex] * lNumChildVisits + lChild.getAverageScore(lRoleIndex) *
+                                    (lChild.numVisits - lNumChildVisits)) /
+                                   lChild.numVisits;
+          }
+        }
+
+        if (!lNode.complete)
+        {
+          lNode.setAverageScore(lRoleIndex,
+                                (lNode.getAverageScore(lRoleIndex) * lNode.numUpdates + xiValues[lRoleIndex]) /
+                                (lNode.numUpdates + 1));
+          lNode.setAverageSquaredScore(lRoleIndex,
+                                       (lNode.getAverageSquaredScore(lRoleIndex) *
+                                        lNode.numUpdates + xiSquaredValues[lRoleIndex]) /
+                                       (lNode.numUpdates + 1));
+        }
+
+        lNode.leastLikelyWinner = -1;
+        lNode.mostLikelyWinner = -1;
       }
-    }
 
-    //validateScoreVector(averageScores);
-    numUpdates++;
-    assert(numUpdates <= numVisits);
+      if (xiIsCompletePseudoRollout)
+      {
+        lNode.numVisits++;
 
-    // !! ARR Icky.  Convert tail recursion to iteration.
-    if (nextNode != null)
-    {
-      nextNode.updateStats(values,
-                           squaredValues,
-                           path,
-                           isCompletePseudoRollout);
+        if ((!lNode.complete ||
+             tree.gameCharacteristics.isSimultaneousMove ||
+             tree.gameCharacteristics.numRoles > 2) &&
+            lChildEdge != null)
+        {
+          lChildEdge.numChildVisits++;
+          assert(lChildEdge.numChildVisits <= lNode.get(lChildEdge.mChildRef).numVisits);
+        }
+      }
+
+      //validateScoreVector(averageScores);
+      lNode.numUpdates++;
+      assert(lNode.numUpdates <= lNode.numVisits);
     }
   }
 
