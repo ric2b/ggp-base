@@ -1,6 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -54,7 +53,7 @@ public class GameSearcher implements Runnable, ActivityController
   private volatile int                    searchSeqProcessing = 0;
   private int                             numIterations       = 0;
   private volatile boolean                requestYield        = false;
-  private Set<MCTSTree>                   factorTrees         = new HashSet<>();
+  private MCTSTree[]                      factorTrees;
   private GamePlan                        mPlan               = null;
   private final CappedPool<TreeNode>      mNodePool;
   private final Pool<TreeEdge>            mEdgePool;
@@ -181,42 +180,43 @@ public class GameSearcher implements Runnable, ActivityController
     }
 
     mNodePool.clear(new TreeNodeAllocator(null), false);
-    factorTrees.clear();
 
     Set<Factor> factors = underlyingStateMachine.getFactors();
     if (factors == null)
     {
-      factorTrees.add(new MCTSTree(underlyingStateMachine,
-                                   null,
-                                   mNodePool,
-                                   mScoreVectorPool,
-                                   mEdgePool,
-                                   mPathPool,
-                                   roleOrdering,
-                                   rolloutPool,
-                                   gameCharacteristics,
-                                   heuristic,
-                                   this));
+      factorTrees = new MCTSTree[] {new MCTSTree(underlyingStateMachine,
+                                                 null,
+                                                 mNodePool,
+                                                 mScoreVectorPool,
+                                                 mEdgePool,
+                                                 mPathPool,
+                                                 roleOrdering,
+                                                 rolloutPool,
+                                                 gameCharacteristics,
+                                                 heuristic,
+                                                 this)};
     }
     else
     {
-      for(Factor factor : factors)
+      factorTrees = new MCTSTree[factors.size()];
+      int lii = 0;
+      for (Factor factor : factors)
       {
-        factorTrees.add(new MCTSTree(underlyingStateMachine,
-                                     factor,
-                                     mNodePool,
-                                     mScoreVectorPool,
-                                     mEdgePool,
-                                     mPathPool,
-                                     roleOrdering,
-                                     rolloutPool,
-                                     gameCharacteristics,
-                                     heuristic.createIndependentInstance(),
-                                     this));
+        factorTrees[lii++] = new MCTSTree(underlyingStateMachine,
+                                          factor,
+                                          mNodePool,
+                                          mScoreVectorPool,
+                                          mEdgePool,
+                                          mPathPool,
+                                          roleOrdering,
+                                          rolloutPool,
+                                          gameCharacteristics,
+                                          heuristic.createIndependentInstance(),
+                                          this);
       }
     }
 
-    for(MCTSTree tree : factorTrees)
+    for (MCTSTree tree : factorTrees)
     {
       tree.root = tree.allocateNode(initialState, null, false);
       tree.root.decidingRoleIndex = underlyingStateMachine.getRoles().size() - 1;
@@ -423,7 +423,7 @@ public class GameSearcher implements Runnable, ActivityController
       }
 
       LOGGER.debug("Searching for best move amongst factors:");
-      for(MCTSTree tree : factorTrees)
+      for (MCTSTree tree : factorTrees)
       {
         FactorMoveChoiceInfo factorChoice = tree.getBestMove();
         if (factorChoice.bestMove != null)
@@ -616,7 +616,7 @@ public class GameSearcher implements Runnable, ActivityController
     LOGGER.debug("Start move search...");
     synchronized (this)
     {
-      for(MCTSTree tree : factorTrees)
+      for (MCTSTree tree : factorTrees)
       {
         tree.setRootState(startState, rootDepth);
       }
