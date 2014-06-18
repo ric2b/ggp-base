@@ -219,6 +219,7 @@ public class Sancho extends SampleGamer
   @Override
   public void stateMachineMetaGame(long timeout)
   {
+    MachineSpecificConfiguration.logConfig();
     if (ASSERTIONS_ENABLED)
     {
       LOGGER.warn("WARNING: Assertions are enabled - this will impact performance");

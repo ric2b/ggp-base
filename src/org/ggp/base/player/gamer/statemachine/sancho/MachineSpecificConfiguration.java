@@ -69,17 +69,15 @@ public class MachineSpecificConfiguration
       try (InputStream lPropStream = new FileInputStream("data/cfg/" + lComputerName + ".properties"))
       {
         MACHINE_PROPERTIES.load(lPropStream);
-
-        dumpConfig();
       }
       catch (IOException lEx)
       {
-        LOGGER.error("Missing/invalid machine-specific configuration for " + lComputerName);
+        System.err.println("Missing/invalid machine-specific configuration for " + lComputerName);
       }
     }
     else
     {
-      LOGGER.error("Failed to identify computer name - no environment variable COMPUTERNAME");
+      System.err.println("Failed to identify computer name - no environment variable COMPUTERNAME");
     }
   }
 
@@ -116,10 +114,13 @@ public class MachineSpecificConfiguration
     return Boolean.parseBoolean(getCfgVal(xiKey, xiDefault ? "true" : "false"));
   }
 
-  private static void dumpConfig()
+  /**
+   * Log all machine-specific configuration.
+   */
+  public static void logConfig()
   {
     LOGGER.info("Running with machine-specific properties:");
-    for(Entry<Object, Object> e : MACHINE_PROPERTIES.entrySet())
+    for (Entry<Object, Object> e : MACHINE_PROPERTIES.entrySet())
     {
       LOGGER.info("\t" + e.getKey() + " = " + e.getValue());
     }
