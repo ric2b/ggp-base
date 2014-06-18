@@ -198,9 +198,7 @@ public class PolymorphicPropNet
   }
 
   /**
-   * Returns a reference to the single, unique, InitProposition.
-   *
-   * @return A reference to the single, unique, InitProposition.
+   * @return a reference to the single, unique, InitProposition.
    */
   private PolymorphicProposition recordInitProposition()
   {
@@ -216,13 +214,13 @@ public class PolymorphicPropNet
         return proposition;
       }
     }
+
+    assert(false) : "No INIT proposition";
     return null;
   }
 
   /**
-   * Builds an index over the InputPropositions in the PropNet.
-   *
-   * @return An index over the InputPropositions in the PropNet.
+   * @return an index over the InputPropositions in the PropNet.
    */
   private Map<GdlSentence, PolymorphicProposition> recordInputPropositions()
   {
@@ -244,9 +242,7 @@ public class PolymorphicPropNet
   }
 
   /**
-   * Builds an index over the LegalPropositions in the PropNet.
-   *
-   * @return An index over the LegalPropositions in the PropNet.
+   * @return an index over the LegalPropositions in the PropNet.
    */
   private Map<Role, Set<PolymorphicProposition>> recordLegalPropositions()
   {

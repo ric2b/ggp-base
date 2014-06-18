@@ -271,8 +271,7 @@ public class OptimizingPolymorphicPropNetFactory
     //Make it look the same as the PropNetFactory results, until we decide
     //how we want it to look
     normalizePropositions(componentSet);
-    PolymorphicPropNet propnet = componentFactory.createPropNet(roles,
-                                                                componentSet);
+    PolymorphicPropNet propnet = componentFactory.createPropNet(roles, componentSet);
     //System.out.println(propnet);
     return propnet;
   }
@@ -285,8 +284,7 @@ public class OptimizingPolymorphicPropNetFactory
       throws InterruptedException
   {
     boolean changedSomething = false;
-    for (Entry<GdlSentence, PolymorphicComponent> entry : components
-        .entrySet())
+    for (Entry<GdlSentence, PolymorphicComponent> entry : components.entrySet())
     {
       if (entry.getKey().getName() == TRUE)
       {
@@ -867,10 +865,8 @@ public class OptimizingPolymorphicPropNetFactory
                                 PolymorphicConstant falseComponent,
                                 PolymorphicComponentFactory componentFactory)
   {
-    PolymorphicProposition initProposition = componentFactory
-        .createProposition(-1, GdlPool.getProposition(INIT_CAPS));
-    for (Entry<GdlSentence, PolymorphicComponent> entry : components
-        .entrySet())
+    PolymorphicProposition initProposition = componentFactory.createProposition(-1, GdlPool.getProposition(INIT_CAPS));
+    for (Entry<GdlSentence, PolymorphicComponent> entry : components.entrySet())
     {
       //Is this something that will be true?
       if (entry.getValue() == trueComponent)
@@ -878,17 +874,14 @@ public class OptimizingPolymorphicPropNetFactory
         if (entry.getKey().getName().equals(INIT))
         {
           //Find the corresponding true sentence
-          GdlSentence trueSentence = GdlPool.getRelation(TRUE, entry.getKey()
-              .getBody());
+          GdlSentence trueSentence = GdlPool.getRelation(TRUE, entry.getKey().getBody());
           //System.out.println("True sentence from init: " + trueSentence);
-          PolymorphicComponent trueSentenceComponent = components
-              .get(trueSentence);
+          PolymorphicComponent trueSentenceComponent = components.get(trueSentence);
           if (trueSentenceComponent.getInputs().isEmpty())
           {
             //Case where there is no transition input
             //Add the transition input, connect to init, continue loop
-            PolymorphicTransition transition = componentFactory
-                .createTransition(-1);
+            PolymorphicTransition transition = componentFactory.createTransition(-1);
             //init goes into transition
             transition.addInput(initProposition);
             initProposition.addOutput(transition);
@@ -899,8 +892,7 @@ public class OptimizingPolymorphicPropNetFactory
           else
           {
             //The transition already exists
-            PolymorphicComponent transition = trueSentenceComponent
-                .getSingleInput();
+            PolymorphicComponent transition = trueSentenceComponent.getSingleInput();
 
             //We want to add init as a thing that precedes the transition
             //Disconnect existing input
