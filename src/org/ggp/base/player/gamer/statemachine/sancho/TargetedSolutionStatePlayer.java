@@ -445,7 +445,7 @@ public class TargetedSolutionStatePlayer
     }
     else if (goalState != null && nextState.equals(goalState))
     {
-      LOGGER.info("Encountered goaled node, returning score of " + bestScoreGoaled);
+      LOGGER.debug("Encountered goaled node, returning score of " + bestScoreGoaled);
       result = bestScoreGoaled;
     }
     else if (depth == 0)
