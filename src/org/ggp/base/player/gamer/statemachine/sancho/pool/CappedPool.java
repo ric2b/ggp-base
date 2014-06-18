@@ -54,6 +54,14 @@ public class CappedPool<ItemType> implements Pool<ItemType>
   }
 
   /**
+   * @return the capacity of the pool.
+   */
+  public int getCapacity()
+  {
+    return mPoolSize;
+  }
+
+  /**
    * @return the number of items currently in active use.
    */
   public int getNumItemsInUse()

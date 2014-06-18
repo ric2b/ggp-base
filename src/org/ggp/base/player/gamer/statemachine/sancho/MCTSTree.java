@@ -59,7 +59,7 @@ public class MCTSTree
   final ScoreVectorPool                                scoreVectorPool;
   final Pool<TreeEdge>                                 edgePool;
   final Pool<TreePath>                                 mPathPool;
-  Map<ForwardDeadReckonInternalMachineState, TreeNode> positions                                   = new HashMap<>();
+  private final Map<ForwardDeadReckonInternalMachineState, TreeNode> mPositions;
   int                                                  sweepInstance                               = 0;
   List<TreeNode>                                       completedNodeQueue                          = new LinkedList<>();
   Map<Move, MoveScoreInfo>                             cousinMoveCache                             = new HashMap<>();
@@ -132,6 +132,7 @@ public class MCTSTree
     heuristic = xiHeuristic;
     gameCharacteristics = xiGameCharacateristics;
     rolloutPool = xiRolloutPool;
+    mPositions = new HashMap<>(nodePool.getCapacity());
 
     if ( xiFactor != null )
     {
@@ -197,7 +198,7 @@ public class MCTSTree
     averageAutoExpansionDepth = 0;
     root = null;
     nodePool.clear(mTreeNodeAllocator, true);
-    positions.clear();
+    mPositions.clear();
     numIncompleteNodes = 0;
   }
 
@@ -208,7 +209,7 @@ public class MCTSTree
     ProfileSection methodSection = ProfileSection.newInstance("allocateNode");
     try
     {
-      TreeNode result = ((state != null && SUPPORT_TRANSITIONS && !disallowTransposition) ? positions.get(state) : null);
+      TreeNode result = ((state != null && SUPPORT_TRANSITIONS && !disallowTransposition) ? mPositions.get(state) : null);
 
       //validateAll();
       //  Use of pseudo-noops in factors can result in recreation of the root state (only)
@@ -228,7 +229,7 @@ public class MCTSTree
           result.setState(state);
           if (SUPPORT_TRANSITIONS && !disallowTransposition)
           {
-            positions.put(result.state, result);
+            mPositions.put(result.state, result);
           }
         }
         assert(!result.freed) : "Bad ref in positions table";
@@ -252,6 +253,19 @@ public class MCTSTree
     finally
     {
       methodSection.exitScope();
+    }
+  }
+
+  /**
+   * Inform the tree that a node is being freed.
+   *
+   * @param xiTreeNode - the node that is being freed.
+   */
+  public void nodeFreed(TreeNode xiTreeNode)
+  {
+    if (SUPPORT_TRANSITIONS)
+    {
+      mPositions.remove(xiTreeNode.state);
     }
   }
 
@@ -386,7 +400,7 @@ public class MCTSTree
     if (root != null)
       root.validate(true);
 
-    for (Entry<ForwardDeadReckonInternalMachineState, TreeNode> e : positions.entrySet())
+    for (Entry<ForwardDeadReckonInternalMachineState, TreeNode> e : mPositions.entrySet())
     {
       if (e.getValue().decidingRoleIndex != numRoles - 1)
       {
@@ -404,11 +418,11 @@ public class MCTSTree
       {
         if (node.decidingRoleIndex == numRoles - 1)
         {
-          if (node != positions.get(node.state))
+          if (node != mPositions.get(node.state))
           {
             LOGGER.warn("Missing reference in positions table");
             LOGGER.warn("node state is: " + node.state + " with hash " + node.state.hashCode());
-            LOGGER.warn(positions.get(node.state));
+            LOGGER.warn(mPositions.get(node.state));
           }
         }
       }

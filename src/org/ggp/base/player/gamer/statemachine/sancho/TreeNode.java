@@ -1310,7 +1310,7 @@ public class TreeNode
 
       if (decidingRoleIndex == tree.numRoles - 1)
       {
-        tree.positions.remove(state);
+        tree.nodeFreed(this);
       }
 
       if (complete)
