@@ -132,7 +132,7 @@ public class MCTSTree
     heuristic = xiHeuristic;
     gameCharacteristics = xiGameCharacateristics;
     rolloutPool = xiRolloutPool;
-    mPositions = new HashMap<>(nodePool.getCapacity());
+    mPositions = new HashMap<>((int)(nodePool.getCapacity() / 0.75f), 0.75f);
 
     if ( xiFactor != null )
     {
