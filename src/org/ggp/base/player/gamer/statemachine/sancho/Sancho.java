@@ -35,6 +35,8 @@ public class Sancho extends SampleGamer
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
+  private static final long SAFETY_MARGIN = 2500;
+
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
@@ -218,6 +220,7 @@ public class Sancho extends SampleGamer
 
   @Override
   public void stateMachineMetaGame(long timeout)
+     throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     MachineSpecificConfiguration.logConfig();
     if (ASSERTIONS_ENABLED)
@@ -785,14 +788,8 @@ public class Sancho extends SampleGamer
       searchProcessor.startSearch(System.currentTimeMillis() + 60000,
                                   new ForwardDeadReckonInternalMachineState(initialState),
                                   (short)0);
-      try
-      {
-        Thread.sleep(Math.max(timeout - 3000 - System.currentTimeMillis(), 0));
-      }
-      catch (InterruptedException lEx)
-      {
-        LOGGER.error("Unexpected interruption during meta-gaming", lEx);
-      }
+
+      searchUntil(timeout = SAFETY_MARGIN);
     }
   }
 
@@ -802,7 +799,7 @@ public class Sancho extends SampleGamer
   {
     // We get the current start time
     long start = System.currentTimeMillis();
-    long finishBy = timeout - 2500;
+    long finishBy = timeout - SAFETY_MARGIN;
     Move bestMove;
     List<Move> moves;
 
@@ -873,30 +870,7 @@ public class Sancho extends SampleGamer
       searchProcessor.requestYield(false);
 
       LOGGER.debug("Waiting for processing");
-
-      try
-      {
-        while (System.currentTimeMillis() < finishBy && !searchProcessor.isComplete())
-        {
-          if (ThreadControl.RUN_SYNCHRONOUSLY)
-          {
-            searchProcessor.expandSearch(true);
-          }
-          else
-          {
-            Thread.sleep(250);
-          }
-        }
-      }
-      catch (InterruptedException e)
-      {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
-      if ( searchProcessor.isComplete() )
-      {
-        LOGGER.info("Complete root");
-      }
+      searchUntil(finishBy);
 
       LOGGER.debug("Time to submit order - ask GameSearcher to yield");
       searchProcessor.requestYield(true);
@@ -948,6 +922,34 @@ public class Sancho extends SampleGamer
      */
     notifyObservers(new GamerSelectedMoveEvent(moves, bestMove, stop - start));
     return bestMove;
+  }
+
+  private void searchUntil(long xiFinishBy)
+    throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
+  {
+    try
+    {
+      while (System.currentTimeMillis() < xiFinishBy && !searchProcessor.isComplete())
+      {
+        if (ThreadControl.RUN_SYNCHRONOUSLY)
+        {
+          searchProcessor.expandSearch(true);
+        }
+        else
+        {
+          Thread.sleep(250);
+        }
+      }
+    }
+    catch (InterruptedException lEx)
+    {
+      LOGGER.error("Unexpected interruption during meta-gaming", lEx);
+    }
+
+    if (searchProcessor.isComplete())
+    {
+      LOGGER.info("Early search termination because root is complete");
+    }
   }
 
   private void flattenMoveSubLists(List<List<Move>> legalMoves,
