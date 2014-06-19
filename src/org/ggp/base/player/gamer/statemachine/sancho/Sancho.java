@@ -993,11 +993,11 @@ public class Sancho extends SampleGamer
   public void stateMachineStop()
   {
     // Log the final score.
-
     synchronized (searchProcessor.getSerializationObject())
     {
       ForwardDeadReckonInternalMachineState lState = underlyingStateMachine.createInternalState(getCurrentState());
       int lFinalScore = underlyingStateMachine.getGoal(lState, ourRole);
+      LOGGER.info("Final score: " + lFinalScore);
       StatsLogUtils.Series.SCORE.logDataPoint(lFinalScore);
     }
 
@@ -1007,6 +1007,7 @@ public class Sancho extends SampleGamer
   @Override
   public void stateMachineAbort()
   {
+    LOGGER.warn("Game aborted by server");
     tidyUp();
   }
 
