@@ -604,19 +604,13 @@ public class PolymorphicPropNet
 
       goalPropositionsMutable.put(oldEntry.getKey(), newProps);
     }
-    initProposition = (PolymorphicProposition)sourceToTargetMap
-        .get(sourcePropnet.getInitProposition());
-    terminalProposition = (PolymorphicProposition)sourceToTargetMap
-        .get(sourcePropnet.getTerminalProposition());
+    initProposition = (PolymorphicProposition)sourceToTargetMap.get(sourcePropnet.getInitProposition());
+    terminalProposition = (PolymorphicProposition)sourceToTargetMap.get(sourcePropnet.getTerminalProposition());
     legalInputMap = new HashMap<>();
-    for (Entry<PolymorphicProposition, PolymorphicProposition> oldEntry : sourcePropnet
-        .getLegalInputMap().entrySet())
+    for (Entry<PolymorphicProposition, PolymorphicProposition> oldEntry : sourcePropnet.getLegalInputMap().entrySet())
     {
-      PolymorphicProposition newProp1 = (PolymorphicProposition)sourceToTargetMap
-          .get(oldEntry.getKey());
-      PolymorphicProposition newProp2 = (PolymorphicProposition)sourceToTargetMap
-          .get(oldEntry.getValue());
-
+      PolymorphicProposition newProp1 = (PolymorphicProposition)sourceToTargetMap.get(oldEntry.getKey());
+      PolymorphicProposition newProp2 = (PolymorphicProposition)sourceToTargetMap.get(oldEntry.getValue());
       legalInputMap.put(newProp1, newProp2);
     }
 
@@ -714,9 +708,7 @@ public class PolymorphicPropNet
   }
 
   /**
-   * Getter method. A reference to the single, unique, InitProposition.
-   *
-   * @return the Init proposition for the propNet
+   * @return the INIT proposition for the propNet, or null if it has been optimised away.
    */
   public PolymorphicProposition getInitProposition()
   {

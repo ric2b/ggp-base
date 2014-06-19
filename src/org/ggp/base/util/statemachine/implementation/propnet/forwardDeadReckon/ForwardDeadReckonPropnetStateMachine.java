@@ -1289,7 +1289,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
 
       fullPropNet.reset(false);
-      fullPropNet.setProposition(0, (ForwardDeadReckonProposition)fullPropNet.getInitProposition(), true);
+      if (fullPropNet.getInitProposition() != null)
+      {
+        fullPropNet.setProposition(0, (ForwardDeadReckonProposition)fullPropNet.getInitProposition(), true);
+      }
       propNet = fullPropNet;
       initialState = getInternalStateFromBase(null).getMachineState();
       fullPropNet.reset(true);
