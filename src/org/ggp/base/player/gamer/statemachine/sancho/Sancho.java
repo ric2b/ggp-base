@@ -75,7 +75,7 @@ public class Sancho extends SampleGamer
 
     if (ASSERTIONS_ENABLED)
     {
-      LOGGER.warn("WARNING: Assertions are enabled - this will impact performance");
+      System.err.println("WARNING: Assertions are enabled - this will impact performance");
     }
   }
 
