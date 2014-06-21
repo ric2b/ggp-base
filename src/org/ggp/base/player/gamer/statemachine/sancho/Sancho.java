@@ -355,7 +355,8 @@ public class Sancho extends SampleGamer
         int choosingRoleIndex = -1;
         for (int i = 0; i < numRoles; i++)
         {
-          List<Move> legalMoves = underlyingStateMachine.getLegalMoves(sampleState, roleOrdering.roleIndexToRole(i));
+          List<Move> legalMoves = underlyingStateMachine.getLegalMovesCopy(sampleState,
+                                                                           roleOrdering.roleIndexToRole(i));
 
           if (legalMoves.size() > 1)
           {
@@ -821,7 +822,7 @@ public class Sancho extends SampleGamer
     synchronized (searchProcessor.getSerializationObject())
     {
       currentState = underlyingStateMachine.createInternalState(getCurrentState());
-      moves = underlyingStateMachine.getLegalMoves(currentState, ourRole);
+      moves = underlyingStateMachine.getLegalMovesCopy(currentState, ourRole);
 
       //LOGGER.warn("Received current state: " + getCurrentState());
       //LOGGER.warn("Using current state: " + currentState);

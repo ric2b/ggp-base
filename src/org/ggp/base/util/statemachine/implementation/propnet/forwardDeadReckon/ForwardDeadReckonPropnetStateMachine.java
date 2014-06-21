@@ -1594,7 +1594,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     setBasePropositionsFromState(createInternalState(masterInfoSet,
                                                      XSentence,
                                                      state),
-                                 null,
                                  false);
   }
 
@@ -1603,9 +1602,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private ForwardDeadReckonInternalMachineState stateBufferO1 = null;
   private ForwardDeadReckonInternalMachineState stateBufferO2 = null;
 
-  private void setBasePropositionsFromState(ForwardDeadReckonInternalMachineState state,
-                                            Factor factor,
-                                            boolean isolate)
+  private void setBasePropositionsFromState(ForwardDeadReckonInternalMachineState state, boolean isolate)
   {
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.setBasePropositionsInternal");
     try
@@ -1869,7 +1866,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     try
     {
       setPropNetUsage(state);
-      setBasePropositionsFromState(state, null, true);
+      setBasePropositionsFromState(state, true);
 
       return isTerminal();
     }
@@ -1967,8 +1964,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //propNet.seq++;
 
       result = new LinkedList<>();
-      for (ForwardDeadReckonLegalMoveInfo moveInfo : propNet
-          .getActiveLegalProps(instanceId).getContents(role))
+      for (ForwardDeadReckonLegalMoveInfo moveInfo : propNet.getActiveLegalProps(instanceId).getContents(role))
       {
         result.add(moveInfo.move);
       }
@@ -1985,8 +1981,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
-  public List<Move> getLegalMoves(ForwardDeadReckonInternalMachineState state,
-                                  Role role)
+  public List<Move> getLegalMovesCopy(ForwardDeadReckonInternalMachineState state, Role role)
   {
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getLegalMoves");
     try
@@ -1994,7 +1989,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       List<Move> result;
 
       setPropNetUsage(state);
-      setBasePropositionsFromState(state, null, true);
+      setBasePropositionsFromState(state, true);
 
       //ForwardDeadReckonComponent.numGatesPropagated = 0;
       //ForwardDeadReckonComponent.numPropagates = 0;
@@ -2019,31 +2014,23 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
+  /**
+   * @return the legal moves in the specified state for the specified role.
+   *
+   * @param state - the state.
+   * @param role  - the role.
+   *
+   * WARNING: This version of the function returns a collection backed by a pre-allocated array.  It is only suitable
+   *          for immediate use and not to be stored.
+   */
   public Collection<ForwardDeadReckonLegalMoveInfo> getLegalMoves(ForwardDeadReckonInternalMachineState state,
-                                                                  Role role,
-                                                                  Factor factor)
+                                                                  Role role)
   {
-    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getLegalMoveInfos");
-    try
-    {
-      setPropNetUsage(state);
-      setBasePropositionsFromState(state, factor, true);
-
-      //ForwardDeadReckonComponent.numGatesPropagated = 0;
-      //ForwardDeadReckonComponent.numPropagates = 0;
-      //propNet.seq++;
-      Collection<ForwardDeadReckonLegalMoveInfo> baseIterable =
-                                                              propNet.getActiveLegalProps(instanceId).getContents(role);
-      if ( factor == null )
-      {
-        return baseIterable;
-      }
-      return new FactorFilteredForwardDeadReckonLegalMoveSet(factor, baseIterable, true);
-    }
-    finally
-    {
-      methodSection.exitScope();
-    }
+    setPropNetUsage(state);
+    setBasePropositionsFromState(state, true);
+    Collection<ForwardDeadReckonLegalMoveInfo> lResult = propNet.getActiveLegalProps(instanceId).getContents(role);
+    assert(lResult.size() > 0);
+    return lResult;
   }
 
   /**
@@ -2222,7 +2209,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       if ( movesCount > 0 )
       {
-        setBasePropositionsFromState(state, null, true);
+        setBasePropositionsFromState(state, true);
 
         result = getInternalStateFromBase(null);
 
@@ -2290,7 +2277,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
       }
 
-      setBasePropositionsFromState(state, null, true);
+      setBasePropositionsFromState(state, true);
 
       ForwardDeadReckonInternalMachineState result = getInternalStateFromBase(null);
 
@@ -2354,7 +2341,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
     }
 
-    setBasePropositionsFromState(state, factor, true);
+    setBasePropositionsFromState(state, true);
 
     getInternalStateFromBase(xbNewState);
 
@@ -2609,7 +2596,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       //System.out.println("Transitioning to: " + transitionTo);
 
-      setBasePropositionsFromState(transitionTo, null, true);
+      setBasePropositionsFromState(transitionTo, true);
     }
     finally
     {
@@ -2828,7 +2815,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             //System.out.println("...next choice=" + poppedState.nextChoiceIndex + " (base was " + poppedState.baseChoiceIndex + ")");
 
             setPropNetUsage(poppedState.state);
-            setBasePropositionsFromState(poppedState.state, factor, true);
+            setBasePropositionsFromState(poppedState.state, true);
           }
           else
           {
@@ -2864,7 +2851,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
 
         setPropNetUsage(decisionState.state);
-        setBasePropositionsFromState(decisionState.state, null, true);
+        setBasePropositionsFromState(decisionState.state, true);
       }
       else
       {
@@ -2942,8 +2929,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     //		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.transitionToNextStateInGreedyRollout");
     //		try
     //		{
-    ForwardDeadReckonLegalMoveSet activeLegalMoves = propNet
-        .getActiveLegalProps(instanceId);
+    ForwardDeadReckonLegalMoveSet activeLegalMoves = propNet.getActiveLegalProps(instanceId);
     int index = 0;
     boolean simultaneousMove = false;
     int maxChoices = 0;
@@ -2966,17 +2952,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       for (Role role : getRoles())
       {
-        Collection<ForwardDeadReckonLegalMoveInfo> moves;
-
-        if ( factor == null )
-        {
-          moves = activeLegalMoves.getContents(role);
-        }
-        else
-        {
-          moves = new FactorFilteredForwardDeadReckonLegalMoveSet(factor, activeLegalMoves.getContents(role), false);
-        }
-        int numChoices = moves.size();
+        Collection<ForwardDeadReckonLegalMoveInfo> moves = activeLegalMoves.getContents(role);
+        int numChoices = Factor.getFilteredSize(moves, factor);
 
         if (numChoices > maxChoices)
         {
@@ -3015,8 +2992,16 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           int rand = getRandom(numChoices);
 
+          boolean lForceOne = true;
           for (ForwardDeadReckonLegalMoveInfo info : moves)
           {
+            // Skip moves that aren't valid in this factor.
+            if ((info = Factor.filterMove(info, factor, lForceOne)) == null)
+            {
+              continue;
+            }
+            lForceOne = false;
+
             if (rand-- <= 0)
             {
               decisionState.nonChooserProps[index++] = info.inputProposition;
@@ -3032,8 +3017,16 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         else
         {
           int chooserMoveIndex = 0;
+          boolean lForceOne = true;
           for (ForwardDeadReckonLegalMoveInfo info : moves)
           {
+            // Skip moves that aren't valid in this factor.
+            if (Factor.filterMove(info, factor, lForceOne) == null)
+            {
+              continue;
+            }
+            lForceOne = false;
+
             if (decisionState.choosingRole == role)
             {
               if (chooserMoveIndex == 0)
@@ -3211,7 +3204,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         if (transitioned)
         {
           setPropNetUsage(decisionState.state);
-          setBasePropositionsFromState(decisionState.state, factor, true);
+          setBasePropositionsFromState(decisionState.state, true);
         }
 
         chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserMoves[choice].inputProposition;
@@ -3323,7 +3316,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     {
       Collection<ForwardDeadReckonLegalMoveInfo> moves = propNet.getActiveLegalProps(instanceId).getContents(roleIndex);
 
-      if ( moves.isEmpty())
+      if (moves.isEmpty())
       {
         return false;
       }
@@ -3346,17 +3339,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       for (int roleIndex = 0; roleIndex < numRoles; roleIndex++)
       {
         Collection<ForwardDeadReckonLegalMoveInfo> moves = activeLegalMoves.getContents(roleIndex);
-        if ( factor != null )
+
+        //  In a factored game the terminal logic can sometimes span the factors in a way we don't
+        //  cleanly cater for currently, so use lack of legal moves as a proxy for terminality.
+        if ((factor != null) && (moves.isEmpty()))
         {
-          //  In a factored game the terminal logic can sometimes span the factors in a way we don't
-          //  cleanly cater for currently, so use lack of legal moves as a proxy for terminality
-          if ( moves.isEmpty() )
-          {
-            return 0;
-          }
-          moves = new FactorFilteredForwardDeadReckonLegalMoveSet(factor, moves, false);
+          return 0;
         }
-        int numChoices = moves.size();
+
+        int numChoices = Factor.getFilteredSize(moves, factor);
         int rand;
 
         if (moveWeights == null)
@@ -3367,8 +3358,16 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           double total = 0;
 
+          boolean lForceOne = true;
           for (ForwardDeadReckonLegalMoveInfo info : moves)
           {
+            // Skip moves that aren't valid in this factor.
+            if ((info = Factor.filterMove(info, factor, lForceOne)) == null)
+            {
+              continue;
+            }
+            lForceOne = false;
+
             if (moveWeights.weightScore[info.globalMoveIndex] == 0)
             {
               LOGGER.warn("Unexpected 0 move weight");
@@ -3390,8 +3389,16 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
         ForwardDeadReckonLegalMoveInfo chosen = null;
 
+        boolean lForceOne = true;
         for (ForwardDeadReckonLegalMoveInfo info : moves)
         {
+          // Skip moves that aren't valid in this factor.
+          if ((info = Factor.filterMove(info, factor, lForceOne)) == null)
+          {
+            continue;
+          }
+          lForceOne = false;
+
           if (moveWeights == null)
           {
             rand--;
@@ -3579,7 +3586,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         validationState = state.getMachineState();
       }
       setPropNetUsage(state);
-      setBasePropositionsFromState(state, factor, true);
+      setBasePropositionsFromState(state, true);
       for (int i = 0; i < numRoles; i++)
       {
         if (ForwardDeadReckonPropNet.useFastAnimator)
@@ -3627,7 +3634,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         if (resultSet.resultVector.controllingRole != null)
         {
           setPropNetUsage(resultSet.resultVector.state);
-          setBasePropositionsFromState(resultSet.resultVector.state, null, true);
+          setBasePropositionsFromState(resultSet.resultVector.state, true);
         }
       }
       for (int i = 0; i < numRoles; i++)
@@ -3707,7 +3714,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         if (state != null)
         {
           setPropNetUsage(state);
-          setBasePropositionsFromState(state, null, true);
+          setBasePropositionsFromState(state, true);
         }
 
         net = propNet;

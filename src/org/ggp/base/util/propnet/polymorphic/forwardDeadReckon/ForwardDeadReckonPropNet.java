@@ -214,9 +214,9 @@ public ForwardDeadReckonPropNet(List<Role> roles,
   }
 
   /**
-   * Retrieve the collection of legal moves for a specified instance
-   * @param instanceId Instance to retrieve for
-   * @return the set of currently legal moves
+   * @return the collection of legal moves for a specified instance.
+   *
+   * @param instanceId - Instance to retrieve for.
    */
   public ForwardDeadReckonLegalMoveSet getActiveLegalProps(int instanceId)
   {

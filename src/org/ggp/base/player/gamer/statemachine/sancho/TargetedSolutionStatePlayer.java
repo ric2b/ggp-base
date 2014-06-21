@@ -173,8 +173,7 @@ public class TargetedSolutionStatePlayer
         }
 
         //  Expand the node and add children to the fringe
-        List<Move> childMoves = underlyingStateMachine.getLegalMoves(node
-            .getState(), gamer.getRole());
+        List<Move> childMoves = underlyingStateMachine.getLegalMovesCopy(node.getState(), gamer.getRole());
 
         if (childMoves.size() == 0)
         {
@@ -185,8 +184,8 @@ public class TargetedSolutionStatePlayer
           List<Move> jointMove = new LinkedList<Move>();
           jointMove.add(move);
 
-          ForwardDeadReckonInternalMachineState newState = underlyingStateMachine
-              .getNextState(node.getState(), jointMove);
+          ForwardDeadReckonInternalMachineState newState = underlyingStateMachine.getNextState(node.getState(),
+                                                                                               jointMove);
           ForwardDeadReckonInternalMachineState steplessState = new ForwardDeadReckonInternalMachineState(newState);
           steplessState.intersect(stepStateMask);
 

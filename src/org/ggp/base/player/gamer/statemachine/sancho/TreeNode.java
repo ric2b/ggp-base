@@ -25,6 +25,7 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 
 /**
  * A node in an MCTS "tree" (actually a DAG).
@@ -1708,10 +1709,19 @@ public class TreeNode
     {
       int nonNoopCount = 0;
 
-      for(int i = 0; i < tree.numRoles && nonNoopCount < 2; i++ )
+      for (int i = 0; i < tree.numRoles && nonNoopCount < 2; i++ )
       {
-        for(ForwardDeadReckonLegalMoveInfo info : tree.underlyingStateMachine.getLegalMoves(theState, tree.roleOrdering.roleIndexToRole(i), tree.factor))
+        boolean lFirst = true;
+        for (ForwardDeadReckonLegalMoveInfo info :
+                              tree.underlyingStateMachine.getLegalMoves(theState, tree.roleOrdering.roleIndexToRole(i)))
         {
+          // Skip moves that aren't valid in this factor.
+          if ((info = Factor.filterMove(info, tree.factor, lFirst)) == null)
+          {
+            continue;
+          }
+          lFirst = false;
+
           if (info.inputProposition != null)
           {
             if (nonNoopCount++ > 0)
@@ -1822,13 +1832,11 @@ public class TreeNode
 
         //LOGGER.debug("Expand our moves from state: " + state);
         Collection<ForwardDeadReckonLegalMoveInfo> moves = tree.underlyingStateMachine.getLegalMoves(state,
-                                                                                                     choosingRole,
-                                                                                                     tree.factor);
-        assert(moves.size() > 0);
-        assert(moves.size() <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
+                                                                                                     choosingRole);
 
         // If the child array isn't large enough, expand it.
-        mNumChildren = (short)moves.size();
+        mNumChildren = (short)Factor.getFilteredSize(moves, tree.factor);
+        assert(mNumChildren <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
         if (mNumChildren > children.length)
         {
           children = new Object[tree.gameCharacteristics.getChoicesHighWaterMark(mNumChildren)];
@@ -1842,9 +1850,16 @@ public class TreeNode
           }
         }
 
+        boolean lFirst = true;
         short lMoveIndex = 0;
         for (ForwardDeadReckonLegalMoveInfo newChoice : moves)
         {
+          if ((newChoice = Factor.filterMove(newChoice, tree.factor, lFirst)) == null)
+          {
+            continue;
+          }
+          lFirst = false;
+
           boolean isPseudoNullMove = (tree.factor != null);
 
           jointPartialMove[roleIndex] = newChoice;

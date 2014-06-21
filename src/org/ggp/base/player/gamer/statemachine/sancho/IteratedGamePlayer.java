@@ -161,8 +161,7 @@ public class IteratedGamePlayer
 
         for (Role role : underlyingStateMachine.getRoles())
         {
-          List<Move> roleMoves = underlyingStateMachine.getLegalMoves(state,
-                                                                      role);
+          List<Move> roleMoves = underlyingStateMachine.getLegalMovesCopy(state, role);
 
           if (roleMoves.size() == 1)
           {
