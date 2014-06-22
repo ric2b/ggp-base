@@ -804,6 +804,8 @@ public class Sancho extends SampleGamer
     Move bestMove;
     List<Move> moves;
 
+    LOGGER.info("Moves played for turn " + mTurn + ": " + getMatch().getMostRecentMoves());
+
     mTurn++;
     LOGGER.info("Starting turn " + mTurn);
     StatsLogUtils.Series.TURN.logDataPoint(start, mTurn);
