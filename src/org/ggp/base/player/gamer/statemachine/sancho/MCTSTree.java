@@ -311,7 +311,14 @@ public class MCTSTree
       TreeNode newRoot = root.findNode(factorState, underlyingStateMachine.getRoles().size() + 1);
       if (newRoot == null)
       {
-        LOGGER.warn("Unable to find root node in existing tree");
+        if (root.complete)
+        {
+          LOGGER.info("New root missing because old root was complete");
+        }
+        else
+        {
+          LOGGER.warn("Unable to find root node in existing tree");
+        }
         empty();
         root = allocateNode(factorState, null, false);
         root.decidingRoleIndex = numRoles - 1;
