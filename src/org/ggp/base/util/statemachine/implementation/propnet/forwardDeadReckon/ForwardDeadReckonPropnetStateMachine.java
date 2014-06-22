@@ -1264,7 +1264,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
         if ( factors != null )
         {
-          LOGGER.info("Game appears factorize into " + factors.size() + " factors");
+          LOGGER.info("Game appears to factorize into " + factors.size() + " factors");
         }
       }
 

@@ -4,6 +4,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -12,14 +14,14 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.Move;
 
 /**
- * @author steve
- *
  * Class representing a factor within a game's propnet.  A factor is a partition within a partitioning of the base
  * propositions into disjoint sets between which there are no causative logical connections or coupling via
  * terminal/goal conditions.
  */
 public class Factor
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private static final ForwardDeadReckonLegalMoveInfo PSEUDO_NO_OP = new ForwardDeadReckonLegalMoveInfo(true);
 
   private Set<PolymorphicComponent> components = new HashSet<>();
@@ -81,21 +83,21 @@ public class Factor
 
   public void dump()
   {
-    System.out.println("Factor base props:");
-    for(PolymorphicComponent c : components)
+    LOGGER.debug("Factor base props:");
+    for (PolymorphicComponent c : components)
     {
-      if ( c instanceof PolymorphicProposition )
+      if (c instanceof PolymorphicProposition)
       {
         PolymorphicProposition p = (PolymorphicProposition)c;
 
-        System.out.println("  " + p.getName());
+        LOGGER.debug("  " + p.getName());
       }
     }
 
-    System.out.println("Factor moves:");
-    for(Move move : moves)
+    LOGGER.debug("Factor moves:");
+    for (Move move : moves)
     {
-      System.out.println("  " + move);
+      LOGGER.debug("  " + move);
     }
   }
 
