@@ -283,6 +283,14 @@ public class MCTSTree
     }
   }
 
+  void makeFactorState(ForwardDeadReckonInternalMachineState state)
+  {
+    state.intersect(factor.getStateMask(false));
+    //  Set the rest of the state to 'neutral' values.  We use the initial state
+    //  as this is guaranteed to be legal and non-terminal
+    state.merge(mNonFactorInitialState);
+  }
+
   public void setRootState(ForwardDeadReckonInternalMachineState state, short rootDepth)
   {
     ForwardDeadReckonInternalMachineState factorState;
@@ -294,10 +302,7 @@ public class MCTSTree
     else
     {
       factorState = new ForwardDeadReckonInternalMachineState(state);
-      factorState.intersect(factor.getStateMask(false));
-      //  Set the rest of the state to 'neutral' values.  We use the initial state
-      //  as this is guaranteed to be legal and non-terminal
-      factorState.merge(mNonFactorInitialState);
+      makeFactorState(factorState);
     }
 
     if (root == null)
