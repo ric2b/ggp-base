@@ -483,10 +483,10 @@ public class TreeNode
 
   private void freeFromAncestor(TreeNode ancestor, TreeNode xiKeep)
   {
-    //if (sweepParent == ancestor && sweepSeq == sweepInstance)
-    //{
-    //	LOGGER.info("Removing sweep parent");
-    //}
+//    if (sweepParent == ancestor && sweepSeq == tree.sweepInstance)
+//    {
+//    	LOGGER.info("Removing sweep parent");
+//    }
     parents.remove(ancestor);
 
     if ((xiKeep != null) && (sweepSeq == tree.sweepInstance))
@@ -1274,10 +1274,11 @@ public class TreeNode
    * Mark all the nodes that will be in the live part of the graph with a sequence number.  When clearing out the graph,
    * if we meet a marked node, we know that it can't be deleted because it's still reachable.
    */
-  private void markTreeForSweep()
+  private void markTreeForSweep(TreeNode parent)
   {
     if (sweepSeq != tree.sweepInstance)
     {
+      //sweepParent = parent;
       sweepSeq = tree.sweepInstance;
       for (short index = 0; index < mNumChildren; index++)
       {
@@ -1288,7 +1289,7 @@ public class TreeNode
           TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
           if (edge != null && edge.mChildRef != NULL_REF && get(edge.mChildRef) != null)
           {
-            get(edge.mChildRef).markTreeForSweep();
+            get(edge.mChildRef).markTreeForSweep(this);
           }
         }
       }
@@ -1338,7 +1339,7 @@ public class TreeNode
     // Mark the live portions of the tree.  This allows us to tidy up the state without repeatedly visiting live parts
     // of the tree.
     tree.sweepInstance++;
-    descendant.markTreeForSweep();
+    descendant.markTreeForSweep(null);
     descendant.parents.clear(); //	Do this here to allow generic orphan checking in node freeing
                                 //	without tripping over this special case
 
@@ -1369,6 +1370,7 @@ public class TreeNode
     }
 
     freeNode();
+    tree.sweepInstance++;
   }
 
   private void deleteEdge(int xiChildIndex)
@@ -1762,6 +1764,14 @@ public class TreeNode
     {
       newState = tree.mNextStateBuffer;
       tree.underlyingStateMachine.getNextState(state, tree.factor, jointPartialMove, newState);
+
+      //  In a factorized game we need to normalize the generated state
+      //  so as to not fall foul of potential corruption of the non-factor
+      //  element engendered by not making a move in other factors
+      if ( tree.factor != null )
+      {
+        tree.makeFactorState(newState);
+      }
     }
     TreeNode newChild = tree.allocateNode(newState, this, isPseudoNullMove);
 
@@ -1879,6 +1889,14 @@ public class TreeNode
                                                      tree.factor,
                                                      jointPartialMove,
                                                      newState);
+
+            //  In a factorized game we need to normalize the generated state
+            //  so as to not fall foul of potential corruption of the non-factor
+            //  element engendered by not making a move in other factors
+            if ( tree.factor != null )
+            {
+              tree.makeFactorState(newState);
+            }
           }
           else
           {
@@ -1897,7 +1915,7 @@ public class TreeNode
             {
               if (children[i] != null &&
                   roleIndex == tree.numRoles - 1 &&
-                  tree.mChildStatesBuffer[i].equals(tree.mChildStatesBuffer[lMoveIndex]))
+                  tree.mChildStatesBuffer[i].equals(newState))
               {
                 if ( primaryChoiceMapping == null )
                 {
