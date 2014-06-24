@@ -50,7 +50,7 @@ public class LogSummaryGenerator
     }
 
     String lSummary = getSummaryFromLogsDirectory(lLogFiles);
-    System.out.println("Finished generating logs for " + xiMatchID + " at " + System.currentTimeMillis());
+    System.out.println("Finished generating " + lSummary.length() + " bytes of logs for " + xiMatchID + " at " + System.currentTimeMillis());
     return lSummary;
   }
 
