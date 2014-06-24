@@ -176,7 +176,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.58s");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.58t");
   }
 
   @Override
@@ -889,6 +889,7 @@ public class Sancho extends SampleGamer
       if (!moves.contains(bestMove))
       {
         LOGGER.warn("Selected illegal move!!");
+        assert(false);
         bestMove = moves.get(0);
       }
       LOGGER.info("Playing move: " + bestMove);
