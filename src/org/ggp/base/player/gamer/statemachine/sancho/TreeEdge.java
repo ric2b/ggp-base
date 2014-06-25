@@ -77,6 +77,10 @@ public class TreeEdge
   {
     mParentRef = xiParent.getRef();
     mPartialMove = xiPartialMove;
+
+    assert(mParentRef != TreeNode.NULL_REF);
+    assert(mChildRef == TreeNode.NULL_REF ||
+           TreeNode.get(xiParent.tree.nodePool, mChildRef).tree == xiParent.tree);
   }
 
   /**
@@ -87,6 +91,10 @@ public class TreeEdge
   public void setChild(TreeNode xiChild)
   {
     mChildRef = xiChild.getRef();
+
+    assert(mChildRef != TreeNode.NULL_REF);
+    assert(mParentRef == TreeNode.NULL_REF ||
+           TreeNode.get(xiChild.tree.nodePool, mParentRef).tree == xiChild.tree);
   }
 
   /**
