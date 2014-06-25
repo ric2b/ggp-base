@@ -220,6 +220,7 @@ public class GameSearcher implements Runnable, ActivityController
     {
       tree.root = tree.allocateNode(initialState, null, false);
       tree.root.decidingRoleIndex = underlyingStateMachine.getRoles().size() - 1;
+      tree.root.setDepth((short)0);
     }
   }
 

@@ -124,12 +124,13 @@ public class TreeNode
   private short                         leastLikelyWinner   = -1;
   private short                         mostLikelyWinner    = -1;
   //  Note - the 'depth' of a node is an indicative measure of its distance from the
-  //  initial state.  However, it is not an absolute count of the oath length.  This
+  //  initial state.  However, it is not an absolute count of the path length.  This
   //  is because in some games the same state can occur at different depths (English Draughts
   //  exhibits this), which means that transitions to the same node can occur at multiple
   //  depths.  This approximate nature good enough for our current usage, but should be borne
-  //  in mind if that usage is expanded.
-  private short                         depth               = 0;
+  //  in mind if that usage is expanded.  It is initialized to -1 so that a transposition
+  //  to an existing node can be distinguished from a fresh allocation
+  private short                         depth               = -1;
   private short                         completionDepth;
 
   /**
@@ -1151,6 +1152,7 @@ public class TreeNode
     complete = false;
     allChildrenComplete = false;
     freed = (xiTree == null);
+    depth = -1;
     sweepSeq = 0;
     //sweepParent = null;
 
@@ -1785,7 +1787,17 @@ public class TreeNode
     edge.setChild(newChild);
 
     newChild.decidingRoleIndex = roleIndex;
-    newChild.depth = (short)(depth + 1);
+
+    //  If this was a transposition to an existing node it can be linked at multiple depths.
+    //  Give it the lowest depth at which it has been seen, as this is guaranteed to preserve
+    //  correct implicit semantics of unexpanded children (assertion of non-terminality if below
+    //  min game length depth)
+    if ( newChild.depth < 0 || newChild.depth > depth )
+    {
+      newChild.depth = (short)(depth + 1);
+    }
+
+    assert(newChild.depth > 0);
 
     if (roleIndex != tree.numRoles - 1)
     {
