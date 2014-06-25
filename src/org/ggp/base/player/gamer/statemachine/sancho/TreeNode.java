@@ -483,10 +483,9 @@ public class TreeNode
 
   private void freeFromAncestor(TreeNode ancestor, TreeNode xiKeep)
   {
-//    if (sweepParent == ancestor && sweepSeq == tree.sweepInstance)
-//    {
-//    	LOGGER.info("Removing sweep parent");
-//    }
+    //assert (sweepParent != ancestor || sweepSeq != tree.sweepInstance);
+    assert(parents.contains(ancestor));
+    //assert(sweepParent == null || sweepSeq != tree.sweepInstance || parents.contains(sweepParent));
     parents.remove(ancestor);
 
     if ((xiKeep != null) && (sweepSeq == tree.sweepInstance))
@@ -508,13 +507,17 @@ public class TreeNode
 
           TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
           TreeNode lChild;
-          if (edge != null && edge.mChildRef != NULL_REF && (lChild = get(edge.mChildRef)) != null)
+          if (edge != null )
           {
             // Free the child (at least from us) and free our edge to it.
-            if (lChild != xiKeep) // !! ARR Redundant check?  It will have been caught by the sweep check above.
+            if ( edge.mChildRef != NULL_REF && (lChild = get(edge.mChildRef)) != null)
             {
-              lChild.freeFromAncestor(this, xiKeep);
+              if (lChild != xiKeep) // !! ARR Redundant check?  It will have been caught by the sweep check above.
+              {
+                lChild.freeFromAncestor(this, xiKeep);
+              }
             }
+
             deleteEdge(index);
           }
         }
@@ -1148,6 +1151,8 @@ public class TreeNode
     complete = false;
     allChildrenComplete = false;
     freed = (xiTree == null);
+    sweepSeq = 0;
+    //sweepParent = null;
 
     // Reset objects (without allocating new ones).
     tree = xiTree;
@@ -1276,6 +1281,7 @@ public class TreeNode
    */
   private void markTreeForSweep(TreeNode parent)
   {
+    assert(parent == null || parents.contains(parent)) : "Marked node for sweep from unexpected parent";
     if (sweepSeq != tree.sweepInstance)
     {
       //sweepParent = parent;
