@@ -150,7 +150,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    */
   public void invert()
   {
-    contents.flip(0, infoSet.length - 1);
+    contents.flip(0, infoSet.length);
   }
 
   /**
