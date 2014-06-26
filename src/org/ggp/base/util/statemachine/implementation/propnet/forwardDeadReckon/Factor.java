@@ -2,6 +2,7 @@ package org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
@@ -160,43 +161,33 @@ public class Factor
 
   public void setAlwaysIncludePseudoNoop(boolean value)
   {
-    alwaysIncludePseudoNoop = value;;
+    alwaysIncludePseudoNoop = value;
   }
 
   /**
-   * Filter a move against a factor.
-   *
-   * @param xiMove                   - the move.
-   * @param xiFactor                 - the factor.
-   * @param includeForcedPseudoNoops - whether to return a pseduo-no-op if the move isn't valid for the factor.
-   *
-   * @return either the move, a pseudo-no-op or null depending on whether the move is part of the factor and whether
-   * pseudo-no-ops were requested.
+   * Get the next move for this factor - inserts pseudo-noops if required
+   * @param xiFactor - facor to enumerate moves for
+   * @param itr - iterator on the collection of all moves
+   * @return next factoo move
    */
-  public static ForwardDeadReckonLegalMoveInfo filterMove(ForwardDeadReckonLegalMoveInfo xiMove,
-                                                          Factor xiFactor,
-                                                          boolean includeForcedPseudoNoops)
+  public static ForwardDeadReckonLegalMoveInfo nextFactorMove(Factor xiFactor,
+                                                          Iterator<ForwardDeadReckonLegalMoveInfo> itr)
   {
-    if (xiFactor == null)
+    ForwardDeadReckonLegalMoveInfo result;
+
+    while(itr.hasNext())
     {
-      // Non-factored game.  All moves pass the filter.
-      return xiMove;
+      result = itr.next();
+      if ( result.factor == xiFactor || result.factor == null || xiFactor == null )
+      {
+        return result;
+      }
     }
 
-    if (xiMove.factor == null || xiMove.factor == xiFactor)
-    {
-      // The specified move is valid in all factors or in this factor.
-      return xiMove;
-    }
+    assert(xiFactor != null);
 
-    if (includeForcedPseudoNoops /* && xiFactor.getAlwaysIncludePseudoNoop() */)
-    {
-      // The specified move is not valid and we've been asked to substitute a pseudo-no-op.
-      return PSEUDO_NO_OP;
-    }
-
-    // The specified move is not part of this factor and we haven't been asked to substitute a pseudo-no-op.
-    return null;
+    // The extra move must be a forced noop
+    return PSEUDO_NO_OP;
   }
 
   /**
@@ -204,8 +195,9 @@ public class Factor
    *
    * @param xiMoves  - the moves.
    * @param xiFactor - the factor.
+   * @param includeForcedPseudoNoops - whether to include forced pseudo-noops in factors
    */
-  public static int getFilteredSize(Collection<ForwardDeadReckonLegalMoveInfo> xiMoves, Factor xiFactor)
+  public static int getFilteredSize(Collection<ForwardDeadReckonLegalMoveInfo> xiMoves, Factor xiFactor, boolean includeForcedPseudoNoops)
   {
     if (xiFactor == null)
     {
@@ -214,13 +206,25 @@ public class Factor
     }
 
     int lCount = 0;
+    boolean noopFound = false;
     for (ForwardDeadReckonLegalMoveInfo lMove : xiMoves)
     {
-      if (filterMove(lMove, xiFactor, (lCount == 0)) != null)
+      if (lMove.factor == null || lMove.factor == xiFactor)
       {
         lCount++;
+
+        if ( lMove.inputProposition == null || lMove.factor == null )
+        {
+          noopFound = true;
+        }
       }
     }
+
+    if ( lCount == 0 || (includeForcedPseudoNoops && !noopFound && xiFactor.getAlwaysIncludePseudoNoop()))
+    {
+      lCount++;
+    }
+
     return lCount;
   }
 }

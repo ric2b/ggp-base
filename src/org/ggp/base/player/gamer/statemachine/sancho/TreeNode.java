@@ -6,6 +6,7 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Set;
 
@@ -1721,16 +1722,15 @@ public class TreeNode
 
       for (int i = 0; i < tree.numRoles && nonNoopCount < 2; i++ )
       {
-        boolean lFirst = true;
-        for (ForwardDeadReckonLegalMoveInfo info :
-                              tree.underlyingStateMachine.getLegalMoves(theState, tree.roleOrdering.roleIndexToRole(i)))
+        Collection<ForwardDeadReckonLegalMoveInfo> moves = tree.underlyingStateMachine.getLegalMoves(theState, tree.roleOrdering.roleIndexToRole(i));
+        int numMoves = Factor.getFilteredSize(moves,
+                                              tree.factor,
+                                              false);
+        Iterator<ForwardDeadReckonLegalMoveInfo> itr = moves.iterator();
+        for (int iMove = 0; iMove < numMoves; iMove++)
         {
-          // Skip moves that aren't valid in this factor.
-          if ((info = Factor.filterMove(info, tree.factor, lFirst)) == null)
-          {
-            continue;
-          }
-          lFirst = false;
+          // Get next move for this factor
+          ForwardDeadReckonLegalMoveInfo info = Factor.nextFactorMove(tree.factor, itr);
 
           if (info.inputProposition != null)
           {
@@ -1863,7 +1863,7 @@ public class TreeNode
                                                                                                      choosingRole);
 
         // If the child array isn't large enough, expand it.
-        mNumChildren = (short)Factor.getFilteredSize(moves, tree.factor);
+        mNumChildren = (short)Factor.getFilteredSize(moves, tree.factor, true);
         assert(mNumChildren <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
         if (mNumChildren > children.length)
         {
@@ -1878,15 +1878,10 @@ public class TreeNode
           }
         }
 
-        boolean lFirst = true;
-        short lMoveIndex = 0;
-        for (ForwardDeadReckonLegalMoveInfo newChoice : moves)
+        Iterator<ForwardDeadReckonLegalMoveInfo> itr = moves.iterator();
+        for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
         {
-          if ((newChoice = Factor.filterMove(newChoice, tree.factor, lFirst)) == null)
-          {
-            continue;
-          }
-          lFirst = false;
+          ForwardDeadReckonLegalMoveInfo newChoice = Factor.nextFactorMove(tree.factor, itr);
 
           boolean isPseudoNullMove = (tree.factor != null);
 
@@ -1949,13 +1944,13 @@ public class TreeNode
             }
           }
 
+          assert(newChoice != null);
           children[lMoveIndex] = newChoice;
-          lMoveIndex++;
         }
 
         if (evaluateTerminalOnNodeCreation && roleIndex == tree.numRoles - 1)
         {
-          for (lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
+          for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
           {
             if (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex)
             {
@@ -1983,7 +1978,7 @@ public class TreeNode
 
         if (USE_STATE_SIMILARITY_IN_EXPANSION && topMoveWeight > 0)
         {
-          for (lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
+          for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
           {
             if ((primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) )
             {
@@ -2014,7 +2009,7 @@ public class TreeNode
 
         if (roleIndex == tree.numRoles - 1)
         {
-          for (lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
+          for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
           {
             if ((primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) )
             {
