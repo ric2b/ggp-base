@@ -1,0 +1,30 @@
+{
+  "cases" : [
+    {
+      "case" : "Bug #117, Tiltyard 73613d2b6a88e2425c6c1ac5deeeaa986193b849, player 1, move 30",
+      "repo" : "games.ggp.org/base",
+      "game" : "checkers",
+      "start" : "30",
+      "play" : "15",
+      "limit" : 30,
+      "players" : [
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "move wp b 3 a 4,noop,move wp d 3 e 4,noop,move wp c 2 d 3,noop,move wp b 1 c 2,noop,move wp f 3 g 4,noop,move wp e 2 f 3,noop,move wp e 4 c 6,noop,move wp c 2 b 3,noop,move wp d 3 c 4,noop,move wp f 1 e 2,noop,move wp e 2 d 3,noop,move wp d 1 c 2,noop,move wp c 4 b 5,noop,move wp a 4 b 5,noop,move wp b 5 c 6,noop"
+          ]
+        },
+        {
+          "type" : "Sancho",
+          "args" : [
+            "plan=noop,move bp g 6 h 5,noop,move bp h 7 g 6,noop,move bp e 6 f 5,noop,move bp d 7 e 6,noop,move bp c 8 d 7,noop,move bp c 6 d 5,noop,move bp b 7 d 5,noop,move bp g 8 h 7,noop,move bp d 7 c 6,noop,move bp a 8 b 7,noop,move bp d 5 e 4,noop,move bp c 6 d 5,noop,doublejump bp a 6 c 4 e 2,noop,move bp b 7 a 6,noop"
+          ]
+        }
+      ],
+      "check" : {
+        "player" : "1",
+        "acceptable" : "!:NIL"
+      }
+    }
+  ]
+}
