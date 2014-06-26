@@ -2,24 +2,29 @@ package org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 import org.ggp.base.util.statemachine.Move;
 
 /**
- * @author steve
- *
- * Class representing a factor within a game's propnet.  A factor
- * is a partition within a partitioning of the base propositions into
- * disjoint sets between which there are no causative logical connections
- * or coupling via terminal/goal conditions
+ * Class representing a factor within a game's propnet.  A factor is a partition within a partitioning of the base
+ * propositions into disjoint sets between which there are no causative logical connections or coupling via
+ * terminal/goal conditions.
  */
 public class Factor
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
+  private static final ForwardDeadReckonLegalMoveInfo PSEUDO_NO_OP = new ForwardDeadReckonLegalMoveInfo(true);
+
   private Set<PolymorphicComponent> components = new HashSet<>();
   private Set<Move> moves = new HashSet<>();
   private ForwardDeadReckonInternalMachineState stateMask = null;
@@ -79,21 +84,21 @@ public class Factor
 
   public void dump()
   {
-    System.out.println("Factor base props:");
-    for(PolymorphicComponent c : components)
+    LOGGER.debug("Factor base props:");
+    for (PolymorphicComponent c : components)
     {
-      if ( c instanceof PolymorphicProposition )
+      if (c instanceof PolymorphicProposition)
       {
         PolymorphicProposition p = (PolymorphicProposition)c;
 
-        System.out.println("  " + p.getName());
+        LOGGER.debug("  " + p.getName());
       }
     }
 
-    System.out.println("Factor moves:");
-    for(Move move : moves)
+    LOGGER.debug("Factor moves:");
+    for (Move move : moves)
     {
-      System.out.println("  " + move);
+      LOGGER.debug("  " + move);
     }
   }
 
@@ -156,6 +161,70 @@ public class Factor
 
   public void setAlwaysIncludePseudoNoop(boolean value)
   {
-    alwaysIncludePseudoNoop = value;;
+    alwaysIncludePseudoNoop = value;
+  }
+
+  /**
+   * Get the next move for this factor - inserts pseudo-noops if required
+   * @param xiFactor - facor to enumerate moves for
+   * @param itr - iterator on the collection of all moves
+   * @return next factoo move
+   */
+  public static ForwardDeadReckonLegalMoveInfo nextFactorMove(Factor xiFactor,
+                                                          Iterator<ForwardDeadReckonLegalMoveInfo> itr)
+  {
+    ForwardDeadReckonLegalMoveInfo result;
+
+    while(itr.hasNext())
+    {
+      result = itr.next();
+      if ( result.factor == xiFactor || result.factor == null || xiFactor == null )
+      {
+        return result;
+      }
+    }
+
+    assert(xiFactor != null);
+
+    // The extra move must be a forced noop
+    return PSEUDO_NO_OP;
+  }
+
+  /**
+   * @return the number of moves in the specified collection that are valid for the specified factor.
+   *
+   * @param xiMoves  - the moves.
+   * @param xiFactor - the factor.
+   * @param includeForcedPseudoNoops - whether to include forced pseudo-noops in factors
+   */
+  public static int getFilteredSize(Collection<ForwardDeadReckonLegalMoveInfo> xiMoves, Factor xiFactor, boolean includeForcedPseudoNoops)
+  {
+    if (xiFactor == null)
+    {
+      // Non-factored game.  All moves in the underlying collection are valid.
+      return xiMoves.size();
+    }
+
+    int lCount = 0;
+    boolean noopFound = false;
+    for (ForwardDeadReckonLegalMoveInfo lMove : xiMoves)
+    {
+      if (lMove.factor == null || lMove.factor == xiFactor)
+      {
+        lCount++;
+
+        if ( lMove.inputProposition == null || lMove.factor == null )
+        {
+          noopFound = true;
+        }
+      }
+    }
+
+    if ( lCount == 0 || (includeForcedPseudoNoops && !noopFound && xiFactor.getAlwaysIncludePseudoNoop()))
+    {
+      lCount++;
+    }
+
+    return lCount;
   }
 }

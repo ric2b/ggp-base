@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+  <Appenders>
+  
+    <Console name="ConsoleOut" target="SYSTEM_OUT">
+      <PatternLayout pattern="%d{HH:mm:ss.SSS} %level{ERROR=!, WARN=?, INFO=-, DEBUG=., TRACE=.} %msg%n"/>
+    </Console>
+    
+    <Console name="ConsoleErr" target="SYSTEM_ERR">
+      <PatternLayout pattern="%d{HH:mm:ss.SSS} %level{ERROR=!, WARN=?, INFO=-, DEBUG=., TRACE=.} %msg%n"/>
+    </Console>
+    
+    <Routing name="MatchLogs">
+      <Routes pattern="$${ctx:matchID}">
+        <Route>
+          <RandomAccessFile name="MatchLog-${ctx:matchID}" fileName="logs/${ctx:matchID}.txt">
+            <PatternLayout pattern="%d{ISO8601} %-5level %-30.30logger{1} %msg%n"/>
+          </RandomAccessFile>
+        </Route>
+      </Routes>
+    </Routing>
+    <Routing name="JSONMatchLogs">
+      <Routes pattern="$${ctx:matchID}">
+        <Route>
+          <RandomAccessFile name="MatchLog-${ctx:matchID}" fileName="logs/${ctx:matchID}.json">
+            <JSONLayout charset="UTF-8"/>
+          </RandomAccessFile>
+        </Route>
+      </Routes>
+    </Routing>
+    <Async name="AsyncMatchWrapper">
+      <AppenderRef ref="MatchLogs"     level="debug"/>
+      <AppenderRef ref="JSONMatchLogs" level="debug"/>
+      <AppenderRef ref="ConsoleOut"    level="info"/>
+      <AppenderRef ref="ConsoleErr"    level="error"/>
+    </Async>
+            
+    <Routing name="MatchStatsLogs">
+      <Routes pattern="$${ctx:matchID}">
+        <Route>
+          <RandomAccessFile name="MatchStatsLog-${ctx:matchID}" fileName="logs/${ctx:matchID}.csv">
+            <PatternLayout pattern="%msg"/>
+          </RandomAccessFile>
+        </Route>
+      </Routes>
+    </Routing>
+    <Async name="AsyncMatchStatsWrapper">
+      <AppenderRef ref="MatchStatsLogs" level="debug"/>
+    </Async>
+            
+  </Appenders>
+  
+  
+  <Loggers>
+    <Logger name="stats" level="trace" additivity="false">
+      <AppenderRef ref="AsyncMatchStatsWrapper"/>
+    </Logger>
+    <Root level="debug">
+      <AppenderRef ref="AsyncMatchWrapper"/>
+    </Root>
+  </Loggers>
+  
+  
+</Configuration>

@@ -57,17 +57,14 @@ public class ProverStateMachine extends StateMachine
   }
 
   @Override
-  public int getGoal(MachineState state, Role role)
-      throws GoalDefinitionException
+  public int getGoal(MachineState state, Role role) throws GoalDefinitionException
   {
-    Set<GdlSentence> results = prover.askAll(ProverQueryBuilder
-        .getGoalQuery(role), ProverQueryBuilder.getContext(state));
+    Set<GdlSentence> results = prover.askAll(ProverQueryBuilder.getGoalQuery(role),
+                                             ProverQueryBuilder.getContext(state));
 
     if (results.size() != 1)
     {
-      GamerLogger.logError("StateMachine", "Got goal results of size: " +
-                                           results.size() +
-                                           " when expecting size one.");
+      GamerLogger.logError("StateMachine", "Got goal results of size: " + results.size() + " when expecting size one.");
       throw new GoalDefinitionException(state, role);
     }
 
@@ -109,9 +106,8 @@ public class ProverStateMachine extends StateMachine
   public MachineState getNextState(MachineState state, List<Move> moves)
       throws TransitionDefinitionException
   {
-    Set<GdlSentence> results = prover
-        .askAll(ProverQueryBuilder.getNextQuery(),
-                ProverQueryBuilder.getContext(state, getRoles(), moves));
+    Set<GdlSentence> results = prover.askAll(ProverQueryBuilder.getNextQuery(),
+                                             ProverQueryBuilder.getContext(state, getRoles(), moves));
 
     for (GdlSentence sentence : results)
     {

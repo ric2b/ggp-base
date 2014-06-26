@@ -1,67 +1,75 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
-import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 
+import org.apache.lucene.util.OpenBitSet;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.statemachine.MachineState;
 
 /**
- * @author steve
  * Internal representation of a machine state, intended for efficient runtime usage
  */
-public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDeadReckonPropositionInfo>,
-                                                              ForwardDeadReckonComponentTransitionNotifier
+public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonComponentTransitionNotifier
 {
-  private class InternalMachineStateIterator implements Iterator<ForwardDeadReckonPropositionInfo>
+  /**
+   * An iterator over the propositions that are set in a machine state.
+   *
+   * This iterator must be used by a single thread at a time and cannot be used in nested form.
+   */
+  public static class InternalMachineStateIterator implements Iterator<ForwardDeadReckonPropositionInfo>
   {
-    private ForwardDeadReckonInternalMachineState parent;
-    int                                           index;
+    private ForwardDeadReckonInternalMachineState mState;
+    int                                           mIndex;
 
-    public InternalMachineStateIterator(ForwardDeadReckonInternalMachineState template)
+    /**
+     * Reset the iterator for the specified state.
+     *
+     * @param xiState - the state.
+     */
+    public void reset(ForwardDeadReckonInternalMachineState xiState)
     {
-      this.parent = template;
-      index = template.contents.nextSetBit(0);
+      this.mState = xiState;
+      mIndex = xiState.contents.nextSetBit(0);
     }
 
     @Override
     public boolean hasNext()
     {
-      return (index != -1);
+      return (mIndex != -1);
     }
 
     @Override
     public ForwardDeadReckonPropositionInfo next()
     {
-      ForwardDeadReckonPropositionInfo result = parent.infoSet[index];
-      index = parent.contents.nextSetBit(index + 1);
+      ForwardDeadReckonPropositionInfo result = mState.infoSet[mIndex];
+      mIndex = mState.contents.nextSetBit(mIndex + 1);
       return result;
     }
 
     @Override
     public void remove()
     {
-      // TODO Auto-generated method stub
+      assert(false) : "InternalMachineStateIterator doesn't support remove()";
     }
   }
 
-  /**
-   * Master list of propositions which may be included or not in the state
-   */
-  ForwardDeadReckonPropositionInfo[]         infoSet;
-  private HashMap<Heuristic, Object>         heuristicData = null;
-  /**
-   * BitSet of which propositions are true in the state
-   */
-  BitSet                                     contents = new BitSet();
+  // Master list of propositions which may be included or not in the state.
+  private final ForwardDeadReckonPropositionInfo[] infoSet;
+
+  // Optional heuristic data associated with the state.
+  private HashMap<Heuristic, Object>               heuristicData = null;
+
+  // BitSet of which propositions are true in the state
+  private final OpenBitSet                         contents;
+
   /**
    * Whether the state is one handled by the X-split of the state machine (else the O split)
    */
-  public boolean                             isXState = false;
+  public boolean                                   isXState = false;
 
   /**
    * Construct a new empty state for the given set of possible base propositions
@@ -70,17 +78,29 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
   public ForwardDeadReckonInternalMachineState(ForwardDeadReckonPropositionInfo[] masterInfoSet)
   {
     infoSet = masterInfoSet;
+    contents = new OpenBitSet(infoSet.length);
   }
 
   /**
-   * Clone an existing state
-   * Note - this does NOT preserve any attached heuristic info
-   * @param copyFrom state to copy
+   * Clone an existing state.
+   *
+   * Note - this does NOT preserve any attached heuristic info. !! ARR Doesn't seem to be true
+   *
+   * @param copyFrom - the state to copy.
    */
   public ForwardDeadReckonInternalMachineState(ForwardDeadReckonInternalMachineState copyFrom)
   {
-    this.infoSet = copyFrom.infoSet;
+    this(copyFrom.infoSet);
     copy(copyFrom);
+  }
+
+  /**
+   * Getter
+   * @return BitSet of active base propositions
+   */
+  public OpenBitSet getContents()
+  {
+    return contents;
   }
 
   /**
@@ -109,9 +129,9 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
   }
 
   /**
-   * @return num propositions set in th state
+   * @return the number of propositions set in the state
    */
-  public int size()
+  public long size()
   {
     return contents.cardinality();
   }
@@ -130,7 +150,7 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
    */
   public void invert()
   {
-    contents.flip(0, infoSet.length - 1);
+    contents.flip(0, infoSet.length);
   }
 
   /**
@@ -162,34 +182,32 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
   }
 
   /**
-   * Determine the size of intersection (num common propositions) with a specified
-   * other state
-   * @param other Other state to check the intersection size with
+   * Determine the size of intersection (num common propositions) with a specified other state.
+   *
+   * @param other - Other state to check the intersection size with.
+   *
    * @return Number of common propositions
    */
   public int intersectionSize(ForwardDeadReckonInternalMachineState other)
   {
-    ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(other);
-
-    temp.intersect(this);
-
-    return temp.contents.cardinality();
+    return (int)OpenBitSet.intersectionCount(contents, other.contents);
   }
 
   /**
-   * Copy another state into this one
+   * Copy another state into this one.
+   *
    * @param other State to copy
    */
   public void copy(ForwardDeadReckonInternalMachineState other)
   {
-    contents.clear();
+    contents.xor(contents);
     contents.or(other.contents);
 
     isXState = other.isXState;
 
     if ( other.heuristicData != null )
     {
-      if ( heuristicData == null )
+      if (heuristicData == null)
       {
         heuristicData = new HashMap<>();
       }
@@ -204,14 +222,8 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
    */
   public double distance(ForwardDeadReckonInternalMachineState other)
   {
-    ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(other);
-
-    temp.xor(this);
-    int diff = temp.contents.cardinality();
-    temp.copy(other);
-    temp.merge(this);
-    int jointSize = temp.contents.cardinality();
-
+    long diff = OpenBitSet.xorCount(contents, other.contents);
+    long jointSize = OpenBitSet.unionCount(contents, other.contents);
     return (double)diff / jointSize;
   }
 
@@ -220,7 +232,8 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
    */
   public void clear()
   {
-    contents.clear();
+    contents.xor(contents);
+    isXState = false;
   }
 
   /**
@@ -295,7 +308,7 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
       return true;
     }
 
-    if ((o != null) && (o instanceof ForwardDeadReckonInternalMachineState))
+    if (o instanceof ForwardDeadReckonInternalMachineState)
     {
       ForwardDeadReckonInternalMachineState state = (ForwardDeadReckonInternalMachineState)o;
       return state.contents.equals(contents);
@@ -325,12 +338,6 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
     return sb.toString();
   }
 
-  @Override
-  public Iterator<ForwardDeadReckonPropositionInfo> iterator()
-  {
-    return new InternalMachineStateIterator(this);
-  }
-
   /**
    * Determine whether a specified other state is a subset of this state
    * @param other State to test
@@ -338,9 +345,6 @@ public class ForwardDeadReckonInternalMachineState implements Iterable<ForwardDe
    */
   public boolean contains(ForwardDeadReckonInternalMachineState other)
   {
-    ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(other);
-
-    temp.intersect(this);
-    return other.contents.cardinality() == temp.contents.cardinality();
+    return (OpenBitSet.intersectionCount(contents, other.contents) == other.contents.cardinality());
   }
 }

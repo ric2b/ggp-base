@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title>Sancho match record</title>
+
+    <script type='text/javascript' src='//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js'></script>
+    <script src="//code.highcharts.com/highcharts.js"></script>
+    <script src="b64utf8utils.js"></script>
+    <script src="bzip2.js"></script>
+
+    <style>
+      .LEVEL_INFO {background-color: #DDDDFF;}
+      .LEVEL_WARN {background-color: #FF8888;}
+      .LEVEL_ERROR {background-color: #FF8888;}
+    </style>
+
+    <script type='text/javascript'>//<![CDATA[
+
+      var gDebugLogs;
+      var gInfoLogs;
+      var gWarnLogs;
+      var gErrorLogs;
+
+      var gShowingDebug = true;
+      var gShowingInfo  = true;
+      var gShowingWarn  = true;
+      var gShowingError = true;
+
+      $(function ()
+      {
+          Number.prototype.pad = function(xiSize)
+          {
+            var lString = String(this);
+            while (lString.length < xiSize)
+            {
+              lString = "0" + lString;
+            }
+            return lString;
+          };
+
+          Highcharts.setOptions(
+          {
+            global:      {useUTC: false},
+            chart:       {
+                           marginRight: 80,
+                           alignTicks:  false
+                         },
+            credits:     {
+                           text: 'Sancho Stats',
+                           href: 'http://sanchoggp.blogspot.com/'
+                         },
+            plotOptions: {
+                           line:
+                           {
+                             marker: {enabled: false},
+                             stickyTracking: false
+                           }
+                         }
+          });
+
+          $('#SCORE').highcharts(
+          {
+            title:   {text: 'Score'},
+            xAxis:   {type: 'datetime'},
+            yAxis:   [
+                       {
+                         title: {text: 'Score'},
+                         min: 0,
+                         max: 100
+                       }
+                    ]
+          });
+
+          $('#MEM').highcharts(
+          {
+            title: {text: 'Memory'},
+            xAxis: {type: 'datetime'},
+            yAxis: [
+                     {
+                       title: {text: 'Bytes'},
+                       min: 0
+                     },
+                     {
+                       opposite: true,
+                       gridLineWidth: 0,
+                       tickWidth: 1,
+
+                       title: {text: 'Percentage'},
+                       min: 0,
+                       max: 100
+                     }
+                  ]
+          });
+
+          $('#GC').highcharts(
+          {
+            title: {text: 'Garbage Collection'},
+            xAxis: {type: 'datetime'},
+            yAxis: [
+                     {
+                       title:    {text: 'ms'},
+                       min:      0
+                     },
+                     {
+                       opposite: true,
+                       gridLineWidth: 0,
+                       tickWidth: 1,
+
+                       title:    {text: 'Count'},
+                       min:      0
+                     }
+                   ]
+          });
+
+          $('#PERF').highcharts(
+          {
+            title: {text: 'Performance'},
+            xAxis: {type: 'datetime'},
+            yAxis: [
+                     {
+                       title: {text: 'Expansions/ms'},
+                       min:   0
+                     },
+                     {
+                       opposite: true,
+                       gridLineWidth: 0,
+                       tickWidth: 1,
+
+                       title: {text: 'Rollouts/expansion'},
+                       min: 0
+                     }
+                   ]
+          });
+      });
+
+      function receiveMessage(xiEvent)
+      {
+        var lLogData = JSON.parse(xiEvent.data);
+        $.each(lLogData.statistics, function()
+        {
+          if (this.showon === 'NONE')
+          {
+            if (this.name === 'Turn')
+            {
+              var lMatchStartTime = this.data[0][0];
+              var lMatchEndTime   = this.data[this.data.length - 1][0];
+              $.each(this.data, function()
+              {
+                var lTurnTime = this[0];
+                var lTurnNum  = this[1];
+                $('.SanchoGraph').each(function(xiIndex, xiGraph)
+                {
+                  $(xiGraph).highcharts().xAxis[0].addPlotLine(
+                  {
+                    color:     '#e0e0e0',
+                    dashStyle: 'ShortDash',
+                    value:     lTurnTime,
+                    width:     1,
+                    label:     {text: '' + lTurnNum}
+                  });
+                  $(xiGraph).highcharts().xAxis[0].setExtremes(lMatchStartTime,
+                                                               lMatchEndTime);
+                });
+              });
+              // Add plot lines to all graphs
+            }
+          }
+          else
+          {
+            $('#' + this.showon).highcharts().addSeries(this);
+          }
+        });
+
+        if (lLogData.compressed_logs)
+        {
+          var lLogs = (bzip2.simple(bzip2.array(base64DecToArr(
+                                                    lLogData.compressed_logs))));
+          var lLogTable = $('#LOGS tbody');
+          var lJSONLogs = JSON.parse(lLogs);
+          $.each(lJSONLogs, function()
+          {
+            var lDate = new Date(parseInt(this.timestamp));
+            var lRow = '<tr class="LEVEL_' + this.level + '" ' +
+                       'title="By ' + this.thread + ' from ' + this.logger + '">' +
+                       '<td style="white-space:nowrap" valign="top">' +
+                       lDate.toLocaleString() + '.' + lDate.getMilliseconds().pad(3) +
+                       '</td><td valign="top">' + this.level + '</td><td>' +
+                       this.message +
+                       ((this.throwable) ? '<br/>' + this.throwable : '') +
+                       '</td></tr>'
+            lLogTable.append(lRow);
+          });
+        }
+
+        gDebugLogs = $('.LEVEL_DEBUG');
+        gInfoLogs = $('.LEVEL_INFO');
+        gWarnLogs = $('.LEVEL_WARN');
+        gErrorLogs = $('.LEVEL_ERROR');
+      }
+
+      function filterLogs(xiObject)
+      {
+        var lShowDebug;
+        var lShowInfo;
+        var lShowWarn;
+        var lShowError;
+
+        if (xiObject.value === 'LEVEL_DEBUG')
+        {
+          lShowDebug = true;
+          lShowInfo  = true;
+          lShowWarn  = true;
+          lShowError = true;
+        }
+        else if (xiObject.value === 'LEVEL_INFO')
+        {
+          lShowDebug = false;
+          lShowInfo  = true;
+          lShowWarn  = true;
+          lShowError = true;
+        }
+        else if (xiObject.value === 'LEVEL_WARN')
+        {
+          lShowDebug = false;
+          lShowInfo  = false;
+          lShowWarn  = true;
+          lShowError = true;
+        }
+        else if (xiObject.value === 'LEVEL_ERROR')
+        {
+          lShowDebug = false;
+          lShowInfo  = false;
+          lShowWarn  = false;
+          lShowError = true;
+        }
+
+        if (lShowDebug != gShowingDebug)
+        {
+          if (lShowDebug)
+          {
+            gDebugLogs.show();
+          }
+          else
+          {
+            gDebugLogs.hide();
+          }
+
+          gShowingDebug = lShowDebug;
+        }
+
+        if (lShowInfo != gShowingInfo)
+        {
+          if (lShowInfo)
+          {
+            gInfoLogs.show();
+          }
+          else
+          {
+            gInfoLogs.hide();
+          }
+
+          gShowingInfo = lShowInfo;
+        }
+
+        if (lShowWarn != gShowingWarn)
+        {
+          if (lShowWarn)
+          {
+            gWarnLogs.show();
+          }
+          else
+          {
+            gWarnLogs.hide();
+          }
+
+          gShowingWarn = lShowWarn;
+        }
+
+        if (lShowError != gShowingError)
+        {
+          if (lShowError)
+          {
+            gErrorLogs.show();
+          }
+          else
+          {
+            gErrorLogs.hide();
+          }
+        }
+
+        gShowingError = lShowError;
+      }
+
+      window.addEventListener("message", receiveMessage, false);
+      parent.postMessage("", "*");
+
+      //]]>
+    </script>
+  </head>
+
+  <body>
+    <div id="SCORE" class="SanchoGraph" style="height: 300px"></div>
+    <div id="MEM"   class="SanchoGraph" style="height: 300px"></div>
+    <div id="GC"    class="SanchoGraph" style="height: 300px"></div>
+    <div id="PERF"  class="SanchoGraph" style="height: 300px"></div>
+    <hr/>
+    <p>Show logs at level
+      <select onchange="filterLogs(this);">
+        <option value="LEVEL_DEBUG">Debug</option>
+        <option value="LEVEL_INFO">Informational</option>
+        <option value="LEVEL_WARN">Warning</option>
+        <option value="LEVEL_ERROR">Error</option>
+      </select>
+      and higher.
+    </p>
+
+    <table id="LOGS" style="border-collapse:collapse">
+      <thead><tr><th>Time</th><th>Severity</th><th>Log</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </body>
+</html>
+

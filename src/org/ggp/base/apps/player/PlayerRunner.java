@@ -1,7 +1,6 @@
 
 package org.ggp.base.apps.player;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -24,7 +23,7 @@ public final class PlayerRunner
   private static final int NUM_FIXED_ARGS = 2;
 
   public static void main(String[] args)
-      throws IOException, InstantiationException, IllegalAccessException
+      throws InstantiationException, IllegalAccessException
   {
     if (args.length < NUM_FIXED_ARGS || args[0].equals("${arg0}"))
     {

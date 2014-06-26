@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.gdl.grammar.GdlFunction;
@@ -17,12 +19,15 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.stats.PearsonCorrelation;
+import org.w3c.tidy.MutableInteger;
 
 /**
  * Heuristic which assumes that it's better to have more pieces than few.
  */
 public class PieceHeuristic implements Heuristic
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private static final int                                               MIN_PIECE_PROP_ARITY      = 3;    // Assume board of at least 2 dimensions + piece type
   private static final int                                               MAX_PIECE_PROP_ARITY      = 4;    // For now (until we can do game-specific learning) restrict to exactly 2-d boards
   private static final int                                               MIN_PIECES_THRESHOLD      = 6;
@@ -35,7 +40,6 @@ public class PieceHeuristic implements Heuristic
   //  The following track runtime usage state and are dependent on the current game-state
   private TreeNode                                                       rootNode                  = null;
   private int                                                            heuristicSampleWeight     = 10;
-  private double[]                                                       heuristicStateValueBuffer = null;
   private int[]                                                          rootPieceCounts           = null;
   private boolean                                                        mTuningComplete           = false;
 
@@ -117,22 +121,20 @@ public class PieceHeuristic implements Heuristic
 
   private PieceHeuristic(PieceHeuristic copyFrom)
   {
-    propGroupScoreSets        = copyFrom.propGroupScoreSets;
-    numRoles                  = copyFrom.numRoles;
-    pieceSets                 = copyFrom.pieceSets;
-    totalSimulatedTurns       = copyFrom.totalSimulatedTurns;
+    propGroupScoreSets         = copyFrom.propGroupScoreSets;
+    numRoles                   = copyFrom.numRoles;
+    pieceSets                  = copyFrom.pieceSets;
+    totalSimulatedTurns        = copyFrom.totalSimulatedTurns;
     //  The following track runtime usage state and are dependent on the current game-state
-    heuristicStateValueBuffer = new double[numRoles];
-    rootPieceCounts           = new int[numRoles];
+    rootPieceCounts            = new int[numRoles];
   }
 
   @Override
-  public void tuningInitialise(ForwardDeadReckonPropnetStateMachine stateMachine,
+  public boolean tuningInitialise(ForwardDeadReckonPropnetStateMachine stateMachine,
                                RoleOrdering xiRoleOrdering)
   {
     pieceSets = null;
     numRoles = stateMachine.getRoles().size();
-    heuristicStateValueBuffer = new double[numRoles];
     rootPieceCounts = new int[numRoles];
 
     Map<String, GdlFunctionInfo> basePropFns = new HashMap<>();
@@ -226,15 +228,17 @@ public class PieceHeuristic implements Heuristic
 
         if (pieceSetSentences.size() >= MIN_PIECES_THRESHOLD)
         {
-          System.out.println("Possible piece set: " + pieceSetSentences);
+          LOGGER.debug("Possible piece set: " + pieceSetSentences);
 
-          ForwardDeadReckonInternalMachineState pieceMask = stateMachine
-              .createInternalState(new MachineState(pieceSetSentences));
+          ForwardDeadReckonInternalMachineState pieceMask = stateMachine.createInternalState(
+                                                                                   new MachineState(pieceSetSentences));
 
           propGroupScoreSets.put(pieceMask, new HeuristicScoreInfo(numRoles));
         }
       }
     }
+
+    return propGroupScoreSets.size() > 0;
   }
 
   @Override
@@ -287,42 +291,41 @@ public class PieceHeuristic implements Heuristic
   @Override
   public void tuningComplete()
   {
+    mTuningComplete = true;
+
     for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
     {
       HeuristicScoreInfo heuristicInfo = e.getValue();
 
       heuristicInfo.noChangeTurnRate /= totalSimulatedTurns;
-      mTuningComplete = true;
     }
 
     for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
     {
       if (e.getValue().noChangeTurnRate < 0.5)
       {
-        System.out
-            .println("Eliminating potential piece set with no-change rate: " +
+        LOGGER.debug("Eliminating potential piece set with no-change rate: " +
                      e.getValue().noChangeTurnRate + ": " + e.getKey());
       }
       else
       {
         double[] roleCorrelations = e.getValue().getRoleCorrelations();
 
-        System.out.println("Correlations for piece set: " + e.getKey());
+        LOGGER.debug("Correlations for piece set: " + e.getKey());
         for (int i = 0; i < numRoles; i++)
         {
-          System.out.println("  Role " + i + ": " + roleCorrelations[i]);
+          LOGGER.debug("  Role " + i + ": " + roleCorrelations[i]);
 
           if (roleCorrelations[i] >= MIN_HEURISTIC_CORRELATION)
           {
             if (!e.getValue().hasRoleChanges[i])
             {
-              System.out
-                  .println("Eliminating potential piece set with no role decision changes for correlated role: " +
+              LOGGER.debug("Eliminating potential piece set with no role decision changes for correlated role: " +
                            e.getKey());
             }
             else
             {
-              System.out.println("Using piece set for role");
+              LOGGER.debug("Using piece set above for role above");
               if (pieceSets == null)
               {
                 pieceSets = new ForwardDeadReckonInternalMachineState[numRoles];
@@ -340,7 +343,7 @@ public class PieceHeuristic implements Heuristic
           }
           else
           {
-            System.out.println("Piece set insufficiently correlated for role");
+            LOGGER.debug("Piece set insufficiently correlated for role");
           }
         }
       }
@@ -349,30 +352,36 @@ public class PieceHeuristic implements Heuristic
     // Check that all roles have a set of pieces.  If not, disable the heuristic.
     if (pieceSets != null)
     {
-      System.out.println("Some roles have piece sets");
+      LOGGER.debug("Some roles have piece sets");
       for (int i = 0; i < numRoles; i++)
       {
-        System.out.println("  Checking role " + i);
+        LOGGER.debug("  Checking role " + i);
         if (pieceSets[i] == null)
         {
-          System.out.println("      No piece set for this role");
-          System.out.println("Heuristics only identified for a subset of roles - disabling");
+          LOGGER.debug("      No piece set for this role");
+          LOGGER.debug("Piece heuristic only identified for a subset of roles - disabling");
           pieceSets = null;
           break;
         }
-        System.out.println("    Final piece set is: " + pieceSets[i]);
+        LOGGER.info("    Final piece set is: " + pieceSets[i]);
       }
 
       if (pieceSets != null)
       {
-        System.out.println("All roles have piece sets");
+        LOGGER.debug("All roles have piece sets");
+        for (int i = 0; i < numRoles; i++)
+        {
+          LOGGER.info("Role " + i + " will use piece set " + pieceSets[i]);
+        }
       }
     }
   }
 
   @Override
-  public double[] getHeuristicValue(ForwardDeadReckonInternalMachineState state,
-                                    ForwardDeadReckonInternalMachineState previousState)
+  public void getHeuristicValue(ForwardDeadReckonInternalMachineState state,
+                                ForwardDeadReckonInternalMachineState previousState,
+                                double[] xoHeuristicValue,
+                                MutableInteger xoHeuristicWeight)
   {
     double total = 0;
     double rootTotal = 0;
@@ -382,7 +391,7 @@ public class PieceHeuristic implements Heuristic
       // Set the initial heuristic value for this role according to the difference in number of pieces between this
       // state and the current state in the tree root.
       int numPieces = pieceSets[i].intersectionSize(state);
-      heuristicStateValueBuffer[i] = numPieces - rootPieceCounts[i];
+      xoHeuristicValue[i] = numPieces - rootPieceCounts[i];
 
       total += numPieces;
       rootTotal += rootPieceCounts[i];
@@ -392,13 +401,13 @@ public class PieceHeuristic implements Heuristic
       if (numPieces == rootPieceCounts[i] &&
           previousNumPieces < rootPieceCounts[i])
       {
-        heuristicStateValueBuffer[i] += 0.1;
+        xoHeuristicValue[i] += 0.1;
         total += 0.1;
       }
       else if (numPieces == rootPieceCounts[i] &&
                previousNumPieces > rootPieceCounts[i])
       {
-        heuristicStateValueBuffer[i] -= 0.1;
+        xoHeuristicValue[i] -= 0.1;
         total -= 0.1;
       }
     }
@@ -409,16 +418,14 @@ public class PieceHeuristic implements Heuristic
       {
         // There has been an overall change in the number of pieces.  Calculate the proportion of that total gained/lost
         // by this role and use that to generate a new average heuristic value for the role.
-        double proportion = (heuristicStateValueBuffer[i] - (total - rootTotal) /
-                                                            numRoles) /
-                            (total / numRoles);
-        heuristicStateValueBuffer[i] = 100 / (1 + Math.exp(-proportion * 10));
+        double proportion = (xoHeuristicValue[i] - (total - rootTotal) / numRoles) / (total / numRoles);
+        xoHeuristicValue[i] = 100 / (1 + Math.exp(-proportion * 10));
       }
       else
       {
         // There has been no overall change to the number of pieces.  Assume an average value.
         // !! ARR Why?
-        heuristicStateValueBuffer[i] = 50;
+        xoHeuristicValue[i] = 50;
       }
 
       // Normalize against the root score since this is relative to the root state material balance.  Only do this if
@@ -431,31 +438,25 @@ public class PieceHeuristic implements Heuristic
         //
         // This assumes that the root's score is a very good basis as the initial estimate for this child node and is
         // certainly better than the heuristic value alone.
-        if (heuristicStateValueBuffer[i] > 50)
+        double rootAverageScore = rootNode.getAverageScore(i);
+        if (xoHeuristicValue[i] > 50)
         {
-          heuristicStateValueBuffer[i] = rootNode.averageScores[i] +
-                                         (100 - rootNode.averageScores[i]) *
-                                         (heuristicStateValueBuffer[i] - 50) /
-                                         50;
+          xoHeuristicValue[i] = rootAverageScore +
+                                (100 - rootAverageScore) *
+                                (xoHeuristicValue[i] - 50) /
+                                50;
         }
         else
         {
-          heuristicStateValueBuffer[i] = rootNode.averageScores[i] -
-                                         (rootNode.averageScores[i]) *
-                                         (50 - heuristicStateValueBuffer[i]) /
-                                         50;
+          xoHeuristicValue[i] = rootAverageScore -
+                                (rootAverageScore) *
+                                (50 - xoHeuristicValue[i]) /
+                                50;
         }
       }
     }
 
-
-    return heuristicStateValueBuffer;
-  }
-
-  @Override
-  public int getSampleWeight()
-  {
-    return heuristicSampleWeight;
+    xoHeuristicWeight.value = heuristicSampleWeight;
   }
 
   @Override
@@ -484,6 +485,8 @@ public class PieceHeuristic implements Heuristic
       //  Weight further material gain down the more we're already ahead/behind in material
       //  because in either circumstance it's likely to be position that is more important
       heuristicSampleWeight = (int)Math.max(2, 6 - Math.abs(ourMaterialDivergence) * 3);
+
+      LOGGER.info("Piece heuristic weight set to: " + heuristicSampleWeight);
     }
     else
     {

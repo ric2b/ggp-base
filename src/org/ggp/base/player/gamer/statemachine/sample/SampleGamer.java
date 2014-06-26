@@ -33,8 +33,7 @@ public abstract class SampleGamer extends StateMachineGamer
 {
   @Override
   public void stateMachineMetaGame(long timeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
+      throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
   {
     // Sample gamers do no metagaming at the beginning of the match.
   }

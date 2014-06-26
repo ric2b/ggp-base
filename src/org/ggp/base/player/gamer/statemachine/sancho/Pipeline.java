@@ -1,14 +1,28 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.util.concurrent.atomic.AtomicReferenceArray;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+
 /**
  * Highly efficient, lock-free rollout request pipeline.
  */
 public class Pipeline
 {
-  /**
-   * Individual per-rollout-thread pipelines.
+  private static final Logger LOGGER = LogManager.getLogger();
+
+/**
+   * Per-rollout-thread pipelines.
    */
-  final private SimplePipeline[] mThreadPipelines;
+  private final SimplePipeline[] mThreadPipelines;
+
+  /**
+   * Per-rollout-thread performance statistics.  Use of AtomicReferenceArray gives volatile set/get on the contents of
+   * the array.
+   */
+  private final AtomicReferenceArray<RolloutPerfStats> mThreadPerfStats;
 
   /**
    * The next rollout thread to give new (expansion) work to and the next thread to drain (back-propagation) work from.
@@ -31,11 +45,13 @@ public class Pipeline
    *
    * @param xiSize - the maximum number of objects that can be in the pipeline.
    * @param xiNumRoles number of roles in the game
+   * @param underlyingStateMachine state machine of the game
    */
-  public Pipeline(int xiSize, int xiNumRoles)
+  public Pipeline(int xiSize, int xiNumRoles, ForwardDeadReckonPropnetStateMachine underlyingStateMachine)
   {
     mMaxQueuedItems = xiSize;
     mThreadPipelines = new SimplePipeline[ThreadControl.ROLLOUT_THREADS];
+    mThreadPerfStats = new AtomicReferenceArray<>(ThreadControl.ROLLOUT_THREADS);
 
     // Create per-thread pipelines big enough that we'll be able to queue xiSize items across all of them.  If there's
     // a little spare capacity in the per-thread queues, that's okay.  We still limit the overall pipeline size.
@@ -43,11 +59,11 @@ public class Pipeline
 
     // Per-thread pipeline size must be a power of 2.
     lPerThreadSize = Integer.highestOneBit(lPerThreadSize - 1) * 2;
-    System.out.println("Per-rollout-thread pipeline size = " + lPerThreadSize);
+    LOGGER.debug("Per-rollout-thread pipeline size = " + lPerThreadSize);
 
     for (int lii = 0; lii < ThreadControl.ROLLOUT_THREADS; lii++)
     {
-      mThreadPipelines[lii] = new SimplePipeline(lPerThreadSize, xiNumRoles);
+      mThreadPipelines[lii] = new SimplePipeline(lPerThreadSize, xiNumRoles, underlyingStateMachine);
     }
   }
 
@@ -63,7 +79,7 @@ public class Pipeline
    * @return a blank rollout request to be filled in.
    *
    * The caller must ensure (or know) that {@link #canExpand()} is true before calling this method.  After calling
-   * this method, the caller must call {@link #expandComplete()}.
+   * this method, the caller MUST call {@link #expandComplete()}.
    */
   public RolloutRequest getNextExpandSlot()
   {
@@ -146,14 +162,19 @@ public class Pipeline
     // don't yield until we've looked at all threads once.  Always starting at a fixed thread would be in danger of
     // starving some threads - but we always completely drain the pipeline of back-propagation work (whenever we do any
     // such work) so that isn't a problem.
+    long startSpin = System.currentTimeMillis();
     for (mNextDrainThread = (ThreadControl.ROLLOUT_THREADS == 1 ? 0 : 1);
          !mThreadPipelines[mNextDrainThread].canBackPropagate();
          mNextDrainThread = (mNextDrainThread + 1) % ThreadControl.ROLLOUT_THREADS)
     {
       if (mNextDrainThread == 0)
       {
-        // Don't completely busy-wait.  At least yield once per time round all the threads.
-        Thread.yield();
+        //  Spin for 1-2ms before yielding else we introduce a timeslice latency
+        //  for what could be a substantially sub-timeslice wait
+        if ( startSpin >= System.currentTimeMillis()-1 )
+        {
+          Thread.yield();
+        }
       }
     }
 
@@ -168,5 +189,32 @@ public class Pipeline
     mThreadPipelines[mNextDrainThread].backPropagationComplete();
     assert(mCurrentQueuedItems > 0) : "Pipeline unexpectedly empty - num items: " + mCurrentQueuedItems;
     mCurrentQueuedItems--;
+  }
+
+  /**
+   * Publish performance statistics from a rollout thread.
+   *
+   * @param xiThreadIndex - the rollout thread publishing the statistics.
+   * @param xiStats - the statistics.
+   */
+  public void publishRolloutPerfStats(int xiThreadIndex, RolloutPerfStats xiStats)
+  {
+    mThreadPerfStats.set(xiThreadIndex, xiStats);
+  }
+
+  /**
+   * @return the most recently published statistics.
+   *
+   * There's no guarantee that stats from different threads will have be from "the same" time.  However, if stats have
+   * been written at the point this method is called, they will be returned.
+   */
+  public RolloutPerfStats[] getRolloutPerfStats()
+  {
+    final RolloutPerfStats[] lStats = new RolloutPerfStats[ThreadControl.ROLLOUT_THREADS];
+    for (int lii = 0; lii < ThreadControl.ROLLOUT_THREADS; lii++)
+    {
+      lStats[lii] = mThreadPerfStats.get(lii);
+    }
+    return lStats;
   }
 }

@@ -21,7 +21,7 @@ import org.ggp.base.util.statemachine.verifier.StateMachineVerifier;
  */
 public class StateMachineValidator
 {
-  public static void main(String args[]) throws InterruptedException
+  public static void main(String args[])
   {
     Set<String> exceptedGames = new HashSet<String>();
 
@@ -52,9 +52,10 @@ public class StateMachineValidator
     exceptedGames.add("ad_game_2x2");
     exceptedGames.add("ticTacHeavenFC");//  Allows both players to noop at once which we don't currently handle
 
-    String startGame = "ticTacToe"; // Game to begin with if desired
-    boolean foundStartGame = true; // Set to true to just start at the beginning
+    String startGame = "chinook"; // Game to begin with if desired
+    boolean foundStartGame = false; // Set to true to just start at the beginning
     boolean stopOnError = true; // Whether to stop on first failing game or continue
+    final int REPS_PER_GAME = 1;  //  Set to repeat each game multiple times
 
     Set<String> failureCases = new HashSet<String>();
 
@@ -65,13 +66,6 @@ public class StateMachineValidator
     {
       for (String gameKey : theRepository.getGameKeys())
       {
-        StateMachine theReference = new ProverStateMachine();
-        //  Instantiate the statemachine to be tested here as per the following commented out
-        //  line in place of the basic prover
-        //TestPropnetStateMachine theMachine = new TestPropnetStateMachine(new LearningComponentFactory());
-        ForwardDeadReckonPropnetStateMachine theMachine = new ForwardDeadReckonPropnetStateMachine();
-        //StateMachine theMachine = new ProverStateMachine(); // Replace this line with your state machine instantiation
-
         System.out.println("Precheck game " + gameKey + ".");
         if (gameKey.equals(startGame))
         {
@@ -81,26 +75,39 @@ public class StateMachineValidator
           continue;
         if (exceptedGames.contains(gameKey))
           continue;
-        System.out.println("Checking consistency in game " + gameKey + ".");
-        List<Gdl> description = theRepository.getGame(gameKey).getRules();
-        theReference.initialize(description);
 
-        boolean result = false;
+        boolean result = true;
 
-        try
+        for(int i = 0; i < REPS_PER_GAME && result; i++)
         {
-          theMachine.initialize(description);
-          theMachine.disableGreedyRollouts();
+          StateMachine theReference = new ProverStateMachine();
+          //  Instantiate the statemachine to be tested here as per the following commented out
+          //  line in place of the basic prover
+          //TestPropnetStateMachine theMachine = new TestPropnetStateMachine(new LearningComponentFactory());
+          ForwardDeadReckonPropnetStateMachine theMachine = new ForwardDeadReckonPropnetStateMachine();
+          //StateMachine theMachine = new ProverStateMachine(); // Replace this line with your state machine instantiation
 
-          result = StateMachineVerifier.checkMachineConsistency(theReference,
-                                                                theMachine,
-                                                                10000);
-        }
-        catch (Exception e)
-        {
-          GamerLogger.logStackTrace("StateMachine", e);
+          System.out.println("Checking consistency in game " + gameKey + ".");
+          List<Gdl> description = theRepository.getGame(gameKey).getRules();
+          theReference.initialize(description);
 
           result = false;
+
+          try
+          {
+            theMachine.initialize(description);
+            theMachine.disableGreedyRollouts();
+
+            result = StateMachineVerifier.checkMachineConsistency(theReference,
+                                                                  theMachine,
+                                                                  10000);
+          }
+          catch (Exception e)
+          {
+            GamerLogger.logStackTrace("StateMachine", e);
+
+            result = false;
+          }
         }
 
         if (!result)

@@ -29,13 +29,23 @@ my %gKeyOrder = (
 #*****************************************************************************#
 #* Get a match ID.                                                           *#
 #*****************************************************************************#
-print "Match ID: ";
+print "Match ID or local filename: ";
 my $lMatchID = <STDIN>;
 chomp($lMatchID);
 
-if ($lMatchID !~ /^[0-9a-f]{30,50}$/)
+my $lHostedMatch;
+if ($lMatchID =~ /^[0-9a-f]{30,50}$/)
 {
-  die "Match ID should be the ID part of the URL when viewing on Tiltyard.\n";
+  $lHostedMatch = 1;
+}
+elsif (-f $lMatchID)
+{
+  $lHostedMatch = 0;
+}
+else
+{
+  die "Match ID should either be the ID part of the URL when viewing on " .
+      "Tiltyard or a full local path & filename.\n";
 }
 
 #*****************************************************************************#
@@ -43,12 +53,30 @@ if ($lMatchID !~ /^[0-9a-f]{30,50}$/)
 #*****************************************************************************#
 my $lRecord = do
 {
-  local $/;
-  my $lURL = "http://matches.ggp.org/matches/$lMatchID";
-  print "Loading match record from $lURL\n";
-  my $lJSON = get($lURL);
-  die "Failed to load match record from $lURL\n" unless defined $lJSON;
-  decode_json $lJSON;
+  if ($lHostedMatch)
+  {
+    #*************************************************************************#
+    #* Load hosted record.                                                   *#
+    #*************************************************************************#
+    local $/;
+    my $lURL = "http://matches.ggp.org/matches/$lMatchID";
+    print "Loading match record from $lURL\n";
+    my $lJSON = get($lURL);
+    die "Failed to load match record from $lURL\n" unless defined $lJSON;
+    decode_json $lJSON;
+  }
+  else
+  {
+    #*************************************************************************#
+    #* Load local record.                                                    *#
+    #*************************************************************************#
+    local $/;
+    print "Loading match record from $lMatchID\n";
+    open(JSON, $lMatchID) || die "Couldn't read from $lMatchID: $!\n";
+    my $lJSON = <JSON>;
+    close(JSON);
+    decode_json $lJSON;
+  }
 };
 
 my $lGameURL = $lRecord->{gameMetaURL};

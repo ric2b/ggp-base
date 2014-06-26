@@ -42,6 +42,21 @@ public class RoleOrdering
     return reorderedRoles[roleIndex];
   }
 
+  public int roleToRoleIndex(Role xiRole)
+  {
+    // Biggest game we play has 6 roles.  Cheaper to spin over array than do a map lookup.
+    for (int lii = 0; lii < reorderedRoles.length; lii++)
+    {
+      if (reorderedRoles[lii].equals(xiRole))
+      {
+        return lii;
+      }
+    }
+
+    assert(false) : "Couldn't find role: " + xiRole;
+    return -1;
+  }
+
   public int roleIndexToRawRoleIndex(int roleIndex)
   {
     return roleOrderMap[roleIndex];

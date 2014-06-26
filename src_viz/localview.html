@@ -1,0 +1,32 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+  <head>
+    <title>Sancho Local Log Viewer</title>
+    <script type="text/javascript" src="http://www.google.com/jsapi"></script>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+  </head>
+  <body>
+    <script type='text/javascript' src='http://www.ggp.org/scripts/common/ResourceLoader.js'></script>
+
+    <script type="text/javascript">
+      var lMatchID = window.location.pathname.split("/")[2];
+      // var expURL = 'http://99.129.135.39:9199/' + lMatchID;
+      var expURL = 'http://localhost:9199/' + lMatchID;
+      var expData = ResourceLoader.load_raw(expURL);
+      if (expData == null)
+      {
+        alert("Could not find log data for match " + lMatchID);
+      }
+      else
+      {
+        window.addEventListener("message", function (event) { event.source.postMessage(expData, event.origin); }, false);
+      }
+    </script>
+
+    <div id="container">
+      <iframe src='http://localhost:9199/viz.html' frameborder="0" style="overflow:hidden;overflow-x:hidden;overflow-y:hidden;height:100%;width:100%;position:absolute;top:0px;left:0px;right:0px;bottom:0px" height="100%" width="100%">Your browser doesn't support iFrames.</iframe>
+    </div>
+
+  </body>
+</html>
+

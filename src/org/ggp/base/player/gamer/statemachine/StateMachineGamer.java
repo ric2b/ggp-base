@@ -1,9 +1,10 @@
-
 package org.ggp.base.player.gamer.statemachine;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.Gamer;
 import org.ggp.base.player.gamer.exception.AbortingException;
 import org.ggp.base.player.gamer.exception.MetaGamingException;
@@ -19,7 +20,6 @@ import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 
-
 /**
  * The base class for Gamers that rely on representing games as state machines.
  * Almost every player should subclass this class, since it provides the common
@@ -33,6 +33,8 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
  */
 public abstract class StateMachineGamer extends Gamer
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private long metaGamingTimeout = 0;
 
   // =====================================================================
@@ -204,8 +206,14 @@ public abstract class StateMachineGamer extends Gamer
     }
     catch (Exception e)
     {
+      LOGGER.error("Exception in player", e);
       GamerLogger.logStackTrace("GamePlayer", e);
       throw new MetaGamingException(e);
+    }
+    catch (AssertionError lEx)
+    {
+      LOGGER.error("AssertionError: " + lEx);
+      throw new AssertionError("Rethrown AssertionError", lEx);
     }
   }
 
@@ -224,7 +232,7 @@ public abstract class StateMachineGamer extends Gamer
       List<GdlTerm> lastMoves = getMatch().getMostRecentMoves();
       if (lastMoves != null)
       {
-        List<Move> moves = new ArrayList<Move>();
+        List<Move> moves = new ArrayList<>();
         for (GdlTerm sentence : lastMoves)
         {
           moves.add(stateMachine.getMoveFromTerm(sentence));
@@ -238,8 +246,14 @@ public abstract class StateMachineGamer extends Gamer
     }
     catch (Exception e)
     {
+      LOGGER.error("Exception in player", e);
       GamerLogger.logStackTrace("GamePlayer", e);
       throw new MoveSelectionException(e);
+    }
+    catch (AssertionError lEx)
+    {
+      LOGGER.error("AssertionError: " + lEx);
+      throw new AssertionError("Rethrown AssertionError", lEx);
     }
   }
 
@@ -268,8 +282,14 @@ public abstract class StateMachineGamer extends Gamer
     }
     catch (Exception e)
     {
+      LOGGER.error("Exception in player", e);
       GamerLogger.logStackTrace("GamePlayer", e);
       throw new StoppingException(e);
+    }
+    catch (AssertionError lEx)
+    {
+      LOGGER.error("AssertionError: " + lEx);
+      throw new AssertionError("Rethrown AssertionError", lEx);
     }
   }
 
@@ -282,8 +302,14 @@ public abstract class StateMachineGamer extends Gamer
     }
     catch (Exception e)
     {
+      LOGGER.error("Exception in player", e);
       GamerLogger.logStackTrace("GamePlayer", e);
       throw new AbortingException(e);
+    }
+    catch (AssertionError lEx)
+    {
+      LOGGER.error("AssertionError: " + lEx);
+      throw new AssertionError("Rethrown AssertionError", lEx);
     }
   }
 

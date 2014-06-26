@@ -132,7 +132,7 @@ public class GameStateRenderer
       private int position = 0;
 
       @Override
-      public int read() throws java.io.IOException
+      public int read()
       {
         if (position < buf.length())
         {
@@ -145,7 +145,7 @@ public class GameStateRenderer
     class IOStringOutputStream extends java.io.OutputStream
     {
       @Override
-      public void write(int character) throws java.io.IOException
+      public void write(int character)
       {
         buf.append((char)character);
       }

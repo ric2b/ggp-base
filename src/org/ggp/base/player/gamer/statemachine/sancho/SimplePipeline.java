@@ -1,5 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+
 import com.lmax.disruptor.Sequence;
 
 /**
@@ -45,17 +47,13 @@ public class SimplePipeline
   private long mLastBackPropagated = -1L;
 
   /**
-   * Whether the pipeline has been halted.
-   */
-  private volatile boolean mPipelineHalted = false;
-
-  /**
    * Create a pipeline with the specified maximum size.
    *
    * @param xiSize - the maximum number of objects that can be in the pipeline.
    * @param xiNumRoles number of roles in the game
+   * @param underlyingStateMachine state machine of the game
    */
-  public SimplePipeline(int xiSize, int xiNumRoles)
+  public SimplePipeline(int xiSize, int xiNumRoles, ForwardDeadReckonPropnetStateMachine underlyingStateMachine)
   {
     assert(Integer.bitCount(xiSize) == 1) : "Store size must be a power of 2 and > 0";
 
@@ -66,12 +64,14 @@ public class SimplePipeline
     mStore = new RolloutRequest[mSize];
     for (int lii = 0; lii < mSize; lii++)
     {
-      mStore[lii] = new RolloutRequest(xiNumRoles);
+      mStore[lii] = new RolloutRequest(xiNumRoles, underlyingStateMachine);
     }
   }
 
   /**
    * @return whether the tree thread can perform an expansion now.
+   *
+   * Called by the tree thread only.
    */
   public boolean canExpand()
   {
@@ -82,7 +82,9 @@ public class SimplePipeline
    * @return a blank rollout request to be filled in.
    *
    * The caller must ensure (or know) that {@link #canExpand()} is true before calling this method.  After calling
-   * this method, the caller must call {@link #expandComplete()}.
+   * this method, the caller MUST call {@link #expandComplete()}.
+   *
+   * Called by the tree thread only.
    */
   public RolloutRequest getNextExpandSlot()
   {
@@ -92,6 +94,8 @@ public class SimplePipeline
 
   /**
    * Publish a rollout request for further processing.
+   *
+   * Called by the tree thread only.
    */
   public void expandComplete()
   {
@@ -101,13 +105,13 @@ public class SimplePipeline
   }
 
   /**
-   * Get the next rollout request for the specified thread.
+   * Get the next rollout request.
    *
    * This method will not return until a rollout request is available.
    *
-   * @param xiThreadIndex - the thread making the request.
-   *
    * @return the next rollout request.
+   *
+   * Called by the rollout thread only.
    */
   public RolloutRequest getNextRolloutRequest()
   {
@@ -123,7 +127,7 @@ public class SimplePipeline
 
     // Perform volatile reads until the next request is available.  (The cached value will be automatically updated
     // because get() is a volatile read, which fetches everything that happened before, including updating the cache
-    // value.)
+    // value.  Furthermore, this thread isn't allowed to write to the cached value.)
     while ((!lThread.isInterrupted()) && (mLastExpanded.get() < lNextRequestID))
     {
       Thread.yield();
@@ -134,6 +138,8 @@ public class SimplePipeline
 
   /**
    * Mark a rollout as complete.
+   *
+   * Called by the rollout thread only.
    */
   public void rolloutComplete()
   {
@@ -143,6 +149,8 @@ public class SimplePipeline
 
   /**
    * @return whether there are any completed rollout requests ready for back-propagation.
+   *
+   * Called by the tree thread only.
    */
   public boolean canBackPropagate()
   {
@@ -157,6 +165,8 @@ public class SimplePipeline
       return false;
     }
 
+    // Perform a volatile read.  This will also update the cached value (because of volatile semantics).  We're not
+    // allowed to write to the cached value anyway.
     return (mLastRolledOut.get() > mLastBackPropagated);
   }
 
@@ -164,6 +174,8 @@ public class SimplePipeline
    * @return the next rollout request to be back-propagated.
    *
    * This method will not return until a rollout request is available.
+   *
+   * Called by the tree thread only.
    */
   public RolloutRequest getNextRequestForBackPropagation()
   {
@@ -175,8 +187,9 @@ public class SimplePipeline
       return mStore[(int)lNextRequestID & mIndexMask];
     }
 
-    // Perform volatile reads until the next request is available.
-    while ((mLastRolledOutCache = mLastRolledOut.get()) < lNextRequestID)
+    // Perform volatile reads until the next request is available.  This will also update the cached value (because of
+    // volatile semantics).  We're not allowed to write to the cached value anyway.
+    while (mLastRolledOut.get() < lNextRequestID)
     {
       Thread.yield();
     }
@@ -186,6 +199,8 @@ public class SimplePipeline
 
   /**
    * Mark that back-propagation of a request is complete.
+   *
+   * Called by the tree thread only.
    */
   public void backPropagationComplete()
   {
@@ -194,6 +209,8 @@ public class SimplePipeline
 
   /**
    * @return whether the pipeline is completely empty.
+   *
+   * Called by the tree thread only.
    */
   public boolean isEmpty()
   {

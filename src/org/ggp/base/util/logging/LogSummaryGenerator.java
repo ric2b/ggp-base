@@ -1,41 +1,145 @@
 
 package org.ggp.base.util.logging;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FilenameFilter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.List;
 
-public abstract class LogSummaryGenerator
+import org.apache.commons.codec.binary.Base64OutputStream;
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream;
+import org.ggp.base.player.gamer.statemachine.sancho.StatsLogUtils.Series;
+
+/**
+ * Log parser and formatter for uploading to Tiltyard / the local log viewer.
+ */
+public class LogSummaryGenerator
 {
-  public String getLogSummary(String matchId)
+  private static final File LOGS_DIRECTORY = new File("logs");
+
+  // Dumping of logs is disabled because they're too big for Tiltyard.
+  private static final boolean DUMP_LOGS = true;
+
+  /**
+   * @return the logs for the specified match.
+   *
+   * @param xiMatchID - the match.
+   */
+  public synchronized String getLogSummary(String xiMatchID)
   {
-    final String thePrefix = matchId;
-    File logsDirectory = new File("logs");
-    FilenameFilter logsFilter = new FilenameFilter()
+    System.out.println("Generating logs for " + xiMatchID + " at " + System.currentTimeMillis());
+    final String lFilePrefix = xiMatchID + "-9147";
+    FilenameFilter lFilter = new FilenameFilter()
     {
       @Override
-      public boolean accept(File dir, String name)
+      public boolean accept(File xiDir, String xiName)
       {
-        return name.startsWith(thePrefix);
+        return xiName.startsWith(lFilePrefix);
       }
     };
-    String[] theMatchingMatches = logsDirectory.list(logsFilter);
-    if (theMatchingMatches.length > 1)
+    String[] lLogFiles = LOGS_DIRECTORY.list(lFilter);
+
+    if (lLogFiles.length == 0)
     {
-      System.err.println("Log summary retrieval for " + matchId +
-                         " matched multiple matches.");
+      System.err.println("No logs for match: " + xiMatchID);
+      return "No logs for match: " + xiMatchID;
     }
-    else if (theMatchingMatches.length == 0)
-    {
-      System.err.println("Log summary retrieval for " + matchId +
-                         " matched zero matches.");
-    }
-    else
-    {
-      return getSummaryFromLogsDirectory(logsDirectory + "/" +
-                                         theMatchingMatches[0]);
-    }
-    return null;
+
+    String lSummary = getSummaryFromLogsDirectory(lLogFiles);
+    System.out.println("Finished generating " + lSummary.length() + " bytes of logs for " + xiMatchID + " at " + System.currentTimeMillis());
+    return lSummary;
   }
 
-  public abstract String getSummaryFromLogsDirectory(String theLogsDirectory);
+  private static String getSummaryFromLogsDirectory(String[] xiLogFiles)
+  {
+    StringBuffer lBuffer = new StringBuffer(1024 * 1024);
+
+    lBuffer.append('{');
+    for (String lLogFile : xiLogFiles)
+    {
+      if (lLogFile.endsWith(".csv"))
+      {
+        // This is the statistics file
+        lBuffer.append("\"statistics\":[");
+        formatStatistics(lBuffer, lLogFile);
+        lBuffer.append("],");
+      }
+      else if (lLogFile.endsWith(".json"))
+      {
+        // This is the regular log file
+        lBuffer.append("\"compressed_logs\":\"");
+
+        if (DUMP_LOGS)
+        {
+          try (ByteArrayOutputStream lBOS = new ByteArrayOutputStream();
+               Base64OutputStream lB64OS = new Base64OutputStream(lBOS);
+               BZip2CompressorOutputStream lCompressor = new BZip2CompressorOutputStream(lB64OS))
+          {
+            List<String> lLines = Files.readAllLines(Paths.get(LOGS_DIRECTORY.getPath(), lLogFile),
+                                                     StandardCharsets.UTF_8);
+
+            lCompressor.write("[".getBytes(StandardCharsets.UTF_8));
+            for (String lLine : lLines)
+            {
+              lCompressor.write(lLine.getBytes(StandardCharsets.UTF_8));
+              lCompressor.write("\n".getBytes(StandardCharsets.UTF_8));
+            }
+            lCompressor.write("]".getBytes(StandardCharsets.UTF_8));
+
+            lCompressor.close();
+            lB64OS.close();
+            lBOS.close();
+
+            lBuffer.append(new String(lBOS.toByteArray(), StandardCharsets.UTF_8).replace("\r\n", ""));
+          }
+          catch (IOException lEx)
+          {
+            System.err.println("Failed to read log file: " + lLogFile);
+            lEx.printStackTrace();
+          }
+        }
+
+        lBuffer.append("\",");
+      }
+    }
+    lBuffer.append("\"version\":1}");
+
+    return lBuffer.toString();
+  }
+
+  private static void formatStatistics(StringBuffer xiBuffer, String xiLogFilename)
+  {
+    List<String> lLines = null;
+
+    try
+    {
+      lLines = Files.readAllLines(Paths.get(LOGS_DIRECTORY.getPath(), xiLogFilename), StandardCharsets.UTF_8);
+    }
+    catch (IOException lEx)
+    {
+      System.err.println("Failed to read statistics file: " + xiLogFilename);
+      lEx.printStackTrace();
+      return;
+    }
+
+    for (String lLine : lLines)
+    {
+      Series.loadDataPoint(lLine);
+    }
+
+    for (Series lSeries : Series.values())
+    {
+      if (!lSeries.isEmpty())
+      {
+        lSeries.appendToJSON(xiBuffer);
+        lSeries.reset();
+        xiBuffer.append(',');
+      }
+    }
+    xiBuffer.setLength(xiBuffer.length() - 1);
+  }
 }

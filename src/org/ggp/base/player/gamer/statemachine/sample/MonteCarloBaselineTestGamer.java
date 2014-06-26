@@ -8,10 +8,7 @@ import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.StateMachine;
-import org.ggp.base.util.statemachine.cache.CachedStateMachine;
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 
 public class MonteCarloBaselineTestGamer extends SampleGamer
@@ -34,8 +31,7 @@ public class MonteCarloBaselineTestGamer extends SampleGamer
    */
   @Override
   public Move stateMachineSelectMove(long timeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
+      throws MoveDefinitionException
   {
     StateMachine theMachine = getStateMachine();
     long start = System.currentTimeMillis();

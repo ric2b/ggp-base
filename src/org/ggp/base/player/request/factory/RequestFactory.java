@@ -4,6 +4,9 @@ package org.ggp.base.player.request.factory;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.ThreadContext;
 import org.ggp.base.player.gamer.Gamer;
 import org.ggp.base.player.request.factory.exceptions.RequestFormatException;
 import org.ggp.base.player.request.grammar.AbortRequest;
@@ -16,7 +19,6 @@ import org.ggp.base.player.request.grammar.StopRequest;
 import org.ggp.base.util.game.GDLTranslator;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.gdl.factory.GdlFactory;
-import org.ggp.base.util.gdl.factory.exceptions.GdlFormatException;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
 import org.ggp.base.util.symbol.factory.SymbolFactory;
@@ -26,6 +28,8 @@ import org.ggp.base.util.symbol.grammar.SymbolList;
 
 public final class RequestFactory
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   public Request create(Gamer gamer, String source)
       throws RequestFormatException
   {
@@ -46,8 +50,18 @@ public final class RequestFactory
       }
       else if (type.equals("start"))
       {
-        // This is the first we've seen of the GDL.  Create a translator
-        // between the network and internal formats.
+        // This is the first we've seen of this match.  Set the match ID for logging.
+        String lMatchID = ((SymbolAtom)list.get(1)).getValue();
+        ThreadContext.put("matchID", lMatchID + "-" + gamer.getPort());
+
+        if (gamer.getPort() == 9147)
+        {
+          LOGGER.info("======================================================");
+          LOGGER.info("Beginning new game: " + lMatchID);
+          LOGGER.info("Logs available at:  http://localhost:9199/localview/" + lMatchID);
+        }
+
+        // This is the first we've seen of the GDL.  Create a translator between the network and internal formats.
         gamer.setGDLTranslator(new GDLTranslator((SymbolList)list.get(3)));
 
         return createStart(gamer, list);
@@ -76,7 +90,6 @@ public final class RequestFactory
   }
 
   private PlayRequest createPlay(Gamer gamer, SymbolList list)
-      throws GdlFormatException
   {
     if (list.size() != 3)
     {
@@ -93,7 +106,6 @@ public final class RequestFactory
   }
 
   private StartRequest createStart(Gamer gamer, SymbolList list)
-      throws GdlFormatException
   {
     if (list.size() < 6)
     {
@@ -125,7 +137,6 @@ public final class RequestFactory
   }
 
   private StopRequest createStop(Gamer gamer, SymbolList list)
-      throws GdlFormatException
   {
     if (list.size() != 3)
     {
@@ -142,7 +153,6 @@ public final class RequestFactory
   }
 
   private AbortRequest createAbort(Gamer gamer, SymbolList list)
-      throws GdlFormatException
   {
     if (list.size() != 2)
     {
@@ -156,7 +166,6 @@ public final class RequestFactory
   }
 
   private InfoRequest createInfo(Gamer gamer, SymbolList list)
-      throws GdlFormatException
   {
     if (list.size() != 1)
     {
@@ -167,7 +176,6 @@ public final class RequestFactory
   }
 
   private PreviewRequest createPreview(Gamer gamer, SymbolList list)
-      throws GdlFormatException
   {
     if (list.size() != 3)
     {
@@ -184,7 +192,7 @@ public final class RequestFactory
     return new PreviewRequest(gamer, theReceivedGame, previewClock);
   }
 
-  private List<GdlTerm> parseMoves(Symbol symbol) throws GdlFormatException
+  private List<GdlTerm> parseMoves(Symbol symbol)
   {
     if (symbol instanceof SymbolAtom)
     {

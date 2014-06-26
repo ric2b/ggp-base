@@ -5,9 +5,7 @@ import java.util.List;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.util.statemachine.Move;
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 
 /**
  * SampleLegalGamer is a minimal gamer which always plays the first legal move
@@ -23,8 +21,7 @@ public final class SampleLegalGamer extends SampleGamer
    */
   @Override
   public Move stateMachineSelectMove(long timeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
+      throws MoveDefinitionException
   {
     // We get the current start time
     long start = System.currentTimeMillis();

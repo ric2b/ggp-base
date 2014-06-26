@@ -1,7 +1,6 @@
 
 package org.ggp.base.util.gdl.grammar;
 
-import java.io.ObjectStreamException;
 import java.io.Serializable;
 
 @SuppressWarnings("serial")
@@ -18,7 +17,7 @@ public abstract class Gdl implements Serializable
    * from an ObjectInputStream or a remote method invocation are the versions
    * that exist in the GdlPool.
    */
-  protected Object readResolve() throws ObjectStreamException
+  protected Object readResolve()
   {
     return GdlPool.immerse(this);
   }

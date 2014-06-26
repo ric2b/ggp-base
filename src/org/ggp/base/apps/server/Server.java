@@ -44,21 +44,17 @@ import org.ggp.base.util.ui.JLabelBold;
 import org.ggp.base.util.ui.NativeUI;
 import org.ggp.base.util.ui.PlayerSelector;
 
-@SuppressWarnings("serial")
+/**
+ * GGP game server GUI.
+ */
+@SuppressWarnings({"serial", "synthetic-access"})
 public final class Server extends JPanel implements ActionListener
 {
-  static void createAndShowGUI(Server serverPanel, String title)
-  {
-    JFrame frame = new JFrame(title);
-    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-    frame.setPreferredSize(new Dimension(1200, 900));
-    frame.getContentPane().add(serverPanel);
-
-    frame.pack();
-    frame.setVisible(true);
-  }
-
+  /**
+   * Run the Server application.
+   *
+   * @param args - Command-line arguments (ignored).
+   */
   public static void main(String[] args)
   {
     NativeUI.setNativeUI();
@@ -74,6 +70,24 @@ public final class Server extends JPanel implements ActionListener
         createAndShowGUI(serverPanel, "Game Server");
       }
     });
+  }
+
+  /**
+   * Create and show the GUI.
+   *
+   * @param serverPanel - the panel in which to display the GUI.
+   * @param title       - the window title to use.
+   */
+  static void createAndShowGUI(Server serverPanel, String title)
+  {
+    JFrame frame = new JFrame(title);
+    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+    frame.setPreferredSize(new Dimension(1200, 900));
+    frame.getContentPane().add(serverPanel);
+
+    frame.pack();
+    frame.setVisible(true);
   }
 
   private Game                          theGame;
@@ -107,6 +121,9 @@ public final class Server extends JPanel implements ActionListener
 
   private final Scheduler               scheduler;
 
+  /**
+   * Create the Server application.
+   */
   public Server()
   {
     super(new GridBagLayout());
@@ -122,15 +139,15 @@ public final class Server extends JPanel implements ActionListener
     gamePanel = new JPanel(new GridBagLayout());
     playersPanel = new JPanel(new GridBagLayout());
 
-    roleLabels = new ArrayList<JLabel>();
-    playerFields = new ArrayList<JComboBox<String>>();
+    roleLabels = new ArrayList<>();
+    playerFields = new ArrayList<>();
     theGame = null;
 
     shouldScramble = new JCheckBox("Scramble GDL?", false);
     shouldQueue = new JCheckBox("Queue match?", true);
     shouldDetail = new JCheckBox("Show match details?", true);
-    shouldSave = new JCheckBox("Save match to disk?", false);
-    shouldPublish = new JCheckBox("Publish match to the web?", true);
+    shouldSave = new JCheckBox("Save match to disk?", true);
+    shouldPublish = new JCheckBox("Publish match to the web?", false);
 
     runButton.setEnabled(false);
 
@@ -506,12 +523,17 @@ public final class Server extends JPanel implements ActionListener
     scheduler.start();
   }
 
+  /**
+   * Set the keys used for signing match records.
+   *
+   * @param keys - the key-pair.
+   */
   public void setSigningKeys(EncodedKeyPair keys)
   {
     scheduler.signingKeys = keys;
   }
 
-  class OverviewPanel extends JPanel
+  private class OverviewPanel extends JPanel
   {
     public OverviewPanel()
     {
@@ -629,7 +651,7 @@ public final class Server extends JPanel implements ActionListener
         int playClock = (Integer)playClockSpinner.getValue();
         int moveLimit = (Integer)moveLimitSpinner.getValue();
 
-        List<PlayerPresence> thePlayers = new ArrayList<PlayerPresence>();
+        List<PlayerPresence> thePlayers = new ArrayList<>();
         for (JComboBox<String> playerField : playerFields)
         {
           String name = playerField.getSelectedItem().toString();
@@ -643,7 +665,7 @@ public final class Server extends JPanel implements ActionListener
             scheduler
                 .addPendingMatch(new PendingMatch("Base",
                                                   theGame,
-                                                  new ArrayList<PlayerPresence>(thePlayers),
+                                                  new ArrayList<>(thePlayers),
                                                   -1,
                                                   startClock,
                                                   playClock,
@@ -660,7 +682,7 @@ public final class Server extends JPanel implements ActionListener
             }
             catch (InterruptedException ie)
             {
-              ;
+              // Never mind
             }
           }
         }

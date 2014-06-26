@@ -22,12 +22,16 @@ class StateMachineProxy extends StateMachine
   /**
    *
    */
-  private StateMachine machineToProxy;
-  private ActivityController controller;
+  final private StateMachine machineToProxy;
+  private ActivityController controller = null;
 
-  public StateMachineProxy(StateMachine proxyTo, ActivityController controller)
+  public StateMachineProxy(StateMachine proxyTo)
   {
     machineToProxy = proxyTo;
+  }
+
+  public void setController(ActivityController controller)
+  {
     this.controller = controller;
   }
 

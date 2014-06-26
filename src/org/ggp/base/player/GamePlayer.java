@@ -6,6 +6,8 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.event.PlayerDroppedPacketEvent;
 import org.ggp.base.player.event.PlayerReceivedMessageEvent;
 import org.ggp.base.player.event.PlayerSentMessageEvent;
@@ -25,12 +27,14 @@ import org.ggp.base.util.observer.Subject;
 
 public final class GamePlayer extends Thread implements Subject
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private final int            port;
   private final Gamer          gamer;
   private ServerSocket         listener;
   private final List<Observer> observers;
 
-  public GamePlayer(int port, Gamer gamer) throws IOException
+  public GamePlayer(int port, Gamer gamer)
   {
     observers = new ArrayList<Observer>();
     listener = null;
@@ -45,8 +49,7 @@ public final class GamePlayer extends Thread implements Subject
       {
         listener = null;
         port++;
-        System.err.println("Failed to start gamer on port: " + (port - 1) +
-                           " trying port " + port);
+        LOGGER.warn("Failed to start gamer on port: " + (port - 1) + " trying port " + port);
       }
     }
 

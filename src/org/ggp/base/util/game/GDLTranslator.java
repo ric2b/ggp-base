@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.symbol.grammar.Symbol;
 import org.ggp.base.util.symbol.grammar.SymbolAtom;
 import org.ggp.base.util.symbol.grammar.SymbolList;
@@ -21,6 +23,8 @@ import org.ggp.base.util.symbol.grammar.SymbolPool;
  */
 public class GDLTranslator
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private static final String LEARNING_DIR = "data\\games";
   private static final String GDL_FILE = "gdl.txt";
 
@@ -158,7 +162,7 @@ public class GDLTranslator
         }
         catch (final Exception lEx)
         {
-          debug("Failed to consider a game - moving on");
+          LOGGER.warn("Failed to consider a game - moving on");
           lMapping = null;
           lEx.printStackTrace();
         }
@@ -166,7 +170,7 @@ public class GDLTranslator
     }
     catch (final Exception lEx)
     {
-      debug("Failed to get a listing of games");
+      LOGGER.warn("Failed to get a listing of games");
       lMapping = null;
       lEx.printStackTrace();
     }
@@ -242,7 +246,7 @@ public class GDLTranslator
 
     if (xiFlatGDL.size() != lStoredAtoms.length)
     {
-      debug("Not " + lGameName + ": GDL has wrong number of terms");
+      LOGGER.debug("Not " + lGameName + ": GDL has wrong number of terms");
       return null;
     }
 
@@ -254,7 +258,7 @@ public class GDLTranslator
       {
         if (!lMapping.get(lStoredAtom).equals(lGDLAtom))
         {
-          debug("Not " + lGameName + ":  Already had " + lStoredAtom + " -> " + lMapping.get(lStoredAtom) + " but now have " + lStoredAtom + " -> " + lGDLAtom);
+          LOGGER.debug("Not " + lGameName + ":  Already had " + lStoredAtom + " -> " + lMapping.get(lStoredAtom) + " but now have " + lStoredAtom + " -> " + lGDLAtom);
           return null;
         }
       }
@@ -264,7 +268,7 @@ public class GDLTranslator
       }
     }
 
-    debug("Looks like a game of " + lGameName);
+    LOGGER.info("Looks like a game of " + lGameName);
 
     return lMapping;
   }
@@ -280,6 +284,8 @@ public class GDLTranslator
     final String lDirName = LEARNING_DIR + "\\" + System.currentTimeMillis();
     final File lDir = new File(lDirName);
     lDir.mkdirs();
+
+    LOGGER.warn("Unrecognised game.  Created new game directory: " + lDirName);
 
     // Convert the GDL to a string.
     final StringBuffer lGDLBuffer = new StringBuffer();
@@ -333,20 +339,5 @@ public class GDLTranslator
     }
 
     return lResult;
-  }
-
-  /**
-   * Print a debug message.
-   *
-   * @param xiStrings - objects to print (concatenated with no spaces).
-   */
-  private static void debug(Object... xiStrings)
-  {
-    System.out.print("" + System.currentTimeMillis() + ": ");
-    for (final Object lObject : xiStrings)
-    {
-      System.out.print(lObject);
-    }
-    System.out.println("");
   }
 }

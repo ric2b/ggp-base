@@ -31,7 +31,7 @@ public class SignableJSON
         .put("matchHostSignature", theCanonicalizationPrefix + theSignature);
   }
 
-  public static boolean isSignedJSON(JSONObject theJSON) throws JSONException
+  public static boolean isSignedJSON(JSONObject theJSON)
   {
     if (theJSON.has("matchHostPK") && theJSON.has("matchHostSignature"))
       return true;

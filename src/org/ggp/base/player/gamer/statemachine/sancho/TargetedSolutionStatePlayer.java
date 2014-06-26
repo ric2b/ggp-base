@@ -9,6 +9,8 @@ import java.util.Map.Entry;
 import java.util.PriorityQueue;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -22,6 +24,7 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 public class TargetedSolutionStatePlayer
 {
+  private static final Logger LOGGER = LogManager.getLogger();
 
   private class AStarNode implements Comparable<AStarNode>
   {
@@ -90,8 +93,6 @@ public class TargetedSolutionStatePlayer
   ForwardDeadReckonInternalMachineState         stepStateMask         = null;
 
   private Move selectAStarMove(List<Move> moves, long timeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
   {
     Move bestMove = moves.get(0);
     int[] numAtDistance = new int[50];
@@ -111,8 +112,7 @@ public class TargetedSolutionStatePlayer
             .createInternalState(gamer.getCurrentState()), null, null));
       }
 
-      stepStateMask = new ForwardDeadReckonInternalMachineState(underlyingStateMachine
-          .getInfoSet());
+      stepStateMask = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
 
       stepStateMask.clear();
       for (ForwardDeadReckonPropositionInfo info : underlyingStateMachine
@@ -145,9 +145,8 @@ public class TargetedSolutionStatePlayer
         {
           largestDequeuePriority = node.getPriority();
 
-          System.out.println("Now dequeuing estimated cost " +
-                             largestDequeuePriority + " (fringe size " +
-                             AStarFringe.size() + ")");
+          LOGGER.info("Now dequeuing estimated cost " +
+                      largestDequeuePriority + " (fringe size " + AStarFringe.size() + ")");
         }
 
         if (underlyingStateMachine.isTerminal(node.getState()))
@@ -174,21 +173,19 @@ public class TargetedSolutionStatePlayer
         }
 
         //  Expand the node and add children to the fringe
-        List<Move> childMoves = underlyingStateMachine.getLegalMoves(node
-            .getState(), gamer.getRole());
+        List<Move> childMoves = underlyingStateMachine.getLegalMovesCopy(node.getState(), gamer.getRole());
 
         if (childMoves.size() == 0)
         {
-          System.out.println("No child moves found from state: " +
-                             node.getState());
+          LOGGER.info("No child moves found from state: " + node.getState());
         }
         for (Move move : childMoves)
         {
           List<Move> jointMove = new LinkedList<Move>();
           jointMove.add(move);
 
-          ForwardDeadReckonInternalMachineState newState = underlyingStateMachine
-              .getNextState(node.getState(), jointMove);
+          ForwardDeadReckonInternalMachineState newState = underlyingStateMachine.getNextState(node.getState(),
+                                                                                               jointMove);
           ForwardDeadReckonInternalMachineState steplessState = new ForwardDeadReckonInternalMachineState(newState);
           steplessState.intersect(stepStateMask);
 
@@ -207,8 +204,7 @@ public class TargetedSolutionStatePlayer
 
     for (int i = 0; i < 50; i++)
     {
-      System.out.println("Num states at distance " + i + ": " +
-                         numAtDistance[i]);
+      LOGGER.info("Num states at distance " + i + ": " + numAtDistance[i]);
     }
 
     bestMove = AStarSolutionPath.remove(0);
@@ -295,13 +291,13 @@ public class TargetedSolutionStatePlayer
         result = (100 - stateDistance(state, targetState));
         if (result > bestSeenHeuristicValue)
         {
-          System.out.println("Found heuristic value of " + result +
+          LOGGER.info("Found heuristic value of " + result +
                              " (goaled value is " + bestScoreGoaled +
                              ") in state " + state);
           bestSeenHeuristicValue = result;
           if (result > bestScoreGoaled)
           {
-            System.out.println("Setting as next goal state");
+            LOGGER.info("Setting as next goal state");
             nextGoalState = state;
             goalState = null;
             bestScoreGoaled = result;
@@ -323,8 +319,7 @@ public class TargetedSolutionStatePlayer
 
             if (explorationResult > 1)
             {
-              System.out
-                  .println("Setting as next goal state at equal value to a previous one");
+              LOGGER.info("Setting as next goal state at equal value to a previous one");
               nextGoalState = state;
               goalState = null;
               bestScoreGoaled = result;
@@ -362,7 +357,7 @@ public class TargetedSolutionStatePlayer
 
         if (result > bestWeightedExplorationResult)
         {
-          //System.out.println("Setting goal state for new region to: " + state);
+          //LOGGER.debug("Setting goal state for new region to: ", state);
           bestWeightedExplorationResult = result;
           nextGoalState = state;
           nextExploreType = HeuristicType.HEURISTIC_TYPE_EXPLORE_NEW;
@@ -386,7 +381,7 @@ public class TargetedSolutionStatePlayer
 
         if (weightedExplorationResult > bestWeightedExplorationResult)
         {
-          //System.out.println("Setting goal state for new region to: " + state);
+          //LOGGER.debug("Setting goal state for new region to: ", state);
           bestWeightedExplorationResult = weightedExplorationResult;
           nextGoalState = state;
         }
@@ -449,8 +444,7 @@ public class TargetedSolutionStatePlayer
     }
     else if (goalState != null && nextState.equals(goalState))
     {
-      System.out.println("Encountered goaled node, returning score of " +
-                         bestScoreGoaled);
+      LOGGER.debug("Encountered goaled node, returning score of " + bestScoreGoaled);
       result = bestScoreGoaled;
     }
     else if (depth == 0)
@@ -493,13 +487,13 @@ public class TargetedSolutionStatePlayer
 
     if (gamer.getCurrentState().equals(goalState))
     {
-      System.out.println("Reached goal state: " + goalState);
+      LOGGER.info("Reached goal state: " + goalState);
       goalState = null;
       nextGoalState = null;
     }
     else
     {
-      System.out.println("Current goal state is: " + goalState);
+      LOGGER.info("Current goal state is: " + goalState);
     }
 
     terminalSentenceVisitedCounts = new HashMap<GdlSentence, Integer>();
@@ -527,9 +521,8 @@ public class TargetedSolutionStatePlayer
       depth = 0;
       goalState = null;
 
-      System.out
-          .println("Unexpectedly reached goal depth without encountering goal state - current state is: " +
-                   gamer.getCurrentState());
+      LOGGER.warn("Unexpectedly reached goal depth without encountering goal state - current state is: " +
+                  gamer.getCurrentState());
     }
 
     bestScore = -1;
@@ -552,17 +545,17 @@ public class TargetedSolutionStatePlayer
         }
       }
 
-      //System.out.println("Best score at depth " + depth + ": " + bestScore);
+      //LOGGER.debug("Best score at depth ", depth, ": ", bestScore);
     }
 
-    System.out.println("Achieved search depth of " + depth);
-    System.out.println("Best move: " + bestMove + ": " + bestScore);
+    LOGGER.info("Achieved search depth of " + depth);
+    LOGGER.info("Best move: " + bestMove + ": " + bestScore);
 
     if (goalState == null && nextGoalState != null)
     {
       goalDepth = depth;
       goalState = nextGoalState;
-      System.out.println("Set goal state of: " + goalState);
+      LOGGER.info("Set goal state of: " + goalState);
     }
 
     if (goalState == null && bestScore <= bestScoreGoaled)
@@ -575,9 +568,7 @@ public class TargetedSolutionStatePlayer
           targetPropositions.add(s);
         }
       }
-      System.out
-          .println("Searching for a new state region with explore type " +
-                   nextExploreType);
+      LOGGER.info("Searching for a new state region with explore type " + nextExploreType);
 
       depth = 1;
 
@@ -596,7 +587,7 @@ public class TargetedSolutionStatePlayer
                                  nextExploreType);
           //int heuristicScore = minEval(getCurrentState(), move, -1, 101, 1, HeuristicType.HEURISTIC_TYPE_GOAL_PROXIMITY);
 
-          //System.out.println("Move " + move + " has exploration score: " + score + " with heuristic score " + heuristicScore);
+          //LOGGER.info("Move ", move, " has exploration score: ", score, " with heuristic score ", heuristicScore);
           if (score > bestScore)//&& heuristicScore > 10)
           {
             bestScore = score;
@@ -622,8 +613,7 @@ public class TargetedSolutionStatePlayer
 
       goalState = nextGoalState;
       goalDepth = depth;
-      System.out.println("New goal state at depth " + goalDepth + ": " +
-                         goalState);
+      LOGGER.info("New goal state at depth " + goalDepth + ": " + goalState);
     }
 
     return bestMove;

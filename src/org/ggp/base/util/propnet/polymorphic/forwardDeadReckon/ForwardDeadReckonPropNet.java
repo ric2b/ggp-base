@@ -97,8 +97,7 @@ public ForwardDeadReckonPropNet(List<Role> roles,
         ForwardDeadReckonLegalMoveInfo info = new ForwardDeadReckonLegalMoveInfo();
 
         info.move = new Move(pfdr.getName().getBody().get(1));
-        info.inputProposition = (ForwardDeadReckonProposition)getLegalInputMap()
-            .get(p);
+        info.inputProposition = (ForwardDeadReckonProposition)getLegalInputMap().get(p);
         info.roleIndex = roleIndex;
         info.masterIndex = alwaysTrueLegalMoves.resolveId(info);
 
@@ -180,6 +179,17 @@ public ForwardDeadReckonPropNet(List<Role> roles,
 
     setUpActivePropositionSets(masterInfoSet);
 
+    // Calculate useful goal information.
+    for (Role lRole : getRoles())
+    {
+      PolymorphicProposition[] lGoalProps  = getGoalPropositions().get(lRole);
+      for (PolymorphicProposition lGoalProp : lGoalProps)
+      {
+        ForwardDeadReckonProposition lFDRGoalProp = (ForwardDeadReckonProposition)lGoalProp;
+        lFDRGoalProp.setGoalInfo(lRole);
+      }
+    }
+
     if ( useFastAnimator )
     {
       animator = new ForwardDeadReckonPropnetFastAnimator(this);
@@ -204,9 +214,9 @@ public ForwardDeadReckonPropNet(List<Role> roles,
   }
 
   /**
-   * Retrieve the collection of legal moves for a specified instance
-   * @param instanceId Instance to retrieve for
-   * @return the set of currently legal moves
+   * @return the collection of legal moves for a specified instance.
+   *
+   * @param instanceId - Instance to retrieve for.
    */
   public ForwardDeadReckonLegalMoveSet getActiveLegalProps(int instanceId)
   {

@@ -56,7 +56,7 @@ import org.ggp.base.util.symbol.grammar.SymbolPool;
  * important, and so my response to the disadvantage has been to shake as many
  * bugs out of the proxy as I can. While the code is fairly complex, this proxy
  * has proven to be decently reliable in my testing. So, that's progress.
- * 
+ *
  * @author Sam Schreiber
  */
 public final class ProxyGamePlayer extends Thread implements Subject
@@ -258,7 +258,6 @@ public final class ProxyGamePlayer extends Thread implements Subject
   public final int myPort;
 
   public ProxyGamePlayer(int port, Class<? extends Gamer> gamer)
-      throws IOException
   {
     // Use a random gamer as our "default" gamer, that we fall back to
     // in the event that we don't get a message from the client, or if
@@ -350,7 +349,7 @@ public final class ProxyGamePlayer extends Thread implements Subject
     {
       try
       {
-        // First, read a message from the server. 
+        // First, read a message from the server.
         ProxyMessage nextMessage = inputQueue.take();
         Socket connection = inputConnectionQueue.take();
         String in = nextMessage.theMessage;
@@ -464,7 +463,7 @@ public final class ProxyGamePlayer extends Thread implements Subject
                             usedMemoryInMegs + "mb of memory as proxy.");
 
           // Okay, seriously garbage collect please. As it turns out,
-          // this takes some convincing; Java isn't usually eager to do it. 
+          // this takes some convincing; Java isn't usually eager to do it.
           for (int i = 0; i < 10; i++)
           {
             System.gc();
@@ -611,7 +610,7 @@ public final class ProxyGamePlayer extends Thread implements Subject
       {
         try
         {
-          // First, read a message from the server. 
+          // First, read a message from the server.
           Socket connection = listener.accept();
           String in = HttpReader.readAsServer(connection).replace('\n', ' ')
               .replace('\r', ' ');

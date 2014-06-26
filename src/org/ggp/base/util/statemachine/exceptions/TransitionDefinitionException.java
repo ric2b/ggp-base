@@ -6,9 +6,8 @@ import java.util.List;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 
-
 @SuppressWarnings("serial")
-public final class TransitionDefinitionException extends Exception
+public final class TransitionDefinitionException extends GDLException
 {
 
   private final List<Move>   moves;

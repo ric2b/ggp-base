@@ -4,19 +4,23 @@ package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
 import java.util.Arrays;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Role;
-import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.stats.PearsonCorrelation;
+import org.w3c.tidy.MutableInteger;
 
 /**
  * Heuristic which assumes that it's better to have more choices of move (greater "mobility").
  */
 public class MobilityHeuristic implements Heuristic
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private static final double MIN_HEURISTIC_CORRELATION = 0.1;
 
   private boolean mEnabled;
@@ -27,10 +31,10 @@ public class MobilityHeuristic implements Heuristic
   private PearsonCorrelation[] mCorrelationForRole;
   private MobilityData mTuningData;
 
-  public int mWeight = 10; // !! ARR Hack
+  private int mWeight = 10; // !! ARR Hack
 
   @Override
-  public void tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine,
+  public boolean tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine,
                                RoleOrdering xiRoleOrdering)
   {
     mEnabled = true;
@@ -46,6 +50,8 @@ public class MobilityHeuristic implements Heuristic
     }
 
     tuningInitRollout();
+
+    return true;
   }
 
   /**
@@ -67,23 +73,15 @@ public class MobilityHeuristic implements Heuristic
 
     // During a rollout, accumulate the total mobility for each role.  In cases where a role has a single move, assume
     // that it's a forced no-op.  !! ARR Could do better here by actually looking for likely no-op statements.
-    try
+    for (int lii = 0; lii < mTuningData.mNumRoles; lii++)
     {
-      for (int lii = 0; lii < mTuningData.mNumRoles; lii++)
+      Role lRole = mRoleOrdering.roleIndexToRole(lii);
+      int lMobility = mStateMachine.getLegalMoves(xiState, lRole).size();
+      if (lMobility > 1)
       {
-        Role lRole = mRoleOrdering.roleIndexToRole(lii);
-        int lMobility = mStateMachine.getLegalMoves(xiState, lRole).size();
-        if (lMobility > 1)
-        {
-          mTuningData.mMovesWithChoiceForRole[lii]++;
-          mTuningData.mTotalChoicesForRole[lii] += lMobility;
-        }
+        mTuningData.mMovesWithChoiceForRole[lii]++;
+        mTuningData.mTotalChoicesForRole[lii] += lMobility;
       }
-    }
-    catch (MoveDefinitionException lEx)
-    {
-      System.err.println("Unexpected error getting legal moves");
-      lEx.printStackTrace();
     }
   }
 
@@ -116,17 +114,17 @@ public class MobilityHeuristic implements Heuristic
     for (int lii = 0; lii < mTuningData.mNumRoles; lii++)
     {
       double lCorrelation = mCorrelationForRole[lii].getCorrelation();
-      System.out.println("Mobility heuristic correlation for role " + lii + " = " + lCorrelation);
+      LOGGER.info("Mobility heuristic correlation for role " + lii + " = " + lCorrelation);
       if (lCorrelation < MIN_HEURISTIC_CORRELATION)
       {
-        System.out.println("Disabling mobility heuristic");
+        LOGGER.info("Disabling mobility heuristic");
         mEnabled = false;
       }
     }
 
     if (mEnabled)
     {
-      System.out.println("Mobility heuristic enabled");
+      LOGGER.info("Mobility heuristic enabled");
     }
   }
 
@@ -137,8 +135,10 @@ public class MobilityHeuristic implements Heuristic
   }
 
   @Override
-  public double[] getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                    ForwardDeadReckonInternalMachineState xiPreviousState)
+  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
+                                ForwardDeadReckonInternalMachineState xiPreviousState,
+                                double[] xoHeuristicValue,
+                                MutableInteger xoHeuristicWeight)
   {
     // Get the total mobility data from the previous state.
     MobilityData lMobilityData = ((MobilityData)(xiPreviousState.getHeuristicData(this)));
@@ -147,25 +147,17 @@ public class MobilityHeuristic implements Heuristic
     {
       // If there's no data in xiPreviousState this must be the very first call to getHeuristicValue, in the initial
       // state of the game.
-      System.out.println("Creating MobilityData in initial state");
+      LOGGER.info("Creating MobilityData in initial state");
       lMobilityData = new MobilityData(mTuningData.mNumRoles);
-      try
+      for (int lii = 0; lii < lMobilityData.mNumRoles; lii++)
       {
-        for (int lii = 0; lii < lMobilityData.mNumRoles; lii++)
+        Role lRole = mRoleOrdering.roleIndexToRole(lii);
+        int lMobility = mStateMachine.getLegalMoves(xiPreviousState, lRole).size();
+        if (lMobility > 1)
         {
-          Role lRole = mRoleOrdering.roleIndexToRole(lii);
-          int lMobility = mStateMachine.getLegalMoves(xiPreviousState, lRole).size();
-          if (lMobility > 1)
-          {
-            lMobilityData.mMovesWithChoiceForRole[lii]++;
-            lMobilityData.mTotalChoicesForRole[lii] += lMobility;
-          }
+          lMobilityData.mMovesWithChoiceForRole[lii]++;
+          lMobilityData.mTotalChoicesForRole[lii] += lMobility;
         }
-      }
-      catch (MoveDefinitionException lEx)
-      {
-        System.err.println("Unexpected error getting legal moves");
-        lEx.printStackTrace();
       }
 
       xiPreviousState.putHeuristicData(this, lMobilityData);
@@ -177,25 +169,17 @@ public class MobilityHeuristic implements Heuristic
     // Add the mobility for this state.
     int lGrandTotalChoices = 0;
     int lGrandTotalMovesWithChoices = 0;
-    try
+    for (int lii = 0; lii < lMobilityData.mNumRoles; lii++)
     {
-      for (int lii = 0; lii < lMobilityData.mNumRoles; lii++)
+      Role lRole = mRoleOrdering.roleIndexToRole(lii);
+      int lMobility = mStateMachine.getLegalMoves(xiState, lRole).size();
+      if (lMobility > 1)
       {
-        Role lRole = mRoleOrdering.roleIndexToRole(lii);
-        int lMobility = mStateMachine.getLegalMoves(xiState, lRole).size();
-        if (lMobility > 1)
-        {
-          lMobilityData.mMovesWithChoiceForRole[lii]++;
-          lMobilityData.mTotalChoicesForRole[lii] += lMobility;
-        }
-        lGrandTotalMovesWithChoices += lMobilityData.mMovesWithChoiceForRole[lii];
-        lGrandTotalChoices += lMobilityData.mTotalChoicesForRole[lii];
+        lMobilityData.mMovesWithChoiceForRole[lii]++;
+        lMobilityData.mTotalChoicesForRole[lii] += lMobility;
       }
-    }
-    catch (MoveDefinitionException lEx)
-    {
-      System.err.println("Unexpected error getting legal moves");
-      lEx.printStackTrace();
+      lGrandTotalMovesWithChoices += lMobilityData.mMovesWithChoiceForRole[lii];
+      lGrandTotalChoices += lMobilityData.mTotalChoicesForRole[lii];
     }
 
     // Store the updated mobility data against the new state.
@@ -203,13 +187,12 @@ public class MobilityHeuristic implements Heuristic
 
     // Normalise the data to get heuristic values for the new state.
     double lAverageMobilityPerTurn = lGrandTotalChoices / lGrandTotalMovesWithChoices;
-    double[] lHeuristicValue = new double[lMobilityData.mNumRoles];
     for (int lii = 0; lii < lMobilityData.mNumRoles; lii++)
     {
       if (lMobilityData.mMovesWithChoiceForRole[lii] == 0)
       {
         // This role hasn't had any moves where it can make a choice yet.  Assume it'll get an average result.
-        lHeuristicValue[lii] = 50;
+        xoHeuristicValue[lii] = 50;
       }
       else
       {
@@ -217,17 +200,11 @@ public class MobilityHeuristic implements Heuristic
         double lRoleAverage = (double)lMobilityData.mTotalChoicesForRole[lii] /
                               (double)lMobilityData.mMovesWithChoiceForRole[lii];
         double lDeviation = (lRoleAverage - lAverageMobilityPerTurn) / lAverageMobilityPerTurn;
-        lHeuristicValue[lii] = 100 / (1 + Math.exp(-lDeviation));
+        xoHeuristicValue[lii] = 100 / (1 + Math.exp(-lDeviation));
       }
     }
 
-    return lHeuristicValue;
-  }
-
-  @Override
-  public int getSampleWeight()
-  {
-    return mWeight;
+    xoHeuristicWeight.value = mWeight;
   }
 
   @Override

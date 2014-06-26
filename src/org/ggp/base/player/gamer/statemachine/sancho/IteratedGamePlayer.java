@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
@@ -14,13 +16,12 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class IteratedGamePlayer
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
   private StateMachineGamer gamer;
   private boolean isPseudoSimultaneousMove;
@@ -45,8 +46,6 @@ public class IteratedGamePlayer
   }
 
   public Move selectMove(List<Move> moves, long timeout)
-      throws MoveDefinitionException, TransitionDefinitionException,
-      GoalDefinitionException
   {
     List<List<GdlTerm>> moveHistory = gamer.getMatch().getMoveHistory();
     List<Set<GdlSentence>> stateHistory = gamer.getMatch().getStateHistory();
@@ -145,16 +144,14 @@ public class IteratedGamePlayer
       ForwardDeadReckonInternalMachineState state = new ForwardDeadReckonInternalMachineState(currentState);
       Map<Move, Integer> moveWeights = opponentMoveSelectionCounts.get(move);
 
-      System.out.println("Considering move: " + move);
+      LOGGER.info("Considering move: " + move);
       if (responderInNonSimultaneousGame)
       {
-        System.out
-            .println("We are responder so assuming opponent continues to play " +
-                     lastPlayedOpponentChoice);
+        LOGGER.info("We are responder so assuming opponent continues to play " + lastPlayedOpponentChoice);
       }
       else if (moveWeights != null)
       {
-        System.out.println("Response weights: " + moveWeights.values());
+        LOGGER.info("Response weights: " + moveWeights.values());
       }
 
       while (!underlyingStateMachine.isTerminal(state))
@@ -164,8 +161,7 @@ public class IteratedGamePlayer
 
         for (Role role : underlyingStateMachine.getRoles())
         {
-          List<Move> roleMoves = underlyingStateMachine.getLegalMoves(state,
-                                                                      role);
+          List<Move> roleMoves = underlyingStateMachine.getLegalMovesCopy(state, role);
 
           if (roleMoves.size() == 1)
           {
@@ -175,8 +171,7 @@ public class IteratedGamePlayer
           {
             if (!roleMoves.contains(move))
             {
-              System.out
-                  .println("Unexpectedly cannot play intended move in iterated game!");
+              LOGGER.warn("Unexpectedly cannot play intended move in iterated game!");
             }
             jointMove[roleIndex] = move;
           }

@@ -11,10 +11,7 @@ import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.Bidirectio
  * The Proposition class is designed to represent named latches.
  */
 @SuppressWarnings("serial")
-public final class RuntimeOptimizedProposition extends
-                                              RuntimeOptimizedComponent
-                                                                       implements
-                                                                       PolymorphicProposition
+public final class RuntimeOptimizedProposition extends RuntimeOptimizedComponent implements PolymorphicProposition
 {
   /** The name of the Proposition. */
   private GdlSentence           name;

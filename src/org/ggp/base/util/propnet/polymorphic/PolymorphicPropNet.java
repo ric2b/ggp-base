@@ -198,9 +198,7 @@ public class PolymorphicPropNet
   }
 
   /**
-   * Returns a reference to the single, unique, InitProposition.
-   *
-   * @return A reference to the single, unique, InitProposition.
+   * @return a reference to the single, unique, InitProposition.
    */
   private PolymorphicProposition recordInitProposition()
   {
@@ -216,13 +214,13 @@ public class PolymorphicPropNet
         return proposition;
       }
     }
+
+    assert(false) : "No INIT proposition";
     return null;
   }
 
   /**
-   * Builds an index over the InputPropositions in the PropNet.
-   *
-   * @return An index over the InputPropositions in the PropNet.
+   * @return an index over the InputPropositions in the PropNet.
    */
   private Map<GdlSentence, PolymorphicProposition> recordInputPropositions()
   {
@@ -244,9 +242,7 @@ public class PolymorphicPropNet
   }
 
   /**
-   * Builds an index over the LegalPropositions in the PropNet.
-   *
-   * @return An index over the LegalPropositions in the PropNet.
+   * @return an index over the LegalPropositions in the PropNet.
    */
   private Map<Role, Set<PolymorphicProposition>> recordLegalPropositions()
   {
@@ -608,19 +604,13 @@ public class PolymorphicPropNet
 
       goalPropositionsMutable.put(oldEntry.getKey(), newProps);
     }
-    initProposition = (PolymorphicProposition)sourceToTargetMap
-        .get(sourcePropnet.getInitProposition());
-    terminalProposition = (PolymorphicProposition)sourceToTargetMap
-        .get(sourcePropnet.getTerminalProposition());
+    initProposition = (PolymorphicProposition)sourceToTargetMap.get(sourcePropnet.getInitProposition());
+    terminalProposition = (PolymorphicProposition)sourceToTargetMap.get(sourcePropnet.getTerminalProposition());
     legalInputMap = new HashMap<>();
-    for (Entry<PolymorphicProposition, PolymorphicProposition> oldEntry : sourcePropnet
-        .getLegalInputMap().entrySet())
+    for (Entry<PolymorphicProposition, PolymorphicProposition> oldEntry : sourcePropnet.getLegalInputMap().entrySet())
     {
-      PolymorphicProposition newProp1 = (PolymorphicProposition)sourceToTargetMap
-          .get(oldEntry.getKey());
-      PolymorphicProposition newProp2 = (PolymorphicProposition)sourceToTargetMap
-          .get(oldEntry.getValue());
-
+      PolymorphicProposition newProp1 = (PolymorphicProposition)sourceToTargetMap.get(oldEntry.getKey());
+      PolymorphicProposition newProp2 = (PolymorphicProposition)sourceToTargetMap.get(oldEntry.getValue());
       legalInputMap.put(newProp1, newProp2);
     }
 
@@ -704,8 +694,7 @@ public class PolymorphicPropNet
       goalPropositions = new HashMap<>();
       for (Role role : goalPropositionsMutable.keySet())
       {
-        PolymorphicProposition[] goalsForRole = new PolymorphicProposition[goalPropositionsMutable
-            .get(role).size()];
+        PolymorphicProposition[] goalsForRole = new PolymorphicProposition[goalPropositionsMutable.get(role).size()];
         int index = 0;
         for (PolymorphicProposition p : goalPropositionsMutable.get(role))
         {
@@ -719,9 +708,7 @@ public class PolymorphicPropNet
   }
 
   /**
-   * Getter method. A reference to the single, unique, InitProposition.
-   *
-   * @return the Init proposition for the propNet
+   * @return the INIT proposition for the propNet, or null if it has been optimised away.
    */
   public PolymorphicProposition getInitProposition()
   {

@@ -17,6 +17,8 @@ import java.util.Random;
 import java.util.Set;
 import java.util.Stack;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.concurrency.ConcurrencyUtils;
 import org.ggp.base.util.gdl.GdlUtils;
 import org.ggp.base.util.gdl.grammar.Gdl;
@@ -93,6 +95,8 @@ import com.google.common.collect.Multimap;
  */
 public class OptimizingPolymorphicPropNetFactory
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   static final private GdlConstant    LEGAL     = GdlPool.getConstant("legal");
   static final private GdlConstant    NEXT      = GdlPool.getConstant("next");
   static final private GdlConstant    TRUE      = GdlPool.getConstant("true");
@@ -119,15 +123,7 @@ public class OptimizingPolymorphicPropNetFactory
                                           PolymorphicComponentFactory componentFactory)
       throws InterruptedException
   {
-    return create(description, componentFactory, false);
-  }
-
-  public static PolymorphicPropNet create(List<Gdl> description,
-                                          PolymorphicComponentFactory componentFactory,
-                                          boolean verbose)
-      throws InterruptedException
-  {
-    System.out.println("Building propnet...");
+    LOGGER.debug("Building propnet");
 
     long startTime = System.currentTimeMillis();
 
@@ -140,9 +136,10 @@ public class OptimizingPolymorphicPropNetFactory
     description = CondensationIsolator.run(description);
 
 
-    if (verbose)
-      for (Gdl gdl : description)
-        System.out.println(gdl);
+    for (Gdl gdl : description)
+    {
+      LOGGER.trace(gdl);
+    }
 
     //We want to start with a rule graph and follow the rule graph.
     //Start by finding general information about the game
@@ -153,16 +150,12 @@ public class OptimizingPolymorphicPropNetFactory
     //could be useful.
     model = SentenceDomainModelOptimizer.restrictDomainsToUsefulValues(model);
 
-    if (verbose)
-      System.out.println("Setting constants...");
+    LOGGER.trace("Setting constants...");
 
-    ConstantChecker constantChecker = ConstantCheckerFactory
-        .createWithForwardChaining(model);
-    if (verbose)
-      System.out.println("Done setting constants");
+    ConstantChecker constantChecker = ConstantCheckerFactory.createWithForwardChaining(model);
+    LOGGER.trace("Done setting constants");
 
-    Set<String> sentenceFormNames = SentenceForms.getNames(model
-        .getSentenceForms());
+    Set<String> sentenceFormNames = SentenceForms.getNames(model.getSentenceForms());
     boolean usingBase = sentenceFormNames.contains("base");
     boolean usingInput = sentenceFormNames.contains("input");
 
@@ -171,20 +164,14 @@ public class OptimizingPolymorphicPropNetFactory
     //particular restriction on the dependency graph:
     //Recursive loops may only contain one sentence form.
     //This describes most games, but not all legal games.
-    Multimap<SentenceForm, SentenceForm> dependencyGraph = model
-        .getDependencyGraph();
-    if (verbose)
-    {
-      System.out.print("Computing topological ordering... ");
-      System.out.flush();
-    }
+    Multimap<SentenceForm, SentenceForm> dependencyGraph = model.getDependencyGraph();
+    LOGGER.trace("Computing topological ordering... ");
     ConcurrencyUtils.checkForInterruption();
     List<SentenceForm> topologicalOrdering = getTopologicalOrdering(model.getSentenceForms(),
                                                                     dependencyGraph,
                                                                     usingBase,
                                                                     usingInput);
-    if (verbose)
-      System.out.println("done");
+    LOGGER.trace("done");
 
     List<Role> roles = Role.computeRoles(description);
     Map<GdlSentence, PolymorphicComponent> components = new HashMap<GdlSentence, PolymorphicComponent>();
@@ -199,15 +186,10 @@ public class OptimizingPolymorphicPropNetFactory
     {
       ConcurrencyUtils.checkForInterruption();
 
-      if (verbose)
-      {
-        System.out.print("Adding sentence form " + form);
-        System.out.flush();
-      }
+      LOGGER.trace("Adding sentence form " + form);
       if (constantChecker.isConstantForm(form))
       {
-        if (verbose)
-          System.out.println(" (constant)");
+        LOGGER.trace(" (constant)");
         //Only add it if it's important
         if (form.getName().equals(LEGAL) || form.getName().equals(GOAL) ||
             form.getName().equals(INIT))
@@ -224,9 +206,7 @@ public class OptimizingPolymorphicPropNetFactory
           }
         }
 
-        if (verbose)
-          System.out.println("Checking whether " + form +
-                             " is a functional constant...");
+        LOGGER.trace("Checking whether " + form + " is a functional constant...");
         addConstantsToFunctionInfo(form, constantChecker, functionInfoMap);
         addFormToCompletedValues(form,
                                  completedSentenceFormValues,
@@ -234,8 +214,6 @@ public class OptimizingPolymorphicPropNetFactory
 
         continue;
       }
-      if (verbose)
-        System.out.println();
       //TODO: Adjust "recursive forms" appropriately
       //Add a temporary sentence form thingy? ...
       Map<GdlSentence, PolymorphicComponent> temporaryComponents = new HashMap<GdlSentence, PolymorphicComponent>();
@@ -256,8 +234,7 @@ public class OptimizingPolymorphicPropNetFactory
                       completedSentenceFormValues,
                       componentFactory);
       //TODO: Pass these over groups of multiple sentence forms
-      if (verbose && !temporaryComponents.isEmpty())
-        System.out.println("Processing temporary components...");
+      LOGGER.trace("Processing temporary components...");
       processTemporaryComponents(temporaryComponents,
                                  temporaryNegations,
                                  components,
@@ -270,41 +247,31 @@ public class OptimizingPolymorphicPropNetFactory
       //System.out.println("  "+completedSentenceFormValues.get(form).size() + " components added");
     }
     //Connect "next" to "true"
-    if (verbose)
-      System.out.println("Adding transitions...");
+    LOGGER.trace("Adding transitions...");
     addTransitions(components, componentFactory);
     //Set up "init" proposition
-    if (verbose)
-      System.out.println("Setting up 'init' proposition...");
+    LOGGER.trace("Setting up 'init' proposition...");
     setUpInit(components, trueComponent, falseComponent, componentFactory);
     //Now we can safely...
-    if (verbose)
-      System.out.println("Num components before useless removed: " +
-                         components.size());
+    LOGGER.trace("Num components before useless removed: " + components.size());
 
     removeUselessBasePropositions(components,
                                   negations,
                                   trueComponent,
                                   falseComponent);
-    if (verbose)
-      System.out.println("Num components after useless removed: " +
-                         components.size());
-    if (verbose)
-      System.out.println("Creating component set...");
-    Set<PolymorphicComponent> componentSet = new HashSet<PolymorphicComponent>(components
-        .values());
+    LOGGER.trace("Num components after useless removed: " + components.size());
+    LOGGER.trace("Creating component set...");
+    Set<PolymorphicComponent> componentSet = new HashSet<PolymorphicComponent>(components.values());
     //Try saving some memory here...
     components = null;
     negations = null;
     completeComponentSet(componentSet);
     ConcurrencyUtils.checkForInterruption();
-    if (verbose)
-      System.out.println("Initializing propnet object...");
+    LOGGER.trace("Initializing propnet object...");
     //Make it look the same as the PropNetFactory results, until we decide
     //how we want it to look
     normalizePropositions(componentSet);
-    PolymorphicPropNet propnet = componentFactory.createPropNet(roles,
-                                                                componentSet);
+    PolymorphicPropNet propnet = componentFactory.createPropNet(roles, componentSet);
     //System.out.println(propnet);
     return propnet;
   }
@@ -317,8 +284,7 @@ public class OptimizingPolymorphicPropNetFactory
       throws InterruptedException
   {
     boolean changedSomething = false;
-    for (Entry<GdlSentence, PolymorphicComponent> entry : components
-        .entrySet())
+    for (Entry<GdlSentence, PolymorphicComponent> entry : components.entrySet())
     {
       if (entry.getKey().getName() == TRUE)
       {
@@ -899,10 +865,8 @@ public class OptimizingPolymorphicPropNetFactory
                                 PolymorphicConstant falseComponent,
                                 PolymorphicComponentFactory componentFactory)
   {
-    PolymorphicProposition initProposition = componentFactory
-        .createProposition(-1, GdlPool.getProposition(INIT_CAPS));
-    for (Entry<GdlSentence, PolymorphicComponent> entry : components
-        .entrySet())
+    PolymorphicProposition initProposition = componentFactory.createProposition(-1, GdlPool.getProposition(INIT_CAPS));
+    for (Entry<GdlSentence, PolymorphicComponent> entry : components.entrySet())
     {
       //Is this something that will be true?
       if (entry.getValue() == trueComponent)
@@ -910,17 +874,14 @@ public class OptimizingPolymorphicPropNetFactory
         if (entry.getKey().getName().equals(INIT))
         {
           //Find the corresponding true sentence
-          GdlSentence trueSentence = GdlPool.getRelation(TRUE, entry.getKey()
-              .getBody());
+          GdlSentence trueSentence = GdlPool.getRelation(TRUE, entry.getKey().getBody());
           //System.out.println("True sentence from init: " + trueSentence);
-          PolymorphicComponent trueSentenceComponent = components
-              .get(trueSentence);
+          PolymorphicComponent trueSentenceComponent = components.get(trueSentence);
           if (trueSentenceComponent.getInputs().isEmpty())
           {
             //Case where there is no transition input
             //Add the transition input, connect to init, continue loop
-            PolymorphicTransition transition = componentFactory
-                .createTransition(-1);
+            PolymorphicTransition transition = componentFactory.createTransition(-1);
             //init goes into transition
             transition.addInput(initProposition);
             initProposition.addOutput(transition);
@@ -931,8 +892,7 @@ public class OptimizingPolymorphicPropNetFactory
           else
           {
             //The transition already exists
-            PolymorphicComponent transition = trueSentenceComponent
-                .getSingleInput();
+            PolymorphicComponent transition = trueSentenceComponent.getSingleInput();
 
             //We want to add init as a thing that precedes the transition
             //Disconnect existing input
@@ -1572,11 +1532,11 @@ public class OptimizingPolymorphicPropNetFactory
     {
       if (c instanceof PolymorphicConstant)
       {
-        System.out.println("Constant added to re-eval list!");
+        LOGGER.warn("Constant added to re-eval list!");
       }
       if (!reachability.containsKey(c))
       {
-        System.out.println("Unreachable component to re-eval list!");
+        LOGGER.warn("Unreachable component to re-eval list!");
       }
 
       contents.add(c);
@@ -1627,11 +1587,18 @@ public class OptimizingPolymorphicPropNetFactory
       }
     }
 
-    for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
+    //  For puzzles any moves that do not impact state on which the goals or terminality
+    //  depend are irrelevant.  However, for non-puzzles we need to preserve them as they
+    //  provide a possible source of pseudo-noops that could potentially result in
+    //  Zugzwang in a multi-player game.  Hence explicitly preserve legals in non-puzzles
+    if ( pn.getRoles().size() > 1 )
     {
-      for( PolymorphicProposition c : legals)
+      for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
       {
-        recursiveFindReachable(pn, c, reachableComponents);
+        for( PolymorphicProposition c : legals)
+        {
+          recursiveFindReachable(pn, c, reachableComponents);
+        }
       }
     }
 
@@ -1664,6 +1631,20 @@ public class OptimizingPolymorphicPropNetFactory
       }
     }
 
+    if ( pn.getRoles().size() > 1 )
+    {
+      for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
+      {
+        for( PolymorphicProposition c : legals)
+        {
+          if ( !reachableComponents.contains(c))
+          {
+            unreachable.add(c);
+          }
+        }
+      }
+    }
+
     for(PolymorphicComponent c : unreachable)
     {
       //System.out.println("Remove: " + c);
@@ -1671,7 +1652,7 @@ public class OptimizingPolymorphicPropNetFactory
       removalCount++;
     }
 
-    System.out.println("Removed " + removalCount + " irrelevant propositions");
+    LOGGER.debug("Removed " + removalCount + " irrelevant propositions");
 
     return result;
   }
@@ -2478,8 +2459,7 @@ public class OptimizingPolymorphicPropNetFactory
     }
     while (eliminations.size() > 0);
 
-    System.out.println("Removed " + removedRedundantComponentCount +
-                       " redundant components");
+    LOGGER.debug("Removed " + removedRedundantComponentCount + " redundant components");
   }
 
   private static final int largeGateThreshold = 5;
@@ -2842,12 +2822,10 @@ public class OptimizingPolymorphicPropNetFactory
 
     int inputToOutputFactorizationNetRemovedCount = inputToOutputFactorizationRemovedCount -
                                                     inputToOutputFactorizationAddedCount;
-    System.out
-        .println("Net components removed by input->output factorization: " +
-                 inputToOutputFactorizationNetRemovedCount);
+    LOGGER.debug("Net components removed by input->output factorization: " + inputToOutputFactorizationNetRemovedCount);
     if (inputToOutputFactorizationNetRemovedCount < 0)
     {
-      System.out.println("Unexpected growth in size from factorization");
+      LOGGER.warn("Unexpected growth in size from factorization");
     }
   }
 
@@ -3066,9 +3044,9 @@ public class OptimizingPolymorphicPropNetFactory
 
     int outputToInputFactorizationNetRemovedCount = outputFanoutFactorizationRemovedCount -
                                                     outputFanoutFactorizationAddedCount;
-    System.out.println("Fanout reduction by factorization of size: " +
-                       outputFactorizationFanoutReduction + " at a cost of " +
-                       -outputToInputFactorizationNetRemovedCount + " gates");
+    LOGGER.debug("Fanout reduction by factorization of size: " +
+                 outputFactorizationFanoutReduction + " at a cost of " +
+                 -outputToInputFactorizationNetRemovedCount + " gates");
   }
 
   /**
@@ -3140,10 +3118,8 @@ public class OptimizingPolymorphicPropNetFactory
     }
     for (PolymorphicProposition p : toReplaceWithFalse)
     {
-      System.out
-          .println("Should be replacing " +
-                   p +
-                   " with false, but should do that in the OPNF, really; better equipped to do that there");
+      LOGGER.warn("Should be replacing " + p +
+                  " with false, but should do that in the OPNF, really; better equipped to do that there");
     }
   }
 
@@ -3381,8 +3357,7 @@ public class OptimizingPolymorphicPropNetFactory
                                         GdlSentence propName,
                                         boolean value)
   {
-    System.out.println("Hardwire base prop " + propName + " to value: " +
-                       value);
+    LOGGER.debug("Hardwire base prop " + propName + " to value: " + value);
     PolymorphicProposition prop = propNet.getBasePropositions().get(propName);
     PolymorphicConstant replacement = propNet.getComponentFactory()
         .createConstant(-1, value);
@@ -3465,7 +3440,7 @@ public class OptimizingPolymorphicPropNetFactory
       }
     }
 
-    System.out.println("Removed " + duplicateCount + " duplicate components");
+    LOGGER.debug("Removed " + duplicateCount + " duplicate components");
   }
 
   private static Map<Class<?>, Long> componentTypeBaseSignatures = new HashMap<Class<?>, Long>();
@@ -3560,11 +3535,11 @@ public class OptimizingPolymorphicPropNetFactory
 
           if (first.getClass() != c.getClass())
           {
-            System.out.println("Signature mismatch (class)");
+            LOGGER.warn("Signature mismatch (class)");
           }
           if (first.getInputs().size() != c.getInputs().size())
           {
-            System.out.println("Signature mismatch (input arity)");
+            LOGGER.warn("Signature mismatch (input arity)");
           }
           for (PolymorphicComponent input : c.getInputs())
           {
@@ -3580,25 +3555,23 @@ public class OptimizingPolymorphicPropNetFactory
 
             if (!found)
             {
-              System.out.println("Signature mismatch (input mismatch)");
+              LOGGER.warn("Signature mismatch (input mismatch)");
 
               long otherChk = 0;
               for (PolymorphicComponent other : first.getInputs())
               {
-                System.out.println("...first instance input sig: " +
-                                   Long.toHexString(other.getSignature()));
+                LOGGER.warn("...first instance input sig: " + Long.toHexString(other.getSignature()));
                 otherChk += other.getSignature();
               }
               long thisChk = 0;
               for (PolymorphicComponent cInput : c.getInputs())
               {
-                System.out.println("...this instance input sig: " +
-                                   Long.toHexString(cInput.getSignature()));
+                LOGGER.warn("...this instance input sig: " + Long.toHexString(cInput.getSignature()));
                 thisChk += cInput.getSignature();
               }
-              System.out.println("Aggregate inputs sigs: " +
-                                 Long.toHexString(otherChk) + " and " +
-                                 Long.toHexString(thisChk));
+              LOGGER.warn("Aggregate inputs sigs: " +
+                          Long.toHexString(otherChk) + " and " +
+                          Long.toHexString(thisChk));
 
               FastHasher validateChk = new FastHasher();
 
@@ -3606,8 +3579,7 @@ public class OptimizingPolymorphicPropNetFactory
               validateChk.addLong(otherChk);
               if (first.getSignature() != (validateChk.getValue() | 1))
               {
-                System.out
-                    .println("First instance's signature does not match");
+                LOGGER.warn("First instance's signature does not match");
               }
 
               validateChk = new FastHasher();
@@ -3616,9 +3588,9 @@ public class OptimizingPolymorphicPropNetFactory
               validateChk.addLong(thisChk);
               if (c.getSignature() != (validateChk.getValue() | 1))
               {
-                System.out.println("This instance's signature does not match");
+                LOGGER.warn("This instance's signature does not match");
               }
-              System.out.println("All fucked up");
+              LOGGER.error("All fucked up");
               break;
             }
           }
@@ -3629,7 +3601,7 @@ public class OptimizingPolymorphicPropNetFactory
     }
     else if (c.getSignature() == 2)
     {
-      System.out.println("LOOP!!!");
+      LOGGER.warn("LOOP!!!");
     }
 
     return c.getSignature();
@@ -3684,7 +3656,7 @@ public class OptimizingPolymorphicPropNetFactory
 
       if (role == null)
       {
-        System.out.println("Unexpectedly could not find role of input prop");
+        LOGGER.warn("Unexpectedly could not find role of input prop");
       }
 
       roleInputMap.get(role).add(e.getValue());
@@ -3988,6 +3960,13 @@ public class OptimizingPolymorphicPropNetFactory
     for (PolymorphicComponent c : pn.getComponents())
     {
       int numInvertedInputs = 0;
+
+      //  Special case - don't refactor ORs leading directly into the
+      //  terminal prop or we'll screw up factor analysis!
+      if ( c instanceof PolymorphicOr && c.getOutputs().contains(pn.getTerminalProposition()))
+      {
+        continue;
+      }
 
       for (PolymorphicComponent input : c.getInputs())
       {

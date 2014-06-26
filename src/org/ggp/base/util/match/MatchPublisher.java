@@ -98,7 +98,6 @@ public class MatchPublisher
 
   public static void publishToSpectatorServerAsync(String spectatorURL,
                                                    Match theMatch)
-      throws IOException
   {
     MatchPublisherThread theThread = new MatchPublisherThread(spectatorURL,
                                                               theMatch);

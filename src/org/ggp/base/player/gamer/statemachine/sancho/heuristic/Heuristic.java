@@ -4,6 +4,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.w3c.tidy.MutableInteger;
 
 /**
  * Interface for heuristics.
@@ -52,9 +53,10 @@ public interface Heuristic
    *
    * @param stateMachine - the state machine representation of the game.
    * @param roleOrdering - the canonical role ordering.
+   * @return true if at least one heuristic is potentially active
    */
-  public void tuningInitialise(ForwardDeadReckonPropnetStateMachine stateMachine,
-                               RoleOrdering roleOrdering);
+  public boolean tuningInitialise(ForwardDeadReckonPropnetStateMachine stateMachine,
+                                  RoleOrdering roleOrdering);
 
   /**
    * Update tuning state as a result of a single step of a rollout (i.e. a single move in a game).
@@ -91,18 +93,16 @@ public interface Heuristic
   /**
    * Get the heuristic value for the specified state.
    *
-   * @param state         - the state (never a terminal state).
-   * @param previousState - the previous state (can be null).
-   *
-   * @return the heuristic value.
+   * @param xiState           - the state (never a terminal state).
+   * @param xiPreviousState   - the previous state (can be null).
+   * @param xoHeuristicValue  - array of per-role heuristic values.  All zeros on entry.  Heuristic value (0-100) on
+   *                            exit.
+   * @param xoHeuristicWeight - the certainty in the heuristic values, range 0-10.  Undefined on entry.  Set on exit.
    */
-  double[] getHeuristicValue(ForwardDeadReckonInternalMachineState state,
-                             ForwardDeadReckonInternalMachineState previousState);
-
-  /**
-   * @return a weighting (in the range 0 - 10) reflecting confidence in the heuristic values being produced.
-   */
-  int getSampleWeight();
+  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
+                                ForwardDeadReckonInternalMachineState xiPreviousState,
+                                double[] xoHeuristicValue,
+                                MutableInteger xoHeuristicWeight);
 
   /**
    * @return whether the heuristic should be used.
@@ -110,10 +110,10 @@ public interface Heuristic
   public boolean isEnabled();
 
   /**
-   * @return an instance of the heuristic that can be used independently
-   * of existing instances on different game trees (for the same game)
-   * An instance may return itself if it has no game-state-dependent persistent
-   * state
+   * @return an instance of the heuristic that can be used independently of existing instances on different game trees
+   * (for the same game).
+   *
+   * An instance may return itself if it has no game-state-dependent persistent state.
    */
   public Heuristic createIndependentInstance();
 }

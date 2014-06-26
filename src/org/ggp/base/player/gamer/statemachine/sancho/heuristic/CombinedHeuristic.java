@@ -4,10 +4,13 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.w3c.tidy.MutableInteger;
 
 /**
  * Heuristic whose value comes from combining other heuristics.
@@ -16,7 +19,10 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
  */
 public class CombinedHeuristic implements Heuristic
 {
-  private final List<Heuristic> mHeuristics;
+  private static final Logger LOGGER = LogManager.getLogger();
+
+  private final List<Heuristic> mTuningHeuristics;
+  private Heuristic[] mRuntimeHeuristics;
   private int mNumRoles;
 
   /**
@@ -26,22 +32,23 @@ public class CombinedHeuristic implements Heuristic
    */
   public CombinedHeuristic(Heuristic... xiHeuristics)
   {
-    mHeuristics = new LinkedList<>();
+    mTuningHeuristics = new LinkedList<>();
     for (Heuristic lHeuristic : xiHeuristics)
     {
-      System.out.println("CombinedHeuristic: Adding " + lHeuristic.getClass().getSimpleName());
-      mHeuristics.add(lHeuristic);
+      LOGGER.debug("CombinedHeuristic: Adding " + lHeuristic.getClass().getSimpleName());
+      mTuningHeuristics.add(lHeuristic);
     }
   }
 
   private CombinedHeuristic(CombinedHeuristic copyFrom)
   {
     mNumRoles = copyFrom.mNumRoles;
-    mHeuristics = new LinkedList<>();
-    for (Heuristic lHeuristic : copyFrom.mHeuristics)
+    mTuningHeuristics = new LinkedList<>();
+    for (Heuristic lHeuristic : copyFrom.mTuningHeuristics)
     {
-      mHeuristics.add(lHeuristic.createIndependentInstance());
+      mTuningHeuristics.add(lHeuristic.createIndependentInstance());
     }
+    mRuntimeHeuristics = mTuningHeuristics.toArray(new Heuristic[mTuningHeuristics.size()]);
   }
 
   /**
@@ -49,16 +56,18 @@ public class CombinedHeuristic implements Heuristic
    */
   public void pruneAll()
   {
-    mHeuristics.clear();
+    mTuningHeuristics.clear();
   }
 
   @Override
-  public void tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine, RoleOrdering xiRoleOrdering)
+  public boolean tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine, RoleOrdering xiRoleOrdering)
   {
+    boolean result = false;
+
     // Initialise all the underlying heuristics.
-    for (Heuristic lHeuristic : mHeuristics)
+    for (Heuristic lHeuristic : mTuningHeuristics)
     {
-      lHeuristic.tuningInitialise(xiStateMachine, xiRoleOrdering);
+      result |= lHeuristic.tuningInitialise(xiStateMachine, xiRoleOrdering);
     }
 
     // Remove any disabled heuristics from the list.
@@ -66,6 +75,8 @@ public class CombinedHeuristic implements Heuristic
 
     // Remember the number of roles.
     mNumRoles = xiStateMachine.getRoles().size();
+
+    return result;
   }
 
   @Override
@@ -73,7 +84,7 @@ public class CombinedHeuristic implements Heuristic
                                        int xiChoosingRoleIndex)
   {
     // Tell all the underlying heuristics about the interim sample.
-    for (Heuristic lHeuristic : mHeuristics)
+    for (Heuristic lHeuristic : mTuningHeuristics)
     {
       lHeuristic.tuningInterimStateSample(xiState, xiChoosingRoleIndex);
     }
@@ -84,7 +95,7 @@ public class CombinedHeuristic implements Heuristic
                                         int[] xiRoleScores)
   {
     // Tell all the underlying heuristics about the terminal sample.
-    for (Heuristic lHeuristic : mHeuristics)
+    for (Heuristic lHeuristic : mTuningHeuristics)
     {
       lHeuristic.tuningTerminalStateSample(xiState, xiRoleScores);
     }
@@ -94,91 +105,105 @@ public class CombinedHeuristic implements Heuristic
   public void tuningComplete()
   {
     // Tell all the underlying heuristics that tuning is complete.
-    for (Heuristic lHeuristic : mHeuristics)
+    for (Heuristic lHeuristic : mTuningHeuristics)
     {
       lHeuristic.tuningComplete();
     }
 
     // Remove any disabled heuristics from the list.
     prune();
+
+    // Log the final heuristics.
+    Iterator<Heuristic> lIterator = mTuningHeuristics.iterator();
+    if (!lIterator.hasNext())
+    {
+      LOGGER.info("No heuristics enabled");
+    }
+    while (lIterator.hasNext())
+    {
+      Heuristic lHeuristic = lIterator.next();
+      LOGGER.info("Will use " + lHeuristic.getClass().getSimpleName());
+    }
+
+    // Convert the heuristics into an array (to avoid list iteration overheads during game-play).
+    mRuntimeHeuristics = mTuningHeuristics.toArray(new Heuristic[mTuningHeuristics.size()]);
+  }
+
+  /**
+   * Prune any disabled heuristics from the list.
+   */
+  private void prune()
+  {
+    Iterator<Heuristic> lIterator = mTuningHeuristics.iterator();
+    while (lIterator.hasNext())
+    {
+      Heuristic lHeuristic = lIterator.next();
+      if (!lHeuristic.isEnabled())
+      {
+        LOGGER.debug("CombinedHeuristic: Removing disabled " + lHeuristic.getClass().getSimpleName());
+        lIterator.remove();
+      }
+    }
+  }
+
+  @Override
+  public boolean isEnabled()
+  {
+    // This combined heuristic is enabled if it has any underlying heuristics left.
+    return(mTuningHeuristics.size() != 0);
   }
 
   @Override
   public void newTurn(ForwardDeadReckonInternalMachineState xiState, TreeNode xiNode)
   {
     // Tell all the underlying heuristics about the new turn.
-    for (Heuristic lHeuristic : mHeuristics)
+    for (Heuristic lHeuristic : mRuntimeHeuristics)
     {
       lHeuristic.newTurn(xiState, xiNode);
     }
   }
 
   @Override
-  public double[] getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                    ForwardDeadReckonInternalMachineState xiPreviousState)
+  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
+                                ForwardDeadReckonInternalMachineState xiPreviousState,
+                                double[] xoHeuristicValue,
+                                MutableInteger xoHeuristicWeight)
   {
-    double[] lValues = new double[mNumRoles];
+    int lTotalWeight = 0;
+    int lMaxWeight = 0;
+    xoHeuristicWeight.value = 0;
 
-    // Combine the values from the underlying heuristics.
+    // Combine the values from the underlying heuristics by taking a weighted average.
+    for (Heuristic lHeuristic : mRuntimeHeuristics)
+    {
+      double[] lNewValues = new double[xoHeuristicValue.length];
+      lHeuristic.getHeuristicValue(xiState, xiPreviousState, lNewValues, xoHeuristicWeight);
+      lTotalWeight += xoHeuristicWeight.value;
+      for (int lii = 0; lii < xoHeuristicValue.length; lii++)
+      {
+        xoHeuristicValue[lii] += (lNewValues[lii] * xoHeuristicWeight.value);
+      }
+
+      if (xoHeuristicWeight.value > lMaxWeight)
+      {
+        lMaxWeight = xoHeuristicWeight.value;
+      }
+    }
+
+    if (lTotalWeight > 0)
+    {
+      for (int lii = 0; lii < xoHeuristicValue.length; lii++)
+      {
+        xoHeuristicValue[lii] /= lTotalWeight;
+      }
+    }
+
+    // Take the maximum-weighted heuristic.
     //
-    // For now, take a simple average.  This could be enhanced to take an average that is weighted by the sample weight.
-    // Additionally, as the heuristic values vary, the combined weight should decrease (reflecting the increased
-    // uncertainty in the combined heuristic value).
-    int lNumUsefulHeuristics = 0;
-    for (Heuristic lHeuristic : mHeuristics)
-    {
-      double[] lNewValues = lHeuristic.getHeuristicValue(xiState, xiPreviousState);
-      if (lHeuristic.getSampleWeight() != 0)
-      {
-        for (int lii = 0; lii < lValues.length; lii++)
-        {
-          lValues[lii] += lNewValues[lii];
-        }
-        lNumUsefulHeuristics++;
-      }
-    }
-
-    if (lNumUsefulHeuristics > 1)
-    {
-      for (int lii = 0; lii < lValues.length; lii++)
-      {
-        lValues[lii] /= lNumUsefulHeuristics;
-      }
-    }
-
-    return lValues;
-  }
-
-  @Override
-  public int getSampleWeight()
-  {
-    // For now, take a simple average of the underlying weights.
-    double lTotalWeight = 0;
-    int lNumUsefulHeuristics = 0;
-
-    for (Heuristic lHeuristic : mHeuristics)
-    {
-      int lSampleWeight = lHeuristic.getSampleWeight();
-      if (lSampleWeight != 0)
-      {
-        lTotalWeight += lHeuristic.getSampleWeight();
-        lNumUsefulHeuristics++;
-      }
-    }
-
-    if (lNumUsefulHeuristics > 1)
-    {
-      lTotalWeight /= lNumUsefulHeuristics;
-    }
-
-    return (int)lTotalWeight;
-  }
-
-  @Override
-  public boolean isEnabled()
-  {
-    // This combined heuristic is enabled if it have any underlying heuristics left.
-    return(mHeuristics.size() != 0);
+    // We could do something more clever, whereby if all the heuristics were pointing in the same direction, we
+    // increased the weight and if they were all pulling if different directions, we decreased the weight.
+    // But hopefully this is good enough for now.
+    xoHeuristicWeight.value = lMaxWeight;
   }
 
   /**
@@ -188,7 +213,7 @@ public class CombinedHeuristic implements Heuristic
    */
   public boolean includes(Class<? extends Heuristic> xiClass)
   {
-    for (Heuristic lHeuristic : mHeuristics)
+    for (Heuristic lHeuristic : mRuntimeHeuristics)
     {
       if (lHeuristic.getClass() == xiClass)
       {
@@ -196,23 +221,6 @@ public class CombinedHeuristic implements Heuristic
       }
     }
     return false;
-  }
-
-  /**
-   * Prune any disabled heuristics from the list.
-   */
-  private void prune()
-  {
-    Iterator<Heuristic> lIterator = mHeuristics.iterator();
-    while (lIterator.hasNext())
-    {
-      Heuristic lHeuristic = lIterator.next();
-      if (!lHeuristic.isEnabled())
-      {
-        System.out.println("CombinedHeuristic: Removing disabled " + lHeuristic.getClass().getSimpleName());
-        lIterator.remove();
-      }
-    }
   }
 
   @Override
