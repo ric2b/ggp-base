@@ -1014,6 +1014,7 @@ public class Sancho extends SampleGamer
       lFinalScore = underlyingStateMachine.getGoal(lState, ourRole);
       LOGGER.info("Final score: " + lFinalScore);
       StatsLogUtils.Series.SCORE.logDataPoint(lFinalScore);
+      StatsLogUtils.Series.SAMPLE_RATE.logDataPoint(gameCharacteristics.getRolloutSampleSize());
     }
 
     // If we've just solved a puzzle for the first time, save the game history as a plan.
