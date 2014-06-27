@@ -60,8 +60,7 @@ public class IteratedGamePlayer
       return moves.get(0);
     }
 
-    boolean responderInNonSimultaneousGame = (!isPseudoSimultaneousMove && moveHistory
-        .size() % 2 == 1);
+    boolean responderInNonSimultaneousGame = (!isPseudoSimultaneousMove && moveHistory.size() % 2 == 1);
 
     for (int i = 0; i < moveHistory.size(); i++)
     {
@@ -70,23 +69,19 @@ public class IteratedGamePlayer
       List<Move> historicalJointMove = new ArrayList<>();
       for (GdlTerm sentence : moveTerms)
       {
-        historicalJointMove.add(underlyingStateMachine
-            .getMoveFromTerm(sentence));
+        historicalJointMove.add(underlyingStateMachine.getMoveFromTerm(sentence));
       }
 
       //  Did our opponent have a choice?
-      if (underlyingStateMachine.getLegalMoves(state, roleOrdering.roleIndexToRole(1))
-          .size() > 1)
+      if (underlyingStateMachine.getLegalMoves(state, roleOrdering.roleIndexToRole(1)).size() > 1)
       {
-        lastPlayedOpponentChoice = historicalJointMove
-            .get(roleOrdering.roleIndexToRawRoleIndex(1));
+        lastPlayedOpponentChoice = historicalJointMove.get(roleOrdering.roleIndexToRawRoleIndex(1));
 
         //  Was this following a previous move of ours?  If so bump the response counts
         //  for that move
         if (lastPlayedOurChoice != null)
         {
-          Map<Move, Integer> moveWeights = opponentMoveSelectionCounts
-              .get(lastPlayedOurChoice);
+          Map<Move, Integer> moveWeights = opponentMoveSelectionCounts.get(lastPlayedOurChoice);
           if (moveWeights == null)
           {
             moveWeights = new HashMap<>();
@@ -95,30 +90,23 @@ public class IteratedGamePlayer
 
           Integer val = moveWeights.get(lastPlayedOpponentChoice);
 
-          moveWeights
-              .put(lastPlayedOpponentChoice,
-                   (val == null ? lastPlayedOurChoiceSize : val +
-                                                            lastPlayedOurChoiceSize));
+          moveWeights.put(lastPlayedOpponentChoice,
+                          (val == null ? lastPlayedOurChoiceSize : val + lastPlayedOurChoiceSize));
         }
       }
 
       //  Did we have a choice?
-      if (underlyingStateMachine.getLegalMoves(state, roleOrdering.roleIndexToRole(0))
-          .size() > 1)
+      if (underlyingStateMachine.getLegalMoves(state, roleOrdering.roleIndexToRole(0)).size() > 1)
       {
-        lastPlayedOurChoice = historicalJointMove
-            .get(roleOrdering.roleIndexToRawRoleIndex(0));
-        lastPlayedOurChoiceSize = underlyingStateMachine
-            .getLegalMoves(state, roleOrdering.roleIndexToRole(0)).size();
+        lastPlayedOurChoice = historicalJointMove.get(roleOrdering.roleIndexToRawRoleIndex(0));
+        lastPlayedOurChoiceSize = underlyingStateMachine.getLegalMoves(state, roleOrdering.roleIndexToRole(0)).size();
 
         if (lastPlayedOpponentChoice != null)
         {
           //  Bump for all moves we can play the count for the move the opponent played last
-          for (Move legalMove : underlyingStateMachine
-              .getLegalMoves(state, roleOrdering.roleIndexToRole(0)))
+          for (Move legalMove : underlyingStateMachine.getLegalMoves(state, roleOrdering.roleIndexToRole(0)))
           {
-            Map<Move, Integer> moveWeights = opponentMoveSelectionCounts
-                .get(legalMove);
+            Map<Move, Integer> moveWeights = opponentMoveSelectionCounts.get(legalMove);
             if (moveWeights == null)
             {
               moveWeights = new HashMap<>();
@@ -127,15 +115,14 @@ public class IteratedGamePlayer
 
             Integer val = moveWeights.get(lastPlayedOpponentChoice);
 
-            moveWeights.put(lastPlayedOpponentChoice, (val == null ? 1
-                                                                  : val + 1));
+            moveWeights.put(lastPlayedOpponentChoice, (val == null ? 1 : val + 1));
           }
         }
       }
     }
 
-    ForwardDeadReckonInternalMachineState currentState = underlyingStateMachine
-        .createInternalState(gamer.getCurrentState());
+    ForwardDeadReckonInternalMachineState currentState =
+                                                    underlyingStateMachine.createInternalState(gamer.getCurrentState());
 
     int bestScore = -1;
     int opponentScoreAtBestScore = 0;
@@ -242,6 +229,7 @@ public class IteratedGamePlayer
       }
     }
 
+    StatsLogUtils.Series.SCORE.logDataPoint(Math.max(0, bestScore));
     return bestMove;
   }
 }
