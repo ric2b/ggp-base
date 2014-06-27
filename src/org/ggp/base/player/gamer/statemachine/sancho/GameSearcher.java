@@ -609,6 +609,12 @@ public class GameSearcher implements Runnable, ActivityController
                           ForwardDeadReckonInternalMachineState startState,
                           short rootDepth)
   {
+    // If we don't have any factor trees, we're playing from a real live plan (not a test one) so there's nothing to do.
+    if (factorTrees == null)
+    {
+      LOGGER.debug("No need to search when we have a full plan");
+      return;
+    }
 
     // Print out some statistics from last turn.
     LOGGER.info("MCTS iterations last turn = " + (mNumIterations - mLastNumIterations));

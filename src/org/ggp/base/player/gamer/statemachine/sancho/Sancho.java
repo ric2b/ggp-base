@@ -275,6 +275,16 @@ public class Sancho extends SampleGamer
 
     multiRoleAverageScoreDiff = 0;
 
+    gameCharacteristics = new RuntimeGameCharacteristics(numRoles, getGameDir());
+    String lSavedPlan = gameCharacteristics.getPlan();
+    if (lSavedPlan != null)
+    {
+      // We've played this game before and know how to solve it.
+      LOGGER.info("Considering saved plan: " + lSavedPlan);
+      plan.considerPlan(convertPlanString(gameCharacteristics.getPlan()));
+      return;
+    }
+
     // Find latches.  This needs to be done before the AvailableGoalHeuristic is initialized.
     underlyingStateMachine.findLatches();
 
@@ -292,8 +302,6 @@ public class Sancho extends SampleGamer
     boolean hasHeuristicCandidates = heuristic.tuningInitialise(underlyingStateMachine, roleOrdering);
 
     ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine.createInternalState(getCurrentState());
-
-    gameCharacteristics = new RuntimeGameCharacteristics(numRoles);
 
     //	Sample to see if multiple roles have multiple moves available
     //	implying this must be a simultaneous move game

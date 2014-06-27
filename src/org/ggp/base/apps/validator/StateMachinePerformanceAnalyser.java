@@ -219,7 +219,7 @@ public class StateMachinePerformanceAnalyser
           gameSearcher.setup(theMachine,
                              initialState,
                              new RoleOrdering(theMachine, theMachine.getRoles().get(0)),
-                             new RuntimeGameCharacteristics(theMachine.getRoles().size()),
+                             new RuntimeGameCharacteristics(theMachine.getRoles().size(), null),
                              true,
                              new CombinedHeuristic(),
                              null);

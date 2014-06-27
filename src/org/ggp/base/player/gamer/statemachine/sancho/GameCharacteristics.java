@@ -4,44 +4,46 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * @author steve
- *  Represents the fixed characteristics of a game, as derived either by static analysis
- *  or simulation during meta-gaming
+ * Represents the fixed characteristics of a game, as derived either by static analysis or simulation during
+ * meta-gaming.
  */
 public class GameCharacteristics
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
   /**
-   * Whether it is ever legal for multiple roles to have the same non-noop move
-   * available in any given turn
+   * Whether it is ever legal for multiple roles to have the same non-noop move available in any given turn.
    */
-  boolean                                              isSimultaneousMove             = false;
-  /**
-   * Number of roles in the game
-   */
-  int                                                  numRoles;
-  /**
-   * Whether the game always offers the same move choices every turn
-   */
-  boolean                                              isIteratedGame                 = false;
-  /**
-   * Whether it is ever legal for multiple roles to have non-noop moves in the
-   * same turn.  Note that this does not imply that this will be the case in
-   * every turn necessarily
-   */
-  boolean                                              isPseudoSimultaneousMove       = false;
-  /**
-   * In a factorized game whether it is possible to have non-noop moves available
-   * in more than one factor in any given move
-   */
-  boolean                                              moveChoicesFromMultipleFactors = false;
+  boolean isSimultaneousMove             = false;
 
   /**
-   * Constructor
-   * @param numRoles Number of roles in the game
+   * Number of roles in the game.
    */
-  public GameCharacteristics(int roleCount)
+  int     numRoles;
+
+  /**
+   * Whether the game always offers the same move choices every turn.
+   */
+  boolean isIteratedGame                 = false;
+
+  /**
+   * Whether it is ever legal for multiple roles to have non-noop moves in the same turn.  Note that this does not
+   * imply that this will be the case in every turn necessarily.
+   */
+  boolean isPseudoSimultaneousMove       = false;
+
+  /**
+   * In a factorized game whether it is possible to have non-noop moves available in more than one factor in any given
+   * move.
+   */
+  boolean moveChoicesFromMultipleFactors = false;
+
+  /**
+   * Constructor.
+   *
+   * @param roleCount - Number of roles in the game
+   */
+  protected GameCharacteristics(int roleCount)
   {
     numRoles = roleCount;
   }
