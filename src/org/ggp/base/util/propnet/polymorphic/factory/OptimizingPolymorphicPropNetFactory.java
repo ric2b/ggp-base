@@ -1681,7 +1681,7 @@ public class OptimizingPolymorphicPropNetFactory
           reachableComponents.add(retainedGoalProp);
 
           oldInput = retainedGoalProp.getSingleInput();
-          oldInput.removeOutput(l);
+          oldInput.removeOutput(retainedGoalProp);
           retainedGoalProp.removeInput(oldInput);
           trueConstant.addOutput(retainedGoalProp);
           retainedGoalProp.addInput(trueConstant);
