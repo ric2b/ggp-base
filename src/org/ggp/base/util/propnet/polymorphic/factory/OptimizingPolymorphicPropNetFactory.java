@@ -1572,32 +1572,119 @@ public class OptimizingPolymorphicPropNetFactory
     }
   }
 
-  public static boolean removeIrrelevantBasesAndInputs(PolymorphicPropNet pn)
+  public static boolean removeIrrelevantBasesAndInputs(PolymorphicPropNet pn, Role ourRole)
   {
     //  Any bases and inputs that cannot be reached by tracing back from either the terminal
     //  or a goal proposition are irrelevant (transiting through a virtual does->legal back-link)
     Set<PolymorphicComponent> reachableComponents = new HashSet<>();
     recursiveFindReachable(pn, pn.getTerminalProposition(), reachableComponents);
 
-    for( PolymorphicProposition[] roleGoals : pn.getGoalPropositions().values())
+    //  Initially just mark the components on which OUR goals depend
+    for( PolymorphicProposition c : pn.getGoalPropositions().get(ourRole))
     {
-      for( PolymorphicProposition c : roleGoals)
+      recursiveFindReachable(pn, c, reachableComponents);
+    }
+
+    if ( pn.getRoles().size() > 1 )
+    {
+      //  Find the propnet's TRUE constant
+      PolymorphicComponent trueConstant = null;
+
+      for(PolymorphicComponent c : pn.getComponents())
+      {
+        if ( c instanceof PolymorphicConstant )
+        {
+          if ( ((PolymorphicConstant)c).getValue() )
+          {
+            trueConstant = c;
+            break;
+          }
+        }
+      }
+      assert(trueConstant != null);
+
+      //  For puzzles any moves that do not impact state on which the goals or terminality
+      //  depend are irrelevant.  However, for non-puzzles we need to preserve them as they
+      //  provide a possible source of pseudo-noops that could potentially result in
+      //  Zugzwang in a multi-player game.  Hence explicitly preserve legals in non-puzzles
+      //  for at least our role
+      for( PolymorphicProposition c : pn.getLegalPropositions().get(ourRole))
       {
         recursiveFindReachable(pn, c, reachableComponents);
       }
-    }
 
-    //  For puzzles any moves that do not impact state on which the goals or terminality
-    //  depend are irrelevant.  However, for non-puzzles we need to preserve them as they
-    //  provide a possible source of pseudo-noops that could potentially result in
-    //  Zugzwang in a multi-player game.  Hence explicitly preserve legals in non-puzzles
-    if ( pn.getRoles().size() > 1 )
-    {
-      for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
+      //  Now include all legals and goals for roles which already have ANY moves included
+      //  For most games this will be all of them, but in games where the opponents moves do not
+      //  impact anything on which our goal values are dependent they are irrelevant (canonical
+      //  example is dual Hamilton)
+      for(Role role : pn.getRoles())
       {
-        for( PolymorphicProposition c : legals)
+        if ( role.equals(ourRole))
         {
-          recursiveFindReachable(pn, c, reachableComponents);
+          continue;
+        }
+
+        boolean fullyIncludeRole = false;
+
+        for ( PolymorphicProposition p : pn.getLegalPropositions().get(role))
+        {
+          if ( reachableComponents.contains(p))
+          {
+            fullyIncludeRole = true;
+            break;
+          }
+        }
+
+        if ( fullyIncludeRole )
+        {
+          //  Add in this role's goals and legals
+          for( PolymorphicProposition c : pn.getGoalPropositions().get(role))
+          {
+            recursiveFindReachable(pn, c, reachableComponents);
+          }
+          for( PolymorphicProposition c : pn.getLegalPropositions().get(role))
+          {
+            recursiveFindReachable(pn, c, reachableComponents);
+          }
+        }
+        else
+        {
+          //  Arbitrarily keep one legal (it will be a noop, but we need one to make the
+          //  game legal) and make sure it is always available
+          PolymorphicProposition l = pn.getLegalPropositions().get(role)[0];
+
+          assert(!reachableComponents.contains(l));
+          reachableComponents.add(l);
+
+          PolymorphicComponent oldInput = l.getSingleInput();
+          oldInput.removeOutput(l);
+          l.removeInput(oldInput);
+          trueConstant.addOutput(l);
+          l.addInput(trueConstant);
+
+          //  Keep the lowest valued goal and set it unconditionally true
+          int lowestVal = Integer.MAX_VALUE;
+          PolymorphicProposition retainedGoalProp = null;
+
+          for(PolymorphicProposition p : pn.getGoalPropositions().get(role))
+          {
+            int value = Integer.parseInt(p.getName().getBody().get(1).toString());
+            if ( value < lowestVal )
+            {
+              lowestVal = value;
+              retainedGoalProp = p;
+            }
+          }
+
+          assert(retainedGoalProp != null);
+
+          reachableComponents.add(retainedGoalProp);
+
+          oldInput = retainedGoalProp.getSingleInput();
+          oldInput.removeOutput(l);
+          retainedGoalProp.removeInput(oldInput);
+          trueConstant.addOutput(retainedGoalProp);
+          retainedGoalProp.addInput(trueConstant);
         }
       }
     }
@@ -1628,6 +1715,16 @@ public class OptimizingPolymorphicPropNetFactory
       else if ( !reachableComponents.contains(c) )
       {
         unreachable.add(c);
+      }
+    }
+    for(PolymorphicProposition[] goals : pn.getGoalPropositions().values())
+    {
+      for(PolymorphicProposition c : goals)
+      {
+        if ( !reachableComponents.contains(c))
+        {
+          unreachable.add(c);
+        }
       }
     }
 

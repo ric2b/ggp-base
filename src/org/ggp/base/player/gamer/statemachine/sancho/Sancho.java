@@ -192,7 +192,8 @@ public class Sancho extends SampleGamer
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
     underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
-                                                                      getMetaGamingTimeout());
+                                                                      getMetaGamingTimeout(),
+                                                                      getRole());
 
     System.gc();
 

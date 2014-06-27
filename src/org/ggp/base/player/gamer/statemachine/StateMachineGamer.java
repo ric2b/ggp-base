@@ -196,10 +196,10 @@ public abstract class StateMachineGamer extends Gamer
     {
       metaGamingTimeout = timeout;
 
+      role = new Role(getRoleName());
       stateMachine = getInitialStateMachine();
       stateMachine.initialize(getMatch().getGame().getRules());
       currentState = stateMachine.getInitialState();
-      role = stateMachine.getRoleFromConstant(getRoleName());
       getMatch().appendState(currentState.getContents());
 
       stateMachineMetaGame(timeout);

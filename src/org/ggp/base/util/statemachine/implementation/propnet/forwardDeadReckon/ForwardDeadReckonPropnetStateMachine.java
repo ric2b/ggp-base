@@ -116,6 +116,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private int                                                          maxInstances;
   private long                                                         metagameTimeout                 = 20000;
   private int                                                          numInstances                    = 1;
+  private final Role                                                   ourRole;
   private Set<Factor>                                                  factors                         = null;
   public long                                                          totalNumGatesPropagated         = 0;
   public long                                                          totalNumPropagates              = 0;
@@ -1057,12 +1058,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public ForwardDeadReckonPropnetStateMachine()
   {
     maxInstances = 1;
+    ourRole = null;
   }
 
-  public ForwardDeadReckonPropnetStateMachine(int xiMaxInstances, long xiMetaGameTimeout)
+  public ForwardDeadReckonPropnetStateMachine(int xiMaxInstances, long xiMetaGameTimeout, Role xiOurRole)
   {
     maxInstances = xiMaxInstances;
     metagameTimeout = xiMetaGameTimeout;
+    ourRole = xiOurRole;
   }
 
   private ForwardDeadReckonPropnetStateMachine(ForwardDeadReckonPropnetStateMachine master, int instanceId)
@@ -1091,6 +1094,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     factors = master.factors;
     mPositiveGoalLatches = master.mPositiveGoalLatches;
     mNegativeGoalLatches = master.mNegativeGoalLatches;
+    ourRole = master.ourRole;
 
     stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
     stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -1156,7 +1160,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(fullPropNet);
       fullPropNet.renderToFile("c:\\temp\\propnet_014_UnreachablesRemoved.dot");
 
-      OptimizingPolymorphicPropNetFactory.removeIrrelevantBasesAndInputs(fullPropNet);
+      OptimizingPolymorphicPropNetFactory.removeIrrelevantBasesAndInputs(fullPropNet, ourRole);
       fullPropNet.renderToFile("c:\\temp\\propnet_016_IrrelevantRemoved.dot");
       LOGGER.debug("Num components after unreachable removal: " + fullPropNet.getComponents().size());
 
