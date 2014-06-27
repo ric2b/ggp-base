@@ -120,4 +120,25 @@ public abstract class SampleGamer extends StateMachineGamer
 
     return lPlan;
   }
+
+  /**
+   * @return a string representation of the game history, suitable for use as a plan.
+   */
+  public final String convertHistoryToPlan()
+  {
+    StringBuffer lPlanBuffer = new StringBuffer();
+    for (List<GdlTerm> lTurn : getMatch().getMoveHistory())
+    {
+      assert(lTurn.size() == 1) : "Can only produce plans for 1-player games";
+      lPlanBuffer.append(lTurn.get(0).toString());
+      lPlanBuffer.append(',');
+    }
+    lPlanBuffer.setLength(lPlanBuffer.length() - 1);
+
+    String lPlan = lPlanBuffer.toString();
+    lPlan = lPlan.replace("( ", "");
+    lPlan = lPlan.replace(" )", "");
+
+    return lPlan;
+  }
 }

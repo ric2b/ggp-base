@@ -276,6 +276,7 @@ public class Sancho extends SampleGamer
     multiRoleAverageScoreDiff = 0;
 
     gameCharacteristics = new RuntimeGameCharacteristics(numRoles, getGameDir());
+    gameCharacteristics.setFactors(underlyingStateMachine.getFactors());
     String lSavedPlan = gameCharacteristics.getPlan();
     if (lSavedPlan != null)
     {
@@ -1006,12 +1007,21 @@ public class Sancho extends SampleGamer
   public void stateMachineStop()
   {
     // Log the final score.
+    int lFinalScore;
     synchronized (searchProcessor.getSerializationObject())
     {
       ForwardDeadReckonInternalMachineState lState = underlyingStateMachine.createInternalState(getCurrentState());
-      int lFinalScore = underlyingStateMachine.getGoal(lState, ourRole);
+      lFinalScore = underlyingStateMachine.getGoal(lState, ourRole);
       LOGGER.info("Final score: " + lFinalScore);
       StatsLogUtils.Series.SCORE.logDataPoint(lFinalScore);
+    }
+
+    // If we've just solved a puzzle for the first time, save the game history as a plan.
+    if ((lFinalScore == 100) &&
+        (gameCharacteristics.numRoles == 1) &&
+        (gameCharacteristics.getPlan() == null))
+    {
+      gameCharacteristics.setPlan(convertHistoryToPlan());
     }
 
     tidyUp();
@@ -1044,6 +1054,9 @@ public class Sancho extends SampleGamer
       mSysStatsLogger = null;
     }
 
+    // Save anything that we've learned about this game.
+    gameCharacteristics.save(getGameDir());
+
     // Free off all our references.
     ourRole                      = null;
     planString                   = null;
@@ -1052,6 +1065,7 @@ public class Sancho extends SampleGamer
     canonicallyOrderedMoveBuffer = null;
     underlyingStateMachine       = null;
     puzzlePlayer                 = null;
+    gameCharacteristics          = null;
 
     // Get our parent to tidy up too.
     cleanupAfterMatch();

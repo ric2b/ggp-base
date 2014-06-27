@@ -1,14 +1,16 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.Properties;
+import java.util.Set;
 
+import org.apache.commons.configuration.AbstractConfiguration;
+import org.apache.commons.configuration.ConfigurationException;
+import org.apache.commons.configuration.XMLPropertiesConfiguration;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.StatsLogUtils.Series;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 
 /**
  * Subclass of GameCharacterisics which adds characteristics that are specific to the game's runtime interpretation and
@@ -19,19 +21,31 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private static final Logger LOGGER = LogManager.getLogger();
   private static final Logger STATS_LOGGER = LogManager.getLogger("stats");
 
-  private static final String PROPS_FILE = "characteristics.properties";
+  // The properties file in which game characteristics are stored.
+  private static final String PROPS_FILE = "characteristics.xml";
 
-  private static final String PLAN_KEY = "plan";
+  // Keys under which individual characteristics are stored.
+  private static final String PLAN_KEY                      = "plan";
+  private static final String NUM_ROLES_KEY                 = "num_roles";
+  private static final String SIMULTANEOUS_KEY              = "simultaneous";
+  private static final String PSEUDO_SIMULTANEOUS_KEY       = "pseudo_simultaneous";
+  private static final String ITERATED_KEY                  = "iterated";
+  private static final String NUM_FACTORS_KEY               = "num_factors";
+  private static final String MOVES_IN_MULTIPLE_FACTORS_KEY = "moves_in_multiple_factors";
+  private static final String MAX_BRANCHING_FACTOR          = "max_branching_factor";
+  private static final String FIXED_LENGTH                  = "fixed_length";
 
-  private double        explorationBias         = 1.0;
-  private double        mExactRolloutSampleSize = 4;
-  private volatile int  mRolloutSampleSize;
-  private int           mMaxObservedChoices;
-  final double          competitivenessBonus    = 2;
-  private boolean       isFixedMoveCount        = false;
-  private int           earliestCompletion      = 0;
-  final private int     fixedSampleSize         = MachineSpecificConfiguration.getCfgVal(CfgItem.FIXED_SAMPLE_SIZE, -1);
-  private String        mPlan                   = null;
+  private final XMLPropertiesConfiguration mConfigFile;
+  private double              explorationBias         = 1.0;
+  private double              mExactRolloutSampleSize = 4;
+  private volatile int        mRolloutSampleSize;
+  private int                 mMaxObservedChoices;
+  final double                competitivenessBonus    = 2;
+  private boolean             isFixedMoveCount        = false;
+  private int                 earliestCompletion      = 0;
+  final private int           fixedSampleSize         = MachineSpecificConfiguration.getCfgVal(CfgItem.FIXED_SAMPLE_SIZE, -1);
+  private String              mPlan                   = null;
+  private int                 mNumFactors             = 1;
 
   /**
    * Create game characteristics, loading any state from previous games.
@@ -44,28 +58,27 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     super(xiNumRoles);
     setRolloutSampleSize(4);
 
+    AbstractConfiguration.setDefaultListDelimiter(':');
     if (xiGameDirectory != null)
     {
-      // Attempt to load information from disk.
+      // Load any known game information from previous times we've played this game.
       File lPropsFile = new File(xiGameDirectory, PROPS_FILE);
-      Properties lProperties = new Properties();
-
+      XMLPropertiesConfiguration lConfigFile = null;
       try
       {
-        lProperties.load(new FileInputStream(lPropsFile));
-        mPlan = lProperties.getProperty(PLAN_KEY);
+        lConfigFile = new XMLPropertiesConfiguration(lPropsFile);
       }
-      catch (IOException lEx)
+      catch (ConfigurationException lEx)
       {
-        if (lPropsFile.exists())
-        {
-          LOGGER.warn("Couldn't load properties file " + lPropsFile + " because of " + lEx);
-        }
-        else
-        {
-          LOGGER.debug("No properties file in " + xiGameDirectory);
-        }
+        LOGGER.warn("Corrupt configuration file: " + lEx);
       }
+      mConfigFile = lConfigFile;
+
+      mPlan = mConfigFile.getString(PLAN_KEY);
+    }
+    else
+    {
+      mConfigFile = null;
     }
   }
 
@@ -76,7 +89,35 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
    */
   public void save(File xiGameDirectory)
   {
-    // !! ARR Implement game saving.
+    if (mConfigFile == null)
+    {
+      // We were unable to open the config file (or create a blank one), so we can't save.
+      LOGGER.warn("Unable to save game configuration");
+      return;
+    }
+
+    // Save what we've learned about this game
+    mConfigFile.setProperty(NUM_ROLES_KEY,                 numRoles);
+    mConfigFile.setProperty(SIMULTANEOUS_KEY,              isSimultaneousMove);
+    mConfigFile.setProperty(PSEUDO_SIMULTANEOUS_KEY,       isPseudoSimultaneousMove);
+    mConfigFile.setProperty(ITERATED_KEY,                  isIteratedGame);
+    mConfigFile.setProperty(NUM_FACTORS_KEY,               mNumFactors);
+    mConfigFile.setProperty(MOVES_IN_MULTIPLE_FACTORS_KEY, moveChoicesFromMultipleFactors);
+    mConfigFile.setProperty(MAX_BRANCHING_FACTOR,          mMaxObservedChoices);
+    mConfigFile.setProperty(FIXED_LENGTH,                  isFixedMoveCount);
+    if (mPlan != null)
+    {
+      mConfigFile.setProperty(PLAN_KEY, mPlan);
+    }
+
+    try
+    {
+      mConfigFile.save();
+    }
+    catch (ConfigurationException lEx)
+    {
+      LOGGER.warn("Failed to save configuration: " + lEx);
+    }
   }
 
   public double getExplorationBias()
@@ -178,5 +219,23 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   public void setPlan(String xiPlan)
   {
     mPlan = xiPlan;
+  }
+
+  /**
+   * Record the factors of a game.
+   *
+   * @param xiFactors - the factors.
+   */
+  public void setFactors(Set<Factor> xiFactors)
+  {
+    // For now, just record the number of factors.
+    if (xiFactors == null)
+    {
+      mNumFactors = 1;
+    }
+    else
+    {
+      mNumFactors = xiFactors.size();
+    }
   }
 }
