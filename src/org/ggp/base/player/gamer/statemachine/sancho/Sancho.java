@@ -1055,7 +1055,7 @@ public class Sancho extends SampleGamer
     }
 
     // Save anything that we've learned about this game.
-    gameCharacteristics.save(getGameDir());
+    gameCharacteristics.saveConfig(getGameDir());
 
     // Free off all our references.
     ourRole                      = null;

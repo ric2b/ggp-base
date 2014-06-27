@@ -43,6 +43,11 @@ public class MachineSpecificConfiguration
     DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING,
 
     /**
+     * Whether to disable the use of learning (both using stuff already learned and also learning new stuff).
+     */
+    DISABLE_LEARNING,
+
+    /**
      * Player name to report
      */
     PLAYER_NAME,

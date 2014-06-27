@@ -32,8 +32,8 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private static final String ITERATED_KEY                  = "iterated";
   private static final String NUM_FACTORS_KEY               = "num_factors";
   private static final String MOVES_IN_MULTIPLE_FACTORS_KEY = "moves_in_multiple_factors";
-  private static final String MAX_BRANCHING_FACTOR          = "max_branching_factor";
-  private static final String FIXED_LENGTH                  = "fixed_length";
+  private static final String MAX_BRANCHING_FACTOR_KEY      = "max_branching_factor";
+  private static final String FIXED_LENGTH_KEY              = "fixed_length";
 
   private final XMLPropertiesConfiguration mConfigFile;
   private double              explorationBias         = 1.0;
@@ -57,29 +57,43 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   {
     super(xiNumRoles);
     setRolloutSampleSize(4);
+    mConfigFile = loadConfig(xiGameDirectory);
+  }
+
+  /**
+   * Load previously saved per-game configuration from disk.
+   *
+   * @param xiGameDirectory - the directory to look in.
+   *
+   * @return the game configuration.
+   */
+  private XMLPropertiesConfiguration loadConfig(File xiGameDirectory)
+  {
+    if (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_LEARNING, false))
+    {
+      LOGGER.debug("Learning disabled - not loading configuration");
+      return null;
+    }
+
+    XMLPropertiesConfiguration lConfigFile = null;
 
     AbstractConfiguration.setDefaultListDelimiter(':');
     if (xiGameDirectory != null)
     {
       // Load any known game information from previous times we've played this game.
       File lPropsFile = new File(xiGameDirectory, PROPS_FILE);
-      XMLPropertiesConfiguration lConfigFile = null;
       try
       {
         lConfigFile = new XMLPropertiesConfiguration(lPropsFile);
+        mPlan = lConfigFile.getString(PLAN_KEY);
       }
       catch (ConfigurationException lEx)
       {
         LOGGER.warn("Corrupt configuration file: " + lEx);
       }
-      mConfigFile = lConfigFile;
+    }
 
-      mPlan = mConfigFile.getString(PLAN_KEY);
-    }
-    else
-    {
-      mConfigFile = null;
-    }
+    return lConfigFile;
   }
 
   /**
@@ -87,8 +101,14 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
    *
    * @param xiGameDirectory - the directory to load from.
    */
-  public void save(File xiGameDirectory)
+  public void saveConfig(File xiGameDirectory)
   {
+    if (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_LEARNING, false))
+    {
+      LOGGER.debug("Learning disabled - not saving configuration");
+      return;
+    }
+
     if (mConfigFile == null)
     {
       // We were unable to open the config file (or create a blank one), so we can't save.
@@ -103,8 +123,8 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     mConfigFile.setProperty(ITERATED_KEY,                  isIteratedGame);
     mConfigFile.setProperty(NUM_FACTORS_KEY,               mNumFactors);
     mConfigFile.setProperty(MOVES_IN_MULTIPLE_FACTORS_KEY, moveChoicesFromMultipleFactors);
-    mConfigFile.setProperty(MAX_BRANCHING_FACTOR,          mMaxObservedChoices);
-    mConfigFile.setProperty(FIXED_LENGTH,                  isFixedMoveCount);
+    mConfigFile.setProperty(MAX_BRANCHING_FACTOR_KEY,      mMaxObservedChoices);
+    mConfigFile.setProperty(FIXED_LENGTH_KEY,              isFixedMoveCount);
     if (mPlan != null)
     {
       mConfigFile.setProperty(PLAN_KEY, mPlan);
