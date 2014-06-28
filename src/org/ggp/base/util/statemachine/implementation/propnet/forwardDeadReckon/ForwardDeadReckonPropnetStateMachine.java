@@ -1139,7 +1139,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   @Override
   public void initialize(List<Gdl> description)
   {
-    long startTime = System.currentTimeMillis();
+    // Log the GDL so that we can play again as required.
+    StringBuffer lGDLString  = new StringBuffer();
+    lGDLString.append("GDL\n");
+    for (Gdl element : description)
+    {
+      lGDLString.append(element);
+      lGDLString.append('\n');
+    }
+    LOGGER.debug(lGDLString.toString());
 
     setRandomSeed(1);
 
