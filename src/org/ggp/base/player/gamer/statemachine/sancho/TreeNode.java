@@ -1085,32 +1085,34 @@ public class TreeNode
         //	is complete for all choices but varies we err on the pessimistic side.
         //	However, if we just choose the worst result then a move with many bad results
         //	looks the same as one with a single bad result (with respect to opponent choices),
-        //	so shade the score up slightly by the average (the 100:1 ratio is arbitrary)
+        //	so shade the score up slightly by the average
         //	Note that just using the average also doesn't work, and will cause massive
         //	over-optimism.
-        if ( decidingRoleIndex == tree.numRoles-1 )
+        if ( roleIndex != tree.numRoles-1 )
         {
           for (int i = 0; i < tree.numRoles; i++)
           {
             tree.mBlendedCompletionScoreBuffer[i] = (worstDeciderNode.getAverageScore(i) * numUniqueChildren + tree.mNodeAverageScores[i]) / (numUniqueChildren+1);
           }
+          //  If a move provides a better-than-worst case in all uncles it provides a support
+          //  floor the the worst that we can do with perfect play, so use that if its larger than
+          //  what we would otherwise use
+          if (floorDeciderNode != null &&
+              floorDeciderNode.getAverageScore(roleIndex) > tree.mBlendedCompletionScoreBuffer[roleIndex])
+          {
+            for (int i = 0; i < tree.numRoles; i++)
+            {
+              tree.mBlendedCompletionScoreBuffer[i] = floorDeciderNode.getAverageScore(i);
+            }
+          }
         }
         else
         {
+          //  For the final role we're transitioning to an actual fully decided new state so the
+          //  appropriate choice is the best one for the chooser
           for (int i = 0; i < tree.numRoles; i++)
           {
-            tree.mBlendedCompletionScoreBuffer[i] = tree.mNodeAverageScores[i];
-          }
-        }
-        //	If a move provides a better-than-worst case in all uncles it provides a support
-        //	floor the the worst that we can do with perfect play, so use that if its larger than
-        //	what we would otherwise use
-        if (floorDeciderNode != null &&
-            floorDeciderNode.getAverageScore(roleIndex) > worstDeciderNode.getAverageScore(roleIndex))
-        {
-          for (int i = 0; i < tree.numRoles; i++)
-          {
-            tree.mBlendedCompletionScoreBuffer[i] = floorDeciderNode.getAverageScore(i);
+            tree.mBlendedCompletionScoreBuffer[i] = bestValueNode.getAverageScore(i);
           }
         }
         markComplete(tree.mBlendedCompletionScoreBuffer, determiningChildCompletionDepth);
