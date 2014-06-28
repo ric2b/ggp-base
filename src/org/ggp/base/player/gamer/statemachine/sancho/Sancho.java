@@ -283,6 +283,7 @@ public class Sancho extends SampleGamer
       // We've played this game before and know how to solve it.
       LOGGER.info("Considering saved plan: " + lSavedPlan);
       plan.considerPlan(convertPlanString(gameCharacteristics.getPlan()));
+      LOGGER.info("Ready to play");
       return;
     }
 
@@ -802,6 +803,8 @@ public class Sancho extends SampleGamer
 
       searchUntil(timeout = SAFETY_MARGIN);
     }
+
+    LOGGER.info("Ready to play");
   }
 
   @Override
