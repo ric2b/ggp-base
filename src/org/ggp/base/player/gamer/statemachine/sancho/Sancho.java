@@ -31,11 +31,14 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
+/**
+ * The Sancho General Game Player.
+ */
 public class Sancho extends SampleGamer
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private static final long SAFETY_MARGIN = 2500;
+  private static final long SAFETY_MARGIN = MachineSpecificConfiguration.getCfgVal(CfgItem.SAFETY_MARGIN, 2500);
 
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
@@ -91,7 +94,7 @@ public class Sancho extends SampleGamer
     planString = xiParam.substring(5);
   }
 
-  int netScore(ForwardDeadReckonPropnetStateMachine stateMachine,
+  private int netScore(ForwardDeadReckonPropnetStateMachine stateMachine,
                        ForwardDeadReckonInternalMachineState state)
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.netScore");
@@ -150,29 +153,6 @@ public class Sancho extends SampleGamer
     }
   }
 
-  private Move[] getMoveCanonicallyOrdered(Move[] move)
-  {
-    int index = 0;
-    boolean processedOurMove = false;
-
-    for (Role role : underlyingStateMachine.getRoles())
-    {
-      if (role.equals(ourRole))
-      {
-        canonicallyOrderedMoveBuffer[index++] = move[0];
-        processedOurMove = true;
-      }
-      else
-      {
-        canonicallyOrderedMoveBuffer[index] = (processedOurMove ? move[index]
-                                                               : move[index + 1]);
-        index++;
-      }
-    }
-
-    return canonicallyOrderedMoveBuffer;
-  }
-
   @Override
   public String getName()
   {
@@ -203,8 +183,7 @@ public class Sancho extends SampleGamer
     return stateMachineProxy;
   }
 
-  private int unNormalizedStateDistance(MachineState queriedState,
-                                        MachineState targetState)
+  private static int unNormalizedStateDistance(MachineState queriedState, MachineState targetState)
   {
     int matchCount = 0;
 
@@ -482,6 +461,7 @@ public class Sancho extends SampleGamer
     //  from one factor or another (imposing an artificial noop on the other)
     if (gameCharacteristics.moveChoicesFromMultipleFactors)
     {
+      assert(factors != null);
       for (Factor factor : factors)
       {
         factor.setAlwaysIncludePseudoNoop(true);
@@ -967,43 +947,6 @@ public class Sancho extends SampleGamer
     {
       LOGGER.info("Early search termination because root is complete");
     }
-  }
-
-  private void flattenMoveSubLists(List<List<Move>> legalMoves,
-                                   int iFromIndex,
-                                   List<List<Move>> jointMoves,
-                                   List<Move> partialJointMove)
-  {
-    if (iFromIndex >= legalMoves.size())
-    {
-      jointMoves.add(new ArrayList<>(partialJointMove));
-      return;
-    }
-
-    for (Move move : legalMoves.get(iFromIndex))
-    {
-      if (partialJointMove.size() <= iFromIndex)
-      {
-        partialJointMove.add(move);
-      }
-      else
-      {
-        partialJointMove.set(iFromIndex, move);
-      }
-
-      flattenMoveSubLists(legalMoves,
-                          iFromIndex + 1,
-                          jointMoves,
-                          partialJointMove);
-    }
-  }
-
-  private void flattenMoveLists(List<List<Move>> legalMoves,
-                                List<List<Move>> jointMoves)
-  {
-    List<Move> partialJointMove = new ArrayList<>();
-
-    flattenMoveSubLists(legalMoves, 0, jointMoves, partialJointMove);
   }
 
   @Override

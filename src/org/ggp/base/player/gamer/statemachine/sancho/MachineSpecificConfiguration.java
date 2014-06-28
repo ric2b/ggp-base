@@ -32,6 +32,11 @@ public class MachineSpecificConfiguration
     USE_AFFINITY,
 
     /**
+     * Safety margin for submitting moves.
+     */
+    SAFETY_MARGIN,
+
+    /**
      * Whether to disable the use of piece heuristics
      */
     DISABLE_PIECE_HEURISTIC,
