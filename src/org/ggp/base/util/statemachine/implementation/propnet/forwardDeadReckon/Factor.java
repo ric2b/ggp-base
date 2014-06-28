@@ -19,7 +19,7 @@ import org.ggp.base.util.statemachine.Move;
  * propositions into disjoint sets between which there are no causative logical connections or coupling via
  * terminal/goal conditions.
  */
-public class Factor
+public class Factor implements StateMachineFilter
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
@@ -164,52 +164,21 @@ public class Factor
     alwaysIncludePseudoNoop = value;
   }
 
-  /**
-   * Get the next move for this factor - inserts pseudo-noops if required
-   * @param xiFactor - facor to enumerate moves for
-   * @param itr - iterator on the collection of all moves
-   * @return next factoo move
-   */
-  public static ForwardDeadReckonLegalMoveInfo nextFactorMove(Factor xiFactor,
-                                                          Iterator<ForwardDeadReckonLegalMoveInfo> itr)
+  @Override
+  public boolean isFilteredTerminal(ForwardDeadReckonInternalMachineState xiState)
   {
-    ForwardDeadReckonLegalMoveInfo result;
-
-    while(itr.hasNext())
-    {
-      result = itr.next();
-      if ( result.factor == xiFactor || result.factor == null || xiFactor == null )
-      {
-        return result;
-      }
-    }
-
-    assert(xiFactor != null);
-
-    // The extra move must be a forced noop
-    return PSEUDO_NO_OP;
+    return stateMachine.isTerminal(xiState);
   }
 
-  /**
-   * @return the number of moves in the specified collection that are valid for the specified factor.
-   *
-   * @param xiMoves  - the moves.
-   * @param xiFactor - the factor.
-   * @param includeForcedPseudoNoops - whether to include forced pseudo-noops in factors
-   */
-  public static int getFilteredSize(Collection<ForwardDeadReckonLegalMoveInfo> xiMoves, Factor xiFactor, boolean includeForcedPseudoNoops)
+  @Override
+  public int getFilteredMovesSize(Collection<ForwardDeadReckonLegalMoveInfo> xiMoves,
+                                  boolean xiIncludeForcedPseudoNoops)
   {
-    if (xiFactor == null)
-    {
-      // Non-factored game.  All moves in the underlying collection are valid.
-      return xiMoves.size();
-    }
-
     int lCount = 0;
     boolean noopFound = false;
     for (ForwardDeadReckonLegalMoveInfo lMove : xiMoves)
     {
-      if (lMove.factor == null || lMove.factor == xiFactor)
+      if (lMove.factor == null || lMove.factor == this)
       {
         lCount++;
 
@@ -220,11 +189,29 @@ public class Factor
       }
     }
 
-    if ( lCount == 0 || (includeForcedPseudoNoops && !noopFound && xiFactor.getAlwaysIncludePseudoNoop()))
+    if ( lCount == 0 || (xiIncludeForcedPseudoNoops && !noopFound && getAlwaysIncludePseudoNoop()))
     {
       lCount++;
     }
 
     return lCount;
+  }
+
+  @Override
+  public ForwardDeadReckonLegalMoveInfo nextFilteredMove(Iterator<ForwardDeadReckonLegalMoveInfo> xiItr)
+  {
+    ForwardDeadReckonLegalMoveInfo result;
+
+    while(xiItr.hasNext())
+    {
+      result = xiItr.next();
+      if ( result.factor == this || result.factor == null )
+      {
+        return result;
+      }
+    }
+
+    // The extra move must be a forced noop
+    return PSEUDO_NO_OP;
   }
 }

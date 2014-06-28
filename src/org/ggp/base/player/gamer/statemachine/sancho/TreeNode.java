@@ -26,7 +26,6 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
-import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 
 /**
  * A node in an MCTS "tree" (actually a DAG).
@@ -1725,14 +1724,12 @@ public class TreeNode
       for (int i = 0; i < tree.numRoles && nonNoopCount < 2; i++ )
       {
         Collection<ForwardDeadReckonLegalMoveInfo> moves = tree.underlyingStateMachine.getLegalMoves(theState, tree.roleOrdering.roleIndexToRole(i));
-        int numMoves = Factor.getFilteredSize(moves,
-                                              tree.factor,
-                                              false);
+        int numMoves = tree.searchFilter.getFilteredMovesSize(moves, false);
         Iterator<ForwardDeadReckonLegalMoveInfo> itr = moves.iterator();
         for (int iMove = 0; iMove < numMoves; iMove++)
         {
           // Get next move for this factor
-          ForwardDeadReckonLegalMoveInfo info = Factor.nextFactorMove(tree.factor, itr);
+          ForwardDeadReckonLegalMoveInfo info = tree.searchFilter.nextFilteredMove(itr);
 
           if (info.inputProposition != null)
           {
@@ -1865,7 +1862,7 @@ public class TreeNode
                                                                                                      choosingRole);
 
         // If the child array isn't large enough, expand it.
-        mNumChildren = (short)Factor.getFilteredSize(moves, tree.factor, true);
+        mNumChildren = (short)tree.searchFilter.getFilteredMovesSize(moves, true);
         assert(mNumChildren <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
         if (mNumChildren > children.length)
         {
@@ -1883,7 +1880,7 @@ public class TreeNode
         Iterator<ForwardDeadReckonLegalMoveInfo> itr = moves.iterator();
         for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
         {
-          ForwardDeadReckonLegalMoveInfo newChoice = Factor.nextFactorMove(tree.factor, itr);
+          ForwardDeadReckonLegalMoveInfo newChoice = tree.searchFilter.nextFilteredMove(itr);
 
           boolean isPseudoNullMove = (tree.factor != null);
 

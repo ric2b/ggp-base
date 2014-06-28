@@ -1,0 +1,42 @@
+package org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon;
+
+import java.util.Collection;
+import java.util.Iterator;
+
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
+
+/**
+ * Interface to support semantic filtering on top f an underlying state machine.  This is intended
+ * to allow semantic modification to aid search by reducing the search space.  Uses include:
+ *    Factors - each factor implements this interface to filter move choices
+ *    Latch-guided search - latch analysis can reveal partitionings of the input set such that
+ *    the order of choice between partitions is irrelevant, in which case searching one at a time
+ *    dramatically reduces branching factor (cf sudoku)
+ * @author steve
+ *
+ */
+public interface StateMachineFilter
+{
+  /**
+   * Determine if a given state should be treated as terminal by the search
+   * @param state
+   * @return virtual terminality
+   */
+  boolean isFilteredTerminal(ForwardDeadReckonInternalMachineState state);
+
+  /**
+   * Count available legal moves given a raw collection from the state machine
+   * @param xiMoves - raw legals at state machine level
+   * @param includeForcedPseudoNoops - whether to include pseudo-noops in consideration
+   * @return number of available choices
+   */
+  int getFilteredMovesSize(Collection<ForwardDeadReckonLegalMoveInfo> xiMoves, boolean includeForcedPseudoNoops);
+
+  /**
+   * Logical iterator for available moves under the filter
+   * @param itr - iterator from the underlying state machine
+   * @return next choice
+   */
+  ForwardDeadReckonLegalMoveInfo nextFilteredMove(Iterator<ForwardDeadReckonLegalMoveInfo> itr);
+}

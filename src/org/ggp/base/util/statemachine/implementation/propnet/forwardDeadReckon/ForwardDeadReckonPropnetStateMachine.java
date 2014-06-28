@@ -2913,7 +2913,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       for (Role role : getRoles())
       {
         Collection<ForwardDeadReckonLegalMoveInfo> moves = activeLegalMoves.getContents(role);
-        int numChoices = Factor.getFilteredSize(moves, factor, false);
+        int numChoices = StateMachineFilterUtils.getFilteredSize(moves, factor, false);
 
         if (numChoices > maxChoices)
         {
@@ -2956,7 +2956,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           for (int iMove = 0; iMove < numChoices; iMove++)
           {
             // Get next move for this factor
-            ForwardDeadReckonLegalMoveInfo info = Factor.nextFactorMove(factor, itr);
+            ForwardDeadReckonLegalMoveInfo info = StateMachineFilterUtils.nextFilteredMove(factor, itr);
 
             if (rand-- <= 0)
             {
@@ -2977,7 +2977,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           for (int iMove = 0; iMove < numChoices; iMove++)
           {
             // Get next move for this factor
-            ForwardDeadReckonLegalMoveInfo info = Factor.nextFactorMove(factor, itr);
+            ForwardDeadReckonLegalMoveInfo info = StateMachineFilterUtils.nextFilteredMove(factor, itr);
 
             if (decisionState.choosingRole == role)
             {
@@ -3266,7 +3266,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return true;
   }
 
-  private int chooseRandomJointMove(Factor factor,
+  private int chooseRandomJointMove(StateMachineFilter factor,
                                     MoveWeights moveWeights,
                                     List<ForwardDeadReckonLegalMoveInfo> playedMoves)
   {
@@ -3288,7 +3288,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           return 0;
         }
 
-        int numChoices = Factor.getFilteredSize(moves, factor, false);
+        int numChoices = StateMachineFilterUtils.getFilteredSize(moves, factor, false);
         int rand;
 
         if (moveWeights == null)
@@ -3303,7 +3303,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           for (int iMove = 0; iMove < numChoices; iMove++)
           {
             // Get next move for this factor
-            ForwardDeadReckonLegalMoveInfo info = Factor.nextFactorMove(factor, itr);
+            ForwardDeadReckonLegalMoveInfo info = StateMachineFilterUtils.nextFilteredMove(factor, itr);
 
             if (moveWeights.weightScore[info.globalMoveIndex] == 0)
             {
@@ -3330,7 +3330,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         for (int iMove = 0; iMove < numChoices; iMove++)
         {
           // Get next move for this factor
-          ForwardDeadReckonLegalMoveInfo info = Factor.nextFactorMove(factor, itr);
+          ForwardDeadReckonLegalMoveInfo info = StateMachineFilterUtils.nextFilteredMove(factor, itr);
 
           if (moveWeights == null)
           {

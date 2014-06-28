@@ -27,6 +27,8 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.NullStateMachineFilter;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.StateMachineFilter;
 import org.w3c.tidy.MutableInteger;
 
 public class MCTSTree
@@ -83,7 +85,8 @@ public class MCTSTree
   final Role                                           mOurRole;
   RolloutProcessorPool                                 rolloutPool;
   RuntimeGameCharacteristics                           gameCharacteristics;
-  Factor                                               factor;
+  final Factor                                         factor;
+  final StateMachineFilter                             searchFilter;
   boolean                                              evaluateTerminalOnNodeCreation;
   private final TreeNodeAllocator                      mTreeNodeAllocator;
   final TreeEdgeAllocator                              mTreeEdgeAllocator;
@@ -127,6 +130,14 @@ public class MCTSTree
     edgePool = xiEdgePool;
     mPathPool = xiPathPool;
     factor = xiFactor;
+    if ( factor != null )
+    {
+      searchFilter = factor;
+    }
+    else
+    {
+      searchFilter = new NullStateMachineFilter(xiStateMachine);
+    }
     roleOrdering = xiRoleOrdering;
     mOurRole = xiRoleOrdering.roleIndexToRole(0);
     heuristic = xiHeuristic;
