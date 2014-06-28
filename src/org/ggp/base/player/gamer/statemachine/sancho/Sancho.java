@@ -781,7 +781,7 @@ public class Sancho extends SampleGamer
                                   new ForwardDeadReckonInternalMachineState(initialState),
                                   (short)0);
 
-      searchUntil(timeout = SAFETY_MARGIN);
+      searchUntil(timeout - SAFETY_MARGIN);
     }
 
     LOGGER.info("Ready to play");
