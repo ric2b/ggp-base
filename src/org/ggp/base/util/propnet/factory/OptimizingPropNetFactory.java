@@ -231,7 +231,6 @@ public class OptimizingPropNetFactory
       addFormToCompletedValues(form, completedSentenceFormValues, components);
       //if(verbose)
       //TODO: Add this, but with the correct total number of components (not just Propositions)
-      //System.out.println("  "+completedSentenceFormValues.get(form).size() + " components added");
     }
     //Connect "next" to "true"
     LOGGER.trace("Adding transitions...");
@@ -266,7 +265,6 @@ public class OptimizingPropNetFactory
     LOGGER.trace("Propnet has " + propnet.getNumAnds() + " ands; " +
                          propnet.getNumOrs() + " ors; " +
                          propnet.getNumNots() + " nots");
-    //System.out.println(propnet);
     return propnet;
   }
 
@@ -496,14 +494,9 @@ public class OptimizingPropNetFactory
     while ((nonEssentials = findImmediatelyNonEssentialChildren(falseComponent))
         .size() != 0)
     {
-      //System.out.println("Found " + nonEssentials.size() + " immediately non-essential children, out of a total of " + falseComponent.getOutputs().size());
       //int count = 0;
       for (Component output : nonEssentials)
       {
-        //if ( count++ % 1000 == 0)
-        //{
-        //	System.out.println("...processed " + count + " of " + nonEssentials.size());
-        //}
         //Iterator<Component> outputItr = falseComponent.getOutputs().iterator();
         //Component output = outputItr.next();
         //while(isEssentialProposition(output) || output instanceof Transition) {
@@ -634,7 +627,6 @@ public class OptimizingPropNetFactory
     while ((nonEssentials = findImmediatelyNonEssentialChildren(trueComponent))
         .size() != 0)
     {
-      //System.out.println("Found " + nonEssentials.size() + " immediately non-essential children, out of a total of " + falseComponent.getOutputs().size());
       //int count = 0;
       for (Component output : nonEssentials)
       {
@@ -860,9 +852,7 @@ public class OptimizingPropNetFactory
         if (entry.getKey().getName().equals(INIT))
         {
           //Find the corresponding true sentence
-          GdlSentence trueSentence = GdlPool.getRelation(TRUE, entry.getKey()
-              .getBody());
-          //System.out.println("True sentence from init: " + trueSentence);
+          GdlSentence trueSentence = GdlPool.getRelation(TRUE, entry.getKey().getBody());
           Component trueSentenceComponent = components.get(trueSentence);
           if (trueSentenceComponent.getInputs().isEmpty())
           {
@@ -1887,15 +1877,6 @@ public class OptimizingPropNetFactory
     //always true...
     //But we should be able to remove bases and inputs (when it's justified)
 
-    //What can we conclude? Let's dump here
-    /*
-     * for(Entry<Component, Type> entry : reachability.entrySet()) {
-     * //System.out.println("  "+entry.getKey()+": "+entry.getValue()); //We
-     * can actually dump a version of the PN with colored nodes in DOT form...
-     * System
-     * .out.println(entry.getKey().toString().replaceAll("fillcolor=[a-z]+,",
-     * "fillcolor="+entry.getValue().getColor()+",")); }
-     */
     //TODO: Go through all the cases of everything I can dump
     //For now... how about inputs?
     Constant trueConst = new Constant(true);
@@ -2209,7 +2190,6 @@ public class OptimizingPropNetFactory
         System.err.println("Might have falsely declared " + p.getName() +
                            " to be unimportant?");
       //Not important
-      //System.out.println("Removing " + p);
       toSplice.add(p);
     }
     for (Proposition p : toSplice)

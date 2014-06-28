@@ -260,9 +260,7 @@ public class AssignmentIteratorImpl implements AssignmentIterator
       {
         //Fill in based on a function
         //Note that the values on the left must already be filled in
-        GdlConstant valueFromFunction = plan.getValuesToCompute().get(i)
-            .getValue(nextAssignment);
-        //					System.out.println("Setting based on a function: slot " + i + " to value " + valueFromFunction);
+        GdlConstant valueFromFunction = plan.getValuesToCompute().get(i).getValue(nextAssignment);
         nextAssignment.set(i, valueFromFunction);
       }
     }

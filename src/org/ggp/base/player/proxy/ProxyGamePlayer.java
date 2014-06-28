@@ -570,7 +570,6 @@ public final class ProxyGamePlayer extends Thread implements Subject
     String theirTag = in.theMessage.substring(0, 5);
     String theirMessage = in.theMessage.substring(5);
 
-    //System.out.println("Received message: " + in.theMessage);
     // Ignore their message unless it has an up-to-date move code.
     if (!(in.messageCode == currentMoveCode))
     {

@@ -73,7 +73,7 @@ public class AssignmentsImpl implements Assignments
    * Creates an Assignments object that generates AssignmentIterators. These
    * can be used to efficiently iterate over all possible assignments for
    * variables in a given rule.
-   * 
+   *
    * @param headAssignment
    *          An assignment of variables whose values should be fixed. May be
    *          empty.
@@ -287,9 +287,7 @@ public class AssignmentsImpl implements Assignments
     //bestOrdering.functionalConjunctIndices;
 
     //Make AssignmentFunctions out of the ordering
-    List<GdlSentence> functionalConjuncts = bestOrdering
-        .getFunctionalConjuncts();
-    //		System.out.println("functionalConjuncts: " + functionalConjuncts);
+    List<GdlSentence> functionalConjuncts = bestOrdering.getFunctionalConjuncts();
     for (int i = 0; i < functionalConjuncts.size(); i++)
     {
       GdlSentence functionalConjunct = functionalConjuncts.get(i);
@@ -356,10 +354,6 @@ public class AssignmentsImpl implements Assignments
     checkDistinctsAgainstHead();
 
     //We are ready for iteration
-    //		System.out.println("headAssignment: " + headAssignment);
-    //		System.out.println("varsToAssign: " + varsToAssign);
-    //		System.out.println("valuesToCompute: " + valuesToCompute);
-    //		System.out.println("sourceDefiningSlot: " + sourceDefiningSlot);
   }
 
   private GdlVariable getRightmostVar(Collection<GdlVariable> vars)
@@ -548,7 +542,7 @@ public class AssignmentsImpl implements Assignments
    * that is compared for each ordering is the product of: - For each source
    * conjunct, the number of tuples offered by the conjunct; - For each
    * variable not defined by a function, the size of its domain.
-   * 
+   *
    * @param functionInfoMap
    * @param completedSentenceFormSizes
    *          For each sentence form, this may optionally contain the number of
@@ -653,7 +647,6 @@ public class AssignmentsImpl implements Assignments
     while (!searchQueue.isEmpty())
     {
       IterationOrderCandidate curNode = searchQueue.remove();
-      //			System.out.println("Node being checked out: " + curNode);
       if (curNode.isComplete())
       {
         //This is the complete ordering with the lowest heuristic value

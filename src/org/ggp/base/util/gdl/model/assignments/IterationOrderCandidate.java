@@ -241,7 +241,6 @@ public class IterationOrderCandidate implements
     if (varOrdering.size() < varsToAssign.size())
       heuristic++;
 
-    //			System.out.println("Heuristic value is " + heuristic + " with functionalConjunctIndices " + functionalConjunctIndices);
     return heuristic;
   }
 
@@ -255,7 +254,6 @@ public class IterationOrderCandidate implements
     List<IterationOrderCandidate> allChildren = new ArrayList<IterationOrderCandidate>();
     allChildren.addAll(getSourceConjunctChildren());
     allChildren.addAll(getFunctionAddedChildren(analyticFunctionOrdering));
-    //			System.out.println("Number of children being added: " + allChildren.size());
     return allChildren;
   }
 

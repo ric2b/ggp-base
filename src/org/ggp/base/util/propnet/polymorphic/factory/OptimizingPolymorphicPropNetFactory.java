@@ -244,7 +244,6 @@ public class OptimizingPolymorphicPropNetFactory
       addFormToCompletedValues(form, completedSentenceFormValues, components);
       //if(verbose)
       //TODO: Add this, but with the correct total number of components (not just Propositions)
-      //System.out.println("  "+completedSentenceFormValues.get(form).size() + " components added");
     }
     //Connect "next" to "true"
     LOGGER.trace("Adding transitions...");
@@ -272,7 +271,6 @@ public class OptimizingPolymorphicPropNetFactory
     //how we want it to look
     normalizePropositions(componentSet);
     PolymorphicPropNet propnet = componentFactory.createPropNet(roles, componentSet);
-    //System.out.println(propnet);
     return propnet;
   }
 
@@ -504,14 +502,9 @@ public class OptimizingPolymorphicPropNetFactory
     while ((nonEssentials = findImmediatelyNonEssentialChildren(falseComponent,
                                                                 true)).size() != 0)
     {
-      //System.out.println("Found " + nonEssentials.size() + " immediately non-essential children, out of a total of " + falseComponent.getOutputs().size());
       //int count = 0;
       for (PolymorphicComponent output : nonEssentials)
       {
-        //if ( count++ % 1000 == 0)
-        //{
-        //	System.out.println("...processed " + count + " of " + nonEssentials.size());
-        //}
         //Iterator<Component> outputItr = falseComponent.getOutputs().iterator();
         //Component output = outputItr.next();
         //while(isEssentialProposition(output) || output instanceof Transition) {
@@ -642,7 +635,6 @@ public class OptimizingPolymorphicPropNetFactory
     while ((nonEssentials = findImmediatelyNonEssentialChildren(trueComponent,
                                                                 false)).size() != 0)
     {
-      //System.out.println("Found " + nonEssentials.size() + " immediately non-essential children, out of a total of " + falseComponent.getOutputs().size());
       //int count = 0;
       for (PolymorphicComponent output : nonEssentials)
       {
@@ -875,7 +867,6 @@ public class OptimizingPolymorphicPropNetFactory
         {
           //Find the corresponding true sentence
           GdlSentence trueSentence = GdlPool.getRelation(TRUE, entry.getKey().getBody());
-          //System.out.println("True sentence from init: " + trueSentence);
           PolymorphicComponent trueSentenceComponent = components.get(trueSentence);
           if (trueSentenceComponent.getInputs().isEmpty())
           {
@@ -1744,7 +1735,6 @@ public class OptimizingPolymorphicPropNetFactory
 
     for(PolymorphicComponent c : unreachable)
     {
-      //System.out.println("Remove: " + c);
       pn.removeComponent(c);
       removalCount++;
     }
@@ -2163,15 +2153,6 @@ public class OptimizingPolymorphicPropNetFactory
     //always true...
     //But we should be able to remove bases and inputs (when it's justified)
 
-    //What can we conclude? Let's dump here
-    /*
-     * for(Entry<Component, Type> entry : reachability.entrySet()) {
-     * //System.out.println("  "+entry.getKey()+": "+entry.getValue()); //We
-     * can actually dump a version of the PN with colored nodes in DOT form...
-     * System
-     * .out.println(entry.getKey().toString().replaceAll("fillcolor=[a-z]+,",
-     * "fillcolor="+entry.getValue().getColor()+",")); }
-     */
     //TODO: Go through all the cases of everything I can dump
     //For now... how about inputs?
     PolymorphicConstant trueConst = componentFactory.createConstant(-1, true);
@@ -2735,7 +2716,6 @@ public class OptimizingPolymorphicPropNetFactory
               input.addOutput(newAnd);
               newAnd.addInput(input);
             }
-            //System.out.println(removedCount + " components removed and " + addedCount + " added for this factorization");
           }
         }
         else if ((c instanceof PolymorphicAnd))
@@ -2901,7 +2881,6 @@ public class OptimizingPolymorphicPropNetFactory
               input.addOutput(newOr);
               newOr.addInput(input);
             }
-            //System.out.println(removedCount + " components removed and " + addedCount + " added for this factorization");
           }
         }
       }
@@ -2979,7 +2958,6 @@ public class OptimizingPolymorphicPropNetFactory
 
           if (!outputANDinputs.isEmpty())
           {
-            //System.out.println("Found large output OR with refactorable output ANDs of size " + c.getOutputs().size());
             outputFactorizationFanoutReduction += c.getOutputs().size() - 1;
 
             PolymorphicAnd newAnd = pn.getComponentFactory().createAnd(-1, -1);
@@ -3073,7 +3051,6 @@ public class OptimizingPolymorphicPropNetFactory
 
           if (!outputORinputs.isEmpty())
           {
-            //System.out.println("Found large output AND with refactorable output ORs of size " + c.getOutputs().size());
             outputFactorizationFanoutReduction += c.getOutputs().size() - 1;
 
             PolymorphicOr newOr = pn.getComponentFactory().createOr(-1, -1);
@@ -3190,7 +3167,6 @@ public class OptimizingPolymorphicPropNetFactory
         System.err.println("Might have falsely declared " + p.getName() +
                            " to be unimportant?");
       //Not important
-      //System.out.println("Removing " + p);
       toSplice.add(p);
     }
     for (PolymorphicProposition p : toSplice)
@@ -3794,10 +3770,6 @@ public class OptimizingPolymorphicPropNetFactory
 //          if (inputSet.size() > roleSet.size() / 2)
 //          {
 //            possibleSavings += 2 * inputSet.size() - roleSet.size();
-//            System.out.println("Identified input set of size " +
-//                               inputSet.size() +
-//                               " that can be replaced by complement of size " +
-//                               (roleSet.size() - inputSet.size()));
 //          }
 //        }
 //      }

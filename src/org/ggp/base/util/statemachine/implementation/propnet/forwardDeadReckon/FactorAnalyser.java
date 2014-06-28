@@ -10,6 +10,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
@@ -24,6 +26,8 @@ import org.ggp.base.util.statemachine.Move;
  */
 public class FactorAnalyser
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private ForwardDeadReckonPropnetStateMachine stateMachine;
   static final private GdlConstant    GOAL      = GdlPool.getConstant("goal");
   static final private GdlConstant    INIT      = GdlPool.getConstant("init");
@@ -203,7 +207,7 @@ public class FactorAnalyser
       //  If the analysis is just taking too long give up
       if ( System.currentTimeMillis() > startTime + timeout )
       {
-        System.out.println("Factorization analysis timed out after " + (System.currentTimeMillis() - startTime) + "ms");
+        LOGGER.warn("Factorization analysis timed out after " + (System.currentTimeMillis() - startTime) + "ms");
         return null;
       }
     }
@@ -333,7 +337,6 @@ public class FactorAnalyser
     {
       for(Factor factor : factors)
       {
-        System.out.println("Found factor:");
         factor.dump();
 
         for(PolymorphicComponent c : factor.getComponents())
@@ -400,7 +403,6 @@ public class FactorAnalyser
   //  Return true if at least one dependency involved transitioning across a does->legal relationship
   private void recursiveBuildImmediateBaseDependencies(PolymorphicComponent root, PolymorphicComponent c, DirectDependencyInfo dInfo)
   {
-    //System.out.println("  ...trace back through: " + c);
     if ( c instanceof PolymorphicProposition )
     {
       if ( dInfo.dependencies.contains(c))

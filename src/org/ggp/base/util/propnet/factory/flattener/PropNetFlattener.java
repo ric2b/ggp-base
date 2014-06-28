@@ -823,8 +823,7 @@ public class PropNetFlattener
    */
   public static void main(String[] args)
   {
-    List<Gdl> description = GameRepository.getDefaultRepository()
-        .getGame("conn4").getRules();
+    List<Gdl> description = GameRepository.getDefaultRepository().getGame("conn4").getRules();
 
     PropNetFlattener flattener = new PropNetFlattener(description);
     List<GdlRule> flattened = flattener.flatten();
@@ -837,6 +836,8 @@ public class PropNetFlattener
     Collections.sort(strings);
 
     for (String s : strings)
+    {
       System.out.println(s);
+    }
   }
 }
