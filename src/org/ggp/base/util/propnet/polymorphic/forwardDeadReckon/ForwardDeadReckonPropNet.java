@@ -1,7 +1,6 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
-import java.util.List;
 import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
@@ -66,9 +65,9 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
    * @param roles Set of roles to support
    * @param components Set of components that this propNet will encompass
    * @param componentFactory Component factory to use   */
-public ForwardDeadReckonPropNet(List<Role> roles,
-                                  Set<PolymorphicComponent> components,
-                                  PolymorphicComponentFactory componentFactory)
+public ForwardDeadReckonPropNet(Role[] roles,
+                                Set<PolymorphicComponent> components,
+                                PolymorphicComponentFactory componentFactory)
   {
     super(roles, components, componentFactory);
 

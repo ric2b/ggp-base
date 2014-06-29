@@ -134,7 +134,7 @@ public class PieceHeuristic implements Heuristic
                                RoleOrdering xiRoleOrdering)
   {
     pieceSets = null;
-    numRoles = stateMachine.getRoles().size();
+    numRoles = stateMachine.getRoles().length;
     rootPieceCounts = new int[numRoles];
 
     Map<String, GdlFunctionInfo> basePropFns = new HashMap<>();

@@ -163,11 +163,11 @@ public class GameSearcher implements Runnable, ActivityController
     mGameCharacteristics = gameCharacteristics;
     mPlan = plan;
 
-    StateInfo.createBuffer(underlyingStateMachine.getRoles().size());
+    StateInfo.createBuffer(underlyingStateMachine.getRoles().length);
 
     if (ThreadControl.ROLLOUT_THREADS > 0)
     {
-      mPipeline = new Pipeline(PIPELINE_SIZE, underlyingStateMachine.getRoles().size(), underlyingStateMachine);
+      mPipeline = new Pipeline(PIPELINE_SIZE, underlyingStateMachine.getRoles().length, underlyingStateMachine);
     }
 
     rolloutPool = new RolloutProcessorPool(mPipeline, underlyingStateMachine, roleOrdering, mLogName);
@@ -219,7 +219,7 @@ public class GameSearcher implements Runnable, ActivityController
     for (MCTSTree tree : factorTrees)
     {
       tree.root = tree.allocateNode(initialState, null, false);
-      tree.root.decidingRoleIndex = underlyingStateMachine.getRoles().size() - 1;
+      tree.root.decidingRoleIndex = underlyingStateMachine.getRoles().length - 1;
       tree.root.setDepth((short)0);
     }
   }

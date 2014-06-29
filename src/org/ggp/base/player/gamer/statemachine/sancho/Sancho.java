@@ -210,7 +210,7 @@ public class Sancho extends SampleGamer
 
     mSysStatsLogger = new SystemStatsLogger(mLogName);
 
-    searchProcessor = new GameSearcher(transpositionTableSize, underlyingStateMachine.getRoles().size(), mLogName);
+    searchProcessor = new GameSearcher(transpositionTableSize, underlyingStateMachine.getRoles().length, mLogName);
     stateMachineProxy.setController(searchProcessor);
 
     if (!ThreadControl.RUN_SYNCHRONOUSLY)
@@ -235,7 +235,7 @@ public class Sancho extends SampleGamer
 
     ourRole = getRole();
     LOGGER.info("We are: " + ourRole);
-    numRoles = underlyingStateMachine.getRoles().size();
+    numRoles = underlyingStateMachine.getRoles().length;
     roleOrdering = new RoleOrdering(underlyingStateMachine, ourRole);
 
     mTurn = 0;

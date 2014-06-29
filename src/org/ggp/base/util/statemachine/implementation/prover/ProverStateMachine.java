@@ -22,12 +22,11 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBuilder;
 import org.ggp.base.util.statemachine.implementation.prover.result.ProverResultParser;
 
-
 public class ProverStateMachine extends StateMachine
 {
   private MachineState initialState;
   private Prover       prover;
-  private List<Role>   roles;
+  private Role[]       roles;
 
   /**
    * Initialize must be called before using the StateMachine
@@ -117,7 +116,7 @@ public class ProverStateMachine extends StateMachine
   }
 
   @Override
-  public List<Role> getRoles()
+  public Role[] getRoles()
   {
     return roles;
   }

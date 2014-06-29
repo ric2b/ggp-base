@@ -173,7 +173,7 @@ public class OptimizingPolymorphicPropNetFactory
                                                                     usingInput);
     LOGGER.trace("done");
 
-    List<Role> roles = Role.computeRoles(description);
+    Role[] roles = Role.computeRoles(description);
     Map<GdlSentence, PolymorphicComponent> components = new HashMap<GdlSentence, PolymorphicComponent>();
     Map<GdlSentence, PolymorphicComponent> negations = new HashMap<GdlSentence, PolymorphicComponent>();
     PolymorphicConstant trueComponent = componentFactory.createConstant(-1,
@@ -1576,7 +1576,7 @@ public class OptimizingPolymorphicPropNetFactory
       recursiveFindReachable(pn, c, reachableComponents);
     }
 
-    if ( pn.getRoles().size() > 1 )
+    if ( pn.getRoles().length > 1 )
     {
       //  Find the propnet's TRUE constant
       PolymorphicComponent trueConstant = null;
@@ -1719,7 +1719,7 @@ public class OptimizingPolymorphicPropNetFactory
       }
     }
 
-    if ( pn.getRoles().size() > 1 )
+    if ( pn.getRoles().length > 1 )
     {
       for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
       {

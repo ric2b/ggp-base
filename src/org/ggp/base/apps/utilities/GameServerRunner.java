@@ -86,7 +86,7 @@ public final class GameServerRunner
       portNumbers.add(port);
       playerNames.add(name);
     }
-    int expectedRoles = Role.computeRoles(game.getRules()).size();
+    int expectedRoles = Role.computeRoles(game.getRules()).length;
     if (hostNames.size() != expectedRoles)
     {
       throw new RuntimeException("Invalid number of players for game " +

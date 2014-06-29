@@ -90,7 +90,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private Map<Role, ForwardDeadReckonComponent[]>                      legalPropositions               = null;
   /** The player roles */
   int                                                                  numRoles;
-  private List<Role>                                                   roles;
+  private Role[]                                                       roles;
   private ForwardDeadReckonInternalMachineState                        lastInternalSetStateX           = null;
   private ForwardDeadReckonInternalMachineState                        lastInternalSetStateO           = null;
   private ForwardDeadReckonInternalMachineState                        lastInternalSetState            = null;
@@ -1116,7 +1116,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(),
                                              fullPropNet.getInputPropositions().size(),
-                                             fullPropNet.getLegalPropositions().get(getRoles().get(0)).length);
+                                             fullPropNet.getLegalPropositions().get(getRoles()[0]).length);
   }
 
   public ForwardDeadReckonPropnetStateMachine createInstance()
@@ -1209,7 +1209,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       fullPropNet.renderToFile("c:\\temp\\propnetReduced.dot");
       roles = fullPropNet.getRoles();
-      numRoles = roles.size();
+      numRoles = roles.length;
 
       moveProps = new ForwardDeadReckonProposition[numRoles];
       chosenJointMoveProps = new ForwardDeadReckonProposition[numRoles];
@@ -1220,7 +1220,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       previouslyChosenJointMovePropIdsO = new int[numRoles];
       stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(),
                                                fullPropNet.getInputPropositions().size(),
-                                               fullPropNet.getLegalPropositions().get(getRoles().get(0)).length);
+                                               fullPropNet.getLegalPropositions().get(getRoles()[0]).length);
       //	Assess network statistics
       int numInputs = 0;
       int numMultiInputs = 0;
@@ -2473,7 +2473,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   /* Already implemented for you */
   @Override
-  public List<Role> getRoles()
+  public Role[] getRoles()
   {
     return roles;
   }
@@ -2496,10 +2496,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     List<GdlSentence> doeses = new ArrayList<>(moves.length);
     Map<Role, Integer> roleIndices = getRoleIndices();
 
-    for (int i = 0; i < numRoles; i++)
+    for (Role lRole : roles)
     {
-      int index = roleIndices.get(roles.get(i));
-      doeses.add(ProverQueryBuilder.toDoes(roles.get(i), moves[index]));
+      int index = roleIndices.get(lRole);
+      doeses.add(ProverQueryBuilder.toDoes(lRole, moves[index]));
     }
     return doeses;
   }
@@ -2520,10 +2520,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     List<GdlSentence> doeses = new ArrayList<>(moves.size());
     Map<Role, Integer> roleIndices = getRoleIndices();
 
-    for (int i = 0; i < numRoles; i++)
+    for (Role lRole : roles)
     {
-      int index = roleIndices.get(roles.get(i));
-      doeses.add(ProverQueryBuilder.toDoes(roles.get(i), moves.get(index)));
+      int index = roleIndices.get(lRole);
+      doeses.add(ProverQueryBuilder.toDoes(lRole, moves.get(index)));
     }
     return doeses;
   }
@@ -2703,7 +2703,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private class TerminalResultSet
   {
-    public TerminalResultSet(List<Role> roles)
+    public TerminalResultSet(Role[] roles)
     {
       resultVector = null;
     }
@@ -3070,7 +3070,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         choiceIndex = decisionState.nextChoiceIndex;
       }
 
-      for (int roleIndex = 0; roleIndex < getRoles().size(); roleIndex++)
+      for (int roleIndex = 0; roleIndex < getRoles().length; roleIndex++)
       {
         if (roleIndex != decisionState.chooserIndex)
         {
@@ -3493,7 +3493,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   public MoveWeights createMoveWeights()
   {
-    return new MoveWeights(allMovesInfo.length, getRoles().size());
+    return new MoveWeights(allMovesInfo.length, getRoles().length);
   }
 
   public ForwardDeadReckonInternalMachineState getCurrentState()

@@ -1,7 +1,6 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
-import java.util.List;
 import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
@@ -45,7 +44,7 @@ public class ForwardDeadReckonComponentFactory extends
   }
 
   @Override
-  public PolymorphicPropNet createPropNet(List<Role> roles,
+  public PolymorphicPropNet createPropNet(Role[] roles,
                                           Set<PolymorphicComponent> components)
   {
     return new ForwardDeadReckonPropNet(roles, components, this);

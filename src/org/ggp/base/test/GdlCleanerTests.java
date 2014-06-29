@@ -31,8 +31,8 @@ public class GdlCleanerTests
     StateMachine sm = new ProverStateMachine();
     sm.initialize(description);
     MachineState state = sm.getInitialState();
-    assertEquals(1, sm.getRoles().size());
-    Role player = sm.getRoles().get(0);
+    assertEquals(1, sm.getRoles().length);
+    Role player = sm.getRoles()[0];
     assertEquals(1, sm.getLegalMoves(state, player).size());
     state = sm.getNextStates(state).get(0);
     assertTrue(sm.isTerminal(state));

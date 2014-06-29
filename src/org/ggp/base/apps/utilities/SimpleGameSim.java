@@ -75,7 +75,7 @@ public class SimpleGameSim
     // Set up fake players to pretend to play the game
     List<String> fakeHosts = new ArrayList<String>();
     List<Integer> fakePorts = new ArrayList<Integer>();
-    for (int i = 0; i < Role.computeRoles(theGame.getRules()).size(); i++)
+    for (int i = 0; i < Role.computeRoles(theGame.getRules()).length; i++)
     {
       fakeHosts.add("SamplePlayer" + i);
       fakePorts.add(9147 + i);

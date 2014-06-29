@@ -152,10 +152,9 @@ public final class GameServer extends Thread implements Subject
   // caused by players and write them into the match description.
   private void appendErrorsToMatchDescription()
   {
-    List<String> theErrors = new ArrayList<String>();
-    for (int i = 0; i < stateMachine.getRoles().size(); i++)
+    List<String> theErrors = new ArrayList<>();
+    for (Role r : stateMachine.getRoles())
     {
-      Role r = stateMachine.getRoles().get(i);
       if (mostRecentErrors.containsKey(r))
       {
         theErrors.add(mostRecentErrors.get(r));
@@ -179,8 +178,7 @@ public final class GameServer extends Thread implements Subject
         sendPreviewRequests();
       }
 
-      notifyObservers(new ServerNewMatchEvent(stateMachine.getRoles(),
-                                              currentState));
+      notifyObservers(new ServerNewMatchEvent(stateMachine.getRoles(), currentState));
       notifyObservers(new ServerTimeEvent(match.getStartClock() * 1000));
       sendStartRequests();
       appendErrorsToMatchDescription();
@@ -319,13 +317,11 @@ public final class GameServer extends Thread implements Subject
   private synchronized List<Move> sendPlayRequests()
       throws InterruptedException, MoveDefinitionException
   {
-    List<PlayRequestThread> threads = new ArrayList<PlayRequestThread>(hosts.size());
+    List<PlayRequestThread> threads = new ArrayList<>(hosts.size());
     for (int i = 0; i < hosts.size(); i++)
     {
       List<Move> legalMoves = stateMachine.getLegalMoves(currentState,
-                                                         stateMachine
-                                                             .getRoles()
-                                                             .get(i));
+                                                         stateMachine.getRoles()[i]);
       if (playerPlaysRandomly[i])
       {
         threads.add(new RandomPlayRequestThread(match, legalMoves));
@@ -336,7 +332,7 @@ public final class GameServer extends Thread implements Subject
                                           match,
                                           previousMoves,
                                           legalMoves,
-                                          stateMachine.getRoles().get(i),
+                                          stateMachine.getRoles()[i],
                                           hosts.get(i),
                                           ports.get(i),
                                           getPlayerNameFromMatchForRequest(i),
@@ -374,7 +370,7 @@ public final class GameServer extends Thread implements Subject
         threads
             .add(new PreviewRequestThread(this,
                                           match,
-                                          stateMachine.getRoles().get(i),
+                                          stateMachine.getRoles()[i],
                                           hosts.get(i),
                                           ports.get(i),
                                           getPlayerNameFromMatchForRequest(i)));
@@ -404,7 +400,7 @@ public final class GameServer extends Thread implements Subject
         threads
             .add(new StartRequestThread(this,
                                         match,
-                                        stateMachine.getRoles().get(i),
+                                        stateMachine.getRoles()[i],
                                         hosts.get(i),
                                         ports.get(i),
                                         getPlayerNameFromMatchForRequest(i)));
@@ -436,7 +432,7 @@ public final class GameServer extends Thread implements Subject
             .add(new StopRequestThread(this,
                                        match,
                                        previousMoves,
-                                       stateMachine.getRoles().get(i),
+                                       stateMachine.getRoles()[i],
                                        hosts.get(i),
                                        ports.get(i),
                                        getPlayerNameFromMatchForRequest(i)));
@@ -462,7 +458,7 @@ public final class GameServer extends Thread implements Subject
         threads
             .add(new AbortRequestThread(this,
                                         match,
-                                        stateMachine.getRoles().get(i),
+                                        stateMachine.getRoles()[i],
                                         hosts.get(i),
                                         ports.get(i),
                                         getPlayerNameFromMatchForRequest(i)));

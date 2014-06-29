@@ -53,7 +53,7 @@ public final class PropNetConverter
    *          A game description.
    * @return An equivalent PropNet.
    */
-  public PropNet convert(List<Role> roles, List<GdlRule> description)
+  public PropNet convert(Role[] roles, List<GdlRule> description)
   {
     propositions = new HashMap<GdlSentence, Proposition>();
     components = new HashSet<Component>();

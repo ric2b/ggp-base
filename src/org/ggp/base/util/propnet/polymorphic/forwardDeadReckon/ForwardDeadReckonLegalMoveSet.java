@@ -226,12 +226,12 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    * Construct a new legal move set for a specified set of roles
    * @param theRoles
    */
-  public ForwardDeadReckonLegalMoveSet(List<Role> theRoles)
+  public ForwardDeadReckonLegalMoveSet(Role[] theRoles)
   {
     masterList = new ArrayList<>();
     masterListAsArray = null;
-    contents = new BitSet[theRoles.size()];
-    roles = new Role[theRoles.size()];
+    contents = new BitSet[theRoles.length];
+    roles = new Role[theRoles.length];
     preAllocatedCollections = new ForwardDeadReckonLegalMoveSetCollection[roles.length];
 
     int i = 0;

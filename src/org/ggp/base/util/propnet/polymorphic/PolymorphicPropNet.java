@@ -73,7 +73,7 @@ public class PolymorphicPropNet
   private final Map<PolymorphicProposition, PolymorphicProposition> legalInputMap;
 
   /** A helper list of all of the roles. */
-  private final List<Role>                                          roles;
+  private final Role[]                                              roles;
 
   private PolymorphicComponentFactory                               componentFactory;
 
@@ -87,7 +87,7 @@ public class PolymorphicPropNet
    * @param theComponentFactory
    *          Factory suitable for producing new components in this propNet
    */
-  public PolymorphicPropNet(List<Role> theRoles,
+  public PolymorphicPropNet(Role[] theRoles,
                             Set<PolymorphicComponent> theComponents,
                             PolymorphicComponentFactory theComponentFactory)
   {
@@ -618,11 +618,10 @@ public class PolymorphicPropNet
   }
 
   /**
-   * Get the list of roles inviolved in teh game for which this propnet
-   * implements the statemachine
+   * Get the list of roles involved in the game for which this propnet implements the statemachine.
    * @return list of roles
    */
-  public List<Role> getRoles()
+  public Role[] getRoles()
   {
     return roles;
   }

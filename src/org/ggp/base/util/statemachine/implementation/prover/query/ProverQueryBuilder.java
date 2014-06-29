@@ -53,13 +53,13 @@ public final class ProverQueryBuilder
   }
 
   public static Set<GdlSentence> getContext(MachineState state,
-                                            List<Role> roles,
+                                            Role[] roles,
                                             List<Move> moves)
   {
     Set<GdlSentence> context = new HashSet<GdlSentence>(state.getContents());
-    for (int i = 0; i < roles.size(); i++)
+    for (int i = 0; i < roles.length; i++)
     {
-      context.add(toDoes(roles.get(i), moves.get(i)));
+      context.add(toDoes(roles[i], moves.get(i)));
     }
     return context;
   }

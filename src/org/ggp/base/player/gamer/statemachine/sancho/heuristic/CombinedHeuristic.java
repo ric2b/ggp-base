@@ -74,7 +74,7 @@ public class CombinedHeuristic implements Heuristic
     prune();
 
     // Remember the number of roles.
-    mNumRoles = xiStateMachine.getRoles().size();
+    mNumRoles = xiStateMachine.getRoles().length;
 
     return result;
   }

@@ -55,7 +55,7 @@ class RolloutRequest
                       Role xiOurRole,
                       RoleOrdering xiRoleOrdering)
   {
-    int lNumRoles = stateMachine.getRoles().size();
+    int lNumRoles = stateMachine.getRoles().length;
 
     mQueueLatency = System.nanoTime() - mEnqueueTime;
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.rollOut");

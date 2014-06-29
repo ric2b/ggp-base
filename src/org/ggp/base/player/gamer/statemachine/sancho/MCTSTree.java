@@ -120,7 +120,7 @@ public class MCTSTree
                   GameSearcher xiGameSearcher)
   {
     underlyingStateMachine = xiStateMachine;
-    numRoles = xiStateMachine.getRoles().size();
+    numRoles = xiStateMachine.getRoles().length;
     mStateSimilarityMap = (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false) ? null : new StateSimilarityMap(xiStateMachine.getFullPropNet(), xiNodePool));
     nodePool = xiNodePool;
     scoreVectorPool = xiScorePool;
@@ -313,7 +313,7 @@ public class MCTSTree
     }
     else
     {
-      TreeNode newRoot = root.findNode(factorState, underlyingStateMachine.getRoles().size() + 1);
+      TreeNode newRoot = root.findNode(factorState, underlyingStateMachine.getRoles().length + 1);
       if (newRoot == null)
       {
         if (root.complete)

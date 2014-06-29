@@ -164,7 +164,7 @@ public class OptimizingPropNetFactory
                                                                     usingInput);
     LOGGER.trace("done");
 
-    List<Role> roles = Role.computeRoles(description);
+    Role[] roles = Role.computeRoles(description);
     Map<GdlSentence, Component> components = new HashMap<GdlSentence, Component>();
     Map<GdlSentence, Component> negations = new HashMap<GdlSentence, Component>();
     Constant trueComponent = new Constant(true);

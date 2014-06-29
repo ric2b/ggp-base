@@ -1,7 +1,6 @@
 
 package org.ggp.base.util.propnet.polymorphic;
 
-import java.util.List;
 import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
@@ -35,7 +34,7 @@ public abstract class PolymorphicComponentFactory
    * @param components The components (already wired together) comprising the propnet
    * @return PolymorphicPropNet encapsulating the provided network of components
    */
-  public abstract PolymorphicPropNet createPropNet(List<Role> roles,
+  public abstract PolymorphicPropNet createPropNet(Role[] roles,
                                                    Set<PolymorphicComponent> components);
 
   /**
