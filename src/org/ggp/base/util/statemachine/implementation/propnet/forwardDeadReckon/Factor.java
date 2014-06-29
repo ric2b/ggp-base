@@ -11,8 +11,10 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 import org.ggp.base.util.statemachine.Move;
+import org.ggp.base.util.statemachine.Role;
 
 /**
  * Class representing a factor within a game's propnet.  A factor is a partition within a partitioning of the base
@@ -170,9 +172,7 @@ public class Factor implements StateMachineFilter
     return stateMachine.isTerminal(xiState);
   }
 
-  @Override
-  public int getFilteredMovesSize(Collection<ForwardDeadReckonLegalMoveInfo> xiMoves,
-                                  boolean xiIncludeForcedPseudoNoops)
+  private int getFilteredMovesSize(Collection<ForwardDeadReckonLegalMoveInfo> xiMoves, boolean xiIncludeForcedPseudoNoops)
   {
     int lCount = 0;
     boolean noopFound = false;
@@ -195,6 +195,24 @@ public class Factor implements StateMachineFilter
     }
 
     return lCount;
+  }
+
+  @Override
+  public int getFilteredMovesSize(ForwardDeadReckonInternalMachineState xiState,
+                                  ForwardDeadReckonLegalMoveSet xiMoves,
+                                  Role role,
+                                  boolean xiIncludeForcedPseudoNoops)
+  {
+    return getFilteredMovesSize(xiMoves.getContents(role), xiIncludeForcedPseudoNoops);
+  }
+
+  @Override
+  public int getFilteredMovesSize(ForwardDeadReckonInternalMachineState xiState,
+                                  ForwardDeadReckonLegalMoveSet xiMoves,
+                                  int roleIndex,
+                                  boolean xiIncludeForcedPseudoNoops)
+  {
+    return getFilteredMovesSize(xiMoves.getContents(roleIndex), xiIncludeForcedPseudoNoops);
   }
 
   @Override

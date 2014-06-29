@@ -1,6 +1,9 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
@@ -74,7 +77,8 @@ public ForwardDeadReckonPropNet(Role[] roles,
     assert(componentFactory instanceof ForwardDeadReckonComponentFactory);
   }
 
-  private void setUpActivePropositionSets(ForwardDeadReckonPropositionInfo[] masterInfoSet)
+  private void setUpActivePropositionSets(ForwardDeadReckonPropositionInfo[] masterInfoSet,
+                                          ForwardDeadReckonLegalMoveInfo[]   masterMoveList)
   {
     activeLegalMoves = new ForwardDeadReckonLegalMoveSet[numInstances];
     alwaysTrueLegalMoves = new ForwardDeadReckonLegalMoveSet(getRoles());
@@ -85,6 +89,24 @@ public ForwardDeadReckonPropNet(Role[] roles,
     }
 
     int roleIndex = 0;
+
+    //  If we're given a pre-existing master move list then the masterIndex values must
+    //  correspond - build a map to perform lookup in this case
+    Map<Move, Integer> masterMoveIndexMap;
+
+    if ( masterMoveList != null )
+    {
+      masterMoveIndexMap = new HashMap<>();
+
+      for(ForwardDeadReckonLegalMoveInfo moveInfo : masterMoveList)
+      {
+        masterMoveIndexMap.put(moveInfo.move, moveInfo.masterIndex);
+      }
+    }
+    else
+    {
+      masterMoveIndexMap = null;
+    }
 
     for (Role role : getRoles())
     {
@@ -98,7 +120,8 @@ public ForwardDeadReckonPropNet(Role[] roles,
         info.move = new Move(pfdr.getName().getBody().get(1));
         info.inputProposition = (ForwardDeadReckonProposition)getLegalInputMap().get(p);
         info.roleIndex = roleIndex;
-        info.masterIndex = alwaysTrueLegalMoves.resolveId(info);
+        assert(masterMoveIndexMap == null || masterMoveIndexMap.containsKey(info.move));
+        info.masterIndex = alwaysTrueLegalMoves.resolveId(info, masterMoveIndexMap == null ? -1 : masterMoveIndexMap.get(info.move));
 
         PolymorphicComponent propInput = p.getSingleInput();
         if (propInput instanceof PolymorphicConstant)
@@ -165,8 +188,10 @@ public ForwardDeadReckonPropNet(Role[] roles,
    * Once this is done no further changes may be made to the components or their
    * connections
    * @param masterInfoSet set of base propositions in some defined order
+   * @param masterMoveList master list of moves - may be null to generate
    */
-  private void crystalize(ForwardDeadReckonPropositionInfo[] masterInfoSet)
+  private void crystalize(ForwardDeadReckonPropositionInfo[] masterInfoSet,
+                          ForwardDeadReckonLegalMoveInfo[]   masterMoveList)
   {
     for (PolymorphicComponent c : getComponents())
     {
@@ -176,7 +201,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
       fdrc.setPropnet(this);
     }
 
-    setUpActivePropositionSets(masterInfoSet);
+    setUpActivePropositionSets(masterInfoSet, masterMoveList);
 
     // Calculate useful goal information.
     for (Role lRole : getRoles())
@@ -202,14 +227,16 @@ public ForwardDeadReckonPropNet(Role[] roles,
    * connections.  A specified number of mutually thread-safe concurrently
    * usable instances is specified
    * @param masterInfoSet set of base propositions in some defined order
+   * @param masterMoveList master list of moves - may be null to generate
    * @param theNumInstances Number of independent instances to support
    */
   public void crystalize(ForwardDeadReckonPropositionInfo[] masterInfoSet,
+                         ForwardDeadReckonLegalMoveInfo[]   masterMoveList,
                          int theNumInstances)
   {
     numInstances = theNumInstances;
 
-    crystalize(masterInfoSet);
+    crystalize(masterInfoSet, masterMoveList);
   }
 
   /**

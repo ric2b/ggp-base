@@ -27,7 +27,6 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
-import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.NullStateMachineFilter;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.StateMachineFilter;
 import org.w3c.tidy.MutableInteger;
 
@@ -136,7 +135,7 @@ public class MCTSTree
     }
     else
     {
-      searchFilter = new NullStateMachineFilter(xiStateMachine);
+      searchFilter = xiStateMachine.getBaseFilter();
     }
     roleOrdering = xiRoleOrdering;
     mOurRole = xiRoleOrdering.roleIndexToRole(0);

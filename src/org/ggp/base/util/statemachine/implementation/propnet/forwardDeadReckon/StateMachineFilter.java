@@ -1,10 +1,11 @@
 package org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon;
 
-import java.util.Collection;
 import java.util.Iterator;
 
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
+import org.ggp.base.util.statemachine.Role;
 
 /**
  * Interface to support semantic filtering on top f an underlying state machine.  This is intended
@@ -27,11 +28,29 @@ public interface StateMachineFilter
 
   /**
    * Count available legal moves given a raw collection from the state machine
+   * @param xiState - state against which the filtering is being performed
    * @param xiMoves - raw legals at state machine level
+   * @param role - role being queried
    * @param includeForcedPseudoNoops - whether to include pseudo-noops in consideration
    * @return number of available choices
    */
-  int getFilteredMovesSize(Collection<ForwardDeadReckonLegalMoveInfo> xiMoves, boolean includeForcedPseudoNoops);
+  int getFilteredMovesSize(ForwardDeadReckonInternalMachineState xiState,
+                           ForwardDeadReckonLegalMoveSet xiMoves,
+                           Role role,
+                           boolean includeForcedPseudoNoops);
+
+  /**
+   * Count available legal moves given a raw collection from the state machine
+   * @param xiState - state against which the filtering is being performed
+   * @param xiMoves - raw legals at state machine level
+   * @param roleIndex - index of role being queried
+   * @param includeForcedPseudoNoops - whether to include pseudo-noops in consideration
+   * @return number of available choices
+   */
+  int getFilteredMovesSize(ForwardDeadReckonInternalMachineState xiState,
+                           ForwardDeadReckonLegalMoveSet xiMoves,
+                           int roleIndex,
+                           boolean includeForcedPseudoNoops);
 
   /**
    * Logical iterator for available moves under the filter

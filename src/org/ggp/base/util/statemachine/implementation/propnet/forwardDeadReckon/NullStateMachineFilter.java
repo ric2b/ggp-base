@@ -1,10 +1,11 @@
 package org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon;
 
-import java.util.Collection;
 import java.util.Iterator;
 
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
+import org.ggp.base.util.statemachine.Role;
 
 /**
  * @author steve
@@ -30,10 +31,22 @@ public class NullStateMachineFilter implements StateMachineFilter
   }
 
   @Override
-  public int getFilteredMovesSize(Collection<ForwardDeadReckonLegalMoveInfo> xiMoves,
+  public int getFilteredMovesSize(ForwardDeadReckonInternalMachineState xiState,
+                                  ForwardDeadReckonLegalMoveSet xiMoves,
+                                  Role role,
                                   boolean xiIncludeForcedPseudoNoops)
   {
-    return xiMoves.size();
+    return xiMoves.getNumChoices(role);
+  }
+
+  @Override
+  public int getFilteredMovesSize(ForwardDeadReckonInternalMachineState xiState,
+                                  ForwardDeadReckonLegalMoveSet xiMoves,
+                                  int xiRoleIndex,
+                                  boolean xiIncludeForcedPseudoNoops)
+  {
+
+    return xiMoves.getNumChoices(xiRoleIndex);
   }
 
   @Override

@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.PrintWriter;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -21,6 +20,7 @@ import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
@@ -1671,7 +1671,7 @@ public class TreeNode
       }
     }
 
-    if (tree.underlyingStateMachine.isTerminal(theState))
+    if (tree.searchFilter.isFilteredTerminal(theState))
     {
       result.isTerminal = true;
 
@@ -1723,9 +1723,10 @@ public class TreeNode
 
       for (int i = 0; i < tree.numRoles && nonNoopCount < 2; i++ )
       {
-        Collection<ForwardDeadReckonLegalMoveInfo> moves = tree.underlyingStateMachine.getLegalMoves(theState, tree.roleOrdering.roleIndexToRole(i));
-        int numMoves = tree.searchFilter.getFilteredMovesSize(moves, false);
-        Iterator<ForwardDeadReckonLegalMoveInfo> itr = moves.iterator();
+        Role role = tree.roleOrdering.roleIndexToRole(i);
+        ForwardDeadReckonLegalMoveSet moves = tree.underlyingStateMachine.getLegalMoveSet(theState);
+        int numMoves = tree.searchFilter.getFilteredMovesSize(theState, moves, role, false);
+        Iterator<ForwardDeadReckonLegalMoveInfo> itr = moves.getContents(role).iterator();
         for (int iMove = 0; iMove < numMoves; iMove++)
         {
           // Get next move for this factor
@@ -1858,11 +1859,10 @@ public class TreeNode
         //validateAll();
 
         //LOGGER.debug("Expand our moves from state: " + state);
-        Collection<ForwardDeadReckonLegalMoveInfo> moves = tree.underlyingStateMachine.getLegalMoves(state,
-                                                                                                     choosingRole);
-
+        ForwardDeadReckonLegalMoveSet moves = tree.underlyingStateMachine.getLegalMoveSet(state);
+        mNumChildren = (short)tree.searchFilter.getFilteredMovesSize(state, moves, choosingRole, false);
+        Iterator<ForwardDeadReckonLegalMoveInfo> itr = moves.getContents(choosingRole).iterator();
         // If the child array isn't large enough, expand it.
-        mNumChildren = (short)tree.searchFilter.getFilteredMovesSize(moves, true);
         assert(mNumChildren <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
         if (mNumChildren > children.length)
         {
@@ -1877,7 +1877,6 @@ public class TreeNode
           }
         }
 
-        Iterator<ForwardDeadReckonLegalMoveInfo> itr = moves.iterator();
         for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
         {
           ForwardDeadReckonLegalMoveInfo newChoice = tree.searchFilter.nextFilteredMove(itr);
