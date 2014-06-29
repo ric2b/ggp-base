@@ -77,6 +77,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
     assert(componentFactory instanceof ForwardDeadReckonComponentFactory);
   }
 
+  @SuppressWarnings("unchecked")
   private void setUpActivePropositionSets(ForwardDeadReckonPropositionInfo[] masterInfoSet,
                                           ForwardDeadReckonLegalMoveInfo[]   masterMoveList)
   {
@@ -92,15 +93,19 @@ public ForwardDeadReckonPropNet(Role[] roles,
 
     //  If we're given a pre-existing master move list then the masterIndex values must
     //  correspond - build a map to perform lookup in this case
-    Map<Move, Integer> masterMoveIndexMap;
+    Map<Move, Integer>[] masterMoveIndexMap;
 
     if ( masterMoveList != null )
     {
-      masterMoveIndexMap = new HashMap<>();
+      masterMoveIndexMap = new Map[getRoles().size()];
+      for(int i = 0; i < masterMoveIndexMap.length; i++)
+      {
+        masterMoveIndexMap[i] = new HashMap<>();
+      }
 
       for(ForwardDeadReckonLegalMoveInfo moveInfo : masterMoveList)
       {
-        masterMoveIndexMap.put(moveInfo.move, moveInfo.masterIndex);
+        masterMoveIndexMap[moveInfo.roleIndex].put(moveInfo.move, moveInfo.masterIndex);
       }
     }
     else
@@ -120,8 +125,8 @@ public ForwardDeadReckonPropNet(Role[] roles,
         info.move = new Move(pfdr.getName().getBody().get(1));
         info.inputProposition = (ForwardDeadReckonProposition)getLegalInputMap().get(p);
         info.roleIndex = roleIndex;
-        assert(masterMoveIndexMap == null || masterMoveIndexMap.containsKey(info.move));
-        info.masterIndex = alwaysTrueLegalMoves.resolveId(info, masterMoveIndexMap == null ? -1 : masterMoveIndexMap.get(info.move));
+        assert(masterMoveIndexMap == null || masterMoveIndexMap[info.roleIndex].containsKey(info.move));
+        info.masterIndex = alwaysTrueLegalMoves.resolveId(info, masterMoveIndexMap == null ? -1 : masterMoveIndexMap[info.roleIndex].get(info.move));
 
         PolymorphicComponent propInput = p.getSingleInput();
         if (propInput instanceof PolymorphicConstant)
