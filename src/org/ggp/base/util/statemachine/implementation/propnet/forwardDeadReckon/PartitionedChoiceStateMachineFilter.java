@@ -63,7 +63,7 @@ public class PartitionedChoiceStateMachineFilter implements StateMachineFilter
     stateMachine = xiMachine;
 
     //  We only support this on puzzles currently
-    assert(xiMachine.getRoles().size()==1);
+    assert(xiMachine.getRoles().length==1);
   }
 
   /**

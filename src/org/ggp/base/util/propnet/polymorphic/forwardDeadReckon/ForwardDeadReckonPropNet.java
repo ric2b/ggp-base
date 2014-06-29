@@ -2,7 +2,6 @@
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -97,7 +96,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
 
     if ( masterMoveList != null )
     {
-      masterMoveIndexMap = new Map[getRoles().size()];
+      masterMoveIndexMap = new Map[getRoles().length];
       for(int i = 0; i < masterMoveIndexMap.length; i++)
       {
         masterMoveIndexMap[i] = new HashMap<>();

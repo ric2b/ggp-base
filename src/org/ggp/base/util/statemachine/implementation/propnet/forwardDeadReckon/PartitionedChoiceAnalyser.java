@@ -22,7 +22,7 @@ public class PartitionedChoiceAnalyser
   public static StateMachineFilter generatePartitionedChoiceFilter(ForwardDeadReckonPropnetStateMachine xiMachine)
   {
     //  Currently only supported on puzzles
-    if ( xiMachine.getRoles().size() > 1 )
+    if ( xiMachine.getRoles().length > 1 )
     {
       return null;
     }

@@ -1578,7 +1578,7 @@ public class OptimizingPolymorphicPropNetFactory
         recursiveFindReachable(pn, c, reachableComponents);
       }
 
-      if ( pn.getRoles().size() > 1 )
+      if ( pn.getRoles().length > 1 )
       {
         //  Find the propnet's TRUE constant
         PolymorphicComponent trueConstant = null;
