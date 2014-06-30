@@ -124,7 +124,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public long                                                          totalNumPropagates              = 0;
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mPositiveGoalLatches      = null;
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mNegativeGoalLatches      = null;
-
+  private Set<PolymorphicProposition>                                  mPositiveBasePropLatches        = null;
+  private Set<PolymorphicProposition>                                  mNegativeBasePropLatches        = null;
   // A re-usable iterator over the propositions in a machine state.
   private final InternalMachineStateIterator                           mStateIterator = new InternalMachineStateIterator();
 
@@ -350,6 +351,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     // positively or negatively).
     mPositiveGoalLatches = new HashMap<>();
     mNegativeGoalLatches = new HashMap<>();
+    mPositiveBasePropLatches = new HashSet<>();
+    mNegativeBasePropLatches = new HashSet<>();
+
     for (PolymorphicProposition lGoals[] : fullPropNet.getGoalPropositions().values())
     {
       for (PolymorphicProposition lGoal : lGoals)
@@ -374,6 +378,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                 0);
         if (lPositivelyLatched.contains(lBaseProp))
         {
+          mPositiveBasePropLatches.add(lBaseProp);
           LOGGER.debug("Latch(+ve): " + lBaseProp);
 
           // If we've just latched any goal props, remember it.
@@ -409,6 +414,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                 0);
         if (lNegativelyLatched.contains(lBaseProp))
         {
+          mNegativeBasePropLatches.add(lBaseProp);
           LOGGER.debug("Latch(-ve): " + lBaseProp);
         }
       }
@@ -622,6 +628,26 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public boolean hasNegativelyLatchedGoals()
   {
     return (mNegativeGoalLatches != null);
+  }
+
+  /**
+   * Query whether a specified proposition is known to be a positively latched base prop
+   * @param p - proposition to check
+   * @return true if it latches to true
+   */
+  public boolean isPositivelyLatchedBaseProps(PolymorphicProposition p)
+  {
+    return (mPositiveBasePropLatches != null && mPositiveBasePropLatches.contains(p));
+  }
+
+  /**
+   * Query whether a specified proposition is known to be a negatively latched base prop
+   * @param p - proposition to check
+   * @return true if it latches to false
+   */
+  public boolean isNegativelyLatchedBaseProps(PolymorphicProposition p)
+  {
+    return (mNegativeBasePropLatches != null && mNegativeBasePropLatches.contains(p));
   }
 
   /**
