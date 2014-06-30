@@ -7,6 +7,6 @@
   <entry key="iterated">false</entry>
   <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
-  <entry key="max_branching_factor">29</entry>
+  <entry key="max_branching_factor">11</entry>
   <entry key="fixed_length">false</entry>
 </properties>
