@@ -359,59 +359,57 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
     }
 
-    // Look for the simplest kind of latch - some logic turns a base proposition on.  After that, it stays on.
-    //
-    //            Logic
-    //              |
-    //              v
-    // BasePropX -> Or -> Transition -\
-    //     ^                          |
-    //     |                          |
-    //     \__________________________/
-    //
-    // This identifies, for example, the "lost" proposition in base.firefighter and the cell-has-an-x and cell-has-an-o
-    // propositions in TTT (and, presumably, most of the other board-filling games too).
-    //
-    //
-    // Do likewise for the simplest negative latches.  (!! ARR Not sure this actually catches anything.  Maybe because
-    // there's an OR from some sort of INIT prop??)
-    //
-    //             Logic
-    //               |
-    //               v
-    // BasePropX -> And -> Transition -\
-    //     ^                           |
-    //     |                           |
-    //     \___________________________/
-    //
-
     for (PolymorphicProposition lBaseProp : fullPropNet.getBasePropositionsArray())
     {
       if (lBaseProp.getSingleInput() instanceof PolymorphicTransition)
       {
-        PolymorphicTransition lTransition = (PolymorphicTransition)lBaseProp.getSingleInput();
-        PolymorphicComponent lCandidateGate = lTransition.getSingleInput();
-
-        if ((lCandidateGate instanceof PolymorphicOr) ||
-            (lCandidateGate instanceof PolymorphicAnd))
+        // Assume that this base proposition is a positive latch and look for the consequences.
+        Set<PolymorphicComponent> lPositivelyLatched = new HashSet<>();
+        Set<PolymorphicComponent> lNegativelyLatched = new HashSet<>();
+        findAllLatchedStatesFor(lBaseProp,
+                                true,
+                                (ForwardDeadReckonProposition)lBaseProp,
+                                lPositivelyLatched,
+                                lNegativelyLatched,
+                                0);
+        if (lPositivelyLatched.contains(lBaseProp))
         {
-          boolean lPositive = (lCandidateGate instanceof PolymorphicOr);
-          for (PolymorphicComponent lFeeder : lCandidateGate.getInputs())
+          LOGGER.debug("Latch(+ve): " + lBaseProp);
+
+          // If we've just latched any goal props, remember it.
+          for (Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry :
+                                                                                        mPositiveGoalLatches.entrySet())
           {
-            if (lFeeder == lBaseProp)
+            PolymorphicProposition lGoal = lEntry.getKey();
+            if (lPositivelyLatched.contains(lGoal))
             {
-              // Found a latching proposition.  Find out if anything else is latched, positively or negatively, as a
-              // result.
-              LOGGER.debug("Latch(" + (lPositive ? "+" : "-") + "ve): " + lBaseProp);
-              Set<PolymorphicComponent> lPositivelyLatched = new HashSet<>();
-              Set<PolymorphicComponent> lNegativelyLatched = new HashSet<>();
-              findAllLatchedStatesFor(lBaseProp,
-                                      lPositive,
-                                      (ForwardDeadReckonProposition)lBaseProp,
-                                      lPositivelyLatched,
-                                      lNegativelyLatched);
+              lEntry.getValue().add(((ForwardDeadReckonProposition)lBaseProp).getInfo());
             }
           }
+
+          for (Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry :
+                                                                                        mNegativeGoalLatches.entrySet())
+          {
+            PolymorphicProposition lGoal = lEntry.getKey();
+            if (lNegativelyLatched.contains(lGoal))
+            {
+              lEntry.getValue().add(((ForwardDeadReckonProposition)lBaseProp).getInfo());
+            }
+          }
+        }
+
+        // Assume that this base proposition is a negative latch and look for the consequences.
+        lPositivelyLatched = new HashSet<>();
+        lNegativelyLatched = new HashSet<>();
+        findAllLatchedStatesFor(lBaseProp,
+                                false,
+                                (ForwardDeadReckonProposition)lBaseProp,
+                                lPositivelyLatched,
+                                lNegativelyLatched,
+                                0);
+        if (lNegativelyLatched.contains(lBaseProp))
+        {
+          LOGGER.debug("Latch(-ve): " + lBaseProp);
         }
       }
     }
@@ -469,7 +467,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                        boolean xiForcedOutputValue,
                                        ForwardDeadReckonProposition xiOriginal,
                                        Set<PolymorphicComponent> xiPositivelyLatched,
-                                       Set<PolymorphicComponent> xiNegativelyLatched)
+                                       Set<PolymorphicComponent> xiNegativelyLatched,
+                                       int xiDepth)
   {
     // Check if we've already visited this component.  (This is expected, because we do latching through transitions.)
     if ((xiPositivelyLatched.contains(xiComponent)) || (xiNegativelyLatched.contains(xiComponent)))
@@ -478,14 +477,27 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
 
     // Record the forced value of this component.
+    //
+    // If this is the original component for which we're trying to determine whether or not it's latched, only consider
+    // it as latched if it's latched in the next turn.  Don't consider it to be latched at depth 0 (that will always be
+    // the case - this system works by setting it true in turn 0 and seeing what happens next).  Don't consider it to be
+    // a latch if it doesn't happen until the turn after the next turn.  That would, for example, consider a control
+    // prop to be latched in a 2-player game.
+    //
+    // We're basically doing a proof by induction.  We need to show that, if a base prop is true (or false) at depth n
+    // then it will be true (or false) at depth n+1.  That pretty much sums up a latch.
     assert(Collections.disjoint(xiPositivelyLatched, xiNegativelyLatched));
-    if (xiForcedOutputValue)
+    boolean lConsiderAsLatched = ((xiComponent != xiOriginal) || (xiDepth == 1));
+    if (lConsiderAsLatched)
     {
-      xiPositivelyLatched.add(xiComponent);
-    }
-    else
-    {
-      xiNegativelyLatched.add(xiComponent);
+      if (xiForcedOutputValue)
+      {
+        xiPositivelyLatched.add(xiComponent);
+      }
+      else
+      {
+        xiNegativelyLatched.add(xiComponent);
+      }
     }
     assert(Collections.disjoint(xiPositivelyLatched, xiNegativelyLatched));
 
@@ -494,8 +506,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     {
       if (lComp instanceof PolymorphicProposition)
       {
-        LOGGER.debug("  Latched(" + (xiForcedOutputValue ? "+" : "-") + "ve): " + lComp);
-        findAllLatchedStatesFor(lComp, xiForcedOutputValue, xiOriginal, xiPositivelyLatched, xiNegativelyLatched);
+        findAllLatchedStatesFor(lComp,
+                                xiForcedOutputValue,
+                                xiOriginal,
+                                xiPositivelyLatched,
+                                xiNegativelyLatched,
+                                xiDepth);
 
         // If we've just negatively latched a LEGAL prop, also negatively latch the corresponding DOES prop.
         if (!xiForcedOutputValue)
@@ -506,41 +522,52 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           PolymorphicProposition lDoesProp = fullPropNet.getLegalInputMap().get(lComp);
           if (lDoesProp != null)
           {
-            LOGGER.debug("  Latched(-ve): " + lDoesProp);
-            findAllLatchedStatesFor(lComp, xiForcedOutputValue, xiOriginal, xiPositivelyLatched, xiNegativelyLatched);
-          }
-        }
-
-        // If we've just latched a goal prop, remember it.
-        if (mPositiveGoalLatches.containsKey(lComp))
-        {
-          if (xiForcedOutputValue)
-          {
-            mPositiveGoalLatches.get(lComp).add(xiOriginal.getInfo());
-          }
-          else
-          {
-            mNegativeGoalLatches.get(lComp).add(xiOriginal.getInfo());
+            findAllLatchedStatesFor(lComp,
+                                    xiForcedOutputValue,
+                                    xiOriginal,
+                                    xiPositivelyLatched,
+                                    xiNegativelyLatched,
+                                    xiDepth + 1);
           }
         }
       }
       else if ((lComp instanceof PolymorphicOr) && (xiForcedOutputValue))
       {
         // This OR gate will always have a true input, therefore the output will always be true.
-        findAllLatchedStatesFor(lComp, xiForcedOutputValue, xiOriginal, xiPositivelyLatched, xiNegativelyLatched);
+        findAllLatchedStatesFor(lComp,
+                                xiForcedOutputValue,
+                                xiOriginal,
+                                xiPositivelyLatched,
+                                xiNegativelyLatched,
+                                xiDepth);
       }
       else if ((lComp instanceof PolymorphicAnd) && (!xiForcedOutputValue))
       {
         // This AND gate will always have a false input, therefore the output will always be false.
-        findAllLatchedStatesFor(lComp, xiForcedOutputValue, xiOriginal, xiPositivelyLatched, xiNegativelyLatched);
+        findAllLatchedStatesFor(lComp,
+                                xiForcedOutputValue,
+                                xiOriginal,
+                                xiPositivelyLatched,
+                                xiNegativelyLatched,
+                                xiDepth);
       }
       else if (lComp instanceof PolymorphicNot)
       {
-        findAllLatchedStatesFor(lComp, !xiForcedOutputValue, xiOriginal, xiPositivelyLatched, xiNegativelyLatched);
+        findAllLatchedStatesFor(lComp,
+                                !xiForcedOutputValue,
+                                xiOriginal,
+                                xiPositivelyLatched,
+                                xiNegativelyLatched,
+                                xiDepth);
       }
       else if (lComp instanceof PolymorphicTransition)
       {
-        findAllLatchedStatesFor(lComp, xiForcedOutputValue, xiOriginal, xiPositivelyLatched, xiNegativelyLatched);
+        findAllLatchedStatesFor(lComp,
+                                xiForcedOutputValue,
+                                xiOriginal,
+                                xiPositivelyLatched,
+                                xiNegativelyLatched,
+                                xiDepth + 1);
       }
     }
   }
@@ -1498,7 +1525,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       OptimizingPolymorphicPropNetFactory.minimizeNetwork(propNetXWithoutGoals);
       OptimizingPolymorphicPropNetFactory.minimizeNetwork(propNetOWithoutGoals);
       propNetXWithoutGoals.renderToFile("c:\\temp\\propnet_070_XWithoutGoals.dot");
-      propNetOWithoutGoals.renderToFile("c:\\temp\\propnet_080_ROWithoutGoals.dot");
+      propNetOWithoutGoals.renderToFile("c:\\temp\\propnet_080_OWithoutGoals.dot");
 
       goalsNet.RemoveAllButGoals();
       goalsNet.renderToFile("c:\\temp\\propnet_090_GoalsReduced.dot");
