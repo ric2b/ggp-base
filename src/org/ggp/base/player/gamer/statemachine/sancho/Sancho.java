@@ -266,8 +266,9 @@ public class Sancho extends SampleGamer
       return;
     }
 
-    // Find latches.  This needs to be done before the AvailableGoalHeuristic is initialized.
-    underlyingStateMachine.findLatches();
+    // Analyze game semantics.  This includes latch identification and search filter generation.
+    // This needs to be done before the AvailableGoalHeuristic is initialized.
+    underlyingStateMachine.performSemanticAnalysis();
 
     CombinedHeuristic heuristic;
 

@@ -341,11 +341,29 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return createInternalState(masterInfoSet, XSentence, state);
   }
 
+  public void performSemanticAnalysis()
+  {
+    findLatches();
+
+    if ( factors == null )
+    {
+      PartitionedChoiceAnalyser analyzer = new PartitionedChoiceAnalyser(this);
+      //  If it did not factorize does it partition? (currently we do not support both
+      //  at once).  Note that this analysis must be done after the propnet is crystallized
+      StateMachineFilter partitionFilter = analyzer.generatePartitionedChoiceFilter();
+
+      if ( partitionFilter != null )
+      {
+        setBaseFilter(partitionFilter);
+      }
+    }
+  }
+
   /**
    * Find latches.
    */
   // !! ARR Work in progress - will need to return something
-  public void findLatches()
+  private void findLatches()
   {
     // As a quick win for now, we'll keep a simple record of any propositions which latch a goal proposition (either
     // positively or negatively).
@@ -635,7 +653,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
    * @param p - proposition to check
    * @return true if it latches to true
    */
-  public boolean isPositivelyLatchedBaseProps(PolymorphicProposition p)
+  public boolean isPositivelyLatchedBaseProp(PolymorphicProposition p)
   {
     return (mPositiveBasePropLatches != null && mPositiveBasePropLatches.contains(p));
   }
@@ -645,7 +663,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
    * @param p - proposition to check
    * @return true if it latches to false
    */
-  public boolean isNegativelyLatchedBaseProps(PolymorphicProposition p)
+  public boolean isNegativelyLatchedBaseProp(PolymorphicProposition p)
   {
     return (mNegativeBasePropLatches != null && mNegativeBasePropLatches.contains(p));
   }
@@ -1359,18 +1377,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       fullPropNet.crystalize(masterInfoSet, null, maxInstances);
       masterLegalMoveSet = fullPropNet.getMasterMoveList();
-
-      if ( factors == null )
-      {
-        //  If it did not factorize does it partition? (currently we do not support both
-        //  at once).  Note that this analysis must be done after the propnet is crystallized
-        StateMachineFilter partitionFilter = PartitionedChoiceAnalyser.generatePartitionedChoiceFilter(this);
-
-        if ( partitionFilter != null )
-        {
-          setBaseFilter(partitionFilter);
-        }
-      }
 
       for(ForwardDeadReckonPropositionInfo info : masterInfoSet)
       {
