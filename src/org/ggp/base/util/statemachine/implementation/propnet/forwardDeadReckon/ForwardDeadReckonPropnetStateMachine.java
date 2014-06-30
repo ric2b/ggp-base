@@ -531,16 +531,37 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           }
         }
       }
-      else if ((lComp instanceof PolymorphicOr) && (xiForcedOutputValue))
+      else if (lComp instanceof PolymorphicOr)
       {
-        // This OR gate will always have a true input, therefore the output will always be true.
-        findAllLatchedStatesFor(lComp,
-                                xiForcedOutputValue,
-                                xiOriginal,
-                                xiPositivelyLatched,
-                                xiNegativelyLatched,
-                                xiDepth);
+        boolean transmitsLatchInput = true;
+
+        if ( !xiForcedOutputValue )
+        {
+          //  Handle one common special-case - where an OR is with the Init proposition, which
+          //  can be assumed to be false for any next state calculation and thus for latch analysis
+          for(PolymorphicComponent c : lComp.getInputs())
+          {
+            if ( c != xiComponent && c != fullPropNet.getInitProposition() )
+            {
+              transmitsLatchInput = false;
+              break;
+            }
+          }
+        }
+        if ( transmitsLatchInput )
+        {
+          // This OR gate never has true inputs other than the one being considered, and
+          //  so passes the latch value through
+          findAllLatchedStatesFor(lComp,
+                                  xiForcedOutputValue,
+                                  xiOriginal,
+                                  xiPositivelyLatched,
+                                  xiNegativelyLatched,
+                                  xiDepth);
+        }
       }
+      //  Note - no need to special-case Init for the negatively latch AND case since Init always
+      //  manifests via an OR
       else if ((lComp instanceof PolymorphicAnd) && (!xiForcedOutputValue))
       {
         // This AND gate will always have a false input, therefore the output will always be false.
