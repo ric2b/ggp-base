@@ -2604,6 +2604,11 @@ public class TreeNode
       mostLikelyWinner = -1;
     }
 
+    //  Update the visit counts on the selection pass.  The update counts
+    //  will be updated on the back-propagation pass
+    numVisits++;
+    selected.numChildVisits++;
+
     return result;
   }
 
@@ -3150,6 +3155,10 @@ public class TreeNode
 
   public void rollOut(TreePath path, Pipeline xiPipeline, boolean forceSynchronous) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
+    //  Rolling out from this node constitutes a visit, and the leaf node that we roll out
+    //  from will not have had its visit count updated by select as it has not been selected through
+    numVisits++;
+
     assert(!freed) : "Rollout node is a freed node";
     assert(path.isValid()) : "Rollout path isn't valid";
 
@@ -3226,10 +3235,6 @@ public class TreeNode
       // Queue the request for processing.
       lRequest.mEnqueueTime = System.nanoTime();
       xiPipeline.completedExpansion();
-
-      // Whilst waiting for the request to be rolled out, update the visit count of this node to encourage the search to
-      // go down a different path when selecting the next node for rollout.
-      updateVisitCounts(lRequest.mPath);
     }
     else
     {
@@ -3243,39 +3248,6 @@ public class TreeNode
                   true);
       tree.mPathPool.free(lRequest.mPath);
       lRequest.mPath = null;
-    }
-  }
-
-  public void updateVisitCounts(TreePath path)
-  {
-    TreePathElement element = path.getCurrentElement();
-    TreeEdge childEdge = (element == null ? null : element.getEdge());
-
-    numVisits++;// += sampleSize;
-    assert(numVisits > numUpdates);
-
-    //for(TreeNode parent : parents)
-    //{
-    //	if (!parent.complete || isSimultaneousMove || isMultiPlayer)
-    //	{
-    //		parent.updateVisitCounts(sampleSize, path);
-    //	}
-    //}
-
-    if (childEdge != null)
-    {
-      assert(get(childEdge.mChildRef) != null);
-      childEdge.numChildVisits++;
-      assert (childEdge.numChildVisits <= get(childEdge.mChildRef).numVisits);
-    }
-
-    if (path.hasMore())
-    {
-      TreeNode node = path.getNextNode();
-      if (node != null)
-      {
-        node.updateVisitCounts(path);
-      }
     }
   }
 
@@ -3359,20 +3331,6 @@ public class TreeNode
 
         lNode.leastLikelyWinner = -1;
         lNode.mostLikelyWinner = -1;
-      }
-
-      if (xiIsCompletePseudoRollout)
-      {
-        lNode.numVisits++;
-
-        if ((!lNode.complete ||
-             tree.gameCharacteristics.isSimultaneousMove ||
-             tree.gameCharacteristics.numRoles > 2) &&
-            lChildEdge != null)
-        {
-          lChildEdge.numChildVisits++;
-          assert(lChildEdge.numChildVisits <= lNode.get(lChildEdge.mChildRef).numVisits);
-        }
       }
 
       //validateScoreVector(averageScores);
