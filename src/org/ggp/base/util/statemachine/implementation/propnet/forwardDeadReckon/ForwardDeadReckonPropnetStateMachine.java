@@ -3484,8 +3484,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     {
       if (mChoosingRoleIndex == -1)
       {
-        assert(choosingRole != null);
-        for (mChoosingRoleIndex = 0; roles[mChoosingRoleIndex].equals(choosingRole); mChoosingRoleIndex++) {/* Spin */}
+        // We haven't yet recorded the choosing role.  Do so now - if there is one.  There won't be one if either no
+        // roles have a choice or more than one role has a choice in this state.
+        if (choosingRole == null)
+        {
+          return;
+        }
+
+        for (mChoosingRoleIndex = 0; !roles[mChoosingRoleIndex].equals(choosingRole); mChoosingRoleIndex++) {/* Spin */}
       }
 
       // Would this result be chosen over the previous (if any)?
