@@ -126,8 +126,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mNegativeGoalLatches      = null;
   private Set<PolymorphicProposition>                                  mPositiveBasePropLatches        = null;
   private Set<PolymorphicProposition>                                  mNegativeBasePropLatches        = null;
+  private final TerminalResultSet                                      mResultSet                      = new TerminalResultSet();
   // A re-usable iterator over the propositions in a machine state.
   private final InternalMachineStateIterator                           mStateIterator = new InternalMachineStateIterator();
+
 
   private class TestPropnetStateMachineStats extends Stats
   {
@@ -2479,8 +2481,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
-  private boolean transitionToNextStateFromChosenMove(Role choosingRole,
-                                                      List<TerminalResultVector> resultVectors)
+  private boolean transitionToNextStateFromChosenMove()
   {
     //RuntimeOptimizedComponent.getCount = 0;
     //RuntimeOptimizedComponent.dirtyCount = 0;
@@ -2835,35 +2836,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
-  private class TerminalResultSet
-  {
-    public TerminalResultSet(Role[] roles)
-    {
-      resultVector = null;
-    }
-
-    public void considerResult(Role choosingRole)
-    {
-      TerminalResultVector newResultVector = new TerminalResultVector(choosingRole);
-
-      for (Role role : getRoles())
-      {
-        newResultVector.scores.put(role, getGoal(role));
-      }
-
-      if (resultVector == null ||
-          newResultVector.scores.get(resultVector.controllingRole) > resultVector.scores
-              .get(resultVector.controllingRole))
-      {
-        //	Would this one be chosen over the previous
-        resultVector = newResultVector;
-        resultVector.state = new ForwardDeadReckonInternalMachineState(lastInternalSetState);
-      }
-    }
-
-    public TerminalResultVector resultVector;
-  }
-
   private final RolloutDecisionState[] rolloutDecisionStack = new RolloutDecisionState[TreePath.MAX_PATH_LEN];
   private int                    rolloutStackDepth;
   private int                    rolloutSeq           = 0;
@@ -3137,7 +3109,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     if (simultaneousMove)
     {
-      transitionToNextStateFromChosenMove(null, null);
+      transitionToNextStateFromChosenMove();
 
       if (isTerminal())
       {
@@ -3226,7 +3198,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             {
               chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserMoves[i].inputProposition;
 
-              transitionToNextStateFromChosenMove(null, null);
+              transitionToNextStateFromChosenMove();
 
               if (isTerminal())
               {
@@ -3293,7 +3265,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserMoves[choice].inputProposition;
         lastTransitionChoice = choice;
 
-        transitionToNextStateFromChosenMove(null, null);
+        transitionToNextStateFromChosenMove();
 
         transitioned = true;
 
@@ -3332,7 +3304,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserMoves[choice].inputProposition;
         lastTransitionChoice = choice;
 
-        transitionToNextStateFromChosenMove(null, null);
+        transitionToNextStateFromChosenMove();
       }
 
       if (playedMoves != null)
@@ -3365,7 +3337,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         chosenJointMoveProps[roleIndex] = decisionState.nonChooserProps[roleIndex];
       }
-      transitionToNextStateFromChosenMove(null, null);
+      transitionToNextStateFromChosenMove();
 
       if (playedMoves != null)
       {
@@ -3502,16 +3474,40 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 		}
   }
 
-  private class TerminalResultVector
+  private class TerminalResultSet
   {
-    public Map<Role, Integer>             scores;
-    public Role                           controllingRole;
-    ForwardDeadReckonInternalMachineState state;
+    private int                                  mChoosingRoleIndex = -1;
+    public int                                   mScoreForChoosingRole = -1;
+    public ForwardDeadReckonInternalMachineState mState;
 
-    public TerminalResultVector(Role controllingRole)
+    public void considerResult(Role choosingRole)
     {
-      this.controllingRole = controllingRole;
-      scores = new HashMap<>();
+      if (mChoosingRoleIndex == -1)
+      {
+        assert(choosingRole != null);
+        for (mChoosingRoleIndex = 0; roles[mChoosingRoleIndex].equals(choosingRole); mChoosingRoleIndex++) {/* Spin */}
+      }
+
+      // Would this result be chosen over the previous (if any)?
+      int lScoreForChoosingRole = getGoal(roles[mChoosingRoleIndex]);
+      if (mState == null || (lScoreForChoosingRole > mScoreForChoosingRole))
+      {
+        mScoreForChoosingRole = lScoreForChoosingRole;
+        if (mState == null)
+        {
+          mState = new ForwardDeadReckonInternalMachineState(lastInternalSetState);
+        }
+        else
+        {
+          mState.copy(lastInternalSetState);
+        }
+      }
+    }
+
+    public void reset()
+    {
+      mChoosingRoleIndex = -1;
+      mScoreForChoosingRole = -1;
     }
   }
 
@@ -3646,8 +3642,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     try
     {
       rolloutDepth = 0;
-      TerminalResultSet resultSet = ((enableGreedyRollouts && numRoles <= 2) ? new TerminalResultSet(getRoles())
-                                                                                     : null);
+      boolean lUseGreedyRollouts = enableGreedyRollouts && (numRoles <= 2);
+
       if (validationMachine != null)
       {
         validationState = state.getMachineState();
@@ -3667,7 +3663,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           previouslyChosenJointMovePropsO[i] = null;
         }
       }
-      if (resultSet == null)
+      if (!lUseGreedyRollouts)
       {
         int totalChoices = 0;
 
@@ -3675,7 +3671,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           int numChoices = chooseRandomJointMove(factor, moveWeights, playedMoves);
           totalChoices += numChoices;
-          transitionToNextStateFromChosenMove(null, null);
+          transitionToNextStateFromChosenMove();
           rolloutDepth++;
         }
 
@@ -3687,7 +3683,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
       else
       {
-        double branchingFactor = recursiveGreedyRollout(resultSet,
+        mResultSet.reset();
+        double branchingFactor = recursiveGreedyRollout(mResultSet,
                                                         factor,
                                                         moveWeights,
                                                         playedMoves);
@@ -3698,10 +3695,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           stats[1] = (int)(branchingFactor + 0.5);
         }
 
-        if (resultSet.resultVector.controllingRole != null)
+        if (mResultSet.mChoosingRoleIndex != -1)
         {
-          setPropNetUsage(resultSet.resultVector.state);
-          setBasePropositionsFromState(resultSet.resultVector.state, true);
+          setPropNetUsage(mResultSet.mState);
+          setBasePropositionsFromState(mResultSet.mState, true);
         }
       }
       for (int i = 0; i < numRoles; i++)
