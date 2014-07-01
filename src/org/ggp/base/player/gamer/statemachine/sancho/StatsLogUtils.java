@@ -102,6 +102,11 @@ public class StatsLogUtils
     POOL_USAGE     (Graph.MEM,   1, SeriesType.RAW,  false, "Pool usage"),
 
     /**
+     * Allocation rate (MB/s).
+     */
+    MEM_ALLOC_RATE (Graph.MEM,   1, SeriesType.RATE, false, "Mem alloc. rate (100KB/s)"),
+
+    /**
      * Garbage collection time (ms).
      */
     GC_TIME        (Graph.GC,    0, SeriesType.DIFF, false, "Time"),

@@ -93,6 +93,7 @@ public class SystemStatsLogger implements Runnable
 
     StringBuffer lLogBuf = new StringBuffer(1024);
     Series.MEM_USED.logDataPoint(lLogBuf, lNow, lMemUsage.getUsed());
+    Series.MEM_ALLOC_RATE.logDataPoint(lLogBuf, lNow, lMemUsage.getUsed() / 100);
     Series.MEM_COMMITTED.logDataPoint(lLogBuf, lNow, lMemUsage.getCommitted());
     Series.MEM_MAX.logDataPoint(lLogBuf, lNow, lMemUsage.getMax());
 
