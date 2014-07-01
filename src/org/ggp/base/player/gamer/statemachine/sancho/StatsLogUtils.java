@@ -102,7 +102,7 @@ public class StatsLogUtils
     POOL_USAGE     (Graph.MEM,   1, SeriesType.RAW,  false, "Pool usage"),
 
     /**
-     * Allocation rate (MB/s).
+     * Allocation rate (100KB/s).
      */
     MEM_ALLOC_RATE (Graph.MEM,   1, SeriesType.RATE, false, "Mem alloc. rate (100KB/s)"),
 

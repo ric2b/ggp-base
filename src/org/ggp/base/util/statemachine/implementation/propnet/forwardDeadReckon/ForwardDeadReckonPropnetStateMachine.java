@@ -2848,7 +2848,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       for (Role role : getRoles())
       {
-        newResultVector.scores.put(role, new Integer(getGoal(role)));
+        newResultVector.scores.put(role, getGoal(role));
       }
 
       if (resultVector == null ||

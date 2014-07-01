@@ -18,8 +18,8 @@ public class ProfileSample
     accrued = 0;
     outerAccrued = 0;
     count = 0;
-    depth = new ThreadLocal<Integer>();
-    depth.set(new Integer(0));
+    depth = new ThreadLocal<>();
+    depth.set(0);
   }
 
   public String getName()
@@ -40,14 +40,14 @@ public class ProfileSample
   public void enterInstance()
   {
     count++;
-    depth.set(new Integer(depth.get().intValue() + 1));
+    depth.set(depth.get().intValue() + 1);
   }
 
   public void exitInstance(long interval)
   {
     int newDepth = depth.get().intValue() - 1;
 
-    depth.set(new Integer(newDepth));
+    depth.set(newDepth);
 
     accrued += interval;
     if (newDepth == 0)
