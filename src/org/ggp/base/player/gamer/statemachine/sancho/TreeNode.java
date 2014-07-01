@@ -1860,7 +1860,7 @@ public class TreeNode
 
         //LOGGER.debug("Expand our moves from state: " + state);
         ForwardDeadReckonLegalMoveSet moves = tree.underlyingStateMachine.getLegalMoveSet(state);
-        mNumChildren = (short)tree.searchFilter.getFilteredMovesSize(state, moves, choosingRole, false);
+        mNumChildren = (short)tree.searchFilter.getFilteredMovesSize(state, moves, choosingRole, true);
         Iterator<ForwardDeadReckonLegalMoveInfo> itr = moves.getContents(choosingRole).iterator();
         // If the child array isn't large enough, expand it.
         assert(mNumChildren <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
