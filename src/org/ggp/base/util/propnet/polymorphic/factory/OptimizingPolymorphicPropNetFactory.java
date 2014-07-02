@@ -2164,21 +2164,6 @@ public class OptimizingPolymorphicPropNetFactory
         if (curCompIsLegalProposition)
         {
           PolymorphicProposition input = pn.getLegalInputMap().get(curComp);
-          switch ( reachability.get(input) )
-          {
-            case BOTH:
-              reachability.put(input, Type.FALSE);
-              break;
-            case FALSE:
-              break;
-            case STAR:
-              break;
-            case TRUE:
-              reachability.put(input, Type.STAR);
-              break;
-            default:
-              break;
-          }
           toReevaluate.add(input);
         }
         loopDetectionCount = 0;
