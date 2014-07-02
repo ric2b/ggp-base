@@ -95,6 +95,12 @@ public class PartitionedChoiceAnalyser
 
       for(PolymorphicProposition inputProp : stateMachine.getFullPropNet().getInputPropositions().values())
       {
+        //  Currently we don't reliably trim always-illegal inputs, so until we do ignore them here
+        if ( !stateMachine.getFullPropNet().getLegalInputMap().containsKey(inputProp))
+        {
+          continue;
+        }
+
         Set<PolymorphicProposition> dependentBaseProps = new HashSet<>();
 
         recursiveFindDependentBaseProps(inputProp, dependentBaseProps);
