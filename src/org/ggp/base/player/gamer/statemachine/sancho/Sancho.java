@@ -250,7 +250,7 @@ public class Sancho extends SampleGamer
     int observedMaxNetScore = Integer.MIN_VALUE;
     int simulationsPerformed = 0;
     int multiRoleSamples = 0;
-    boolean greedyRolloutsDisabled = false;
+    boolean greedyRolloutsDisabled = MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_GREEDY_ROLLOUTS, false);
 
     multiRoleAverageScoreDiff = 0;
 

@@ -53,6 +53,11 @@ public class MachineSpecificConfiguration
     DISABLE_LEARNING,
 
     /**
+     * Whether to disable greedy rollouts.
+     */
+    DISABLE_GREEDY_ROLLOUTS,
+
+    /**
      * Player name to report
      */
     PLAYER_NAME,
