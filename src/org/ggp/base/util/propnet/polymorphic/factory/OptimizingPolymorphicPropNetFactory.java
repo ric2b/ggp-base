@@ -1571,7 +1571,9 @@ public class OptimizingPolymorphicPropNetFactory
     recursiveFindReachable(pn, pn.getTerminalProposition(), reachableComponents);
 
     //  Initially just mark the components on which OUR goals depend if we have been given our role
-    if ( ourRole != null )
+    //  Don't try this if we only have a single goal valu anyway - this is some stupid test game not
+    //  a real game!
+    if ( ourRole != null && pn.getGoalPropositions().get(ourRole).length > 1 )
     {
       for( PolymorphicProposition c : pn.getGoalPropositions().get(ourRole))
       {
