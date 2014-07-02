@@ -476,7 +476,9 @@ public class Sancho extends SampleGamer
     //	1) Is the game a puzzle?
     //	2) For each role what is the largest and the smallest score that seem reachable and what are the corresponding net scores
     long simulationStartTime = System.currentTimeMillis();
-    long simulationStopTime = Math.min(timeout - 5000,
+    //  Always do this for at least a second even if we technically don; have time to do so, since not running it
+    //  at all causes all sorts of problems
+    long simulationStopTime = Math.min(Math.max(timeout - 5000, simulationStartTime + 1000),
                                        simulationStartTime + 10000);
 
     int[] rolloutStats = new int[2];
