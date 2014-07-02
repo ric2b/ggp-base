@@ -423,7 +423,10 @@ public class Sancho extends SampleGamer
       assert(underlyingStateMachine.isTerminal(sampleState));
       heuristic.tuningTerminalStateSample(sampleState, roleScores);
 
-      branchingFactorApproximation += (numBranchesTaken / numRoleMovesSimulated);
+      if (numRoleMovesSimulated > 0)
+      {
+        branchingFactorApproximation += (numBranchesTaken / numRoleMovesSimulated);
+      }
       numSamples++;
     }
 
