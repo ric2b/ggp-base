@@ -76,6 +76,8 @@ public class MCTSTree
   int                                                  numNormalExpansions                         = 0;
   int                                                  numAutoExpansions                           = 0;
   int                                                  maxAutoExpansionDepth                       = 0;
+  int                                                  numAllocations                              = 0;
+  int                                                  numTranspositions                           = 0;
   double                                               averageAutoExpansionDepth                   = 0;
   boolean                                              completeSelectionFromIncompleteParentWarned = false;
   int                                                  numReExpansions                             = 0;
@@ -248,6 +250,8 @@ public class MCTSTree
       {
         assert(!result.freed) : "Bad ref in positions table";
         assert(result.decidingRoleIndex == numRoles - 1) : "Non-null move in position cache";
+
+        numTranspositions++;
       }
 
       if (parent != null)
@@ -257,6 +261,8 @@ public class MCTSTree
         //parent.adjustDescendantCounts(result.descendantCount+1);
       }
 
+      numAllocations++;
+
       //validateAll();
       return result;
     }
@@ -264,6 +270,22 @@ public class MCTSTree
     {
       methodSection.exitScope();
     }
+  }
+
+  /**
+   * @return total number of logical node allocations made
+   */
+  public int getNumAllocations()
+  {
+    return numAllocations;
+  }
+
+  /**
+   * @return total number of nodes allocations made that were transpositions
+   */
+  public int getNumTranspositions()
+  {
+    return numTranspositions;
   }
 
   /**
@@ -398,7 +420,6 @@ public class MCTSTree
     LOGGER.info("Num true rollouts added: " + numNonTerminalRollouts);
     LOGGER.info("Num terminal nodes revisited: " + numTerminalRollouts);
     LOGGER.info("Num incomplete nodes: " + numIncompleteNodes);
-    LOGGER.info("Num node re-expansions: " + numReExpansions);
     LOGGER.info("Num completely explored branches: " + numCompletedBranches);
     if (numAutoExpansions + numNormalExpansions > 0)
     {
@@ -411,7 +432,6 @@ public class MCTSTree
                 mGameSearcher.lowestRolloutScoreSeen + ", " +
                 mGameSearcher.highestRolloutScoreSeen + "]");
 
-    numReExpansions = 0;
     numNonTerminalRollouts = 0;
     numTerminalRollouts = 0;
     return bestMoveInfo;

@@ -127,6 +127,16 @@ public class StatsLogUtils
     SAMPLE_RATE    (Graph.PERF,  1, SeriesType.RAW,  true,  "Sample rate"),
 
     /**
+     * Node expansions.
+     */
+    NODE_RE_EXPANSIONS(Graph.NODE,  0, SeriesType.RATE, false, "Node re-expansions"),
+
+    /**
+     * Node expansions.
+     */
+    TRANSITION_RATE(Graph.NODE,  0, SeriesType.RAW, false, "Transition rate"),
+
+    /**
      * The current turn (0 during meta-gaming).
      */
     TURN           (Graph.NONE,  1, SeriesType.RAW,  true,  "Turn");

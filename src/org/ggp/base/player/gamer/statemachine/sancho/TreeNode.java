@@ -227,9 +227,9 @@ public class TreeNode
               TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
               if (edge != null && edge.mChildRef != NULL_REF && get(edge.mChildRef) == this)
               {
-                if (edge.numChildVisits > mostSelectedRouteCount)
+                if (edge.getNumChildVisits() > mostSelectedRouteCount)
                 {
-                  mostSelectedRouteCount = edge.numChildVisits;
+                  mostSelectedRouteCount = edge.getNumChildVisits();
                   primaryPathParent = parent;
                 }
                 break;
@@ -1265,7 +1265,7 @@ public class TreeNode
             TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
             if (edge != null && edge.mChildRef != NULL_REF && get(edge.mChildRef) == this)
             {
-              numInwardVisits += edge.numChildVisits;
+              numInwardVisits += edge.getNumChildVisits();
               break;
             }
           }
@@ -1435,13 +1435,14 @@ public class TreeNode
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.disposeLeastLikelyNode");
     try
     {
-      TreeNode leastLikely = selectLeastLikelyExpandedNode(null, 0);
+      TreeEdge leastLikely = selectLeastLikelyExpandedNode(null);
 
       if (leastLikely != null)
       {
         //  Free the children of the chosen node from its parentage
         //  and de-expand it
-        leastLikely.unexpand();
+        leastLikely.setHasBeenTrimmed();
+        get(leastLikely.mChildRef).unexpand();
         //validateAll();
 
         return true;
@@ -1485,7 +1486,7 @@ public class TreeNode
   }
 
   private static int leastLikelyDisposalCount = 0;
-  public TreeNode selectLeastLikelyExpandedNode(TreeEdge from, int depth)
+  public TreeEdge selectLeastLikelyExpandedNode(TreeEdge from)
   {
     int selectedIndex = -1;
     double bestValue = -Double.MAX_VALUE;
@@ -1535,7 +1536,7 @@ public class TreeNode
                 if (!c.isUnexpanded())
                 {
                   double uctValue;
-                  if (edge.numChildVisits == 0 )
+                  if (edge.getNumChildVisits() == 0 )
                   {
                     uctValue = -1000;
                   }
@@ -1591,7 +1592,7 @@ public class TreeNode
                   if (!c.isUnexpanded())
                   {
                     double uctValue;
-                    if (edge.numChildVisits == 0)
+                    if (edge.getNumChildVisits() == 0)
                     {
                       uctValue = -1000;
                     }
@@ -1633,24 +1634,22 @@ public class TreeNode
       assert(children[selectedIndex] instanceof TreeEdge);
       TreeEdge selectedEdge = (TreeEdge)children[selectedIndex];
 
-      return get(selectedEdge.mChildRef).selectLeastLikelyExpandedNode(selectedEdge, depth + 1);
+      return get(selectedEdge.mChildRef).selectLeastLikelyExpandedNode(selectedEdge);
     }
 
     //  Children of the root should never be trimmed.  For us to have wanted to unexpand
     //  the root all its children must be unexpanded.  This is possible in factored games
     //  where one factor has a compleet root, so all node allocation occurs in the other
     //  factor(s)'s tree(s), so it is only a warned condition at this level
-    if (depth < 1)
+    if (from == null)
     {
       if ( tree.factor == null )
       {
-        LOGGER.warn("Attempt to select unlikely node at depth " + depth);
+        LOGGER.warn("Attempt to trim chuild of root");
       }
-
-      return null;
     }
 
-    return this;
+    return from;
   }
 
   private StateInfo calculateTerminalityAndAutoExpansion(ForwardDeadReckonInternalMachineState theState)
@@ -1848,7 +1847,7 @@ public class TreeNode
         Role choosingRole = tree.roleOrdering.roleIndexToRole(roleIndex);
         int topMoveWeight = 0;
 
-        if ( pathTo != null && pathTo.getEdge().numChildVisits > 1 )
+        if ( pathTo != null && pathTo.getEdge().getHasBeenTrimmed() )
         {
           //  If the node is unexpanded, yet has already been visited, this must
           //  be a re-expansion following trimming.
@@ -2159,8 +2158,8 @@ public class TreeNode
           TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
           if (edge != null && edge.mChildRef != NULL_REF)
           {
-            total += get(edge.mChildRef).getAverageScore(0) * edge.numChildVisits;
-            visitTotal += edge.numChildVisits;
+            total += get(edge.mChildRef).getAverageScore(0) * edge.getNumChildVisits();
+            visitTotal += edge.getNumChildVisits();
           }
         }
       }
@@ -2178,7 +2177,7 @@ public class TreeNode
                                 int roleIndex)
   {
     // Extract the common parts of the calculation to avoid making expensive calls twice.
-    double lCommon = 2 * Math.log(Math.max(effectiveTotalVists, edge.numChildVisits) + 1) / edge.numChildVisits;
+    double lCommon = 2 * Math.log(Math.max(effectiveTotalVists, edge.getNumChildVisits()) + 1) / edge.getNumChildVisits();
 
     // When we propagate adjustments due to completion we do not also adjust the variance contribution so this can
     // result in 'impossibly' low (aka negative) variance - take a lower bound of 0
@@ -2377,7 +2376,7 @@ public class TreeNode
               {
                 double uctValue;
 
-                if (edge.numChildVisits == 0 && !c.complete)
+                if (edge.getNumChildVisits() == 0 && !c.complete)
               {
                 // small random number to break ties randomly in unexpanded nodes
                 uctValue = 1000 + tree.r.nextDouble() * EPSILON + edge.explorationAmplifier;
@@ -2430,14 +2429,14 @@ public class TreeNode
                 if ((!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2)) &&
                          (tree.root == this || !edge.mPartialMove.isPseudoNoOp))
                 {
-                  if (edge.numChildVisits == 0)
+                  if (edge.getNumChildVisits() == 0)
                   {
                     // small random number to break ties randomly in unexpanded nodes
                     uctValue = 1000 + tree.r.nextDouble() * EPSILON + edge.explorationAmplifier;
                   }
                   else
                   {
-                    assert(edge.numChildVisits <= c.numVisits);
+                    assert(edge.getNumChildVisits() <= c.numVisits);
 
                     //  Various experiments have been done to try to find the best selection
                     //  weighting, and it seems that using the number of times we've visited the
@@ -2600,14 +2599,14 @@ public class TreeNode
 
       result.setScoreOverrides(bestCompleteNode);
       bestCompleteNode.numVisits++;
-      bestSelectedEdge.numChildVisits++;
+      bestSelectedEdge.incrementNumVisits();
       mostLikelyWinner = -1;
     }
 
     //  Update the visit counts on the selection pass.  The update counts
     //  will be updated on the back-propagation pass
     numVisits++;
-    selected.numChildVisits++;
+    selected.incrementNumVisits();
 
     return result;
   }
@@ -2834,7 +2833,7 @@ public class TreeNode
                         arrivalPath.mPartialMove.move +
                         " scores " + stringizeScoreVector() + "(ref " + mRef +
                         ") - visits: " + numVisits + " (" +
-                        arrivalPath.numChildVisits + ")");
+                        arrivalPath.getNumChildVisits() + ")");
     }
 
     if (sweepSeq == tree.sweepInstance)
@@ -3305,7 +3304,7 @@ public class TreeNode
           //  This is necessary because when we re-expand a node that was previously trimmed we
           //  leave the edge with its old selection count even though the child node will be
           //  reset.
-          int lNumChildVisits = Math.min(lChildEdge.numChildVisits, lChild.numVisits);
+          int lNumChildVisits = Math.min(lChildEdge.getNumChildVisits(), lChild.numVisits);
 
           assert(lNumChildVisits > 0 || xiIsCompletePseudoRollout);
           //  Propagate a value that is a blend of this rollout value and the current score for the child node

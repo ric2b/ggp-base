@@ -7,6 +7,7 @@ import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.StatsLogUtils.Series;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
@@ -36,6 +37,12 @@ public class GameSearcher implements Runnable, ActivityController
    * Whether the sample size is updated as a result of thread performance measurements.
    */
   public static final boolean             USE_DYNAMIC_SAMPLE_SIZING = true;
+
+  /**
+   * Whether to disable dynamic node trimming on full node pool (else just stall search until re-rooting)
+   */
+  private static final boolean DISABLE_NODE_TRIMMING =
+                                                     MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_NODE_TRIMMING, false);
 
   /**
    * The update interval for sample size.
@@ -234,6 +241,8 @@ public class GameSearcher implements Runnable, ActivityController
 
     long lNextUpdateSampleSizeTime = 0;
     long lNextStatsTime = System.currentTimeMillis() + STATS_LOG_INTERVAL_MS;
+    int numAllocations = 0;
+    int numTranspositions = 0;
 
     try
     {
@@ -259,6 +268,25 @@ public class GameSearcher implements Runnable, ActivityController
               StringBuffer lLogBuf = new StringBuffer(1024);
               Series.NODE_EXPANSIONS.logDataPoint(lLogBuf, time, mNumIterations);
               Series.POOL_USAGE.logDataPoint(lLogBuf, time, mNodePool.getPoolUsage());
+
+              int numReExpansions = 0;
+              int newNumAllocations = 0;
+              int newNumTranspositions = 0;
+
+              for(MCTSTree factorTree : factorTrees)
+              {
+                numReExpansions += factorTree.numReExpansions;
+                newNumAllocations += factorTree.getNumAllocations();
+                newNumTranspositions += factorTree.getNumTranspositions();
+              }
+
+              Series.NODE_RE_EXPANSIONS.logDataPoint(lLogBuf, time, numReExpansions);
+              if ( newNumAllocations > numAllocations )
+              {
+                Series.TRANSITION_RATE.logDataPoint(lLogBuf, time, (100*(newNumTranspositions-numTranspositions))/(newNumAllocations-numAllocations));
+              }
+              numAllocations = newNumAllocations;
+              numTranspositions = newNumTranspositions;
 
               //Future intent will be to add these to the stats logger when it is stable
               //double fringeDepth = mAverageFringeDepth.getMean();
@@ -507,10 +535,14 @@ public class GameSearcher implements Runnable, ActivityController
   {
     boolean lAllTreesCompletelyExplored;
 
-    numIterations++;
     while (mNodePool.isFull())
     {
       boolean somethingDisposed = false;
+
+      if ( DISABLE_NODE_TRIMMING )
+      {
+        return false;
+      }
 
       for (MCTSTree tree : factorTrees)
       {
@@ -527,6 +559,7 @@ public class GameSearcher implements Runnable, ActivityController
       assert(somethingDisposed);
     }
 
+    numIterations++;
     lAllTreesCompletelyExplored = true;
     for (MCTSTree tree : factorTrees)
     {

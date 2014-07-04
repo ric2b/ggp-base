@@ -53,6 +53,12 @@ public class MachineSpecificConfiguration
     DISABLE_LEARNING,
 
     /**
+     * Whether to disable node trimming on pool full (if disabled search stalls until the next move
+     * reroots the tree).
+     */
+    DISABLE_NODE_TRIMMING,
+
+    /**
      * Whether to disable greedy rollouts.
      */
     DISABLE_GREEDY_ROLLOUTS,
