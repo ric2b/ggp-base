@@ -1652,27 +1652,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         //  Moves with no dependencies (typically a noop) can appear in multiple factors, but
         //  should be tagged as factor-free
-        Set<ForwardDeadReckonLegalMoveInfo> multiFactorMoves = new HashSet<>();
-
-        for(ForwardDeadReckonLegalMoveInfo info : fullPropNet.getMasterMoveList())
-        {
-          for(Factor factor : factors)
-          {
-            if ( factor.getMoves().contains(info.move))
-            {
-              if ( info.factor != null )
-              {
-                multiFactorMoves.add(info);
-              }
-              info.factor = factor;
-            }
-          }
-        }
-
-        for(ForwardDeadReckonLegalMoveInfo info : multiFactorMoves)
-        {
-          info.factor = null;
-        }
+        setMoveFactorsForPropnet(propNetX);
+        setMoveFactorsForPropnet(propNetO);
       }
 
 //      stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -1694,6 +1675,34 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     catch (InterruptedException e)
     {
       // TODO: handle exception
+    }
+  }
+
+  private void setMoveFactorsForPropnet(ForwardDeadReckonPropNet pn)
+  {
+    Set<ForwardDeadReckonLegalMoveInfo> multiFactorMoves = new HashSet<>();
+
+    for(ForwardDeadReckonLegalMoveInfo info : pn.getMasterMoveList())
+    {
+      if ( info != null )
+      {
+        for(Factor factor : factors)
+        {
+          if ( factor.getMoves().contains(info.move))
+          {
+            if ( info.factor != null )
+            {
+              multiFactorMoves.add(info);
+            }
+            info.factor = factor;
+          }
+        }
+      }
+    }
+
+    for(ForwardDeadReckonLegalMoveInfo info : multiFactorMoves)
+    {
+      info.factor = null;
     }
   }
 
