@@ -240,9 +240,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         double score = scores[move.roleIndex];
 
-        double oldWeight = weightScore[move.globalMoveIndex];
+        double oldWeight = weightScore[move.masterIndex];
         double newWeigth = (oldWeight * numSamples + score) / (numSamples + 1);
-        weightScore[move.globalMoveIndex] = newWeigth;
+        weightScore[move.masterIndex] = newWeigth;
 
         total += (newWeigth - oldWeight);
       }
@@ -253,9 +253,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     {
       double score = scores[move.roleIndex];
 
-      double oldWeight = weightScore[move.globalMoveIndex];
+      double oldWeight = weightScore[move.masterIndex];
       double newWeigth = (oldWeight * numSamples + score) / (numSamples + 1);
-      weightScore[move.globalMoveIndex] = newWeigth;
+      weightScore[move.masterIndex] = newWeigth;
 
       total += (newWeigth - oldWeight);
     }
@@ -1191,6 +1191,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     mPositiveGoalLatches = master.mPositiveGoalLatches;
     mNegativeGoalLatches = master.mNegativeGoalLatches;
     ourRole = master.ourRole;
+    totalNumMoves = master.totalNumMoves;
 
     stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
     stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -1646,25 +1647,33 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //	Force calculation of the goal set while we're single threaded
       goalsNet.getGoalPropositions();
 
-      List<ForwardDeadReckonLegalMoveInfo> allMoves = new ArrayList<>();
-      for (ForwardDeadReckonLegalMoveInfo info : propNetX.getMasterMoveList())
+      //  Set move factor info
+      if ( factors != null )
       {
-        if (info != null && !allMoves.contains(info))
-        {
-          info.globalMoveIndex = allMoves.size();
-          allMoves.add(info);
-        }
-      }
-      for (ForwardDeadReckonLegalMoveInfo info : propNetO.getMasterMoveList())
-      {
-        if (info != null && !allMoves.contains(info))
-        {
-          info.globalMoveIndex = allMoves.size();
-          allMoves.add(info);
-        }
-      }
+        //  Moves with no dependencies (typically a noop) can appear in multiple factors, but
+        //  should be tagged as factor-free
+        Set<ForwardDeadReckonLegalMoveInfo> multiFactorMoves = new HashSet<>();
 
-      setupAllMovesArrayFromList(allMoves);
+        for(ForwardDeadReckonLegalMoveInfo info : fullPropNet.getMasterMoveList())
+        {
+          for(Factor factor : factors)
+          {
+            if ( factor.getMoves().contains(info.move))
+            {
+              if ( info.factor != null )
+              {
+                multiFactorMoves.add(info);
+              }
+              info.factor = factor;
+            }
+          }
+        }
+
+        for(ForwardDeadReckonLegalMoveInfo info : multiFactorMoves)
+        {
+          info.factor = null;
+        }
+      }
 
 //      stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
 //      stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -1679,6 +1688,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       propNet = propNetX;
       legalPropositions = legalPropositionsX;
+
+      totalNumMoves = fullPropNet.getMasterMoveList().length;
     }
     catch (InterruptedException e)
     {
@@ -3133,7 +3144,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           ForwardDeadReckonLegalMoveInfo chooserMove = decisionState.chooserMoves[i];
           if (moveWeights != null)
           {
-            total += moveWeights.weightScore[chooserMove.globalMoveIndex];
+            total += moveWeights.weightScore[chooserMove.masterIndex];
           }
           if (!preEnumerate &&
               terminatingMoveProps.contains(chooserMove.inputProposition))
@@ -3161,7 +3172,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           decisionState.propProcessed[i] = false;
           if (decisionState.baseChoiceIndex == -1)
           {
-            total -= moveWeights.weightScore[decisionState.chooserMoves[i].globalMoveIndex];
+            total -= moveWeights.weightScore[decisionState.chooserMoves[i].masterIndex];
             if (total <= 0)
             {
               decisionState.baseChoiceIndex = i;
@@ -3411,11 +3422,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             // Get next move for this factor
             ForwardDeadReckonLegalMoveInfo info = StateMachineFilterUtils.nextFilteredMove(factor, itr);
 
-            if (moveWeights.weightScore[info.globalMoveIndex] == 0)
+            if (moveWeights.weightScore[info.masterIndex] == 0)
             {
               LOGGER.warn("Unexpected 0 move weight");
             }
-            total += moveWeights.weightScore[info.globalMoveIndex];
+            total += moveWeights.weightScore[info.masterIndex];
           }
 
           if (total == 0)
@@ -3444,7 +3455,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           }
           else
           {
-            rand -= moveWeights.weightScore[info.globalMoveIndex];
+            rand -= moveWeights.weightScore[info.masterIndex];
           }
 
           if (rand < 0)
@@ -3561,26 +3572,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       propNetXWithoutGoals.reset(true);
       propNetOWithoutGoals.reset(true);
-
-      List<ForwardDeadReckonLegalMoveInfo> allMoves = new ArrayList<>();
-      for (ForwardDeadReckonLegalMoveInfo info : propNetXWithoutGoals.getMasterMoveList())
-      {
-        if (info != null && !allMoves.contains(info))
-        {
-          info.globalMoveIndex = allMoves.size();
-          allMoves.add(info);
-        }
-      }
-      for (ForwardDeadReckonLegalMoveInfo info : propNetOWithoutGoals.getMasterMoveList())
-      {
-        if (info != null && !allMoves.contains(info))
-        {
-          info.globalMoveIndex = allMoves.size();
-          allMoves.add(info);
-        }
-      }
-
-      setupAllMovesArrayFromList(allMoves);
     }
 
     propNetO = propNetOWithoutGoals;
@@ -3592,44 +3583,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     lastInternalSetStateO = null;
   }
 
-  private void setupAllMovesArrayFromList(List<ForwardDeadReckonLegalMoveInfo> allMoves)
-  {
-    allMovesInfo = allMoves.toArray(allMovesInfo);
-
-    //  Annotate the moves with their associated factors
-    if ( factors != null )
-    {
-      //  Moves with no dependencies (typically a noop) can appear in multiple factors, but
-      //  should be tagged as factor-free
-      Set<ForwardDeadReckonLegalMoveInfo> multiFactorMoves = new HashSet<>();
-
-      for(ForwardDeadReckonLegalMoveInfo info : allMovesInfo)
-      {
-        for(Factor factor : factors)
-        {
-          if ( factor.getMoves().contains(info.move))
-          {
-            if ( info.factor != null )
-            {
-              multiFactorMoves.add(info);
-            }
-            info.factor = factor;
-          }
-        }
-      }
-
-      for(ForwardDeadReckonLegalMoveInfo info : multiFactorMoves)
-      {
-        info.factor = null;
-      }
-    }
-  }
-
-  private ForwardDeadReckonLegalMoveInfo[] allMovesInfo = new ForwardDeadReckonLegalMoveInfo[1];
+  private int totalNumMoves = 0;
 
   public MoveWeights createMoveWeights()
   {
-    return new MoveWeights(allMovesInfo.length, getRoles().length);
+    return new MoveWeights(totalNumMoves, getRoles().length);
   }
 
   public ForwardDeadReckonInternalMachineState getCurrentState()
