@@ -134,7 +134,7 @@ public class StatsLogUtils
     /**
      * Node expansions.
      */
-    TRANSITION_RATE(Graph.NODE,  0, SeriesType.RAW, false, "Transition rate"),
+    TRANSITION_RATE(Graph.NODE,  1, SeriesType.RAW, false, "Transition rate"),
 
     /**
      * The current turn (0 during meta-gaming).
