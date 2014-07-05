@@ -120,6 +120,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private final Role                                                   ourRole;
   private Set<Factor>                                                  factors                         = null;
   private StateMachineFilter                                           searchFilter                    = null;
+  private ForwardDeadReckonInternalMachineState                        mNonControlMask                 = null;
   public long                                                          totalNumGatesPropagated         = 0;
   public long                                                          totalNumPropagates              = 0;
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mPositiveGoalLatches      = null;
@@ -1376,6 +1377,22 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           LOGGER.info("Game appears to factorize into " + factors.size() + " factors");
         }
+
+        if ( factorAnalyser.getControlProps() != null )
+        {
+          mNonControlMask = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+
+          for(PolymorphicProposition p : factorAnalyser.getControlProps())
+          {
+            ForwardDeadReckonPropositionInfo info = ((ForwardDeadReckonProposition)p).getInfo();
+
+            mNonControlMask.add(info);
+          }
+
+          System.out.println("ControlMask is: " + mNonControlMask);
+
+          mNonControlMask.invert();
+        }
       }
 
       fullPropNet.crystalize(masterInfoSet, null, maxInstances);
@@ -1740,6 +1757,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private void setBaseFilter(StateMachineFilter filter)
   {
     searchFilter = filter;
+  }
+
+  /**
+   * Get a state mask for the non-control propositions
+   * @return null if unknown else state mask
+   */
+  public ForwardDeadReckonInternalMachineState getNonControlMask()
+  {
+    return mNonControlMask;
   }
 
   private void setBasePropositionsFromState(MachineState state)

@@ -39,7 +39,9 @@ public class FactorAnalyser
   private DependencyCache componentDirectBaseDependencies;
   private Map<PolymorphicComponent, DependencyInfo> basePropositionDependencies = new HashMap<>();
   private int numBaseProps;
-  private Collection<PolymorphicProposition> basePropositions;
+  private final Collection<PolymorphicProposition> basePropositions;
+  private final Set<PolymorphicProposition> controlSet = new HashSet<>();
+  private boolean mbControlSetCalculated = false;
 
   private class DirectDependencyInfo
   {
@@ -154,12 +156,12 @@ public class FactorAnalyser
   }
 
   /**
+   * @param timeout When to give up if the analysis takes too long
    * @return  Number of factors identified
    */
   public Set<Factor> analyse(long timeout)
   {
     Set<Factor>  factors = new HashSet<>();
-    int basePropsProcessed = 0;
     long startTime = System.currentTimeMillis();
 
     //  Construct the full closure of base dependencies
@@ -221,7 +223,6 @@ public class FactorAnalyser
     //  Trim out from each disjunctive input set those propositions in the control set, which are only
     //  influenced by other base props independently of moves (usually step and control logic)
     Set<PolymorphicComponent> controlOnlyInputs = new HashSet<>();
-    Set<PolymorphicProposition> controlSet = new HashSet<>();
 
     for(PolymorphicProposition baseProp : basePropositions)
     {
@@ -232,6 +233,8 @@ public class FactorAnalyser
         controlSet.add(baseProp);
       }
     }
+
+    mbControlSetCalculated = true;
 
     for( Entry<PolymorphicComponent, DependencyInfo> e : disjunctiveInputs.entrySet())
     {
@@ -521,5 +524,21 @@ public class FactorAnalyser
         dInfo.add(inputPropInfo);
       }
     }
+  }
+
+  /**
+   * Get the set of base propositions that constitute the control set,
+   * which is the set of base props whose values do not depend on the moves played
+   * at any stage of the game (e.g. - step counters etc.)
+   * @return set of props in the control set of null if not available
+   */
+  public Set<PolymorphicProposition> getControlProps()
+  {
+    if ( mbControlSetCalculated )
+    {
+      return controlSet;
+    }
+
+    return null;
   }
 }

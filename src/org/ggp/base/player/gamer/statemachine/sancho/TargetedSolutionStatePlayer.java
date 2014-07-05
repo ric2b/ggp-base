@@ -1,5 +1,6 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -14,7 +15,6 @@ import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
-import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
@@ -67,17 +67,16 @@ public class TargetedSolutionStatePlayer
 
     private int heuristicCost()
     {
-      return 0;
-      //      if ( heuristicCost == -1 )
-      //      {
-      //        ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(state);
-      //
-      //        temp.intersect(targetStateAsInternal);
-      //
-      //        heuristicCost = targetStateAsInternal.size() - temp.size();
-      //      }
-      //
-      //      return heuristicCost;
+      if ( heuristicCost == -1 )
+      {
+        ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(state);
+
+        temp.intersect(targetStateAsInternal);
+
+        heuristicCost = (int)(targetStateAsInternal.size() - temp.size());
+      }
+
+      return heuristicCost;
     }
 
     @Override
@@ -92,7 +91,7 @@ public class TargetedSolutionStatePlayer
   private List<Move>                            AStarSolutionPath     = null;
   ForwardDeadReckonInternalMachineState         stepStateMask         = null;
 
-  private Move selectAStarMove(List<Move> moves, long timeout)
+  public Collection<Move> selectAStarMove(List<Move> moves, long timeout)
   {
     Move bestMove = moves.get(0);
     int[] numAtDistance = new int[50];
@@ -106,24 +105,13 @@ public class TargetedSolutionStatePlayer
     {
       if (AStarFringe == null)
       {
-        AStarFringe = new PriorityQueue<AStarNode>();
+        AStarFringe = new PriorityQueue<>();
 
         AStarFringe.add(new AStarNode(underlyingStateMachine
             .createInternalState(gamer.getCurrentState()), null, null));
       }
 
-      stepStateMask = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
-
-      stepStateMask.clear();
-      for (ForwardDeadReckonPropositionInfo info : underlyingStateMachine
-          .getInfoSet())
-      {
-        if (info.sentence.toString().contains("step"))
-        {
-          stepStateMask.add(info);
-        }
-      }
-      stepStateMask.invert();
+      stepStateMask = underlyingStateMachine.getNonControlMask();
 
       if (targetStateAsInternal == null)
       {
@@ -207,9 +195,7 @@ public class TargetedSolutionStatePlayer
       LOGGER.info("Num states at distance " + i + ": " + numAtDistance[i]);
     }
 
-    bestMove = AStarSolutionPath.remove(0);
-
-    return bestMove;
+    return AStarSolutionPath;
   }
 
 

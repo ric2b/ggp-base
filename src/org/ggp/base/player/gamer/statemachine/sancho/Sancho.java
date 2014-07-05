@@ -713,6 +713,15 @@ public class Sancho extends SampleGamer
         {
           puzzlePlayer = new TargetedSolutionStatePlayer(underlyingStateMachine, this, roleOrdering);
           puzzlePlayer.setTargetState(terminalState);
+
+          Collection<Move> solution = puzzlePlayer.selectAStarMove(underlyingStateMachine.getLegalMoves(underlyingStateMachine.getInitialState(), ourRole),
+                                                        timeout - SAFETY_MARGIN);
+
+          if ( solution != null )
+          {
+            plan.considerPlan(solution);
+            System.out.println("Solved by A*");
+          }
         }
       }
     }
