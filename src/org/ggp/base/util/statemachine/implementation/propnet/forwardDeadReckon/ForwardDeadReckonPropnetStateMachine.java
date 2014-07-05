@@ -3581,6 +3581,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       propNetXWithoutGoals.reset(true);
       propNetOWithoutGoals.reset(true);
+
+      //  Set move factor info
+      if ( factors != null )
+      {
+        //  Moves with no dependencies (typically a noop) can appear in multiple factors, but
+        //  should be tagged as factor-free
+        setMoveFactorsForPropnet(propNetXWithoutGoals);
+        setMoveFactorsForPropnet(propNetOWithoutGoals);
+      }
     }
 
     propNetO = propNetOWithoutGoals;
