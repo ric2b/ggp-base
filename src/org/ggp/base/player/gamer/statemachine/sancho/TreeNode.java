@@ -838,7 +838,14 @@ public class TreeNode
 
         if (edge == null)
         {
-          allImmediateChildrenComplete = false;
+          assert(choice instanceof ForwardDeadReckonLegalMoveInfo);
+
+          //  Pseudo-noops are not searched and do not form 'real' movs in this factor
+          //  so ignore them for completion propagation purposes
+          if ( !((ForwardDeadReckonLegalMoveInfo)choice).isPseudoNoOp )
+          {
+            allImmediateChildrenComplete = false;
+          }
         }
         else
         {
