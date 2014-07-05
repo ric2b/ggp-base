@@ -118,6 +118,7 @@ public class TreeEdge
     assert(mParentRef != TreeNode.NULL_REF);
     assert(mChildRef == TreeNode.NULL_REF ||
            TreeNode.get(xiParent.tree.nodePool, mChildRef).tree == xiParent.tree);
+    assert(!xiPartialMove.isPseudoNoOp || xiParent == xiParent.tree.root);
   }
 
   /**

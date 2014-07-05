@@ -840,7 +840,7 @@ public class TreeNode
         {
           assert(choice instanceof ForwardDeadReckonLegalMoveInfo);
 
-          //  Pseudo-noops are not searched and do not form 'real' movs in this factor
+          //  Pseudo-noops are not searched and do not form 'real' moves in this factor
           //  so ignore them for completion propagation purposes
           if ( !((ForwardDeadReckonLegalMoveInfo)choice).isPseudoNoOp )
           {
@@ -1990,6 +1990,12 @@ public class TreeNode
               TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
               if (edge == null || !get(edge.mChildRef).isTerminal)
               {
+                //  Skip this for pseudo-noops
+                if ( (edge != null ? edge.mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice).isPseudoNoOp )
+                {
+                  continue;
+                }
+
                 for (int i = 0; i < tree.mNodeTopMoveCandidates.length; i++)
                 {
                   ForwardDeadReckonLegalMoveInfo moveCandidate = tree.mNodeTopMoveCandidates[i];
@@ -2017,6 +2023,15 @@ public class TreeNode
           {
             if ((primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) )
             {
+              Object choice = children[lMoveIndex];
+
+              //  Skip this for pseudo-noops since we don't want to expand them except when they are immediate
+              //  children of the root (and in that case their heuristic value is the same as the root's)
+              if ( ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice).isPseudoNoOp )
+              {
+                continue;
+              }
+
               // Determine the heuristic value for this child.
               for (int lii = 0; lii < tree.numRoles; lii++)
               {
@@ -2376,14 +2391,14 @@ public class TreeNode
           }
           long cr = edge.mChildRef;
 
-            if(cr != NULL_REF)
+          if(cr != NULL_REF)
+          {
+            TreeNode c = get(cr);
+            if (c != null && (!c.complete) && !c.allChildrenComplete)
             {
-              TreeNode c = get(cr);
-              if (c != null && (!c.complete) && !c.allChildrenComplete)
-              {
-                double uctValue;
+              double uctValue;
 
-                if (edge.getNumChildVisits() == 0 && !c.complete)
+              if (edge.getNumChildVisits() == 0 && !c.complete)
               {
                 // small random number to break ties randomly in unexpanded nodes
                 uctValue = 1000 + tree.r.nextDouble() * EPSILON + edge.explorationAmplifier;
@@ -2495,7 +2510,7 @@ public class TreeNode
                   }
                 }
               }
-              else
+              else if ( tree.root == this || !(edge == null ? (ForwardDeadReckonLegalMoveInfo)choice : edge.mPartialMove).isPseudoNoOp )
               {
                 //  A null child ref in an extant edge is a not-yet selected through
                 //  path which is asserted to be non-terminal and unvisited
