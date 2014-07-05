@@ -476,9 +476,9 @@ public class Sancho extends SampleGamer
     //	1) Is the game a puzzle?
     //	2) For each role what is the largest and the smallest score that seem reachable and what are the corresponding net scores
     long simulationStartTime = System.currentTimeMillis();
-    //  Always do this for at least a second even if we technically don; have time to do so, since not running it
+    //  Always do this for at least a second even if we technically don't have time to do so, since not running it
     //  at all causes all sorts of problems
-    long simulationStopTime = Math.min(Math.max(timeout - 5000, simulationStartTime + 1000),
+    long simulationStopTime = Math.min(Math.max(timeout - (gameCharacteristics.numRoles == 1 ? 10000 : 5000), simulationStartTime + 1000),
                                        simulationStartTime + 10000);
 
     int[] rolloutStats = new int[2];
@@ -711,16 +711,25 @@ public class Sancho extends SampleGamer
         }
         else
         {
-          puzzlePlayer = new TargetedSolutionStatePlayer(underlyingStateMachine, this, roleOrdering);
+          puzzlePlayer = new TargetedSolutionStatePlayer(underlyingStateMachine, this);
           puzzlePlayer.setTargetState(terminalState);
 
-          Collection<Move> solution = puzzlePlayer.selectAStarMove(underlyingStateMachine.getLegalMoves(underlyingStateMachine.getInitialState(), ourRole),
-                                                        timeout - SAFETY_MARGIN);
+          System.out.println("Available A* search time: " + (timeout - SAFETY_MARGIN - System.currentTimeMillis()) + "ms");
+          Collection<Move> solution = puzzlePlayer.attemptAStarSolve(99, timeout - SAFETY_MARGIN);
 
           if ( solution != null )
           {
             plan.considerPlan(solution);
-            System.out.println("Solved by A*");
+            LOGGER.info("Solved by A*");
+          }
+          else
+          {
+            //  We do not expect this case to (usefully) arise, as if A* cannot solve it, the
+            //  old-style target-state puzzle solver probably doesn't have much chance either.
+            //  Now that we attempt A* solving during meta-gaming we might want to consider entirely
+            //  ditching the old-style solver, and just falling back to MCTS if A* fails, but for now
+            //  leaving intact
+            LOGGER.warn("Not solved by A* in available meta-gaming time");
           }
         }
       }
