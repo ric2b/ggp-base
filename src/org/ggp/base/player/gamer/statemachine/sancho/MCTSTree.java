@@ -36,7 +36,7 @@ public class MCTSTree
 
   class MoveScoreInfo
   {
-    public double averageScore = 0;
+    public final double[] averageScores = new double[numRoles];
     public int    numSamples = 0;
   }
 
@@ -434,6 +434,7 @@ public class MCTSTree
 
     numNonTerminalRollouts = 0;
     numTerminalRollouts = 0;
+
     return bestMoveInfo;
   }
 

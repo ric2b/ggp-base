@@ -41,6 +41,11 @@ public class TreeNode
   private static final boolean       USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(
                                                            CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false);
 
+  /**
+   * For debugging use only - enable assertion that the game is fixed sum
+   */
+  private static final boolean       ASSERT_FIXED_SUM = false;
+
   private static final DecimalFormat FORMAT_2DP = new DecimalFormat("####0.00");
 
   /**
@@ -205,6 +210,37 @@ public class TreeNode
     }
   }
 
+  private boolean checkFixedSum(double[] values)
+  {
+    if ( !ASSERT_FIXED_SUM )
+    {
+      return true;
+    }
+
+    assert(values.length == tree.numRoles);
+    double total = 0;
+    for(int i = 0; i < tree.numRoles; i++)
+    {
+      total += values[i];
+    }
+    return (Math.abs(total-100) < EPSILON);
+  }
+
+  private boolean checkFixedSum()
+  {
+    if ( !ASSERT_FIXED_SUM )
+    {
+      return true;
+    }
+
+    double total = 0;
+    for(int i = 0; i < tree.numRoles; i++)
+    {
+      total += getAverageScore(i);
+    }
+    return (Math.abs(total-100) < EPSILON);
+  }
+
   private void correctParentsForCompletion()
   {
     //	Cannot do an a-priori correction of scores based on known child scores
@@ -262,14 +298,18 @@ public class TreeNode
             if (edge != null && edge.mChildRef != NULL_REF && get(edge.mChildRef) != null)
             {
               TreeNode lChild = get(edge.mChildRef);
-              double exploitationUct = primaryPathParent.exploitationUCT(edge, lChild.decidingRoleIndex);
 
-              double weight = (exploitationUct + 1 / Math.log(primaryPathParent.numVisits + 1)) * lChild.numVisits +
-                                                                                                                EPSILON;
-              totalWeight += weight;
-              for (int i = 0; i < tree.numRoles; i++)
+              if ( lChild.numUpdates > 0 || lChild.complete )
               {
-                tree.mCorrectedAverageScoresBuffer[i] += weight * lChild.getAverageScore(i);
+                double exploitationUct = primaryPathParent.exploitationUCT(edge, lChild.decidingRoleIndex);
+
+                double weight = (exploitationUct + 1 / Math.log(primaryPathParent.numVisits + 1)) * lChild.numVisits +
+                                                                                                                  EPSILON;
+                totalWeight += weight;
+                for (int i = 0; i < tree.numRoles; i++)
+                {
+                  tree.mCorrectedAverageScoresBuffer[i] += weight * lChild.getAverageScore(i);
+                }
               }
             }
           }
@@ -284,6 +324,8 @@ public class TreeNode
         {
           primaryPathParent.setAverageScore(i, tree.mCorrectedAverageScoresBuffer[i]);
         }
+
+        assert(primaryPathParent.checkFixedSum());
 
         if (propagate)
         {
@@ -368,6 +410,8 @@ public class TreeNode
 
   private void enactMarkComplete(short atCompletionDepth)
   {
+    assert(checkFixedSum());
+
     if (numUpdates > 0 && tree.gameCharacteristics.isSimultaneousMove)
     {
       //validateScoreVector(averageScores);
@@ -694,6 +738,10 @@ public class TreeNode
                   TreeEdge nephewEdge = (nephewChoice instanceof TreeEdge ? (TreeEdge)nephewChoice : null);
                   if (nephewEdge == null || nephewEdge.mChildRef == NULL_REF)
                   {
+                    if (moves.contains((nephewEdge == null ? (ForwardDeadReckonLegalMoveInfo)nephewChoice : nephewEdge.mPartialMove).move))
+                    {
+                      return false;
+                    }
                     continue;
                   }
                   TreeNode nephew = get(nephewEdge.mChildRef);
@@ -1005,7 +1053,7 @@ public class TreeNode
     }
 
     if (allImmediateChildrenComplete && !decidingRoleWin &&
-        tree.gameCharacteristics.isSimultaneousMove && decidingRoleIndex == 0)
+        tree.gameCharacteristics.isSimultaneousMove && roleIndex != 0)
     {
       allChildrenComplete = true;
 
@@ -1042,6 +1090,20 @@ public class TreeNode
           checkConsequentialSiblingCompletion)
       {
         siblingCheckNeeded = true;
+      }
+
+      //  It is possible for all children to be terminal, in which case no values will
+      //  ever have been propagated back from them (as we don't rollout from a terminal state)
+      //  In a simultaneous move game such a situation will result in this node's average score
+      //  not being set initially, since completion will not occur until all nephew's complete.
+      //  We address this case by setting the scores provisionally as an average of the children (but
+      //  not marking complete yet)
+      if ( !allImmediateChildrenComplete && numUpdates == 0 )
+      {
+        for (int i = 0; i < tree.numRoles; i++)
+        {
+          setAverageScore(i, tree.mNodeAverageScores[i]);
+        }
       }
     }
 
@@ -1085,21 +1147,51 @@ public class TreeNode
       //	best value and crystalize as our value.   However, if it's simultaneous
       //	move complete with the average score since
       //	opponents cannot make the pessimal (for us) choice reliably
-      if (tree.gameCharacteristics.isSimultaneousMove && !decidingRoleWin && decidingRoleIndex == 0)
+      if (tree.gameCharacteristics.isSimultaneousMove && !decidingRoleWin)// && decidingRoleIndex == 0)
       {
-        //	This feels a bit of a hack, but it seems to work - in general when the outcome
-        //	is complete for all choices but varies we err on the pessimistic side.
-        //	However, if we just choose the worst result then a move with many bad results
-        //	looks the same as one with a single bad result (with respect to opponent choices),
-        //	so shade the score up slightly by the average
-        //	Note that just using the average also doesn't work, and will cause massive
-        //	over-optimism.
-        if ( roleIndex != tree.numRoles-1 )
+        //	If all option are complete but not decisive due to incomplete information
+        //  arising form the opponent's simultaneous turn then take a weighted average
+        //  of the child node scores, weighting them by the average cousin value of the
+        //  deciding role
+        if ( roleIndex != 0 )
         {
+          tree.cousinMovesCachedFor = NULL_REF;
+
+          //  Weight the values by their average cousin score
+          double totalWeight = 0;
           for (int i = 0; i < tree.numRoles; i++)
           {
-            tree.mBlendedCompletionScoreBuffer[i] = (worstDeciderNode.getAverageScore(i) * numUniqueChildren + tree.mNodeAverageScores[i]) / (numUniqueChildren+1);
+            tree.mBlendedCompletionScoreBuffer[i] = 0;
           }
+
+          for (short index = 0; index < mNumChildren; index++)
+          {
+            if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+            {
+              TreeEdge edge = (TreeEdge)children[index];
+              assert ( edge != null );
+              assert(edge.mChildRef != NULL_REF);
+
+              TreeNode lNode = get(edge.mChildRef);
+              assert(lNode != null);
+              assert(lNode.complete);
+
+              //  Add epsilon in case all are 0
+              double chooserScore = getAverageCousinMoveValue(edge, roleIndex) + EPSILON;
+
+              for (int i = 0; i < tree.numRoles; i++)
+              {
+                tree.mBlendedCompletionScoreBuffer[i] += chooserScore*lNode.getAverageScore(i);
+              }
+              totalWeight += chooserScore;
+            }
+          }
+
+          for (int i = 0; i < tree.numRoles; i++)
+          {
+            tree.mBlendedCompletionScoreBuffer[i] /= totalWeight;
+          }
+
           //  If a move provides a better-than-worst case in all uncles it provides a support
           //  floor the the worst that we can do with perfect play, so use that if its larger than
           //  what we would otherwise use
@@ -2223,7 +2315,7 @@ public class TreeNode
     TreeNode lNode = get(relativeTo.mChildRef);
     if (lNode.decidingRoleIndex == 0)
     {
-      return lNode.getAverageScore(roleIndex) / 100;
+      return lNode.getAverageScore(roleIndex);
     }
     else if (tree.cousinMovesCachedFor == NULL_REF || get(tree.cousinMovesCachedFor) != this)
     {
@@ -2249,32 +2341,35 @@ public class TreeNode
             {
               for (short nephewIndex = 0; nephewIndex < child.mNumChildren; nephewIndex++)
               {
-                if ( child.primaryChoiceMapping == null || child.primaryChoiceMapping[nephewIndex] == nephewIndex )
+                Object rawChoice = child.children[nephewIndex];
+                Object nephewChoice = child.children[child.primaryChoiceMapping == null ? nephewIndex : child.primaryChoiceMapping[nephewIndex]];
+
+                TreeEdge nephewEdge = (nephewChoice instanceof TreeEdge ? (TreeEdge)nephewChoice : null);
+                if (nephewEdge == null || nephewEdge.mChildRef == NULL_REF)
                 {
-                  Object nephewChoice = child.children[nephewIndex];
+                  continue;
+                }
 
-                  TreeEdge nephewEdge = (nephewChoice instanceof TreeEdge ? (TreeEdge)nephewChoice : null);
-                  if (nephewEdge == null || nephewEdge.mChildRef == NULL_REF)
+                TreeNode nephew = get(nephewEdge.mChildRef);
+                if (nephew != null && (nephew.numUpdates > 0 || nephew.complete))
+                {
+                  Move move = (rawChoice instanceof TreeEdge ? nephewEdge.mPartialMove : (ForwardDeadReckonLegalMoveInfo)rawChoice).move;
+                  MoveScoreInfo accumulatedMoveInfo = tree.cousinMoveCache.get(move);
+                  if (accumulatedMoveInfo == null)
                   {
-                    continue;
+                    accumulatedMoveInfo = tree.new MoveScoreInfo();
+                    tree.cousinMoveCache.put(move, accumulatedMoveInfo);
                   }
 
-                  TreeNode nephew = get(nephewEdge.mChildRef);
-                  if (nephew != null)
+                  for(int i = 0; i < tree.numRoles; i++)
                   {
-                    Move move = nephewEdge.mPartialMove.move;
-                    MoveScoreInfo accumulatedMoveInfo = tree.cousinMoveCache.get(move);
-                    if (accumulatedMoveInfo == null)
-                    {
-                      accumulatedMoveInfo = tree.new MoveScoreInfo();
-                      tree.cousinMoveCache.put(move, accumulatedMoveInfo);
-                    }
-
-                    accumulatedMoveInfo.averageScore = (accumulatedMoveInfo.averageScore *
-                        accumulatedMoveInfo.numSamples + nephew.getAverageScore(roleIndex)) /
+                    accumulatedMoveInfo.averageScores[i] = (accumulatedMoveInfo.averageScores[i] *
+                        accumulatedMoveInfo.numSamples + nephew.getAverageScore(i)) /
                         (accumulatedMoveInfo.numSamples + 1);
-                    accumulatedMoveInfo.numSamples++;
                   }
+                  accumulatedMoveInfo.numSamples++;
+
+                  assert(checkFixedSum(accumulatedMoveInfo.averageScores));
                 }
               }
             }
@@ -2286,12 +2381,16 @@ public class TreeNode
     MoveScoreInfo accumulatedMoveInfo = tree.cousinMoveCache.get(relativeTo.mPartialMove.move);
     if (accumulatedMoveInfo == null)
     {
-      LOGGER.warn("No newphews found for search move including own child!");
-      tree.cousinMovesCachedFor = NULL_REF;
+      if ( lNode.numUpdates > 0 )
+      {
+        parents.get(0).dumpTree("c:\\temp\\subTree.txt");
+        LOGGER.warn("No newphews found for search move including own child!");
+        tree.cousinMovesCachedFor = NULL_REF;
+      }
       //getAverageCousinMoveValue(relativeTo);
-      return lNode.getAverageScore(roleIndex) / 100;
+      return lNode.getAverageScore(roleIndex);
     }
-    return accumulatedMoveInfo.averageScore / 100;
+    return accumulatedMoveInfo.averageScores[roleIndex];
   }
 
   private double exploitationUCT(TreeEdge inboundEdge, int roleIndex)
@@ -2328,7 +2427,7 @@ public class TreeNode
       {
         return lInboundChild.getAverageScore(roleIndex) / 100;
       }
-      return getAverageCousinMoveValue(inboundEdge, roleIndex);
+      return getAverageCousinMoveValue(inboundEdge, roleIndex)/100;
     }
 
     double result = lInboundChild.getAverageScore(roleIndex) / 100;// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
@@ -2877,6 +2976,16 @@ public class TreeNode
           {
             get(edge.mChildRef).dumpTree(writer, depth + 1, edge);
           }
+          else
+          {
+            indentedPrint(writer,
+                          (depth+1) * 2,
+                          "@" +
+                              (depth + 1) +
+                              ": Move " +
+                              (edge == null ? (ForwardDeadReckonLegalMoveInfo)choice : edge.mPartialMove).move +
+                              " unexpanded");
+          }
         }
       }
     }
@@ -3285,6 +3394,8 @@ public class TreeNode
                           TreePath xiPath,
                           boolean xiIsCompletePseudoRollout)
   {
+    assert(checkFixedSum(xiValues));
+
     TreeNode lNextNode;
     for (TreeNode lNode = this; lNode != null; lNode = lNextNode)
     {
@@ -3312,6 +3423,7 @@ public class TreeNode
       if (lOverrides != null)
       {
         xiValues = lOverrides;
+        assert(checkFixedSum(xiValues));
       }
 
       for (int lRoleIndex = 0; lRoleIndex < tree.numRoles; lRoleIndex++)
@@ -3357,6 +3469,9 @@ public class TreeNode
       //validateScoreVector(averageScores);
       lNode.numUpdates++;
       assert(lNode.numUpdates <= lNode.numVisits);
+
+      assert(checkFixedSum(xiValues));
+      assert(checkFixedSum());
     }
   }
 
