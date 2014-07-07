@@ -1928,15 +1928,18 @@ public class TreeNode
       {
         TreeNode parent = current.parents.get(0);
 
-        for(Object choice : parent.children)
+        if ( current.decidingRoleIndex == 0 )
         {
-          if ( choice instanceof TreeEdge )
+          for(Object choice : parent.children)
           {
-            TreeEdge edge = (TreeEdge)choice;
-
-            if ( edge.mChildRef != NULL_REF && get(edge.mChildRef) == current )
+            if ( choice instanceof TreeEdge )
             {
-              fullPlayoutList.add(0, edge.mPartialMove);
+              TreeEdge edge = (TreeEdge)choice;
+
+              if ( edge.mChildRef != NULL_REF && get(edge.mChildRef) == current )
+              {
+                fullPlayoutList.add(0, edge.mPartialMove);
+              }
             }
           }
         }
@@ -1971,7 +1974,7 @@ public class TreeNode
 
           if (isTerminal)
           {
-            if ( tree.numRoles == 1 && info.terminalScore[0] == 100 )
+            if ( tree.gameCharacteristics.isPseudoPuzzle && info.terminalScore[0] == 100 )
             {
               considerPathToAsPlan();
             }
@@ -2105,7 +2108,7 @@ public class TreeNode
                 newChild.autoExpand = info.autoExpand;
                 if (info.isTerminal)
                 {
-                  if ( tree.numRoles == 1 && info.terminalScore[0] == 100 )
+                  if ( tree.gameCharacteristics.isPseudoPuzzle && info.terminalScore[0] == 100 )
                   {
                     newChild.considerPathToAsPlan();
                   }
@@ -3400,7 +3403,7 @@ public class TreeNode
     lRequest.mSampleSize = tree.gameCharacteristics.getRolloutSampleSize();
     lRequest.mPath = path;
     lRequest.mFactor = tree.factor;
-    lRequest.mPlayedMovesForWin = ((tree.gameCharacteristics.numRoles == 1 && tree.factor == null) ? new LinkedList<ForwardDeadReckonLegalMoveInfo>() : null);
+    lRequest.mPlayedMovesForWin = ((tree.gameCharacteristics.isPseudoPuzzle && tree.factor == null) ? new LinkedList<ForwardDeadReckonLegalMoveInfo>() : null);
 
     //request.moveWeights = masterMoveWeights.copy();
     tree.numNonTerminalRollouts += lRequest.mSampleSize;

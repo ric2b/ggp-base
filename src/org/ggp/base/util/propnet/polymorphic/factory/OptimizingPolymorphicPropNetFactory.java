@@ -1563,15 +1563,26 @@ public class OptimizingPolymorphicPropNetFactory
     }
   }
 
+  /**
+   * Remove bases and inputs that are not relevant to our play.  May also reduce
+   * opponent roles to effective null roles (single psuedo-noop each turn) in
+   * games which our result depends only on our play unconditionally on any choices
+   * such an opponent might make
+   * @param pn - propnet
+   * @param ourRole - who we are (or null if no analysis relative to our role is required)
+   * @return true if the game can be treated as a puzzle (has no dependence on any other role's moves)
+   */
   public static boolean removeIrrelevantBasesAndInputs(PolymorphicPropNet pn, Role ourRole)
   {
+    boolean isPseudoPuzzle = false;
+
     //  Any bases and inputs that cannot be reached by tracing back from either the terminal
     //  or a goal proposition are irrelevant (transiting through a virtual does->legal back-link)
     Set<PolymorphicComponent> reachableComponents = new HashSet<>();
     recursiveFindReachable(pn, pn.getTerminalProposition(), reachableComponents);
 
     //  Initially just mark the components on which OUR goals depend if we have been given our role
-    //  Don't try this if we only have a single goal valu anyway - this is some stupid test game not
+    //  Don't try this if we only have a single goal value anyway - this is some stupid test game not
     //  a real game!
     if ( ourRole != null && pn.getGoalPropositions().get(ourRole).length > 1 )
     {
@@ -1612,6 +1623,8 @@ public class OptimizingPolymorphicPropNetFactory
         //  For most games this will be all of them, but in games where the opponents moves do not
         //  impact anything on which our goal values are dependent they are irrelevant (canonical
         //  example is dual Hamilton)
+        isPseudoPuzzle = true;
+
         for(Role role : pn.getRoles())
         {
           if ( role.equals(ourRole))
@@ -1632,6 +1645,7 @@ public class OptimizingPolymorphicPropNetFactory
 
           if ( fullyIncludeRole )
           {
+            isPseudoPuzzle = false;
             //  Add in this role's goals and legals
             for( PolymorphicProposition c : pn.getGoalPropositions().get(role))
             {
@@ -1683,6 +1697,10 @@ public class OptimizingPolymorphicPropNetFactory
           }
         }
       }
+      else
+      {
+        isPseudoPuzzle = true;
+      }
     }
     else
     {
@@ -1706,7 +1724,6 @@ public class OptimizingPolymorphicPropNetFactory
 
     //  What can we eliminate?
     Set<PolymorphicComponent> unreachable = new HashSet<>();
-    boolean result = false;
     int removalCount = 0;
     for(PolymorphicProposition c : pn.getBasePropositions().values())
     {
@@ -1765,7 +1782,7 @@ public class OptimizingPolymorphicPropNetFactory
 
     LOGGER.debug("Removed " + removalCount + " irrelevant propositions");
 
-    return result;
+    return isPseudoPuzzle;
   }
 
   private static void recursiveFindReachable(PolymorphicPropNet pn, PolymorphicComponent from, Set<PolymorphicComponent> reachableComponents)

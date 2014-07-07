@@ -156,7 +156,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.59b");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.59c");
   }
 
   @Override
@@ -292,6 +292,7 @@ public class Sancho extends SampleGamer
     //	games like C4-simultaneous or Chinook (but it's a hack!)
     gameCharacteristics.isSimultaneousMove = false;
     gameCharacteristics.isPseudoSimultaneousMove = false;
+    gameCharacteristics.isPseudoPuzzle = underlyingStateMachine.getIsPseudoPuzzle();
 
     //	Also monitor whether any given player always has the SAME choice of move (or just a single choice)
     //	every turn - such games are (highly probably) iterated games
@@ -714,7 +715,6 @@ public class Sancho extends SampleGamer
           puzzlePlayer = new TargetedSolutionStatePlayer(underlyingStateMachine, this);
           puzzlePlayer.setTargetState(terminalState);
 
-          System.out.println("Available A* search time: " + (timeout - SAFETY_MARGIN - System.currentTimeMillis()) + "ms");
           Collection<Move> solution = puzzlePlayer.attemptAStarSolve(99, timeout - SAFETY_MARGIN);
 
           if ( solution != null )

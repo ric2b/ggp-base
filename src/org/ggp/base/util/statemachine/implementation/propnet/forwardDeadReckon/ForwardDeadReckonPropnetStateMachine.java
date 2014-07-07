@@ -118,6 +118,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private long                                                         metagameTimeout                 = 20000;
   private int                                                          numInstances                    = 1;
   private final Role                                                   ourRole;
+  private boolean                                                      isPseudoPuzzle                  = false;
   private Set<Factor>                                                  factors                         = null;
   private StateMachineFilter                                           searchFilter                    = null;
   private ForwardDeadReckonInternalMachineState                        mNonControlMask                 = null;
@@ -342,6 +343,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public ForwardDeadReckonInternalMachineState createInternalState(MachineState state)
   {
     return createInternalState(masterInfoSet, XSentence, state);
+  }
+
+  /**
+   * @return whether the game may be treated as a puzzle (has no
+   * dependence on any other role's moves)
+   */
+  public boolean getIsPseudoPuzzle()
+  {
+    return isPseudoPuzzle;
   }
 
   public void performSemanticAnalysis()
@@ -1266,7 +1276,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(fullPropNet);
       fullPropNet.renderToFile("c:\\temp\\propnet_014_UnreachablesRemoved.dot");
 
-      OptimizingPolymorphicPropNetFactory.removeIrrelevantBasesAndInputs(fullPropNet, ourRole);
+      isPseudoPuzzle = OptimizingPolymorphicPropNetFactory.removeIrrelevantBasesAndInputs(fullPropNet, ourRole);
       fullPropNet.renderToFile("c:\\temp\\propnet_016_IrrelevantRemoved.dot");
       LOGGER.debug("Num components after unreachable removal: " + fullPropNet.getComponents().size());
 
@@ -1378,21 +1388,19 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           LOGGER.info("Game appears to factorize into " + factors.size() + " factors");
         }
 
+        mNonControlMask = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+
         if ( factorAnalyser.getControlProps() != null )
         {
-          mNonControlMask = new ForwardDeadReckonInternalMachineState(masterInfoSet);
-
           for(PolymorphicProposition p : factorAnalyser.getControlProps())
           {
             ForwardDeadReckonPropositionInfo info = ((ForwardDeadReckonProposition)p).getInfo();
 
             mNonControlMask.add(info);
           }
-
-          System.out.println("ControlMask is: " + mNonControlMask);
-
-          mNonControlMask.invert();
         }
+
+        mNonControlMask.invert();
       }
 
       fullPropNet.crystalize(masterInfoSet, null, maxInstances);

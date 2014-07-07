@@ -39,6 +39,13 @@ public class GameCharacteristics
   boolean moveChoicesFromMultipleFactors = false;
 
   /**
+   * Whether the game may be treated as a puzzle.  This will include all 1-player games,
+   * but also multi-player games where actually only our moves have any impact on the
+   * state relevant to us
+   */
+  boolean isPseudoPuzzle                 = false;
+
+  /**
    * Constructor.
    *
    * @param roleCount - Number of roles in the game
