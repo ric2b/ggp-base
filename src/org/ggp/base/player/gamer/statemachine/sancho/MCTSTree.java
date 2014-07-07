@@ -10,6 +10,7 @@ import java.util.Random;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
+import org.ggp.base.player.gamer.statemachine.sancho.MoveScoreInfo.MoveScoreInfoAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeEdge.TreeEdgeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathAllocator;
@@ -34,12 +35,6 @@ public class MCTSTree
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  class MoveScoreInfo
-  {
-    public final double[] averageScores = new double[numRoles];
-    public int    numSamples = 0;
-  }
-
   public static final boolean                          FREE_COMPLETED_NODE_CHILDREN                = true;                                                          //true;
   public static final boolean                          DISABLE_ONE_LEVEL_MINIMAX                   = true;
   private static final boolean                         SUPPORT_TRANSITIONS                         = true;
@@ -60,6 +55,7 @@ public class MCTSTree
   final ScoreVectorPool                                scoreVectorPool;
   final Pool<TreeEdge>                                 edgePool;
   final Pool<TreePath>                                 mPathPool;
+  final CappedPool<MoveScoreInfo>                      mCachedMoveScorePool;
   private final Map<ForwardDeadReckonInternalMachineState, TreeNode> mPositions;
   int                                                  sweepInstance                               = 0;
   List<TreeNode>                                       completedNodeQueue                          = new LinkedList<>();
@@ -91,6 +87,7 @@ public class MCTSTree
   boolean                                              evaluateTerminalOnNodeCreation;
   private final TreeNodeAllocator                      mTreeNodeAllocator;
   final TreeEdgeAllocator                              mTreeEdgeAllocator;
+  final MoveScoreInfoAllocator                         mMoveScoreInfoAllocator;
   private final TreePathAllocator                      mTreePathAllocator;
   final GameSearcher                                   mGameSearcher;
   final StateSimilarityMap                             mStateSimilarityMap;
@@ -199,6 +196,8 @@ public class MCTSTree
     {
       mChildStatesBuffer[lii] = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
     }
+    mMoveScoreInfoAllocator = new MoveScoreInfoAllocator(numRoles);
+    mCachedMoveScorePool = new CappedPool<>(MAX_SUPPORTED_BRANCHING_FACTOR);
   }
 
   public void empty()

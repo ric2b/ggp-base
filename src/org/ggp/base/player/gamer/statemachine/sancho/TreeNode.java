@@ -11,7 +11,6 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.ggp.base.player.gamer.statemachine.sancho.MCTSTree.MoveScoreInfo;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
@@ -2321,6 +2320,7 @@ public class TreeNode
     {
       tree.cousinMovesCachedFor = getRef();
       tree.cousinMoveCache.clear();
+      tree.mCachedMoveScorePool.clear(tree.mMoveScoreInfoAllocator, false);
 
       for (TreeNode parent : parents)
       {
@@ -2357,7 +2357,7 @@ public class TreeNode
                   MoveScoreInfo accumulatedMoveInfo = tree.cousinMoveCache.get(move);
                   if (accumulatedMoveInfo == null)
                   {
-                    accumulatedMoveInfo = tree.new MoveScoreInfo();
+                    accumulatedMoveInfo = tree.mCachedMoveScorePool.allocate(tree.mMoveScoreInfoAllocator);
                     tree.cousinMoveCache.put(move, accumulatedMoveInfo);
                   }
 
