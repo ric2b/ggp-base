@@ -798,6 +798,14 @@ public class GameSearcher implements Runnable, ActivityController
   }
 
   /**
+   * @return plan for the current game
+   */
+  public GamePlan getPlan()
+  {
+    return mPlan;
+  }
+
+  /**
    * Update the sample size in order to try to keep the search thread busy, because it is the only thread able to access
    * the tree (to avoid hideous locking code) and is therefore usually the bottleneck.
    *

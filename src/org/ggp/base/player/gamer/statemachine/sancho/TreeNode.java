@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
@@ -1911,6 +1912,42 @@ public class TreeNode
     }
   }
 
+  private void considerPathToAsPlan()
+  {
+    assert(isTerminal);
+
+    GamePlan plan = tree.mGameSearcher.getPlan();
+    if ( plan != null )
+    {
+      List<ForwardDeadReckonLegalMoveInfo> fullPlayoutList = new LinkedList<>();
+
+      //  Pick arbitrary path back to the root
+      TreeNode current = this;
+
+      while(current != tree.root)
+      {
+        TreeNode parent = current.parents.get(0);
+
+        for(Object choice : parent.children)
+        {
+          if ( choice instanceof TreeEdge )
+          {
+            TreeEdge edge = (TreeEdge)choice;
+
+            if ( edge.mChildRef != NULL_REF && get(edge.mChildRef) == current )
+            {
+              fullPlayoutList.add(0, edge.mPartialMove);
+            }
+          }
+        }
+
+        current = parent;
+      }
+
+      plan.considerPlan(fullPlayoutList);
+    }
+  }
+
   public void expand(TreePathElement pathTo, ForwardDeadReckonLegalMoveInfo[] jointPartialMove)
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.expand");
@@ -1934,6 +1971,10 @@ public class TreeNode
 
           if (isTerminal)
           {
+            if ( tree.numRoles == 1 && info.terminalScore[0] == 100 )
+            {
+              considerPathToAsPlan();
+            }
             markComplete(info.terminalScore, depth);
             return;
           }
@@ -2064,6 +2105,10 @@ public class TreeNode
                 newChild.autoExpand = info.autoExpand;
                 if (info.isTerminal)
                 {
+                  if ( tree.numRoles == 1 && info.terminalScore[0] == 100 )
+                  {
+                    newChild.considerPathToAsPlan();
+                  }
                   newChild.markComplete(info.terminalScore, (short)(depth + 1));
                 }
               }
