@@ -868,6 +868,7 @@ public class TreeNode
     TreeNode floorDeciderNode = null;
     short determiningChildCompletionDepth = Short.MAX_VALUE;
     boolean siblingCheckNeeded = false;
+    double selectedOurScore = Double.MAX_VALUE;
 
     for (int i = 0; i < tree.numRoles; i++)
     {
@@ -917,9 +918,16 @@ public class TreeNode
                 worstDeciderNode = lNode;
               }
 
-              if (lNode.getAverageScore(roleIndex) >= bestValue)
+              //  In the event of several choices having the same score for the deciding role
+              //  assume that the one with the worst score for us will be chosen
+              double deciderScore = lNode.getAverageScore(roleIndex);
+              if ( deciderScore > bestValue || (deciderScore == bestValue && roleIndex != 0 && lNode.getAverageScore(0) < selectedOurScore))
               {
-                bestValue = lNode.getAverageScore(roleIndex);
+                if ( bestValue == deciderScore )
+                {
+                  selectedOurScore = lNode.getAverageScore(0);
+                }
+                bestValue = deciderScore;
                 bestValueNode = lNode;
 
                 if (bestValue > 100-EPSILON)
