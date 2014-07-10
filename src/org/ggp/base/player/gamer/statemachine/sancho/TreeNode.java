@@ -3480,6 +3480,10 @@ public class TreeNode
       {
         xiValues = lOverrides;
         assert(checkFixedSum(xiValues));
+        for (int lRoleIndex = 0; lRoleIndex < tree.numRoles; lRoleIndex++)
+        {
+          xiSquaredValues[lRoleIndex] = xiValues[lRoleIndex]*xiValues[lRoleIndex];
+        }
       }
 
       for (int lRoleIndex = 0; lRoleIndex < tree.numRoles; lRoleIndex++)

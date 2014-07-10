@@ -46,8 +46,14 @@ public class MCTSTree
    * upward their values (while playing out something that adds information at the level below) seems
    * harmful in most games, but strongly beneficial in some simultaneous move games.  Consequently
    * this flag allows it to be disabled for all but simultaneous move games
+   *
+   * UPDATE - a recent modification to prevent the mechanism distorting the perceived variance
+   * of ancestor nodes when this mechanism is triggered appears to have resolved the observed degradation
+   * previously seen in C4, Pentago, and a few other games.  Results with it enabled are now no worse
+   * in any game so far tested, and significantly better in some, so default enabling at this time.
+   * Eventually this flag will probably be removed once we're more confident that always enabling is ok
    */
-  final boolean                                        allowAllGamesToSelectThroughComplete        = false;
+  final boolean                                        allowAllGamesToSelectThroughComplete        = true;
   ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
   final int                                            numRoles;
