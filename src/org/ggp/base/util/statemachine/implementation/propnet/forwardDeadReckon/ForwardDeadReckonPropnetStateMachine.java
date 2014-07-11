@@ -128,6 +128,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mNegativeGoalLatches      = null;
   private Set<PolymorphicProposition>                                  mPositiveBasePropLatches        = null;
   private Set<PolymorphicProposition>                                  mNegativeBasePropLatches        = null;
+  private final Set<GdlSentence>                                       mFillerMoves                    = new HashSet<>();
+
   private final TerminalResultSet                                      mResultSet                      = new TerminalResultSet();
   // A re-usable iterator over the propositions in a machine state.
   private final InternalMachineStateIterator                           mStateIterator = new InternalMachineStateIterator();
@@ -1276,7 +1278,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(fullPropNet);
       fullPropNet.renderToFile("c:\\temp\\propnet_014_UnreachablesRemoved.dot");
 
-      isPseudoPuzzle = OptimizingPolymorphicPropNetFactory.removeIrrelevantBasesAndInputs(fullPropNet, ourRole);
+      isPseudoPuzzle = OptimizingPolymorphicPropNetFactory.removeIrrelevantBasesAndInputs(fullPropNet, ourRole, mFillerMoves);
       fullPropNet.renderToFile("c:\\temp\\propnet_016_IrrelevantRemoved.dot");
       LOGGER.debug("Num components after unreachable removal: " + fullPropNet.getComponents().size());
 
@@ -1677,8 +1679,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         //  Moves with no dependencies (typically a noop) can appear in multiple factors, but
         //  should be tagged as factor-free
-        setMoveFactorsForPropnet(propNetX);
-        setMoveFactorsForPropnet(propNetO);
+        setMoveInfoForPropnet(propNetX);
+        setMoveInfoForPropnet(propNetO);
       }
 
 //      stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -1703,31 +1705,44 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
-  private void setMoveFactorsForPropnet(ForwardDeadReckonPropNet pn)
+  private void setMoveInfoForPropnet(ForwardDeadReckonPropNet pn)
   {
+    //  Moves with no dependencies (typically a noop) can appear in multiple factors, but
+    //  should be tagged as factor-free
     Set<ForwardDeadReckonLegalMoveInfo> multiFactorMoves = new HashSet<>();
 
     for(ForwardDeadReckonLegalMoveInfo info : pn.getMasterMoveList())
     {
       if ( info != null )
       {
-        for(Factor factor : factors)
+        if ( factors != null )
         {
-          if ( factor.getMoves().contains(info.move))
+          for(Factor factor : factors)
           {
-            if ( info.factor != null )
+            if ( factor.getMoves().contains(info.move))
             {
-              multiFactorMoves.add(info);
+              if ( info.factor != null )
+              {
+                multiFactorMoves.add(info);
+              }
+              info.factor = factor;
             }
-            info.factor = factor;
           }
+        }
+
+        if ( info.inputProposition != null && mFillerMoves.contains(info.inputProposition.getName()))
+        {
+          info.isVirtualNoOp = true;
         }
       }
     }
 
-    for(ForwardDeadReckonLegalMoveInfo info : multiFactorMoves)
+    if ( factors != null )
     {
-      info.factor = null;
+      for(ForwardDeadReckonLegalMoveInfo info : multiFactorMoves)
+      {
+        info.factor = null;
+      }
     }
   }
 
@@ -3616,14 +3631,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       propNetXWithoutGoals.reset(true);
       propNetOWithoutGoals.reset(true);
 
-      //  Set move factor info
-      if ( factors != null )
-      {
-        //  Moves with no dependencies (typically a noop) can appear in multiple factors, but
-        //  should be tagged as factor-free
-        setMoveFactorsForPropnet(propNetXWithoutGoals);
-        setMoveFactorsForPropnet(propNetOWithoutGoals);
-      }
+      //  Set move factor info and virtual-noop info
+      setMoveInfoForPropnet(propNetXWithoutGoals);
+      setMoveInfoForPropnet(propNetOWithoutGoals);
     }
 
     propNetO = propNetOWithoutGoals;

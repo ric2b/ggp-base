@@ -2026,23 +2026,28 @@ public class TreeNode
           }
         }
 
+        boolean foundVirtualNoOp = false;
         for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
         {
           ForwardDeadReckonLegalMoveInfo newChoice = tree.searchFilter.nextFilteredMove(itr);
 
-          boolean isPseudoNullMove = (tree.factor != null);
+          boolean isPseudoNullMove = (tree.factor != null && mNumChildren > 1);
 
           jointPartialMove[roleIndex] = newChoice;
-          for (int i = 0; i <= roleIndex; i++)
+
+          if ( isPseudoNullMove )
           {
-            if (jointPartialMove[i].inputProposition != null)
+            for (int i = 0; i <= roleIndex; i++)
             {
-              isPseudoNullMove = false;
+              if (jointPartialMove[i].inputProposition != null)
+              {
+                isPseudoNullMove = false;
+              }
             }
           }
 
           ForwardDeadReckonInternalMachineState newState = tree.mChildStatesBuffer[lMoveIndex];
-          if (roleIndex == tree.numRoles - 1)
+          if (roleIndex == tree.numRoles - 1 && (!foundVirtualNoOp || !newChoice.isVirtualNoOp))
           {
             newState = tree.mChildStatesBuffer[lMoveIndex];
             tree.underlyingStateMachine.getNextState(state,
@@ -2069,13 +2074,24 @@ public class TreeNode
           }
 
           //	Check for multiple moves that all transition to the same state
+          //  Note - we use an approximation of the true game for search purposes
+          //  wherein all virtual noops are considered to be the same and thus
+          //  transition to the same state.  This is not strictly accurate, but is
+          //  likely to be a very good approximation for any reasonable game.  The
+          //  approximation would brak down in games where:
+          //  1) There is a pool of virtual no-ops (aka moves that impact only parts of the
+          //     base state space that are disconnected for our goals)
+          //  2) An elective no-op can be beneficial
+          //  3) The size of the pool of noops significantly depends on the particular
+          //     choice made between them on ancestor nodes
           if (!isPseudoNullMove)
           {
             for (short i = 0; i < lMoveIndex; i++)
             {
               if (children[i] != null &&
-                  roleIndex == tree.numRoles - 1 &&
-                  tree.mChildStatesBuffer[i].equals(newState))
+                  ((foundVirtualNoOp && newChoice.isVirtualNoOp) ||
+                   (roleIndex == tree.numRoles - 1 &&
+                    tree.mChildStatesBuffer[i].equals(newState))))
               {
                 if ( primaryChoiceMapping == null )
                 {
@@ -2093,6 +2109,8 @@ public class TreeNode
 
           assert(newChoice != null);
           children[lMoveIndex] = newChoice;
+
+          foundVirtualNoOp |= newChoice.isVirtualNoOp;
         }
 
         if (evaluateTerminalOnNodeCreation && roleIndex == tree.numRoles - 1)

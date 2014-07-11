@@ -1570,9 +1570,12 @@ public class OptimizingPolymorphicPropNetFactory
    * such an opponent might make
    * @param pn - propnet
    * @param ourRole - who we are (or null if no analysis relative to our role is required)
+   * @param fillerMoveSet  - set to which all input propositions for moves which are only included
+   *                         as virtual noops (have no direct impact on any base props related to our goals)
+   *                         will have their GDL sentences added
    * @return true if the game can be treated as a puzzle (has no dependence on any other role's moves)
    */
-  public static boolean removeIrrelevantBasesAndInputs(PolymorphicPropNet pn, Role ourRole)
+  public static boolean removeIrrelevantBasesAndInputs(PolymorphicPropNet pn, Role ourRole, Set<GdlSentence> fillerMoveSet)
   {
     boolean isPseudoPuzzle = false;
 
@@ -1586,10 +1589,15 @@ public class OptimizingPolymorphicPropNetFactory
     //  a real game!
     if ( ourRole != null && pn.getGoalPropositions().get(ourRole).length > 1 )
     {
+      Set<PolymorphicComponent> coreReachableComponents = new HashSet<>();
+
       for( PolymorphicProposition c : pn.getGoalPropositions().get(ourRole))
       {
         recursiveFindReachable(pn, c, reachableComponents);
       }
+
+      //  The core reachable components are those relevant directly to our goals
+      coreReachableComponents.addAll(reachableComponents);
 
       if ( pn.getRoles().length > 1 )
       {
@@ -1617,7 +1625,21 @@ public class OptimizingPolymorphicPropNetFactory
         for( PolymorphicProposition c : pn.getLegalPropositions().get(ourRole))
         {
           recursiveFindReachable(pn, c, reachableComponents);
+
+          //  If a legal is no within the core reachable set it has no impact on anything
+          //  that influences our goals and is therefore only relevant as a possible source of
+          //  what amounts to a noop (in the subset of relevant components)
+          if ( !coreReachableComponents.contains(c) )
+          {
+            PolymorphicProposition input = pn.getLegalInputMap().get(c);
+            if ( input != null )
+            {
+              fillerMoveSet.add(input.getName());
+            }
+          }
         }
+
+        System.out.println("Filler move set: " + fillerMoveSet);
 
         //  Now include all legals and goals for roles which already have ANY moves included
         //  For most games this will be all of them, but in games where the opponents moves do not
@@ -1654,6 +1676,18 @@ public class OptimizingPolymorphicPropNetFactory
             for( PolymorphicProposition c : pn.getLegalPropositions().get(role))
             {
               recursiveFindReachable(pn, c, reachableComponents);
+
+              //  If a legal is no within the core reachable set it has no impact on anything
+              //  that influences our goals and is therefore only relevant as a possible source of
+              //  what amounts to a noop (in the subset of relevant components)
+              if ( !coreReachableComponents.contains(c) )
+              {
+                PolymorphicProposition input = pn.getLegalInputMap().get(c);
+                if ( input != null )
+                {
+                  fillerMoveSet.add(input.getName());
+                }
+              }
             }
           }
           else

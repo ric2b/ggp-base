@@ -36,6 +36,10 @@ public class ForwardDeadReckonLegalMoveInfo
    * Whether this is an artificial noop inserted during game factorization
    */
   public boolean                      isPseudoNoOp;
+  /**
+   * Whether this move amounts to a nop-op on the goal-relevant part of the state
+   */
+  public boolean                      isVirtualNoOp;
 
   /**
    * Construct a new move info instance
