@@ -234,7 +234,10 @@ public class Sancho extends SampleGamer
     puzzlePlayer = null;
 
     ourRole = getRole();
-    LOGGER.info("We are: " + ourRole);
+    LOGGER.info("Start clock: " + getMatch().getStartClock() + "s");
+    LOGGER.info("Play clock:  " + getMatch().getPlayClock() + "s");
+    LOGGER.info("We are:      " + ourRole);
+
     numRoles = underlyingStateMachine.getRoles().length;
     roleOrdering = new RoleOrdering(underlyingStateMachine, ourRole);
 
