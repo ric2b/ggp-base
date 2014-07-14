@@ -31,7 +31,7 @@ public class PieceHeuristic implements Heuristic
   private static final int                                               MIN_PIECE_PROP_ARITY      = 3;    // Assume board of at least 2 dimensions + piece type
   private static final int                                               MAX_PIECE_PROP_ARITY      = 4;    // For now (until we can do game-specific learning) restrict to exactly 2-d boards
   private static final int                                               MIN_PIECES_THRESHOLD      = 6;
-  private static final double                                            MIN_HEURISTIC_CORRELATION = 0.09;
+  private static final double                                            MIN_HEURISTIC_CORRELATION = 0.08;
 
   private Map<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> propGroupScoreSets        = null;
   private int                                                            numRoles                  = 0;
