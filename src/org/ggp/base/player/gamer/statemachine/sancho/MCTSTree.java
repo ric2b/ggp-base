@@ -69,6 +69,8 @@ public class MCTSTree
   long                                                 cousinMovesCachedFor                        = TreeNode.NULL_REF;
   final double[]                                       roleRationality;
   final double[]                                       bonusBuffer;
+  final int[]                                          latchedScoreRangeBuffer                     = new int[2];
+  final int[]                                          roleMaxScoresBuffer;
   long                                                 numCompletionsProcessed                     = 0;
   Random                                               r                                           = new Random();
   int                                                  numTerminalRollouts                         = 0;
@@ -170,6 +172,7 @@ public class MCTSTree
 
     bonusBuffer = new double[numRoles];
     roleRationality = new double[numRoles];
+    roleMaxScoresBuffer = new int[numRoles];
 
     //  For now assume players in muli-player games are somewhat irrational.
     //  FUTURE - adjust during the game based on correlations with expected
@@ -440,6 +443,7 @@ public class MCTSTree
     numNonTerminalRollouts = 0;
     numTerminalRollouts = 0;
 
+    //root.dumpTree("c:\\temp\\mctsTree.txt");
     return bestMoveInfo;
   }
 

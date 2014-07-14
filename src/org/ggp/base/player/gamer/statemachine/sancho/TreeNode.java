@@ -472,7 +472,8 @@ public class TreeNode
 
     for (int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
     {
-      if (getAverageScore(roleIndex) > 100 - EPSILON)
+      tree.underlyingStateMachine.getLatchedScoreRange(state, tree.roleOrdering.roleIndexToRole(roleIndex), tree.latchedScoreRangeBuffer);
+      if (getAverageScore(roleIndex) > tree.latchedScoreRangeBuffer[1] - EPSILON)
       {
         if (roleIndex == decidingRoleIndex &&
             (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == 0 || hasSiblinglessParents()))
@@ -873,6 +874,9 @@ public class TreeNode
     for (int i = 0; i < tree.numRoles; i++)
     {
       tree.mNodeAverageScores[i] = 0;
+
+      tree.underlyingStateMachine.getLatchedScoreRange(state, tree.roleOrdering.roleIndexToRole(i), tree.latchedScoreRangeBuffer);
+      tree.roleMaxScoresBuffer[i] = tree.latchedScoreRangeBuffer[1];
     }
 
     int numUniqueChildren = 0;
@@ -930,7 +934,7 @@ public class TreeNode
                 bestValue = deciderScore;
                 bestValueNode = lNode;
 
-                if (bestValue > 100-EPSILON)
+                if (bestValue > tree.roleMaxScoresBuffer[roleIndex]-EPSILON)
                 {
                   //	Win for deciding role which they will choose unless it is also
                   //	a mutual win
@@ -938,7 +942,7 @@ public class TreeNode
 
                   for (int i = 0; i < tree.numRoles; i++)
                   {
-                    if (lNode.getAverageScore(i) < 100-EPSILON)
+                    if (lNode.getAverageScore(i) < tree.roleMaxScoresBuffer[i]-EPSILON)
                     {
                       if (determiningChildCompletionDepth > lNode.getCompletionDepth())
                       {
@@ -3150,6 +3154,7 @@ public class TreeNode
     assert(lRecursiveCall || roleIndex == 0);
     assert(mNumChildren != 0) : "Asked to get best move when there are NO CHILDREN!";
 
+    int maxChildVisitCount = 1;
     if (!lRecursiveCall)
     {
       for (int lii = 0; lii < mNumChildren; lii++)
@@ -3159,6 +3164,11 @@ public class TreeNode
         if (edge != null && edge.mChildRef != NULL_REF)
         {
           TreeNode lNode = get(edge.mChildRef);
+
+          if ( edge.getNumChildVisits() > maxChildVisitCount )
+          {
+            maxChildVisitCount = edge.getNumChildVisits();
+          }
           if (lNode.complete)
           {
             anyComplete = true;
@@ -3227,7 +3237,14 @@ public class TreeNode
           assert(moveScore >= -100);
         }
 
-        selectionScore = moveScore;
+        //  A complete score is certain, but we're comparing within a set that has only
+        //  has numVisits TOTAL visits so still down-weight by the same visit count the most
+        //  selected child has.  This avoids a tendency to throw a marginal win away for a
+        //  definite draw.  Especially in games with low signal to noise ratio (everything looks
+        //  close to 50%) this can be important
+        selectionScore = moveScore *
+            (1 - 20 * Math.log(numVisits) /
+                (20 * Math.log(numVisits) + maxChildVisitCount));
       }
       else
       {
@@ -3279,7 +3296,7 @@ public class TreeNode
       //	Don't accept a complete score which no rollout has seen worse than, if there is
       //	any alternative
       if (bestNode != null && !bestNode.complete && child.complete &&
-          moveScore <= tree.mGameSearcher.lowestRolloutScoreSeen &&
+          moveScore < tree.mGameSearcher.lowestRolloutScoreSeen &&
           tree.mGameSearcher.lowestRolloutScoreSeen < 100)
       {
         continue;
@@ -3288,7 +3305,7 @@ public class TreeNode
           selectionScore > bestScore ||
           (selectionScore == bestScore && child.complete && (child.completionDepth < bestNode.completionDepth || !bestNode.complete)) ||
           (bestNode.complete && !child.complete &&
-          bestNode.getAverageScore(roleIndex) <= tree.mGameSearcher.lowestRolloutScoreSeen && tree.mGameSearcher.lowestRolloutScoreSeen < 100))
+          bestNode.getAverageScore(roleIndex) < tree.mGameSearcher.lowestRolloutScoreSeen && tree.mGameSearcher.lowestRolloutScoreSeen < 100))
       {
         bestNode = child;
         bestScore = selectionScore;

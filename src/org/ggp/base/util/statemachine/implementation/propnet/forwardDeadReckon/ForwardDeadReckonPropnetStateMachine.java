@@ -109,6 +109,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private ForwardDeadReckonProposition[]                               previouslyChosenJointMovePropsO = null;
   private int[]                                                        previouslyChosenJointMovePropIdsX = null;
   private int[]                                                        previouslyChosenJointMovePropIdsO = null;
+  private int[]                                                        latchedScoreRangeBuffer         = new int[2];
   private ForwardDeadReckonPropositionCrossReferenceInfo[]             masterInfoSet                   = null;
   private ForwardDeadReckonLegalMoveInfo[]                             masterLegalMoveSet              = null;
   private StateMachine                                                 validationMachine               = null;
@@ -133,6 +134,23 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private final TerminalResultSet                                      mResultSet                      = new TerminalResultSet();
   // A re-usable iterator over the propositions in a machine state.
   private final InternalMachineStateIterator                           mStateIterator = new InternalMachineStateIterator();
+
+  //  In games with negative goal latches greedy rollouts treat state transitions that lower the opponent's
+  //  maximum achievable score somewhat like transitions to winning terminal states, which is to say they
+  //  preferentially select them, and preferentially avoid the converse of their own max score being
+  //  reduced.  The next two parameters govern how strong that preference is (0 = pref -> 100 = always)
+  //  Ideally these parameters will have natural values of 0 or 100 corresponding to the mechanism being
+  //  turned on or off - anything in between implies another parameter to tune that is highly likely to be
+  //  game dependent.  The most natural setting would be (100,100) which would be directly analogous with
+  //  the handling of decisive win terminals, however, experimentation with ELB (the canonical game for multi-player
+  //  with goal latches) shows that (100,0) works a bit better.  This feels wrong, because it is equivalent to
+  //  saying (in ELB) that kings will always be captured when they can be during a rollout (fine), but nothing
+  //  will be done to avoid putting a king in a position where it can be immediately captured (seems wrong).
+  //  This empirical preference for (100,0) over (100,100) is something I am no entirely comfortable with, but
+  //  until a counter example comes along we'll just live with (note (100,100) is still WAY better than before we had
+  //  the mechanism at all, so if we had to go to that due to a counter example this is still a big step forward)
+  private final int                                                    latchImprovementWeight = 100;
+  private final int                                                    latchWorseningAvoidanceWeight = 0;
 
 
   private class TestPropnetStateMachineStats extends Stats
@@ -656,11 +674,67 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   }
 
   /**
+   * Get the latched range of possible scores for a given role in a given state
+   * @param xiState - the state
+   * @param role - the role
+   * @param range - array of length 2 to contain [min,max]
+   */
+  public void getLatchedScoreRange(ForwardDeadReckonInternalMachineState xiState, Role role, int[] range)
+  {
+    assert(range.length == 2);
+
+    //  Initialize to sentinel values
+    range[0] = Integer.MAX_VALUE;
+    range[1] = -Integer.MAX_VALUE;
+
+    for(PolymorphicProposition goalProp : fullPropNet.getGoalPropositions().get(role))
+    {
+      ForwardDeadReckonInternalMachineState negativeMask = null;
+      int latchedScore = Integer.parseInt(goalProp.getName().getBody().get(1).toString());
+
+      if ( mPositiveGoalLatches != null )
+      {
+        ForwardDeadReckonInternalMachineState positiveMask = mPositiveGoalLatches.get(goalProp);
+        if (xiState.intersects(positiveMask))
+        {
+          range[0] = latchedScore;
+          range[1] = latchedScore;
+          break;
+        }
+      }
+      if ( mNegativeGoalLatches != null )
+      {
+        negativeMask = mNegativeGoalLatches.get(goalProp);
+      }
+      if ( negativeMask == null || !xiState.intersects(negativeMask))
+      {
+        //  This is still a possible score
+        if ( latchedScore < range[0] )
+        {
+          range[0] = latchedScore;
+        }
+        if ( latchedScore > range[1] )
+        {
+          range[1] = latchedScore;
+        }
+      }
+    }
+  }
+
+  /**
    * @return whether there are any negative goal latches.
    */
   public boolean hasNegativelyLatchedGoals()
   {
     return (mNegativeGoalLatches != null);
+  }
+
+  /**
+   * @return whether there are any positive goal latches.
+   */
+  public boolean hasPositivelyLatchedGoals()
+  {
+    return (mPositiveGoalLatches != null);
   }
 
   /**
@@ -2880,6 +2954,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     public int                              baseChoiceIndex;
     public int                              nextChoiceIndex;
     public int                              rolloutSeq;
+    public int                              maxAchievableOpponentScoreTotal;
     final ForwardDeadReckonInternalMachineState   state = new ForwardDeadReckonInternalMachineState(getInfoSet());
     Role                                    choosingRole;
 
@@ -2957,14 +3032,34 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           }
           else
           {
-            results.considerResult(rolloutDecisionStack[rolloutStackDepth].choosingRole);
-            break;
+            if (!isTerminal())
+            {
+              if (rolloutStackDepth++ >= hintMoveDepth)
+              {
+                hintMoveProp = null;
+              }
+            }
+            else
+            {
+              results.considerResult(rolloutDecisionStack[rolloutStackDepth].choosingRole);
+              break;
+            }
           }
         }
         else
         {
-          results.considerResult(rolloutDecisionStack[rolloutStackDepth].choosingRole);
-          break;
+          if (!isTerminal())
+          {
+            if (rolloutStackDepth++ >= hintMoveDepth)
+            {
+              hintMoveProp = null;
+            }
+          }
+          else
+          {
+            results.considerResult(rolloutDecisionStack[rolloutStackDepth].choosingRole);
+            break;
+          }
         }
       }
       else if (!isTerminal())
@@ -3083,6 +3178,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       decisionState.chooserIndex = -1;
       decisionState.baseChoiceIndex = -1;
       decisionState.nextChoiceIndex = -1;
+      decisionState.maxAchievableOpponentScoreTotal = -1;
       totalRoleoutNodesExamined++;
 
       for (Role role : getRoles())
@@ -3188,7 +3284,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     else if (decisionState.chooserIndex != -1)
     {
       int choiceIndex;
-      boolean preEnumerate = false;
+      boolean preEnumerate = hasNegativelyLatchedGoals();
       int numTerminals = 0;
 
       if (decisionState.baseChoiceIndex == -1)
@@ -3196,6 +3292,17 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         double total = 0;
 
         decisionState.state.copy(lastInternalSetState);
+        decisionState.maxAchievableOpponentScoreTotal = 0;
+
+        for(Role role : getRoles())
+        {
+          if ( !role.equals(decisionState.choosingRole))
+          {
+            getLatchedScoreRange(decisionState.state, role, latchedScoreRangeBuffer);
+
+            decisionState.maxAchievableOpponentScoreTotal += latchedScoreRangeBuffer[1];
+          }
+        }
 
         for (int i = 0; i < decisionState.numChoices; i++)
         {
@@ -3204,8 +3311,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           {
             total += moveWeights.weightScore[chooserMove.masterIndex];
           }
-          if (!preEnumerate &&
-              terminatingMoveProps.contains(chooserMove.inputProposition))
+          if (!preEnumerate && terminatingMoveProps.contains(chooserMove.inputProposition))
           {
             preEnumerate = true;
             numRolloutDecisionNodeExpansions++;
@@ -3273,7 +3379,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
               {
                 numTerminals++;
 
-                if (getGoal(decisionState.choosingRole) == 100)
+                getLatchedScoreRange(lastInternalSetState, decisionState.choosingRole, latchedScoreRangeBuffer);
+                if (getGoal(decisionState.choosingRole) == latchedScoreRangeBuffer[1])
                 {
                   if (playedMoves != null)
                   {
@@ -3287,6 +3394,32 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                 results.considerResult(decisionState.choosingRole);
 
                 decisionState.propProcessed[i] = true;
+              }
+              else if ( hasNegativelyLatchedGoals() )
+              {
+                int newMaxAchievableOpponentScoreTotal = 0;
+                for(Role role : getRoles())
+                {
+                  if ( !role.equals(decisionState.choosingRole))
+                  {
+                    getLatchedScoreRange(lastInternalSetState, role, latchedScoreRangeBuffer);
+
+                    newMaxAchievableOpponentScoreTotal += latchedScoreRangeBuffer[1];
+                  }
+                }
+
+                if ( newMaxAchievableOpponentScoreTotal < decisionState.maxAchievableOpponentScoreTotal )
+                {
+                  if ( getRandom(100) < latchImprovementWeight )
+                  {
+                    decisionState.nextChoiceIndex = decisionState.baseChoiceIndex;
+                    if ( getRandom(100) < latchWorseningAvoidanceWeight )
+                    {
+                      return hintMoveProp;
+                    }
+                    return null;
+                  }
+                }
               }
 
               transitioned = true;
@@ -3348,7 +3481,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                 .add(decisionState.chooserMoves[choice].inputProposition);
           }
 
-          if (getGoal(decisionState.choosingRole) == 100)
+          getLatchedScoreRange(lastInternalSetState, decisionState.choosingRole, latchedScoreRangeBuffer);
+          if (getGoal(decisionState.choosingRole) == latchedScoreRangeBuffer[1])
           {
             if (playedMoves != null)
             {
@@ -3365,6 +3499,32 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
           results.considerResult(decisionState.choosingRole);
           decisionState.propProcessed[choice] = true;
+        }
+        else if ( hasNegativelyLatchedGoals() )
+        {
+          int newMaxAchievableOpponentScoreTotal = 0;
+          for(Role role : getRoles())
+          {
+            if ( !role.equals(decisionState.choosingRole))
+            {
+              getLatchedScoreRange(lastInternalSetState, role, latchedScoreRangeBuffer);
+
+              newMaxAchievableOpponentScoreTotal += latchedScoreRangeBuffer[1];
+            }
+          }
+
+          if ( newMaxAchievableOpponentScoreTotal < decisionState.maxAchievableOpponentScoreTotal )
+          {
+            if ( getRandom(100) < latchImprovementWeight )
+            {
+              decisionState.nextChoiceIndex = (choiceIndex+1)%decisionState.numChoices;
+              if ( getRandom(100) < latchWorseningAvoidanceWeight )
+              {
+                return decisionState.chooserMoves[choice].inputProposition;
+              }
+              return null;
+            }
+          }
         }
       }
 
