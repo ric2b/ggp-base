@@ -36,7 +36,7 @@ public class GameSearcher implements Runnable, ActivityController
   /**
    * Whether the sample size is updated as a result of thread performance measurements.
    */
-  public static final boolean             USE_DYNAMIC_SAMPLE_SIZING = true;
+  public static final boolean USE_DYNAMIC_SAMPLE_SIZING = true;
 
   /**
    * Whether to disable dynamic node trimming on full node pool (else just stall search until re-rooting)
@@ -80,6 +80,7 @@ public class GameSearcher implements Runnable, ActivityController
 
   private final SampleAverageMean         mAverageFringeDepth = new SampleAverageMean();
   private final SampleAverageRMS          mRMSFringeDepth = new SampleAverageRMS();
+
   /**
    * Average observed branching factor from ode expansions
    */
@@ -116,6 +117,16 @@ public class GameSearcher implements Runnable, ActivityController
   private long numCompletedRollouts = 0;
 
   private double currentExplorationBias;
+
+  /**
+   * Accumulated iteration timings.
+   */
+  private long mSelectTime;
+  private long mExpandTime;
+  private long mQueueTime;
+  private long mRolloutTime;
+  private long mQueue2Time;
+  private long mBackPropTime;
 
   /**
    * Create a game tree searcher with the specified maximum number of nodes.
@@ -287,6 +298,43 @@ public class GameSearcher implements Runnable, ActivityController
               }
               numAllocations = newNumAllocations;
               numTranspositions = newNumTranspositions;
+
+              // Log the iteration timings
+              long lTotalTime = mSelectTime +
+                                mExpandTime +
+                                mQueueTime +
+                                mRolloutTime +
+                                mQueue2Time +
+                                mBackPropTime;
+              if (lTotalTime != 0)
+              {
+                long lRunning = mSelectTime;
+                Series.STACKED_SELECT.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+                lRunning += mExpandTime;
+                Series.STACKED_EXPAND.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+                lRunning += mQueueTime;
+                Series.STACKED_QUEUE.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+                lRunning += mRolloutTime;
+                Series.STACKED_ROLLOUT.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+                lRunning += mQueue2Time;
+                Series.STACKED_QUEUE2.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+                lRunning += mBackPropTime;
+                Series.STACKED_BACKPROP.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+                assert(lRunning == lTotalTime) : "Timings don't add up - " + lRunning + " != " + lTotalTime;
+              }
+
+              mSelectTime   = 0;
+              mExpandTime   = 0;
+              mQueueTime    = 0;
+              mRolloutTime  = 0;
+              mQueue2Time   = 0;
+              mBackPropTime = 0;
 
               //Future intent will be to add these to the stats logger when it is stable
               //double fringeDepth = mAverageFringeDepth.getMean();
@@ -729,6 +777,7 @@ public class GameSearcher implements Runnable, ActivityController
       }
 
       RolloutRequest lRequest = mPipeline.getNextRequestForBackPropagation();
+      long lDequeue2Time = System.nanoTime();
 
       if (longestObservedLatency < lRequest.mQueueLatency)
       {
@@ -750,6 +799,7 @@ public class GameSearcher implements Runnable, ActivityController
 
       //masterMoveWeights.accumulate(request.playedMoveWeights);
 
+      long lBackPropTime = 0;
       if (!lRequest.mPath.isFreed())
       {
         TreeNode lNode = TreeNode.get(mNodePool, lRequest.mNodeRef);
@@ -786,12 +836,19 @@ public class GameSearcher implements Runnable, ActivityController
             mPlan.considerPlan(fullPlayoutList);
           }
 
-          lNode.updateStats(lRequest.mAverageScores,
-                            lRequest.mAverageSquaredScores,
-                            lRequest.mPath,
-                            false);
+          lBackPropTime = lNode.updateStats(lRequest.mAverageScores,
+                                            lRequest.mAverageSquaredScores,
+                                            lRequest.mPath,
+                                            false);
         }
       }
+
+      recordIterationTimings(lRequest.mSelectElapsedTime,
+                             lRequest.mExpandElapsedTime,
+                             lRequest.mQueueLatency,
+                             lRequest.mEnqueue2Time - lRequest.mRolloutStartTime,
+                             lDequeue2Time - lRequest.mEnqueue2Time,
+                             lBackPropTime);
 
       mPathPool.free(lRequest.mPath);
       lRequest.mPath = null;
@@ -799,6 +856,31 @@ public class GameSearcher implements Runnable, ActivityController
       xiNeedToDoOne = false;
       mNumIterations++;
     }
+  }
+
+  /**
+   * Accumulate the timings from an iteration.
+   *
+   * @param xiSelectTime
+   * @param xiExpandTime
+   * @param xiQueueTime
+   * @param xiRolloutTime
+   * @param xiQueue2Time
+   * @param xiBackPropTime
+   */
+  void recordIterationTimings(long xiSelectTime,
+                              long xiExpandTime,
+                              long xiQueueTime,
+                              long xiRolloutTime,
+                              long xiQueue2Time,
+                              long xiBackPropTime)
+  {
+    mSelectTime   += xiSelectTime;
+    mExpandTime   += xiExpandTime;
+    mQueueTime    += xiQueueTime;
+    mRolloutTime  += xiRolloutTime;
+    mQueue2Time   += xiQueue2Time;
+    mBackPropTime += xiBackPropTime;
   }
 
   /**

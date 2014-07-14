@@ -485,6 +485,7 @@ public class MCTSTree
       //validateAll();
       completedNodeQueue.clear();
 
+      long lSelectStartTime = System.nanoTime();
       TreePath visited = mPathPool.allocate(mTreePathAllocator);
       TreeNode cur = root;
       TreePathElement selected = null;
@@ -494,6 +495,7 @@ public class MCTSTree
         cur = selected.getChildNode();
       }
 
+      long lExpandStartTime = System.nanoTime();
       TreeNode newNode;
       if (!cur.complete)
       {
@@ -555,7 +557,11 @@ public class MCTSTree
 
       // Perform the rollout request.
       assert(!newNode.freed);
-      newNode.rollOut(visited, mGameSearcher.getPipeline(), forceSynchronous);
+      newNode.rollOut(visited,
+                      mGameSearcher.getPipeline(),
+                      forceSynchronous,
+                      lExpandStartTime - lSelectStartTime,
+                      System.nanoTime() - lExpandStartTime);
     }
     finally
     {

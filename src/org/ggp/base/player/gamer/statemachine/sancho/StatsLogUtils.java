@@ -45,7 +45,12 @@ public class StatsLogUtils
     /**
      * Performance.
      */
-    PERF;
+    PERF,
+
+    /**
+     * Iteration timings.
+     */
+    TIMES,
   }
 
   /**
@@ -79,52 +84,82 @@ public class StatsLogUtils
     /**
      * Expected score.
      */
-    SCORE          (Graph.SCORE, 0, SeriesType.RAW,  true,  "Expected score"),
+    SCORE           (Graph.SCORE, 0, SeriesType.RAW,  true,  "Expected score"),
 
     /**
      * Currently used heap (bytes).
      */
-    MEM_USED       (Graph.MEM,   0, SeriesType.RAW,  false, "Mem used"),
+    MEM_USED        (Graph.MEM,   0, SeriesType.RAW,  false, "Mem used"),
 
     /**
      * Memory allocated from the O.S. for heap usage (bytes).
      */
-    MEM_COMMITTED  (Graph.MEM,   0, SeriesType.RAW,  false, "Mem committed"),
+    MEM_COMMITTED   (Graph.MEM,   0, SeriesType.RAW,  false, "Mem committed"),
 
     /**
      * Maximum configured heap size (bytes).
      */
-    MEM_MAX        (Graph.MEM,   0, SeriesType.RAW,  false, "Mem max"),
+    MEM_MAX         (Graph.MEM,   0, SeriesType.RAW,  false, "Mem max"),
 
     /**
      * Number of MCTS tree nodes allocated.
      */
-    POOL_USAGE     (Graph.MEM,   1, SeriesType.RAW,  false, "Pool usage"),
+    POOL_USAGE      (Graph.MEM,   1, SeriesType.RAW,  false, "Pool usage"),
 
     /**
      * Allocation rate (100KB/s).
      */
-    MEM_ALLOC_RATE (Graph.MEM,   1, SeriesType.RATE, false, "Mem alloc. rate (100KB/s)"),
+    MEM_ALLOC_RATE  (Graph.MEM,   1, SeriesType.RATE, false, "Mem alloc. rate (100KB/s)"),
 
     /**
      * Garbage collection time (ms).
      */
-    GC_TIME        (Graph.GC,    0, SeriesType.DIFF, false, "Time"),
+    GC_TIME         (Graph.GC,    0, SeriesType.DIFF, false, "Time"),
 
     /**
      * Garbage collection count.
      */
-    GC_COUNT       (Graph.GC,    1, SeriesType.DIFF, false, "Count"),
+    GC_COUNT        (Graph.GC,    1, SeriesType.DIFF, false, "Count"),
 
     /**
      * Node expansions.
      */
-    NODE_EXPANSIONS(Graph.PERF,  0, SeriesType.RATE, false, "Node expansions"),
+    NODE_EXPANSIONS (Graph.PERF,  0, SeriesType.RATE, false, "Node expansions"),
 
     /**
      * Sample rate (rollouts per node expansion).
      */
-    SAMPLE_RATE    (Graph.PERF,  1, SeriesType.RAW,  true,  "Sample rate"),
+    SAMPLE_RATE     (Graph.PERF,  1, SeriesType.RAW,  true,  "Sample rate"),
+
+    /**
+     * Percentage of iteration time spent up to the end of the MCTS Select phase.
+     */
+    STACKED_SELECT  (Graph.TIMES, 0, SeriesType.RAW,  false, "Select"),
+
+    /**
+     * Percentage of iteration time spent up to the end of the MCTS Expand phase.
+     */
+    STACKED_EXPAND  (Graph.TIMES, 0, SeriesType.RAW,  false, "Expand"),
+
+    /**
+     * Percentage of iteration time spent up to the point of dequeuing requests for rollout.
+     */
+    STACKED_QUEUE   (Graph.TIMES, 0, SeriesType.RAW,  false, "Queue"),
+
+    /**
+     * Percentage of iteration time spent up to the end of the MCTS Rollout phase.
+     */
+    STACKED_ROLLOUT (Graph.TIMES, 0, SeriesType.RAW,  false, "Rollout"),
+
+    /**
+     * Percentage of iteration time spent up to the point of dequeuing requests for back-propagation.
+     */
+    STACKED_QUEUE2  (Graph.TIMES, 0, SeriesType.RAW,  false, "Queue2"),
+
+    /**
+     * Percentage of iteration time spent up to the end of the MCTS Back-Propagation phase.
+     */
+    STACKED_BACKPROP(Graph.TIMES, 0, SeriesType.RAW,  false, "Back-prop"),
 
     /**
      * Node expansions.
@@ -134,12 +169,12 @@ public class StatsLogUtils
     /**
      * Node expansions.
      */
-    TRANSITION_RATE(Graph.NODE,  1, SeriesType.RAW, false, "Transition rate"),
+    TRANSITION_RATE (Graph.NODE,  1, SeriesType.RAW, false, "Transition rate"),
 
     /**
      * The current turn (0 during meta-gaming).
      */
-    TURN           (Graph.NONE,  1, SeriesType.RAW,  true,  "Turn");
+    TURN            (Graph.NONE,  1, SeriesType.RAW,  true,  "Turn");
 
     /**
      * Fixed data defining the series.

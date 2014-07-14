@@ -3357,7 +3357,24 @@ public class TreeNode
     return result;
   }
 
-  public void rollOut(TreePath path, Pipeline xiPipeline, boolean forceSynchronous) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
+  /**
+   * Perform a rollout.
+   *
+   * @param path             - the path to the selected node.
+   * @param xiPipeline       - the pipeline from which RolloutRequests can be allocated.
+   * @param forceSynchronous - whether this rollout *must* be performed synchronously.
+   * @param xiSelectTime     - the elapsed time to select the node.
+   * @param xiExpandTime     - the elapsed time to expand the node.
+   *
+   * @throws MoveDefinitionException
+   * @throws TransitionDefinitionException
+   * @throws GoalDefinitionException
+   */
+  public void rollOut(TreePath path,
+                      Pipeline xiPipeline,
+                      boolean forceSynchronous,
+                      long xiSelectTime,
+                      long xiExpandTime) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     //  Rolling out from this node constitutes a visit, and the leaf node that we roll out
     //  from will not have had its visit count updated by select as it has not been selected through
@@ -3379,10 +3396,11 @@ public class TreeNode
         tree.mNodeAverageSquaredScores[i] = getAverageSquaredScore(i);
       }
 
-      updateStats(tree.mNodeAverageScores,
-                  tree.mNodeAverageSquaredScores,
-                  path,
-                  true);
+      long lBackPropTime = updateStats(tree.mNodeAverageScores,
+                                       tree.mNodeAverageSquaredScores,
+                                       path,
+                                       true);
+      tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, 0, lBackPropTime);
       tree.mPathPool.free(path);
 
       return;
@@ -3424,6 +3442,8 @@ public class TreeNode
     assert(!freed) : "Rollout node is a freed node";
     assert(path.isValid()) : "Rollout path isn't valid";
 
+    lRequest.mSelectElapsedTime = xiSelectTime;
+    lRequest.mExpandElapsedTime = xiExpandTime;
     lRequest.mState.copy(state);
     lRequest.mNodeRef = getRef();
     lRequest.mSampleSize = tree.gameCharacteristics.getRolloutSampleSize();
@@ -3445,11 +3465,13 @@ public class TreeNode
       // Do the rollout and back-propagation synchronously (on this thread).
       assert(ThreadControl.ROLLOUT_THREADS == 0 || forceSynchronous);
       lRequest.process(tree.underlyingStateMachine, tree.mOurRole, tree.roleOrdering);
+      long lRolloutTime = System.nanoTime() - lRequest.mRolloutStartTime;
       assert(!Double.isNaN(lRequest.mAverageScores[0]));
-      updateStats(lRequest.mAverageScores,
-                  lRequest.mAverageSquaredScores,
-                  lRequest.mPath,
-                  true);
+      long lBackPropTime = updateStats(lRequest.mAverageScores,
+                                       lRequest.mAverageSquaredScores,
+                                       lRequest.mPath,
+                                       true);
+      tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, lRolloutTime, 0, lBackPropTime);
       tree.mPathPool.free(lRequest.mPath);
       lRequest.mPath = null;
     }
@@ -3462,12 +3484,15 @@ public class TreeNode
    * @param xiSquaredValues           - The per-role squared values (for computing variance).
    * @param xiPath                    - The path taken through the tree for the rollout.
    * @param xiIsCompletePseudoRollout - Whether this is a complete pseudo-rollout.
+   *
+   * @return the time taken to do the update, in nanoseconds
    */
-  public void updateStats(double[] xiValues,
+  public long updateStats(double[] xiValues,
                           double[] xiSquaredValues,
                           TreePath xiPath,
                           boolean xiIsCompletePseudoRollout)
   {
+    long lStartTime = System.nanoTime();
     assert(checkFixedSum(xiValues));
 
     TreeNode lNextNode;
@@ -3486,7 +3511,7 @@ public class TreeNode
         lNextNode = xiPath.getNextNode();
         if (lNextNode == null)
         {
-          return;
+          return System.nanoTime() - lStartTime;
         }
       }
 
@@ -3551,6 +3576,8 @@ public class TreeNode
       assert(checkFixedSum(xiValues));
       assert(checkFixedSum());
     }
+
+    return System.nanoTime() - lStartTime;
   }
 
   /**

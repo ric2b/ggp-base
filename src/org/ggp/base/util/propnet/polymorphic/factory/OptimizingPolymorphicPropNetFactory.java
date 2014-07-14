@@ -1639,7 +1639,7 @@ public class OptimizingPolymorphicPropNetFactory
           }
         }
 
-        System.out.println("Filler move set: " + fillerMoveSet);
+        LOGGER.info("Filler move set: " + fillerMoveSet);
 
         //  Now include all legals and goals for roles which already have ANY moves included
         //  For most games this will be all of them, but in games where the opponents moves do not
