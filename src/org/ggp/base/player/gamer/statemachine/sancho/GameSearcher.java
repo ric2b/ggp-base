@@ -123,6 +123,7 @@ public class GameSearcher implements Runnable, ActivityController
    */
   private long mSelectTime;
   private long mExpandTime;
+  private long mGetSlotTime;
   private long mQueueTime;
   private long mRolloutTime;
   private long mQueue2Time;
@@ -302,6 +303,7 @@ public class GameSearcher implements Runnable, ActivityController
               // Log the iteration timings
               long lTotalTime = mSelectTime +
                                 mExpandTime +
+                                mGetSlotTime +
                                 mQueueTime +
                                 mRolloutTime +
                                 mQueue2Time +
@@ -313,6 +315,9 @@ public class GameSearcher implements Runnable, ActivityController
 
                 lRunning += mExpandTime;
                 Series.STACKED_EXPAND.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+                lRunning += mGetSlotTime;
+                Series.STACKED_GET_SLOT.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
 
                 lRunning += mQueueTime;
                 Series.STACKED_QUEUE.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
@@ -331,6 +336,7 @@ public class GameSearcher implements Runnable, ActivityController
 
               mSelectTime   = 0;
               mExpandTime   = 0;
+              mGetSlotTime  = 0;
               mQueueTime    = 0;
               mRolloutTime  = 0;
               mQueue2Time   = 0;
@@ -749,35 +755,40 @@ public class GameSearcher implements Runnable, ActivityController
    *
    * @param xiNeedToDoOne - whether this method should block until at least 1 rollout has been performed.
    *
+   * @return the amount of time (in nanoseconds) that this method stalled waiting for work to do (when xiNeedToDoOne
+   *         is true).  This doesn't include time spent doing back-propagation of any items removed from the pipeline.
+   *
    * @throws MoveDefinitionException
    * @throws TransitionDefinitionException
    * @throws GoalDefinitionException
    */
-  void processCompletedRollouts(boolean xiNeedToDoOne) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
+  long processCompletedRollouts(boolean xiNeedToDoOne) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
+    long lStallTime = 0;
     boolean canBackPropagate;
 
     while ((canBackPropagate = mPipeline.canBackPropagate()) || xiNeedToDoOne)
     {
       if (xiNeedToDoOne && !canBackPropagate && mGameCharacteristics.getRolloutSampleSize() == 1)
       {
-        //  If the rollout threads are not keeping up and the pipeline
-        //  is full then perform an expansion synchronously while we
-        //  wait for the rollout pool to have results for us
+        // If the rollout threads are not keeping up and the pipeline is full then perform an expansion synchronously
+        // while we wait for the rollout pool to have results for us.
         expandSearch(true);
         mNumIterations++;
 
-        //  This method can be called re-entrantly from the above, which means that the rollout
-        //  pipeline may no longer be blocked, in which case we should return immediately
+        // This method can be called re-entrantly from the above, which means that the rollout pipeline may no longer be
+        // blocked, in which case we should return immediately.
         if (mPipeline.canExpand())
         {
-          return;
+          return 0;
         }
         continue;
       }
 
+      long lStallStartTime = System.nanoTime();
       RolloutRequest lRequest = mPipeline.getNextRequestForBackPropagation();
       long lDequeue2Time = System.nanoTime();
+      lStallTime = lDequeue2Time - lStallStartTime;
 
       if (longestObservedLatency < lRequest.mQueueLatency)
       {
@@ -845,6 +856,7 @@ public class GameSearcher implements Runnable, ActivityController
 
       recordIterationTimings(lRequest.mSelectElapsedTime,
                              lRequest.mExpandElapsedTime,
+                             lRequest.mGetSlotElapsedTime,
                              lRequest.mQueueLatency,
                              lRequest.mEnqueue2Time - lRequest.mRolloutStartTime,
                              lDequeue2Time - lRequest.mEnqueue2Time,
@@ -856,6 +868,8 @@ public class GameSearcher implements Runnable, ActivityController
       xiNeedToDoOne = false;
       mNumIterations++;
     }
+
+    return lStallTime;
   }
 
   /**
@@ -863,6 +877,7 @@ public class GameSearcher implements Runnable, ActivityController
    *
    * @param xiSelectTime
    * @param xiExpandTime
+   * @param xiGetSlotTime
    * @param xiQueueTime
    * @param xiRolloutTime
    * @param xiQueue2Time
@@ -870,6 +885,7 @@ public class GameSearcher implements Runnable, ActivityController
    */
   void recordIterationTimings(long xiSelectTime,
                               long xiExpandTime,
+                              long xiGetSlotTime,
                               long xiQueueTime,
                               long xiRolloutTime,
                               long xiQueue2Time,
@@ -877,6 +893,7 @@ public class GameSearcher implements Runnable, ActivityController
   {
     mSelectTime   += xiSelectTime;
     mExpandTime   += xiExpandTime;
+    mGetSlotTime  += xiGetSlotTime;
     mQueueTime    += xiQueueTime;
     mRolloutTime  += xiRolloutTime;
     mQueue2Time   += xiQueue2Time;

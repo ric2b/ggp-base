@@ -169,8 +169,8 @@ public class Pipeline
     {
       if (mNextDrainThread == 0)
       {
-        //  Spin for 1-2ms before yielding else we introduce a timeslice latency
-        //  for what could be a substantially sub-timeslice wait
+        // Spin for 1-2ms before yielding else we introduce a timeslice latency for what could be a substantially
+        // sub-timeslice wait.
         if ( startSpin >= System.currentTimeMillis()-1 )
         {
           Thread.yield();

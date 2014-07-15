@@ -142,6 +142,11 @@ public class StatsLogUtils
     STACKED_EXPAND  (Graph.TIMES, 0, SeriesType.RAW,  false, "Expand"),
 
     /**
+     * Percentage of iteration time spent up to the point where a pipeline slot is available.
+     */
+    STACKED_GET_SLOT(Graph.TIMES, 0, SeriesType.RAW,  false, "Get Slot"),
+
+    /**
      * Percentage of iteration time spent up to the point of dequeuing requests for rollout.
      */
     STACKED_QUEUE   (Graph.TIMES, 0, SeriesType.RAW,  false, "Queue"),

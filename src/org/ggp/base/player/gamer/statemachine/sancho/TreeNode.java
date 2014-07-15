@@ -3374,7 +3374,8 @@ public class TreeNode
                       Pipeline xiPipeline,
                       boolean forceSynchronous,
                       long xiSelectTime,
-                      long xiExpandTime) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
+                      long xiExpandTime)
+    throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     //  Rolling out from this node constitutes a visit, and the leaf node that we roll out
     //  from will not have had its visit count updated by select as it has not been selected through
@@ -3400,7 +3401,7 @@ public class TreeNode
                                        tree.mNodeAverageSquaredScores,
                                        path,
                                        true);
-      tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, 0, lBackPropTime);
+      tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, 0, 0, lBackPropTime);
       tree.mPathPool.free(path);
 
       return;
@@ -3413,6 +3414,7 @@ public class TreeNode
 
     // Get a rollout request object.
     RolloutRequest lRequest;
+    long lGetSlotTime = 0;
     if (ThreadControl.ROLLOUT_THREADS > 0 && !forceSynchronous)
     {
       // Get a request slot from the pipeline.
@@ -3420,7 +3422,7 @@ public class TreeNode
       {
         // The pipeline is full.  We can't expand it until we've done some back-propagation.  Even though none was
         // available at the start of the expansion, we'll just have to wait.
-        tree.mGameSearcher.processCompletedRollouts(true);
+        lGetSlotTime = tree.mGameSearcher.processCompletedRollouts(true);
 
         //  Processing completions above could have resulted in a node on the rollout
         //  path from being freed (because it has been determined to be complete or an
@@ -3442,8 +3444,9 @@ public class TreeNode
     assert(!freed) : "Rollout node is a freed node";
     assert(path.isValid()) : "Rollout path isn't valid";
 
-    lRequest.mSelectElapsedTime = xiSelectTime;
-    lRequest.mExpandElapsedTime = xiExpandTime;
+    lRequest.mSelectElapsedTime  = xiSelectTime;
+    lRequest.mExpandElapsedTime  = xiExpandTime;
+    lRequest.mGetSlotElapsedTime = lGetSlotTime;
     lRequest.mState.copy(state);
     lRequest.mNodeRef = getRef();
     lRequest.mSampleSize = tree.gameCharacteristics.getRolloutSampleSize();
@@ -3471,7 +3474,7 @@ public class TreeNode
                                        lRequest.mAverageSquaredScores,
                                        lRequest.mPath,
                                        true);
-      tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, lRolloutTime, 0, lBackPropTime);
+      tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, lRolloutTime, 0, lBackPropTime);
       tree.mPathPool.free(lRequest.mPath);
       lRequest.mPath = null;
     }

@@ -31,6 +31,7 @@ class RolloutRequest
 
   public long                                  mSelectElapsedTime;
   public long                                  mExpandElapsedTime;
+  public long                                  mGetSlotElapsedTime;
   public long                                  mEnqueueTime;
   public long                                  mRolloutStartTime;
   public long                                  mEnqueue2Time;
