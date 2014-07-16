@@ -670,7 +670,7 @@ public class Sancho extends SampleGamer
       LOGGER.info("Puzzle with no observed solution");
 
       MachineState terminalState;
-      Set<MachineState> goalStates = underlyingStateMachine.findGoalStates(getRole(), 90, 100, 20);
+      Set<MachineState> goalStates = underlyingStateMachine.findGoalStates(getRole(), 90, 500, 20);
       //Set<MachineState> goalStates = underlyingStateMachine.findTerminalStates(100,20);
       Set<MachineState> cleanedStates = new HashSet<>();
 

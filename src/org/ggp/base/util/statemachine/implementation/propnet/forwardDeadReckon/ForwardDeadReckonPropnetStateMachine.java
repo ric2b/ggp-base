@@ -1203,7 +1203,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       return subResults;
     }
 
-    throw new RuntimeException("Unknon component");
+    throw new RuntimeException("Unknown component");
   }
 
   public Set<MachineState> findSupportStates(GdlSentence queryProposition,
@@ -1222,16 +1222,19 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                                                   maxDepth,
                                                                   0);
 
-      for (AntecedantCursor c : cursorSet)
+      if ( cursorSet != null )
       {
-        MachineState satisfyingState = new MachineState(new HashSet<GdlSentence>());
-
-        for (PolymorphicProposition prop : c.positiveProps)
+        for (AntecedantCursor c : cursorSet)
         {
-          satisfyingState.getContents().add(prop.getName());
-        }
+          MachineState satisfyingState = new MachineState(new HashSet<GdlSentence>());
 
-        result.add(satisfyingState);
+          for (PolymorphicProposition prop : c.positiveProps)
+          {
+            satisfyingState.getContents().add(prop.getName());
+          }
+
+          result.add(satisfyingState);
+        }
       }
     }
 
