@@ -54,6 +54,7 @@ public class MCTSTree
    * Eventually this flag will probably be removed once we're more confident that always enabling is ok
    */
   final boolean                                        allowAllGamesToSelectThroughComplete        = true;
+  final boolean                                        useEstimatedValueForUnplayedNodes;
   ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
   final int                                            numRoles;
@@ -150,6 +151,12 @@ public class MCTSTree
     gameCharacteristics = xiGameCharacateristics;
     rolloutPool = xiRolloutPool;
     mPositions = new HashMap<>((int)(nodePool.getCapacity() / 0.75f), 0.75f);
+
+    //  For now we only enable use of estimated values for unplayed nodes (in select)
+    //  in games with negative goal latches, which amounts to ELB.  This is because tests
+    //  are giving erratic results, and I don't want to risk enabling more broadly close
+    //  to the world championships.  Further testing is needed.
+    useEstimatedValueForUnplayedNodes = underlyingStateMachine.hasNegativelyLatchedGoals();
 
     if ( xiFactor != null )
     {
