@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+  <entry key="num_roles">1</entry>
+  <entry key="simultaneous">false</entry>
+  <entry key="pseudo_simultaneous">false</entry>
+  <entry key="iterated">true</entry>
+  <entry key="num_factors">15</entry>
+  <entry key="moves_in_multiple_factors">true</entry>
+  <entry key="max_branching_factor">45</entry>
+  <entry key="fixed_length">true</entry>
+  <entry key="plan">a 10,b 10,c 10,a 10,b 10,a 10</entry>
+</properties>
