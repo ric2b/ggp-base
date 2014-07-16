@@ -304,9 +304,9 @@ public class GameSearcher implements Runnable, ActivityController
               long lTotalTime = mSelectTime +
                                 mExpandTime +
                                 mGetSlotTime +
-                                mQueueTime +
+                                //mQueueTime +
                                 mRolloutTime +
-                                mQueue2Time +
+                                //mQueue2Time +
                                 mBackPropTime;
               if (lTotalTime != 0)
               {
@@ -319,14 +319,14 @@ public class GameSearcher implements Runnable, ActivityController
                 lRunning += mGetSlotTime;
                 Series.STACKED_GET_SLOT.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
 
-                lRunning += mQueueTime;
-                Series.STACKED_QUEUE.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+                //lRunning += mQueueTime;
+                //Series.STACKED_QUEUE.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
 
                 lRunning += mRolloutTime;
                 Series.STACKED_ROLLOUT.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
 
-                lRunning += mQueue2Time;
-                Series.STACKED_QUEUE2.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+                //lRunning += mQueue2Time;
+                //Series.STACKED_QUEUE2.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
 
                 lRunning += mBackPropTime;
                 Series.STACKED_BACKPROP.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
