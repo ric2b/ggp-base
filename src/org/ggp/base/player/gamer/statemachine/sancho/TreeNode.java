@@ -1180,22 +1180,28 @@ public class TreeNode
           {
             if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
             {
-              TreeEdge edge = (TreeEdge)children[index];
-              assert ( edge != null );
-              assert(edge.mChildRef != NULL_REF);
+              Object choice = children[index];
 
-              TreeNode lNode = get(edge.mChildRef);
-              assert(lNode != null);
-              assert(lNode.complete);
-
-              //  Add epsilon in case all are 0
-              double chooserScore = getAverageCousinMoveValue(edge, roleIndex) + EPSILON;
-
-              for (int i = 0; i < tree.numRoles; i++)
+              //  Pseudo-noops in factored games can still be unexpanded at this point
+              if ( choice instanceof TreeEdge )
               {
-                tree.mBlendedCompletionScoreBuffer[i] += chooserScore*lNode.getAverageScore(i);
+                TreeEdge edge = (TreeEdge)choice;
+
+                assert(edge.mChildRef != NULL_REF);
+
+                TreeNode lNode = get(edge.mChildRef);
+                assert(lNode != null);
+                assert(lNode.complete);
+
+                //  Add epsilon in case all are 0
+                double chooserScore = getAverageCousinMoveValue(edge, roleIndex) + EPSILON;
+
+                for (int i = 0; i < tree.numRoles; i++)
+                {
+                  tree.mBlendedCompletionScoreBuffer[i] += chooserScore*lNode.getAverageScore(i);
+                }
+                totalWeight += chooserScore;
               }
-              totalWeight += chooserScore;
             }
           }
 
@@ -1794,6 +1800,11 @@ public class TreeNode
     if (result.isTerminal)
     {
       // Add win bonus
+      //  TODO - this needs adjustment to respect latched score ranges or else
+      //  a best possible result that is a draw will not register as a decisively
+      //  propagatable completion score.  This doesn't matter for fixed sum games
+      //  that can only end with score of 0,50,100 or for puzzles, but would matter
+      //  for more complex scoring structures in multi-player games (issue tracked in GITHub)
       for (int i = 0; i < tree.numRoles; i++)
       {
         double iScore = result.terminalScore[i];
@@ -1986,9 +1997,14 @@ public class TreeNode
 
           if (isTerminal)
           {
-            if ( tree.gameCharacteristics.isPseudoPuzzle && info.terminalScore[0] == 100 )
+            if ( tree.gameCharacteristics.isPseudoPuzzle )
             {
-              considerPathToAsPlan();
+              tree.underlyingStateMachine.getLatchedScoreRange(state, tree.roleOrdering.roleIndexToRole(0), tree.latchedScoreRangeBuffer);
+
+              if ( info.terminalScore[0] == tree.latchedScoreRangeBuffer[1] )
+              {
+                considerPathToAsPlan();
+              }
             }
             markComplete(info.terminalScore, depth);
             return;
@@ -2138,9 +2154,14 @@ public class TreeNode
                 newChild.autoExpand = info.autoExpand;
                 if (info.isTerminal)
                 {
-                  if ( tree.gameCharacteristics.isPseudoPuzzle && info.terminalScore[0] == 100 )
+                  if ( tree.gameCharacteristics.isPseudoPuzzle )
                   {
-                    newChild.considerPathToAsPlan();
+                    tree.underlyingStateMachine.getLatchedScoreRange(state, tree.roleOrdering.roleIndexToRole(0), tree.latchedScoreRangeBuffer);
+
+                    if ( info.terminalScore[0] == tree.latchedScoreRangeBuffer[1] )
+                    {
+                      newChild.considerPathToAsPlan();
+                    }
                   }
                   newChild.markComplete(info.terminalScore, (short)(depth + 1));
                 }
@@ -3338,7 +3359,7 @@ public class TreeNode
       {
         bestNode = child;
         bestScore = selectionScore;
-        bestMoveScore = bestScore;
+        bestMoveScore = bestNode.getAverageScore(0);
         bestEdge = edge;
       }
       if (child.getAverageScore(roleIndex) > bestRawScore ||

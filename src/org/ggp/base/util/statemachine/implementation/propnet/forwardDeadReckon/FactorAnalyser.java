@@ -17,8 +17,8 @@ import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicOr;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
-import org.ggp.base.util.statemachine.Move;
 
 /**
  * @author steve
@@ -46,7 +46,7 @@ public class FactorAnalyser
   private class DirectDependencyInfo
   {
     public Set<PolymorphicProposition>  dependencies = new HashSet<>();
-    public Set<Move>                    moves = new HashSet<>();
+    public Set<ForwardDeadReckonLegalMoveInfo> moves = new HashSet<>();
 
     public DirectDependencyInfo()
     {
@@ -84,7 +84,7 @@ public class FactorAnalyser
     }
 
     public List<Set<PolymorphicProposition>>  dependenciesByLevel = new ArrayList<>();
-    public List<Set<Move>>  movesByLevel = new ArrayList<>();
+    public List<Set<ForwardDeadReckonLegalMoveInfo>>  movesByLevel = new ArrayList<>();
   }
 
   private class DependencyCache
@@ -171,7 +171,7 @@ public class FactorAnalyser
       int depth = 1;
 
       Set<PolymorphicProposition> dependenciesAtDepth;
-      Set<Move> movesAtDepth;
+      Set<ForwardDeadReckonLegalMoveInfo> movesAtDepth;
       do
       {
         dependenciesAtDepth = new HashSet<>();
@@ -440,10 +440,12 @@ public class FactorAnalyser
           {
             DirectDependencyInfo legalPropInfo = getComponentDirectDependencies(legalProp);
 
+            ForwardDeadReckonLegalMoveInfo[] masterMoveList = stateMachine.getFullPropNet().getMasterMoveList();
+            ForwardDeadReckonLegalMoveInfo moveInfo = masterMoveList[((ForwardDeadReckonProposition)legalProp).getInfo().index];
+
             dInfo.add(legalPropInfo);
 
-            Move move = new Move(legalProp.getName().getBody().get(1));
-            dInfo.moves.add(move);
+            dInfo.moves.add(moveInfo);
           }
         }
 

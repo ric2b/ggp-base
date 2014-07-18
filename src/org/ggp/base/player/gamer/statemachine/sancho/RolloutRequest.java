@@ -28,6 +28,7 @@ class RolloutRequest
   public int                                   mMinScore;
   public int                                   mMaxScore;
   public int                                   mThreadId;
+  private final int[]                          latchedScoreRangeBuffer = new int[2];
 
   public long                                  mSelectElapsedTime;
   public long                                  mExpandElapsedTime;
@@ -115,8 +116,12 @@ class RolloutRequest
               mMinScore = lScore;
             }
 
-            if ( lScore == 100 && playedMoves != null )
+            if ( playedMoves != null )
             {
+              stateMachine.getLatchedScoreRange(mState, xiRoleOrdering.roleIndexToRole(0), latchedScoreRangeBuffer);
+
+              if ( lScore == latchedScoreRangeBuffer[1] )
+
               //  Stop updating the played moves list since we have now found a win
               playedMoves = null;
             }

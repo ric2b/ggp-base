@@ -28,7 +28,8 @@ public class Factor implements StateMachineFilter
   private static final ForwardDeadReckonLegalMoveInfo PSEUDO_NO_OP = new ForwardDeadReckonLegalMoveInfo(true);
 
   private Set<PolymorphicComponent> components = new HashSet<>();
-  private Set<Move> moves = new HashSet<>();
+  private Set<ForwardDeadReckonLegalMoveInfo>   moveInfos = new HashSet<>();
+  private Set<Move>                             moves = null;
   private ForwardDeadReckonInternalMachineState stateMask = null;
   private ForwardDeadReckonInternalMachineState factorSpecificStateMask = null;
   private ForwardDeadReckonInternalMachineState inverseStateMask = null;
@@ -56,8 +57,22 @@ public class Factor implements StateMachineFilter
     return components;
   }
 
+  public Set<ForwardDeadReckonLegalMoveInfo> getMoveInfos()
+  {
+    return moveInfos;
+  }
+
   public Set<Move> getMoves()
   {
+    if ( moves == null )
+    {
+      moves = new HashSet<>();
+
+      for(ForwardDeadReckonLegalMoveInfo moveInfo : moveInfos)
+      {
+        moves.add(moveInfo.move);
+      }
+    }
     return moves;
   }
 
@@ -79,9 +94,9 @@ public class Factor implements StateMachineFilter
     components.addAll(toAdd);
   }
 
-  public void addAllMoves(Collection<Move> toAdd)
+  public void addAllMoves(Collection<ForwardDeadReckonLegalMoveInfo> toAdd)
   {
-    moves.addAll(toAdd);
+    moveInfos.addAll(toAdd);
   }
 
   public void dump()
@@ -98,9 +113,9 @@ public class Factor implements StateMachineFilter
     }
 
     LOGGER.debug("Factor moves:");
-    for (Move move : moves)
+    for (ForwardDeadReckonLegalMoveInfo moveInfo : moveInfos)
     {
-      LOGGER.debug("  " + move);
+      LOGGER.debug("  " + moveInfo.move);
     }
   }
 

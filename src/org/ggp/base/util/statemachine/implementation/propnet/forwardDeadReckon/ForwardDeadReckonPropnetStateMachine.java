@@ -695,7 +695,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       if ( mPositiveGoalLatches != null )
       {
         ForwardDeadReckonInternalMachineState positiveMask = mPositiveGoalLatches.get(goalProp);
-        if (xiState.intersects(positiveMask))
+        if (positiveMask != null && xiState.intersects(positiveMask))
         {
           range[0] = latchedScore;
           range[1] = latchedScore;
@@ -1454,6 +1454,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         basePropChangeCounts.put(info, 0);
       }
 
+      fullPropNet.crystalize(masterInfoSet, null, maxInstances);
+      masterLegalMoveSet = fullPropNet.getMasterMoveList();
+
       //  Allow no more than half the remaining time for factorization analysis and partitioning
       //  analysis
       long factorizationAnalysisTimeout =  (metagameTimeout - System.currentTimeMillis())/2;
@@ -1481,9 +1484,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
         mNonControlMask.invert();
       }
-
-      fullPropNet.crystalize(masterInfoSet, null, maxInstances);
-      masterLegalMoveSet = fullPropNet.getMasterMoveList();
 
       for(ForwardDeadReckonPropositionInfo info : masterInfoSet)
       {
@@ -1788,6 +1788,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     //  should be tagged as factor-free
     Set<ForwardDeadReckonLegalMoveInfo> multiFactorMoves = new HashSet<>();
 
+    ForwardDeadReckonLegalMoveInfo[] factoredIndexMoveList = fullPropNet.getMasterMoveList();
     for(ForwardDeadReckonLegalMoveInfo info : pn.getMasterMoveList())
     {
       if ( info != null )
@@ -1796,7 +1797,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           for(Factor factor : factors)
           {
-            if ( factor.getMoves().contains(info.move))
+            if ( factor.getMoveInfos().contains(factoredIndexMoveList[info.masterIndex]))
             {
               if ( info.factor != null )
               {

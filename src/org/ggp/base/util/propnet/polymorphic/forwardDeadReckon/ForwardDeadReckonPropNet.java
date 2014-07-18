@@ -144,6 +144,14 @@ public ForwardDeadReckonPropNet(Role[] roles,
                                   activeLegalMoves[instanceId]);
           }
         }
+
+        //  Record the legalMoveInfo master index against the legal move prop
+        ForwardDeadReckonPropositionInfo propInfo = new ForwardDeadReckonPropositionInfo();
+
+        propInfo.sentence = p.getName();
+        propInfo.index = info.masterIndex;
+
+        pfdr.setInfo(propInfo);
       }
 
       roleIndex++;
