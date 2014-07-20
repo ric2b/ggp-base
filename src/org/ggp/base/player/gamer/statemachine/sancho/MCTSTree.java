@@ -152,12 +152,16 @@ public class MCTSTree
     rolloutPool = xiRolloutPool;
     mPositions = new HashMap<>((int)(nodePool.getCapacity() / 0.75f), 0.75f);
 
-    //  For now we only enable use of estimated values for unplayed nodes (in select)
-    //  in games with negative goal latches, which amounts to ELB.  This is because tests
-    //  are giving erratic results, and I don't want to risk enabling more broadly close
-    //  to the world championships.  Further testing is needed.
-    useEstimatedValueForUnplayedNodes = underlyingStateMachine.hasNegativelyLatchedGoals();
+    //  For now we only automatically enable use of estimated values for unplayed nodes (in select)
+    //  in games with negative goal latches, which amounts to ELB.  Further testing is needed, so for
+    //  now wider enablement requires an explicit config setting.
+    useEstimatedValueForUnplayedNodes = MachineSpecificConfiguration.getCfgVal(CfgItem.ENABLE_INITIAL_NODE_ESTIMATION, false) |
+                                        underlyingStateMachine.hasNegativelyLatchedGoals();
 
+    if ( useEstimatedValueForUnplayedNodes )
+    {
+      LOGGER.info("Estimated initial values for nodes with no play-throughs is enabled");
+    }
     if ( xiFactor != null )
     {
       mNonFactorInitialState = xiStateMachine.createInternalState(xiStateMachine.getInitialState());

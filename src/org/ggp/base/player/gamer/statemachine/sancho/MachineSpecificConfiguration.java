@@ -74,11 +74,15 @@ public class MachineSpecificConfiguration
      */
     FIXED_SAMPLE_SIZE,
 
-
     /**
      * Explicit transposition table size to use (aka max node count)
      */
-    NODE_TABLE_SIZE;
+    NODE_TABLE_SIZE,
+
+    /**
+     * Whether to enable initial node estimation in all games
+     */
+    ENABLE_INITIAL_NODE_ESTIMATION;
   }
 
   private static final Properties MACHINE_PROPERTIES = new Properties();
