@@ -175,7 +175,7 @@ public class TargetedSolutionStatePlayer
           AStarNode newChild = new AStarNode(stateBuffer, node, moveInfo.move);
           AStarFringe.add(newChild);
 
-          AStarVisitedStates.add(steplessStateBuffer);
+          AStarVisitedStates.add(new ForwardDeadReckonInternalMachineState(steplessStateBuffer));
         }
       }
     }
