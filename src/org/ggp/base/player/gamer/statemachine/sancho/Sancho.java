@@ -733,7 +733,7 @@ public class Sancho extends SampleGamer
             //  Now that we attempt A* solving during meta-gaming we might want to consider entirely
             //  ditching the old-style solver, and just falling back to MCTS if A* fails, but for now
             //  leaving intact
-            LOGGER.warn("Not solved by A* in available meta-gaming time");
+            LOGGER.warn("Not solved by A* in available meta-gaming time - remianing time: " + (timeout - System.currentTimeMillis()) + "ms");
           }
         }
       }

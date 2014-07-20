@@ -117,6 +117,7 @@ public class TargetedSolutionStatePlayer
     }
 
     int largestDequeuePriority = -1;
+    int numStatesProcessed = 0;
 
     Set<ForwardDeadReckonInternalMachineState> AStarVisitedStates = new HashSet<>();
     ForwardDeadReckonLegalMoveInfo[] jointMove = new ForwardDeadReckonLegalMoveInfo[1];
@@ -125,6 +126,7 @@ public class TargetedSolutionStatePlayer
 
     while (!AStarFringe.isEmpty() && System.currentTimeMillis() < timeout)
     {
+      numStatesProcessed++;
       AStarNode node = AStarFringe.remove();
 
       if (node.getPriority() > largestDequeuePriority)
@@ -178,6 +180,7 @@ public class TargetedSolutionStatePlayer
       }
     }
 
+    LOGGER.info("A* processed " + numStatesProcessed + " states");
     return (bestGoalFound >= solutionScoreThreshold ? AStarSolutionPath : null);
   }
 

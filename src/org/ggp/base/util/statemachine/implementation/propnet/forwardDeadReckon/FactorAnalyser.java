@@ -188,6 +188,13 @@ public class FactorAnalyser
           {
             break;
           }
+
+          //  If the analysis is just taking too long give up
+          if ( System.currentTimeMillis() > startTime + timeout )
+          {
+            LOGGER.warn("Factorization analysis timed out after " + (System.currentTimeMillis() - startTime) + "ms");
+            return null;
+          }
         }
 
         dependenciesAtDepth.removeAll(dInfo.dependencies);
@@ -203,13 +210,6 @@ public class FactorAnalyser
       //  going to be able to factorize and stop wasting time on the factorization analysis
       if ( dInfo.dependencies.size() > (numBaseProps*2)/3 )
       {
-        return null;
-      }
-
-      //  If the analysis is just taking too long give up
-      if ( System.currentTimeMillis() > startTime + timeout )
-      {
-        LOGGER.warn("Factorization analysis timed out after " + (System.currentTimeMillis() - startTime) + "ms");
         return null;
       }
     }
@@ -297,6 +297,13 @@ public class FactorAnalyser
     //  dependencies - these are the factors
     while(!disjunctiveInputs.isEmpty())
     {
+      //  If the analysis is just taking too long give up
+      if ( System.currentTimeMillis() > startTime + timeout )
+      {
+        LOGGER.warn("Factorization analysis (post dependency phase) timed out after " + (System.currentTimeMillis() - startTime) + "ms");
+        return null;
+      }
+
       Factor newFactor = new Factor(stateMachine);
 
       newFactor.addAll(disjunctiveInputs.values().iterator().next().dependencies);

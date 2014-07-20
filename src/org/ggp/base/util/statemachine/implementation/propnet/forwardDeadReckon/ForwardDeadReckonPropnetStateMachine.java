@@ -3211,7 +3211,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             int rand = getRandom(decisionState.numChoices);
 
             ForwardDeadReckonLegalMoveInfo info = decisionState.chooserMoves[rand];
-            chosenJointMoveProps[decisionState.chooserIndex] = info.inputProposition;
+            decisionState.nonChooserProps[decisionState.chooserIndex] = info.inputProposition;
             if (playedMoves != null)
             {
               playedMoves.add(info);
@@ -3278,6 +3278,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     if (simultaneousMove)
     {
+      for(int i = 0; i < chosenJointMoveProps.length; i++)
+      {
+        chosenJointMoveProps[i] = decisionState.nonChooserProps[i];
+      }
+
       transitionToNextStateFromChosenMove();
 
       if (isTerminal())
