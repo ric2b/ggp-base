@@ -156,7 +156,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.59i");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.59j");
   }
 
   @Override
@@ -380,8 +380,6 @@ public class Sancho extends SampleGamer
                   {
                     if ( turnFactor != null && turnFactor != factor )
                     {
-                      //underlyingStateMachine.disableFactorization();
-                      //factors = null;
                       gameCharacteristics.moveChoicesFromMultipleFactors = true;
                       break;
                     }

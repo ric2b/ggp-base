@@ -120,7 +120,7 @@ class RolloutRequest
             {
               stateMachine.getLatchedScoreRange(mState, xiRoleOrdering.roleIndexToRole(0), latchedScoreRangeBuffer);
 
-              if ( lScore == latchedScoreRangeBuffer[1] )
+              if ( lScore == latchedScoreRangeBuffer[1] && latchedScoreRangeBuffer[1] > latchedScoreRangeBuffer[0] )
 
               //  Stop updating the played moves list since we have now found a win
               playedMoves = null;

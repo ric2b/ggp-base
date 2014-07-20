@@ -473,7 +473,8 @@ public class TreeNode
     for (int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
     {
       tree.underlyingStateMachine.getLatchedScoreRange(state, tree.roleOrdering.roleIndexToRole(roleIndex), tree.latchedScoreRangeBuffer);
-      if (getAverageScore(roleIndex) > tree.latchedScoreRangeBuffer[1] - EPSILON)
+      if ( tree.latchedScoreRangeBuffer[1] > tree.latchedScoreRangeBuffer[0] &&
+           getAverageScore(roleIndex) > tree.latchedScoreRangeBuffer[1] - EPSILON)
       {
         if (roleIndex == decidingRoleIndex &&
             (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == 0 || hasSiblinglessParents()))
@@ -1999,7 +2000,7 @@ public class TreeNode
           {
             if ( tree.gameCharacteristics.isPseudoPuzzle )
             {
-              tree.underlyingStateMachine.getLatchedScoreRange(state, tree.roleOrdering.roleIndexToRole(0), tree.latchedScoreRangeBuffer);
+              tree.underlyingStateMachine.getLatchedScoreRange(tree.root.state, tree.roleOrdering.roleIndexToRole(0), tree.latchedScoreRangeBuffer);
 
               if ( info.terminalScore[0] == tree.latchedScoreRangeBuffer[1] )
               {
@@ -2156,7 +2157,7 @@ public class TreeNode
                 {
                   if ( tree.gameCharacteristics.isPseudoPuzzle )
                   {
-                    tree.underlyingStateMachine.getLatchedScoreRange(state, tree.roleOrdering.roleIndexToRole(0), tree.latchedScoreRangeBuffer);
+                    tree.underlyingStateMachine.getLatchedScoreRange(tree.root.state, tree.roleOrdering.roleIndexToRole(0), tree.latchedScoreRangeBuffer);
 
                     if ( info.terminalScore[0] == tree.latchedScoreRangeBuffer[1] )
                     {
