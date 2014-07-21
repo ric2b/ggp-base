@@ -252,4 +252,11 @@ public class MobilityHeuristic implements Heuristic
       return new MobilityData(this);
     }
   }
+
+  @Override
+  public void tuningStartSampleGame()
+  {
+    // TODO Auto-generated method stub
+
+  }
 }

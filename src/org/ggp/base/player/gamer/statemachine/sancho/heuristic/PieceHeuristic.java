@@ -242,6 +242,17 @@ public class PieceHeuristic implements Heuristic
   }
 
   @Override
+  public void tuningStartSampleGame()
+  {
+    for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets
+        .entrySet())
+    {
+      HeuristicScoreInfo heuristicInfo = e.getValue();
+      heuristicInfo.lastValue = -1;
+    }
+  }
+
+  @Override
   public void tuningInterimStateSample(ForwardDeadReckonInternalMachineState sampleState,
                                        int choosingRoleIndex)
   {

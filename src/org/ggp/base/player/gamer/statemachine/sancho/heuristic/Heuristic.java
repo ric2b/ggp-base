@@ -59,6 +59,11 @@ public interface Heuristic
                                   RoleOrdering roleOrdering);
 
   /**
+   * Indicates the start of a new sample game
+   */
+  public void tuningStartSampleGame();
+
+  /**
    * Update tuning state as a result of a single step of a rollout (i.e. a single move in a game).
    *
    * @param state             - the new state.

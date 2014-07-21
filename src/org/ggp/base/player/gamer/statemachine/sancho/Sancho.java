@@ -156,7 +156,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.59j");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.59k");
   }
 
   @Override
@@ -341,6 +341,8 @@ public class Sancho extends SampleGamer
       int numRoleMovesSimulated = 0;
       int numBranchesTaken = 0;
 
+      heuristic.tuningStartSampleGame();
+
       while (!underlyingStateMachine.isTerminal(sampleState))
       {
         boolean roleWithChoiceSeen = false;
@@ -410,8 +412,13 @@ public class Sancho extends SampleGamer
           jointMove[roleOrdering.roleIndexToRawRoleIndex(i)] = legalMoves.get(r.nextInt(legalMoves.size()));
         }
 
-        // Tell the heuristic about the interim state, for tuning purposes.
-        heuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
+        // Tell the heuristic about the interim state, for tuning purposes.  For now
+        // if it's a forced move don't tell the heuristic as it gets confused with simultaneous
+        // moves (TODO - fix this)
+        if ( gameCharacteristics.isPseudoSimultaneousMove || choosingRoleIndex != -1 )
+        {
+          heuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
+        }
 
         sampleState = underlyingStateMachine.getNextState(sampleState, jointMove);
       }

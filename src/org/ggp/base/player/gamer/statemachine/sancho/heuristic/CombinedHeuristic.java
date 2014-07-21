@@ -80,6 +80,16 @@ public class CombinedHeuristic implements Heuristic
   }
 
   @Override
+  public void tuningStartSampleGame()
+  {
+    // Tell all the underlying heuristics about the new game.
+    for (Heuristic lHeuristic : mTuningHeuristics)
+    {
+      lHeuristic.tuningStartSampleGame();
+    }
+  }
+
+  @Override
   public void tuningInterimStateSample(ForwardDeadReckonInternalMachineState xiState,
                                        int xiChoosingRoleIndex)
   {
