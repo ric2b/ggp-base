@@ -928,10 +928,7 @@ public class TreeNode
               double deciderScore = lNode.getAverageScore(roleIndex);
               if ( deciderScore > bestValue || (deciderScore == bestValue && roleIndex != 0 && lNode.getAverageScore(0) < selectedOurScore))
               {
-                if ( bestValue == deciderScore )
-                {
-                  selectedOurScore = lNode.getAverageScore(0);
-                }
+                selectedOurScore = lNode.getAverageScore(0);
                 bestValue = deciderScore;
                 bestValueNode = lNode;
 
