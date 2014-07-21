@@ -131,6 +131,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private Set<PolymorphicProposition>                                  mPositiveBasePropLatches        = null;
   private Set<PolymorphicProposition>                                  mNegativeBasePropLatches        = null;
   private final Set<GdlSentence>                                       mFillerMoves                    = new HashSet<>();
+  private GoalsCalculator                                              mGoalsCalculator                = null;
 
   private final TerminalResultSet                                      mResultSet                      = new TerminalResultSet();
   // A re-usable iterator over the propositions in a machine state.
@@ -1303,6 +1304,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     mNegativeGoalLatches = master.mNegativeGoalLatches;
     ourRole = master.ourRole;
     totalNumMoves = master.totalNumMoves;
+    if ( master.mGoalsCalculator != null )
+    {
+      mGoalsCalculator = master.mGoalsCalculator.createThreadSafeReference();
+    }
 
     stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
     stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -3980,11 +3985,21 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private ForwardDeadReckonInternalMachineState lastGoalState = null;
   private ForwardDeadReckonInternalMachineState nextGoalState = null;
 
+  public void setGoalsCalculator(GoalsCalculator calculator)
+  {
+    mGoalsCalculator = calculator;
+  }
+
   public int getGoal(ForwardDeadReckonInternalMachineState state, Role role)
   {
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getGoal");
     try
     {
+      if ( mGoalsCalculator != null )
+      {
+        return mGoalsCalculator.getGoalValue(state == null ? lastInternalSetState : state, role);
+      }
+
       InternalMachineStateIterator lIterator = mStateIterator;
 
       ForwardDeadReckonPropNet net;

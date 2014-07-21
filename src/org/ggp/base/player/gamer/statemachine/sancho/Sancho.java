@@ -20,7 +20,9 @@ import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.profile.ProfilerContext;
+import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
@@ -156,7 +158,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60a");
   }
 
   @Override
@@ -221,6 +223,27 @@ public class Sancho extends SampleGamer
     }
 
     Random r = new Random();
+
+    MajorityPropositionGoalsCalculator goalsCalculator = new MajorityPropositionGoalsCalculator();
+
+    for(Role role : underlyingStateMachine.getRoles())
+    {
+      ForwardDeadReckonInternalMachineState roleGoalCountMask = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+
+      for(PolymorphicProposition p : underlyingStateMachine.getFullPropNet().getBasePropositionsArray())
+      {
+        String propName = p.getName().toString();
+
+        if ( propName.contains("cell") && propName.contains(role.toString()))
+        {
+          roleGoalCountMask.add(((ForwardDeadReckonProposition)p).getInfo());
+        }
+      }
+
+      goalsCalculator.addRoleMask(role, roleGoalCountMask);
+    }
+
+    underlyingStateMachine.setGoalsCalculator(goalsCalculator);
 
     // If have been configured with a plan (for test purposes), load it now.
     // We'll still do everything else as normal, but whilst there are moves in
