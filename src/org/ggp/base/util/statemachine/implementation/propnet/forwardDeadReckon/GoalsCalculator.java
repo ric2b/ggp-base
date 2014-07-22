@@ -11,6 +11,11 @@ import org.ggp.base.util.statemachine.Role;
 public interface GoalsCalculator
 {
   /**
+   * @return name of the calculator (its type in human-readable manner)
+   */
+  String getName();
+
+  /**
    * @return a functional clone which can be used in a thread safe manner
    */
   GoalsCalculator createThreadSafeReference();

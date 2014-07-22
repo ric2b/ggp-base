@@ -15,6 +15,7 @@ import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlFunction;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
+import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -23,19 +24,14 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.w3c.tidy.MutableInteger;
 
-public class MajorityPropositionGoalsHeuristic implements Heuristic
+public class MajorityGoalsHeuristic extends MajorityCalculator implements Heuristic
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
   private ForwardDeadReckonPropnetStateMachine stateMachine = null;
-  private MajorityPropositionGoalsCalculator   goalsCalculator = null;
-  private RoleOrdering                         roleOrdering = null;
-  private boolean                              reverseRoles = false;
-  private boolean                              roleReversalFixed = false;
-  private boolean                              predictionsMatch = true;
   private boolean                              tuningComplete = false;
 
-  public MajorityPropositionGoalsHeuristic()
+  public MajorityGoalsHeuristic()
   {
   }
 
@@ -80,7 +76,7 @@ public class MajorityPropositionGoalsHeuristic implements Heuristic
       for(PolymorphicProposition p : xiStateMachine.getFullPropNet().getGoalPropositions().get(role))
       {
         Set<PolymorphicComponent> processedComponents = new HashSet<>();
-        recursiveFindFeedingBaseProps(p, derivedFromBaseProps, processedComponents);
+        recursiveFindFeedingBaseProps( stateMachine.getFullPropNet(), p, derivedFromBaseProps, processedComponents);
       }
 
       for(PolymorphicProposition p : derivedFromBaseProps)
@@ -140,14 +136,15 @@ public class MajorityPropositionGoalsHeuristic implements Heuristic
       return false;
     }
 
-    goalsCalculator = new MajorityPropositionGoalsCalculator();
-
+    //  Split into sets for each role
+    Map<Role,Set<PolymorphicProposition>> roleSets = new HashMap<>();
     String previousRoleVal = null;
+    Map<Role,String> roleParamValues = new HashMap<>();
 
     for(Role role : xiStateMachine.getRoles())
     {
       String roleVal = null;
-      ForwardDeadReckonInternalMachineState roleMask = new ForwardDeadReckonInternalMachineState(xiStateMachine.getInfoSet());
+      Set<PolymorphicProposition> roleSet = new HashSet<>();
 
       for(PolymorphicProposition p : roalGoalsSupportingBaseProps.get(role))
       {
@@ -157,19 +154,60 @@ public class MajorityPropositionGoalsHeuristic implements Heuristic
         if ( roleVal == null && !roleParamValue.equals(previousRoleVal))
         {
           roleVal = roleParamValue;
+          roleParamValues.put(role, roleVal);
         }
 
         if ( roleParamValue.equals(roleVal) )
         {
-          roleMask.add(((ForwardDeadReckonProposition)p).getInfo());
+          roleSet.add(p);
         }
       }
 
-      goalsCalculator.addRoleMask(role, roleMask);
+      roleSets.put(role, roleSet);
       previousRoleVal = roleVal;
     }
 
-    return true;
+    //  Sometimes the goal network infers a prop state from the absence of others,
+    //  so having identified the function and the role parameter add all that match
+    for(PolymorphicProposition p : stateMachine.getFullPropNet().getBasePropositions().values())
+    {
+      GdlFunction propFn = (GdlFunction)p.getName().getBody().get(0);
+
+      if ( propFn.getName().equals(basePropGoalFnName))
+      {
+        String roleParamValue = propFn.getBody().get(bestParamIndex).toString();
+
+        for(Role role : xiStateMachine.getRoles())
+        {
+          if ( roleParamValue.equals(roleParamValues.get(role)) )
+          {
+            roleSets.get(role).add(p);
+          }
+        }
+      }
+    }
+
+    goalsCalculator = MajorityCountGoalsCalculator.createMajorityCountGoalsCalculator(stateMachine, roleSets);
+    if ( goalsCalculator == null )
+    {
+      MajorityPropositionGoalsCalculator propGoalsCalculator = new MajorityPropositionGoalsCalculator();
+
+      for(Role role : xiStateMachine.getRoles())
+      {
+        ForwardDeadReckonInternalMachineState roleMask = new ForwardDeadReckonInternalMachineState(xiStateMachine.getInfoSet());
+
+        for(PolymorphicProposition p : roleSets.get(role))
+        {
+          roleMask.add(((ForwardDeadReckonProposition)p).getInfo());
+        }
+
+        propGoalsCalculator.addRoleMask(role, roleMask);
+      }
+
+      goalsCalculator = propGoalsCalculator;
+    }
+
+    return (goalsCalculator != null);
   }
 
   @Override
@@ -191,96 +229,7 @@ public class MajorityPropositionGoalsHeuristic implements Heuristic
   public void tuningTerminalStateSample(ForwardDeadReckonInternalMachineState xiState,
                                         int[] xiRoleScores)
   {
-    if ( predictionsMatch )
-    {
-      for (int i = 0; i < xiRoleScores.length; i++)
-      {
-        int predictedScore = goalsCalculator.getGoalValue(xiState, roleOrdering.roleIndexToRole(i));
-
-        switch(predictedScore)
-        {
-          case 0:
-            if ( xiRoleScores[i] == 0 )
-            {
-              if ( roleReversalFixed )
-              {
-                if ( reverseRoles )
-                {
-                  predictionsMatch = false;
-                }
-              }
-              else
-              {
-                roleReversalFixed = true;
-              }
-            }
-            else if ( xiRoleScores[i] == 100 )
-            {
-              if ( roleReversalFixed )
-              {
-                if ( !reverseRoles )
-                {
-                  predictionsMatch = false;
-                }
-              }
-              else
-              {
-                roleReversalFixed = true;
-                reverseRoles = true;
-              }
-            }
-            else
-            {
-              predictionsMatch = false;
-            }
-            break;
-          case 50:
-            if ( xiRoleScores[i] != 50 )
-            {
-              predictionsMatch = false;
-            }
-            break;
-          case 100:
-            if ( xiRoleScores[i] == 100 )
-            {
-              if ( roleReversalFixed )
-              {
-                if ( reverseRoles )
-                {
-                  predictionsMatch = false;
-                }
-              }
-              else
-              {
-                roleReversalFixed = true;
-              }
-            }
-            else if ( xiRoleScores[i] == 0 )
-            {
-              if ( roleReversalFixed )
-              {
-                if ( !reverseRoles )
-                {
-                  predictionsMatch = false;
-                }
-              }
-              else
-              {
-                roleReversalFixed = true;
-                reverseRoles = true;
-              }
-            }
-            else
-            {
-              predictionsMatch = false;
-            }
-            break;
-          default:
-            assert(false);
-            break;
-        }
-      }
-    }
+    noteTerminalStateSample(xiState, xiRoleScores);
   }
 
   @Override
@@ -296,7 +245,7 @@ public class MajorityPropositionGoalsHeuristic implements Heuristic
       }
       stateMachine.setGoalsCalculator(goalsCalculator);
 
-      LOGGER.info("Using emulated goals calculator (majority)");
+      LOGGER.info("Using emulated goals calculator (majority: " + goalsCalculator.getName() + ")");
     }
   }
 
@@ -326,7 +275,7 @@ public class MajorityPropositionGoalsHeuristic implements Heuristic
     return this;
   }
 
-  private void recursiveFindFeedingBaseProps(PolymorphicComponent c, Set<PolymorphicProposition> baseProps, Set<PolymorphicComponent> processedComponents)
+  public static void recursiveFindFeedingBaseProps(PolymorphicPropNet pn, PolymorphicComponent c, Set<PolymorphicProposition> baseProps, Set<PolymorphicComponent> processedComponents)
   {
     if ( processedComponents.contains(c))
     {
@@ -337,7 +286,7 @@ public class MajorityPropositionGoalsHeuristic implements Heuristic
 
     if ( c instanceof PolymorphicProposition )
     {
-      if ( stateMachine.getFullPropNet().getBasePropositions().values().contains(c))
+      if ( pn.getBasePropositions().values().contains(c))
       {
         baseProps.add((PolymorphicProposition)c);
       }
@@ -350,7 +299,7 @@ public class MajorityPropositionGoalsHeuristic implements Heuristic
 
     for(PolymorphicComponent input : c.getInputs())
     {
-      recursiveFindFeedingBaseProps(input, baseProps, processedComponents);
+      recursiveFindFeedingBaseProps(pn, input, baseProps, processedComponents);
     }
   }
 }

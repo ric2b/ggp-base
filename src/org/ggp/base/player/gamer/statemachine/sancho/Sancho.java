@@ -15,7 +15,7 @@ import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.player.gamer.statemachine.sample.SampleGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic;
-import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MajorityPropositionGoalsHeuristic;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MajorityGoalsHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.logging.GamerLogger;
@@ -297,7 +297,7 @@ public class Sancho extends SampleGamer
 
     CombinedHeuristic heuristic;
 
-    MajorityPropositionGoalsHeuristic goalsPredictionHeuristic = new MajorityPropositionGoalsHeuristic();
+    MajorityGoalsHeuristic goalsPredictionHeuristic = new MajorityGoalsHeuristic();
 
     if (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_PIECE_HEURISTIC, false))
     {

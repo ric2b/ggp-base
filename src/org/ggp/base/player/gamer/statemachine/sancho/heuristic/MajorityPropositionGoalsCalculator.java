@@ -14,7 +14,7 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.G
  *  on which role has more of a proposition subset
  *  Only supports 2 player games currently
  */
-public class MajorityPropositionGoalsCalculator implements GoalsCalculator
+public class MajorityPropositionGoalsCalculator implements ReversableGoalsCalculator
 {
   private final Map<Role,ForwardDeadReckonInternalMachineState> roleMasks;
   private ForwardDeadReckonInternalMachineState stateBuffer = null;
@@ -98,6 +98,7 @@ public class MajorityPropositionGoalsCalculator implements GoalsCalculator
   /**
    * Swap the masks between the (must be 2) roles
    */
+  @Override
   public void reverseRoles()
   {
     assert(roleMasks.size()==2);
@@ -124,5 +125,11 @@ public class MajorityPropositionGoalsCalculator implements GoalsCalculator
     roleMasks.clear();
     roleMasks.put(firstRole, secondMask);
     roleMasks.put(secondRole, firstMask);
+  }
+
+  @Override
+  public String getName()
+  {
+    return "Proposition set cardinality";
   }
 }
