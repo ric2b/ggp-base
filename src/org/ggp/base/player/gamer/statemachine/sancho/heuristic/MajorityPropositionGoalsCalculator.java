@@ -6,6 +6,7 @@ import java.util.Map.Entry;
 
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Role;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.GoalsCalculator;
 
 /**
@@ -14,7 +15,7 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.G
  *  on which role has more of a proposition subset
  *  Only supports 2 player games currently
  */
-public class MajorityPropositionGoalsCalculator implements ReversableGoalsCalculator
+public class MajorityPropositionGoalsCalculator extends MajorityCalculator
 {
   private final Map<Role,ForwardDeadReckonInternalMachineState> roleMasks;
   private ForwardDeadReckonInternalMachineState stateBuffer = null;
@@ -22,8 +23,9 @@ public class MajorityPropositionGoalsCalculator implements ReversableGoalsCalcul
   /**
    * Construct new goals calculator
    */
-  public MajorityPropositionGoalsCalculator()
+  protected MajorityPropositionGoalsCalculator(ForwardDeadReckonPropnetStateMachine xiStateMachine)
   {
+    super(xiStateMachine);
     roleMasks = new HashMap<>();
   }
 
@@ -34,6 +36,7 @@ public class MajorityPropositionGoalsCalculator implements ReversableGoalsCalcul
    */
   private MajorityPropositionGoalsCalculator(MajorityPropositionGoalsCalculator master)
   {
+    super(master.stateMachine);
     roleMasks = master.roleMasks;
   }
 
@@ -45,48 +48,6 @@ public class MajorityPropositionGoalsCalculator implements ReversableGoalsCalcul
   public void addRoleMask(Role role, ForwardDeadReckonInternalMachineState mask)
   {
     roleMasks.put(role, mask);
-  }
-
-  @Override
-  public int getGoalValue(ForwardDeadReckonInternalMachineState xiState,
-                          Role xiRole)
-  {
-    assert(roleMasks.size()==2);
-
-    int ourCount = 0;
-    int theirCount = 0;
-
-    for(Entry<Role, ForwardDeadReckonInternalMachineState> e : roleMasks.entrySet())
-    {
-      if ( stateBuffer == null )
-      {
-        stateBuffer = new ForwardDeadReckonInternalMachineState(xiState);
-      }
-      else
-      {
-        stateBuffer.copy(xiState);
-      }
-
-      stateBuffer.intersect(e.getValue());
-      if ( xiRole.equals(e.getKey()))
-      {
-        ourCount += stateBuffer.size();
-      }
-      else
-      {
-        theirCount += stateBuffer.size();
-      }
-    }
-
-    if ( ourCount > theirCount )
-    {
-      return 100;
-    }
-    if ( ourCount < theirCount )
-    {
-      return 0;
-    }
-    return 50;
   }
 
   @Override
@@ -131,5 +92,22 @@ public class MajorityPropositionGoalsCalculator implements ReversableGoalsCalcul
   public String getName()
   {
     return "Proposition set cardinality";
+  }
+
+  @Override
+  protected int getCount(ForwardDeadReckonInternalMachineState xiState,
+                         Role xiRole)
+  {
+    if ( stateBuffer == null )
+    {
+      stateBuffer = new ForwardDeadReckonInternalMachineState(xiState);
+    }
+    else
+    {
+      stateBuffer.copy(xiState);
+    }
+
+    stateBuffer.intersect(roleMasks.get(xiRole));
+    return (int)stateBuffer.size();
   }
 }

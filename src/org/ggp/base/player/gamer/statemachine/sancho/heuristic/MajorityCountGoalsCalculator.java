@@ -19,15 +19,14 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.GoalsCalculator;
 
-public class MajorityCountGoalsCalculator implements ReversableGoalsCalculator
+public class MajorityCountGoalsCalculator extends MajorityCalculator
 {
-  private final ForwardDeadReckonPropnetStateMachine              stateMachine;
   private final Map<Role, List<ForwardDeadReckonPropositionInfo>> scoredPropositions;
 
   private MajorityCountGoalsCalculator(ForwardDeadReckonPropnetStateMachine xiStateMachine,
                                        Map<Role, List<ForwardDeadReckonPropositionInfo>> xiScoredPropositions)
   {
-    stateMachine = xiStateMachine;
+    super(xiStateMachine);
     scoredPropositions = xiScoredPropositions;
   }
 
@@ -36,7 +35,7 @@ public class MajorityCountGoalsCalculator implements ReversableGoalsCalculator
    * @param roleGoalSupportingSets - the set of supporting base props for each role's goals
    * @return goals calculator candidate, or null if no such is generatable
    */
-  public static ReversableGoalsCalculator createMajorityCountGoalsCalculator(ForwardDeadReckonPropnetStateMachine stateMachine,
+  public static MajorityCalculator createMajorityCountGoalsCalculator(ForwardDeadReckonPropnetStateMachine stateMachine,
                                                                              Map<Role, Set<PolymorphicProposition>> roleGoalSupportingSets)
   {
     Map<Role, List<ForwardDeadReckonPropositionInfo>> scoredPropositions = new HashMap<>();
@@ -125,48 +124,6 @@ public class MajorityCountGoalsCalculator implements ReversableGoalsCalculator
   }
 
   @Override
-  public int getGoalValue(ForwardDeadReckonInternalMachineState xiState,
-                          Role xiRole)
-  {
-    int ourValue = 0;
-    int theirValue = 0;
-
-    for(Role role : stateMachine.getRoles())
-    {
-      int value = 0;
-
-      for(ForwardDeadReckonPropositionInfo info : scoredPropositions.get(role))
-      {
-        if ( xiState.contains(info))
-        {
-          break;
-        }
-
-        value++;
-      }
-
-      if ( role.equals(xiRole))
-      {
-        ourValue = value;
-      }
-      else
-      {
-        theirValue = value;
-      }
-    }
-
-    if ( ourValue > theirValue )
-    {
-      return 100;
-    }
-    if ( ourValue < theirValue )
-    {
-      return 0;
-    }
-    return 50;
-  }
-
-  @Override
   public void reverseRoles()
   {
     assert(scoredPropositions.size()==2);
@@ -199,5 +156,23 @@ public class MajorityCountGoalsCalculator implements ReversableGoalsCalculator
   public String getName()
   {
     return "Sequential counter";
+  }
+
+  @Override
+  protected int getCount(ForwardDeadReckonInternalMachineState xiState, Role xiRole)
+  {
+    int value = 0;
+
+    for(ForwardDeadReckonPropositionInfo info : scoredPropositions.get(xiRole))
+    {
+      if ( xiState.contains(info))
+      {
+        break;
+      }
+
+      value++;
+    }
+
+    return value;
   }
 }

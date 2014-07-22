@@ -24,12 +24,17 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.w3c.tidy.MutableInteger;
 
-public class MajorityGoalsHeuristic extends MajorityCalculator implements Heuristic
+public class MajorityGoalsHeuristic implements Heuristic
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
   private ForwardDeadReckonPropnetStateMachine stateMachine = null;
   private boolean                              tuningComplete = true;
+  private MajorityCalculator                   goalsCalculator = null;
+  private RoleOrdering                         roleOrdering = null;
+  private boolean                              reverseRoles = false;
+  private boolean                              roleReversalFixed = false;
+  private boolean                              predictionsMatch = true;
 
   public MajorityGoalsHeuristic()
   {
@@ -190,7 +195,7 @@ public class MajorityGoalsHeuristic extends MajorityCalculator implements Heuris
     goalsCalculator = MajorityCountGoalsCalculator.createMajorityCountGoalsCalculator(stateMachine, roleSets);
     if ( goalsCalculator == null )
     {
-      MajorityPropositionGoalsCalculator propGoalsCalculator = new MajorityPropositionGoalsCalculator();
+      MajorityPropositionGoalsCalculator propGoalsCalculator = new MajorityPropositionGoalsCalculator(stateMachine);
 
       for(Role role : xiStateMachine.getRoles())
       {
@@ -231,7 +236,96 @@ public class MajorityGoalsHeuristic extends MajorityCalculator implements Heuris
   public void tuningTerminalStateSample(ForwardDeadReckonInternalMachineState xiState,
                                         int[] xiRoleScores)
   {
-    noteTerminalStateSample(xiState, xiRoleScores);
+    if ( predictionsMatch )
+    {
+      for (int i = 0; i < xiRoleScores.length; i++)
+      {
+        int predictedScore = goalsCalculator.getGoalValue(xiState, roleOrdering.roleIndexToRole(i));
+
+        switch(predictedScore)
+        {
+          case 0:
+            if ( xiRoleScores[i] == 0 )
+            {
+              if ( roleReversalFixed )
+              {
+                if ( reverseRoles )
+                {
+                  predictionsMatch = false;
+                }
+              }
+              else
+              {
+                roleReversalFixed = true;
+              }
+            }
+            else if ( xiRoleScores[i] == 100 )
+            {
+              if ( roleReversalFixed )
+              {
+                if ( !reverseRoles )
+                {
+                  predictionsMatch = false;
+                }
+              }
+              else
+              {
+                roleReversalFixed = true;
+                reverseRoles = true;
+              }
+            }
+            else
+            {
+              predictionsMatch = false;
+            }
+            break;
+          case 50:
+            if ( xiRoleScores[i] != 50 )
+            {
+              predictionsMatch = false;
+            }
+            break;
+          case 100:
+            if ( xiRoleScores[i] == 100 )
+            {
+              if ( roleReversalFixed )
+              {
+                if ( reverseRoles )
+                {
+                  predictionsMatch = false;
+                }
+              }
+              else
+              {
+                roleReversalFixed = true;
+              }
+            }
+            else if ( xiRoleScores[i] == 0 )
+            {
+              if ( roleReversalFixed )
+              {
+                if ( !reverseRoles )
+                {
+                  predictionsMatch = false;
+                }
+              }
+              else
+              {
+                roleReversalFixed = true;
+                reverseRoles = true;
+              }
+            }
+            else
+            {
+              predictionsMatch = false;
+            }
+            break;
+          default:
+            assert(false);
+            break;
+        }
+      }
+    }
   }
 
   @Override
@@ -241,6 +335,8 @@ public class MajorityGoalsHeuristic extends MajorityCalculator implements Heuris
 
     if ( predictionsMatch )
     {
+      goalsCalculator.endLearning();
+
       if ( reverseRoles )
       {
         goalsCalculator.reverseRoles();
