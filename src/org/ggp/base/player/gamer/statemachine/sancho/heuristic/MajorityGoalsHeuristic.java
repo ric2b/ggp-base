@@ -29,7 +29,7 @@ public class MajorityGoalsHeuristic extends MajorityCalculator implements Heuris
   private static final Logger LOGGER = LogManager.getLogger();
 
   private ForwardDeadReckonPropnetStateMachine stateMachine = null;
-  private boolean                              tuningComplete = false;
+  private boolean                              tuningComplete = true;
 
   public MajorityGoalsHeuristic()
   {
@@ -207,7 +207,9 @@ public class MajorityGoalsHeuristic extends MajorityCalculator implements Heuris
       goalsCalculator = propGoalsCalculator;
     }
 
-    return (goalsCalculator != null);
+    tuningComplete = (goalsCalculator == null);
+
+    return tuningComplete;
   }
 
   @Override
