@@ -15,14 +15,13 @@ import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.player.gamer.statemachine.sample.SampleGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MajorityPropositionGoalsHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.profile.ProfilerContext;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
-import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
@@ -244,7 +243,7 @@ public class Sancho extends SampleGamer
     }
 
     underlyingStateMachine.setGoalsCalculator(goalsCalculator);
-
+    
     // If have been configured with a plan (for test purposes), load it now.
     // We'll still do everything else as normal, but whilst there are moves in
     // the plan, when it comes to play, we'll just play the specified move.
@@ -298,13 +297,15 @@ public class Sancho extends SampleGamer
 
     CombinedHeuristic heuristic;
 
+    MajorityPropositionGoalsHeuristic goalsPredictionHeuristic = new MajorityPropositionGoalsHeuristic();
+
     if (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_PIECE_HEURISTIC, false))
     {
-      heuristic = new CombinedHeuristic();
+      heuristic = new CombinedHeuristic(goalsPredictionHeuristic);
     }
     else
     {
-      heuristic = new CombinedHeuristic(new PieceHeuristic() /*, new AvailableGoalHeuristic() */);
+      heuristic = new CombinedHeuristic(new PieceHeuristic(), goalsPredictionHeuristic /*, new AvailableGoalHeuristic() */);
     }
 
     boolean hasHeuristicCandidates = heuristic.tuningInitialise(underlyingStateMachine, roleOrdering);

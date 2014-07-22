@@ -115,6 +115,9 @@ public class PieceHeuristic implements Heuristic
     }
   }
 
+  /**
+   * Default constructor
+   */
   public PieceHeuristic()
   {
   }

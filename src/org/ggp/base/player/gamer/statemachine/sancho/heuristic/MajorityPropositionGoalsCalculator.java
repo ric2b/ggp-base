@@ -1,4 +1,4 @@
-package org.ggp.base.player.gamer.statemachine.sancho;
+package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -93,5 +93,36 @@ public class MajorityPropositionGoalsCalculator implements GoalsCalculator
   public GoalsCalculator createThreadSafeReference()
   {
     return new MajorityPropositionGoalsCalculator(this);
+  }
+
+  /**
+   * Swap the masks between the (must be 2) roles
+   */
+  public void reverseRoles()
+  {
+    assert(roleMasks.size()==2);
+
+    Role firstRole = null;
+    Role secondRole = null;
+    ForwardDeadReckonInternalMachineState firstMask = null;
+    ForwardDeadReckonInternalMachineState secondMask = null;
+
+    for(Entry<Role, ForwardDeadReckonInternalMachineState> e : roleMasks.entrySet())
+    {
+      if ( firstRole == null )
+      {
+        firstRole = e.getKey();
+        firstMask = e.getValue();
+      }
+      else
+      {
+        secondRole = e.getKey();
+        secondMask = e.getValue();
+      }
+    }
+
+    roleMasks.clear();
+    roleMasks.put(firstRole, secondMask);
+    roleMasks.put(secondRole, firstMask);
   }
 }
