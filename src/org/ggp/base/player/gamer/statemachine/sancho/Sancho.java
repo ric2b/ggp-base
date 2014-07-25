@@ -483,6 +483,9 @@ public class Sancho extends SampleGamer
       heuristic.pruneAll();
     }
 
+    // Complete heuristic tuning.
+    heuristic.tuningComplete();
+
     if (gameCharacteristics.isSimultaneousMove || gameCharacteristics.isPseudoSimultaneousMove)
     {
       if (!greedyRolloutsDisabled)
@@ -555,12 +558,6 @@ public class Sancho extends SampleGamer
         }
       }
 
-      ForwardDeadReckonInternalMachineState finalState = underlyingStateMachine.getCurrentState();
-
-      // Tell the heuristic about the termainal state, for tuning purposes.
-      assert(underlyingStateMachine.isTerminal(finalState));
-      heuristic.tuningTerminalStateSample(finalState, roleScores);
-
       averageNumTurns = (averageNumTurns * (simulationsPerformed - 1) + rolloutStats[0]) /
                         simulationsPerformed;
       averageSquaredNumTurns = (averageSquaredNumTurns *
@@ -591,9 +588,6 @@ public class Sancho extends SampleGamer
         observedMaxNetScore = netScore;
       }
     }
-
-    // Complete heuristic tuning.
-    heuristic.tuningComplete();
 
     LOGGER.info("branchingFactorApproximation = " + branchingFactorApproximation +
                 ", averageBranchingFactor = " + averageBranchingFactor +

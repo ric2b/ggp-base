@@ -175,4 +175,26 @@ public class MajorityCountGoalsCalculator extends MajorityCalculator
 
     return value;
   }
+
+  @Override
+  public boolean scoresAreLatched(ForwardDeadReckonInternalMachineState xiState)
+  {
+    //  In a game where the scores are based on having the majority of a fixed
+    //  total, and counts cannot go backwards (which the dependency analysis implies)
+    //  then scores are latched once someone has more than half
+    if ( isFixedSum )
+    {
+      for(Role role : scoredPropositions.keySet())
+      {
+        int count = getCount(xiState, role);
+
+        if ( count > valueTotal/2 )
+        {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
 }

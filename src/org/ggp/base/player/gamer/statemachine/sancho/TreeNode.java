@@ -114,7 +114,7 @@ public class TreeNode
   private int                           numUpdates          = 0;
   final ForwardDeadReckonInternalMachineState state;
   int                                   decidingRoleIndex;
-  private boolean                       isTerminal          = false;
+  boolean                               isTerminal          = false;
   boolean                               autoExpand          = false;
   boolean                               complete            = false;
   private boolean                       allChildrenComplete = false;
@@ -1786,7 +1786,7 @@ public class TreeNode
     return from;
   }
 
-  private StateInfo calculateTerminalityAndAutoExpansion(ForwardDeadReckonInternalMachineState theState)
+  private StateInfo calculateTerminalityAndAutoExpansion(ForwardDeadReckonInternalMachineState theState, int roleIndex)
   {
     StateInfo result = StateInfo.bufferInstance;
 
@@ -1794,17 +1794,19 @@ public class TreeNode
     result.autoExpand = false;
 
     // Check if the goal value is latched.
-    if (tree.numRoles == 1) // !! ARR 1P Latches
+    if ( /*tree.numRoles == 1 &&*/ tree.underlyingStateMachine.scoresAreLatched(theState))
     {
-      Integer lLatchedScore = tree.underlyingStateMachine.getLatchedScore(state);
-      if (lLatchedScore != null)
+      result.isTerminal = true;
+
+      for(int i = 0; i < tree.numRoles; i++)
       {
-        result.isTerminal = true;
-        result.terminalScore[0] = lLatchedScore;
+        tree.underlyingStateMachine.getLatchedScoreRange(theState, tree.roleOrdering.roleIndexToRole(i), tree.latchedScoreRangeBuffer);
+
+        assert(tree.latchedScoreRangeBuffer[0] == tree.latchedScoreRangeBuffer[1]);
+        result.terminalScore[i] = tree.latchedScoreRangeBuffer[0];
       }
     }
-
-    if (tree.searchFilter.isFilteredTerminal(theState))
+    else if (tree.searchFilter.isFilteredTerminal(theState))
     {
       result.isTerminal = true;
 
@@ -2002,12 +2004,14 @@ public class TreeNode
       //  Don't bother evaluating terminality of children above the earliest completion depth
       boolean evaluateTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation && depth >= tree.gameCharacteristics.getEarliestCompletionDepth());
 
-      if (roleIndex == 0)
+      //  Don't evaluate terminality on the root since it cannot be (and latched score states
+      //  might indicate it should be treated as such, but this is never correct for the root)
+      if (roleIndex == 0 && this != tree.root)
       {
         boolean parentEvaluatedTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation && depth > tree.gameCharacteristics.getEarliestCompletionDepth());
         if (!parentEvaluatedTerminalOnNodeCreation && mNumChildren == 0)
         {
-          StateInfo info = calculateTerminalityAndAutoExpansion(state);
+          StateInfo info = calculateTerminalityAndAutoExpansion(state, decidingRoleIndex);
 
           isTerminal = info.isTerminal;
           autoExpand = info.autoExpand;
@@ -2156,7 +2160,7 @@ public class TreeNode
           {
             if (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex)
             {
-              StateInfo info = calculateTerminalityAndAutoExpansion(tree.mChildStatesBuffer[lMoveIndex]);
+              StateInfo info = calculateTerminalityAndAutoExpansion(tree.mChildStatesBuffer[lMoveIndex], roleIndex);
 
               if (info.isTerminal || info.autoExpand)
               {
@@ -2286,7 +2290,7 @@ public class TreeNode
                   {
                     createChildNodeForEdge(edge, jointPartialMove);
 
-                    assert(!evaluateTerminalOnNodeCreation || !calculateTerminalityAndAutoExpansion(get(edge.mChildRef).state).isTerminal);
+                    assert(!evaluateTerminalOnNodeCreation || !calculateTerminalityAndAutoExpansion(get(edge.mChildRef).state, roleIndex).isTerminal);
                   }
 
                   TreeNode newChild = get(edge.mChildRef);
@@ -2855,7 +2859,8 @@ public class TreeNode
 
       assert(!tree.evaluateTerminalOnNodeCreation ||
              depth < tree.gameCharacteristics.getEarliestCompletionDepth() ||
-             !calculateTerminalityAndAutoExpansion(get(selected.mChildRef).state).isTerminal);
+             this == tree.root ||
+             !calculateTerminalityAndAutoExpansion(get(selected.mChildRef).state, decidingRoleIndex).isTerminal);
     }
 
     assert(get(selected.mChildRef) != null);

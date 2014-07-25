@@ -12,8 +12,8 @@ public abstract class MajorityCalculator implements ReversableGoalsCalculator
 
   protected final ForwardDeadReckonPropnetStateMachine stateMachine;
   private boolean                                      learningMode = true;
-  private boolean                                      isFixedSum = true;
-  private int                                          valueTotal = -1;
+  protected boolean                                    isFixedSum = true;
+  protected int                                        valueTotal = -1;
 
   protected MajorityCalculator(ForwardDeadReckonPropnetStateMachine xiStateMachine)
   {

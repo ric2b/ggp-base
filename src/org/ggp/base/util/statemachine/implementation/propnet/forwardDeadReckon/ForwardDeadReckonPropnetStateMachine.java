@@ -110,6 +110,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private int[]                                                        previouslyChosenJointMovePropIdsX = null;
   private int[]                                                        previouslyChosenJointMovePropIdsO = null;
   private int[]                                                        latchedScoreRangeBuffer         = new int[2];
+  private int[]                                                        parentLatchedScoreRangeBuffer   = new int[2];
   private ForwardDeadReckonPropositionCrossReferenceInfo[]             masterInfoSet                   = null;
   private ForwardDeadReckonLegalMoveInfo[]                             masterLegalMoveSet              = null;
   private StateMachine                                                 validationMachine               = null;
@@ -132,6 +133,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private Set<PolymorphicProposition>                                  mNegativeBasePropLatches        = null;
   private final Set<GdlSentence>                                       mFillerMoves                    = new HashSet<>();
   private GoalsCalculator                                              mGoalsCalculator                = null;
+  private Map<Role,ForwardDeadReckonInternalMachineState>              mRoleUnionPositiveGoalLatches   = null;
 
   private final TerminalResultSet                                      mResultSet                      = new TerminalResultSet();
   // A re-usable iterator over the propositions in a machine state.
@@ -659,20 +661,89 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
    *
    * !! ARR 1P latches?
    */
-  public Integer getLatchedScore(ForwardDeadReckonInternalMachineState xiState)
+//  public Integer getLatchedScore(ForwardDeadReckonInternalMachineState xiState)
+//  {
+//    if (mPositiveGoalLatches != null)
+//    {
+//      for (Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry : mPositiveGoalLatches.entrySet())
+//      {
+//        if (xiState.intersects(lEntry.getValue()))
+//        {
+//          return Integer.parseInt(lEntry.getKey().getName().getBody().get(1).toString());
+//        }
+//      }
+//    }
+//
+//    return null;
+//  }
+
+  /**
+   * @param xiState - state to test for latched score in
+   * @return true if all roles' scores are latched
+   */
+  public boolean scoresAreLatched(ForwardDeadReckonInternalMachineState xiState)
   {
-    if (mPositiveGoalLatches != null)
+    if ( mGoalsCalculator != null )
     {
-      for (Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry : mPositiveGoalLatches.entrySet())
+      if ( mGoalsCalculator.scoresAreLatched(xiState) )
       {
-        if (xiState.intersects(lEntry.getValue()))
-        {
-          return Integer.parseInt(lEntry.getKey().getName().getBody().get(1).toString());
-        }
+        return true;
       }
     }
 
-    return null;
+    if (mPositiveGoalLatches != null)
+    {
+      if ( mRoleUnionPositiveGoalLatches == null )
+      {
+        //  Allocate a working buffer for future use and calculate the role masks that imply
+        //  some positively latched goal for the role
+        mRoleUnionPositiveGoalLatches = new HashMap<>();
+
+        for(Role role : getRoles())
+        {
+          ForwardDeadReckonInternalMachineState roleLatchMask = new ForwardDeadReckonInternalMachineState(getInfoSet());
+
+          for(PolymorphicProposition goalProp : fullPropNet.getGoalPropositions().get(role))
+          {
+            ForwardDeadReckonInternalMachineState goalMask = mPositiveGoalLatches.get(goalProp);
+
+            if ( goalMask != null )
+            {
+              roleLatchMask.merge(goalMask);
+            }
+          }
+
+          if ( roleLatchMask.size() > 0 )
+          {
+            mRoleUnionPositiveGoalLatches.put(role, roleLatchMask);
+          }
+        }
+      }
+
+      boolean result = true;
+
+      for(Role role : getRoles())
+      {
+        ForwardDeadReckonInternalMachineState roleLatchMask = mRoleUnionPositiveGoalLatches.get(role);
+        if ( roleLatchMask != null )
+        {
+          if ( !xiState.intersects(roleLatchMask) )
+          {
+            result = false;
+            break;
+          }
+        }
+        else
+        {
+          result = false;
+          break;
+        }
+      }
+
+      return result;
+    }
+
+    return false;
   }
 
   /**
@@ -685,6 +756,19 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   {
     assert(range.length == 2);
 
+    if ( mGoalsCalculator != null )
+    {
+      if ( mGoalsCalculator.scoresAreLatched(xiState))
+      {
+        range[0] = mGoalsCalculator.getGoalValue(xiState, role);
+        range[1] = range[0];
+        return;
+      }
+    }
+
+    //  Initialize to sentinel values
+    range[0] = Integer.MAX_VALUE;
+    range[1] = -Integer.MAX_VALUE;
     int[] staticGoalRange = null;
 
     if ( mPositiveGoalLatches != null || mNegativeGoalLatches != null || (staticGoalRange = mStaticGoalRanges.get(role)) == null )
@@ -1308,6 +1392,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     {
       mGoalsCalculator = master.mGoalsCalculator.createThreadSafeReference();
     }
+    mRoleUnionPositiveGoalLatches = master.mRoleUnionPositiveGoalLatches;
 
     stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
     stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -3062,7 +3147,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           }
           else
           {
-            if (!isTerminal())
+            if (!isTerminal() && !scoresAreLatched(lastInternalSetState))
             {
               if (rolloutStackDepth++ >= hintMoveDepth)
               {
@@ -3078,7 +3163,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
         else
         {
-          if (!isTerminal())
+          if (!isTerminal() && !scoresAreLatched(lastInternalSetState))
           {
             if (rolloutStackDepth++ >= hintMoveDepth)
             {
@@ -3092,7 +3177,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           }
         }
       }
-      else if (!isTerminal())
+      else if (!isTerminal() && !scoresAreLatched(lastInternalSetState))
       {
         if (rolloutStackDepth++ >= hintMoveDepth)
         {
@@ -3311,7 +3396,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       transitionToNextStateFromChosenMove();
 
-      if (isTerminal())
+      if (isTerminal() || scoresAreLatched(lastInternalSetState))
       {
         results.considerResult(null);
       }
@@ -3396,6 +3481,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       boolean transitioned = false;
 
+      getLatchedScoreRange(lastInternalSetState, decisionState.choosingRole, parentLatchedScoreRangeBuffer);
+
       //	If we're given a hint move to check for a win do that first
       //	the first time we look at this node
       if (hintMoveProp != null && decisionState.numChoices > 1)
@@ -3410,12 +3497,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
               transitionToNextStateFromChosenMove();
 
-              if (isTerminal())
+              if (isTerminal() || scoresAreLatched(lastInternalSetState))
               {
                 numTerminals++;
 
-                getLatchedScoreRange(lastInternalSetState, decisionState.choosingRole, latchedScoreRangeBuffer);
-                if (getGoal(decisionState.choosingRole) == latchedScoreRangeBuffer[1])
+                if (getGoal(decisionState.choosingRole) == parentLatchedScoreRangeBuffer[1])
                 {
                   if (playedMoves != null)
                   {
@@ -3506,7 +3592,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
         transitioned = true;
 
-        if (isTerminal())
+        if (isTerminal() || scoresAreLatched(lastInternalSetState))
         {
           numTerminals++;
 
@@ -3516,8 +3602,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                 .add(decisionState.chooserMoves[choice].inputProposition);
           }
 
-          getLatchedScoreRange(lastInternalSetState, decisionState.choosingRole, latchedScoreRangeBuffer);
-          if (getGoal(decisionState.choosingRole) == latchedScoreRangeBuffer[1])
+          if (getGoal(decisionState.choosingRole) == parentLatchedScoreRangeBuffer[1])
           {
             if (playedMoves != null)
             {
@@ -3607,7 +3692,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         playedMoves.add(choicelessMoveInfo);
       }
-      if (isTerminal())
+      if (isTerminal() || scoresAreLatched(lastInternalSetState))
       {
         results.considerResult(decisionState.choosingRole);
       }
@@ -3888,7 +3973,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         int totalChoices = 0;
 
-        while (!isTerminal())
+        while (!isTerminal() && !scoresAreLatched(lastInternalSetState))
         {
           int numChoices = chooseRandomJointMove(factor, moveWeights, playedMoves);
           totalChoices += numChoices;

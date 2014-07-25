@@ -14,6 +14,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlFunction;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
+import org.ggp.base.util.gdl.grammar.GdlTerm;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
@@ -153,18 +154,22 @@ public class MajorityGoalsHeuristic implements Heuristic
 
       for(PolymorphicProposition p : roalGoalsSupportingBaseProps.get(role))
       {
-        GdlFunction propFn = (GdlFunction)p.getName().getBody().get(0);
-        String roleParamValue = propFn.getBody().get(bestParamIndex).toString();
-
-        if ( roleVal == null && !roleParamValue.equals(previousRoleVal))
+        GdlTerm propBodyTerm = p.getName().getBody().get(0);
+        if ( propBodyTerm instanceof GdlFunction )
         {
-          roleVal = roleParamValue;
-          roleParamValues.put(role, roleVal);
-        }
+          GdlFunction propFn = (GdlFunction)propBodyTerm;
+          String roleParamValue = propFn.getBody().get(bestParamIndex).toString();
 
-        if ( roleParamValue.equals(roleVal) )
-        {
-          roleSet.add(p);
+          if ( roleVal == null && !roleParamValue.equals(previousRoleVal))
+          {
+            roleVal = roleParamValue;
+            roleParamValues.put(role, roleVal);
+          }
+
+          if ( roleParamValue.equals(roleVal) )
+          {
+            roleSet.add(p);
+          }
         }
       }
 
@@ -176,17 +181,21 @@ public class MajorityGoalsHeuristic implements Heuristic
     //  so having identified the function and the role parameter add all that match
     for(PolymorphicProposition p : stateMachine.getFullPropNet().getBasePropositions().values())
     {
-      GdlFunction propFn = (GdlFunction)p.getName().getBody().get(0);
-
-      if ( propFn.getName().equals(basePropGoalFnName))
+      GdlTerm propBodyTerm = p.getName().getBody().get(0);
+      if ( propBodyTerm instanceof GdlFunction )
       {
-        String roleParamValue = propFn.getBody().get(bestParamIndex).toString();
+        GdlFunction propFn = (GdlFunction)propBodyTerm;
 
-        for(Role role : xiStateMachine.getRoles())
+        if ( propFn.getName().equals(basePropGoalFnName))
         {
-          if ( roleParamValue.equals(roleParamValues.get(role)) )
+          String roleParamValue = propFn.getBody().get(bestParamIndex).toString();
+
+          for(Role role : xiStateMachine.getRoles())
           {
-            roleSets.get(role).add(p);
+            if ( roleParamValue.equals(roleParamValues.get(role)) )
+            {
+              roleSets.get(role).add(p);
+            }
           }
         }
       }

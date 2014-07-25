@@ -420,6 +420,10 @@ public class MCTSTree
     {
       LOGGER.info("Encountered complete root with trimmed children - must re-expand");
       root.complete = false;
+      //  Latched score detection can cause a node that is not strictly terminal (but has totally
+      //  fixed scores for all subtrees) to be flagged as terminal - we must reset this to ensure
+      //  it get re-expanded one level (from which we'll essentially make a random choice)
+      root.isTerminal = false;
       numCompletedBranches--;
     }
 

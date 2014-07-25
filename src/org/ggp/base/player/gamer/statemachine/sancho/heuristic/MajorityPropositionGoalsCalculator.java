@@ -110,4 +110,12 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator
     stateBuffer.intersect(roleMasks.get(xiRole));
     return (int)stateBuffer.size();
   }
+
+  @Override
+  public boolean scoresAreLatched(ForwardDeadReckonInternalMachineState xiState)
+  {
+    //  No guarantee that counts cannot go down as well as up with this analysis
+    //  so cannot determine latching
+    return false;
+  }
 }

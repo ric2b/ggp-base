@@ -26,4 +26,10 @@ public interface GoalsCalculator
    * @return goal value for specified role in specified state
    */
   int getGoalValue(ForwardDeadReckonInternalMachineState xiState, Role role);
+
+  /**
+   * @param xiState - state to test for latched scores in
+   * @return true if the scores are now latched for all roles
+   */
+  boolean scoresAreLatched(ForwardDeadReckonInternalMachineState xiState);
 }
