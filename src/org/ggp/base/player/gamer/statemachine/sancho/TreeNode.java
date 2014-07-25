@@ -467,35 +467,35 @@ public class TreeNode
       freeChildren();
     }
 
-    boolean decidingRoleWin = false;
-    boolean mutualWin = true;
-
-    for (int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
-    {
-      tree.underlyingStateMachine.getLatchedScoreRange(state, tree.roleOrdering.roleIndexToRole(roleIndex), tree.latchedScoreRangeBuffer);
-      if ( tree.latchedScoreRangeBuffer[1] > tree.latchedScoreRangeBuffer[0] &&
-           getAverageScore(roleIndex) > tree.latchedScoreRangeBuffer[1] - EPSILON)
-      {
-        if (roleIndex == decidingRoleIndex &&
-            (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == 0 || hasSiblinglessParents()))
-        {
-          decidingRoleWin = true;
-          if ( tree.numRoles == 1 )
-          {
-            mutualWin = false;
-          }
-        }
-      }
-      else
-      {
-        mutualWin = false;
-      }
-    }
-
     for (TreeNode parent : parents)
     {
       if ( !parent.complete )
       {
+        boolean decidingRoleWin = false;
+        boolean mutualWin = true;
+
+        for (int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
+        {
+          tree.underlyingStateMachine.getLatchedScoreRange(parent.state, tree.roleOrdering.roleIndexToRole(roleIndex), tree.latchedScoreRangeBuffer);
+          if ( tree.latchedScoreRangeBuffer[1] > tree.latchedScoreRangeBuffer[0] &&
+               getAverageScore(roleIndex) > tree.latchedScoreRangeBuffer[1] - EPSILON)
+          {
+            if (roleIndex == decidingRoleIndex &&
+                (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == 0 || hasSiblinglessParents()))
+            {
+              decidingRoleWin = true;
+              if ( tree.numRoles == 1 )
+              {
+                mutualWin = false;
+              }
+            }
+          }
+          else
+          {
+            mutualWin = false;
+          }
+        }
+
         if (decidingRoleWin && !mutualWin)
         {
           // Win for whoever just moved after they got to choose so parent node is also decided
@@ -2298,6 +2298,7 @@ public class TreeNode
         if (evaluateTerminalOnNodeCreation && roleIndex == tree.numRoles - 1 )
         {
           boolean completeChildFound = false;
+          TreeNode decisiveCompletionNode = null;
 
           for (int lii = 0; lii < mNumChildren; lii++)
           {
@@ -2310,8 +2311,20 @@ public class TreeNode
                 TreeNode lNode = get(cr);
                 if (lNode.isTerminal)
                 {
-                  lNode.markComplete(lNode, lNode.depth);
-                  completeChildFound = true;
+                  //lNode.markComplete(lNode, lNode.depth);
+                  lNode.complete = true;
+                  lNode.completionDepth = lNode.depth;
+
+                  if ( !completeChildFound )
+                  {
+                    completeChildFound = true;
+                    tree.underlyingStateMachine.getLatchedScoreRange(state, tree.roleOrdering.roleIndexToRole(roleIndex), tree.latchedScoreRangeBuffer);
+                  }
+
+                  if ( tree.latchedScoreRangeBuffer[0] != tree.latchedScoreRangeBuffer[1] && lNode.getAverageScore(roleIndex) > tree.latchedScoreRangeBuffer[1] - EPSILON)
+                  {
+                    decisiveCompletionNode = lNode;
+                  }
                 }
                 if (lNode.complete)
                 {
@@ -2323,7 +2336,14 @@ public class TreeNode
 
           if (completeChildFound && !complete)
           {
-            checkChildCompletion(true);
+            if ( decisiveCompletionNode != null )
+            {
+              decisiveCompletionNode.processCompletion();
+            }
+            else
+            {
+              checkChildCompletion(true);
+            }
           }
         }
 //
