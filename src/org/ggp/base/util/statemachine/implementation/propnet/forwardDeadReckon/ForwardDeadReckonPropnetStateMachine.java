@@ -127,6 +127,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public long                                                          totalNumPropagates              = 0;
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mPositiveGoalLatches      = null;
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mNegativeGoalLatches      = null;
+  private final Map<Role,int[]>                                        mStaticGoalRanges               = new HashMap<>();
   private Set<PolymorphicProposition>                                  mPositiveBasePropLatches        = null;
   private Set<PolymorphicProposition>                                  mNegativeBasePropLatches        = null;
   private final Set<GdlSentence>                                       mFillerMoves                    = new HashSet<>();
@@ -683,41 +684,61 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   {
     assert(range.length == 2);
 
-    //  Initialize to sentinel values
-    range[0] = Integer.MAX_VALUE;
-    range[1] = -Integer.MAX_VALUE;
+    int[] staticGoalRange = null;
 
-    for(PolymorphicProposition goalProp : fullPropNet.getGoalPropositions().get(role))
+    if ( mPositiveGoalLatches != null || mNegativeGoalLatches != null || (staticGoalRange = mStaticGoalRanges.get(role)) == null )
     {
-      ForwardDeadReckonInternalMachineState negativeMask = null;
-      int latchedScore = Integer.parseInt(goalProp.getName().getBody().get(1).toString());
+      //  Initialize to sentinel values
+      range[0] = Integer.MAX_VALUE;
+      range[1] = -Integer.MAX_VALUE;
 
-      if ( mPositiveGoalLatches != null )
+      for(PolymorphicProposition goalProp : fullPropNet.getGoalPropositions().get(role))
       {
-        ForwardDeadReckonInternalMachineState positiveMask = mPositiveGoalLatches.get(goalProp);
-        if (positiveMask != null && xiState.intersects(positiveMask))
+        ForwardDeadReckonInternalMachineState negativeMask = null;
+        int latchedScore = Integer.parseInt(goalProp.getName().getBody().get(1).toString());
+
+        if ( mPositiveGoalLatches != null )
         {
-          range[0] = latchedScore;
-          range[1] = latchedScore;
-          break;
+          ForwardDeadReckonInternalMachineState positiveMask = mPositiveGoalLatches.get(goalProp);
+          if (positiveMask != null && xiState.intersects(positiveMask))
+          {
+            range[0] = latchedScore;
+            range[1] = latchedScore;
+            break;
+          }
+        }
+        if ( mNegativeGoalLatches != null )
+        {
+          negativeMask = mNegativeGoalLatches.get(goalProp);
+        }
+        if ( negativeMask == null || !xiState.intersects(negativeMask))
+        {
+          //  This is still a possible score
+          if ( latchedScore < range[0] )
+          {
+            range[0] = latchedScore;
+          }
+          if ( latchedScore > range[1] )
+          {
+            range[1] = latchedScore;
+          }
         }
       }
-      if ( mNegativeGoalLatches != null )
+
+      if ( mPositiveGoalLatches == null && mNegativeGoalLatches == null )
       {
-        negativeMask = mNegativeGoalLatches.get(goalProp);
+        staticGoalRange = new int[2];
+
+        staticGoalRange[0] = range[0];
+        staticGoalRange[1] = range[1];
+
+        mStaticGoalRanges.put(role, staticGoalRange);
       }
-      if ( negativeMask == null || !xiState.intersects(negativeMask))
-      {
-        //  This is still a possible score
-        if ( latchedScore < range[0] )
-        {
-          range[0] = latchedScore;
-        }
-        if ( latchedScore > range[1] )
-        {
-          range[1] = latchedScore;
-        }
-      }
+    }
+    else
+    {
+      range[0] = staticGoalRange[0];
+      range[1] = staticGoalRange[1];
     }
   }
 

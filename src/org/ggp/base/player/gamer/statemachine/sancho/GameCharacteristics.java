@@ -65,6 +65,11 @@ public class GameCharacteristics
       LOGGER.info("May be an iterated game");
     }
 
+    if (isPseudoPuzzle)
+    {
+      LOGGER.info("Game is a pseudo puzzle");
+    }
+
     if (isSimultaneousMove)
     {
       LOGGER.info("Game is a simultaneous turn game");
