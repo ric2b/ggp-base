@@ -23,6 +23,8 @@ import org.ggp.base.util.symbol.grammar.SymbolPool;
  */
 public class GDLTranslator
 {
+  private static final int MAX_GDL_SIZE = 5000;
+
   private static final Logger LOGGER = LogManager.getLogger();
 
   private static final String LEARNING_DIR = "data\\games";
@@ -250,6 +252,12 @@ public class GDLTranslator
       return null;
     }
 
+    if (lStoredAtoms.length > MAX_GDL_SIZE)
+    {
+      LOGGER.warn("Not attempting to check massive game with " + lStoredAtoms.length + " atoms");
+      return null;
+    }
+
     for (int lii = 0; lii < lStoredAtoms.length; lii++)
     {
       final SymbolAtom lGDLAtom = xiFlatGDL.get(lii);
@@ -286,6 +294,11 @@ public class GDLTranslator
     lDir.mkdirs();
 
     LOGGER.warn("Unrecognised game.  Created new game directory: " + lDirName);
+
+    if (xiFlatGDL.size() > MAX_GDL_SIZE)
+    {
+      LOGGER.warn("Not saving GDL because it's too big");
+    }
 
     // Convert the GDL to a string.
     final StringBuffer lGDLBuffer = new StringBuffer();
