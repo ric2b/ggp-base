@@ -101,6 +101,7 @@ public class MCTSTree
   final GameSearcher                                   mGameSearcher;
   final StateSimilarityMap                             mStateSimilarityMap;
   private final ForwardDeadReckonInternalMachineState  mNonFactorInitialState;
+  public boolean                                       mIsIrrelevantFactor = false;
 
   // Scratch variables for tree nodes to use to avoid unnecessary object allocation.
   // Note - several of these could probably be collapsed into a lesser number since they are not
@@ -394,6 +395,23 @@ public class MCTSTree
           assert(!newRoot.freed) : "Root node has been freed";
           root = newRoot;
         }
+        else
+        {
+          if ( rootDepth == 0 )
+          {
+            //  This is the start of the first turn, after some searching at the end of meta-gaming
+            //  If the root score variance is 0 and this is a factored game, we mark this factor as
+            //  uninteresting, and will henceforth spend no time searching it
+            if ( factor != null &&
+                 root.numVisits > 500 &&
+                 Math.abs(root.getAverageSquaredScore(0) - root.getAverageScore(0)*root.getAverageScore(0)) < TreeNode.EPSILON )
+            {
+              mIsIrrelevantFactor = true;
+
+              LOGGER.info("Identified irrelevant factor - supressing search");
+            }
+          }
+        }
       }
     }
     //validateAll();
@@ -422,6 +440,13 @@ public class MCTSTree
   public boolean growTree(boolean forceSynchronous)
     throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
+    //  In an irrelevant factor we don't want to waste time searching - just need
+    //  to do enough for the children to be enumerable
+    if ( mIsIrrelevantFactor && !root.hasUnexpandedChoices() )
+    {
+      return false;
+    }
+
     //validateAll();
     //validationCount++;
     selectAction(forceSynchronous);

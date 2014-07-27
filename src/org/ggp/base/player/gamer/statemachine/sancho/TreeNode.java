@@ -16,6 +16,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguratio
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool.ObjectAllocator;
+import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -36,7 +37,7 @@ public class TreeNode
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private static final double        EPSILON = 1e-6;
+  static final double        EPSILON = 1e-6;
 
   private static final boolean       USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(
                                                            CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false);
@@ -616,6 +617,24 @@ public class TreeNode
     }
 
     return true;
+  }
+
+  public boolean hasUnexpandedChoices()
+  {
+    if ( children == null )
+    {
+      return true;
+    }
+
+    for(Object choice : children)
+    {
+      if ( !(choice instanceof TreeEdge) )
+      {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private boolean allNephewsComplete()
@@ -3205,6 +3224,12 @@ public class TreeNode
     TreeNode bestNode = null;
     FactorMoveChoiceInfo result = new FactorMoveChoiceInfo();
     int lResponsesTraced = 0;
+    GdlConstant primaryMoveName = null;
+    GdlConstant secondaryMoveName = null;
+    TreeEdge firstPrimaryEdge = null;
+    TreeEdge firstSecondaryEdge = null;
+    int numPrimaryMoves = 0;
+    int numSecondaryMoves = 0;
 
     //  If there is no pseudo-noop then there cannot be any penalty for not taking
     //  this factor's results - we simply return a pseudo-noop penalty value of 0
@@ -3277,114 +3302,177 @@ public class TreeNode
         continue;
       }
 
-      TreeNode child = get(edge.mChildRef);
-
-      //  Trimmed nodes may be encountered anywhere below the root's own child links
-      //  and these should not accidentally be followed when tracing a move path
-      if (child == null)
+      //  If this factor is irrelevant it doesn't really matter what we pick, but noop
+      //  seems to often be good for hindering the opponent!
+      if ( tree.mIsIrrelevantFactor )
       {
-        continue;
-      }
+        //  Whatever we choose will be worth 0 to us
+        bestScore = 0;
+        bestRawScore = 0;
 
-      double selectionScore;
-      double moveScore = (tree.gameCharacteristics.isSimultaneousMove ||
-                          tree.gameCharacteristics.numRoles > 2 ||
-                          anyComplete ||
-                          MCTSTree.DISABLE_ONE_LEVEL_MINIMAX) ? child.getAverageScore(roleIndex) :
-                                                                child.scoreForMostLikelyResponse();
-
-      assert(-EPSILON <= moveScore && 100 + EPSILON >= moveScore);
-      //	If we have complete nodes with equal scores choose the one with the highest variance
-      if (child.complete)
-      {
-        if (moveScore < 0.1)
+        LOGGER.info("Move " + edge.descriptiveName() +
+                    " in irrelevant factor");
+        if ( edge.mPartialMove.inputProposition == null )
         {
-          //  Prefer more distant losses to closer ones
-          moveScore = (child.completionDepth - tree.mGameSearcher.getRootDepth()) - 100;
-          assert(moveScore <= 0);
-          assert(moveScore >= -100);
+          //  Any move not connected to the propnet at all is certainly a noop!
+          bestEdge = edge;
+          break;
         }
 
-        //  A complete score is certain, but we're comparing within a set that has only
-        //  has numVisits TOTAL visits so still down-weight by the same visit count the most
-        //  selected child has.  This avoids a tendency to throw a marginal win away for a
-        //  definite draw.  Especially in games with low signal to noise ratio (everything looks
-        //  close to 50%) this can be important
-        selectionScore = moveScore *
-            (1 - 20 * Math.log(numVisits) /
-                (20 * Math.log(numVisits) + maxChildVisitCount));
-      }
-      else
-      {
-        int numChildVisits = child.numVisits;
+        //  If the noop is used in propnet calculations (e.g. - base props that remain unchanged when a noop happens)
+        //  then we cannot spot them as easily, so we work on the assumption that the common pattern will be lots of
+        //  some move name (e.g. 'Move' x y w z) and a lone noop of a different name.  Heuristically therefore play
+        //  the loner.  Note that this isn't 100% reliable, but at the end of the day this is an irrelevant factor and
+        //  if we fail to noop in it in some games that's hardly the end of the world.  A counter example would be
+        //  a checkers position where you have both 'move' and 'jump' available
+        GdlConstant moveName = edge.mPartialMove.move.getContents().toSentence().getName();
 
-        //  Cope with the case where root expansion immediately found a complete node and never
-        //  even explored the others (which should not be selected)
-        if (numChildVisits == 0)
+        if ( primaryMoveName == null )
         {
-          selectionScore = -1000;
+          primaryMoveName = moveName;
+          firstPrimaryEdge = edge;
+          bestEdge = edge;  //  bank a choice in case we never meet another choice condition
+        }
+
+        if ( primaryMoveName.equals(moveName) )
+        {
+          numPrimaryMoves++;
         }
         else
         {
-          //  Subtly down-weight noops in 1-player games to discourage them.  Note that
-          //  this has to be fairly subtle, and not impact asymptotic choices since it is possible
-          //  for a puzzle to require noops for a solution!
-          if (tree.gameCharacteristics.numRoles == 1)
+          if ( secondaryMoveName == null )
           {
-            if (edge.mPartialMove.inputProposition == null)
-            {
-              numChildVisits /= 2;
-            }
+            secondaryMoveName = moveName;
+            firstSecondaryEdge = edge;
           }
-          selectionScore = moveScore *
-              (1 - 20 * Math.log(numVisits) /
-                  (20 * Math.log(numVisits) + numChildVisits));
+          if ( secondaryMoveName.equals(moveName) )
+          {
+            numSecondaryMoves++;
+          }
+        }
+
+        if ( numPrimaryMoves > 1 && numSecondaryMoves == 1 )
+        {
+          bestEdge = firstSecondaryEdge;
+          break;
+        }
+        if ( numPrimaryMoves == 1 && numSecondaryMoves > 1 )
+        {
+          bestEdge = firstPrimaryEdge;
+          break;
         }
       }
-      if (!lRecursiveCall)
+      else
       {
-        LOGGER.info("Move " + edge.descriptiveName() +
-                    " scores " + FORMAT_2DP.format(moveScore) + " (selectionScore score " +
-                    FORMAT_2DP.format(selectionScore) + ", selection count " +
-                    child.numVisits + ", ref " + child.mRef +
-                    (child.complete ? (", complete [" + ((child.completionDepth - tree.root.depth)/tree.numRoles) + "]") : "") + ")");
-      }
+        TreeNode child = get(edge.mChildRef);
 
-      if (child.mNumChildren != 0 && !child.complete && traceResponses)
-      {
-        lResponsesTraced = child.traceFirstChoiceNode(lResponsesTraced);
-      }
+        //  Trimmed nodes may be encountered anywhere below the root's own child links
+        //  and these should not accidentally be followed when tracing a move path
+        if (child == null)
+        {
+          continue;
+        }
 
-      if (edge.mPartialMove.isPseudoNoOp)
-      {
-        result.pseudoNoopValue = moveScore;
-        result.pseudoMoveIsComplete = child.complete;
-        continue;
-      }
-      //	Don't accept a complete score which no rollout has seen worse than, if there is
-      //	any alternative
-      if (bestNode != null && !bestNode.complete && child.complete &&
-          moveScore < tree.mGameSearcher.lowestRolloutScoreSeen &&
-          tree.mGameSearcher.lowestRolloutScoreSeen < 100)
-      {
-        continue;
-      }
-      if (bestNode == null ||
-          selectionScore > bestScore ||
-          (selectionScore == bestScore && child.complete && (child.completionDepth < bestNode.completionDepth || !bestNode.complete)) ||
-          (bestNode.complete && !child.complete &&
-          bestNode.getAverageScore(roleIndex) < tree.mGameSearcher.lowestRolloutScoreSeen && tree.mGameSearcher.lowestRolloutScoreSeen < 100))
-      {
-        bestNode = child;
-        bestScore = selectionScore;
-        bestMoveScore = bestNode.getAverageScore(0);
-        bestEdge = edge;
-      }
-      if (child.getAverageScore(roleIndex) > bestRawScore ||
-          (child.getAverageScore(roleIndex) == bestRawScore && child.complete && child.getAverageScore(roleIndex) > 0))
-      {
-        bestRawScore = child.getAverageScore(roleIndex);
-        rawBestEdgeResult = edge;
+        double selectionScore;
+        double moveScore = (tree.gameCharacteristics.isSimultaneousMove ||
+                            tree.gameCharacteristics.numRoles > 2 ||
+                            anyComplete ||
+                            MCTSTree.DISABLE_ONE_LEVEL_MINIMAX) ? child.getAverageScore(roleIndex) :
+                                                                  child.scoreForMostLikelyResponse();
+
+        assert(-EPSILON <= moveScore && 100 + EPSILON >= moveScore);
+        //	If we have complete nodes with equal scores choose the one with the highest variance
+        if (child.complete)
+        {
+          if (moveScore < 0.1)
+          {
+            //  Prefer more distant losses to closer ones
+            moveScore = (child.completionDepth - tree.mGameSearcher.getRootDepth()) - 100;
+            assert(moveScore <= 0);
+            assert(moveScore >= -100);
+          }
+
+          //  A complete score is certain, but we're comparing within a set that has only
+          //  has numVisits TOTAL visits so still down-weight by the same visit count the most
+          //  selected child has.  This avoids a tendency to throw a marginal win away for a
+          //  definite draw.  Especially in games with low signal to noise ratio (everything looks
+          //  close to 50%) this can be important
+          selectionScore = moveScore *
+              (1 - 20 * Math.log(numVisits) /
+                  (20 * Math.log(numVisits) + maxChildVisitCount));
+        }
+        else
+        {
+          int numChildVisits = child.numVisits;
+
+          //  Cope with the case where root expansion immediately found a complete node and never
+          //  even explored the others (which should not be selected)
+          if (numChildVisits == 0)
+          {
+            selectionScore = -1000;
+          }
+          else
+          {
+            //  Subtly down-weight noops in 1-player games to discourage them.  Note that
+            //  this has to be fairly subtle, and not impact asymptotic choices since it is possible
+            //  for a puzzle to require noops for a solution!
+            if (tree.gameCharacteristics.numRoles == 1)
+            {
+              if (edge.mPartialMove.inputProposition == null)
+              {
+                numChildVisits /= 2;
+              }
+            }
+            selectionScore = moveScore *
+                (1 - 20 * Math.log(numVisits) /
+                    (20 * Math.log(numVisits) + numChildVisits));
+          }
+        }
+        if (!lRecursiveCall)
+        {
+          LOGGER.info("Move " + edge.descriptiveName() +
+                      " scores " + FORMAT_2DP.format(moveScore) + " (selectionScore score " +
+                      FORMAT_2DP.format(selectionScore) + ", selection count " +
+                      child.numVisits + ", ref " + child.mRef +
+                      (child.complete ? (", complete [" + ((child.completionDepth - tree.root.depth)/tree.numRoles) + "]") : "") + ")");
+        }
+
+        if (child.mNumChildren != 0 && !child.complete && traceResponses)
+        {
+          lResponsesTraced = child.traceFirstChoiceNode(lResponsesTraced);
+        }
+
+        if (edge.mPartialMove.isPseudoNoOp)
+        {
+          result.pseudoNoopValue = moveScore;
+          result.pseudoMoveIsComplete = child.complete;
+          continue;
+        }
+        //	Don't accept a complete score which no rollout has seen worse than, if there is
+        //	any alternative
+        if (bestNode != null && !bestNode.complete && child.complete &&
+            moveScore < tree.mGameSearcher.lowestRolloutScoreSeen &&
+            tree.mGameSearcher.lowestRolloutScoreSeen < 100)
+        {
+          continue;
+        }
+        if (bestNode == null ||
+            selectionScore > bestScore ||
+            (selectionScore == bestScore && child.complete && (child.completionDepth < bestNode.completionDepth || !bestNode.complete)) ||
+            (bestNode.complete && !child.complete &&
+            bestNode.getAverageScore(roleIndex) < tree.mGameSearcher.lowestRolloutScoreSeen && tree.mGameSearcher.lowestRolloutScoreSeen < 100))
+        {
+          bestNode = child;
+          bestScore = selectionScore;
+          bestMoveScore = bestNode.getAverageScore(0);
+          bestEdge = edge;
+        }
+        if (child.getAverageScore(roleIndex) > bestRawScore ||
+            (child.getAverageScore(roleIndex) == bestRawScore && child.complete && child.getAverageScore(roleIndex) > 0))
+        {
+          bestRawScore = child.getAverageScore(roleIndex);
+          rawBestEdgeResult = edge;
+        }
       }
     }
 
