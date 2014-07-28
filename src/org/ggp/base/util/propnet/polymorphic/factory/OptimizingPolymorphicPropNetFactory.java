@@ -173,7 +173,7 @@ public class OptimizingPolymorphicPropNetFactory
                                                                     usingInput);
     LOGGER.trace("done");
 
-    List<Role> roles = Role.computeRoles(description);
+    Role[] roles = Role.computeRoles(description);
     Map<GdlSentence, PolymorphicComponent> components = new HashMap<GdlSentence, PolymorphicComponent>();
     Map<GdlSentence, PolymorphicComponent> negations = new HashMap<GdlSentence, PolymorphicComponent>();
     PolymorphicConstant trueComponent = componentFactory.createConstant(-1,
@@ -244,7 +244,6 @@ public class OptimizingPolymorphicPropNetFactory
       addFormToCompletedValues(form, completedSentenceFormValues, components);
       //if(verbose)
       //TODO: Add this, but with the correct total number of components (not just Propositions)
-      //System.out.println("  "+completedSentenceFormValues.get(form).size() + " components added");
     }
     //Connect "next" to "true"
     LOGGER.trace("Adding transitions...");
@@ -272,7 +271,6 @@ public class OptimizingPolymorphicPropNetFactory
     //how we want it to look
     normalizePropositions(componentSet);
     PolymorphicPropNet propnet = componentFactory.createPropNet(roles, componentSet);
-    //System.out.println(propnet);
     return propnet;
   }
 
@@ -504,14 +502,9 @@ public class OptimizingPolymorphicPropNetFactory
     while ((nonEssentials = findImmediatelyNonEssentialChildren(falseComponent,
                                                                 true)).size() != 0)
     {
-      //System.out.println("Found " + nonEssentials.size() + " immediately non-essential children, out of a total of " + falseComponent.getOutputs().size());
       //int count = 0;
       for (PolymorphicComponent output : nonEssentials)
       {
-        //if ( count++ % 1000 == 0)
-        //{
-        //	System.out.println("...processed " + count + " of " + nonEssentials.size());
-        //}
         //Iterator<Component> outputItr = falseComponent.getOutputs().iterator();
         //Component output = outputItr.next();
         //while(isEssentialProposition(output) || output instanceof Transition) {
@@ -642,7 +635,6 @@ public class OptimizingPolymorphicPropNetFactory
     while ((nonEssentials = findImmediatelyNonEssentialChildren(trueComponent,
                                                                 false)).size() != 0)
     {
-      //System.out.println("Found " + nonEssentials.size() + " immediately non-essential children, out of a total of " + falseComponent.getOutputs().size());
       //int count = 0;
       for (PolymorphicComponent output : nonEssentials)
       {
@@ -875,7 +867,6 @@ public class OptimizingPolymorphicPropNetFactory
         {
           //Find the corresponding true sentence
           GdlSentence trueSentence = GdlPool.getRelation(TRUE, entry.getKey().getBody());
-          //System.out.println("True sentence from init: " + trueSentence);
           PolymorphicComponent trueSentenceComponent = components.get(trueSentence);
           if (trueSentenceComponent.getInputs().isEmpty())
           {
@@ -983,8 +974,13 @@ public class OptimizingPolymorphicPropNetFactory
     Queue<SentenceForm> queue = new LinkedList<SentenceForm>(forms);
     List<SentenceForm> ordering = new ArrayList<SentenceForm>(forms.size());
     Set<SentenceForm> alreadyOrdered = new HashSet<SentenceForm>();
+
+    int processingSequence = 0;
+    int lastProcessedSequence = 0;
+
     while (!queue.isEmpty())
     {
+      boolean looping = (processingSequence - lastProcessedSequence) > queue.size();
       SentenceForm curForm = queue.remove();
       boolean readyToAdd = true;
       //Don't add if there are dependencies
@@ -1006,7 +1002,16 @@ public class OptimizingPolymorphicPropNetFactory
         SentenceForm baseForm = curForm.withName(BASE);
         if (!alreadyOrdered.contains(baseForm))
         {
-          readyToAdd = false;
+          //  If we're looping here it's probably a GDL issue - flag up where we're failing
+          //  and try to process assuming the proposition will exist
+          if ( looping )
+          {
+            LOGGER.warn("Missing base form.  Unable to process: " + curForm);
+          }
+          else
+          {
+            readyToAdd = false;
+          }
         }
       }
       if (usingInput &&
@@ -1015,12 +1020,21 @@ public class OptimizingPolymorphicPropNetFactory
         SentenceForm inputForm = curForm.withName(INPUT);
         if (!alreadyOrdered.contains(inputForm))
         {
-          readyToAdd = false;
+          if ( looping )
+          {
+            LOGGER.warn("Missing input form.  Unable to process: " + curForm);
+          }
+          else
+          {
+            readyToAdd = false;
+          }
         }
       }
       //Add it
+      processingSequence++;
       if (readyToAdd)
       {
+        lastProcessedSequence = processingSequence;
         ordering.add(curForm);
         alreadyOrdered.add(curForm);
       }
@@ -1572,30 +1586,193 @@ public class OptimizingPolymorphicPropNetFactory
     }
   }
 
-  public static boolean removeIrrelevantBasesAndInputs(PolymorphicPropNet pn)
+  /**
+   * Remove bases and inputs that are not relevant to our play.  May also reduce
+   * opponent roles to effective null roles (single psuedo-noop each turn) in
+   * games which our result depends only on our play unconditionally on any choices
+   * such an opponent might make
+   * @param pn - propnet
+   * @param ourRole - who we are (or null if no analysis relative to our role is required)
+   * @param fillerMoveSet  - set to which all input propositions for moves which are only included
+   *                         as virtual noops (have no direct impact on any base props related to our goals)
+   *                         will have their GDL sentences added
+   * @return true if the game can be treated as a puzzle (has no dependence on any other role's moves)
+   */
+  public static boolean removeIrrelevantBasesAndInputs(PolymorphicPropNet pn, Role ourRole, Set<GdlSentence> fillerMoveSet)
   {
+    boolean isPseudoPuzzle = false;
+
     //  Any bases and inputs that cannot be reached by tracing back from either the terminal
     //  or a goal proposition are irrelevant (transiting through a virtual does->legal back-link)
     Set<PolymorphicComponent> reachableComponents = new HashSet<>();
     recursiveFindReachable(pn, pn.getTerminalProposition(), reachableComponents);
 
-    for( PolymorphicProposition[] roleGoals : pn.getGoalPropositions().values())
+    //  Initially just mark the components on which OUR goals depend if we have been given our role
+    //  Don't try this if we only have a single goal value anyway - this is some stupid test game not
+    //  a real game!
+    if ( ourRole != null && pn.getGoalPropositions().get(ourRole).length > 1 )
     {
-      for( PolymorphicProposition c : roleGoals)
+      Set<PolymorphicComponent> coreReachableComponents = new HashSet<>();
+
+      for( PolymorphicProposition c : pn.getGoalPropositions().get(ourRole))
       {
         recursiveFindReachable(pn, c, reachableComponents);
       }
-    }
 
-    //  For puzzles any moves that do not impact state on which the goals or terminality
-    //  depend are irrelevant.  However, for non-puzzles we need to preserve them as they
-    //  provide a possible source of pseudo-noops that could potentially result in
-    //  Zugzwang in a multi-player game.  Hence explicitly preserve legals in non-puzzles
-    if ( pn.getRoles().size() > 1 )
-    {
-      for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
+      //  The core reachable components are those relevant directly to our goals
+      coreReachableComponents.addAll(reachableComponents);
+
+      if ( pn.getRoles().length > 1 )
       {
-        for( PolymorphicProposition c : legals)
+        //  Find the propnet's TRUE constant
+        PolymorphicComponent trueConstant = null;
+
+        for(PolymorphicComponent c : pn.getComponents())
+        {
+          if ( c instanceof PolymorphicConstant )
+          {
+            if ( ((PolymorphicConstant)c).getValue() )
+            {
+              trueConstant = c;
+              break;
+            }
+          }
+        }
+        assert(trueConstant != null);
+
+        //  For puzzles any moves that do not impact state on which the goals or terminality
+        //  depend are irrelevant.  However, for non-puzzles we need to preserve them as they
+        //  provide a possible source of pseudo-noops that could potentially result in
+        //  Zugzwang in a multi-player game.  Hence explicitly preserve legals in non-puzzles
+        //  for at least our role
+        for( PolymorphicProposition c : pn.getLegalPropositions().get(ourRole))
+        {
+          recursiveFindReachable(pn, c, reachableComponents);
+
+          //  If a legal is no within the core reachable set it has no impact on anything
+          //  that influences our goals and is therefore only relevant as a possible source of
+          //  what amounts to a noop (in the subset of relevant components)
+          if ( !coreReachableComponents.contains(c) )
+          {
+            PolymorphicProposition input = pn.getLegalInputMap().get(c);
+            if ( input != null )
+            {
+              fillerMoveSet.add(input.getName());
+            }
+          }
+        }
+
+        LOGGER.info("Filler move set: " + fillerMoveSet);
+
+        //  Now include all legals and goals for roles which already have ANY moves included
+        //  For most games this will be all of them, but in games where the opponents moves do not
+        //  impact anything on which our goal values are dependent they are irrelevant (canonical
+        //  example is dual Hamilton)
+        isPseudoPuzzle = true;
+
+        for(Role role : pn.getRoles())
+        {
+          if ( role.equals(ourRole))
+          {
+            continue;
+          }
+
+          boolean fullyIncludeRole = false;
+
+          for ( PolymorphicProposition p : pn.getLegalPropositions().get(role))
+          {
+            if ( reachableComponents.contains(p))
+            {
+              fullyIncludeRole = true;
+              break;
+            }
+          }
+
+          if ( fullyIncludeRole )
+          {
+            isPseudoPuzzle = false;
+            //  Add in this role's goals and legals
+            for( PolymorphicProposition c : pn.getGoalPropositions().get(role))
+            {
+              recursiveFindReachable(pn, c, reachableComponents);
+            }
+            for( PolymorphicProposition c : pn.getLegalPropositions().get(role))
+            {
+              recursiveFindReachable(pn, c, reachableComponents);
+
+              //  If a legal is no within the core reachable set it has no impact on anything
+              //  that influences our goals and is therefore only relevant as a possible source of
+              //  what amounts to a noop (in the subset of relevant components)
+              if ( !coreReachableComponents.contains(c) )
+              {
+                PolymorphicProposition input = pn.getLegalInputMap().get(c);
+                if ( input != null )
+                {
+                  fillerMoveSet.add(input.getName());
+                }
+              }
+            }
+          }
+          else
+          {
+            //  Arbitrarily keep one legal (it will be a noop, but we need one to make the
+            //  game legal) and make sure it is always available
+            PolymorphicProposition l = pn.getLegalPropositions().get(role)[0];
+
+            assert(!reachableComponents.contains(l));
+            reachableComponents.add(l);
+
+            PolymorphicComponent oldInput = l.getSingleInput();
+            oldInput.removeOutput(l);
+            l.removeInput(oldInput);
+            trueConstant.addOutput(l);
+            l.addInput(trueConstant);
+
+            //  Keep the lowest valued goal and set it unconditionally true
+            int lowestVal = Integer.MAX_VALUE;
+            PolymorphicProposition retainedGoalProp = null;
+
+            for(PolymorphicProposition p : pn.getGoalPropositions().get(role))
+            {
+              int value = Integer.parseInt(p.getName().getBody().get(1).toString());
+              if ( value < lowestVal )
+              {
+                lowestVal = value;
+                retainedGoalProp = p;
+              }
+            }
+
+            assert(retainedGoalProp != null);
+
+            reachableComponents.add(retainedGoalProp);
+
+            oldInput = retainedGoalProp.getSingleInput();
+            oldInput.removeOutput(retainedGoalProp);
+            retainedGoalProp.removeInput(oldInput);
+            trueConstant.addOutput(retainedGoalProp);
+            retainedGoalProp.addInput(trueConstant);
+          }
+        }
+      }
+      else
+      {
+        isPseudoPuzzle = true;
+      }
+    }
+    else
+    {
+      //  Add all goals and legals if we have not been given a primary role
+      for(PolymorphicProposition[] goals : pn.getGoalPropositions().values())
+      {
+        for(PolymorphicProposition c : goals)
+        {
+          recursiveFindReachable(pn, c, reachableComponents);
+        }
+      }
+
+      for(PolymorphicProposition[] legals : pn.getLegalPropositions().values())
+      {
+        for(PolymorphicProposition c : legals)
         {
           recursiveFindReachable(pn, c, reachableComponents);
         }
@@ -1604,7 +1781,6 @@ public class OptimizingPolymorphicPropNetFactory
 
     //  What can we eliminate?
     Set<PolymorphicComponent> unreachable = new HashSet<>();
-    boolean result = false;
     int removalCount = 0;
     for(PolymorphicProposition c : pn.getBasePropositions().values())
     {
@@ -1630,8 +1806,18 @@ public class OptimizingPolymorphicPropNetFactory
         unreachable.add(c);
       }
     }
+    for(PolymorphicProposition[] goals : pn.getGoalPropositions().values())
+    {
+      for(PolymorphicProposition c : goals)
+      {
+        if ( !reachableComponents.contains(c))
+        {
+          unreachable.add(c);
+        }
+      }
+    }
 
-    if ( pn.getRoles().size() > 1 )
+    if ( pn.getRoles().length > 1 )
     {
       for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
       {
@@ -1647,14 +1833,13 @@ public class OptimizingPolymorphicPropNetFactory
 
     for(PolymorphicComponent c : unreachable)
     {
-      //System.out.println("Remove: " + c);
       pn.removeComponent(c);
       removalCount++;
     }
 
     LOGGER.debug("Removed " + removalCount + " irrelevant propositions");
 
-    return result;
+    return isPseudoPuzzle;
   }
 
   private static void recursiveFindReachable(PolymorphicPropNet pn, PolymorphicComponent from, Set<PolymorphicComponent> reachableComponents)
@@ -2054,27 +2239,18 @@ public class OptimizingPolymorphicPropNetFactory
         //Don't forget: if "legal", check "does"
         if (curCompIsLegalProposition)
         {
-          toReevaluate.add(pn.getLegalInputMap().get(curComp));
+          PolymorphicProposition input = pn.getLegalInputMap().get(curComp);
+          toReevaluate.add(input);
         }
         loopDetectionCount = 0;
         reEvaluationLimit = toReevaluate.size();
       }
-
     }
 
     //We deliberately shouldn't remove the stuff attached to TRUE... or anything that's
     //always true...
     //But we should be able to remove bases and inputs (when it's justified)
 
-    //What can we conclude? Let's dump here
-    /*
-     * for(Entry<Component, Type> entry : reachability.entrySet()) {
-     * //System.out.println("  "+entry.getKey()+": "+entry.getValue()); //We
-     * can actually dump a version of the PN with colored nodes in DOT form...
-     * System
-     * .out.println(entry.getKey().toString().replaceAll("fillcolor=[a-z]+,",
-     * "fillcolor="+entry.getValue().getColor()+",")); }
-     */
     //TODO: Go through all the cases of everything I can dump
     //For now... how about inputs?
     PolymorphicConstant trueConst = componentFactory.createConstant(-1, true);
@@ -2638,7 +2814,6 @@ public class OptimizingPolymorphicPropNetFactory
               input.addOutput(newAnd);
               newAnd.addInput(input);
             }
-            //System.out.println(removedCount + " components removed and " + addedCount + " added for this factorization");
           }
         }
         else if ((c instanceof PolymorphicAnd))
@@ -2804,7 +2979,6 @@ public class OptimizingPolymorphicPropNetFactory
               input.addOutput(newOr);
               newOr.addInput(input);
             }
-            //System.out.println(removedCount + " components removed and " + addedCount + " added for this factorization");
           }
         }
       }
@@ -2882,7 +3056,6 @@ public class OptimizingPolymorphicPropNetFactory
 
           if (!outputANDinputs.isEmpty())
           {
-            //System.out.println("Found large output OR with refactorable output ANDs of size " + c.getOutputs().size());
             outputFactorizationFanoutReduction += c.getOutputs().size() - 1;
 
             PolymorphicAnd newAnd = pn.getComponentFactory().createAnd(-1, -1);
@@ -2976,7 +3149,6 @@ public class OptimizingPolymorphicPropNetFactory
 
           if (!outputORinputs.isEmpty())
           {
-            //System.out.println("Found large output AND with refactorable output ORs of size " + c.getOutputs().size());
             outputFactorizationFanoutReduction += c.getOutputs().size() - 1;
 
             PolymorphicOr newOr = pn.getComponentFactory().createOr(-1, -1);
@@ -3093,7 +3265,6 @@ public class OptimizingPolymorphicPropNetFactory
         System.err.println("Might have falsely declared " + p.getName() +
                            " to be unimportant?");
       //Not important
-      //System.out.println("Removing " + p);
       toSplice.add(p);
     }
     for (PolymorphicProposition p : toSplice)
@@ -3697,10 +3868,6 @@ public class OptimizingPolymorphicPropNetFactory
 //          if (inputSet.size() > roleSet.size() / 2)
 //          {
 //            possibleSavings += 2 * inputSet.size() - roleSet.size();
-//            System.out.println("Identified input set of size " +
-//                               inputSet.size() +
-//                               " that can be replaced by complement of size " +
-//                               (roleSet.size() - inputSet.size()));
 //          }
 //        }
 //      }

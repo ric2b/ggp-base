@@ -151,7 +151,7 @@ public class StateMachinePerformanceAnalyser
         theMachine.disableGreedyRollouts();
 
         ForwardDeadReckonInternalMachineState initialState = theMachine.createInternalState(theMachine.getInitialState());
-        Role ourRole = theMachine.getRoles().get(0);
+        Role ourRole = theMachine.getRoles()[0];
 
         ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
         try
@@ -196,8 +196,8 @@ public class StateMachinePerformanceAnalyser
     {
       if ( theRepository.getGameKeys().contains(gameKey))
       {
-        ForwardDeadReckonPropnetStateMachine theMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,25000);
-        GameSearcher gameSearcher = new GameSearcher(1000000, theMachine.getRoles().size(), "PerfTest");
+        ForwardDeadReckonPropnetStateMachine theMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,25000,null);
+        GameSearcher gameSearcher = new GameSearcher(1000000, theMachine.getRoles().length, "PerfTest");
 
         System.out.println("Measure game " + gameKey + " state machine performance.");
 
@@ -218,8 +218,8 @@ public class StateMachinePerformanceAnalyser
 
           gameSearcher.setup(theMachine,
                              initialState,
-                             new RoleOrdering(theMachine, theMachine.getRoles().get(0)),
-                             new RuntimeGameCharacteristics(theMachine.getRoles().size()),
+                             new RoleOrdering(theMachine, theMachine.getRoles()[0]),
+                             new RuntimeGameCharacteristics(theMachine.getRoles().length, null),
                              true,
                              new CombinedHeuristic(),
                              null);

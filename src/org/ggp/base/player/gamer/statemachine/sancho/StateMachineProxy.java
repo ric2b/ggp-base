@@ -61,7 +61,7 @@ class StateMachineProxy extends StateMachine
   }
 
   @Override
-  public List<Role> getRoles()
+  public Role[] getRoles()
   {
     return machineToProxy.getRoles();
   }

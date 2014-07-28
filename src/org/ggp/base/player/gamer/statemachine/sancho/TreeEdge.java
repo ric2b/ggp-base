@@ -54,7 +54,12 @@ public class TreeEdge
    */
   long                           mChildRef                  = TreeNode.NULL_REF;
 
-  int    numChildVisits             = 0;
+  /**
+   * Top bit of the numChildVisits is used to encode an edge re-expansion event
+   */
+  static final private int hasBeenTrimmedMask = 0x80000000;
+  static final private int childVisitNumVisitsMask = ~hasBeenTrimmedMask;
+  private int  numChildVisits       = 0;
   double explorationAmplifier       = 0;
 
   /**
@@ -65,6 +70,38 @@ public class TreeEdge
    */
   TreeEdge()
   {
+  }
+
+  /**
+   * @return number of times this edge has been selected through
+   */
+  public int getNumChildVisits()
+  {
+    return (numChildVisits & childVisitNumVisitsMask);
+  }
+
+  /**
+   * @return whether this edge has been re-expanded after trimming
+   */
+  public boolean getHasBeenTrimmed()
+  {
+    return (numChildVisits & hasBeenTrimmedMask) != 0;
+  }
+
+  /**
+   * Increment the number of times this edge has been selected through
+   */
+  public void incrementNumVisits()
+  {
+    numChildVisits++;
+  }
+
+  /**
+   * Note that this edge has been trimmed
+   */
+  public void setHasBeenTrimmed()
+  {
+    numChildVisits |= hasBeenTrimmedMask;
   }
 
   /**
@@ -81,6 +118,7 @@ public class TreeEdge
     assert(mParentRef != TreeNode.NULL_REF);
     assert(mChildRef == TreeNode.NULL_REF ||
            TreeNode.get(xiParent.tree.nodePool, mChildRef).tree == xiParent.tree);
+    assert(!xiPartialMove.isPseudoNoOp || xiParent == xiParent.tree.root || xiParent.mNumChildren == 1);
   }
 
   /**

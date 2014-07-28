@@ -13,7 +13,7 @@ public class RoleOrdering
 
   public RoleOrdering(StateMachine underlyingStateMachine, Role ourRole)
   {
-    int numRoles = underlyingStateMachine.getRoles().size();
+    int numRoles = underlyingStateMachine.getRoles().length;
     reorderedRoles = new Role[numRoles];
     roleOrderMap = new int[numRoles];
     canonicallyOrderedMoveBuffer = new Move[numRoles];

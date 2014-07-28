@@ -132,6 +132,39 @@
                      }
                    ]
           });
+
+          $('#NODE').highcharts(
+          {
+            title: {text: 'MCTS Stats'},
+            xAxis: {type: 'datetime'},
+            yAxis: [
+                     {
+                       title: {text: 'Re-expansions/ms'},
+                       min:   0
+                     },
+                     {
+                       opposite: true,
+                       gridLineWidth: 0,
+                       tickWidth: 1,
+
+                       title: {text: 'Transition rate'},
+                       min: 0
+                     }
+                   ]
+          });
+          
+          $('#TIMES').highcharts(
+          {
+            title:   {text: 'Iteration timings'},
+            xAxis:   {type: 'datetime'},
+            yAxis:   [
+                       {
+                         title: {text: 'Percentage (stacked)'},
+                         min: 0,
+                         max: 100
+                       }
+                    ]
+          });
       });
 
       function receiveMessage(xiEvent)
@@ -304,6 +337,8 @@
     <div id="MEM"   class="SanchoGraph" style="height: 300px"></div>
     <div id="GC"    class="SanchoGraph" style="height: 300px"></div>
     <div id="PERF"  class="SanchoGraph" style="height: 300px"></div>
+    <div id="TIMES" class="SanchoGraph" style="height: 300px"></div>
+    <div id="NODE"  class="SanchoGraph" style="height: 300px"></div>
     <hr/>
     <p>Show logs at level
       <select onchange="filterLogs(this);">

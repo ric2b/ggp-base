@@ -2,6 +2,7 @@
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Iterator;
@@ -226,12 +227,12 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    * Construct a new legal move set for a specified set of roles
    * @param theRoles
    */
-  public ForwardDeadReckonLegalMoveSet(List<Role> theRoles)
+  public ForwardDeadReckonLegalMoveSet(Role[] theRoles)
   {
     masterList = new ArrayList<>();
     masterListAsArray = null;
-    contents = new BitSet[theRoles.size()];
-    roles = new Role[theRoles.size()];
+    contents = new BitSet[theRoles.length];
+    roles = new Role[theRoles.length];
     preAllocatedCollections = new ForwardDeadReckonLegalMoveSetCollection[roles.length];
 
     int i = 0;
@@ -263,6 +264,64 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     return masterListAsArray;
   }
 
+  /* Utility methods */
+  @Override
+  public int hashCode()
+  {
+    return Arrays.hashCode(contents);
+  }
+
+  @Override
+  public boolean equals(Object o)
+  {
+    if (this == o)
+    {
+      return true;
+    }
+
+    if (o instanceof ForwardDeadReckonLegalMoveSet)
+    {
+      ForwardDeadReckonLegalMoveSet moveSet = (ForwardDeadReckonLegalMoveSet)o;
+      return Arrays.equals(moveSet.contents, contents);
+    }
+
+    return false;
+  }
+
+  @Override
+  public String toString()
+  {
+    StringBuilder sb = new StringBuilder();
+    boolean first = true;
+    boolean firstRole = true;
+
+    sb.append("[ ");
+    for (int roleIndex = 0; roleIndex < contents.length; roleIndex++)
+    {
+      int moveIndex = 1;
+
+      if (!firstRole)
+      {
+        sb.append("; ");
+      }
+      sb.append("( ");
+      for (int i = contents[roleIndex].nextSetBit(0); i >= 0; i = contents[roleIndex].nextSetBit(i + 1))
+      {
+        if (!first)
+        {
+          sb.append(", ");
+        }
+        sb.append(moveIndex++ + ": " + masterListAsArray[i].move);
+        first = false;
+      }
+      sb.append(" )");
+      firstRole = false;
+    }
+    sb.append(" ]");
+
+    return sb.toString();
+  }
+
   /**
    * Empty the collection
    */
@@ -275,17 +334,44 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   }
 
   /**
+   * Copy from another legal move set
+   * @param source to copy from
+   */
+  public void copy(ForwardDeadReckonLegalMoveSet source)
+  {
+    for (int i = 0; i < contents.length; i++)
+    {
+      contents[i].clear();
+      contents[i].or(source.contents[i]);
+    }
+  }
+
+  /**
    * Add a new legal move info to the master list, resolving its id
    * as we do so (i.e. - giving it a concrete index in the master list
    * which will not subsequently change)
    * @param info Legal move info to add
+   * @param masterIndex asserted index we want this info to be placed at, or -1 for next available
    * @return the index of the added move's info in the master list
    */
-  public int resolveId(ForwardDeadReckonLegalMoveInfo info)
+  public int resolveId(ForwardDeadReckonLegalMoveInfo info, int masterIndex)
   {
-    masterList.add(info);
+    if ( masterIndex == -1 )
+    {
+      masterList.add(info);
 
-    return masterList.size() - 1;
+      masterIndex = masterList.size() - 1;
+    }
+    else
+    {
+      while(masterIndex >= masterList.size())
+      {
+        masterList.add(null);
+      }
+      masterList.set(masterIndex,  info);
+    }
+
+    return masterIndex;
   }
 
   /**
@@ -339,6 +425,18 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   }
 
   /**
+   * Intersect with another legal move set collection - result is the intersection
+   * @param other set to intersect into this set
+   */
+  public void intersect(ForwardDeadReckonLegalMoveSet other)
+  {
+    for (int i = 0; i < contents.length; i++)
+    {
+      contents[i].and(other.contents[i]);
+    }
+  }
+
+  /**
    * retrieve the set of legal moves for a specified role
    * @param roleIndex role for which we want the legal moves
    * @return collection of legal move infos
@@ -361,10 +459,67 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
       if (roles[i].equals(role))
       {
         return preAllocatedCollections[i];
-        //return new ForwardDeadReckonLegalMoveSetCollection(this, i);
       }
     }
 
     return null;
+  }
+
+  /**
+   * Determine how many legal moves there are for a specified role
+   * @param role
+   * @return number of legals
+   */
+  public int getNumChoices(Role role)
+  {
+    for (int i = 0; i < roles.length; i++)
+    {
+      if (roles[i].equals(role))
+      {
+        return getNumChoices(i);
+      }
+    }
+
+    return 0;
+  }
+
+  /**
+   * Determine how many legal moves there are for a specified role
+   * @param roleIndex
+   * @return number of legals
+   */
+  public int getNumChoices(int roleIndex)
+  {
+    return contents[roleIndex].cardinality();
+  }
+
+  /**
+   * Determine if a specified move is legal for a specified role
+   * @param role - role to check for
+   * @param move - move being checked
+   * @return whether the move is legal
+   */
+  public boolean isLegalMove(Role role, ForwardDeadReckonLegalMoveInfo move)
+  {
+    for (int i = 0; i < roles.length; i++)
+    {
+      if (roles[i].equals(role))
+      {
+        return isLegalMove(i, move);
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Determine if a specified move is legal for a specified role
+   * @param roleIndex - index of role to check for
+   * @param move - move being checked
+   * @return whether the move is legal
+   */
+  public boolean isLegalMove(int roleIndex, ForwardDeadReckonLegalMoveInfo move)
+  {
+    return contents[roleIndex].get(move.masterIndex);
   }
 }

@@ -31,11 +31,14 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
+/**
+ * The Sancho General Game Player.
+ */
 public class Sancho extends SampleGamer
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private static final long SAFETY_MARGIN = 2500;
+  private static final long SAFETY_MARGIN = MachineSpecificConfiguration.getCfgVal(CfgItem.SAFETY_MARGIN, 2500);
 
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
@@ -91,7 +94,7 @@ public class Sancho extends SampleGamer
     planString = xiParam.substring(5);
   }
 
-  int netScore(ForwardDeadReckonPropnetStateMachine stateMachine,
+  private int netScore(ForwardDeadReckonPropnetStateMachine stateMachine,
                        ForwardDeadReckonInternalMachineState state)
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.netScore");
@@ -150,33 +153,10 @@ public class Sancho extends SampleGamer
     }
   }
 
-  private Move[] getMoveCanonicallyOrdered(Move[] move)
-  {
-    int index = 0;
-    boolean processedOurMove = false;
-
-    for (Role role : underlyingStateMachine.getRoles())
-    {
-      if (role.equals(ourRole))
-      {
-        canonicallyOrderedMoveBuffer[index++] = move[0];
-        processedOurMove = true;
-      }
-      else
-      {
-        canonicallyOrderedMoveBuffer[index] = (processedOurMove ? move[index]
-                                                               : move[index + 1]);
-        index++;
-      }
-    }
-
-    return canonicallyOrderedMoveBuffer;
-  }
-
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.59");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60");
   }
 
   @Override
@@ -192,7 +172,8 @@ public class Sancho extends SampleGamer
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
     underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
-                                                                      getMetaGamingTimeout());
+                                                                      getMetaGamingTimeout(),
+                                                                      getRole());
 
     System.gc();
 
@@ -202,8 +183,7 @@ public class Sancho extends SampleGamer
     return stateMachineProxy;
   }
 
-  private int unNormalizedStateDistance(MachineState queriedState,
-                                        MachineState targetState)
+  private static int unNormalizedStateDistance(MachineState queriedState, MachineState targetState)
   {
     int matchCount = 0;
 
@@ -230,7 +210,7 @@ public class Sancho extends SampleGamer
 
     mSysStatsLogger = new SystemStatsLogger(mLogName);
 
-    searchProcessor = new GameSearcher(transpositionTableSize, underlyingStateMachine.getRoles().size(), mLogName);
+    searchProcessor = new GameSearcher(transpositionTableSize, underlyingStateMachine.getRoles().length, mLogName);
     stateMachineProxy.setController(searchProcessor);
 
     if (!ThreadControl.RUN_SYNCHRONOUSLY)
@@ -254,8 +234,11 @@ public class Sancho extends SampleGamer
     puzzlePlayer = null;
 
     ourRole = getRole();
-    LOGGER.info("We are: " + ourRole);
-    numRoles = underlyingStateMachine.getRoles().size();
+    LOGGER.info("Start clock: " + getMatch().getStartClock() + "s");
+    LOGGER.info("Play clock:  " + getMatch().getPlayClock() + "s");
+    LOGGER.info("We are:      " + ourRole);
+
+    numRoles = underlyingStateMachine.getRoles().length;
     roleOrdering = new RoleOrdering(underlyingStateMachine, ourRole);
 
     mTurn = 0;
@@ -270,12 +253,25 @@ public class Sancho extends SampleGamer
     int observedMaxNetScore = Integer.MIN_VALUE;
     int simulationsPerformed = 0;
     int multiRoleSamples = 0;
-    boolean greedyRolloutsDisabled = false;
+    boolean greedyRolloutsDisabled = MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_GREEDY_ROLLOUTS, false);
 
     multiRoleAverageScoreDiff = 0;
 
-    // Find latches.  This needs to be done before the AvailableGoalHeuristic is initialized.
-    underlyingStateMachine.findLatches();
+    gameCharacteristics = new RuntimeGameCharacteristics(numRoles, getGameDir());
+    gameCharacteristics.setFactors(underlyingStateMachine.getFactors());
+    String lSavedPlan = gameCharacteristics.getPlan();
+    if (lSavedPlan != null)
+    {
+      // We've played this game before and know how to solve it.
+      LOGGER.info("Considering saved plan: " + lSavedPlan);
+      plan.considerPlan(convertPlanString(gameCharacteristics.getPlan()));
+      LOGGER.info("Ready to play");
+      return;
+    }
+
+    // Analyze game semantics.  This includes latch identification and search filter generation.
+    // This needs to be done before the AvailableGoalHeuristic is initialized.
+    underlyingStateMachine.performSemanticAnalysis();
 
     CombinedHeuristic heuristic;
 
@@ -292,8 +288,6 @@ public class Sancho extends SampleGamer
 
     ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine.createInternalState(getCurrentState());
 
-    gameCharacteristics = new RuntimeGameCharacteristics(numRoles);
-
     //	Sample to see if multiple roles have multiple moves available
     //	implying this must be a simultaneous move game
     //	HACK - actually only count games where both players can play the
@@ -301,6 +295,7 @@ public class Sancho extends SampleGamer
     //	games like C4-simultaneous or Chinook (but it's a hack!)
     gameCharacteristics.isSimultaneousMove = false;
     gameCharacteristics.isPseudoSimultaneousMove = false;
+    gameCharacteristics.isPseudoPuzzle = underlyingStateMachine.getIsPseudoPuzzle();
 
     //	Also monitor whether any given player always has the SAME choice of move (or just a single choice)
     //	every turn - such games are (highly probably) iterated games
@@ -346,6 +341,8 @@ public class Sancho extends SampleGamer
       int numRoleMovesSimulated = 0;
       int numBranchesTaken = 0;
 
+      heuristic.tuningStartSampleGame();
+
       while (!underlyingStateMachine.isTerminal(sampleState))
       {
         boolean roleWithChoiceSeen = false;
@@ -385,8 +382,6 @@ public class Sancho extends SampleGamer
                   {
                     if ( turnFactor != null && turnFactor != factor )
                     {
-                      //underlyingStateMachine.disableFactorization();
-                      //factors = null;
                       gameCharacteristics.moveChoicesFromMultipleFactors = true;
                       break;
                     }
@@ -417,8 +412,13 @@ public class Sancho extends SampleGamer
           jointMove[roleOrdering.roleIndexToRawRoleIndex(i)] = legalMoves.get(r.nextInt(legalMoves.size()));
         }
 
-        // Tell the heuristic about the interim state, for tuning purposes.
-        heuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
+        // Tell the heuristic about the interim state, for tuning purposes.  For now
+        // if it's a forced move don't tell the heuristic as it gets confused with simultaneous
+        // moves (TODO - fix this)
+        if ( gameCharacteristics.isPseudoSimultaneousMove || choosingRoleIndex != -1 )
+        {
+          heuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
+        }
 
         sampleState = underlyingStateMachine.getNextState(sampleState, jointMove);
       }
@@ -432,7 +432,10 @@ public class Sancho extends SampleGamer
       assert(underlyingStateMachine.isTerminal(sampleState));
       heuristic.tuningTerminalStateSample(sampleState, roleScores);
 
-      branchingFactorApproximation += (numBranchesTaken / numRoleMovesSimulated);
+      if (numRoleMovesSimulated > 0)
+      {
+        branchingFactorApproximation += (numBranchesTaken / numRoleMovesSimulated);
+      }
       numSamples++;
     }
 
@@ -471,6 +474,7 @@ public class Sancho extends SampleGamer
     //  from one factor or another (imposing an artificial noop on the other)
     if (gameCharacteristics.moveChoicesFromMultipleFactors)
     {
+      assert(factors != null);
       for (Factor factor : factors)
       {
         factor.setAlwaysIncludePseudoNoop(true);
@@ -481,7 +485,9 @@ public class Sancho extends SampleGamer
     //	1) Is the game a puzzle?
     //	2) For each role what is the largest and the smallest score that seem reachable and what are the corresponding net scores
     long simulationStartTime = System.currentTimeMillis();
-    long simulationStopTime = Math.min(timeout - 5000,
+    //  Always do this for at least a second even if we technically don't have time to do so, since not running it
+    //  at all causes all sorts of problems
+    long simulationStopTime = Math.min(Math.max(timeout - (gameCharacteristics.numRoles == 1 ? 10000 : 5000), simulationStartTime + 1000),
                                        simulationStartTime + 10000);
 
     int[] rolloutStats = new int[2];
@@ -644,7 +650,10 @@ public class Sancho extends SampleGamer
 
     LOGGER.info("Estimated greedy rollout cost: " + greedyRolloutCost);
     if (minNumTurns == maxNumTurns ||
-        ((greedyRolloutCost > 8 || stdDevNumTurns < 0.15 * averageNumTurns || underlyingStateMachine.greedyRolloutEffectiveness < underlyingStateMachine.numRolloutDecisionNodeExpansions / 3) && gameCharacteristics.numRoles != 1))
+        ((greedyRolloutCost > 8 || stdDevNumTurns < 0.15 * averageNumTurns || underlyingStateMachine.greedyRolloutEffectiveness < underlyingStateMachine.numRolloutDecisionNodeExpansions / 3) &&
+         gameCharacteristics.numRoles != 1 &&
+         !underlyingStateMachine.hasNegativelyLatchedGoals() &&
+         !underlyingStateMachine.hasPositivelyLatchedGoals()))
     {
       if (!greedyRolloutsDisabled)
       {
@@ -666,7 +675,7 @@ public class Sancho extends SampleGamer
       LOGGER.info("Puzzle with no observed solution");
 
       MachineState terminalState;
-      Set<MachineState> goalStates = underlyingStateMachine.findGoalStates(getRole(), 90, 100, 20);
+      Set<MachineState> goalStates = underlyingStateMachine.findGoalStates(getRole(), 90, 500, 20);
       //Set<MachineState> goalStates = underlyingStateMachine.findTerminalStates(100,20);
       Set<MachineState> cleanedStates = new HashSet<>();
 
@@ -714,8 +723,25 @@ public class Sancho extends SampleGamer
         }
         else
         {
-          puzzlePlayer = new TargetedSolutionStatePlayer(underlyingStateMachine, this, roleOrdering);
+          puzzlePlayer = new TargetedSolutionStatePlayer(underlyingStateMachine, this);
           puzzlePlayer.setTargetState(terminalState);
+
+          Collection<Move> solution = puzzlePlayer.attemptAStarSolve(99, timeout - SAFETY_MARGIN);
+
+          if ( solution != null )
+          {
+            plan.considerPlan(solution);
+            LOGGER.info("Solved by A*");
+          }
+          else
+          {
+            //  We do not expect this case to (usefully) arise, as if A* cannot solve it, the
+            //  old-style target-state puzzle solver probably doesn't have much chance either.
+            //  Now that we attempt A* solving during meta-gaming we might want to consider entirely
+            //  ditching the old-style solver, and just falling back to MCTS if A* fails, but for now
+            //  leaving intact
+            LOGGER.warn("Not solved by A* in available meta-gaming time - remaining time: " + (timeout - System.currentTimeMillis()) + "ms");
+          }
         }
       }
     }
@@ -754,7 +780,7 @@ public class Sancho extends SampleGamer
     else
     {
       rolloutSampleSize = (int)(simulationsPerformed /
-                                (10 * (simulationStopTime - simulationStartTime)) + 1);
+                                (40 * (simulationStopTime - simulationStartTime)) + 1);
       if (rolloutSampleSize > 100)
       {
         rolloutSampleSize = 100;
@@ -790,8 +816,10 @@ public class Sancho extends SampleGamer
                                   new ForwardDeadReckonInternalMachineState(initialState),
                                   (short)0);
 
-      searchUntil(timeout = SAFETY_MARGIN);
+      searchUntil(timeout - SAFETY_MARGIN);
     }
+
+    LOGGER.info("Ready to play");
   }
 
   @Override
@@ -956,53 +984,26 @@ public class Sancho extends SampleGamer
     }
   }
 
-  private void flattenMoveSubLists(List<List<Move>> legalMoves,
-                                   int iFromIndex,
-                                   List<List<Move>> jointMoves,
-                                   List<Move> partialJointMove)
-  {
-    if (iFromIndex >= legalMoves.size())
-    {
-      jointMoves.add(new ArrayList<>(partialJointMove));
-      return;
-    }
-
-    for (Move move : legalMoves.get(iFromIndex))
-    {
-      if (partialJointMove.size() <= iFromIndex)
-      {
-        partialJointMove.add(move);
-      }
-      else
-      {
-        partialJointMove.set(iFromIndex, move);
-      }
-
-      flattenMoveSubLists(legalMoves,
-                          iFromIndex + 1,
-                          jointMoves,
-                          partialJointMove);
-    }
-  }
-
-  private void flattenMoveLists(List<List<Move>> legalMoves,
-                                List<List<Move>> jointMoves)
-  {
-    List<Move> partialJointMove = new ArrayList<>();
-
-    flattenMoveSubLists(legalMoves, 0, jointMoves, partialJointMove);
-  }
-
   @Override
   public void stateMachineStop()
   {
     // Log the final score.
+    int lFinalScore;
     synchronized (searchProcessor.getSerializationObject())
     {
       ForwardDeadReckonInternalMachineState lState = underlyingStateMachine.createInternalState(getCurrentState());
-      int lFinalScore = underlyingStateMachine.getGoal(lState, ourRole);
+      lFinalScore = underlyingStateMachine.getGoal(lState, ourRole);
       LOGGER.info("Final score: " + lFinalScore);
       StatsLogUtils.Series.SCORE.logDataPoint(lFinalScore);
+      StatsLogUtils.Series.SAMPLE_RATE.logDataPoint(gameCharacteristics.getRolloutSampleSize());
+    }
+
+    // If we've just solved a puzzle for the first time, save the game history as a plan.
+    if ((lFinalScore == 100) &&
+        (gameCharacteristics.numRoles == 1) &&
+        (gameCharacteristics.getPlan() == null))
+    {
+      gameCharacteristics.setPlan(convertHistoryToPlan());
     }
 
     tidyUp();
@@ -1035,6 +1036,9 @@ public class Sancho extends SampleGamer
       mSysStatsLogger = null;
     }
 
+    // Save anything that we've learned about this game.
+    gameCharacteristics.saveConfig(getGameDir());
+
     // Free off all our references.
     ourRole                      = null;
     planString                   = null;
@@ -1043,16 +1047,19 @@ public class Sancho extends SampleGamer
     canonicallyOrderedMoveBuffer = null;
     underlyingStateMachine       = null;
     puzzlePlayer                 = null;
+    gameCharacteristics          = null;
 
     // Get our parent to tidy up too.
     cleanupAfterMatch();
 
     // Prompt the JVM to do garbage collection, because we've hopefully just freed a lot of stuff.
-    long endGCTime = System.currentTimeMillis() + 5000;
+    long endGCTime = System.currentTimeMillis() + 3000;
     for (int ii = 0; ii < 1000 && System.currentTimeMillis() < endGCTime; ii++)
     {
       System.gc();
       try {Thread.sleep(1);} catch (InterruptedException lEx) {/* Whatever */}
     }
+
+    LOGGER.info("Tidy-up complete");
   }
 }

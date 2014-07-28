@@ -74,9 +74,19 @@ public class CombinedHeuristic implements Heuristic
     prune();
 
     // Remember the number of roles.
-    mNumRoles = xiStateMachine.getRoles().size();
+    mNumRoles = xiStateMachine.getRoles().length;
 
     return result;
+  }
+
+  @Override
+  public void tuningStartSampleGame()
+  {
+    // Tell all the underlying heuristics about the new game.
+    for (Heuristic lHeuristic : mTuningHeuristics)
+    {
+      lHeuristic.tuningStartSampleGame();
+    }
   }
 
   @Override

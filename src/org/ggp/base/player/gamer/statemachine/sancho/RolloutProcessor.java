@@ -120,6 +120,7 @@ class RolloutProcessor implements Runnable
 
         // Do the rollouts
         lRequest.process(mStateMachine, mOurRole, mRoleOrdering);
+        lRequest.mEnqueue2Time = System.nanoTime();
         mPipeline.completedRollout(mThreadIndex);
         lCompleteOutstanding = false;
 

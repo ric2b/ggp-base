@@ -32,6 +32,11 @@ public class MachineSpecificConfiguration
     USE_AFFINITY,
 
     /**
+     * Safety margin for submitting moves.
+     */
+    SAFETY_MARGIN,
+
+    /**
      * Whether to disable the use of piece heuristics
      */
     DISABLE_PIECE_HEURISTIC,
@@ -41,6 +46,22 @@ public class MachineSpecificConfiguration
      * for node expansion weighting
      */
     DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING,
+
+    /**
+     * Whether to disable the use of learning (both using stuff already learned and also learning new stuff).
+     */
+    DISABLE_LEARNING,
+
+    /**
+     * Whether to disable node trimming on pool full (if disabled search stalls until the next move
+     * reroots the tree).
+     */
+    DISABLE_NODE_TRIMMING,
+
+    /**
+     * Whether to disable greedy rollouts.
+     */
+    DISABLE_GREEDY_ROLLOUTS,
 
     /**
      * Player name to report
@@ -53,11 +74,15 @@ public class MachineSpecificConfiguration
      */
     FIXED_SAMPLE_SIZE,
 
-
     /**
      * Explicit transposition table size to use (aka max node count)
      */
-    NODE_TABLE_SIZE;
+    NODE_TABLE_SIZE,
+
+    /**
+     * Whether to enable initial node estimation in all games
+     */
+    ENABLE_INITIAL_NODE_ESTIMATION;
   }
 
   private static final Properties MACHINE_PROPERTIES = new Properties();

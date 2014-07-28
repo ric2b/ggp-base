@@ -33,14 +33,26 @@ print "Match ID or local filename: ";
 my $lMatchID = <STDIN>;
 chomp($lMatchID);
 
+my $lShortID;
+
 my $lHostedMatch;
 if ($lMatchID =~ /^[0-9a-f]{30,50}$/)
 {
   $lHostedMatch = 1;
+  $lShortID = "Tiltyard.$lMatchID";
 }
 elsif (-f $lMatchID)
 {
   $lHostedMatch = 0;
+  $lShortID = $lMatchID;
+  if ($lShortID =~ /.+\\(.+)/)
+  {
+    $lShortID = "Local.$1";
+  }
+  if ($lShortID =~ /(.+)\.json/)
+  {
+    $lShortID = $1;
+  }
 }
 else
 {
@@ -178,7 +190,7 @@ my $lPlayClock =
 #* Generate a test case.                                                     *#
 #*****************************************************************************#
 my $lCase = {};
-$lCase->{case} = "${lBugStr}Tiltyard $lMatchID, player $lPlayerIndex, move " . ($lMoveIndex + 1);
+$lCase->{case} = "${lBugStr}$lShortID, player $lPlayerIndex, move " . ($lMoveIndex + 1);
 $lCase->{repo} = $lRepo;
 $lCase->{game} = $lGame;
 $lCase->{start} = $lStartClock;
@@ -239,7 +251,7 @@ $lSuite->{cases}->[0] = $lCase;
 #*****************************************************************************#
 #* Write the suite to file.                                                  *#
 #*****************************************************************************#
-my $lShortName = "Tiltyard.$lMatchID.$lPlayerIndex." . ($lMoveIndex + 1) . ".json";
+my $lShortName = "$lShortID.$lPlayerIndex." . ($lMoveIndex + 1) . ".json";
 my $lSuiteFile = "..\\data\\tests\\suites\\$lShortName";
 open(SUITE, ">$lSuiteFile") or die "Failed to open $lSuiteFile: $!\n";
 print SUITE JSON::PP->new->pretty->indent_length(2)->sort_by('customSort')->encode($lSuite);

@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import junit.framework.TestCase;
+
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.game.GameRepository;
 import org.ggp.base.util.gdl.factory.GdlFactory;
@@ -13,13 +15,11 @@ import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 import org.ggp.base.util.symbol.factory.exceptions.SymbolFormatException;
 
-import junit.framework.TestCase;
-
 /**
  * Unit tests for the GdlScrambler class, which provides a way to scramble and
  * unscramble Gdl objects without changing the underlying physics of the games
  * they represent.
- * 
+ *
  * @author Sam
  */
 public class GdlScrambler_Test extends TestCase
@@ -132,8 +132,7 @@ public class GdlScrambler_Test extends TestCase
       ProverStateMachine pScrambled = new ProverStateMachine();
       pNormal.initialize(game.getRules());
       pScrambled.initialize(theScrambledRules);
-      assertEquals(gameKey, pNormal.getRoles().size(), pScrambled.getRoles()
-          .size());
+      assertEquals(gameKey, pNormal.getRoles().length, pScrambled.getRoles().length);
       assertEquals(gameKey,
                    pNormal.getInitialState().getContents().size(),
                    pScrambled.getInitialState().getContents().size());

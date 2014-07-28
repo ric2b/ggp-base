@@ -8,8 +8,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
 import org.ggp.base.player.gamer.Gamer;
+import org.ggp.base.player.gamer.event.GamerUnrecognizedMatchEvent;
 import org.ggp.base.player.request.factory.exceptions.RequestFormatException;
 import org.ggp.base.player.request.grammar.AbortRequest;
+import org.ggp.base.player.request.grammar.ErrorPseudoRequest;
 import org.ggp.base.player.request.grammar.InfoRequest;
 import org.ggp.base.player.request.grammar.PlayRequest;
 import org.ggp.base.player.request.grammar.PreviewRequest;
@@ -21,6 +23,7 @@ import org.ggp.base.util.game.Game;
 import org.ggp.base.util.gdl.factory.GdlFactory;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
+import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.symbol.factory.SymbolFactory;
 import org.ggp.base.util.symbol.grammar.Symbol;
 import org.ggp.base.util.symbol.grammar.SymbolAtom;
@@ -50,6 +53,15 @@ public final class RequestFactory
       }
       else if (type.equals("start"))
       {
+        if ( gamer.getMatch() != null )
+        {
+          //  Already playing a match - cannot construct a start request
+          //  since the processing required to do so would disrupt the
+          //  in-progress game (by corrupting the GDL translator), so instead
+          //  construct a pseudo request that encapsulates the necessary error return
+          return createErrorPseudoRequest(((SymbolAtom)list.get(1)).getValue(), "busy");
+        }
+
         // This is the first we've seen of this match.  Set the match ID for logging.
         String lMatchID = ((SymbolAtom)list.get(1)).getValue();
         ThreadContext.put("matchID", lMatchID + "-" + gamer.getPort());
@@ -66,17 +78,35 @@ public final class RequestFactory
 
         return createStart(gamer, list);
       }
-      else if (type.equals("play"))
+      else if ( type.equals("play") || type.equals("stop") || type.equals("abort") )
       {
-        return createPlay(gamer, list);
-      }
-      else if (type.equals("stop"))
-      {
-        return createStop(gamer, list);
-      }
-      else if (type.equals("abort"))
-      {
-        return createAbort(gamer, list);
+        if ( gamer.getMatch() == null )
+        {
+          String matchId = ((SymbolAtom)list.get(1)).getValue();
+          gamer.notifyObservers(new GamerUnrecognizedMatchEvent(matchId));
+          GamerLogger
+              .logError("GamePlayer",
+                        "Got " + type + " message not intended for current game: ignoring.");
+          //  Not safe to attempt to construct a PlayRequest (etc.) in this case as there may
+          //  be no GDL translator set
+          return createErrorPseudoRequest(matchId, "busy");
+        }
+
+        if (type.equals("play"))
+        {
+          return createPlay(gamer, list);
+        }
+        else if (type.equals("stop"))
+        {
+          return createStop(gamer, list);
+        }
+        else if (type.equals("abort"))
+        {
+          return createAbort(gamer, list);
+        }
+
+        //  Keep the compiler quiet! (can't actually reach here)
+        return null;
       }
       else
       {
@@ -134,6 +164,11 @@ public final class RequestFactory
                             theReceivedGame,
                             startClock,
                             playClock);
+  }
+
+  private ErrorPseudoRequest createErrorPseudoRequest(String matchId, String error)
+  {
+    return new ErrorPseudoRequest(matchId, error);
   }
 
   private StopRequest createStop(Gamer gamer, SymbolList list)

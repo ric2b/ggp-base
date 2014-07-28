@@ -63,7 +63,7 @@ public class Role implements Serializable
    * This function will give an ordered list in which the roles have that
    * correct order.
    */
-  public static List<Role> computeRoles(List<? extends Gdl> description)
+  public static Role[] computeRoles(List<? extends Gdl> description)
   {
     List<Role> roles = new ArrayList<Role>();
     for (Gdl gdl : description)
@@ -77,6 +77,6 @@ public class Role implements Serializable
         }
       }
     }
-    return roles;
+    return roles.toArray(new Role[roles.size()]);
   }
 }

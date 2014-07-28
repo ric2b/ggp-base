@@ -57,7 +57,7 @@ import org.ggp.base.util.statemachine.Role;
  * networks, see: "Decomposition of Games for Efficient Reasoning" by Eric
  * Schkufza. "Factoring General Games using Propositional Automata" by Evan Cox
  * et al.
- * 
+ *
  * @author Sam Schreiber
  */
 
@@ -91,7 +91,7 @@ public final class PropNet
   private final Map<Proposition, Proposition> legalInputMap;
 
   /** A helper list of all of the roles. */
-  private final List<Role>                    roles;
+  private final Role[]                        roles;
 
   public void addComponent(Component c)
   {
@@ -103,11 +103,11 @@ public final class PropNet
   /**
    * Creates a new PropNet from a list of Components, along with indices over
    * those components.
-   * 
+   *
    * @param components
    *          A list of Components.
    */
-  public PropNet(List<Role> roles, Set<Component> components)
+  public PropNet(Role[] roles, Set<Component> components)
   {
 
     this.roles = roles;
@@ -122,7 +122,7 @@ public final class PropNet
     this.legalInputMap = makeLegalInputMap();
   }
 
-  public List<Role> getRoles()
+  public Role[] getRoles()
   {
     return roles;
   }
@@ -162,7 +162,7 @@ public final class PropNet
 
   /**
    * Getter method.
-   * 
+   *
    * @return References to every BaseProposition in the PropNet, indexed by
    *         name.
    */
@@ -173,7 +173,7 @@ public final class PropNet
 
   /**
    * Getter method.
-   * 
+   *
    * @return References to every Component in the PropNet.
    */
   public Set<Component> getComponents()
@@ -183,7 +183,7 @@ public final class PropNet
 
   /**
    * Getter method.
-   * 
+   *
    * @return References to every GoalProposition in the PropNet, indexed by
    *         player name.
    */
@@ -194,7 +194,7 @@ public final class PropNet
 
   /**
    * Getter method. A reference to the single, unique, InitProposition.
-   * 
+   *
    * @return
    */
   public Proposition getInitProposition()
@@ -204,7 +204,7 @@ public final class PropNet
 
   /**
    * Getter method.
-   * 
+   *
    * @return References to every InputProposition in the PropNet, indexed by
    *         name.
    */
@@ -215,7 +215,7 @@ public final class PropNet
 
   /**
    * Getter method.
-   * 
+   *
    * @return References to every LegalProposition in the PropNet, indexed by
    *         player name.
    */
@@ -226,7 +226,7 @@ public final class PropNet
 
   /**
    * Getter method.
-   * 
+   *
    * @return References to every Proposition in the PropNet.
    */
   public Set<Proposition> getPropositions()
@@ -236,7 +236,7 @@ public final class PropNet
 
   /**
    * Getter method.
-   * 
+   *
    * @return A reference to the single, unique, TerminalProposition.
    */
   public Proposition getTerminalProposition()
@@ -246,7 +246,7 @@ public final class PropNet
 
   /**
    * Returns a representation of the PropNet in .dot format.
-   * 
+   *
    * @see java.lang.Object#toString()
    */
   @Override
@@ -267,7 +267,7 @@ public final class PropNet
   /**
    * Outputs the propnet in .dot format to a particular file. This can be
    * viewed with tools like Graphviz and ZGRViewer.
-   * 
+   *
    * @param filename
    *          the name of the file to output to
    */
@@ -293,7 +293,7 @@ public final class PropNet
    * going over every single-input proposition in the network, and seeing
    * whether or not its input is a transition, which would mean that by
    * definition the proposition is a base proposition.
-   * 
+   *
    * @return An index over the BasePropositions in the PropNet.
    */
   private Map<GdlSentence, Proposition> recordBasePropositions()
@@ -321,7 +321,7 @@ public final class PropNet
    * function is "goal", and extracting the name of the role associated with
    * that goal proposition, and then using those role names as keys that map to
    * the goal propositions in the index.
-   * 
+   *
    * @return An index over the GoalPropositions in the PropNet.
    */
   private Map<Role, Set<Proposition>> recordGoalPropositions()
@@ -350,7 +350,7 @@ public final class PropNet
 
   /**
    * Returns a reference to the single, unique, InitProposition.
-   * 
+   *
    * @return A reference to the single, unique, InitProposition.
    */
   private Proposition recordInitProposition()
@@ -372,7 +372,7 @@ public final class PropNet
 
   /**
    * Builds an index over the InputPropositions in the PropNet.
-   * 
+   *
    * @return An index over the InputPropositions in the PropNet.
    */
   private Map<GdlSentence, Proposition> recordInputPropositions()
@@ -396,7 +396,7 @@ public final class PropNet
 
   /**
    * Builds an index over the LegalPropositions in the PropNet.
-   * 
+   *
    * @return An index over the LegalPropositions in the PropNet.
    */
   private Map<Role, Set<Proposition>> recordLegalPropositions()
@@ -426,7 +426,7 @@ public final class PropNet
 
   /**
    * Builds an index over the Propositions in the PropNet.
-   * 
+   *
    * @return An index over Propositions in the PropNet.
    */
   private Set<Proposition> recordPropositions()
@@ -444,7 +444,7 @@ public final class PropNet
 
   /**
    * Records a reference to the single, unique, TerminalProposition.
-   * 
+   *
    * @return A reference to the single, unqiue, TerminalProposition.
    */
   private Proposition recordTerminalProposition()

@@ -86,7 +86,7 @@ public class TreePath
       mChildRef  = mEdge.mChildRef;
 
       assert(getNode(mChildRef) != null) : "Can't add invalid node ref to path";
-      assert(xiEdge.numChildVisits <= getNode(mChildRef).numVisits) : "Edge has more visits than child";
+      assert(xiEdge.getNumChildVisits() <= getNode(mChildRef).numVisits) : "Edge has more visits than child";
     }
 
     /**
@@ -305,8 +305,8 @@ public class TreePath
       // The edge can't have been visited more often than its child.  (The converse isn't true because children can
       // have multiple parents.)
       assert(getCurrentElement().getChildNode() != null) : "Child is null even after edge validated";
-      assert(lEdge.numChildVisits <= getCurrentElement().getChildNode().numVisits) :
-        "Edge " + lEdge + " has been visited " + lEdge.numChildVisits + " times, but the child (" +
+      assert(lEdge.getNumChildVisits() <= getCurrentElement().getChildNode().numVisits) :
+        "Edge " + lEdge + " has been visited " + lEdge.getNumChildVisits() + " times, but the child (" +
         getCurrentElement().getChildNode() + ") only has " + getCurrentElement().getChildNode().numVisits + " visits!";
     }
     resetCursor();

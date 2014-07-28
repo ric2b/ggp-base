@@ -1,7 +1,6 @@
 
 package org.ggp.base.util.propnet.polymorphic.learning;
 
-import java.util.List;
 import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
@@ -15,7 +14,6 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicOr;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
-import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
 import org.ggp.base.util.statemachine.Role;
 
 public class LearningComponentFactory extends PolymorphicComponentFactory
@@ -38,7 +36,7 @@ public class LearningComponentFactory extends PolymorphicComponentFactory
   }
 
   @Override
-  public PolymorphicPropNet createPropNet(List<Role> roles,
+  public PolymorphicPropNet createPropNet(Role[] roles,
                                           Set<PolymorphicComponent> components)
   {
     return new PolymorphicPropNet(roles, components, this);

@@ -11,22 +11,25 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 import org.ggp.base.util.statemachine.Move;
+import org.ggp.base.util.statemachine.Role;
 
 /**
  * Class representing a factor within a game's propnet.  A factor is a partition within a partitioning of the base
  * propositions into disjoint sets between which there are no causative logical connections or coupling via
  * terminal/goal conditions.
  */
-public class Factor
+public class Factor implements StateMachineFilter
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
   private static final ForwardDeadReckonLegalMoveInfo PSEUDO_NO_OP = new ForwardDeadReckonLegalMoveInfo(true);
 
   private Set<PolymorphicComponent> components = new HashSet<>();
-  private Set<Move> moves = new HashSet<>();
+  private Set<ForwardDeadReckonLegalMoveInfo>   moveInfos = new HashSet<>();
+  private Set<Move>                             moves = null;
   private ForwardDeadReckonInternalMachineState stateMask = null;
   private ForwardDeadReckonInternalMachineState factorSpecificStateMask = null;
   private ForwardDeadReckonInternalMachineState inverseStateMask = null;
@@ -54,8 +57,22 @@ public class Factor
     return components;
   }
 
+  public Set<ForwardDeadReckonLegalMoveInfo> getMoveInfos()
+  {
+    return moveInfos;
+  }
+
   public Set<Move> getMoves()
   {
+    if ( moves == null )
+    {
+      moves = new HashSet<>();
+
+      for(ForwardDeadReckonLegalMoveInfo moveInfo : moveInfos)
+      {
+        moves.add(moveInfo.move);
+      }
+    }
     return moves;
   }
 
@@ -77,9 +94,9 @@ public class Factor
     components.addAll(toAdd);
   }
 
-  public void addAllMoves(Collection<Move> toAdd)
+  public void addAllMoves(Collection<ForwardDeadReckonLegalMoveInfo> toAdd)
   {
-    moves.addAll(toAdd);
+    moveInfos.addAll(toAdd);
   }
 
   public void dump()
@@ -96,9 +113,9 @@ public class Factor
     }
 
     LOGGER.debug("Factor moves:");
-    for (Move move : moves)
+    for (ForwardDeadReckonLegalMoveInfo moveInfo : moveInfos)
     {
-      LOGGER.debug("  " + move);
+      LOGGER.debug("  " + moveInfo.move);
     }
   }
 
@@ -164,52 +181,19 @@ public class Factor
     alwaysIncludePseudoNoop = value;
   }
 
-  /**
-   * Get the next move for this factor - inserts pseudo-noops if required
-   * @param xiFactor - facor to enumerate moves for
-   * @param itr - iterator on the collection of all moves
-   * @return next factoo move
-   */
-  public static ForwardDeadReckonLegalMoveInfo nextFactorMove(Factor xiFactor,
-                                                          Iterator<ForwardDeadReckonLegalMoveInfo> itr)
+  @Override
+  public boolean isFilteredTerminal(ForwardDeadReckonInternalMachineState xiState)
   {
-    ForwardDeadReckonLegalMoveInfo result;
-
-    while(itr.hasNext())
-    {
-      result = itr.next();
-      if ( result.factor == xiFactor || result.factor == null || xiFactor == null )
-      {
-        return result;
-      }
-    }
-
-    assert(xiFactor != null);
-
-    // The extra move must be a forced noop
-    return PSEUDO_NO_OP;
+    return stateMachine.isTerminal(xiState);
   }
 
-  /**
-   * @return the number of moves in the specified collection that are valid for the specified factor.
-   *
-   * @param xiMoves  - the moves.
-   * @param xiFactor - the factor.
-   * @param includeForcedPseudoNoops - whether to include forced pseudo-noops in factors
-   */
-  public static int getFilteredSize(Collection<ForwardDeadReckonLegalMoveInfo> xiMoves, Factor xiFactor, boolean includeForcedPseudoNoops)
+  private int getFilteredMovesSize(Collection<ForwardDeadReckonLegalMoveInfo> xiMoves, boolean xiIncludeForcedPseudoNoops)
   {
-    if (xiFactor == null)
-    {
-      // Non-factored game.  All moves in the underlying collection are valid.
-      return xiMoves.size();
-    }
-
     int lCount = 0;
     boolean noopFound = false;
     for (ForwardDeadReckonLegalMoveInfo lMove : xiMoves)
     {
-      if (lMove.factor == null || lMove.factor == xiFactor)
+      if (lMove.factor == null || lMove.factor == this)
       {
         lCount++;
 
@@ -220,11 +204,47 @@ public class Factor
       }
     }
 
-    if ( lCount == 0 || (includeForcedPseudoNoops && !noopFound && xiFactor.getAlwaysIncludePseudoNoop()))
+    if ( lCount == 0 || (xiIncludeForcedPseudoNoops && !noopFound && getAlwaysIncludePseudoNoop()))
     {
       lCount++;
     }
 
     return lCount;
+  }
+
+  @Override
+  public int getFilteredMovesSize(ForwardDeadReckonInternalMachineState xiState,
+                                  ForwardDeadReckonLegalMoveSet xiMoves,
+                                  Role role,
+                                  boolean xiIncludeForcedPseudoNoops)
+  {
+    return getFilteredMovesSize(xiMoves.getContents(role), xiIncludeForcedPseudoNoops);
+  }
+
+  @Override
+  public int getFilteredMovesSize(ForwardDeadReckonInternalMachineState xiState,
+                                  ForwardDeadReckonLegalMoveSet xiMoves,
+                                  int roleIndex,
+                                  boolean xiIncludeForcedPseudoNoops)
+  {
+    return getFilteredMovesSize(xiMoves.getContents(roleIndex), xiIncludeForcedPseudoNoops);
+  }
+
+  @Override
+  public ForwardDeadReckonLegalMoveInfo nextFilteredMove(Iterator<ForwardDeadReckonLegalMoveInfo> xiItr)
+  {
+    ForwardDeadReckonLegalMoveInfo result;
+
+    while(xiItr.hasNext())
+    {
+      result = xiItr.next();
+      if ( result.factor == this || result.factor == null )
+      {
+        return result;
+      }
+    }
+
+    // The extra move must be a forced noop
+    return PSEUDO_NO_OP;
   }
 }

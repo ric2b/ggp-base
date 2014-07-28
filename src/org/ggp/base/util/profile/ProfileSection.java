@@ -33,7 +33,6 @@ public class ProfileSection
 
   private ProfileSection(String name)
   {
-    //System.out.println("Enter section: " + name);
     this.name = name;
     if (ProfilerContext.getContext() != null)
     {
@@ -58,7 +57,6 @@ public class ProfileSection
     {
       elapsedTime = System.nanoTime() - startTime;
       ProfilerContext.getContext().endSection(this);
-      //System.out.println("Exit section: " + name);
     }
   }
 }

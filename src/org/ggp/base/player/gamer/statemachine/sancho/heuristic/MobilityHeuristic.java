@@ -42,7 +42,7 @@ public class MobilityHeuristic implements Heuristic
     mStateMachine = xiStateMachine;
     mRoleOrdering = xiRoleOrdering;
 
-    mTuningData = new MobilityData(xiStateMachine.getRoles().size());
+    mTuningData = new MobilityData(xiStateMachine.getRoles().length);
     mCorrelationForRole = new PearsonCorrelation[mTuningData.mNumRoles];
     for (int lii = 0; lii < mTuningData.mNumRoles; lii++)
     {
@@ -251,5 +251,12 @@ public class MobilityHeuristic implements Heuristic
     {
       return new MobilityData(this);
     }
+  }
+
+  @Override
+  public void tuningStartSampleGame()
+  {
+    // TODO Auto-generated method stub
+
   }
 }

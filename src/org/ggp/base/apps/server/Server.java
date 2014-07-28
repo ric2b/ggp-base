@@ -586,12 +586,12 @@ public final class Server extends JPanel implements ActionListener
 
       StateMachine stateMachine = new ProverStateMachine();
       stateMachine.initialize(theGame.getRules());
-      List<Role> roles = stateMachine.getRoles();
+      Role[] roles = stateMachine.getRoles();
 
       int newRowCount = 12;
-      for (int i = 0; i < roles.size(); i++)
+      for (int i = 0; i < roles.length; i++)
       {
-        roleLabels.add(new JLabel(roles.get(i).getName().toString() + ":"));
+        roleLabels.add(new JLabel(roles[i].getName().toString() + ":"));
         playerFields.add(playerSelector.getPlayerSelectorBox());
         playerFields.get(i).setSelectedIndex(i %
                                              playerFields.get(i).getModel()

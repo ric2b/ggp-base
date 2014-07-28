@@ -108,4 +108,11 @@ public class AvailableGoalHeuristic implements Heuristic
     // There's no game-state-dependent persistent state, so we can re-use this instance.
     return this;
   }
+
+  @Override
+  public void tuningStartSampleGame()
+  {
+    // TODO Auto-generated method stub
+
+  }
 }

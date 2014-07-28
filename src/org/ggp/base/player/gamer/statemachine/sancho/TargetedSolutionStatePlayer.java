@@ -1,5 +1,6 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -14,7 +15,7 @@ import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
-import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
@@ -34,15 +35,15 @@ public class TargetedSolutionStatePlayer
     private int                                   pathLength;
     private int                                   heuristicCost = -1;
 
-    public AStarNode(ForwardDeadReckonInternalMachineState state,
-                     AStarNode parent,
-                     Move move)
+    public AStarNode(ForwardDeadReckonInternalMachineState xiState,
+                     AStarNode xiParent,
+                     Move xiMove)
     {
-      this.state = state;
-      this.parent = parent;
-      this.move = move;
+      this.state = new ForwardDeadReckonInternalMachineState(xiState);
+      this.parent = xiParent;
+      this.move = xiMove;
 
-      pathLength = (parent == null ? 0 : parent.pathLength + 1);
+      pathLength = (xiParent == null ? 0 : xiParent.pathLength + 1);
     }
 
     public AStarNode getParent()
@@ -67,17 +68,16 @@ public class TargetedSolutionStatePlayer
 
     private int heuristicCost()
     {
-      return 0;
-      //      if ( heuristicCost == -1 )
-      //      {
-      //        ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(state);
-      //
-      //        temp.intersect(targetStateAsInternal);
-      //
-      //        heuristicCost = targetStateAsInternal.size() - temp.size();
-      //      }
-      //
-      //      return heuristicCost;
+      if ( heuristicCost == -1 )
+      {
+        ForwardDeadReckonInternalMachineState temp = new ForwardDeadReckonInternalMachineState(state);
+
+        temp.intersect(targetStateAsInternal);
+
+        heuristicCost = (int)(targetStateAsInternal.size() - temp.size());
+      }
+
+      return heuristicCost;
     }
 
     @Override
@@ -87,135 +87,106 @@ public class TargetedSolutionStatePlayer
     }
   }
 
-  private PriorityQueue<AStarNode>              AStarFringe           = null;
-  private ForwardDeadReckonInternalMachineState targetStateAsInternal = null;
-  private List<Move>                            AStarSolutionPath     = null;
-  ForwardDeadReckonInternalMachineState         stepStateMask         = null;
+  /**
+   * Target state we must reach to achieve solution
+   */
+  ForwardDeadReckonInternalMachineState         targetStateAsInternal = null;
 
-  private Move selectAStarMove(List<Move> moves, long timeout)
+  /**
+   * Attempt to solve the puzzle using A*
+   * @param solutionScoreThreshold score required to be considered as an acceptable solution
+   * @param timeout - time to search until (max)
+   * @return solution plan if found, else null
+   */
+  public Collection<Move> attemptAStarSolve(int solutionScoreThreshold, long timeout)
   {
-    Move bestMove = moves.get(0);
-    int[] numAtDistance = new int[50];
+    int bestGoalFound = -1;
+    List<Move> AStarSolutionPath     = null;
+    PriorityQueue<AStarNode> AStarFringe = new PriorityQueue<>();
 
-    for (int i = 0; i < 50; i++)
+    AStarFringe.add(new AStarNode(underlyingStateMachine
+        .createInternalState(gamer.getCurrentState()), null, null));
+
+    ForwardDeadReckonInternalMachineState steplessStateMask = underlyingStateMachine.getNonControlMask();
+
+    if (targetStateAsInternal == null)
     {
-      numAtDistance[i] = 0;
+      targetStateAsInternal = underlyingStateMachine
+          .createInternalState(targetState);
+      targetStateAsInternal.intersect(steplessStateMask);
     }
 
-    if (AStarSolutionPath == null)
+    int largestDequeuePriority = -1;
+    int numStatesProcessed = 0;
+
+    Set<ForwardDeadReckonInternalMachineState> AStarVisitedStates = new HashSet<>();
+    ForwardDeadReckonLegalMoveInfo[] jointMove = new ForwardDeadReckonLegalMoveInfo[1];
+    ForwardDeadReckonInternalMachineState stateBuffer = new ForwardDeadReckonInternalMachineState(steplessStateMask);
+    ForwardDeadReckonInternalMachineState steplessStateBuffer = new ForwardDeadReckonInternalMachineState(steplessStateMask);
+
+    while (!AStarFringe.isEmpty() && System.currentTimeMillis() < timeout)
     {
-      if (AStarFringe == null)
-      {
-        AStarFringe = new PriorityQueue<AStarNode>();
+      numStatesProcessed++;
+      AStarNode node = AStarFringe.remove();
 
-        AStarFringe.add(new AStarNode(underlyingStateMachine
-            .createInternalState(gamer.getCurrentState()), null, null));
+      if (node.getPriority() > largestDequeuePriority)
+      {
+        largestDequeuePriority = node.getPriority();
       }
 
-      stepStateMask = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
-
-      stepStateMask.clear();
-      for (ForwardDeadReckonPropositionInfo info : underlyingStateMachine
-          .getInfoSet())
+      if (underlyingStateMachine.isTerminal(node.getState()))
       {
-        if (info.sentence.toString().contains("step"))
+        int goalValue = underlyingStateMachine.getGoal(node.getState(),
+                                                       gamer.getRole());
+
+        if (goalValue > bestGoalFound)
         {
-          stepStateMask.add(info);
-        }
-      }
-      stepStateMask.invert();
+          AStarSolutionPath = new LinkedList<>();
 
-      if (targetStateAsInternal == null)
-      {
-        targetStateAsInternal = underlyingStateMachine
-            .createInternalState(targetState);
-        targetStateAsInternal.intersect(stepStateMask);
-      }
-
-      int largestDequeuePriority = -1;
-      int bestGoalFound = -1;
-
-      Set<ForwardDeadReckonInternalMachineState> visitedStates = new HashSet<ForwardDeadReckonInternalMachineState>();
-
-      while (!AStarFringe.isEmpty())
-      {
-        AStarNode node = AStarFringe.remove();
-
-        if (node.getPriority() > largestDequeuePriority)
-        {
-          largestDequeuePriority = node.getPriority();
-
-          LOGGER.info("Now dequeuing estimated cost " +
-                      largestDequeuePriority + " (fringe size " + AStarFringe.size() + ")");
-        }
-
-        if (underlyingStateMachine.isTerminal(node.getState()))
-        {
-          int goalValue = underlyingStateMachine.getGoal(node.getState(),
-                                                         gamer.getRole());
-
-          if (goalValue > bestGoalFound)
+          //  Construct solution path
+          while (node != null && node.getMove() != null)
           {
-            AStarSolutionPath = new LinkedList<Move>();
-
-            //  Construct solution path
-            while (node != null && node.getMove() != null)
-            {
-              AStarSolutionPath.add(0, node.getMove());
-              node = node.getParent();
-            }
-
-            if (goalValue == 100)
-            {
-              //break;
-            }
+            AStarSolutionPath.add(0, node.getMove());
+            node = node.getParent();
           }
-        }
 
-        //  Expand the node and add children to the fringe
-        List<Move> childMoves = underlyingStateMachine.getLegalMovesCopy(node.getState(), gamer.getRole());
-
-        if (childMoves.size() == 0)
-        {
-          LOGGER.info("No child moves found from state: " + node.getState());
-        }
-        for (Move move : childMoves)
-        {
-          List<Move> jointMove = new LinkedList<Move>();
-          jointMove.add(move);
-
-          ForwardDeadReckonInternalMachineState newState = underlyingStateMachine.getNextState(node.getState(),
-                                                                                               jointMove);
-          ForwardDeadReckonInternalMachineState steplessState = new ForwardDeadReckonInternalMachineState(newState);
-          steplessState.intersect(stepStateMask);
-
-          if (!visitedStates.contains(steplessState))
+          bestGoalFound = goalValue;
+          if (goalValue == 100)
           {
-            AStarNode newChild = new AStarNode(newState, node, move);
-            AStarFringe.add(newChild);
-
-            visitedStates.add(steplessState);
-
-            numAtDistance[newChild.pathLength]++;
+            break;
           }
         }
       }
+
+      //  Expand the node and add children to the fringe
+      Collection<ForwardDeadReckonLegalMoveInfo> childMoves = underlyingStateMachine.getLegalMoves(node.getState(), gamer.getRole());
+
+      for (ForwardDeadReckonLegalMoveInfo moveInfo : childMoves)
+      {
+        jointMove[0] = moveInfo;
+
+        underlyingStateMachine.getNextState(node.getState(), null, jointMove, stateBuffer);
+
+        steplessStateBuffer.copy(stateBuffer);
+        steplessStateBuffer.intersect(steplessStateMask);
+
+        if (!AStarVisitedStates.contains(steplessStateBuffer))
+        {
+          AStarNode newChild = new AStarNode(stateBuffer, node, moveInfo.move);
+          AStarFringe.add(newChild);
+
+          AStarVisitedStates.add(new ForwardDeadReckonInternalMachineState(steplessStateBuffer));
+        }
+      }
     }
 
-    for (int i = 0; i < 50; i++)
-    {
-      LOGGER.info("Num states at distance " + i + ": " + numAtDistance[i]);
-    }
-
-    bestMove = AStarSolutionPath.remove(0);
-
-    return bestMove;
+    LOGGER.info("A* processed " + numStatesProcessed + " states");
+    return (bestGoalFound >= solutionScoreThreshold ? AStarSolutionPath : null);
   }
 
 
   private ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
   private StateMachineGamer gamer;
-  private RoleOrdering roleOrdering;
 
   private MachineState                   goalState                     = null;
   private int                            goalDepth;
@@ -225,43 +196,49 @@ public class TargetedSolutionStatePlayer
   private HashMap<MachineState, Integer> considered                    = new HashMap<>();
   private MachineState                   targetState                     = null;
 
+  /**
+   * Construct a targeted-state puzzle solution solver for use when the solution state
+   * is known
+   * @param stateMachine - underlying state machine
+   * @param xiGamer - StateMachineGamer from which current state can be queried
+   */
   public TargetedSolutionStatePlayer(ForwardDeadReckonPropnetStateMachine stateMachine,
-                                     StateMachineGamer gamer,
-                                     RoleOrdering roleOrdering)
+                                     StateMachineGamer xiGamer)
   {
     underlyingStateMachine = stateMachine;
-    this.gamer = gamer;
-    this.roleOrdering  = roleOrdering;
+    this.gamer = xiGamer;
 
     goalState = null;
     nextGoalState = null;
     bestScoreGoaled = -1;
     bestSeenHeuristicValue = 0;
 
-    AStarSolutionPath = null;
-    AStarFringe = null;
     targetStateAsInternal = null;
 }
 
+  /**
+   * Set the solution state that this solver is tp try to find a path to
+   * @param state
+   */
   public void setTargetState(MachineState state)
   {
     targetState = state;
   }
 
-  private int unNormalizedStateDistance(MachineState queriedState,
-                                        MachineState targetState)
+  private static int unNormalizedStateDistance(MachineState fromState,
+                                        MachineState toState)
   {
     int matchCount = 0;
 
-    for (GdlSentence s : targetState.getContents())
+    for (GdlSentence s : toState.getContents())
     {
-      if (queriedState.getContents().contains(s))
+      if (fromState.getContents().contains(s))
       {
         matchCount++;
       }
     }
 
-    return targetState.getContents().size() - matchCount;
+    return toState.getContents().size() - matchCount;
   }
 
   private enum HeuristicType {
@@ -271,12 +248,12 @@ public class TargetedSolutionStatePlayer
   private HeuristicType     nextExploreType               = HeuristicType.HEURISTIC_TYPE_EXPLORE_AWAY;
   private Set<GdlSentence>  targetPropositions            = null;
   private int               bestWeightedExplorationResult = -1;
-  private Set<MachineState> visitedStates                 = new HashSet<MachineState>();
+  private Set<MachineState> visitedStates                 = new HashSet<>();
 
-  private int stateDistance(MachineState queriedState, MachineState targetState)
+  private static int stateDistance(MachineState fromState, MachineState toState)
   {
-    return 98 * unNormalizedStateDistance(queriedState, targetState) /
-           targetState.getContents().size();
+    return 98 * unNormalizedStateDistance(fromState, toState) /
+           toState.getContents().size();
   }
 
   private int bestSeenHeuristicValue = 0;
@@ -412,7 +389,7 @@ public class TargetedSolutionStatePlayer
       throws TransitionDefinitionException, GoalDefinitionException,
       MoveDefinitionException
   {
-    List<Move> pseudoJointMove = new LinkedList<Move>();
+    List<Move> pseudoJointMove = new LinkedList<>();
     pseudoJointMove.add(move);
     int result;
 
@@ -476,6 +453,15 @@ public class TargetedSolutionStatePlayer
     return result;
   }
 
+  /**
+   * Select the next move to play
+   * @param moves - available moves
+   * @param timeout - time to search up to (max)
+   * @return best move choice found
+   * @throws TransitionDefinitionException
+   * @throws MoveDefinitionException
+   * @throws GoalDefinitionException
+   */
   public Move selectMove(List<Move> moves, long timeout)
       throws TransitionDefinitionException, MoveDefinitionException,
       GoalDefinitionException
@@ -496,7 +482,7 @@ public class TargetedSolutionStatePlayer
       LOGGER.info("Current goal state is: " + goalState);
     }
 
-    terminalSentenceVisitedCounts = new HashMap<GdlSentence, Integer>();
+    terminalSentenceVisitedCounts = new HashMap<>();
 
     for (GdlSentence s : targetState.getContents())
     {
@@ -544,8 +530,6 @@ public class TargetedSolutionStatePlayer
           bestMove = move;
         }
       }
-
-      //LOGGER.debug("Best score at depth ", depth, ": ", bestScore);
     }
 
     LOGGER.info("Achieved search depth of " + depth);
@@ -585,23 +569,13 @@ public class TargetedSolutionStatePlayer
                                  move,
                                  depth,
                                  nextExploreType);
-          //int heuristicScore = minEval(getCurrentState(), move, -1, 101, 1, HeuristicType.HEURISTIC_TYPE_GOAL_PROXIMITY);
 
-          //LOGGER.info("Move ", move, " has exploration score: ", score, " with heuristic score ", heuristicScore);
-          if (score > bestScore)//&& heuristicScore > 10)
+          if (score > bestScore)
           {
             bestScore = score;
             bestMove = move;
-            //bestHeuristic = heuristicScore;
           }
-          //else if ( score == bestScore )
-          //{
-          //  if ( heuristicScore > bestHeuristic )
-          //  {
-          //    bestHeuristic = heuristicScore;
-          //    bestMove = move;
-          //  }
-          //}
+
           depth++;
         }
       }

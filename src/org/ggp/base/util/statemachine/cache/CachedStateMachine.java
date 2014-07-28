@@ -6,10 +6,10 @@ import java.util.List;
 import java.util.Map;
 
 import org.ggp.base.util.gdl.grammar.Gdl;
-import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
+import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
@@ -132,7 +132,7 @@ public final class CachedStateMachine extends StateMachine
   }
 
   @Override
-  public List<Role> getRoles()
+  public Role[] getRoles()
   {
     // TODO(schreib): Should this be cached as well?
     return backingStateMachine.getRoles();
@@ -141,7 +141,7 @@ public final class CachedStateMachine extends StateMachine
   @Override
   public MachineState getInitialState()
   {
-    // TODO(schreib): Should this be cached as well?		
+    // TODO(schreib): Should this be cached as well?
     return backingStateMachine.getInitialState();
   }
 }

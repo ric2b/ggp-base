@@ -27,9 +27,20 @@ class RolloutRequest
   public final double[]                        mAverageSquaredScores;
   public int                                   mMinScore;
   public int                                   mMaxScore;
-  public long                                  mEnqueueTime;
-  public long                                  mQueueLatency;
   public int                                   mThreadId;
+  private final int[]                          latchedScoreRangeBuffer = new int[2];
+
+  public long                                  mSelectElapsedTime;
+  public long                                  mExpandElapsedTime;
+  public long                                  mGetSlotElapsedTime;
+  public long                                  mEnqueueTime;
+  public long                                  mRolloutStartTime;
+  public long                                  mEnqueue2Time;
+  public long                                  mBackPropStartTime;
+  public long                                  mCompletionTime;
+
+  public long                                  mQueueLatency;
+
 
   /**
    * Create a rollout request.
@@ -55,9 +66,10 @@ class RolloutRequest
                       Role xiOurRole,
                       RoleOrdering xiRoleOrdering)
   {
-    int lNumRoles = stateMachine.getRoles().size();
+    int lNumRoles = stateMachine.getRoles().length;
 
-    mQueueLatency = System.nanoTime() - mEnqueueTime;
+    mRolloutStartTime = System.nanoTime();
+    mQueueLatency = mRolloutStartTime - mEnqueueTime;
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.rollOut");
     try
     {
@@ -104,8 +116,12 @@ class RolloutRequest
               mMinScore = lScore;
             }
 
-            if ( lScore == 100 && playedMoves != null )
+            if ( playedMoves != null )
             {
+              stateMachine.getLatchedScoreRange(mState, xiRoleOrdering.roleIndexToRole(0), latchedScoreRangeBuffer);
+
+              if ( lScore == latchedScoreRangeBuffer[1] && latchedScoreRangeBuffer[1] > latchedScoreRangeBuffer[0] )
+
               //  Stop updating the played moves list since we have now found a win
               playedMoves = null;
             }

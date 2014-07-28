@@ -10,13 +10,15 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicOr;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
-import org.ggp.base.util.statemachine.Move;
 
 /**
  * @author steve
@@ -24,6 +26,8 @@ import org.ggp.base.util.statemachine.Move;
  */
 public class FactorAnalyser
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private ForwardDeadReckonPropnetStateMachine stateMachine;
   static final private GdlConstant    GOAL      = GdlPool.getConstant("goal");
   static final private GdlConstant    INIT      = GdlPool.getConstant("init");
@@ -35,12 +39,14 @@ public class FactorAnalyser
   private DependencyCache componentDirectBaseDependencies;
   private Map<PolymorphicComponent, DependencyInfo> basePropositionDependencies = new HashMap<>();
   private int numBaseProps;
-  private Collection<PolymorphicProposition> basePropositions;
+  private final Collection<PolymorphicProposition> basePropositions;
+  private final Set<PolymorphicProposition> controlSet = new HashSet<>();
+  private boolean mbControlSetCalculated = false;
 
   private class DirectDependencyInfo
   {
     public Set<PolymorphicProposition>  dependencies = new HashSet<>();
-    public Set<Move>                    moves = new HashSet<>();
+    public Set<ForwardDeadReckonLegalMoveInfo> moves = new HashSet<>();
 
     public DirectDependencyInfo()
     {
@@ -78,7 +84,7 @@ public class FactorAnalyser
     }
 
     public List<Set<PolymorphicProposition>>  dependenciesByLevel = new ArrayList<>();
-    public List<Set<Move>>  movesByLevel = new ArrayList<>();
+    public List<Set<ForwardDeadReckonLegalMoveInfo>>  movesByLevel = new ArrayList<>();
   }
 
   private class DependencyCache
@@ -150,12 +156,12 @@ public class FactorAnalyser
   }
 
   /**
+   * @param timeout When to give up if the analysis takes too long
    * @return  Number of factors identified
    */
   public Set<Factor> analyse(long timeout)
   {
     Set<Factor>  factors = new HashSet<>();
-    int basePropsProcessed = 0;
     long startTime = System.currentTimeMillis();
 
     //  Construct the full closure of base dependencies
@@ -165,7 +171,7 @@ public class FactorAnalyser
       int depth = 1;
 
       Set<PolymorphicProposition> dependenciesAtDepth;
-      Set<Move> movesAtDepth;
+      Set<ForwardDeadReckonLegalMoveInfo> movesAtDepth;
       do
       {
         dependenciesAtDepth = new HashSet<>();
@@ -181,6 +187,13 @@ public class FactorAnalyser
           if ( dependenciesAtDepth.size() >= numBaseProps )
           {
             break;
+          }
+
+          //  If the analysis is just taking too long give up
+          if ( System.currentTimeMillis() > startTime + timeout )
+          {
+            LOGGER.warn("Factorization analysis timed out after " + (System.currentTimeMillis() - startTime) + "ms");
+            return null;
           }
         }
 
@@ -199,13 +212,6 @@ public class FactorAnalyser
       {
         return null;
       }
-
-      //  If the analysis is just taking too long give up
-      if ( System.currentTimeMillis() > startTime + timeout )
-      {
-        System.out.println("Factorization analysis timed out after " + (System.currentTimeMillis() - startTime) + "ms");
-        return null;
-      }
     }
 
     //  Now look for pure disjunctive inputs to goal and terminal
@@ -217,7 +223,6 @@ public class FactorAnalyser
     //  Trim out from each disjunctive input set those propositions in the control set, which are only
     //  influenced by other base props independently of moves (usually step and control logic)
     Set<PolymorphicComponent> controlOnlyInputs = new HashSet<>();
-    Set<PolymorphicProposition> controlSet = new HashSet<>();
 
     for(PolymorphicProposition baseProp : basePropositions)
     {
@@ -228,6 +233,8 @@ public class FactorAnalyser
         controlSet.add(baseProp);
       }
     }
+
+    mbControlSetCalculated = true;
 
     for( Entry<PolymorphicComponent, DependencyInfo> e : disjunctiveInputs.entrySet())
     {
@@ -290,6 +297,13 @@ public class FactorAnalyser
     //  dependencies - these are the factors
     while(!disjunctiveInputs.isEmpty())
     {
+      //  If the analysis is just taking too long give up
+      if ( System.currentTimeMillis() > startTime + timeout )
+      {
+        LOGGER.warn("Factorization analysis (post dependency phase) timed out after " + (System.currentTimeMillis() - startTime) + "ms");
+        return null;
+      }
+
       Factor newFactor = new Factor(stateMachine);
 
       newFactor.addAll(disjunctiveInputs.values().iterator().next().dependencies);
@@ -333,7 +347,6 @@ public class FactorAnalyser
     {
       for(Factor factor : factors)
       {
-        System.out.println("Found factor:");
         factor.dump();
 
         for(PolymorphicComponent c : factor.getComponents())
@@ -400,7 +413,6 @@ public class FactorAnalyser
   //  Return true if at least one dependency involved transitioning across a does->legal relationship
   private void recursiveBuildImmediateBaseDependencies(PolymorphicComponent root, PolymorphicComponent c, DirectDependencyInfo dInfo)
   {
-    //System.out.println("  ...trace back through: " + c);
     if ( c instanceof PolymorphicProposition )
     {
       if ( dInfo.dependencies.contains(c))
@@ -435,10 +447,12 @@ public class FactorAnalyser
           {
             DirectDependencyInfo legalPropInfo = getComponentDirectDependencies(legalProp);
 
+            ForwardDeadReckonLegalMoveInfo[] masterMoveList = stateMachine.getFullPropNet().getMasterMoveList();
+            ForwardDeadReckonLegalMoveInfo moveInfo = masterMoveList[((ForwardDeadReckonProposition)legalProp).getInfo().index];
+
             dInfo.add(legalPropInfo);
 
-            Move move = new Move(legalProp.getName().getBody().get(1));
-            dInfo.moves.add(move);
+            dInfo.moves.add(moveInfo);
           }
         }
 
@@ -519,5 +533,21 @@ public class FactorAnalyser
         dInfo.add(inputPropInfo);
       }
     }
+  }
+
+  /**
+   * Get the set of base propositions that constitute the control set,
+   * which is the set of base props whose values do not depend on the moves played
+   * at any stage of the game (e.g. - step counters etc.)
+   * @return set of props in the control set of null if not available
+   */
+  public Set<PolymorphicProposition> getControlProps()
+  {
+    if ( mbControlSetCalculated )
+    {
+      return controlSet;
+    }
+
+    return null;
   }
 }

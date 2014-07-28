@@ -21,16 +21,9 @@ public class ForwardDeadReckonLegalMoveInfo
   public int                          roleIndex;
   /**
    * Index in the master move list of this move info
+   * Note that this is now global and shared by all propnets
    */
   public int                          masterIndex;
-  /**
-   * Index in the global move list of this move.  This differs
-   * from the master list in that the master list is a propnet-specfic
-   * construct, whereas the global list includes moves from all
-   * propnets where a state machine is using multiple propnets (X and O splits)
-   * to implement itself
-   */
-  public int                          globalMoveIndex;
   /**
    * DOES proposition for this move
    */
@@ -43,6 +36,10 @@ public class ForwardDeadReckonLegalMoveInfo
    * Whether this is an artificial noop inserted during game factorization
    */
   public boolean                      isPseudoNoOp;
+  /**
+   * Whether this move amounts to a nop-op on the goal-relevant part of the state
+   */
+  public boolean                      isVirtualNoOp;
 
   /**
    * Construct a new move info instance

@@ -95,7 +95,7 @@ public final class Match
     this.isCompleted = false;
     this.isAborted = false;
 
-    this.numRoles = Role.computeRoles(theGame.getRules()).size();
+    this.numRoles = Role.computeRoles(theGame.getRules()).length;
 
     this.moveHistory = new ArrayList<List<GdlTerm>>();
     this.stateHistory = new ArrayList<Set<GdlSentence>>();
@@ -151,7 +151,7 @@ public final class Match
       this.isAborted = false;
     }
 
-    this.numRoles = Role.computeRoles(this.theGame.getRules()).size();
+    this.numRoles = Role.computeRoles(this.theGame.getRules()).length;
 
     this.moveHistory = new ArrayList<List<GdlTerm>>();
     this.stateHistory = new ArrayList<Set<GdlSentence>>();

@@ -15,8 +15,6 @@ public class StateMachineVerifier
 {
   private static boolean statesMatch(MachineState state1, MachineState state2)
   {
-    //System.out.println("State 1: " + state1);
-    //System.out.println("State 2: " + state2);
     //	Only match one way, because propnets deliberately drop base props that are always true
     for (GdlSentence sentence : state1.getContents())
     {
@@ -224,7 +222,6 @@ public class StateMachineVerifier
         break;
       }
 
-      //System.out.println("Reached terminal position");
       // Do final consistency checks
       for (int i = 1; i < theMachines.size(); i++)
       {

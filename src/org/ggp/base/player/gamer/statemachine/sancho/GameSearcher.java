@@ -7,6 +7,7 @@ import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.StatsLogUtils.Series;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
@@ -35,7 +36,13 @@ public class GameSearcher implements Runnable, ActivityController
   /**
    * Whether the sample size is updated as a result of thread performance measurements.
    */
-  public static final boolean             USE_DYNAMIC_SAMPLE_SIZING = true;
+  public static final boolean USE_DYNAMIC_SAMPLE_SIZING = true;
+
+  /**
+   * Whether to disable dynamic node trimming on full node pool (else just stall search until re-rooting)
+   */
+  private static final boolean DISABLE_NODE_TRIMMING =
+                                                     MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_NODE_TRIMMING, false);
 
   /**
    * The update interval for sample size.
@@ -73,6 +80,7 @@ public class GameSearcher implements Runnable, ActivityController
 
   private final SampleAverageMean         mAverageFringeDepth = new SampleAverageMean();
   private final SampleAverageRMS          mRMSFringeDepth = new SampleAverageRMS();
+
   /**
    * Average observed branching factor from ode expansions
    */
@@ -109,6 +117,17 @@ public class GameSearcher implements Runnable, ActivityController
   private long numCompletedRollouts = 0;
 
   private double currentExplorationBias;
+
+  /**
+   * Accumulated iteration timings.
+   */
+  private long mSelectTime;
+  private long mExpandTime;
+  private long mGetSlotTime;
+  private long mQueueTime;
+  private long mRolloutTime;
+  private long mQueue2Time;
+  private long mBackPropTime;
 
   /**
    * Create a game tree searcher with the specified maximum number of nodes.
@@ -163,11 +182,11 @@ public class GameSearcher implements Runnable, ActivityController
     mGameCharacteristics = gameCharacteristics;
     mPlan = plan;
 
-    StateInfo.createBuffer(underlyingStateMachine.getRoles().size());
+    StateInfo.createBuffer(underlyingStateMachine.getRoles().length);
 
     if (ThreadControl.ROLLOUT_THREADS > 0)
     {
-      mPipeline = new Pipeline(PIPELINE_SIZE, underlyingStateMachine.getRoles().size(), underlyingStateMachine);
+      mPipeline = new Pipeline(PIPELINE_SIZE, underlyingStateMachine.getRoles().length, underlyingStateMachine);
     }
 
     rolloutPool = new RolloutProcessorPool(mPipeline, underlyingStateMachine, roleOrdering, mLogName);
@@ -219,7 +238,7 @@ public class GameSearcher implements Runnable, ActivityController
     for (MCTSTree tree : factorTrees)
     {
       tree.root = tree.allocateNode(initialState, null, false);
-      tree.root.decidingRoleIndex = underlyingStateMachine.getRoles().size() - 1;
+      tree.root.decidingRoleIndex = underlyingStateMachine.getRoles().length - 1;
       tree.root.setDepth((short)0);
     }
   }
@@ -234,6 +253,8 @@ public class GameSearcher implements Runnable, ActivityController
 
     long lNextUpdateSampleSizeTime = 0;
     long lNextStatsTime = System.currentTimeMillis() + STATS_LOG_INTERVAL_MS;
+    int numAllocations = 0;
+    int numTranspositions = 0;
 
     try
     {
@@ -259,6 +280,67 @@ public class GameSearcher implements Runnable, ActivityController
               StringBuffer lLogBuf = new StringBuffer(1024);
               Series.NODE_EXPANSIONS.logDataPoint(lLogBuf, time, mNumIterations);
               Series.POOL_USAGE.logDataPoint(lLogBuf, time, mNodePool.getPoolUsage());
+
+              int numReExpansions = 0;
+              int newNumAllocations = 0;
+              int newNumTranspositions = 0;
+
+              for(MCTSTree factorTree : factorTrees)
+              {
+                numReExpansions += factorTree.numReExpansions;
+                newNumAllocations += factorTree.getNumAllocations();
+                newNumTranspositions += factorTree.getNumTranspositions();
+              }
+
+              Series.NODE_RE_EXPANSIONS.logDataPoint(lLogBuf, time, numReExpansions);
+              if ( newNumAllocations > numAllocations )
+              {
+                Series.TRANSITION_RATE.logDataPoint(lLogBuf, time, (100*(newNumTranspositions-numTranspositions))/(newNumAllocations-numAllocations));
+              }
+              numAllocations = newNumAllocations;
+              numTranspositions = newNumTranspositions;
+
+              // Log the iteration timings
+              long lTotalTime = mSelectTime +
+                                mExpandTime +
+                                mGetSlotTime +
+                                //mQueueTime +
+                                mRolloutTime +
+                                //mQueue2Time +
+                                mBackPropTime;
+              if (lTotalTime != 0)
+              {
+                long lRunning = mSelectTime;
+                Series.STACKED_SELECT.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+                lRunning += mExpandTime;
+                Series.STACKED_EXPAND.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+                lRunning += mGetSlotTime;
+                Series.STACKED_GET_SLOT.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+                //lRunning += mQueueTime;
+                //Series.STACKED_QUEUE.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+                lRunning += mRolloutTime;
+                Series.STACKED_ROLLOUT.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+                //lRunning += mQueue2Time;
+                //Series.STACKED_QUEUE2.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+                lRunning += mBackPropTime;
+                Series.STACKED_BACKPROP.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+                assert(lRunning == lTotalTime) : "Timings don't add up - " + lRunning + " != " + lTotalTime;
+              }
+
+              mSelectTime   = 0;
+              mExpandTime   = 0;
+              mGetSlotTime  = 0;
+              mQueueTime    = 0;
+              mRolloutTime  = 0;
+              mQueue2Time   = 0;
+              mBackPropTime = 0;
 
               //Future intent will be to add these to the stats logger when it is stable
               //double fringeDepth = mAverageFringeDepth.getMean();
@@ -507,10 +589,14 @@ public class GameSearcher implements Runnable, ActivityController
   {
     boolean lAllTreesCompletelyExplored;
 
-    numIterations++;
     while (mNodePool.isFull())
     {
       boolean somethingDisposed = false;
+
+      if ( DISABLE_NODE_TRIMMING )
+      {
+        return false;
+      }
 
       for (MCTSTree tree : factorTrees)
       {
@@ -527,6 +613,7 @@ public class GameSearcher implements Runnable, ActivityController
       assert(somethingDisposed);
     }
 
+    numIterations++;
     lAllTreesCompletelyExplored = true;
     for (MCTSTree tree : factorTrees)
     {
@@ -609,6 +696,12 @@ public class GameSearcher implements Runnable, ActivityController
                           ForwardDeadReckonInternalMachineState startState,
                           short rootDepth)
   {
+    // If we don't have any factor trees, we're playing from a real live plan (not a test one) so there's nothing to do.
+    if (factorTrees == null)
+    {
+      LOGGER.debug("No need to search when we have a full plan");
+      return;
+    }
 
     // Print out some statistics from last turn.
     LOGGER.info("MCTS iterations last turn = " + (mNumIterations - mLastNumIterations));
@@ -662,34 +755,40 @@ public class GameSearcher implements Runnable, ActivityController
    *
    * @param xiNeedToDoOne - whether this method should block until at least 1 rollout has been performed.
    *
+   * @return the amount of time (in nanoseconds) that this method stalled waiting for work to do (when xiNeedToDoOne
+   *         is true).  This doesn't include time spent doing back-propagation of any items removed from the pipeline.
+   *
    * @throws MoveDefinitionException
    * @throws TransitionDefinitionException
    * @throws GoalDefinitionException
    */
-  void processCompletedRollouts(boolean xiNeedToDoOne) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
+  long processCompletedRollouts(boolean xiNeedToDoOne) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
+    long lStallTime = 0;
     boolean canBackPropagate;
 
     while ((canBackPropagate = mPipeline.canBackPropagate()) || xiNeedToDoOne)
     {
       if (xiNeedToDoOne && !canBackPropagate && mGameCharacteristics.getRolloutSampleSize() == 1)
       {
-        //  If the rollout threads are not keeping up and the pipeline
-        //  is full then perform an expansion synchronously while we
-        //  wait for the rollout pool to have results for us
+        // If the rollout threads are not keeping up and the pipeline is full then perform an expansion synchronously
+        // while we wait for the rollout pool to have results for us.
         expandSearch(true);
         mNumIterations++;
 
-        //  This method can be called re-entrantly from the above, which means that the rollout
-        //  pipeline may no longer be blocked, in which case we should return immediately
+        // This method can be called re-entrantly from the above, which means that the rollout pipeline may no longer be
+        // blocked, in which case we should return immediately.
         if (mPipeline.canExpand())
         {
-          return;
+          return 0;
         }
         continue;
       }
 
+      long lStallStartTime = System.nanoTime();
       RolloutRequest lRequest = mPipeline.getNextRequestForBackPropagation();
+      long lDequeue2Time = System.nanoTime();
+      lStallTime = lDequeue2Time - lStallStartTime;
 
       if (longestObservedLatency < lRequest.mQueueLatency)
       {
@@ -711,6 +810,7 @@ public class GameSearcher implements Runnable, ActivityController
 
       //masterMoveWeights.accumulate(request.playedMoveWeights);
 
+      long lBackPropTime = 0;
       if (!lRequest.mPath.isFreed())
       {
         TreeNode lNode = TreeNode.get(mNodePool, lRequest.mNodeRef);
@@ -731,7 +831,11 @@ public class GameSearcher implements Runnable, ActivityController
               assert(lRequest.mPath.getCurrentElement() != null);
 
               TreeEdge edge = lRequest.mPath.getCurrentElement().getEdge();
-              fullPlayoutList.add(0, edge.mPartialMove);
+
+              if ( lRequest.mPath.getCurrentElement().getChildNode().decidingRoleIndex == 0 )
+              {
+                fullPlayoutList.add(0, edge.mPartialMove);
+              }
             }
 
             lRequest.mPath.resetCursor();
@@ -743,12 +847,20 @@ public class GameSearcher implements Runnable, ActivityController
             mPlan.considerPlan(fullPlayoutList);
           }
 
-          lNode.updateStats(lRequest.mAverageScores,
-                            lRequest.mAverageSquaredScores,
-                            lRequest.mPath,
-                            false);
+          lBackPropTime = lNode.updateStats(lRequest.mAverageScores,
+                                            lRequest.mAverageSquaredScores,
+                                            lRequest.mPath,
+                                            false);
         }
       }
+
+      recordIterationTimings(lRequest.mSelectElapsedTime,
+                             lRequest.mExpandElapsedTime,
+                             lRequest.mGetSlotElapsedTime,
+                             lRequest.mQueueLatency,
+                             lRequest.mEnqueue2Time - lRequest.mRolloutStartTime,
+                             lDequeue2Time - lRequest.mEnqueue2Time,
+                             lBackPropTime);
 
       mPathPool.free(lRequest.mPath);
       lRequest.mPath = null;
@@ -756,6 +868,44 @@ public class GameSearcher implements Runnable, ActivityController
       xiNeedToDoOne = false;
       mNumIterations++;
     }
+
+    return lStallTime;
+  }
+
+  /**
+   * Accumulate the timings from an iteration.
+   *
+   * @param xiSelectTime
+   * @param xiExpandTime
+   * @param xiGetSlotTime
+   * @param xiQueueTime
+   * @param xiRolloutTime
+   * @param xiQueue2Time
+   * @param xiBackPropTime
+   */
+  void recordIterationTimings(long xiSelectTime,
+                              long xiExpandTime,
+                              long xiGetSlotTime,
+                              long xiQueueTime,
+                              long xiRolloutTime,
+                              long xiQueue2Time,
+                              long xiBackPropTime)
+  {
+    mSelectTime   += xiSelectTime;
+    mExpandTime   += xiExpandTime;
+    mGetSlotTime  += xiGetSlotTime;
+    mQueueTime    += xiQueueTime;
+    mRolloutTime  += xiRolloutTime;
+    mQueue2Time   += xiQueue2Time;
+    mBackPropTime += xiBackPropTime;
+  }
+
+  /**
+   * @return plan for the current game
+   */
+  public GamePlan getPlan()
+  {
+    return mPlan;
   }
 
   /**

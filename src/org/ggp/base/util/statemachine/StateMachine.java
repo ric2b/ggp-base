@@ -39,7 +39,7 @@ public abstract class StateMachine
   /**
    * Returns the goal value for the given role in the given state. Goal values
    * are always between 0 and 100.
-   * 
+   *
    * @throws GoalDefinitionException
    *           if there is no goal value or more than one goal value for the
    *           given role in the given state. If this occurs when this is
@@ -62,7 +62,7 @@ public abstract class StateMachine
    * The result will be the same as calling {@link Role#computeRoles(List)} on
    * the game rules used to initialize this state machine.
    */
-  public abstract List<Role> getRoles();
+  public abstract Role[] getRoles();
 
   /**
    * Returns the initial state of the game.
@@ -252,10 +252,10 @@ public abstract class StateMachine
     if (roleIndices == null)
     {
       roleIndices = new HashMap<Role, Integer>();
-      List<Role> roles = getRoles();
-      for (int i = 0; i < roles.size(); i++)
+      Role[] roles = getRoles();
+      for (int i = 0; i < roles.length; i++)
       {
-        roleIndices.put(roles.get(i), i);
+        roleIndices.put(roles[i], i);
       }
     }
 
@@ -366,7 +366,7 @@ public abstract class StateMachine
                                                         depth[0]);
       for (int j = 0; j < avgScores.length; j++)
       {
-        avgScores[j] += getGoal(stateForCharge, getRoles().get(j)) *
+        avgScores[j] += getGoal(stateForCharge, getRoles()[j]) *
                         accumulatedDiscountFactor;
       }
     }

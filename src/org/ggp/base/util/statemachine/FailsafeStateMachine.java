@@ -21,7 +21,7 @@ import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
  * back to a regular prover if the state machine fails. It's not totally clear
  * that this is helpful, but it's an additional layer of bullet-proofing in
  * case anything goes wrong.
- * 
+ *
  * @author Sam Schreiber
  */
 public class FailsafeStateMachine extends StateMachine
@@ -442,7 +442,7 @@ public class FailsafeStateMachine extends StateMachine
   }
 
   @Override
-  public List<Role> getRoles()
+  public Role[] getRoles()
   {
     if (theBackingMachine == null)
       return null;

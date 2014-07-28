@@ -10,6 +10,7 @@ import java.util.Random;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
+import org.ggp.base.player.gamer.statemachine.sancho.MoveScoreInfo.MoveScoreInfoAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeEdge.TreeEdgeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathAllocator;
@@ -27,17 +28,12 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.StateMachineFilter;
 import org.w3c.tidy.MutableInteger;
 
 public class MCTSTree
 {
   private static final Logger LOGGER = LogManager.getLogger();
-
-  class MoveScoreInfo
-  {
-    public double averageScore = 0;
-    public int    numSamples = 0;
-  }
 
   public static final boolean                          FREE_COMPLETED_NODE_CHILDREN                = true;                                                          //true;
   public static final boolean                          DISABLE_ONE_LEVEL_MINIMAX                   = true;
@@ -50,8 +46,15 @@ public class MCTSTree
    * upward their values (while playing out something that adds information at the level below) seems
    * harmful in most games, but strongly beneficial in some simultaneous move games.  Consequently
    * this flag allows it to be disabled for all but simultaneous move games
+   *
+   * UPDATE - a recent modification to prevent the mechanism distorting the perceived variance
+   * of ancestor nodes when this mechanism is triggered appears to have resolved the observed degradation
+   * previously seen in C4, Pentago, and a few other games.  Results with it enabled are now no worse
+   * in any game so far tested, and significantly better in some, so default enabling at this time.
+   * Eventually this flag will probably be removed once we're more confident that always enabling is ok
    */
-  final boolean                                        allowAllGamesToSelectThroughComplete        = false;
+  final boolean                                        allowAllGamesToSelectThroughComplete        = true;
+  final boolean                                        useEstimatedValueForUnplayedNodes;
   ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
   final int                                            numRoles;
@@ -59,6 +62,7 @@ public class MCTSTree
   final ScoreVectorPool                                scoreVectorPool;
   final Pool<TreeEdge>                                 edgePool;
   final Pool<TreePath>                                 mPathPool;
+  final CappedPool<MoveScoreInfo>                      mCachedMoveScorePool;
   private final Map<ForwardDeadReckonInternalMachineState, TreeNode> mPositions;
   int                                                  sweepInstance                               = 0;
   List<TreeNode>                                       completedNodeQueue                          = new LinkedList<>();
@@ -66,6 +70,8 @@ public class MCTSTree
   long                                                 cousinMovesCachedFor                        = TreeNode.NULL_REF;
   final double[]                                       roleRationality;
   final double[]                                       bonusBuffer;
+  final int[]                                          latchedScoreRangeBuffer                     = new int[2];
+  final int[]                                          roleMaxScoresBuffer;
   long                                                 numCompletionsProcessed                     = 0;
   Random                                               r                                           = new Random();
   int                                                  numTerminalRollouts                         = 0;
@@ -75,6 +81,8 @@ public class MCTSTree
   int                                                  numNormalExpansions                         = 0;
   int                                                  numAutoExpansions                           = 0;
   int                                                  maxAutoExpansionDepth                       = 0;
+  int                                                  numAllocations                              = 0;
+  int                                                  numTranspositions                           = 0;
   double                                               averageAutoExpansionDepth                   = 0;
   boolean                                              completeSelectionFromIncompleteParentWarned = false;
   int                                                  numReExpansions                             = 0;
@@ -83,14 +91,17 @@ public class MCTSTree
   final Role                                           mOurRole;
   RolloutProcessorPool                                 rolloutPool;
   RuntimeGameCharacteristics                           gameCharacteristics;
-  Factor                                               factor;
+  final Factor                                         factor;
+  final StateMachineFilter                             searchFilter;
   boolean                                              evaluateTerminalOnNodeCreation;
   private final TreeNodeAllocator                      mTreeNodeAllocator;
   final TreeEdgeAllocator                              mTreeEdgeAllocator;
+  final MoveScoreInfoAllocator                         mMoveScoreInfoAllocator;
   private final TreePathAllocator                      mTreePathAllocator;
   final GameSearcher                                   mGameSearcher;
   final StateSimilarityMap                             mStateSimilarityMap;
   private final ForwardDeadReckonInternalMachineState  mNonFactorInitialState;
+  public boolean                                       mIsIrrelevantFactor = false;
 
   // Scratch variables for tree nodes to use to avoid unnecessary object allocation.
   // Note - several of these could probably be collapsed into a lesser number since they are not
@@ -120,13 +131,21 @@ public class MCTSTree
                   GameSearcher xiGameSearcher)
   {
     underlyingStateMachine = xiStateMachine;
-    numRoles = xiStateMachine.getRoles().size();
+    numRoles = xiStateMachine.getRoles().length;
     mStateSimilarityMap = (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false) ? null : new StateSimilarityMap(xiStateMachine.getFullPropNet(), xiNodePool));
     nodePool = xiNodePool;
     scoreVectorPool = xiScorePool;
     edgePool = xiEdgePool;
     mPathPool = xiPathPool;
     factor = xiFactor;
+    if ( factor != null )
+    {
+      searchFilter = factor;
+    }
+    else
+    {
+      searchFilter = xiStateMachine.getBaseFilter();
+    }
     roleOrdering = xiRoleOrdering;
     mOurRole = xiRoleOrdering.roleIndexToRole(0);
     heuristic = xiHeuristic;
@@ -134,6 +153,16 @@ public class MCTSTree
     rolloutPool = xiRolloutPool;
     mPositions = new HashMap<>((int)(nodePool.getCapacity() / 0.75f), 0.75f);
 
+    //  For now we only automatically enable use of estimated values for unplayed nodes (in select)
+    //  in games with negative goal latches, which amounts to ELB.  Further testing is needed, so for
+    //  now wider enablement requires an explicit config setting.
+    useEstimatedValueForUnplayedNodes = MachineSpecificConfiguration.getCfgVal(CfgItem.ENABLE_INITIAL_NODE_ESTIMATION, false) |
+                                        underlyingStateMachine.hasNegativelyLatchedGoals();
+
+    if ( useEstimatedValueForUnplayedNodes )
+    {
+      LOGGER.info("Estimated initial values for nodes with no play-throughs is enabled");
+    }
     if ( xiFactor != null )
     {
       mNonFactorInitialState = xiStateMachine.createInternalState(xiStateMachine.getInitialState());
@@ -155,6 +184,7 @@ public class MCTSTree
 
     bonusBuffer = new double[numRoles];
     roleRationality = new double[numRoles];
+    roleMaxScoresBuffer = new int[numRoles];
 
     //  For now assume players in muli-player games are somewhat irrational.
     //  FUTURE - adjust during the game based on correlations with expected
@@ -187,6 +217,8 @@ public class MCTSTree
     {
       mChildStatesBuffer[lii] = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
     }
+    mMoveScoreInfoAllocator = new MoveScoreInfoAllocator(numRoles);
+    mCachedMoveScorePool = new CappedPool<>(MAX_SUPPORTED_BRANCHING_FACTOR);
   }
 
   public void empty()
@@ -238,6 +270,8 @@ public class MCTSTree
       {
         assert(!result.freed) : "Bad ref in positions table";
         assert(result.decidingRoleIndex == numRoles - 1) : "Non-null move in position cache";
+
+        numTranspositions++;
       }
 
       if (parent != null)
@@ -247,6 +281,8 @@ public class MCTSTree
         //parent.adjustDescendantCounts(result.descendantCount+1);
       }
 
+      numAllocations++;
+
       //validateAll();
       return result;
     }
@@ -254,6 +290,22 @@ public class MCTSTree
     {
       methodSection.exitScope();
     }
+  }
+
+  /**
+   * @return total number of logical node allocations made
+   */
+  public int getNumAllocations()
+  {
+    return numAllocations;
+  }
+
+  /**
+   * @return total number of nodes allocations made that were transpositions
+   */
+  public int getNumTranspositions()
+  {
+    return numTranspositions;
   }
 
   /**
@@ -313,7 +365,7 @@ public class MCTSTree
     }
     else
     {
-      TreeNode newRoot = root.findNode(factorState, underlyingStateMachine.getRoles().size() + 1);
+      TreeNode newRoot = root.findNode(factorState, underlyingStateMachine.getRoles().length + 1);
       if (newRoot == null)
       {
         if (root.complete)
@@ -343,6 +395,23 @@ public class MCTSTree
           assert(!newRoot.freed) : "Root node has been freed";
           root = newRoot;
         }
+        else
+        {
+          if ( rootDepth == 0 )
+          {
+            //  This is the start of the first turn, after some searching at the end of meta-gaming
+            //  If the root score variance is 0 and this is a factored game, we mark this factor as
+            //  uninteresting, and will henceforth spend no time searching it
+            if ( factor != null &&
+                 root.numVisits > 500 &&
+                 Math.abs(root.getAverageSquaredScore(0) - root.getAverageScore(0)*root.getAverageScore(0)) < TreeNode.EPSILON )
+            {
+              mIsIrrelevantFactor = true;
+
+              LOGGER.info("Identified irrelevant factor - supressing search");
+            }
+          }
+        }
       }
     }
     //validateAll();
@@ -371,6 +440,13 @@ public class MCTSTree
   public boolean growTree(boolean forceSynchronous)
     throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
+    //  In an irrelevant factor we don't want to waste time searching - just need
+    //  to do enough for the children to be enumerable
+    if ( mIsIrrelevantFactor && !root.hasUnexpandedChoices() )
+    {
+      return false;
+    }
+
     //validateAll();
     //validationCount++;
     selectAction(forceSynchronous);
@@ -388,7 +464,6 @@ public class MCTSTree
     LOGGER.info("Num true rollouts added: " + numNonTerminalRollouts);
     LOGGER.info("Num terminal nodes revisited: " + numTerminalRollouts);
     LOGGER.info("Num incomplete nodes: " + numIncompleteNodes);
-    LOGGER.info("Num node re-expansions: " + numReExpansions);
     LOGGER.info("Num completely explored branches: " + numCompletedBranches);
     if (numAutoExpansions + numNormalExpansions > 0)
     {
@@ -401,9 +476,10 @@ public class MCTSTree
                 mGameSearcher.lowestRolloutScoreSeen + ", " +
                 mGameSearcher.highestRolloutScoreSeen + "]");
 
-    numReExpansions = 0;
     numNonTerminalRollouts = 0;
     numTerminalRollouts = 0;
+
+    //root.dumpTree("c:\\temp\\mctsTree.txt");
     return bestMoveInfo;
   }
 
@@ -449,6 +525,7 @@ public class MCTSTree
       //validateAll();
       completedNodeQueue.clear();
 
+      long lSelectStartTime = System.nanoTime();
       TreePath visited = mPathPool.allocate(mTreePathAllocator);
       TreeNode cur = root;
       TreePathElement selected = null;
@@ -458,6 +535,7 @@ public class MCTSTree
         cur = selected.getChildNode();
       }
 
+      long lExpandStartTime = System.nanoTime();
       TreeNode newNode;
       if (!cur.complete)
       {
@@ -519,7 +597,11 @@ public class MCTSTree
 
       // Perform the rollout request.
       assert(!newNode.freed);
-      newNode.rollOut(visited, mGameSearcher.getPipeline(), forceSynchronous);
+      newNode.rollOut(visited,
+                      mGameSearcher.getPipeline(),
+                      forceSynchronous,
+                      lExpandStartTime - lSelectStartTime,
+                      System.nanoTime() - lExpandStartTime);
     }
     finally
     {

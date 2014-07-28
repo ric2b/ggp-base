@@ -269,7 +269,6 @@ public class StateSimilarityMap
         hammingCloseHash = hash ^ (1<<nearbyHashIndex);
       }
 
-      //System.out.println("Found " + numMovesBuffered + " moves to buffer");
       int numTopMoves = 0;
       for(int i = 0; i < numMovesBuffered; i++)
       {

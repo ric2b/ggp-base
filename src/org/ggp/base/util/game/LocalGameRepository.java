@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
-import java.util.List;
 import java.util.Set;
 
 import org.ggp.base.util.statemachine.Role;
@@ -432,10 +431,9 @@ public final class LocalGameRepository extends GameRepository
                                                      String theRulesheet)
         throws JSONException
     {
-      List<Role> theRoles = Role.computeRoles(Game.createEphemeralGame(Game
-          .preprocessRulesheet(theRulesheet)).getRules());
+      Role[] theRoles = Role.computeRoles(Game.createEphemeralGame(Game.preprocessRulesheet(theRulesheet)).getRules());
       theMetaJSON.put("roleNames", theRoles);
-      theMetaJSON.put("numRoles", theRoles.size());
+      theMetaJSON.put("numRoles", theRoles.length);
     }
   }
 }
