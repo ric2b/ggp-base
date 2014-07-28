@@ -1006,7 +1006,7 @@ public class OptimizingPolymorphicPropNetFactory
           //  and try to process assuming the proposition will exist
           if ( looping )
           {
-            LOGGER.info("Missing base form.  Unable to process: " + curForm);
+            LOGGER.warn("Missing base form.  Unable to process: " + curForm);
           }
           else
           {
@@ -1022,7 +1022,7 @@ public class OptimizingPolymorphicPropNetFactory
         {
           if ( looping )
           {
-            LOGGER.info("Missing input form.  Unable to process: " + curForm);
+            LOGGER.warn("Missing input form.  Unable to process: " + curForm);
           }
           else
           {
