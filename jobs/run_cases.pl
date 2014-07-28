@@ -133,11 +133,18 @@ foreach my $lSuiteFile (@lSuites)
     system('copy', $lRecords[0], $lSavedRecord, ">NUL");
     system('copy', 'server.log', "$gResultsDir\\$gNumCases.server.log", ">NUL");
 
+    my $lExpectedScore = -1;
+    if (defined($lCase->{check}->{score}))
+    {
+      $lExpectedScore = $lCase->{check}->{score};
+    }
+
     #*************************************************************************#
     #* Check the result.                                                     *#
     #*************************************************************************#
     my $lResult = checkAcceptable($lCase->{check}->{player},
                                   $lCase->{check}->{acceptable},
+                                  $lExpectedScore,
                                   $lSavedRecord);
     summarize("$lResult\n");
   }
@@ -162,7 +169,7 @@ exit(0);
 #*****************************************************************************#
 sub checkAcceptable
 {
-  my ($xiPlayerIndex, $xiAcceptable, $xiFilename) = @_;
+  my ($xiPlayerIndex, $xiAcceptable, $xiExpectedScore, $xiFilename) = @_;
 
   #***************************************************************************#
   #* Check whether the move list is a list of acceptable or unacceptable     *#
@@ -197,6 +204,18 @@ sub checkAcceptable
       ($lSpecifiedMoveAllowed && !$lSpecifiedMoveMade))
   {
     return "FAILED - Unacceptable move: $lLastMove, see $xiFilename";
+  }
+
+  #***************************************************************************#
+  #* Check if the score is acceptable.                                       *#
+  #***************************************************************************#
+  if ($xiExpectedScore != -1)
+  {
+    my $lScore = $lRecord->{goalValues}[$xiPlayerIndex];
+    if ($lScore != $xiExpectedScore)
+    {
+      return "FAILED - Scored $lScore instead of $xiExpectedScore";
+    }
   }
 
   $gNumPasses++;
