@@ -1,0 +1,516 @@
+{
+  "cases":
+  [
+    {
+      "case" : "3-Puzzle",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "3puzzle",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "8-Puzzle",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "8puzzle",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Buttons and Lights",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "buttonsandlights",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Best Buttons and Lights",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "bestbuttonsandlights",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Joint Buttons and Lights",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "jointbuttonsandlights",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Multiple Buttons and Lights",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "multiplebuttonsandlights",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Multiple (9) Buttons and Lights",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "multiplebuttonsandlights_9",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Hamilton",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "hamilton",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Multiple Hamilton",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "multiplehamilton",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Dual Hamilton",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "dualhamilton",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        },
+        {
+          "type" : "Random",
+          "args" : []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Hunter",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "hunter",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 87
+      }
+    },
+
+
+    {
+      "case" : "Dual Hunter",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "dualhunter",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        },
+        {
+          "type" : "Random",
+          "args" : []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 92
+      }
+    },
+
+
+    {
+      "case" : "Knight's Tour",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "knightstour",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Rainbow",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "rainbow",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Dual Rainbow",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "dualrainbow",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        },
+        {
+          "type" : "Random",
+          "args" : []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Sudoku",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "sudoku",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Sukoshi",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "sukoshi",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Multiple Sukoshi",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "multiplesukoshi",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 0
+      }
+    },
+
+
+    {
+      "case" : "Selective Sukoshi",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "selectivesukoshi",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    },
+
+
+    {
+      "case" : "Untwisty Corridor",
+
+      "repo"  : "games.ggp.org/stanford",
+      "game"  : "untwistycorridor",
+      "start" : 60,
+      "play"  : 15,
+      "limit" : 0,
+      "players":
+      [
+        {
+          "type" : "Sancho",
+          "args": []
+        }
+      ],
+
+      "check":
+      {
+        "player"     : 0,
+        "acceptable" : "!:NIL",
+        "score"      : 100
+      }
+    }
+  ]
+}
+
