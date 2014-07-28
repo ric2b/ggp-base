@@ -974,8 +974,13 @@ public class OptimizingPolymorphicPropNetFactory
     Queue<SentenceForm> queue = new LinkedList<SentenceForm>(forms);
     List<SentenceForm> ordering = new ArrayList<SentenceForm>(forms.size());
     Set<SentenceForm> alreadyOrdered = new HashSet<SentenceForm>();
+
+    int processingSequence = 0;
+    int lastProcessedSequence = 0;
+
     while (!queue.isEmpty())
     {
+      boolean looping = (processingSequence - lastProcessedSequence) > queue.size();
       SentenceForm curForm = queue.remove();
       boolean readyToAdd = true;
       //Don't add if there are dependencies
@@ -997,7 +1002,16 @@ public class OptimizingPolymorphicPropNetFactory
         SentenceForm baseForm = curForm.withName(BASE);
         if (!alreadyOrdered.contains(baseForm))
         {
-          readyToAdd = false;
+          //  If we're looping here it's probably a GDL issue - flag up where we're failing
+          //  and try to process assuming the proposition will exist
+          if ( looping )
+          {
+            LOGGER.info("Missing base form.  Unable to process: " + curForm);
+          }
+          else
+          {
+            readyToAdd = false;
+          }
         }
       }
       if (usingInput &&
@@ -1006,12 +1020,21 @@ public class OptimizingPolymorphicPropNetFactory
         SentenceForm inputForm = curForm.withName(INPUT);
         if (!alreadyOrdered.contains(inputForm))
         {
-          readyToAdd = false;
+          if ( looping )
+          {
+            LOGGER.info("Missing input form.  Unable to process: " + curForm);
+          }
+          else
+          {
+            readyToAdd = false;
+          }
         }
       }
       //Add it
+      processingSequence++;
       if (readyToAdd)
       {
+        lastProcessedSequence = processingSequence;
         ordering.add(curForm);
         alreadyOrdered.add(curForm);
       }
