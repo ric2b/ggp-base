@@ -251,7 +251,7 @@ public class Sancho extends SampleGamer
 
     int observedMinNetScore = Integer.MAX_VALUE;
     int observedMaxNetScore = Integer.MIN_VALUE;
-    int simulationsPerformed = 0;
+    long simulationsPerformed = 0;
     int multiRoleSamples = 0;
     boolean greedyRolloutsDisabled = MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_GREEDY_ROLLOUTS, false);
 
@@ -788,6 +788,7 @@ public class Sancho extends SampleGamer
     }
 
     gameCharacteristics.setRolloutSampleSize(rolloutSampleSize);
+    LOGGER.info("Performed " + simulationsPerformed + " simulations in " + (simulationStopTime - simulationStartTime) + "ms");
     LOGGER.info(simulationsPerformed *
                 1000 /
                 (simulationStopTime - simulationStartTime) +
