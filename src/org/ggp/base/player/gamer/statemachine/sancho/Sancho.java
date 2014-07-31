@@ -223,27 +223,6 @@ public class Sancho extends SampleGamer
 
     Random r = new Random();
 
-    MajorityPropositionGoalsCalculator goalsCalculator = new MajorityPropositionGoalsCalculator();
-
-    for(Role role : underlyingStateMachine.getRoles())
-    {
-      ForwardDeadReckonInternalMachineState roleGoalCountMask = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
-
-      for(PolymorphicProposition p : underlyingStateMachine.getFullPropNet().getBasePropositionsArray())
-      {
-        String propName = p.getName().toString();
-
-        if ( propName.contains("cell") && propName.contains(role.toString()))
-        {
-          roleGoalCountMask.add(((ForwardDeadReckonProposition)p).getInfo());
-        }
-      }
-
-      goalsCalculator.addRoleMask(role, roleGoalCountMask);
-    }
-
-    underlyingStateMachine.setGoalsCalculator(goalsCalculator);
-    
     // If have been configured with a plan (for test purposes), load it now.
     // We'll still do everything else as normal, but whilst there are moves in
     // the plan, when it comes to play, we'll just play the specified move.

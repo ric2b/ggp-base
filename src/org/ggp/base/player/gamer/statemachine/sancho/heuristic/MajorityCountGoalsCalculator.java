@@ -32,11 +32,12 @@ public class MajorityCountGoalsCalculator extends MajorityCalculator
 
   /**
    * Factory to produce a suitable goals calculator given a supporting set of role goals propositions
+   * @param stateMachine - underlying state machine
    * @param roleGoalSupportingSets - the set of supporting base props for each role's goals
    * @return goals calculator candidate, or null if no such is generatable
    */
   public static MajorityCalculator createMajorityCountGoalsCalculator(ForwardDeadReckonPropnetStateMachine stateMachine,
-                                                                             Map<Role, Set<PolymorphicProposition>> roleGoalSupportingSets)
+                                                                      Map<Role, Set<PolymorphicProposition>> roleGoalSupportingSets)
   {
     Map<Role, List<ForwardDeadReckonPropositionInfo>> scoredPropositions = new HashMap<>();
 
