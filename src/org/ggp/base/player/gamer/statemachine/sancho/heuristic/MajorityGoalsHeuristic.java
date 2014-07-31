@@ -397,6 +397,15 @@ public class MajorityGoalsHeuristic implements Heuristic
       {
         baseProps.add((PolymorphicProposition)c);
       }
+      else
+      {
+        //  Allow does->legal crossing
+        PolymorphicProposition legal = pn.getLegalInputMap().get(c);
+        if ( legal != null )
+        {
+          c = legal;
+        }
+      }
     }
 
     if ( c instanceof PolymorphicTransition )
