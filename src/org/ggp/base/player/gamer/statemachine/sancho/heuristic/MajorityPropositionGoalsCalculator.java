@@ -23,9 +23,9 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator
   /**
    * Construct new goals calculator
    */
-  protected MajorityPropositionGoalsCalculator(ForwardDeadReckonPropnetStateMachine xiStateMachine)
+  protected MajorityPropositionGoalsCalculator(ForwardDeadReckonPropnetStateMachine xiStateMachine, Role xiOurRole)
   {
-    super(xiStateMachine);
+    super(xiStateMachine, xiOurRole);
     roleMasks = new HashMap<>();
   }
 
@@ -36,7 +36,7 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator
    */
   private MajorityPropositionGoalsCalculator(MajorityPropositionGoalsCalculator master)
   {
-    super(master.stateMachine);
+    super(master.stateMachine, master.ourRole);
     roleMasks = master.roleMasks;
   }
 

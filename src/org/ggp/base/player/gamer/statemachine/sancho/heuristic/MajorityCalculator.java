@@ -6,20 +6,47 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
+/**
+ * @author steve
+ * Abstract base class for emulated goal calculators whose result is based on comparison
+ * of numeric scores, with the score being (0,100), (50,50), or (100,0) depednign on the sign
+ * of the difference in scores
+ */
 public abstract class MajorityCalculator implements ReversableGoalsCalculator
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
+  /**
+   * Underlying state machine
+   */
   protected final ForwardDeadReckonPropnetStateMachine stateMachine;
   private boolean                                      learningMode = true;
+  /**
+   * Whether the (terminal) counts always add up to a fixed total
+   */
   protected boolean                                    isFixedSum = true;
+  /**
+   * The fixed total that terminal counts always add up tro (if fixed sum)
+   */
   protected int                                        valueTotal = -1;
+  /**
+   * Our role in the game
+   */
+  protected final Role                                 ourRole;
 
-  protected MajorityCalculator(ForwardDeadReckonPropnetStateMachine xiStateMachine)
+  /**
+   * @param xiStateMachine - underlying state machine
+   * @param xiOurRole - our role in the game
+   */
+  protected MajorityCalculator(ForwardDeadReckonPropnetStateMachine xiStateMachine, Role xiOurRole)
   {
     stateMachine = xiStateMachine;
+    ourRole = xiOurRole;
   }
 
+  /**
+   * Turn off learning mode (after which the goal calculator will be considered definitive if still valid at this point)
+   */
   public void endLearning()
   {
     learningMode = false;
@@ -30,6 +57,11 @@ public abstract class MajorityCalculator implements ReversableGoalsCalculator
     }
   }
 
+  /**
+   * @param xiState - state to get count value in
+   * @param role - role for which the count is to be evaluated
+   * @return count for the specified role in th specified state
+   */
   protected abstract int getCount(ForwardDeadReckonInternalMachineState xiState,
                                   Role role);
 

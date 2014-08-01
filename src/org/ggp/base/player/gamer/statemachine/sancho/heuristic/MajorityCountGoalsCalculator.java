@@ -19,24 +19,48 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.GoalsCalculator;
 
+/**
+ * @author steve
+ * Subclass of MajorityCalculator that calculates the count from an ordered list
+ * of base propositions which form a sequence (normally expecting only one to
+ * be true at once - the count of the lowest which is true is returned)
+ */
 public class MajorityCountGoalsCalculator extends MajorityCalculator
 {
-  private final Map<Role, List<ForwardDeadReckonPropositionInfo>> scoredPropositions;
+  private final ForwardDeadReckonPropositionInfo[][] scoredPropositions;
 
   private MajorityCountGoalsCalculator(ForwardDeadReckonPropnetStateMachine xiStateMachine,
+                                       Role xiOurRole,
                                        Map<Role, List<ForwardDeadReckonPropositionInfo>> xiScoredPropositions)
   {
-    super(xiStateMachine);
-    scoredPropositions = xiScoredPropositions;
+    super(xiStateMachine, xiOurRole);
+
+    assert(xiStateMachine.getRoles().length==2);
+
+    scoredPropositions = new ForwardDeadReckonPropositionInfo[2][];
+
+    for(Role role : xiStateMachine.getRoles())
+    {
+      List<ForwardDeadReckonPropositionInfo> scoredPropsList = xiScoredPropositions.get(role);
+      int roleIndex = (role.equals(xiOurRole) ? 0 : 1);
+
+      scoredPropositions[roleIndex] = new ForwardDeadReckonPropositionInfo[scoredPropsList.size()];
+      for(int i = 0; i < scoredPropsList.size(); i++)
+      {
+        scoredPropositions[roleIndex][i] = scoredPropsList.get(i);
+      }
+    }
   }
 
   /**
    * Factory to produce a suitable goals calculator given a supporting set of role goals propositions
    * @param stateMachine - underlying state machine
+   * @param xiOurRole - our role in this game
    * @param roleGoalSupportingSets - the set of supporting base props for each role's goals
    * @return goals calculator candidate, or null if no such is generatable
    */
   public static MajorityCalculator createMajorityCountGoalsCalculator(ForwardDeadReckonPropnetStateMachine stateMachine,
+                                                                      Role xiOurRole,
                                                                       Map<Role, Set<PolymorphicProposition>> roleGoalSupportingSets)
   {
     Map<Role, List<ForwardDeadReckonPropositionInfo>> scoredPropositions = new HashMap<>();
@@ -69,7 +93,7 @@ public class MajorityCountGoalsCalculator extends MajorityCalculator
       scoredPropositions.put(e.getKey(), scoredRolePropositions);
     }
 
-    return new MajorityCountGoalsCalculator(stateMachine, scoredPropositions);
+    return new MajorityCountGoalsCalculator(stateMachine, xiOurRole, scoredPropositions);
   }
 
   private static boolean appendPreceedingPropositions(PolymorphicPropNet pn,
@@ -127,30 +151,9 @@ public class MajorityCountGoalsCalculator extends MajorityCalculator
   @Override
   public void reverseRoles()
   {
-    assert(scoredPropositions.size()==2);
-
-    Role firstRole = null;
-    Role secondRole = null;
-    List<ForwardDeadReckonPropositionInfo> firstList = null;
-    List<ForwardDeadReckonPropositionInfo> secondList = null;
-
-    for(Entry<Role, List<ForwardDeadReckonPropositionInfo>> e : scoredPropositions.entrySet())
-    {
-      if ( firstRole == null )
-      {
-        firstRole = e.getKey();
-        firstList = e.getValue();
-      }
-      else
-      {
-        secondRole = e.getKey();
-        secondList = e.getValue();
-      }
-    }
-
-    scoredPropositions.clear();
-    scoredPropositions.put(firstRole, secondList);
-    scoredPropositions.put(secondRole, firstList);
+    ForwardDeadReckonPropositionInfo[] temp = scoredPropositions[0];
+    scoredPropositions[0] = scoredPropositions[1];
+    scoredPropositions[1] = temp;
   }
 
   @Override
@@ -162,9 +165,19 @@ public class MajorityCountGoalsCalculator extends MajorityCalculator
   @Override
   protected int getCount(ForwardDeadReckonInternalMachineState xiState, Role xiRole)
   {
+    if ( xiRole.equals(ourRole ))
+    {
+      return getCount(xiState, 0);
+    }
+
+    return getCount(xiState, 1);
+  }
+
+  private int getCount(ForwardDeadReckonInternalMachineState xiState, int roleIndex)
+  {
     int value = 0;
 
-    for(ForwardDeadReckonPropositionInfo info : scoredPropositions.get(xiRole))
+    for(ForwardDeadReckonPropositionInfo info : scoredPropositions[roleIndex])
     {
       if ( xiState.contains(info))
       {
@@ -185,15 +198,7 @@ public class MajorityCountGoalsCalculator extends MajorityCalculator
     //  then scores are latched once someone has more than half
     if ( isFixedSum )
     {
-      for(Role role : scoredPropositions.keySet())
-      {
-        int count = getCount(xiState, role);
-
-        if ( count > valueTotal/2 )
-        {
-          return true;
-        }
-      }
+      return (getCount(xiState,0) > valueTotal/2 || getCount(xiState,1) > valueTotal/2);
     }
 
     return false;

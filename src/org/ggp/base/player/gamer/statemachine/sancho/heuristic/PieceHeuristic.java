@@ -48,9 +48,9 @@ public class PieceHeuristic implements Heuristic
     private String           name;
     public List<Set<String>> paramRanges;
 
-    public GdlFunctionInfo(String name, int arity)
+    public GdlFunctionInfo(String xiName, int arity)
     {
-      this.name = name;
+      name = xiName;
       paramRanges = new ArrayList<>();
 
       for (int i = 0; i < arity; i++)

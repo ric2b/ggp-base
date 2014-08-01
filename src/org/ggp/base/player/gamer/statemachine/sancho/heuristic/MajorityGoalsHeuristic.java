@@ -25,6 +25,11 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.w3c.tidy.MutableInteger;
 
+/**
+ * @author steve
+ * A psueudo-heuristic which leverages the heuristic evaluation mechanism to
+ * asses a potential goal emulator for correctness
+ */
 public class MajorityGoalsHeuristic implements Heuristic
 {
   private static final Logger LOGGER = LogManager.getLogger();
@@ -37,6 +42,9 @@ public class MajorityGoalsHeuristic implements Heuristic
   private boolean                              roleReversalFixed = false;
   private boolean                              predictionsMatch = true;
 
+  /**
+   * A heuristic used to validate a majority score goals emulator
+   */
   public MajorityGoalsHeuristic()
   {
   }
@@ -201,10 +209,10 @@ public class MajorityGoalsHeuristic implements Heuristic
       }
     }
 
-    goalsCalculator = MajorityCountGoalsCalculator.createMajorityCountGoalsCalculator(stateMachine, roleSets);
+    goalsCalculator = MajorityCountGoalsCalculator.createMajorityCountGoalsCalculator(stateMachine, roleOrdering.roleIndexToRole(0), roleSets);
     if ( goalsCalculator == null )
     {
-      MajorityPropositionGoalsCalculator propGoalsCalculator = new MajorityPropositionGoalsCalculator(stateMachine);
+      MajorityPropositionGoalsCalculator propGoalsCalculator = new MajorityPropositionGoalsCalculator(stateMachine, roleOrdering.roleIndexToRole(0));
 
       for(Role role : xiStateMachine.getRoles())
       {
@@ -360,6 +368,9 @@ public class MajorityGoalsHeuristic implements Heuristic
   public void newTurn(ForwardDeadReckonInternalMachineState xiState,
                       TreeNode xiNode)
   {
+    //  Currently no actual runtime heuristic is calculated by this class, which is ALWAYS
+    //  deactivated (as a heuristic) at the end of meta-gaming - it is currently just used as a shell
+    //  vehicle to assess goal emulators
   }
 
   @Override
@@ -368,6 +379,9 @@ public class MajorityGoalsHeuristic implements Heuristic
                                 double[] xiXoHeuristicValue,
                                 MutableInteger xiXoHeuristicWeight)
   {
+    //  Currently no actual runtime heuristic is calculated by this class, which is ALWAYS
+    //  deactivated (as a heuristic) at the end of meta-gaming - it is currently just used as a shell
+    //  vehicle to assess goal emulators
   }
 
   @Override
@@ -382,6 +396,14 @@ public class MajorityGoalsHeuristic implements Heuristic
     return this;
   }
 
+  /**
+   * Calculate the set of base propositions which a specified component is dependent on without passing through
+   * any transitions.  Not that does<->legal IS traversed
+   * @param pn - propnet
+   * @param c - component whose immediate base dependencies are to be calculated
+   * @param baseProps - set of base props found
+   * @param processedComponents - set of components already visited durign the recursion
+   */
   public static void recursiveFindFeedingBaseProps(PolymorphicPropNet pn, PolymorphicComponent c, Set<PolymorphicProposition> baseProps, Set<PolymorphicComponent> processedComponents)
   {
     if ( processedComponents.contains(c))
