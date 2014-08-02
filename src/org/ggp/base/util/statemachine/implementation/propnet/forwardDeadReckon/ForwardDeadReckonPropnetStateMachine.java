@@ -3947,92 +3947,106 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getDepthChargeResult");
     try
     {
-      rolloutDepth = 0;
-      boolean lUseGreedyRollouts = enableGreedyRollouts && (numRoles <= 2);
-
-      if (validationMachine != null)
+      final int maxAttempts = 1;
+      final int cutoffDepth = 200;
+      for(int attempt = 0; attempt < maxAttempts; attempt++)
       {
-        validationState = state.getMachineState();
-      }
-      setPropNetUsage(state);
-      setBasePropositionsFromState(state, true);
-      for (int i = 0; i < numRoles; i++)
-      {
-        if (ForwardDeadReckonPropNet.useFastAnimator)
-        {
-          previouslyChosenJointMovePropIdsX[i] = -1;
-          previouslyChosenJointMovePropIdsO[i] = -1;
-        }
-        else
-        {
-          previouslyChosenJointMovePropsX[i] = null;
-          previouslyChosenJointMovePropsO[i] = null;
-        }
-      }
-      if (!lUseGreedyRollouts)
-      {
-        int totalChoices = 0;
+        rolloutDepth = 0;
+        boolean lUseGreedyRollouts = enableGreedyRollouts && (numRoles <= 2);
 
-        while (!isTerminal() && !scoresAreLatched(lastInternalSetState))
+        if (validationMachine != null)
         {
-          int numChoices = chooseRandomJointMove(factor, moveWeights, playedMoves);
-          totalChoices += numChoices;
-          transitionToNextStateFromChosenMove();
-          rolloutDepth++;
+          validationState = state.getMachineState();
         }
-
-        if (stats != null)
+        setPropNetUsage(state);
+        setBasePropositionsFromState(state, true);
+        for (int i = 0; i < numRoles; i++)
         {
-          stats[0] = rolloutDepth;
-          stats[1] = (totalChoices + rolloutDepth / 2) / rolloutDepth;
-        }
-      }
-      else
-      {
-        mResultSet.reset();
-        double branchingFactor = recursiveGreedyRollout(mResultSet,
-                                                        factor,
-                                                        moveWeights,
-                                                        playedMoves);
-
-        if (stats != null)
-        {
-          stats[0] = rolloutStackDepth;
-          stats[1] = (int)(branchingFactor + 0.5);
-        }
-
-        if (mResultSet.mChoosingRoleIndex != -1)
-        {
-          setPropNetUsage(mResultSet.mState);
-          setBasePropositionsFromState(mResultSet.mState, true);
-        }
-      }
-      for (int i = 0; i < numRoles; i++)
-      {
-        if (ForwardDeadReckonPropNet.useFastAnimator)
-        {
-          int xId = previouslyChosenJointMovePropIdsX[i];
-          int oId = previouslyChosenJointMovePropIdsO[i];
-
-          if ( xId != -1)
+          if (ForwardDeadReckonPropNet.useFastAnimator)
           {
-            propNetX.animator.setComponentValue(instanceId, xId, false);
+            previouslyChosenJointMovePropIdsX[i] = -1;
+            previouslyChosenJointMovePropIdsO[i] = -1;
           }
-          if ( oId != -1)
+          else
           {
-            propNetO.animator.setComponentValue(instanceId, oId, false);
+            previouslyChosenJointMovePropsX[i] = null;
+            previouslyChosenJointMovePropsO[i] = null;
+          }
+        }
+        if (!lUseGreedyRollouts)
+        {
+          int totalChoices = 0;
+
+          while (!isTerminal() && !scoresAreLatched(lastInternalSetState))
+          {
+            int numChoices = chooseRandomJointMove(factor, moveWeights, playedMoves);
+            totalChoices += numChoices;
+            transitionToNextStateFromChosenMove();
+            rolloutDepth++;
+            if ( rolloutDepth > cutoffDepth )
+            {
+              break;
+            }
+          }
+
+          if (stats != null)
+          {
+            stats[0] = rolloutDepth;
+            stats[1] = (totalChoices + rolloutDepth / 2) / rolloutDepth;
           }
         }
         else
         {
-          if (previouslyChosenJointMovePropsX[i] != null)
+          mResultSet.reset();
+          double branchingFactor = recursiveGreedyRollout(mResultSet,
+                                                          factor,
+                                                          moveWeights,
+                                                          playedMoves);
+
+          if (stats != null)
           {
-             previouslyChosenJointMovePropsX[i].setValue(false, instanceId);
+            stats[0] = rolloutStackDepth;
+            stats[1] = (int)(branchingFactor + 0.5);
           }
-          if (previouslyChosenJointMovePropsO[i] != null)
+
+          if (mResultSet.mChoosingRoleIndex != -1)
           {
-            previouslyChosenJointMovePropsO[i].setValue(false, instanceId);
+            setPropNetUsage(mResultSet.mState);
+            setBasePropositionsFromState(mResultSet.mState, true);
           }
+        }
+        for (int i = 0; i < numRoles; i++)
+        {
+          if (ForwardDeadReckonPropNet.useFastAnimator)
+          {
+            int xId = previouslyChosenJointMovePropIdsX[i];
+            int oId = previouslyChosenJointMovePropIdsO[i];
+
+            if ( xId != -1)
+            {
+              propNetX.animator.setComponentValue(instanceId, xId, false);
+            }
+            if ( oId != -1)
+            {
+              propNetO.animator.setComponentValue(instanceId, oId, false);
+            }
+          }
+          else
+          {
+            if (previouslyChosenJointMovePropsX[i] != null)
+            {
+               previouslyChosenJointMovePropsX[i].setValue(false, instanceId);
+            }
+            if (previouslyChosenJointMovePropsO[i] != null)
+            {
+              previouslyChosenJointMovePropsO[i].setValue(false, instanceId);
+            }
+          }
+        }
+
+        if ( rolloutDepth <= cutoffDepth )
+        {
+          break;
         }
       }
     }
