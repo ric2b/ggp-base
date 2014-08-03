@@ -111,7 +111,7 @@ public class TreeNode
   private long                          mRef                = 0;
 
   public int                            numVisits           = 0;
-  private int                           numUpdates          = 0;
+  private double                        numUpdates          = 0;
   final ForwardDeadReckonInternalMachineState state;
   int                                   decidingRoleIndex;
   boolean                               isTerminal          = false;
@@ -2308,7 +2308,7 @@ public class TreeNode
                     newChild.numUpdates = tree.mNodeHeuristicWeight.value;
                     assert(!Double.isNaN(newChild.getAverageScore(0)));
 
-                    newChild.numVisits = newChild.numUpdates;
+                    newChild.numVisits = tree.mNodeHeuristicWeight.value;
                   }
                 }
               }
@@ -3392,9 +3392,9 @@ public class TreeNode
           if (moveScore < 0.1)
           {
             //  Prefer more distant losses to closer ones
-            moveScore = (child.completionDepth - tree.mGameSearcher.getRootDepth()) - 100;
+            moveScore = (child.completionDepth - tree.mGameSearcher.getRootDepth()) - 500;
             assert(moveScore <= 0);
-            assert(moveScore >= -100);
+            assert(moveScore >= -500);
           }
 
           //  A complete score is certain, but we're comparing within a set that has only
@@ -3578,6 +3578,7 @@ public class TreeNode
       long lBackPropTime = updateStats(tree.mNodeAverageScores,
                                        tree.mNodeAverageSquaredScores,
                                        path,
+                                       Math.pow(tree.mWeightDecay, depth/tree.numRoles),
                                        true);
       tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, 0, 0, lBackPropTime);
       tree.mPathPool.free(path);
@@ -3631,6 +3632,8 @@ public class TreeNode
     lRequest.mPath = path;
     lRequest.mFactor = tree.factor;
     lRequest.mPlayedMovesForWin = ((tree.gameCharacteristics.isPseudoPuzzle && tree.factor == null) ? new LinkedList<ForwardDeadReckonLegalMoveInfo>() : null);
+    lRequest.mWeightDecay = tree.mWeightDecay;
+    lRequest.mStartWeight = Math.pow(tree.mWeightDecay, depth/tree.numRoles);
 
     //request.moveWeights = masterMoveWeights.copy();
     tree.numNonTerminalRollouts += lRequest.mSampleSize;
@@ -3651,6 +3654,7 @@ public class TreeNode
       long lBackPropTime = updateStats(lRequest.mAverageScores,
                                        lRequest.mAverageSquaredScores,
                                        lRequest.mPath,
+                                       lRequest.mWeight,
                                        true);
       tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, lRolloutTime, 0, lBackPropTime);
       tree.mPathPool.free(lRequest.mPath);
@@ -3671,6 +3675,7 @@ public class TreeNode
   public long updateStats(double[] xiValues,
                           double[] xiSquaredValues,
                           TreePath xiPath,
+                          double  xiWeight,
                           boolean xiIsCompletePseudoRollout)
   {
     long lStartTime = System.nanoTime();
@@ -3697,7 +3702,7 @@ public class TreeNode
       }
 
       // Do the stats update for the selected node.
-      assert(lNode.numUpdates <= lNode.numVisits);
+      //assert(lNode.numUpdates <= lNode.numVisits);
 
       double[] lOverrides = (lElement == null ? null : lElement.getScoreOverrides());
       if (lOverrides != null)
@@ -3712,6 +3717,7 @@ public class TreeNode
 
       for (int lRoleIndex = 0; lRoleIndex < tree.numRoles; lRoleIndex++)
       {
+        assert(xiValues[lRoleIndex] < 100+EPSILON);
         if ((!lNode.complete ||
              tree.gameCharacteristics.isSimultaneousMove ||
              tree.gameCharacteristics.numRoles > 2) &&
@@ -3732,18 +3738,19 @@ public class TreeNode
             xiValues[lRoleIndex] = (xiValues[lRoleIndex] * lNumChildVisits + lChild.getAverageScore(lRoleIndex) *
                                     (lChild.numVisits - lNumChildVisits)) /
                                    lChild.numVisits;
+            assert(xiValues[lRoleIndex] < 100+EPSILON);
           }
         }
 
         if (!lNode.complete)
         {
           lNode.setAverageScore(lRoleIndex,
-                                (lNode.getAverageScore(lRoleIndex) * lNode.numUpdates + xiValues[lRoleIndex]) /
-                                (lNode.numUpdates + 1));
+                                (lNode.getAverageScore(lRoleIndex) * lNode.numUpdates + xiValues[lRoleIndex]*xiWeight) /
+                                (lNode.numUpdates + xiWeight));
           lNode.setAverageSquaredScore(lRoleIndex,
                                        (lNode.getAverageSquaredScore(lRoleIndex) *
-                                        lNode.numUpdates + xiSquaredValues[lRoleIndex]) /
-                                       (lNode.numUpdates + 1));
+                                        lNode.numUpdates + xiSquaredValues[lRoleIndex]*xiWeight) /
+                                       (lNode.numUpdates + xiWeight));
         }
 
         lNode.leastLikelyWinner = -1;
@@ -3751,8 +3758,8 @@ public class TreeNode
       }
 
       //validateScoreVector(averageScores);
-      lNode.numUpdates++;
-      assert(lNode.numUpdates <= lNode.numVisits);
+      lNode.numUpdates += xiWeight;
+      //assert(lNode.numUpdates <= lNode.numVisits);
 
       assert(checkFixedSum(xiValues));
       assert(checkFixedSum());

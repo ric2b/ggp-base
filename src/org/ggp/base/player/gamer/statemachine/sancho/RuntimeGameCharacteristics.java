@@ -46,6 +46,11 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   final private int           fixedSampleSize         = MachineSpecificConfiguration.getCfgVal(CfgItem.FIXED_SAMPLE_SIZE, -1);
   private String              mPlan                   = null;
   private int                 mNumFactors             = 1;
+  private int                 mMinLength              = 0;
+  private int                 mMaxLength              = -1;
+  private double              mAverageLength          = -1;
+  private double              mStdDeviationLength     = 0;
+  private double              mAverageNonDrawLength   = 0;
 
   /**
    * Create game characteristics, loading any state from previous games.
@@ -257,5 +262,66 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     {
       mNumFactors = xiFactors.size();
     }
+  }
+
+  public int getMaxLength()
+  {
+    return mMaxLength;
+  }
+
+  public void setMaxLength(int xiMaxLength)
+  {
+    mMaxLength = xiMaxLength;
+  }
+
+  public double getAverageLength()
+  {
+    return mAverageLength;
+  }
+
+  public void setAverageLength(double xiAverageNumTurns)
+  {
+    mAverageLength = xiAverageNumTurns;
+  }
+
+  public double getStdDeviationLength()
+  {
+    return mStdDeviationLength;
+  }
+
+  public void setStdDeviationLength(double xiStdDeviationLength)
+  {
+    mStdDeviationLength = xiStdDeviationLength;
+  }
+
+  public int getMinLength()
+  {
+    return mMinLength;
+  }
+
+  public void setMinLength(int xiMinLength)
+  {
+    mMinLength = xiMinLength;
+  }
+
+  public double getAverageNonDrawLength()
+  {
+    return mAverageNonDrawLength;
+  }
+
+  public void setAverageNonDrawLength(double xiAverageNonDrawLength)
+  {
+    mAverageNonDrawLength = xiAverageNonDrawLength;
+  }
+
+  @Override
+  public void report()
+  {
+    super.report();
+
+    LOGGER.info("Range of lengths of sample games seen: [" + getMinLength() + "," + getMaxLength() + "]");
+    LOGGER.info("Average num turns: " + getAverageLength());
+    LOGGER.info("Std deviation num turns: " + getStdDeviationLength());
+    LOGGER.info("Average num turns for non-drawn result: " + getAverageNonDrawLength());
   }
 }

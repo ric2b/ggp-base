@@ -157,7 +157,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60a");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60b");
   }
 
   @Override
@@ -502,6 +502,8 @@ public class Sancho extends SampleGamer
     double averageBranchingFactor = 0;
     double averageNumTurns = 0;
     double averageSquaredNumTurns = 0;
+    double averageNumNonDrawTurns = 0;
+    int numNonDrawSimulations = 0;
 
     while (System.currentTimeMillis() < simulationStopTime)
     {
@@ -515,6 +517,11 @@ public class Sancho extends SampleGamer
                                                   null);
 
       int netScore = netScore(underlyingStateMachine, null);
+      if ( netScore != 50 )
+      {
+        numNonDrawSimulations++;
+        averageNumNonDrawTurns += rolloutStats[0];
+      }
 
       for (int i = 0; i < numRoles; i++)
       {
@@ -543,6 +550,7 @@ public class Sancho extends SampleGamer
                                 (simulationsPerformed - 1) + rolloutStats[0] *
                                                              rolloutStats[0]) /
                                simulationsPerformed;
+
       if (rolloutStats[0] < minNumTurns)
       {
         minNumTurns = rolloutStats[0];
@@ -568,6 +576,11 @@ public class Sancho extends SampleGamer
       }
     }
 
+    if ( numNonDrawSimulations != 0 )
+    {
+      averageNumNonDrawTurns /= numNonDrawSimulations;
+    }
+
     LOGGER.info("branchingFactorApproximation = " + branchingFactorApproximation +
                 ", averageBranchingFactor = " + averageBranchingFactor +
                 ", choices high water mark = " + gameCharacteristics.getChoicesHighWaterMark(0));
@@ -578,6 +591,15 @@ public class Sancho extends SampleGamer
       gameCharacteristics.isIteratedGame = false;
     }
 
+    double stdDevNumTurns = Math.sqrt(averageSquaredNumTurns -
+                                      averageNumTurns * averageNumTurns);
+
+    gameCharacteristics.setMaxLength(maxNumTurns);
+    gameCharacteristics.setMinLength(minNumTurns);
+    gameCharacteristics.setAverageLength(averageNumTurns);
+    gameCharacteristics.setStdDeviationLength(stdDevNumTurns);
+    gameCharacteristics.setAverageNonDrawLength(averageNumNonDrawTurns);
+
     gameCharacteristics.setEarliestCompletionDepth(numRoles*minNumTurns);
     if ( maxNumTurns == minNumTurns )
     {
@@ -586,13 +608,6 @@ public class Sancho extends SampleGamer
 
     //  Dump the game characteristics to trace output
     gameCharacteristics.report();
-
-    double stdDevNumTurns = Math.sqrt(averageSquaredNumTurns -
-                                      averageNumTurns * averageNumTurns);
-
-    LOGGER.info("Range of lengths of sample games seen: [" + minNumTurns + "," + maxNumTurns + "]");
-    LOGGER.info("Average num turns: " + averageNumTurns);
-    LOGGER.info("Std deviation num turns: " + stdDevNumTurns);
 
     double explorationBias = 15 / (averageNumTurns + ((maxNumTurns + minNumTurns) / 2 - averageNumTurns) *
                                               stdDevNumTurns / averageNumTurns) + 0.4;

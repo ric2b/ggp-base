@@ -850,6 +850,7 @@ public class GameSearcher implements Runnable, ActivityController
           lBackPropTime = lNode.updateStats(lRequest.mAverageScores,
                                             lRequest.mAverageSquaredScores,
                                             lRequest.mPath,
+                                            lRequest.mWeight,
                                             false);
         }
       }

@@ -25,10 +25,14 @@ class RolloutRequest
   public int                                   mSampleSize;
   public final double[]                        mAverageScores;
   public final double[]                        mAverageSquaredScores;
+  public double                                mWeight;
+  public double                                mStartWeight;
+  public double                                mWeightDecay;
   public int                                   mMinScore;
   public int                                   mMaxScore;
   public int                                   mThreadId;
   private final int[]                          latchedScoreRangeBuffer = new int[2];
+  private final int[]                          rolloutStatsBuffer = new int[2];
 
   public long                                  mSelectElapsedTime;
   public long                                  mExpandElapsedTime;
@@ -83,6 +87,7 @@ class RolloutRequest
       }
       mMinScore = 1000;
       mMaxScore = -100;
+      mWeight = 0;
 
       List<ForwardDeadReckonLegalMoveInfo> playedMoves = mPlayedMovesForWin;
 
@@ -95,14 +100,18 @@ class RolloutRequest
         }
 
         // Do the rollout.
-        stateMachine.getDepthChargeResult(mState, mFactor, xiOurRole, null, null, playedMoves);
+        stateMachine.getDepthChargeResult(mState, mFactor, xiOurRole, rolloutStatsBuffer, null, playedMoves);
+
+        double weight = mStartWeight*Math.pow(mWeightDecay, rolloutStatsBuffer[0]);
+
+        mWeight += weight;
 
         // Record the results.
         for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
         {
           int lScore = stateMachine.getGoal(xiRoleOrdering.roleIndexToRole(roleIndex));
-          mAverageScores[roleIndex] += lScore;
-          mAverageSquaredScores[roleIndex] += lScore * lScore;
+          mAverageScores[roleIndex] += lScore*weight;
+          mAverageSquaredScores[roleIndex] += lScore * lScore * weight;
 
           // Check for new min/max.
           if (roleIndex == 0)
@@ -138,8 +147,8 @@ class RolloutRequest
       // Normalize the results for the number of samples.
       for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
       {
-        mAverageScores[roleIndex] /= mSampleSize;
-        mAverageSquaredScores[roleIndex] /= mSampleSize;
+        mAverageScores[roleIndex] /= mWeight;
+        mAverageSquaredScores[roleIndex] /= mWeight;
       }
     }
     finally
