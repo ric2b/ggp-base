@@ -3992,7 +3992,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           if (stats != null)
           {
             stats[0] = rolloutDepth;
-            stats[1] = (totalChoices + rolloutDepth / 2) / rolloutDepth;
+            if ( rolloutDepth > 0 )
+            {
+              stats[1] = (totalChoices + rolloutDepth / 2) / rolloutDepth;
+            }
+            else
+            {
+              stats[1] = 0;
+            }
           }
         }
         else
