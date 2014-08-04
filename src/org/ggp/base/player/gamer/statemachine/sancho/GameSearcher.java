@@ -528,14 +528,22 @@ public class GameSearcher implements Runnable, ActivityController
               LOGGER.debug("  Factor move avoids a loss so selecting");
               bestChoice = factorChoice;
             }
+            else if (bestChoice.pseudoNoopValue <= 0 && bestChoice.pseudoMoveIsComplete &&
+                bestChoice.bestMoveValue > 0 &&
+                (!factorChoice.pseudoMoveIsComplete || factorChoice.pseudoNoopValue > 0))
+            {
+              //  If no-oping the other factor is a certain loss but the same is not true of this
+              //  factor then take the other factor
+              LOGGER.debug("  Factor move would be loss in oher factor");
+            }
             // Complete win dominates everything else
-            else if (factorChoice.bestMoveValue > 99.9)
+            else if (factorChoice.bestMoveValue > 100-TreeNode.EPSILON)
             {
               LOGGER.debug("  Factor move is a win so selecting");
               bestChoice = factorChoice;
             }
-            else if ((bestChoice.bestMoveValue > 99.9 && bestChoice.bestMoveIsComplete) ||
-                     (factorChoice.bestMoveValue <= 0.1 && factorChoice.bestMoveIsComplete))
+            else if ((bestChoice.bestMoveValue > 100-TreeNode.EPSILON && bestChoice.bestMoveIsComplete) ||
+                     (factorChoice.bestMoveValue <= TreeNode.EPSILON && factorChoice.bestMoveIsComplete))
             {
               LOGGER.debug("  Already selected factor move is a win or this move is a loss - not selecting");
               continue;
