@@ -3578,7 +3578,7 @@ public class TreeNode
       long lBackPropTime = updateStats(tree.mNodeAverageScores,
                                        tree.mNodeAverageSquaredScores,
                                        path,
-                                       Math.pow(tree.mWeightDecay, depth/tree.numRoles),
+                                       1,//Math.pow(tree.mWeightDecay, depth),
                                        true);
       tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, 0, 0, lBackPropTime);
       tree.mPathPool.free(path);
@@ -3633,7 +3633,7 @@ public class TreeNode
     lRequest.mFactor = tree.factor;
     lRequest.mPlayedMovesForWin = ((tree.gameCharacteristics.isPseudoPuzzle && tree.factor == null) ? new LinkedList<ForwardDeadReckonLegalMoveInfo>() : null);
     lRequest.mWeightDecay = tree.mWeightDecay;
-    lRequest.mStartWeight = Math.pow(tree.mWeightDecay, depth/tree.numRoles);
+    lRequest.mStartWeight = 1;//Math.pow(tree.mWeightDecay, depth);
 
     //request.moveWeights = masterMoveWeights.copy();
     tree.numNonTerminalRollouts += lRequest.mSampleSize;

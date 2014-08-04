@@ -3947,8 +3947,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getDepthChargeResult");
     try
     {
-      final int maxAttempts = 1;
-      final int cutoffDepth = 200;
+      final int maxAttempts = 3;
+      final int cutoffDepth = 30;
       for(int attempt = 0; attempt < maxAttempts; attempt++)
       {
         rolloutDepth = 0;

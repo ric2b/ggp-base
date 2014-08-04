@@ -59,6 +59,10 @@ class RolloutRequest
     mState = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
   }
 
+  private static double sigma(double x)
+  {
+    return 1/(1+Math.exp(-x));
+  }
   /**
    * Process this rollout request.
    *
@@ -102,7 +106,8 @@ class RolloutRequest
         // Do the rollout.
         stateMachine.getDepthChargeResult(mState, mFactor, xiOurRole, rolloutStatsBuffer, null, playedMoves);
 
-        double weight = mStartWeight*Math.pow(mWeightDecay, rolloutStatsBuffer[0]);
+        //double weight = mStartWeight*Math.pow(mWeightDecay, rolloutStatsBuffer[0]);
+        double weight = 1;//1 - sigma((rolloutStatsBuffer[0]-30)/5);
 
         mWeight += weight;
 

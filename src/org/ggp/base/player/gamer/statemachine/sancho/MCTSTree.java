@@ -151,10 +151,11 @@ public class MCTSTree
     //  Weight decay rate chosen such that at a depth of the average non-drawn game length scores are diluted by the ratio of that length to the max length
     //  This is a somewhat empirical formula intended to promote score decay in games that can run into long noisy paths if they avoid closer win/loss paths
     //  which provide a stronger signal
-    mWeightDecay = (xiGameCharacateristics.getAverageNonDrawLength() == 0 ?
-       1 :
-       Math.exp(Math.log(xiGameCharacateristics.getAverageNonDrawLength()/xiGameCharacateristics.getMaxLength())/(xiGameCharacateristics.getAverageNonDrawLength()*numRoles)));
+//    mWeightDecay = (xiGameCharacateristics.getAverageNonDrawLength() == 0 ?
+//       1 :
+//       Math.exp(Math.log(xiGameCharacateristics.getAverageNonDrawLength()/xiGameCharacateristics.getMaxLength())/(xiGameCharacateristics.getAverageNonDrawLength()*numRoles)));
 
+    mWeightDecay = 0.98;
     LOGGER.info("Weight decay set to: " + mWeightDecay);
     roleOrdering = xiRoleOrdering;
     mOurRole = xiRoleOrdering.roleIndexToRole(0);
