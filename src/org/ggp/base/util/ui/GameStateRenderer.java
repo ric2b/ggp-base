@@ -28,15 +28,15 @@ import org.xml.sax.InputSource;
  * displayed to the user. TODO: This class is still pretty rough, and I suspect
  * there's much room for improvement. Furthermore, improving this class will
  * yield immediate visible benefits, in terms of better visualizations and
- * such. For example, when rendering games that don't take up the full 600x600
- * image, there's an empty black space on the final image, which looks bad.
+ * such. For example, when rendering games that don't take up the full canvas,
+ * there's an empty black space on the final image, which looks bad.
  * That could be fixed.
  *
  * @author Ethan Dreyfuss and Sam Schreiber
  */
 public class GameStateRenderer
 {
-  private static final Dimension defaultSize = new Dimension(600, 600);
+  private static final Dimension defaultSize = new Dimension(1200, 1000);
 
   public static Dimension getDefaultSize()
   {
@@ -54,7 +54,7 @@ public class GameStateRenderer
 
     xhtml = xhtml
         .replace("<body>",
-                 "<body><table width=\"560\" height=\"560\"><tr><td>");
+                 "<body><table width=\"1160\" height=\"960\"><tr><td>");
     xhtml = xhtml.replace("</body>", "</td></tr></table></body>");
 
     InputSource is = new InputSource(new BufferedReader(new StringReader(xhtml)));
