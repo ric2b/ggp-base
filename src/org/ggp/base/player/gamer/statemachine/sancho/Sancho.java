@@ -15,6 +15,7 @@ import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.player.gamer.statemachine.sample.SampleGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.GoalsStabilityHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MajorityGoalsHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
@@ -157,7 +158,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60b");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60c");
   }
 
   @Override
@@ -277,14 +278,15 @@ public class Sancho extends SampleGamer
     CombinedHeuristic heuristic;
 
     MajorityGoalsHeuristic goalsPredictionHeuristic = new MajorityGoalsHeuristic();
+    GoalsStabilityHeuristic goalsStabilityHeuristic = new GoalsStabilityHeuristic();
 
     if (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_PIECE_HEURISTIC, false))
     {
-      heuristic = new CombinedHeuristic(goalsPredictionHeuristic);
+      heuristic = new CombinedHeuristic(goalsPredictionHeuristic, goalsStabilityHeuristic);
     }
     else
     {
-      heuristic = new CombinedHeuristic(new PieceHeuristic(), goalsPredictionHeuristic /*, new AvailableGoalHeuristic() */);
+      heuristic = new CombinedHeuristic(new PieceHeuristic(), goalsPredictionHeuristic, goalsStabilityHeuristic /*, new AvailableGoalHeuristic() */);
     }
 
     boolean hasHeuristicCandidates = heuristic.tuningInitialise(underlyingStateMachine, roleOrdering);
@@ -442,6 +444,9 @@ public class Sancho extends SampleGamer
       numSamples++;
     }
 
+    // Complete heuristic tuning.
+    heuristic.tuningComplete();
+
     //  If we were able to run very few samples only don't make non-default
     //  assumptions about the game based on the inadequate sampling
     if ( numSamples < MIN_PRIMARY_SIMULATION_SAMPLES )
@@ -462,8 +467,7 @@ public class Sancho extends SampleGamer
       heuristic.pruneAll();
     }
 
-    // Complete heuristic tuning.
-    heuristic.tuningComplete();
+    gameCharacteristics.setGoalsStability(goalsStabilityHeuristic.getGoalStability());
 
     if (gameCharacteristics.isSimultaneousMove || gameCharacteristics.isPseudoSimultaneousMove)
     {
@@ -504,6 +508,8 @@ public class Sancho extends SampleGamer
     double averageSquaredNumTurns = 0;
     double averageNumNonDrawTurns = 0;
     int numNonDrawSimulations = 0;
+    int numMaxLengthDraws = 0;
+    int numMaxLengthGames = 0;
 
     while (System.currentTimeMillis() < simulationStopTime)
     {
@@ -514,7 +520,8 @@ public class Sancho extends SampleGamer
                                                   getRole(),
                                                   rolloutStats,
                                                   null,
-                                                  null);
+                                                  null,
+                                                  1000);
 
       int netScore = netScore(underlyingStateMachine, null);
       if ( netScore != 50 )
@@ -558,7 +565,20 @@ public class Sancho extends SampleGamer
       if (rolloutStats[0] > maxNumTurns)
       {
         maxNumTurns = rolloutStats[0];
+
+        numMaxLengthGames = 0;
       }
+
+      if ( rolloutStats[0] == maxNumTurns)
+      {
+        numMaxLengthGames++;
+
+        if ( netScore == 50 )
+        {
+          numMaxLengthDraws++;
+        }
+      }
+
       averageBranchingFactor = (averageBranchingFactor *
                                 (simulationsPerformed - 1) + rolloutStats[1]) /
                                simulationsPerformed;
@@ -599,6 +619,7 @@ public class Sancho extends SampleGamer
     gameCharacteristics.setAverageLength(averageNumTurns);
     gameCharacteristics.setStdDeviationLength(stdDevNumTurns);
     gameCharacteristics.setAverageNonDrawLength(averageNumNonDrawTurns);
+    gameCharacteristics.setMaxGameLengthDrawsProportion(((double)numMaxLengthDraws)/(double)numMaxLengthGames);
 
     gameCharacteristics.setEarliestCompletionDepth(numRoles*minNumTurns);
     if ( maxNumTurns == minNumTurns )

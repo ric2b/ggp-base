@@ -7,7 +7,7 @@ public class PearsonCorrelation
 {
   private SampledStatistic mStat1     = new SampledStatistic();
   private SampledStatistic mStat2     = new SampledStatistic();
-  private long             productSum = 0;
+  private double           productSum = 0;
 
   /**
    * Record a sample.
@@ -15,7 +15,7 @@ public class PearsonCorrelation
    * @param xiValue1 - sampled value of the first random variable.
    * @param xiValue2 - sampled value of the second random variable.
    */
-  public void sample(int xiValue1, int xiValue2)
+  public void sample(double xiValue1, double xiValue2)
   {
     productSum += xiValue1 * xiValue2;
     mStat1.sample(xiValue1);

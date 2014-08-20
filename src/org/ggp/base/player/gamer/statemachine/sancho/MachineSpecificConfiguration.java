@@ -82,7 +82,12 @@ public class MachineSpecificConfiguration
     /**
      * Whether to enable initial node estimation in all games
      */
-    ENABLE_INITIAL_NODE_ESTIMATION;
+    ENABLE_INITIAL_NODE_ESTIMATION,
+
+    /**
+     * Whether to use UCB tuned or just UCB (default is true)
+     */
+    USE_UCB_TUNED;
   }
 
   private static final Properties MACHINE_PROPERTIES = new Properties();

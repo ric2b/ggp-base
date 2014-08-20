@@ -161,7 +161,7 @@ public class StateMachinePerformanceAnalyser
 
           while(System.currentTimeMillis() < startTime + 1000*numSeconds)
           {
-            theMachine.getDepthChargeResult(initialState, null, ourRole, null, null, null);
+            theMachine.getDepthChargeResult(initialState, null, ourRole, null, null, null, 1000);
             numDepthCharges++;
           }
 

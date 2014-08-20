@@ -51,6 +51,8 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private double              mAverageLength          = -1;
   private double              mStdDeviationLength     = 0;
   private double              mAverageNonDrawLength   = 0;
+  private double              mGoalsStability         = 0;
+  private double              mMaxGameLengthDrawsProportion  = 0;
 
   /**
    * Create game characteristics, loading any state from previous games.
@@ -323,5 +325,40 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     LOGGER.info("Average num turns: " + getAverageLength());
     LOGGER.info("Std deviation num turns: " + getStdDeviationLength());
     LOGGER.info("Average num turns for non-drawn result: " + getAverageNonDrawLength());
+    LOGGER.info("Goals stability: " + getGoalsStability());
+    LOGGER.info("Proportion of max length games ending in draws: " + getMaxGameLengthDrawsProportion());
+  }
+
+  /**
+   * @return goal stability factor (how well goals in non-terminal states predict the end result)
+   */
+  public double getGoalsStability()
+  {
+    return mGoalsStability;
+  }
+
+  /**
+   * @param xiGoalsStability - goal stability factor (how well goals in non-terminal states predict the end result)
+   */
+  public void setGoalsStability(double xiGoalsStability)
+  {
+    mGoalsStability = xiGoalsStability;
+  }
+
+  /**
+   * @return proportion of max-length games that were draws
+   */
+  public double getMaxGameLengthDrawsProportion()
+  {
+    return mMaxGameLengthDrawsProportion;
+  }
+
+  /**
+   * Setter for proportion of max-length games that were draws
+   * @param xiMaxGameDrawProportion
+   */
+  public void setMaxGameLengthDrawsProportion(double xiMaxGameDrawProportion)
+  {
+    mMaxGameLengthDrawsProportion = xiMaxGameDrawProportion;
   }
 }

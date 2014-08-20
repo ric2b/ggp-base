@@ -40,6 +40,25 @@ public class MCTSTree
   private static final boolean                         SUPPORT_TRANSITIONS                         = true;
   public static final int                              MAX_SUPPORTED_BRANCHING_FACTOR              = 300;
   private static final int                             NUM_TOP_MOVE_CANDIDATES                     = 4;
+  /**
+   * If goal stabiliy is above a certain threshold we can use interim-state goals to predict final results
+   * which makes the use of weight decay and cutoffs appropriate
+   */
+  private static final double                          GOALS_STABILITY_THRESHOLD                   = 0.65;
+  /**
+   * The point in the weight decay at which cutoff occurs is set by how many sigmas past the knee
+   * (4 is a weight of approximately 0.018, with the knee being the point of symmetry at 0.5)
+   */
+  private static final double                          CUTOFF_SIGMA                                 = 4;
+
+  /**
+   * Whether to use state-similarity measures to heuristically weight mov selection
+   */
+  public final boolean                                 USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false);
+  /**
+   * Whether to use UCB tuned as opposed to simple UCB
+   */
+  public final boolean                                 USE_UCB_TUNED;
 
   /**
    * For reasons not well understood, allowing select() to select complete children and propagate
@@ -58,7 +77,9 @@ public class MCTSTree
   ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
   final int                                            numRoles;
-  final double                                         mWeightDecay;
+  final int                                            mWeightDecayKneeDepth;
+  final double                                         mWeightDecayScaleFactor;
+  final int                                            mWeightDecayCutoffDepth;
   final CappedPool<TreeNode>                           nodePool;
   final ScoreVectorPool                                scoreVectorPool;
   final Pool<TreeEdge>                                 edgePool;
@@ -148,15 +169,73 @@ public class MCTSTree
       searchFilter = xiStateMachine.getBaseFilter();
     }
 
-    //  Weight decay rate chosen such that at a depth of the average non-drawn game length scores are diluted by the ratio of that length to the max length
-    //  This is a somewhat empirical formula intended to promote score decay in games that can run into long noisy paths if they avoid closer win/loss paths
-    //  which provide a stronger signal
-//    mWeightDecay = (xiGameCharacateristics.getAverageNonDrawLength() == 0 ?
-//       1 :
-//       Math.exp(Math.log(xiGameCharacateristics.getAverageNonDrawLength()/xiGameCharacateristics.getMaxLength())/(xiGameCharacateristics.getAverageNonDrawLength()*numRoles)));
+    //  Apply decay and cutoff if either:
+    //    1)  The goals are sufficiently stable (goals in a non-terminal state are a good predictor
+    //        of final result)
+    //    2)  All of the following apply:
+    //        2.1) Non-draws cluster at shallower depths on average than do draws
+    //        2.2) Mean game length is not much past median game length (which would imply results tend to happen late)
+    //        2.3) Max-length games are almost all draws
+    //        These conditions are a proxy for a more general (but harder) analysis of the distribution of results
+    //        wherein win vs draw distribution over depth tends not to increase.  Mostly it is intended to capture
+    //        the use of decay in games that have artificial draw-after-N-turns terminal conditions and where the non-draws
+    //        can happen a lot earlier
+    if ( xiGameCharacateristics.getAverageNonDrawLength() > 0 &&
+         (xiGameCharacateristics.getGoalsStability() > GOALS_STABILITY_THRESHOLD ||
+          (xiGameCharacateristics.getMaxGameLengthDrawsProportion() > 0.9 &&
+           xiGameCharacateristics.getAverageNonDrawLength() <= xiGameCharacateristics.getAverageLength() &&
+           xiGameCharacateristics.getAverageLength() < (xiGameCharacateristics.getMaxLength()+xiGameCharacateristics.getMinLength())*1.05/2.0)))
+    {
+      //  If goals are stable the decay depth is somewhat arbitrary, but we want finishes to be plausibly 'in range'
+      //  so we use the shortest length seen from the initial state.
+      //  If goals are NOT stable and we are using decay based on seeing
+      //  non-draw results earlier than average finishes we use that non-draw average length
+      if ( xiGameCharacateristics.getGoalsStability() > GOALS_STABILITY_THRESHOLD )
+      {
+        mWeightDecayKneeDepth = xiGameCharacateristics.getMinLength();
+      }
+      else
+      {
+        mWeightDecayKneeDepth = (int)xiGameCharacateristics.getAverageNonDrawLength();
+      }
+      //  Steepness of the cutoff is proportional th the depth of the knee (so basically we use
+      //  a scale-free shape for decay) - this is an empirical decision and seems to be better than using
+      //  std deviation of game length
+      mWeightDecayScaleFactor = mWeightDecayKneeDepth/6;
+      //  Cutoff set to occur at fixed decay factor
+      mWeightDecayCutoffDepth = mWeightDecayKneeDepth + (int)(mWeightDecayScaleFactor*CUTOFF_SIGMA);
+      LOGGER.info("Weight decay knee and scale factor: (" + mWeightDecayKneeDepth + ", " + mWeightDecayScaleFactor + ")");
+    }
+    else
+    {
 
-    mWeightDecay = 0.98;
-    LOGGER.info("Weight decay set to: " + mWeightDecay);
+      mWeightDecayKneeDepth = -1;
+      mWeightDecayScaleFactor = 0;
+      mWeightDecayCutoffDepth = 1000;
+
+      LOGGER.info("Weight decay disabled");
+    }
+
+    //  UCB tuned is never used with weight decay - the calculation of variance is thrown off by it
+    USE_UCB_TUNED = (mWeightDecayKneeDepth == -1 ? MachineSpecificConfiguration.getCfgVal(CfgItem.USE_UCB_TUNED, true) : false);
+    if ( USE_UCB_TUNED )
+    {
+      LOGGER.info("Using UCB-tuned");
+    }
+    else
+    {
+      LOGGER.info("Using simple UCB");
+    }
+
+    if ( mWeightDecayCutoffDepth >= 1000 )
+    {
+      LOGGER.info("Early cutoff disabled");
+    }
+    else
+    {
+      LOGGER.info("Early cutoff depth: " + mWeightDecayCutoffDepth);
+    }
+
     roleOrdering = xiRoleOrdering;
     mOurRole = xiRoleOrdering.roleIndexToRole(0);
     heuristic = xiHeuristic;

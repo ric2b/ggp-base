@@ -3105,7 +3105,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private void doRecursiveGreedyRoleout(TerminalResultSet results,
                                         Factor factor,
                                         MoveWeights moveWeights,
-                                        List<ForwardDeadReckonLegalMoveInfo> playedMoves)
+                                        List<ForwardDeadReckonLegalMoveInfo> playedMoves,
+                                        int cutoffDepth)
   {
     //		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.doRecursiveGreedyRoleout");
     //		try
@@ -3203,7 +3204,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         break;
       }
     }
-    while (true);
+    while (cutoffDepth > rolloutStackDepth);
     //		}
     //		finally
     //		{
@@ -3214,14 +3215,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private double recursiveGreedyRollout(TerminalResultSet results,
                                         Factor factor,
                                         MoveWeights moveWeights,
-                                        List<ForwardDeadReckonLegalMoveInfo> playedMoves)
+                                        List<ForwardDeadReckonLegalMoveInfo> playedMoves,
+                                        int cutoffDepth)
   {
     rolloutSeq++;
     rolloutStackDepth = 0;
     totalRoleoutChoices = 0;
     totalRoleoutNodesExamined = 0;
 
-    doRecursiveGreedyRoleout(results, factor, moveWeights, playedMoves);
+    doRecursiveGreedyRoleout(results, factor, moveWeights, playedMoves, cutoffDepth);
 
     if (totalRoleoutNodesExamined > 0)
     {
@@ -3937,125 +3939,119 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return lastInternalSetState;
   }
 
-  public void getDepthChargeResult(ForwardDeadReckonInternalMachineState state,
+  public int getDepthChargeResult(ForwardDeadReckonInternalMachineState state,
                                    Factor factor,
                                    Role role,
                                    final int[] stats,
                                    MoveWeights moveWeights,
-                                   List<ForwardDeadReckonLegalMoveInfo> playedMoves)
+                                   List<ForwardDeadReckonLegalMoveInfo> playedMoves,
+                                   int cutoffDepth)
   {
     ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getDepthChargeResult");
     try
     {
-      final int maxAttempts = 3;
-      final int cutoffDepth = 30;
-      for(int attempt = 0; attempt < maxAttempts; attempt++)
-      {
-        rolloutDepth = 0;
-        boolean lUseGreedyRollouts = enableGreedyRollouts && (numRoles <= 2);
+      rolloutDepth = 0;
+      boolean lUseGreedyRollouts = enableGreedyRollouts && (numRoles <= 2);
 
-        if (validationMachine != null)
+      if (validationMachine != null)
+      {
+        validationState = state.getMachineState();
+      }
+      setPropNetUsage(state);
+      setBasePropositionsFromState(state, true);
+      for (int i = 0; i < numRoles; i++)
+      {
+        if (ForwardDeadReckonPropNet.useFastAnimator)
         {
-          validationState = state.getMachineState();
+          previouslyChosenJointMovePropIdsX[i] = -1;
+          previouslyChosenJointMovePropIdsO[i] = -1;
         }
-        setPropNetUsage(state);
-        setBasePropositionsFromState(state, true);
-        for (int i = 0; i < numRoles; i++)
+        else
         {
-          if (ForwardDeadReckonPropNet.useFastAnimator)
+          previouslyChosenJointMovePropsX[i] = null;
+          previouslyChosenJointMovePropsO[i] = null;
+        }
+      }
+      if (!lUseGreedyRollouts)
+      {
+        int totalChoices = 0;
+
+        while (!isTerminal() && !scoresAreLatched(lastInternalSetState))
+        {
+          int numChoices = chooseRandomJointMove(factor, moveWeights, playedMoves);
+          totalChoices += numChoices;
+          transitionToNextStateFromChosenMove();
+          rolloutDepth++;
+          if ( rolloutDepth > cutoffDepth )
           {
-            previouslyChosenJointMovePropIdsX[i] = -1;
-            previouslyChosenJointMovePropIdsO[i] = -1;
+            break;
+          }
+        }
+
+        if (stats != null)
+        {
+          stats[0] = rolloutDepth;
+          if ( rolloutDepth > 0 )
+          {
+            stats[1] = (totalChoices + rolloutDepth / 2) / rolloutDepth;
           }
           else
           {
-            previouslyChosenJointMovePropsX[i] = null;
-            previouslyChosenJointMovePropsO[i] = null;
+            stats[1] = 0;
           }
         }
-        if (!lUseGreedyRollouts)
+      }
+      else
+      {
+        mResultSet.reset();
+        double branchingFactor = recursiveGreedyRollout(mResultSet,
+                                                        factor,
+                                                        moveWeights,
+                                                        playedMoves,
+                                                        cutoffDepth);
+
+        if (stats != null)
         {
-          int totalChoices = 0;
+          stats[0] = rolloutStackDepth;
+          stats[1] = (int)(branchingFactor + 0.5);
+        }
 
-          while (!isTerminal() && !scoresAreLatched(lastInternalSetState))
+        if (mResultSet.mChoosingRoleIndex != -1)
+        {
+          setPropNetUsage(mResultSet.mState);
+          setBasePropositionsFromState(mResultSet.mState, true);
+        }
+      }
+      for (int i = 0; i < numRoles; i++)
+      {
+        if (ForwardDeadReckonPropNet.useFastAnimator)
+        {
+          int xId = previouslyChosenJointMovePropIdsX[i];
+          int oId = previouslyChosenJointMovePropIdsO[i];
+
+          if ( xId != -1)
           {
-            int numChoices = chooseRandomJointMove(factor, moveWeights, playedMoves);
-            totalChoices += numChoices;
-            transitionToNextStateFromChosenMove();
-            rolloutDepth++;
-            if ( rolloutDepth > cutoffDepth )
-            {
-              break;
-            }
+            propNetX.animator.setComponentValue(instanceId, xId, false);
           }
-
-          if (stats != null)
+          if ( oId != -1)
           {
-            stats[0] = rolloutDepth;
-            if ( rolloutDepth > 0 )
-            {
-              stats[1] = (totalChoices + rolloutDepth / 2) / rolloutDepth;
-            }
-            else
-            {
-              stats[1] = 0;
-            }
+            propNetO.animator.setComponentValue(instanceId, oId, false);
           }
         }
         else
         {
-          mResultSet.reset();
-          double branchingFactor = recursiveGreedyRollout(mResultSet,
-                                                          factor,
-                                                          moveWeights,
-                                                          playedMoves);
-
-          if (stats != null)
+          if (previouslyChosenJointMovePropsX[i] != null)
           {
-            stats[0] = rolloutStackDepth;
-            stats[1] = (int)(branchingFactor + 0.5);
+             previouslyChosenJointMovePropsX[i].setValue(false, instanceId);
           }
-
-          if (mResultSet.mChoosingRoleIndex != -1)
+          if (previouslyChosenJointMovePropsO[i] != null)
           {
-            setPropNetUsage(mResultSet.mState);
-            setBasePropositionsFromState(mResultSet.mState, true);
+            previouslyChosenJointMovePropsO[i].setValue(false, instanceId);
           }
-        }
-        for (int i = 0; i < numRoles; i++)
-        {
-          if (ForwardDeadReckonPropNet.useFastAnimator)
-          {
-            int xId = previouslyChosenJointMovePropIdsX[i];
-            int oId = previouslyChosenJointMovePropIdsO[i];
-
-            if ( xId != -1)
-            {
-              propNetX.animator.setComponentValue(instanceId, xId, false);
-            }
-            if ( oId != -1)
-            {
-              propNetO.animator.setComponentValue(instanceId, oId, false);
-            }
-          }
-          else
-          {
-            if (previouslyChosenJointMovePropsX[i] != null)
-            {
-               previouslyChosenJointMovePropsX[i].setValue(false, instanceId);
-            }
-            if (previouslyChosenJointMovePropsO[i] != null)
-            {
-              previouslyChosenJointMovePropsO[i].setValue(false, instanceId);
-            }
-          }
-        }
-
-        if ( rolloutDepth <= cutoffDepth )
-        {
-          break;
         }
       }
+
+      return rolloutDepth;
     }
     finally
     {

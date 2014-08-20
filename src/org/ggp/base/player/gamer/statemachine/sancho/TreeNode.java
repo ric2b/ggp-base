@@ -12,7 +12,6 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool.ObjectAllocator;
@@ -37,10 +36,10 @@ public class TreeNode
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
+  /**
+   * An arbitrary small number to cope with rounding errors
+   */
   static final double        EPSILON = 1e-6;
-
-  private static final boolean       USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(
-                                                           CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false);
 
   /**
    * For debugging use only - enable assertion that the game is fixed sum
@@ -2059,7 +2058,7 @@ public class TreeNode
           children = new Object[tree.gameCharacteristics.getChoicesHighWaterMark(mNumChildren)];
         }
 
-        if (USE_STATE_SIMILARITY_IN_EXPANSION)
+        if (tree.USE_STATE_SIMILARITY_IN_EXPANSION)
         {
           if (mNumChildren > 1)
           {
@@ -2191,7 +2190,7 @@ public class TreeNode
           }
         }
 
-        if (USE_STATE_SIMILARITY_IN_EXPANSION && topMoveWeight > 0)
+        if (tree.USE_STATE_SIMILARITY_IN_EXPANSION && topMoveWeight > 0)
         {
           for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
           {
@@ -2432,18 +2431,28 @@ public class TreeNode
     // Extract the common parts of the calculation to avoid making expensive calls twice.
     double lCommon = 2 * Math.log(Math.max(effectiveTotalVists, edge.getNumChildVisits()) + 1) / edge.getNumChildVisits();
 
-    // When we propagate adjustments due to completion we do not also adjust the variance contribution so this can
-    // result in 'impossibly' low (aka negative) variance - take a lower bound of 0
-    double roleAverageScore = getAverageScore(roleIndex);
-    double roleAverageSquaredScore = getAverageSquaredScore(roleIndex);
+    double result;
 
-    double varianceBound = Math.max(0, roleAverageSquaredScore -
+    if ( tree.USE_UCB_TUNED )
+    {
+      // When we propagate adjustments due to completion we do not also adjust the variance contribution so this can
+      // result in 'impossibly' low (aka negative) variance - take a lower bound of 0
+      double roleAverageScore = getAverageScore(roleIndex);
+      double roleAverageSquaredScore = getAverageSquaredScore(roleIndex);
+
+      double varianceBound = Math.max(0, roleAverageSquaredScore -
                                     roleAverageScore *
                                     roleAverageScore) /
                                     10000 +
                                     Math.sqrt(lCommon);
-    double result = tree.gameCharacteristics.getExplorationBias() *
-           Math.sqrt(Math.min(0.5, varianceBound) * lCommon) / tree.roleRationality[roleIndex];
+      result = tree.gameCharacteristics.getExplorationBias() *
+          Math.sqrt(Math.min(0.25, varianceBound) * lCommon) / tree.roleRationality[roleIndex];
+    }
+    else
+    {
+      result = tree.gameCharacteristics.getExplorationBias() *
+          Math.sqrt(lCommon) / tree.roleRationality[roleIndex];
+    }
 
     result *= (1 + edge.explorationAmplifier);
     return result;
@@ -2865,7 +2874,7 @@ public class TreeNode
 
     assert(get(selected.mChildRef) != null);
 
-    if (USE_STATE_SIMILARITY_IN_EXPANSION && !complete && roleIndex == 0)
+    if (!complete && roleIndex == 0 && tree.USE_STATE_SIMILARITY_IN_EXPANSION )
     {
       tree.mStateSimilarityMap.add(this);
     }
@@ -3632,8 +3641,7 @@ public class TreeNode
     lRequest.mPath = path;
     lRequest.mFactor = tree.factor;
     lRequest.mPlayedMovesForWin = ((tree.gameCharacteristics.isPseudoPuzzle && tree.factor == null) ? new LinkedList<ForwardDeadReckonLegalMoveInfo>() : null);
-    lRequest.mWeightDecay = tree.mWeightDecay;
-    lRequest.mStartWeight = 1;//Math.pow(tree.mWeightDecay, depth);
+    lRequest.mTree = tree;
 
     //request.moveWeights = masterMoveWeights.copy();
     tree.numNonTerminalRollouts += lRequest.mSampleSize;

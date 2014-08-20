@@ -26,13 +26,11 @@ class RolloutRequest
   public final double[]                        mAverageScores;
   public final double[]                        mAverageSquaredScores;
   public double                                mWeight;
-  public double                                mStartWeight;
-  public double                                mWeightDecay;
+  public MCTSTree                              mTree;
   public int                                   mMinScore;
   public int                                   mMaxScore;
   public int                                   mThreadId;
   private final int[]                          latchedScoreRangeBuffer = new int[2];
-  private final int[]                          rolloutStatsBuffer = new int[2];
 
   public long                                  mSelectElapsedTime;
   public long                                  mExpandElapsedTime;
@@ -44,7 +42,6 @@ class RolloutRequest
   public long                                  mCompletionTime;
 
   public long                                  mQueueLatency;
-
 
   /**
    * Create a rollout request.
@@ -93,6 +90,8 @@ class RolloutRequest
       mMaxScore = -100;
       mWeight = 0;
 
+      int numScoringRollouts = 0;
+
       List<ForwardDeadReckonLegalMoveInfo> playedMoves = mPlayedMovesForWin;
 
       // Perform the request number of samples.
@@ -104,10 +103,11 @@ class RolloutRequest
         }
 
         // Do the rollout.
-        stateMachine.getDepthChargeResult(mState, mFactor, xiOurRole, rolloutStatsBuffer, null, playedMoves);
+        int playoutLength = stateMachine.getDepthChargeResult(mState, mFactor, xiOurRole, null, null, playedMoves, mTree.mWeightDecayCutoffDepth);
 
-        //double weight = mStartWeight*Math.pow(mWeightDecay, rolloutStatsBuffer[0]);
-        double weight = 1;//1 - sigma((rolloutStatsBuffer[0]-30)/5);
+        double weight = (mTree.mWeightDecayKneeDepth == -1 ? 1 : 1 - sigma((playoutLength-mTree.mWeightDecayKneeDepth)/mTree.mWeightDecayScaleFactor));
+        assert(!Double.isNaN(weight));
+        assert(weight > TreeNode.EPSILON);
 
         mWeight += weight;
 
@@ -149,12 +149,14 @@ class RolloutRequest
         mPlayedMovesForWin = null;
       }
 
+      assert(!Double.isNaN(mAverageScores[0]));
       // Normalize the results for the number of samples.
       for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
       {
         mAverageScores[roleIndex] /= mWeight;
         mAverageSquaredScores[roleIndex] /= mWeight;
       }
+      assert(!Double.isNaN(mAverageScores[0]));
     }
     finally
     {
