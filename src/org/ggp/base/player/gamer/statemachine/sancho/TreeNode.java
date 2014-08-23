@@ -2429,7 +2429,42 @@ public class TreeNode
                                 int roleIndex)
   {
     // Extract the common parts of the calculation to avoid making expensive calls twice.
-    double lCommon = 2 * Math.log(Math.max(effectiveTotalVists, edge.getNumChildVisits()) + 1) / edge.getNumChildVisits();
+    double lVarianceExploration;
+    double lUcbExploration;
+
+    //  If we're using weight decay we need to normalize the apparent sample sizes
+    //  used to calculate the upper bound on variance for UCB-tuned or else the
+    //  calculated upper bound on variance will be too low (we gain less information
+    //  from a diluted weight playout than from a less diluted one).  Empirically this
+    //  treatment produces far better results and allows UCB-tuned to continue to be used
+    //  in conjunction with weight decay.
+    //  Note - an analogous treatment of the sample sizes used to compute the simple UCB
+    //  element is not helpful and actually does considerable harm in at last some games
+    if ( tree.mWeightDecayKneeDepth > 0 )
+    {
+      double normalizedNumVisits;
+      double normalizedNumChildVisits;
+
+      TreeNode childNode = get(edge.mChildRef);
+      if ( childNode != null && childNode.numUpdates > 0 )
+      {
+        normalizedNumVisits = effectiveTotalVists*(numUpdates+1)/numVisits;
+        normalizedNumChildVisits = edge.getNumChildVisits()*(childNode.numUpdates+1)/childNode.numVisits;
+      }
+      else
+      {
+        normalizedNumVisits = effectiveTotalVists;
+        normalizedNumChildVisits = edge.getNumChildVisits();
+      }
+
+      lVarianceExploration = 2 * Math.log(Math.max(normalizedNumVisits, normalizedNumChildVisits) + 1) / normalizedNumChildVisits;
+      lUcbExploration = 2 * Math.log(Math.max(effectiveTotalVists, edge.getNumChildVisits()) + 1) / edge.getNumChildVisits();
+    }
+    else
+    {
+      lUcbExploration = 2 * Math.log(Math.max(effectiveTotalVists, edge.getNumChildVisits()) + 1) / edge.getNumChildVisits();
+      lVarianceExploration = lUcbExploration;
+    }
 
     double result;
 
@@ -2444,14 +2479,14 @@ public class TreeNode
                                     roleAverageScore *
                                     roleAverageScore) /
                                     10000 +
-                                    Math.sqrt(lCommon);
+                                    Math.sqrt(lVarianceExploration);
       result = tree.gameCharacteristics.getExplorationBias() *
-          Math.sqrt(Math.min(0.25, varianceBound) * lCommon) / tree.roleRationality[roleIndex];
+          Math.sqrt(Math.min(0.25, varianceBound) * lUcbExploration) / tree.roleRationality[roleIndex];
     }
     else
     {
       result = tree.gameCharacteristics.getExplorationBias() *
-          Math.sqrt(lCommon) / tree.roleRationality[roleIndex];
+          Math.sqrt(lUcbExploration) / tree.roleRationality[roleIndex];
     }
 
     result *= (1 + edge.explorationAmplifier);

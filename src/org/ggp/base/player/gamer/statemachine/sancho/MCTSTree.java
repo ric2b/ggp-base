@@ -216,8 +216,7 @@ public class MCTSTree
       LOGGER.info("Weight decay disabled");
     }
 
-    //  UCB tuned is never used with weight decay - the calculation of variance is thrown off by it
-    USE_UCB_TUNED = (mWeightDecayKneeDepth == -1 ? MachineSpecificConfiguration.getCfgVal(CfgItem.USE_UCB_TUNED, true) : false);
+    USE_UCB_TUNED = MachineSpecificConfiguration.getCfgVal(CfgItem.USE_UCB_TUNED, true);
     if ( USE_UCB_TUNED )
     {
       LOGGER.info("Using UCB-tuned");
