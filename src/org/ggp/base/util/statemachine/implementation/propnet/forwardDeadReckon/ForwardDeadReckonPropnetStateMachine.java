@@ -3827,7 +3827,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private class TerminalResultSet
   {
-    private int                                  mChoosingRoleIndex = -1;
+    int                                          mChoosingRoleIndex = -1;
     public int                                   mScoreForChoosingRole = -1;
     public ForwardDeadReckonInternalMachineState mState;
 
@@ -4003,23 +4003,30 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
       else
       {
-        mResultSet.reset();
-        double branchingFactor = recursiveGreedyRollout(mResultSet,
-                                                        factor,
-                                                        moveWeights,
-                                                        playedMoves,
-                                                        cutoffDepth);
+        double branchingFactor = 0;
+
+        if ( !isTerminal() )
+        {
+          mResultSet.reset();
+          branchingFactor = recursiveGreedyRollout(mResultSet,
+                                                   factor,
+                                                   moveWeights,
+                                                   playedMoves,
+                                                   cutoffDepth);
+
+          if (mResultSet.mChoosingRoleIndex != -1)
+          {
+            setPropNetUsage(mResultSet.mState);
+            setBasePropositionsFromState(mResultSet.mState, true);
+          }
+
+          rolloutDepth = rolloutStackDepth;
+        }
 
         if (stats != null)
         {
           stats[0] = rolloutStackDepth;
           stats[1] = (int)(branchingFactor + 0.5);
-        }
-
-        if (mResultSet.mChoosingRoleIndex != -1)
-        {
-          setPropNetUsage(mResultSet.mState);
-          setBasePropositionsFromState(mResultSet.mState, true);
         }
       }
       for (int i = 0; i < numRoles; i++)
