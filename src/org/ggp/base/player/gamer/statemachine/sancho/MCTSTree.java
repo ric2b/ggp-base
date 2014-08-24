@@ -180,7 +180,8 @@ public class MCTSTree
     //        wherein win vs draw distribution over depth tends not to increase.  Mostly it is intended to capture
     //        the use of decay in games that have artificial draw-after-N-turns terminal conditions and where the non-draws
     //        can happen a lot earlier
-    if ( xiGameCharacateristics.getAverageNonDrawLength() > 0 &&
+    if ( xiGameCharacateristics.numRoles > 1 &&
+         xiGameCharacateristics.getAverageNonDrawLength() > 0 &&
          (xiGameCharacateristics.getGoalsStability() > GOALS_STABILITY_THRESHOLD ||
           (xiGameCharacateristics.getMaxGameLengthDrawsProportion() > 0.9 &&
            xiGameCharacateristics.getAverageNonDrawLength() <= xiGameCharacateristics.getAverageLength() &&
