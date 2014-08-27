@@ -36,11 +36,13 @@ public class MajorityGoalsHeuristic implements Heuristic
 
   private ForwardDeadReckonPropnetStateMachine stateMachine = null;
   private boolean                              tuningComplete = true;
+  private boolean                              foundDerivedHeuristic = false;
   private MajorityCalculator                   goalsCalculator = null;
   private RoleOrdering                         roleOrdering = null;
   private boolean                              reverseRoles = false;
   private boolean                              roleReversalFixed = false;
   private boolean                              predictionsMatch = true;
+  private Heuristic                            derivedHeuristic = null;
 
   /**
    * A heuristic used to validate a majority score goals emulator
@@ -362,15 +364,21 @@ public class MajorityGoalsHeuristic implements Heuristic
 
       LOGGER.info("Using emulated goals calculator (majority: " + goalsCalculator.getName() + ")");
     }
+    else
+    {
+      goalsCalculator = null;
+    }
   }
 
   @Override
   public void newTurn(ForwardDeadReckonInternalMachineState xiState,
                       TreeNode xiNode)
   {
-    //  Currently no actual runtime heuristic is calculated by this class, which is ALWAYS
-    //  deactivated (as a heuristic) at the end of meta-gaming - it is currently just used as a shell
-    //  vehicle to assess goal emulators
+    //  If there is a derived heuristic delegate to it
+    if ( derivedHeuristic != null )
+    {
+      derivedHeuristic.newTurn(xiState, xiNode);
+    }
   }
 
   @Override
@@ -379,15 +387,27 @@ public class MajorityGoalsHeuristic implements Heuristic
                                 double[] xiXoHeuristicValue,
                                 MutableInteger xiXoHeuristicWeight)
   {
-    //  Currently no actual runtime heuristic is calculated by this class, which is ALWAYS
-    //  deactivated (as a heuristic) at the end of meta-gaming - it is currently just used as a shell
-    //  vehicle to assess goal emulators
+    //  If there is a derived heuristic delegate to it
+    if ( derivedHeuristic != null )
+    {
+      derivedHeuristic.getHeuristicValue(xiState, xiPreviousState, xiXoHeuristicValue, xiXoHeuristicWeight);
+    }
   }
 
   @Override
   public boolean isEnabled()
   {
-    return !tuningComplete;
+    if ( !tuningComplete )
+    {
+      return true;
+    }
+
+    if ( goalsCalculator != null)
+    {
+      derivedHeuristic = goalsCalculator.getDerivedHeuristic();
+    }
+
+    return (goalsCalculator != null && derivedHeuristic != null);
   }
 
   @Override

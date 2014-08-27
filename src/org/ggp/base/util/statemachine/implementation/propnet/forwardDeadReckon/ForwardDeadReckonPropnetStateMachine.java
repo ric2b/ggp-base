@@ -854,6 +854,48 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   }
 
   /**
+   * Get a mask of all positively latched base props
+   * @return
+   */
+  public ForwardDeadReckonInternalMachineState getPositiveBaseLatches()
+  {
+    if ( mPositiveBasePropLatches == null )
+    {
+      return null;
+    }
+
+    ForwardDeadReckonInternalMachineState result = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+
+    for(PolymorphicProposition prop : mPositiveBasePropLatches)
+    {
+      result.add(((ForwardDeadReckonProposition)prop).getInfo());
+    }
+
+    return result;
+  }
+
+  /**
+   * Get a mask of all negatively latched base props
+   * @return
+   */
+  public ForwardDeadReckonInternalMachineState getNegativeBaseLatches()
+  {
+    if ( mNegativeBasePropLatches == null )
+    {
+      return null;
+    }
+
+    ForwardDeadReckonInternalMachineState result = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+
+    for(PolymorphicProposition prop : mNegativeBasePropLatches)
+    {
+      result.add(((ForwardDeadReckonProposition)prop).getInfo());
+    }
+
+    return result;
+  }
+
+  /**
    * Query whether a specified proposition is known to be a negatively latched base prop
    * @param p - proposition to check
    * @return true if it latches to false

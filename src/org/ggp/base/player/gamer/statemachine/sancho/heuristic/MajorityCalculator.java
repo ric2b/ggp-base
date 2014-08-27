@@ -123,4 +123,11 @@ public abstract class MajorityCalculator implements ReversableGoalsCalculator
     }
     return 50;
   }
+
+  /**
+   * If the goals calculation supports a derived heuristic obtain
+   * an instance of that heuristic
+   * @return instance of the derived heuristic
+   */
+  public abstract Heuristic getDerivedHeuristic();
 }

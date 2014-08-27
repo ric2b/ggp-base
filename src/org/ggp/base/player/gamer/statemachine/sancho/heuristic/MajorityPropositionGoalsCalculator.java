@@ -4,10 +4,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
+import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.GoalsCalculator;
+import org.w3c.tidy.MutableInteger;
 
 /**
  * @author steve
@@ -15,10 +18,12 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.G
  *  on which role has more of a proposition subset
  *  Only supports 2 player games currently
  */
-public class MajorityPropositionGoalsCalculator extends MajorityCalculator
+public class MajorityPropositionGoalsCalculator extends MajorityCalculator implements Heuristic
 {
   private final Map<Role,ForwardDeadReckonInternalMachineState> roleMasks;
-  private ForwardDeadReckonInternalMachineState stateBuffer = null;
+  private final Map<Role,ForwardDeadReckonInternalMachineState> latchedRoleMasks;
+  private ForwardDeadReckonInternalMachineState                 stateBuffer = null;
+  private final Role                                            ourRole;
 
   /**
    * Construct new goals calculator
@@ -27,6 +32,8 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator
   {
     super(xiStateMachine, xiOurRole);
     roleMasks = new HashMap<>();
+    latchedRoleMasks = new HashMap<>();
+    ourRole = xiOurRole;
   }
 
   /**
@@ -38,6 +45,8 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator
   {
     super(master.stateMachine, master.ourRole);
     roleMasks = master.roleMasks;
+    latchedRoleMasks = master.latchedRoleMasks;
+    ourRole = master.ourRole;
   }
 
   /**
@@ -117,5 +126,141 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator
     //  No guarantee that counts cannot go down as well as up with this analysis
     //  so cannot determine latching
     return false;
+  }
+
+  @Override
+  public Heuristic getDerivedHeuristic()
+  {
+    //  If any of the propositions being counted are latches we can derive a heuristic
+    for(Entry<Role, ForwardDeadReckonInternalMachineState> e : roleMasks.entrySet())
+    {
+      ForwardDeadReckonInternalMachineState positiveLatchMask = stateMachine.getPositiveBaseLatches();
+      if ( positiveLatchMask != null )
+      {
+        ForwardDeadReckonInternalMachineState intersection = new ForwardDeadReckonInternalMachineState( positiveLatchMask );
+
+        intersection.intersect(e.getValue());
+        if ( intersection.size() > 0 )
+        {
+          latchedRoleMasks.put(e.getKey(), intersection);
+        }
+      }
+    }
+
+    if ( !latchedRoleMasks.isEmpty())
+    {
+      return this;
+    }
+
+    return null;
+  }
+
+  @Override
+  public boolean tuningInitialise(ForwardDeadReckonPropnetStateMachine xiStateMachine,
+                                  RoleOrdering xiRoleOrdering)
+  {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  @Override
+  public void tuningStartSampleGame()
+  {
+    // TODO Auto-generated method stub
+
+  }
+
+  @Override
+  public void tuningInterimStateSample(ForwardDeadReckonInternalMachineState xiState,
+                                       int xiChoosingRoleIndex)
+  {
+    // TODO Auto-generated method stub
+
+  }
+
+  @Override
+  public void tuningTerminalStateSample(ForwardDeadReckonInternalMachineState xiState,
+                                        int[] xiRoleScores)
+  {
+    // TODO Auto-generated method stub
+
+  }
+
+  @Override
+  public void tuningComplete()
+  {
+    // TODO Auto-generated method stub
+
+  }
+
+  @Override
+  public void newTurn(ForwardDeadReckonInternalMachineState xiState,
+                      TreeNode xiNode)
+  {
+    // TODO Auto-generated method stub
+
+  }
+
+  @Override
+  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
+                                ForwardDeadReckonInternalMachineState xiPreviousState,
+                                double[] xiXoHeuristicValue,
+                                MutableInteger xiXoHeuristicWeight)
+  {
+    if ( latchedRoleMasks != null )
+    {
+      int ourLatchCount = 0;
+      int theirLatchCount = 0;
+
+      for(Entry<Role, ForwardDeadReckonInternalMachineState> e : latchedRoleMasks.entrySet())
+      {
+        if ( e.getKey().equals(ourRole) )
+        {
+          ourLatchCount += xiState.intersectionSize(e.getValue());
+          ourLatchCount -= xiPreviousState.intersectionSize(e.getValue());
+        }
+        else
+        {
+          theirLatchCount += xiState.intersectionSize(e.getValue());
+          theirLatchCount -= xiPreviousState.intersectionSize(e.getValue());
+        }
+      }
+
+      if ( ourLatchCount > theirLatchCount )
+      {
+        xiXoHeuristicValue[0] = 100;
+        xiXoHeuristicValue[1] = 0;
+      }
+      else if ( ourLatchCount < theirLatchCount )
+      {
+        xiXoHeuristicValue[0] = 0;
+        xiXoHeuristicValue[1] = 100;
+      }
+      else
+      {
+        xiXoHeuristicValue[0] = 50;
+        xiXoHeuristicValue[1] = 50;
+      }
+
+      xiXoHeuristicWeight.value = 5*Math.abs(ourLatchCount - theirLatchCount);
+    }
+    else
+    {
+      xiXoHeuristicWeight.value = 0;
+    }
+  }
+
+  @Override
+  public boolean isEnabled()
+  {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  @Override
+  public Heuristic createIndependentInstance()
+  {
+    // TODO Auto-generated method stub
+    return null;
   }
 }

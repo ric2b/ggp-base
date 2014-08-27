@@ -203,4 +203,11 @@ public class MajorityCountGoalsCalculator extends MajorityCalculator
 
     return false;
   }
+
+  @Override
+  public Heuristic getDerivedHeuristic()
+  {
+    // TODO derived heuristic is dependent on goal stability
+    return null;
+  }
 }
