@@ -363,6 +363,54 @@ public class PieceHeuristic implements Heuristic
       }
     }
 
+    //  If we found no positively correlated piece set then (for two player games only) look for negatively correlated ones
+    //  and switch the sets over if found.  This is a fairly crude approach (that doesn't extend easily from 2-player games),
+    //  but for now it's a smaller and easier to test change to what we have than the more general approach of allowing
+    //  negated heuristic values (because they tend to change on the other player's turn)
+    if ( pieceSets == null && numRoles == 2 )
+    {
+      for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
+      {
+        if (e.getValue().noChangeTurnRate >= 0.5)
+        {
+          double[] roleCorrelations = e.getValue().getRoleCorrelations();
+
+          for (int i = 0; i < numRoles; i++)
+          {
+            if (roleCorrelations[i] <= -MIN_HEURISTIC_CORRELATION)
+            {
+              //  opposite sense of test since we're planning to swap over the piece sets
+              if (!e.getValue().hasRoleChanges[i])
+              {
+                if (pieceSets == null)
+                {
+                  pieceSets = new ForwardDeadReckonInternalMachineState[numRoles];
+                }
+
+                if (pieceSets[i] == null)
+                {
+                  pieceSets[i] = new ForwardDeadReckonInternalMachineState(e.getKey());
+                }
+                else
+                {
+                  pieceSets[i].merge(e.getKey());
+                }
+              }
+            }
+          }
+        }
+      }
+
+      //  Swap the piece sets over
+      if ( pieceSets != null )
+      {
+        ForwardDeadReckonInternalMachineState temp = pieceSets[0];
+
+        pieceSets[0] = pieceSets[1];
+        pieceSets[1] = temp;
+      }
+    }
+
     // Check that all roles have a set of pieces.  If not, disable the heuristic.
     if (pieceSets != null)
     {
