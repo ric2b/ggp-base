@@ -354,7 +354,7 @@ public class Sancho extends SampleGamer
         Move[] jointMove = new Move[numRoles];
         Set<Move> allMovesInState = new HashSet<>();
 
-        int choosingRoleIndex = -1;
+        int choosingRoleIndex = -2;
         for (int i = 0; i < numRoles; i++)
         {
           List<Move> legalMoves = underlyingStateMachine.getLegalMovesCopy(sampleState,
@@ -417,13 +417,7 @@ public class Sancho extends SampleGamer
           jointMove[roleOrdering.roleIndexToRawRoleIndex(i)] = legalMoves.get(r.nextInt(legalMoves.size()));
         }
 
-        // Tell the heuristic about the interim state, for tuning purposes.  For now
-        // if it's a forced move don't tell the heuristic as it gets confused with simultaneous
-        // moves (TODO - fix this)
-        if ( gameCharacteristics.isPseudoSimultaneousMove || choosingRoleIndex != -1 )
-        {
-          heuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
-        }
+        heuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
 
         sampleState = underlyingStateMachine.getNextState(sampleState, jointMove);
       }

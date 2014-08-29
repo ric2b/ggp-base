@@ -271,11 +271,11 @@ public class PieceHeuristic implements Heuristic
         {
           heuristicInfo.noChangeTurnRate++;
         }
-        else if (choosingRoleIndex != -1)
+        else if (choosingRoleIndex >= 0)
         {
           heuristicInfo.hasRoleChanges[choosingRoleIndex] = true;
         }
-        else
+        else if (choosingRoleIndex == -1)
         {
           //	In a simultaneous turn game all roles choose
           for (int i = 0; i < numRoles; i++)
