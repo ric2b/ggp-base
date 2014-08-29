@@ -16,6 +16,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.gdl.grammar.GdlFunction;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.stats.PearsonCorrelation;
@@ -26,21 +27,24 @@ import org.w3c.tidy.MutableInteger;
  */
 public class PieceHeuristic implements Heuristic
 {
-  private static final Logger LOGGER = LogManager.getLogger();
+  /**
+   * Logger instance
+   */
+  static final Logger LOGGER = LogManager.getLogger();
 
   private static final int                                               MIN_PIECE_PROP_ARITY      = 3;    // Assume board of at least 2 dimensions + piece type
   private static final int                                               MAX_PIECE_PROP_ARITY      = 4;    // For now (until we can do game-specific learning) restrict to exactly 2-d boards
   private static final int                                               MIN_PIECES_THRESHOLD      = 6;
   private static final double                                            MIN_HEURISTIC_CORRELATION = 0.06;
 
-  private Map<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> propGroupScoreSets        = null;
+  private Map<PieceMaskSpecifier, HeuristicScoreInfo>                    propGroupScoreSets        = null;
   private int                                                            numRoles                  = 0;
-  private ForwardDeadReckonInternalMachineState[]                        pieceSets                 = null;
+  private PieceMaskSpecifier[]                                           pieceSets                 = null;
   private int                                                            totalSimulatedTurns       = 0;
   //  The following track runtime usage state and are dependent on the current game-state
   private TreeNode                                                       rootNode                  = null;
   private int                                                            heuristicSampleWeight     = 10;
-  private int[]                                                          rootPieceCounts           = null;
+  private double[]                                                       rootPieceValues           = null;
   private boolean                                                        mTuningComplete           = false;
 
   private static class GdlFunctionInfo
@@ -115,6 +119,211 @@ public class PieceHeuristic implements Heuristic
     }
   }
 
+  private static class ConstituentPieceInfo
+  {
+    final private String name;
+    final public ForwardDeadReckonInternalMachineState mask;
+    public double value;
+
+    public ConstituentPieceInfo(String xiName, ForwardDeadReckonInternalMachineState pieceMask)
+    {
+      name = xiName;
+      mask = pieceMask;
+      value = 1;
+
+      //  Temp test HACK
+      if ( name.equals("king") )
+      {
+        value = 5;
+      }
+      else if ( name.equals("queen") )
+      {
+        value = 9;
+      }
+      else if ( name.equals("rook") )
+      {
+        value = 5;
+      }
+      else if ( name.equals("bishop") )
+      {
+        value = 3;
+      }
+      else if ( name.equals("knight") )
+      {
+        value = 3;
+      }
+    }
+
+    @Override
+    public String toString()
+    {
+      return name + ":" + value;
+    }
+  }
+
+  private static class PieceMaskSpecifier
+  {
+    public final ForwardDeadReckonInternalMachineState  overallPieceMask;
+    public  ConstituentPieceInfo[]                      individualPieceTypes = null;
+
+    public PieceMaskSpecifier(ForwardDeadReckonInternalMachineState pieceMask)
+    {
+      overallPieceMask = pieceMask;
+
+      //  Can we see multiple different piece types?
+      int propIndex = -1;
+
+      Map<String, GdlFunctionInfo> basePropFns = new HashMap<>();
+
+      while( (propIndex = overallPieceMask.getContents().nextSetBit(propIndex+1)) != -1 )
+      {
+        ForwardDeadReckonPropositionInfo prop = overallPieceMask.resolveIndex(propIndex);
+
+        addSentenceToFnMap(prop.sentence, basePropFns);
+      }
+
+      Map<String, ForwardDeadReckonInternalMachineState> pieceTypeMasks = new HashMap<>();
+
+      //  We only expect one piece fn name (e.g. 'cell' or similar which is the state of a board cell)
+      //  If we have a more complex situation don't attempt to find piece types
+      //  FUTURE - this may need further generalization
+      if(basePropFns.size() == 1)
+      {
+        GdlFunctionInfo fnInfo = basePropFns.values().iterator().next();
+        int smallestRangeSize = Integer.MAX_VALUE;
+        int smallestRangeIndex = -1;
+
+        for(int rangeIndex = 0; rangeIndex < fnInfo.paramRanges.size(); rangeIndex++)
+        {
+          int rangeSize = fnInfo.paramRanges.get(rangeIndex).size();
+
+          //  Special case - a range size of 1 could just be a role indicator
+          //  so if the arity is sufficient that ignoring such a range still
+          //  leaves sufficient arity for a piece prop ignore it
+          if ( rangeSize < smallestRangeSize && (rangeSize > 1 || fnInfo.paramRanges.size() == MIN_PIECE_PROP_ARITY))
+          {
+            smallestRangeSize = rangeSize;
+            smallestRangeIndex = rangeIndex;
+          }
+        }
+
+        //  Should validate that the different values of this arg actually
+        //  plausibly correspond to pieces (by checking that moves which preserve
+        //  the overall piece count predominantly change exactly 2 bits in the
+        //  piece mask - only 'predominantly' because we don't want rare piece
+        //  converting moves like pawns reaching the 8th rank in chess preventing
+        //  recognition)
+        //  TODO - write some code to do this validation
+
+        //  Create masking info for each piece type
+        while( (propIndex = overallPieceMask.getContents().nextSetBit(propIndex+1)) != -1 )
+        {
+          ForwardDeadReckonPropositionInfo prop = overallPieceMask.resolveIndex(propIndex);
+
+          if (prop.sentence.arity() == 1 &&
+              prop.sentence.getBody().get(0) instanceof GdlFunction)
+          {
+            GdlFunction propFn = (GdlFunction)prop.sentence.getBody().get(0);
+
+            String pieceType = propFn.getBody().get(smallestRangeIndex).toString();
+            ForwardDeadReckonInternalMachineState pieceTypeMask;
+
+            if ( pieceTypeMasks.containsKey(pieceType))
+            {
+              pieceTypeMask = pieceTypeMasks.get(pieceType);
+            }
+            else
+            {
+              pieceTypeMask = new ForwardDeadReckonInternalMachineState(pieceMask);
+              pieceTypeMask.clear();
+              pieceTypeMasks.put(pieceType, pieceTypeMask);
+            }
+
+            pieceTypeMask.add(prop);
+          }
+        }
+
+        assert(pieceTypeMasks.size() == smallestRangeSize);
+
+        if ( pieceTypeMasks.size() > 0 )
+        {
+          individualPieceTypes = new ConstituentPieceInfo[pieceTypeMasks.size()];
+
+          int index = 0;
+          for(Entry<String, ForwardDeadReckonInternalMachineState> entry : pieceTypeMasks.entrySet())
+          {
+            individualPieceTypes[index++] = new ConstituentPieceInfo(entry.getKey(), entry.getValue());
+          }
+        }
+      }
+    }
+
+    /**
+     * Merge the info for two piece maps together to create an amalgamated one
+     * @param other
+     */
+    public void merge(PieceMaskSpecifier other)
+    {
+      overallPieceMask.merge(other.overallPieceMask);
+
+      int newPieceTypeCount = (individualPieceTypes == null ? 0 : individualPieceTypes.length) + (other.individualPieceTypes == null ? 0 : other.individualPieceTypes.length);
+
+      if ( newPieceTypeCount > 0 )
+      {
+        ConstituentPieceInfo[] combined = new ConstituentPieceInfo[newPieceTypeCount];
+
+        int index = 0;
+
+        if ( individualPieceTypes != null )
+        {
+          for(ConstituentPieceInfo pieceInfo : individualPieceTypes)
+          {
+            combined[index++] = pieceInfo;
+          }
+        }
+
+        if ( other.individualPieceTypes != null )
+        {
+          for(ConstituentPieceInfo pieceInfo : other.individualPieceTypes)
+          {
+            combined[index++] = pieceInfo;
+          }
+        }
+
+        individualPieceTypes = combined;
+      }
+    }
+
+    /**
+     * Return the material value of a state
+     * @param state
+     * @return material value according to the known piece types and values
+     */
+    public double getValue(ForwardDeadReckonInternalMachineState state)
+    {
+      double result = 0;
+
+      if ( individualPieceTypes == null )
+      {
+        result += overallPieceMask.intersectionSize(state);
+      }
+      else
+      {
+        for(ConstituentPieceInfo pieceInfo : individualPieceTypes)
+        {
+          result += pieceInfo.mask.intersectionSize(state)*pieceInfo.value;
+        }
+      }
+      return result;
+    }
+
+    @Override
+    public String toString()
+    {
+      return overallPieceMask.toString() + " with piece types " + java.util.Arrays.toString(individualPieceTypes);
+    }
+  }
+
   /**
    * Default constructor
    */
@@ -129,7 +338,43 @@ public class PieceHeuristic implements Heuristic
     pieceSets                  = copyFrom.pieceSets;
     totalSimulatedTurns        = copyFrom.totalSimulatedTurns;
     //  The following track runtime usage state and are dependent on the current game-state
-    rootPieceCounts            = new int[numRoles];
+    rootPieceValues            = new double[numRoles];
+  }
+
+  /**
+   * Add values of each argument of a sentences body to a fn value map
+   * @param sentence
+   * @param fnMap
+   */
+  static void addSentenceToFnMap(GdlSentence sentence, Map<String, GdlFunctionInfo> fnMap)
+  {
+    if (sentence.arity() == 1 &&
+        sentence.getBody().get(0) instanceof GdlFunction)
+    {
+      GdlFunction propFn = (GdlFunction)sentence.getBody().get(0);
+
+      if (propFn.arity() >= MIN_PIECE_PROP_ARITY &&
+          propFn.arity() <= MAX_PIECE_PROP_ARITY)
+      {
+        GdlFunctionInfo fnInfo;
+
+        if (fnMap.containsKey(propFn.getName().toString()))
+        {
+          fnInfo = fnMap.get(propFn.getName().toString());
+        }
+        else
+        {
+          fnInfo = new GdlFunctionInfo(propFn.getName().toString(),
+                                       propFn.arity());
+          fnMap.put(propFn.getName().toString(), fnInfo);
+        }
+
+        for (int i = 0; i < propFn.arity(); i++)
+        {
+          fnInfo.paramRanges.get(i).add(propFn.getBody().get(i).toString());
+        }
+      }
+    }
   }
 
   @Override
@@ -138,39 +383,13 @@ public class PieceHeuristic implements Heuristic
   {
     pieceSets = null;
     numRoles = stateMachine.getRoles().length;
-    rootPieceCounts = new int[numRoles];
+    rootPieceValues = new double[numRoles];
 
     Map<String, GdlFunctionInfo> basePropFns = new HashMap<>();
 
     for (GdlSentence baseProp : stateMachine.getBasePropositions())
     {
-      if (baseProp.arity() == 1 &&
-          baseProp.getBody().get(0) instanceof GdlFunction)
-      {
-        GdlFunction propFn = (GdlFunction)baseProp.getBody().get(0);
-
-        if (propFn.arity() >= MIN_PIECE_PROP_ARITY &&
-            propFn.arity() <= MAX_PIECE_PROP_ARITY)
-        {
-          GdlFunctionInfo fnInfo;
-
-          if (basePropFns.containsKey(propFn.getName().toString()))
-          {
-            fnInfo = basePropFns.get(propFn.getName().toString());
-          }
-          else
-          {
-            fnInfo = new GdlFunctionInfo(propFn.getName().toString(),
-                                         propFn.arity());
-            basePropFns.put(propFn.getName().toString(), fnInfo);
-          }
-
-          for (int i = 0; i < propFn.arity(); i++)
-          {
-            fnInfo.paramRanges.get(i).add(propFn.getBody().get(i).toString());
-          }
-        }
-      }
+      addSentenceToFnMap(baseProp, basePropFns);
     }
 
     Set<PotentialPiecePropSet> potentialPiecePropSets = new HashSet<>();
@@ -235,8 +454,8 @@ public class PieceHeuristic implements Heuristic
 
           ForwardDeadReckonInternalMachineState pieceMask = stateMachine.createInternalState(
                                                                                    new MachineState(pieceSetSentences));
-
-          propGroupScoreSets.put(pieceMask, new HeuristicScoreInfo(numRoles));
+          PieceMaskSpecifier pieceSpecifier = new PieceMaskSpecifier(pieceMask);
+          propGroupScoreSets.put(pieceSpecifier, new HeuristicScoreInfo(numRoles));
         }
       }
     }
@@ -247,7 +466,7 @@ public class PieceHeuristic implements Heuristic
   @Override
   public void tuningStartSampleGame()
   {
-    for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets
+    for (Entry<PieceMaskSpecifier, HeuristicScoreInfo> e : propGroupScoreSets
         .entrySet())
     {
       HeuristicScoreInfo heuristicInfo = e.getValue();
@@ -259,10 +478,10 @@ public class PieceHeuristic implements Heuristic
   public void tuningInterimStateSample(ForwardDeadReckonInternalMachineState sampleState,
                                        int choosingRoleIndex)
   {
-    for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets
+    for (Entry<PieceMaskSpecifier, HeuristicScoreInfo> e : propGroupScoreSets
         .entrySet())
     {
-      int currentValue = e.getKey().intersectionSize(sampleState);
+      int currentValue = e.getKey().overallPieceMask.intersectionSize(sampleState);
 
       HeuristicScoreInfo heuristicInfo = e.getValue();
       if (heuristicInfo.lastValue != -1)
@@ -295,9 +514,9 @@ public class PieceHeuristic implements Heuristic
   public void tuningTerminalStateSample(ForwardDeadReckonInternalMachineState finalState,
                                         int[] roleScores)
   {
-    for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
+    for (Entry<PieceMaskSpecifier, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
     {
-      int heuristicScore = finalState.intersectionSize(e.getKey());
+      int heuristicScore = finalState.intersectionSize(e.getKey().overallPieceMask);
       e.getValue().accrueSample(heuristicScore, roleScores);
     }
   }
@@ -307,14 +526,14 @@ public class PieceHeuristic implements Heuristic
   {
     mTuningComplete = true;
 
-    for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
+    for (Entry<PieceMaskSpecifier, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
     {
       HeuristicScoreInfo heuristicInfo = e.getValue();
 
       heuristicInfo.noChangeTurnRate /= totalSimulatedTurns;
     }
 
-    for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
+    for (Entry<PieceMaskSpecifier, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
     {
       if (e.getValue().noChangeTurnRate < 0.5)
       {
@@ -342,12 +561,12 @@ public class PieceHeuristic implements Heuristic
               LOGGER.debug("Using piece set above for role above");
               if (pieceSets == null)
               {
-                pieceSets = new ForwardDeadReckonInternalMachineState[numRoles];
+                pieceSets = new PieceMaskSpecifier[numRoles];
               }
 
               if (pieceSets[i] == null)
               {
-                pieceSets[i] = new ForwardDeadReckonInternalMachineState(e.getKey());
+                pieceSets[i] = e.getKey();
               }
               else
               {
@@ -369,7 +588,7 @@ public class PieceHeuristic implements Heuristic
     //  negated heuristic values (because they tend to change on the other player's turn)
     if ( pieceSets == null && numRoles == 2 )
     {
-      for (Entry<ForwardDeadReckonInternalMachineState, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
+      for (Entry<PieceMaskSpecifier, HeuristicScoreInfo> e : propGroupScoreSets.entrySet())
       {
         if (e.getValue().noChangeTurnRate >= 0.5)
         {
@@ -384,12 +603,12 @@ public class PieceHeuristic implements Heuristic
               {
                 if (pieceSets == null)
                 {
-                  pieceSets = new ForwardDeadReckonInternalMachineState[numRoles];
+                  pieceSets = new PieceMaskSpecifier[numRoles];
                 }
 
                 if (pieceSets[i] == null)
                 {
-                  pieceSets[i] = new ForwardDeadReckonInternalMachineState(e.getKey());
+                  pieceSets[i] = e.getKey();
                 }
                 else
                 {
@@ -404,7 +623,7 @@ public class PieceHeuristic implements Heuristic
       //  Swap the piece sets over
       if ( pieceSets != null )
       {
-        ForwardDeadReckonInternalMachineState temp = pieceSets[0];
+        PieceMaskSpecifier temp = pieceSets[0];
 
         pieceSets[0] = pieceSets[1];
         pieceSets[1] = temp;
@@ -452,22 +671,22 @@ public class PieceHeuristic implements Heuristic
     {
       // Set the initial heuristic value for this role according to the difference in number of pieces between this
       // state and the current state in the tree root.
-      int numPieces = pieceSets[i].intersectionSize(state);
-      xoHeuristicValue[i] = numPieces - rootPieceCounts[i];
+      double pieceValue = pieceSets[i].getValue(state);
+      xoHeuristicValue[i] = pieceValue - rootPieceValues[i];
 
-      total += numPieces;
-      rootTotal += rootPieceCounts[i];
+      total += pieceValue;
+      rootTotal += rootPieceValues[i];
 
       // Counter-weight exchange sequences slightly to remove the first-capture bias, at least to first order.
-      int previousNumPieces = pieceSets[i].intersectionSize(previousState);
-      if (numPieces == rootPieceCounts[i] &&
-          previousNumPieces < rootPieceCounts[i])
+      double previousPieceValue = pieceSets[i].getValue(previousState);
+      if (pieceValue == rootPieceValues[i] &&
+          previousPieceValue < rootPieceValues[i])
       {
         xoHeuristicValue[i] += 0.1;
         total += 0.1;
       }
-      else if (numPieces == rootPieceCounts[i] &&
-               previousNumPieces > rootPieceCounts[i])
+      else if (pieceValue == rootPieceValues[i] &&
+               previousPieceValue > rootPieceValues[i])
       {
         xoHeuristicValue[i] -= 0.1;
         total -= 0.1;
@@ -529,24 +748,25 @@ public class PieceHeuristic implements Heuristic
     if (pieceSets != null)
     {
       double total = 0;
-      double ourPieceCount = 0;
+      double ourPieceValue = 0;
 
       for (int i = 0; i < numRoles; i++)
       {
-        rootPieceCounts[i] = pieceSets[i].intersectionSize(xiState);
-        total += rootPieceCounts[i];
+        rootPieceValues[i] = pieceSets[i].getValue(xiState);
+        total += rootPieceValues[i];
 
         if (i == 0)
         {
-          ourPieceCount = total;
+          ourPieceValue = total;
         }
       }
 
-      double ourMaterialDivergence = ourPieceCount - (total / numRoles);
+      double averageMaterial = total/numRoles;
+      double ourMaterialDivergence = ourPieceValue - averageMaterial;
 
       //  Weight further material gain down the more we're already ahead/behind in material
       //  because in either circumstance it's likely to be position that is more important
-      heuristicSampleWeight = (int)Math.max(2, 6 - Math.abs(ourMaterialDivergence) * 3);
+      heuristicSampleWeight = (int)Math.max(2, 6 - Math.abs(ourMaterialDivergence)*48/averageMaterial);
 
       LOGGER.info("Piece heuristic weight set to: " + heuristicSampleWeight);
     }

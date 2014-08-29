@@ -104,6 +104,16 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   }
 
   /**
+   * Resolve an index in the bitset to its corresponding base prop
+   * @param index
+   * @return corresponding base prop
+   */
+  public ForwardDeadReckonPropositionInfo resolveIndex(int index)
+  {
+    return infoSet[index];
+  }
+
+  /**
    * Add a proposition to the set of those present in the state
    * @param info
    */
