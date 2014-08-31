@@ -36,9 +36,12 @@ public class PieceHeuristic implements Heuristic
   private static final int                                               MAX_PIECE_PROP_ARITY      = 4;    // For now (until we can do game-specific learning) restrict to exactly 2-d boards
   private static final int                                               MIN_PIECES_THRESHOLD      = 6;
   private static final double                                            MIN_HEURISTIC_CORRELATION = 0.06;
+  //  Whether to use mobility values for pieces (else score-weighted aggregate presence)
+  //  Empirically (in its current form at least) aggregate presence does not seem to work well
+  private static final boolean                                           USE_MOBILITY_VALUES_FOR_PIECES = true;
 
   private Map<PieceMaskSpecifier, HeuristicScoreInfo>                    propGroupScoreSets        = null;
-  private int                                                            numRoles                  = 0;
+  int                                                                    numRoles                  = 0;
   private PieceMaskSpecifier[]                                           pieceSets                 = null;
   private int                                                            totalSimulatedTurns       = 0;
   //  The following track runtime usage state and are dependent on the current game-state
@@ -119,9 +122,9 @@ public class PieceHeuristic implements Heuristic
     }
   }
 
-  private static class ConstituentPieceInfo
+  private class ConstituentPieceInfo
   {
-    final private String name;
+    final String name;
     final public ForwardDeadReckonInternalMachineState mask;
     public double value;
 
@@ -161,10 +164,115 @@ public class PieceHeuristic implements Heuristic
     }
   }
 
-  private static class PieceMaskSpecifier
+  private class PieceUsageStats
+  {
+    private int aggregatePresenceInGame;
+    private int maxPresenceInGame;
+    private double aggregateMoveScore;
+    private double aggregateMoveCount;
+    private final double[] scoreWeightedPresence;
+    private int numSampleMoves;
+    private int numDecisiveSampleGames;
+    private int numSampleMovesInGame;
+    private ForwardDeadReckonInternalMachineState previousMaskedState;
+    private final ConstituentPieceInfo pieceInfo;
+
+    public PieceUsageStats(ConstituentPieceInfo xiPieceInfo, int numRoles)
+    {
+      pieceInfo = xiPieceInfo;
+      scoreWeightedPresence = new double[numRoles];
+
+      for(int i = 0; i < numRoles; i++)
+      {
+        scoreWeightedPresence[i] = 0;
+      }
+
+      aggregateMoveScore = 0;
+      aggregateMoveCount = 0;
+      numDecisiveSampleGames = 0;
+      numSampleMoves = 0;
+    }
+
+    public void startSampleGame()
+    {
+      aggregatePresenceInGame = 0;
+      maxPresenceInGame = 0;
+      numSampleMovesInGame = 0;
+
+      previousMaskedState = null;
+    }
+
+    public void sampleMove(ForwardDeadReckonInternalMachineState xiState)
+    {
+      ForwardDeadReckonInternalMachineState maskedState = new ForwardDeadReckonInternalMachineState(xiState);
+      maskedState.intersect(pieceInfo.mask);
+
+      int presence = pieceInfo.mask.intersectionSize(xiState);
+
+      if ( presence > maxPresenceInGame )
+      {
+        maxPresenceInGame = presence;
+      }
+
+      aggregatePresenceInGame += presence;
+      numSampleMovesInGame++;
+
+      if ( previousMaskedState != null &&
+           maskedState.size() > 0 )
+      {
+        if ( previousMaskedState.size() == maskedState.size() &&
+             previousMaskedState.intersectionSize(maskedState) != maskedState.size() )
+        {
+          //  A piece of this type has been moved
+          aggregateMoveScore += (double)1/maskedState.size();
+         }
+        aggregateMoveCount++;
+      }
+
+      previousMaskedState = maskedState;
+    }
+
+    public void endSampleGame(int[] result)
+    {
+      double averagePresenceInGame = aggregatePresenceInGame/numSampleMovesInGame;
+
+      if ( result[0] != 50 && maxPresenceInGame > 0 )
+      {
+        for(int i = 0; i < result.length; i++)
+        {
+          scoreWeightedPresence[i] = (scoreWeightedPresence[i]*numDecisiveSampleGames + averagePresenceInGame*(result[i])/(maxPresenceInGame*100))/(numDecisiveSampleGames+1);
+        }
+        numDecisiveSampleGames++;
+      }
+      numSampleMoves += numSampleMovesInGame;
+    }
+
+    public double getPresenceWeighting(int roleIndex)
+    {
+      return scoreWeightedPresence[roleIndex];
+    }
+
+    public double getMobilityWeighting()
+    {
+      return aggregateMoveScore/aggregateMoveCount;
+    }
+
+    public String getPieceName()
+    {
+      return pieceInfo.name;
+    }
+
+    public ConstituentPieceInfo getPieceInfo()
+    {
+      return pieceInfo;
+    }
+  }
+
+  private class PieceMaskSpecifier
   {
     public final ForwardDeadReckonInternalMachineState  overallPieceMask;
-    public  ConstituentPieceInfo[]                      individualPieceTypes = null;
+    public ConstituentPieceInfo[]                       individualPieceTypes = null;
+    public List<PieceUsageStats>                        individualPieceUsageStats = new ArrayList<>();
 
     public PieceMaskSpecifier(ForwardDeadReckonInternalMachineState pieceMask)
     {
@@ -252,7 +360,9 @@ public class PieceHeuristic implements Heuristic
           int index = 0;
           for(Entry<String, ForwardDeadReckonInternalMachineState> entry : pieceTypeMasks.entrySet())
           {
-            individualPieceTypes[index++] = new ConstituentPieceInfo(entry.getKey(), entry.getValue());
+            individualPieceTypes[index] = new ConstituentPieceInfo(entry.getKey(), entry.getValue());
+            individualPieceUsageStats.add(new PieceUsageStats(individualPieceTypes[index], numRoles));
+            index++;
           }
         }
       }
@@ -291,6 +401,57 @@ public class PieceHeuristic implements Heuristic
         }
 
         individualPieceTypes = combined;
+        individualPieceUsageStats.addAll(other.individualPieceUsageStats);
+      }
+    }
+
+    public void finalizePieceValues(int roleIndex)
+    {
+      if ( USE_MOBILITY_VALUES_FOR_PIECES )
+      {
+        double minMobilityMeasure = Double.MAX_VALUE;
+        double mobilityNormalizer = 1;
+
+        for(PieceUsageStats pieceUsage : individualPieceUsageStats)
+        {
+          double mobilityMeasure = pieceUsage.getMobilityWeighting();
+
+          if ( mobilityMeasure < minMobilityMeasure )
+          {
+            minMobilityMeasure = mobilityMeasure;
+            mobilityNormalizer = 1/minMobilityMeasure;
+          }
+        }
+
+        for(PieceUsageStats pieceUsage : individualPieceUsageStats)
+        {
+          LOGGER.info("Piece type " + pieceUsage.getPieceName() + " mobility value: " + pieceUsage.getMobilityWeighting()*mobilityNormalizer);
+
+          pieceUsage.getPieceInfo().value = pieceUsage.getMobilityWeighting()*mobilityNormalizer;
+        }
+      }
+      else
+      {
+        double minPresenceMeasure = Double.MAX_VALUE;
+        double presenceNormalizer = 1;
+
+        for(PieceUsageStats pieceUsage : individualPieceUsageStats)
+        {
+          double presenceMeasure = pieceUsage.getPresenceWeighting(roleIndex);
+
+          if ( presenceMeasure < minPresenceMeasure )
+          {
+            minPresenceMeasure = presenceMeasure;
+            presenceNormalizer = 1/minPresenceMeasure;
+          }
+        }
+
+        for(PieceUsageStats pieceUsage : individualPieceUsageStats)
+        {
+          LOGGER.info("Piece type " + pieceUsage.getPieceName() + " presence value: " + pieceUsage.getPresenceWeighting(roleIndex)*presenceNormalizer);
+
+          pieceUsage.getPieceInfo().value = pieceUsage.getPresenceWeighting(roleIndex)*presenceNormalizer;
+        }
       }
     }
 
@@ -471,6 +632,11 @@ public class PieceHeuristic implements Heuristic
     {
       HeuristicScoreInfo heuristicInfo = e.getValue();
       heuristicInfo.lastValue = -1;
+
+      for(PieceUsageStats usageStats : e.getKey().individualPieceUsageStats)
+      {
+        usageStats.startSampleGame();
+      }
     }
   }
 
@@ -505,6 +671,11 @@ public class PieceHeuristic implements Heuristic
       }
 
       heuristicInfo.lastValue = currentValue;
+
+      for(PieceUsageStats usageStats : e.getKey().individualPieceUsageStats)
+      {
+        usageStats.sampleMove(sampleState);
+      }
     }
 
     totalSimulatedTurns++;
@@ -518,6 +689,11 @@ public class PieceHeuristic implements Heuristic
     {
       int heuristicScore = finalState.intersectionSize(e.getKey().overallPieceMask);
       e.getValue().accrueSample(heuristicScore, roleScores);
+
+      for(PieceUsageStats usageStats : e.getKey().individualPieceUsageStats)
+      {
+        usageStats.endSampleGame(roleScores);
+      }
     }
   }
 
@@ -644,7 +820,7 @@ public class PieceHeuristic implements Heuristic
           pieceSets = null;
           break;
         }
-        LOGGER.info("    Final piece set is: " + pieceSets[i]);
+        LOGGER.debug("    Final piece set is: " + pieceSets[i]);
       }
 
       if (pieceSets != null)
@@ -652,6 +828,8 @@ public class PieceHeuristic implements Heuristic
         LOGGER.debug("All roles have piece sets");
         for (int i = 0; i < numRoles; i++)
         {
+          pieceSets[i].finalizePieceValues(i);
+
           LOGGER.info("Role " + i + " will use piece set " + pieceSets[i]);
         }
       }
@@ -766,7 +944,7 @@ public class PieceHeuristic implements Heuristic
 
       //  Weight further material gain down the more we're already ahead/behind in material
       //  because in either circumstance it's likely to be position that is more important
-      heuristicSampleWeight = (int)Math.max(2, 6 - Math.abs(ourMaterialDivergence)*48/averageMaterial);
+      heuristicSampleWeight = (int)Math.max(2, 6.5 - Math.abs(ourMaterialDivergence)*48/averageMaterial);
 
       LOGGER.info("Piece heuristic weight set to: " + heuristicSampleWeight);
     }
