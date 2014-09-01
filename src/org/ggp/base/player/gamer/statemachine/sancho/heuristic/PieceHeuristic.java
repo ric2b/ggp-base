@@ -39,6 +39,10 @@ public class PieceHeuristic implements Heuristic
   //  Whether to use mobility values for pieces (else score-weighted aggregate presence)
   //  Empirically (in its current form at least) aggregate presence does not seem to work well
   private static final boolean                                           USE_MOBILITY_VALUES_FOR_PIECES = true;
+  //  This is a bit of a hack (well, a lot of one really).  Empirically the metagaming tunes the piece values badly in
+  //  the only known games with 2 piece types (checkers variants), so FOR NOW we disable differentiated piece
+  //  type weights for <=2 piece types
+  private static final int                                               MIN_NUM_PIECES            = 2;
 
   private Map<PieceMaskSpecifier, HeuristicScoreInfo>                    propGroupScoreSets        = null;
   int                                                                    numRoles                  = 0;
@@ -133,28 +137,6 @@ public class PieceHeuristic implements Heuristic
       name = xiName;
       mask = pieceMask;
       value = 1;
-
-      //  Temp test HACK
-      if ( name.equals("king") )
-      {
-        value = 5;
-      }
-      else if ( name.equals("queen") )
-      {
-        value = 9;
-      }
-      else if ( name.equals("rook") )
-      {
-        value = 5;
-      }
-      else if ( name.equals("bishop") )
-      {
-        value = 3;
-      }
-      else if ( name.equals("knight") )
-      {
-        value = 3;
-      }
     }
 
     @Override
@@ -168,11 +150,11 @@ public class PieceHeuristic implements Heuristic
   {
     private int aggregatePresenceInGame;
     private int maxPresenceInGame;
-    private double aggregateMoveScore;
-    private double aggregateMoveCount;
     private final double[] scoreWeightedPresence;
-    private int numSampleMoves;
-    private int numDecisiveSampleGames;
+    private final double[] scoreWeightedUsage;
+    private double usageInGame;
+    private int usageCountInGame;
+    private int numSampleGames;
     private int numSampleMovesInGame;
     private ForwardDeadReckonInternalMachineState previousMaskedState;
     private final ConstituentPieceInfo pieceInfo;
@@ -181,16 +163,15 @@ public class PieceHeuristic implements Heuristic
     {
       pieceInfo = xiPieceInfo;
       scoreWeightedPresence = new double[numRoles];
+      scoreWeightedUsage = new double[numRoles];
 
       for(int i = 0; i < numRoles; i++)
       {
         scoreWeightedPresence[i] = 0;
+        scoreWeightedUsage[i] = 0;
       }
 
-      aggregateMoveScore = 0;
-      aggregateMoveCount = 0;
-      numDecisiveSampleGames = 0;
-      numSampleMoves = 0;
+      numSampleGames = 0;
     }
 
     public void startSampleGame()
@@ -198,6 +179,8 @@ public class PieceHeuristic implements Heuristic
       aggregatePresenceInGame = 0;
       maxPresenceInGame = 0;
       numSampleMovesInGame = 0;
+      usageCountInGame = 0;
+      usageInGame = 0;
 
       previousMaskedState = null;
     }
@@ -224,9 +207,9 @@ public class PieceHeuristic implements Heuristic
              previousMaskedState.intersectionSize(maskedState) != maskedState.size() )
         {
           //  A piece of this type has been moved
-          aggregateMoveScore += (double)1/maskedState.size();
+          usageInGame += (double)1/maskedState.size();
          }
-        aggregateMoveCount++;
+        usageCountInGame++;
       }
 
       previousMaskedState = maskedState;
@@ -234,17 +217,35 @@ public class PieceHeuristic implements Heuristic
 
     public void endSampleGame(int[] result)
     {
+      double weightedPresence;
+      double weightedUsage;
       double averagePresenceInGame = aggregatePresenceInGame/numSampleMovesInGame;
 
-      if ( result[0] != 50 && maxPresenceInGame > 0 )
+      if ( maxPresenceInGame > 0 )
       {
-        for(int i = 0; i < result.length; i++)
-        {
-          scoreWeightedPresence[i] = (scoreWeightedPresence[i]*numDecisiveSampleGames + averagePresenceInGame*(result[i])/(maxPresenceInGame*100))/(numDecisiveSampleGames+1);
-        }
-        numDecisiveSampleGames++;
+        weightedPresence = averagePresenceInGame/maxPresenceInGame;
       }
-      numSampleMoves += numSampleMovesInGame;
+      else
+      {
+        weightedPresence = 0;
+      }
+
+      if ( usageCountInGame > 0 )
+      {
+        weightedUsage = usageInGame/usageCountInGame;
+      }
+      else
+      {
+        weightedUsage = 0;
+      }
+
+      for(int i = 0; i < result.length; i++)
+      {
+        double normalizedScore = ((double)result[i])/100;
+        scoreWeightedPresence[i] = (scoreWeightedPresence[i]*numSampleGames + weightedPresence*normalizedScore)/(numSampleGames+1);
+        scoreWeightedUsage[i] = (scoreWeightedUsage[i]*numSampleGames + weightedUsage*normalizedScore)/(numSampleGames+1);
+      }
+      numSampleGames++;
     }
 
     public double getPresenceWeighting(int roleIndex)
@@ -252,9 +253,9 @@ public class PieceHeuristic implements Heuristic
       return scoreWeightedPresence[roleIndex];
     }
 
-    public double getMobilityWeighting()
+    public double getMobilityWeighting(int roleIndex)
     {
-      return aggregateMoveScore/aggregateMoveCount;
+      return scoreWeightedUsage[roleIndex];
     }
 
     public String getPieceName()
@@ -353,7 +354,7 @@ public class PieceHeuristic implements Heuristic
 
         assert(pieceTypeMasks.size() == smallestRangeSize);
 
-        if ( pieceTypeMasks.size() > 0 )
+        if ( pieceTypeMasks.size() >= MIN_NUM_PIECES )
         {
           individualPieceTypes = new ConstituentPieceInfo[pieceTypeMasks.size()];
 
@@ -409,25 +410,25 @@ public class PieceHeuristic implements Heuristic
     {
       if ( USE_MOBILITY_VALUES_FOR_PIECES )
       {
-        double minMobilityMeasure = Double.MAX_VALUE;
+        double minExpMobilityMeasure = Double.MAX_VALUE;
         double mobilityNormalizer = 1;
 
         for(PieceUsageStats pieceUsage : individualPieceUsageStats)
         {
-          double mobilityMeasure = pieceUsage.getMobilityWeighting();
+          double mobilityMeasure = pieceUsage.getMobilityWeighting(roleIndex);
 
-          if ( mobilityMeasure < minMobilityMeasure )
+          if ( mobilityMeasure < minExpMobilityMeasure )
           {
-            minMobilityMeasure = mobilityMeasure;
-            mobilityNormalizer = 1/minMobilityMeasure;
+            minExpMobilityMeasure = mobilityMeasure;
+            mobilityNormalizer = 1/minExpMobilityMeasure;
           }
         }
 
         for(PieceUsageStats pieceUsage : individualPieceUsageStats)
         {
-          LOGGER.info("Piece type " + pieceUsage.getPieceName() + " mobility value: " + pieceUsage.getMobilityWeighting()*mobilityNormalizer);
+          LOGGER.info("Piece type " + pieceUsage.getPieceName() + " mobility value: " + pieceUsage.getMobilityWeighting(roleIndex)*mobilityNormalizer);
 
-          pieceUsage.getPieceInfo().value = pieceUsage.getMobilityWeighting()*mobilityNormalizer;
+          pieceUsage.getPieceInfo().value =pieceUsage.getMobilityWeighting(roleIndex)*mobilityNormalizer;
         }
       }
       else
