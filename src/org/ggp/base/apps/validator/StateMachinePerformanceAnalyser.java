@@ -199,7 +199,11 @@ public class StateMachinePerformanceAnalyser
       {
         System.out.println("Measure game " + gameKey + " state machine performance.");
 
-        ForwardDeadReckonPropnetStateMachine theMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,25000,null);
+        ForwardDeadReckonPropnetStateMachine theMachine =
+                                           new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
+                                                                                    25000,
+                                                                                    null,
+                                                                                    null);
         List<Gdl> description = theRepository.getGame(gameKey).getRules();
         theMachine.initialize(description);
 

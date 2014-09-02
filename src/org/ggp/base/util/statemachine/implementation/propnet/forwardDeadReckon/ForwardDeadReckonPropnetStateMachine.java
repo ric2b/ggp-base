@@ -16,6 +16,7 @@ import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
+import org.ggp.base.player.gamer.statemachine.sancho.RuntimeGameCharacteristics;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath;
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
@@ -138,6 +139,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private final TerminalResultSet                                      mResultSet                      = new TerminalResultSet();
   // A re-usable iterator over the propositions in a machine state.
   private final InternalMachineStateIterator                           mStateIterator = new InternalMachineStateIterator();
+  private final RuntimeGameCharacteristics                             mGameCharacteristics;
 
   //  In games with negative goal latches greedy rollouts treat state transitions that lower the opponent's
   //  maximum achievable score somewhat like transitions to winning terminal states, which is to say they
@@ -155,7 +157,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   //  the mechanism at all, so if we had to go to that due to a counter example this is still a big step forward)
   private final int                                                    latchImprovementWeight = 100;
   private final int                                                    latchWorseningAvoidanceWeight = 0;
-
 
   private class TestPropnetStateMachineStats extends Stats
   {
@@ -1393,13 +1394,18 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   {
     maxInstances = 1;
     ourRole = null;
+    mGameCharacteristics = null;
   }
 
-  public ForwardDeadReckonPropnetStateMachine(int xiMaxInstances, long xiMetaGameTimeout, Role xiOurRole)
+  public ForwardDeadReckonPropnetStateMachine(int xiMaxInstances,
+                                              long xiMetaGameTimeout,
+                                              Role xiOurRole,
+                                              RuntimeGameCharacteristics xiGameCharacteristics)
   {
     maxInstances = xiMaxInstances;
     metagameTimeout = xiMetaGameTimeout;
     ourRole = xiOurRole;
+    mGameCharacteristics = xiGameCharacteristics;
   }
 
   private ForwardDeadReckonPropnetStateMachine(ForwardDeadReckonPropnetStateMachine master, int instanceId)
@@ -1435,6 +1441,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       mGoalsCalculator = master.mGoalsCalculator.createThreadSafeReference();
     }
     mRoleUnionPositiveGoalLatches = master.mRoleUnionPositiveGoalLatches;
+    mGameCharacteristics = master.mGameCharacteristics;
 
     stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
     stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -1601,24 +1608,23 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       fullPropNet.crystalize(masterInfoSet, null, maxInstances);
       masterLegalMoveSet = fullPropNet.getMasterMoveList();
 
-      //  Allow no more than half the remaining time for factorization analysis and partitioning
-      //  analysis
+      //  Allow no more than half the remaining time for factorization analysis and partitioning analysis.
       long factorizationAnalysisTimeout =  (metagameTimeout - System.currentTimeMillis())/2;
-      if ( factorizationAnalysisTimeout > 0 )
+      if (factorizationAnalysisTimeout > 0)
       {
         FactorAnalyser factorAnalyser = new FactorAnalyser(this);
         factors = factorAnalyser.analyse(factorizationAnalysisTimeout);
 
-        if ( factors != null )
+        if (factors != null)
         {
           LOGGER.info("Game appears to factorize into " + factors.size() + " factors");
         }
 
         mNonControlMask = new ForwardDeadReckonInternalMachineState(masterInfoSet);
 
-        if ( factorAnalyser.getControlProps() != null )
+        if (factorAnalyser.getControlProps() != null)
         {
-          for(PolymorphicProposition p : factorAnalyser.getControlProps())
+          for (PolymorphicProposition p : factorAnalyser.getControlProps())
           {
             ForwardDeadReckonPropositionInfo info = ((ForwardDeadReckonProposition)p).getInfo();
 
@@ -1629,7 +1635,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         mNonControlMask.invert();
       }
 
-      for(ForwardDeadReckonPropositionInfo info : masterInfoSet)
+      for (ForwardDeadReckonPropositionInfo info : masterInfoSet)
       {
         ForwardDeadReckonPropositionCrossReferenceInfo crInfo = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
 

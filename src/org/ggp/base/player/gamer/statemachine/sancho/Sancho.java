@@ -42,6 +42,22 @@ public class Sancho extends SampleGamer
 
   private static final long SAFETY_MARGIN = MachineSpecificConfiguration.getCfgVal(CfgItem.SAFETY_MARGIN, 2500);
 
+  private static final int MIN_PRIMARY_SIMULATION_SAMPLES = 100;
+
+  // Determine whether assertions are enabled for the JVM.
+  private static final boolean ASSERTIONS_ENABLED;
+  static
+  {
+    boolean lAssertionsEnabled = false;
+    assert ((lAssertionsEnabled = true) == true);
+    ASSERTIONS_ENABLED = lAssertionsEnabled;
+
+    if (ASSERTIONS_ENABLED)
+    {
+      System.err.println("WARNING: Assertions are enabled - this will impact performance");
+    }
+  }
+
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
@@ -64,23 +80,9 @@ public class Sancho extends SampleGamer
   private GameSearcher                searchProcessor                 = null;
   private String                      mLogName                        = null;
   private SystemStatsLogger           mSysStatsLogger                 = null;
-  private static final boolean        ASSERTIONS_ENABLED;
-  private static final int            MIN_PRIMARY_SIMULATION_SAMPLES  = 100;
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
-
-  static
-  {
-    boolean lAssertionsEnabled = false;
-    assert ((lAssertionsEnabled = true) == true);
-    ASSERTIONS_ENABLED = lAssertionsEnabled;
-
-    if (ASSERTIONS_ENABLED)
-    {
-      System.err.println("WARNING: Assertions are enabled - this will impact performance");
-    }
-  }
 
   @Override
   public void configure(int xiParamIndex, String xiParam)
@@ -173,7 +175,8 @@ public class Sancho extends SampleGamer
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
     underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
                                                                       getMetaGamingTimeout(),
-                                                                      getRole());
+                                                                      getRole(),
+                                                                      mGameCharacteristics);
 
     System.gc();
 
