@@ -10,6 +10,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.RuntimeGameCharacteristics;
 import org.ggp.base.player.gamer.statemachine.sancho.ThreadControl;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.game.GameRepository;
 import org.ggp.base.util.game.LocalGameRepository;
 import org.ggp.base.util.gdl.grammar.Gdl;
@@ -192,17 +193,17 @@ public class StateMachinePerformanceAnalyser
 
   private void testGameSearcher(GameRepository theRepository, Map<String,PerformanceInfo> gamesList)
   {
-    for(String gameKey : gamesList.keySet())
+    for (String gameKey : gamesList.keySet())
     {
-      if ( theRepository.getGameKeys().contains(gameKey))
+      if (theRepository.getGameKeys().contains(gameKey))
       {
-        ForwardDeadReckonPropnetStateMachine theMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,25000,null);
-        GameSearcher gameSearcher = new GameSearcher(1000000, theMachine.getRoles().length, "PerfTest");
-
         System.out.println("Measure game " + gameKey + " state machine performance.");
 
+        ForwardDeadReckonPropnetStateMachine theMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,25000,null);
         List<Gdl> description = theRepository.getGame(gameKey).getRules();
         theMachine.initialize(description);
+
+        GameSearcher gameSearcher = new GameSearcher(1000000, theMachine.getRoles().length, "PerfTest");
 
         long endTime;
         ForwardDeadReckonInternalMachineState initialState = theMachine.createInternalState(theMachine.getInitialState());
@@ -216,12 +217,15 @@ public class StateMachinePerformanceAnalyser
             lSearchProcessorThread.start();
           }
 
+          Heuristic lHeuristic = new CombinedHeuristic();
+          lHeuristic.tuningComplete();
+
           gameSearcher.setup(theMachine,
                              initialState,
                              new RoleOrdering(theMachine, theMachine.getRoles()[0]),
                              new RuntimeGameCharacteristics(null),
                              true,
-                             new CombinedHeuristic(),
+                             lHeuristic,
                              null);
 
           endTime = System.currentTimeMillis() + numSeconds*1000;

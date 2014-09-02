@@ -96,8 +96,9 @@ public class TreeNode
    * -------
    *
    * This is an occupancy critical class.  Members should only be added when absolutely necessary and should use the
-   * suitable available type.
+   * smallest available type.
    */
+
   /**
    * The tree in which we're a node.
    */

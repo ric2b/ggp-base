@@ -80,21 +80,22 @@ public class CappedPool<ItemType> implements Pool<ItemType>
   {
     ItemType lAllocatedItem;
 
-    if (mLargestUsedIndex < mPoolSize - 1)
+    // Prefer to re-use a node because it avoids memory allocation which is (a) slow, (b) is liable to provoke GC and
+    // (c) makes GC slower because there's a bigger heap to inspect.
+    if (mNumFreeItems != 0)
     {
-      // If we haven't allocated the maximum number of items yet, just allocate another.
-      mLargestUsedIndex++;
-      lAllocatedItem = xiAllocator.newObject(mLargestUsedIndex);
-      mItems[mLargestUsedIndex] = lAllocatedItem;
-    }
-    else
-    {
-      // We've allocated the maximum number of items, so grab one from the freed list.
-      assert(mNumFreeItems != 0) : "Unexpectedly full pool";
       lAllocatedItem = mFreeItems[--mNumFreeItems];
 
       // Reset the item so that it's ready for re-use.
       xiAllocator.resetObject(lAllocatedItem, false);
+    }
+    else
+    {
+      // No free items so allocate another one.
+      assert(mLargestUsedIndex < mPoolSize - 1) : "Unexpectedly full pool";
+      mLargestUsedIndex++;
+      lAllocatedItem = xiAllocator.newObject(mLargestUsedIndex);
+      mItems[mLargestUsedIndex] = lAllocatedItem;
     }
 
     mNumItemsInUse++;
