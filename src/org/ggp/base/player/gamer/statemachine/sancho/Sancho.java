@@ -51,7 +51,6 @@ public class Sancho extends SampleGamer
   private GamePlan                    plan                            = null;
   private int                         transpositionTableSize          = MachineSpecificConfiguration.getCfgVal(CfgItem.NODE_TABLE_SIZE, 2000000);
   private RoleOrdering                roleOrdering                    = null;
-  private Move[]                      canonicallyOrderedMoveBuffer    = null;
   private ForwardDeadReckonPropnetStateMachine underlyingStateMachine = null;
   private StateMachineProxy           stateMachineProxy               = null;
   private int                         numRoles                        = 0;
@@ -1074,7 +1073,6 @@ public class Sancho extends SampleGamer
     planString                   = null;
     plan                         = null;
     roleOrdering                 = null;
-    canonicallyOrderedMoveBuffer = null;
     underlyingStateMachine       = null;
     puzzlePlayer                 = null;
 
