@@ -27,13 +27,9 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
   private ForwardDeadReckonInternalMachineState[] activeBasePropositions;
   private ForwardDeadReckonInternalMachineState   alwaysTrueBasePropositions;
   private int                                     numInstances;
+
   /**
-   * Whether to use the fast animator to animate the propnet at runtime.
-   * This should make no functional difference, but should have higher performance
-   */
-  public static final boolean                     useFastAnimator = true;
-  /**
-   * Fast animator instance for use with this propNet
+   * Fast animator instance for use with this propNet.
    */
   public ForwardDeadReckonPropnetFastAnimator     animator = null;
 
@@ -226,11 +222,8 @@ public ForwardDeadReckonPropNet(Role[] roles,
       }
     }
 
-    if ( useFastAnimator )
-    {
-      animator = new ForwardDeadReckonPropnetFastAnimator(this);
-      animator.crystalize(numInstances);
-    }
+    animator = new ForwardDeadReckonPropnetFastAnimator(this);
+    animator.crystalize(numInstances);
   }
 
   /**
@@ -288,14 +281,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
    */
   public void setProposition(int instanceId, ForwardDeadReckonProposition p, boolean value)
   {
-    if ( useFastAnimator )
-    {
-      animator.setComponentValue(instanceId, p.id, value);
-    }
-    else
-    {
-      p.setValue(value, instanceId);
-    }
+    animator.setComponentValue(instanceId, p.id, value);
   }
 
   /**
@@ -308,12 +294,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
   public boolean getComponentValue(int instanceId, ForwardDeadReckonComponent component)
   {
     assert( (component instanceof PolymorphicProposition) || (component instanceof PolymorphicTransition) );
-    if ( useFastAnimator )
-    {
-      return animator.getComponentValue(instanceId, component.id);
-    }
-
-    return component.getValue(instanceId);
+    return animator.getComponentValue(instanceId, component.id);
   }
 
   /**
@@ -335,25 +316,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
         activeLegalMoves[instanceId].merge(alwaysTrueLegalMoves);
       }
 
-      if ( useFastAnimator )
-      {
-        animator.reset(instanceId, fullEquilibrium);
-      }
-      else
-      {
-        for (PolymorphicComponent c : getComponents())
-        {
-          ((ForwardDeadReckonComponent)c).reset(instanceId);
-        }
-        //	Establish full reset state if required
-        if (fullEquilibrium)
-        {
-          for (PolymorphicComponent c : getComponents())
-          {
-            ((ForwardDeadReckonComponent)c).propagate(instanceId);
-          }
-        }
-      }
+      animator.reset(instanceId, fullEquilibrium);
     }
   }
 
