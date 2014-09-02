@@ -132,6 +132,7 @@ public abstract class StateMachineGamer extends Gamer
     role = null;
     currentState = null;
     stateMachine = null;
+    mGameCharacteristics = null;
     setMatch(null);
     setRoleName(null);
   }

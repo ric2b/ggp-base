@@ -1,7 +1,6 @@
 
 package org.ggp.base.player.gamer;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,6 +13,7 @@ import org.ggp.base.player.gamer.exception.GamePreviewException;
 import org.ggp.base.player.gamer.exception.MetaGamingException;
 import org.ggp.base.player.gamer.exception.MoveSelectionException;
 import org.ggp.base.player.gamer.exception.StoppingException;
+import org.ggp.base.player.gamer.statemachine.sancho.RuntimeGameCharacteristics;
 import org.ggp.base.util.game.GDLTranslator;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
@@ -32,10 +32,11 @@ import org.ggp.base.util.symbol.grammar.Symbol;
  */
 public abstract class Gamer implements Subject
 {
-  private Match       match;
-  private GdlConstant roleName;
-  private GDLTranslator mGDLTranslator;
-  private int         port;
+  private   Match                      match;
+  private   GdlConstant                roleName;
+  private   int                        port;
+  private   GDLTranslator              mGDLTranslator;
+  protected RuntimeGameCharacteristics mGameCharacteristics;
 
   public Gamer()
   {
@@ -159,6 +160,7 @@ public abstract class Gamer implements Subject
   public void setGDLTranslator(GDLTranslator xiGDLTranslator)
   {
     mGDLTranslator = xiGDLTranslator;
+    mGameCharacteristics = new RuntimeGameCharacteristics(mGDLTranslator.getGameDir());
   }
 
   public Symbol networkToInternal(Symbol xiNetworkSymbol)
@@ -169,15 +171,6 @@ public abstract class Gamer implements Subject
   public Symbol internalToNetwork(Symbol xiInternalSymbol)
   {
     return mGDLTranslator.internalToNetwork(xiInternalSymbol);
-  }
-
-  /**
-   * @return a directory for storing information about the current <b>game</b>
-   * (not the current match).
-   */
-  public File getGameDir()
-  {
-    return mGDLTranslator.getGameDir();
   }
 
   // ==== Observer Stuff ====

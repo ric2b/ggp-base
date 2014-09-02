@@ -36,6 +36,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private static final String FIXED_LENGTH_KEY              = "fixed_length";
 
   private final XMLPropertiesConfiguration mConfigFile;
+  private boolean             mLoadedConfig;
   private double              explorationBias         = 1.0;
   private double              mExactRolloutSampleSize = 4;
   private volatile int        mRolloutSampleSize;
@@ -57,12 +58,11 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   /**
    * Create game characteristics, loading any state from previous games.
    *
-   * @param xiNumRoles      - the number of roles in the game.
    * @param xiGameDirectory - the directory to load from.
    */
-  public RuntimeGameCharacteristics(int xiNumRoles, File xiGameDirectory)
+  public RuntimeGameCharacteristics(File xiGameDirectory)
   {
-    super(xiNumRoles);
+    super();
     setRolloutSampleSize(4);
     mConfigFile = loadConfig(xiGameDirectory);
   }
@@ -92,11 +92,25 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
       try
       {
         lConfigFile = new XMLPropertiesConfiguration(lPropsFile);
-        mPlan = lConfigFile.getString(PLAN_KEY);
+
+        numRoles                       = lConfigFile.getInt(NUM_ROLES_KEY, 0);
+        mLoadedConfig = (numRoles != 0);
+
+        if (mLoadedConfig)
+        {
+          isSimultaneousMove             = lConfigFile.getBoolean(SIMULTANEOUS_KEY, false);
+          isIteratedGame                 = lConfigFile.getBoolean(ITERATED_KEY, false);
+          mNumFactors                    = lConfigFile.getInt(NUM_FACTORS_KEY, 1);
+          moveChoicesFromMultipleFactors = lConfigFile.getBoolean(MOVES_IN_MULTIPLE_FACTORS_KEY, false);
+          mMaxObservedChoices            = lConfigFile.getInt(MAX_BRANCHING_FACTOR_KEY, 1);
+          isFixedMoveCount               = lConfigFile.getBoolean(FIXED_LENGTH_KEY, false);
+          mPlan                          = lConfigFile.getString(PLAN_KEY, null);
+        }
       }
       catch (ConfigurationException lEx)
       {
         LOGGER.warn("Corrupt configuration file: " + lEx);
+        mLoadedConfig = false;
       }
     }
 
@@ -104,11 +118,18 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   }
 
   /**
-   * Save game characteristics to disk.
-   *
-   * @param xiGameDirectory - the directory to load from.
+   * @return true if the game characteristics have been loaded from file or false if they're just default
+   * characteristics.
    */
-  public void saveConfig(File xiGameDirectory)
+  public boolean isConfigLoaded()
+  {
+    return mLoadedConfig;
+  }
+
+  /**
+   * Save game characteristics to disk.
+   */
+  public void saveConfig()
   {
     if (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_LEARNING, false))
     {
@@ -321,12 +342,13 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   {
     super.report();
 
-    LOGGER.info("Range of lengths of sample games seen: [" + getMinLength() + "," + getMaxLength() + "]");
-    LOGGER.info("Average num turns: " + getAverageLength());
-    LOGGER.info("Std deviation num turns: " + getStdDeviationLength());
-    LOGGER.info("Average num turns for non-drawn result: " + getAverageNonDrawLength());
-    LOGGER.info("Goals stability: " + getGoalsStability());
-    LOGGER.info("Proportion of max length games ending in draws: " + getMaxGameLengthDrawsProportion());
+    LOGGER.info("Statistical characteristics");
+    LOGGER.info("  Range of lengths of sample games seen: [" + getMinLength() + "," + getMaxLength() + "]");
+    LOGGER.info("  Average num turns: " + getAverageLength());
+    LOGGER.info("  Std deviation num turns: " + getStdDeviationLength());
+    LOGGER.info("  Average num turns for non-drawn result: " + getAverageNonDrawLength());
+    LOGGER.info("  Goals stability: " + getGoalsStability());
+    LOGGER.info("  Proportion of max length games ending in draws: " + getMaxGameLengthDrawsProportion());
   }
 
   /**

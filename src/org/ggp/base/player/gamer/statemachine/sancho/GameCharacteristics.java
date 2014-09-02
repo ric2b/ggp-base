@@ -47,12 +47,9 @@ public class GameCharacteristics
 
   /**
    * Constructor.
-   *
-   * @param roleCount - Number of roles in the game
    */
-  protected GameCharacteristics(int roleCount)
+  protected GameCharacteristics()
   {
-    numRoles = roleCount;
   }
 
   /**
@@ -60,40 +57,42 @@ public class GameCharacteristics
    */
   public void report()
   {
+    LOGGER.info("Fixed characteristics");
+
     if (isIteratedGame)
     {
-      LOGGER.info("May be an iterated game");
+      LOGGER.info("  May be an iterated game");
     }
 
     if (isPseudoPuzzle)
     {
-      LOGGER.info("Game is a pseudo puzzle");
+      LOGGER.info("  Game is a pseudo puzzle");
     }
 
     if (isSimultaneousMove)
     {
-      LOGGER.info("Game is a simultaneous turn game");
+      LOGGER.info("  Game is a simultaneous turn game");
     }
     else if (isPseudoSimultaneousMove)
     {
-      LOGGER.info("Game is pseudo-simultaneous (factorizable?)");
+      LOGGER.info("  Game is pseudo-simultaneous (factorizable?)");
     }
     else
     {
-      LOGGER.info("Game is not a simultaneous turn game");
+      LOGGER.info("  Game is not a simultaneous turn game");
     }
 
     if (numRoles == 1)
     {
-      LOGGER.info("Game is a 1-player puzzle");
+      LOGGER.info("  Game is a 1-player puzzle");
     }
     else if (numRoles > 2)
     {
-      LOGGER.info("Game is a 3+-player game");
+      LOGGER.info("  Game is a 3+-player game");
     }
     else
     {
-      LOGGER.info("Is 2 player game");
+      LOGGER.info("  Is 2 player game");
     }
   }
 }
