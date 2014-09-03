@@ -5,7 +5,6 @@
   <entry key="simultaneous">false</entry>
   <entry key="pseudo_simultaneous">false</entry>
   <entry key="iterated">false</entry>
-  <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">81</entry>
   <entry key="fixed_length">false</entry>

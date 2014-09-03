@@ -46,7 +46,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private int                 earliestCompletion      = 0;
   final private int           fixedSampleSize         = MachineSpecificConfiguration.getCfgVal(CfgItem.FIXED_SAMPLE_SIZE, -1);
   private String              mPlan                   = null;
-  private int                 mNumFactors             = 1;
+  private int                 mNumFactors             = 0;
   private int                 mMinLength              = 0;
   private int                 mMaxLength              = -1;
   private double              mAverageLength          = -1;
@@ -93,14 +93,14 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
       {
         lConfigFile = new XMLPropertiesConfiguration(lPropsFile);
 
-        numRoles                       = lConfigFile.getInt(NUM_ROLES_KEY, 0);
+        numRoles  = lConfigFile.getInt(NUM_ROLES_KEY, 0);
         mLoadedConfig = (numRoles != 0);
 
         if (mLoadedConfig)
         {
           isSimultaneousMove             = lConfigFile.getBoolean(SIMULTANEOUS_KEY, false);
           isIteratedGame                 = lConfigFile.getBoolean(ITERATED_KEY, false);
-          mNumFactors                    = lConfigFile.getInt(NUM_FACTORS_KEY, 1);
+          mNumFactors                    = lConfigFile.getInt(NUM_FACTORS_KEY, 0);
           moveChoicesFromMultipleFactors = lConfigFile.getBoolean(MOVES_IN_MULTIPLE_FACTORS_KEY, false);
           mMaxObservedChoices            = lConfigFile.getInt(MAX_BRANCHING_FACTOR_KEY, 1);
           isFixedMoveCount               = lConfigFile.getBoolean(FIXED_LENGTH_KEY, false);
