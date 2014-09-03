@@ -160,7 +160,15 @@ public abstract class Gamer implements Subject
   public void setGDLTranslator(GDLTranslator xiGDLTranslator)
   {
     mGDLTranslator = xiGDLTranslator;
-    mGameCharacteristics = new RuntimeGameCharacteristics(mGDLTranslator.getGameDir());
+
+    if ( xiGDLTranslator != null )
+    {
+      mGameCharacteristics = new RuntimeGameCharacteristics(mGDLTranslator.getGameDir());
+    }
+    else
+    {
+      mGameCharacteristics = null;
+    }
   }
 
   public Symbol networkToInternal(Symbol xiNetworkSymbol)
