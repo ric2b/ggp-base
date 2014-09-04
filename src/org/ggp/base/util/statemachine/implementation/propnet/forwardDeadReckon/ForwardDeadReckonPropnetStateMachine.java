@@ -1608,12 +1608,18 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       fullPropNet.crystalize(masterInfoSet, null, maxInstances);
       masterLegalMoveSet = fullPropNet.getMasterMoveList();
 
-      //  Allow no more than half the remaining time for factorization analysis and partitioning analysis.
-      long factorizationAnalysisTimeout =  (metagameTimeout - System.currentTimeMillis())/2;
-      if (factorizationAnalysisTimeout > 0)
+      // Try to factor the game.  But...
+      // - Don't do it if we know there's only 1 factor.
+      // - Allow no more than half the remaining time.
+      // - Don't do it if we've previously timed out whilst factoring this game and we don't have at least 25% more time
+      //   now.
+      long factorizationAnalysisTimeout = (metagameTimeout - System.currentTimeMillis()) / 2;
+
+      if ((mGameCharacteristics.getNumFactors() != 1) &&
+          (factorizationAnalysisTimeout > mGameCharacteristics.getMaxFactorFailureTime() * 1.25))
       {
         FactorAnalyser factorAnalyser = new FactorAnalyser(this);
-        factors = factorAnalyser.analyse(factorizationAnalysisTimeout);
+        factors = factorAnalyser.analyse(factorizationAnalysisTimeout, mGameCharacteristics);
 
         if (factors != null)
         {
@@ -1633,6 +1639,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
 
         mNonControlMask.invert();
+      }
+      else
+      {
+        LOGGER.info("Not attempting to factor this game.  Previous attempted showed " +
+                    mGameCharacteristics.getNumFactors() + " factor(s) in " +
+                    mGameCharacteristics.getMaxFactorFailureTime() + "ms.");
       }
 
       for (ForwardDeadReckonPropositionInfo info : masterInfoSet)

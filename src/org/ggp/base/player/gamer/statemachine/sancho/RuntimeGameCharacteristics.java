@@ -31,6 +31,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private static final String PSEUDO_SIMULTANEOUS_KEY       = "pseudo_simultaneous";
   private static final String ITERATED_KEY                  = "iterated";
   private static final String NUM_FACTORS_KEY               = "num_factors";
+  private static final String MAX_FACTOR_FAILURE_TIME       = "max_factor_failure_time";
   private static final String MOVES_IN_MULTIPLE_FACTORS_KEY = "moves_in_multiple_factors";
   private static final String MAX_BRANCHING_FACTOR_KEY      = "max_branching_factor";
   private static final String FIXED_LENGTH_KEY              = "fixed_length";
@@ -54,6 +55,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private double              mAverageNonDrawLength   = 0;
   private double              mGoalsStability         = 0;
   private double              mMaxGameLengthDrawsProportion  = 0;
+  private long                mMaxFactorFailureTime   = 0;
 
   /**
    * Create game characteristics, loading any state from previous games.
@@ -101,6 +103,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
           isSimultaneousMove             = lConfigFile.getBoolean(SIMULTANEOUS_KEY, false);
           isIteratedGame                 = lConfigFile.getBoolean(ITERATED_KEY, false);
           mNumFactors                    = lConfigFile.getInt(NUM_FACTORS_KEY, 0);
+          mMaxFactorFailureTime          = lConfigFile.getLong(MAX_FACTOR_FAILURE_TIME, 0);
           moveChoicesFromMultipleFactors = lConfigFile.getBoolean(MOVES_IN_MULTIPLE_FACTORS_KEY, false);
           mMaxObservedChoices            = lConfigFile.getInt(MAX_BRANCHING_FACTOR_KEY, 1);
           isFixedMoveCount               = lConfigFile.getBoolean(FIXED_LENGTH_KEY, false);
@@ -149,6 +152,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     mConfigFile.setProperty(SIMULTANEOUS_KEY,              isSimultaneousMove);
     mConfigFile.setProperty(PSEUDO_SIMULTANEOUS_KEY,       isPseudoSimultaneousMove);
     mConfigFile.setProperty(ITERATED_KEY,                  isIteratedGame);
+    mConfigFile.setProperty(MAX_FACTOR_FAILURE_TIME,       mMaxFactorFailureTime);
     mConfigFile.setProperty(NUM_FACTORS_KEY,               mNumFactors);
     mConfigFile.setProperty(MOVES_IN_MULTIPLE_FACTORS_KEY, moveChoicesFromMultipleFactors);
     mConfigFile.setProperty(MAX_BRANCHING_FACTOR_KEY,      mMaxObservedChoices);
@@ -277,14 +281,12 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   public void setFactors(Set<Factor> xiFactors)
   {
     // For now, just record the number of factors.
-    if (xiFactors == null)
-    {
-      mNumFactors = 1;
-    }
-    else
-    {
-      mNumFactors = xiFactors.size();
-    }
+    mNumFactors = xiFactors.size();
+  }
+
+  public int getNumFactors()
+  {
+    return mNumFactors;
   }
 
   public int getMaxLength()
@@ -343,12 +345,14 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     super.report();
 
     LOGGER.info("Statistical characteristics");
-    LOGGER.info("  Range of lengths of sample games seen: [" + getMinLength() + "," + getMaxLength() + "]");
-    LOGGER.info("  Average num turns: " + getAverageLength());
-    LOGGER.info("  Std deviation num turns: " + getStdDeviationLength());
-    LOGGER.info("  Average num turns for non-drawn result: " + getAverageNonDrawLength());
-    LOGGER.info("  Goals stability: " + getGoalsStability());
+    LOGGER.info("  Range of lengths of sample games seen:          [" + getMinLength() + "," + getMaxLength() + "]");
+    LOGGER.info("  Average num turns:                              " + getAverageLength());
+    LOGGER.info("  Std deviation num turns:                        " + getStdDeviationLength());
+    LOGGER.info("  Average num turns for non-drawn result:         " + getAverageNonDrawLength());
+    LOGGER.info("  Goals stability:                                " + getGoalsStability());
     LOGGER.info("  Proportion of max length games ending in draws: " + getMaxGameLengthDrawsProportion());
+    LOGGER.info("  Num factors:                                    " + getNumFactors());
+    LOGGER.info("  Max factor failure time (ms)                    " + getMaxFactorFailureTime());
   }
 
   /**
@@ -382,5 +386,26 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   public void setMaxGameLengthDrawsProportion(double xiMaxGameDrawProportion)
   {
     mMaxGameLengthDrawsProportion = xiMaxGameDrawProportion;
+  }
+
+  /**
+   * @return the maximum time, in milliseconds, that we've tried but failed to factor the game in.
+   */
+  public long getMaxFactorFailureTime()
+  {
+    return mMaxFactorFailureTime;
+  }
+
+  /**
+   * Record a failure to factor the game in the specified time.
+   *
+   * @param xiFailureTime - the time in milliseconds.
+   */
+  public void factoringFailedAfter(long xiFailureTime)
+  {
+    if (xiFailureTime > mMaxFactorFailureTime)
+    {
+      mMaxFactorFailureTime = xiFailureTime;
+    }
   }
 }

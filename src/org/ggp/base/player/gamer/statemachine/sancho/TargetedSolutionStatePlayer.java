@@ -111,8 +111,7 @@ public class TargetedSolutionStatePlayer
 
     if (targetStateAsInternal == null)
     {
-      targetStateAsInternal = underlyingStateMachine
-          .createInternalState(targetState);
+      targetStateAsInternal = underlyingStateMachine.createInternalState(targetState);
       targetStateAsInternal.intersect(steplessStateMask);
     }
 

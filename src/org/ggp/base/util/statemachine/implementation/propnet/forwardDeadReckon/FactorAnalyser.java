@@ -12,6 +12,7 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.ggp.base.player.gamer.statemachine.sancho.RuntimeGameCharacteristics;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
@@ -156,13 +157,15 @@ public class FactorAnalyser
   }
 
   /**
-   * @param timeout When to give up if the analysis takes too long
-   * @return  Number of factors identified
+   * @param xiTimeout             - When to give up if the analysis takes too long.
+   * @param xiGameCharacteristics - Information learned about this game.
+   *
+   * @return  The identified factors (or null if there are none or we ran out of time).
    */
-  public Set<Factor> analyse(long timeout)
+  public Set<Factor> analyse(long xiTimeout, RuntimeGameCharacteristics xiGameCharacteristics)
   {
-    Set<Factor>  factors = new HashSet<>();
-    long startTime = System.currentTimeMillis();
+    Set<Factor> factors = new HashSet<>();
+    long lAbortTime = System.currentTimeMillis() + xiTimeout;
 
     //  Construct the full closure of base dependencies
     for(PolymorphicProposition baseProp : basePropositions)
@@ -190,9 +193,10 @@ public class FactorAnalyser
           }
 
           //  If the analysis is just taking too long give up
-          if ( System.currentTimeMillis() > startTime + timeout )
+          if (System.currentTimeMillis() > lAbortTime)
           {
-            LOGGER.warn("Factorization analysis timed out after " + (System.currentTimeMillis() - startTime) + "ms");
+            LOGGER.warn("Factorization analysis timed out after at least " + xiTimeout + "ms");
+            xiGameCharacteristics.factoringFailedAfter(xiTimeout);
             return null;
           }
         }
@@ -206,9 +210,9 @@ public class FactorAnalyser
         depth++;
       } while(!dependenciesAtDepth.isEmpty() && dInfo.dependencies.size() < numBaseProps);
 
-      //  If we find a base prop that depends on more than 2/3rds of the others assume we're not
-      //  going to be able to factorize and stop wasting time on the factorization analysis
-      if ( dInfo.dependencies.size() > (numBaseProps*2)/3 )
+      // If we find a base prop that depends on more than 2/3rds of the others assume we're not going to be able to
+      // factorize, so stop wasting time on the factorization analysis.
+      if (dInfo.dependencies.size() > (numBaseProps * 2) / 3)
       {
         return null;
       }
@@ -298,9 +302,10 @@ public class FactorAnalyser
     while(!disjunctiveInputs.isEmpty())
     {
       //  If the analysis is just taking too long give up
-      if ( System.currentTimeMillis() > startTime + timeout )
+      if (System.currentTimeMillis() > lAbortTime)
       {
-        LOGGER.warn("Factorization analysis (post dependency phase) timed out after " + (System.currentTimeMillis() - startTime) + "ms");
+        LOGGER.warn("Factorization analysis (post dependency phase) timed out after at least " + xiTimeout + "ms");
+        xiGameCharacteristics.factoringFailedAfter(xiTimeout);
         return null;
       }
 
@@ -364,6 +369,7 @@ public class FactorAnalyser
       }
     }
 
+    xiGameCharacteristics.setFactors(factors);
     return (factors.size() > 1 ? factors : null);
   }
 

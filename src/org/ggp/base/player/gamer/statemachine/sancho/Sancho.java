@@ -262,7 +262,6 @@ public class Sancho extends SampleGamer
 
     // Set up those game characteristics that we only know now that we've got a state machine.
     mGameCharacteristics.numRoles = numRoles;
-    mGameCharacteristics.setFactors(underlyingStateMachine.getFactors());
 
     // Check if we already know how to solve this game.
     String lSavedPlan = mGameCharacteristics.getPlan();
