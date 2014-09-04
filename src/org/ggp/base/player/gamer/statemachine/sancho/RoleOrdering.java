@@ -1,23 +1,29 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.StateMachine;
 
 public class RoleOrdering
 {
   //  Array of roles reordered so our role is first
-  private Role[] reorderedRoles               = null;
-  private Move[] canonicallyOrderedMoveBuffer = null;
-  private int[]  roleOrderMap                 = null;
+  private final Role[] reorderedRoles;
+  private final int[]  roleOrderMap;
+  private final int[]  inverseRoleOrderMap;
 
+  /**
+   * Construct a role ordering instance.  This is used to map
+   * between the native (raw) ordering of the roles in the statemachine
+   * as implied by the GDL, and the logical ordering Sancho uses, which
+   * always has its own role first
+   * @param underlyingStateMachine
+   * @param ourRole
+   */
   public RoleOrdering(StateMachine underlyingStateMachine, Role ourRole)
   {
     int numRoles = underlyingStateMachine.getRoles().length;
     reorderedRoles = new Role[numRoles];
     roleOrderMap = new int[numRoles];
-    canonicallyOrderedMoveBuffer = new Move[numRoles];
-
+    inverseRoleOrderMap = new int[numRoles];
     reorderedRoles[0] = ourRole;
 
     int roleIndex = 1;
@@ -27,21 +33,33 @@ public class RoleOrdering
       if (role.equals(ourRole))
       {
         roleOrderMap[0] = rawRoleIndex;
+        inverseRoleOrderMap[rawRoleIndex] = 0;
       }
       else
       {
         roleOrderMap[roleIndex] = rawRoleIndex;
+        inverseRoleOrderMap[rawRoleIndex] = roleIndex;
         reorderedRoles[roleIndex++] = role;
       }
       rawRoleIndex++;
     }
   }
 
+  /**
+   * Convert a (logical) role index to a role
+   * @param roleIndex
+   * @return corresponding Role
+   */
   public Role roleIndexToRole(int roleIndex)
   {
     return reorderedRoles[roleIndex];
   }
 
+  /**
+   * Convert a role to a (logical) role index
+   * @param xiRole
+   * @return correspond ing logical index
+   */
   public int roleToRoleIndex(Role xiRole)
   {
     // Biggest game we play has 6 roles.  Cheaper to spin over array than do a map lookup.
@@ -57,8 +75,23 @@ public class RoleOrdering
     return -1;
   }
 
+  /**
+   * Map a logical role index to the raw statemachine role index
+   * @param roleIndex
+   * @return corresponding (raw) index
+   */
   public int roleIndexToRawRoleIndex(int roleIndex)
   {
     return roleOrderMap[roleIndex];
+  }
+
+  /**
+   * Map a raw role index to a logical one
+   * @param rawRoleIndex
+   * @return corresponding logical index
+   */
+  public int rawRoleIndexToRoleIndex(int rawRoleIndex)
+  {
+    return inverseRoleOrderMap[rawRoleIndex];
   }
 }

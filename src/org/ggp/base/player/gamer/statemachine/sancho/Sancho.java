@@ -244,6 +244,8 @@ public class Sancho extends SampleGamer
     numRoles = underlyingStateMachine.getRoles().length;
     roleOrdering = new RoleOrdering(underlyingStateMachine, ourRole);
 
+    underlyingStateMachine.setRoleOrdering(roleOrdering);
+
     mTurn = 0;
     StatsLogUtils.Series.TURN.logDataPoint(System.currentTimeMillis(), mTurn);
 
@@ -892,6 +894,7 @@ public class Sancho extends SampleGamer
       if (underlyingStateMachine.isTerminal(currentState))
       {
         LOGGER.warn("Asked to search in terminal state!");
+        assert(false);
       }
     }
 
