@@ -23,6 +23,7 @@ import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.profile.ProfilerContext;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
@@ -342,6 +343,9 @@ public class Sancho extends SampleGamer
       lHeuristicStopTime = lMetaGameStartTime + 2000;
     }
 
+    //  Buffer for new states
+    ForwardDeadReckonInternalMachineState newState = new ForwardDeadReckonInternalMachineState(initialState);
+
     //  Slight hack, but for now we don't bother continuing to simulate for a long time after discovering we're in
     //  a simultaneous turn game, because (for now anyway) we disable heuristics in such games anyway
     while (System.currentTimeMillis() < lHeuristicStopTime && (numSamples < MIN_PRIMARY_SIMULATION_SAMPLES || !mGameCharacteristics.isSimultaneousMove))
@@ -356,39 +360,59 @@ public class Sancho extends SampleGamer
       while (!underlyingStateMachine.isTerminal(sampleState))
       {
         boolean roleWithChoiceSeen = false;
-        Move[] jointMove = new Move[numRoles];
+        ForwardDeadReckonLegalMoveInfo[] jointMove = new ForwardDeadReckonLegalMoveInfo[numRoles];
         Set<Move> allMovesInState = new HashSet<>();
 
         int choosingRoleIndex = -2;
         for (int i = 0; i < numRoles; i++)
         {
-          List<Move> legalMoves = underlyingStateMachine.getLegalMovesCopy(sampleState,
-                                                                           roleOrdering.roleIndexToRole(i));
+          //List<Move> legalMoves = underlyingStateMachine.getLegalMovesCopy(sampleState,
+          //                                                                 roleOrdering.roleIndexToRole(i));
+          List<ForwardDeadReckonLegalMoveInfo> legalMoves = new ArrayList<>(underlyingStateMachine.getLegalMoves(sampleState, roleOrdering.roleIndexToRole(i)));
 
           if (legalMoves.size() > 1)
           {
             Set<Move> previousChoices = roleMoves.get(i);
-            HashSet<Move> moveSet = new HashSet<>(legalMoves);
 
-            if (previousChoices != null && !previousChoices.equals(moveSet))
+            if (previousChoices != null)
             {
-              mGameCharacteristics.isIteratedGame = false;
+              if ( mGameCharacteristics.isIteratedGame )
+              {
+                Set<Move> moves = new HashSet<>();
+
+                for(ForwardDeadReckonLegalMoveInfo moveInfo : legalMoves)
+                {
+                  moves.add(moveInfo.move);
+                }
+
+                if ( !previousChoices.equals(moves) )
+                {
+                  mGameCharacteristics.isIteratedGame = false;
+                }
+              }
             }
             else
             {
-              roleMoves.set(i, moveSet);
+              Set<Move> moves = new HashSet<>();
+
+              for(ForwardDeadReckonLegalMoveInfo moveInfo : legalMoves)
+              {
+                moves.add(moveInfo.move);
+              }
+
+              roleMoves.set(i, moves);
             }
 
             choosingRoleIndex = i;
             Factor turnFactor = null;
 
-            for (Move move : legalMoves)
+            for (ForwardDeadReckonLegalMoveInfo moveInfo : legalMoves)
             {
               if ( factors != null )
               {
                 for(Factor factor : factors)
                 {
-                  if ( factor.getMoves().contains(move))
+                  if ( factor.getMoves().contains(moveInfo.move))
                   {
                     if ( turnFactor != null && turnFactor != factor )
                     {
@@ -399,13 +423,13 @@ public class Sancho extends SampleGamer
                   }
                 }
               }
-              if (allMovesInState.contains(move))
+              if (allMovesInState.contains(moveInfo.move))
               {
                 mGameCharacteristics.isSimultaneousMove = true;
                 choosingRoleIndex = -1;
                 break;
               }
-              allMovesInState.add(move);
+              allMovesInState.add(moveInfo.move);
             }
 
             if (roleWithChoiceSeen)
@@ -419,12 +443,14 @@ public class Sancho extends SampleGamer
             numBranchesTaken += legalMoves.size();
             numRoleMovesSimulated++;
           }
-          jointMove[roleOrdering.roleIndexToRawRoleIndex(i)] = legalMoves.get(r.nextInt(legalMoves.size()));
+          jointMove[i] = legalMoves.get(r.nextInt(legalMoves.size()));
         }
 
         heuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
 
-        sampleState = underlyingStateMachine.getNextState(sampleState, jointMove);
+        underlyingStateMachine.getNextState(sampleState, null, jointMove, newState);
+
+        sampleState.copy(newState);
       }
 
       for (int i = 0; i < numRoles; i++)

@@ -2560,57 +2560,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
-  public ForwardDeadReckonInternalMachineState getNextState(ForwardDeadReckonInternalMachineState state,
-                                                            Move[] moves)
-  {
-    //RuntimeOptimizedComponent.getCount = 0;
-    //RuntimeOptimizedComponent.dirtyCount = 0;
-    ProfileSection methodSection = ProfileSection.newInstance("TestPropnetStateMachine.getNextState");
-    try
-    {
-      setPropNetUsage(state);
-
-      ForwardDeadReckonInternalMachineState result = new ForwardDeadReckonInternalMachineState(state);
-      ForwardDeadReckonLegalMoveInfo[] internalMoves = new ForwardDeadReckonLegalMoveInfo[moves.length];
-
-      Map<GdlSentence, PolymorphicProposition> inputProps = propNet.getInputPropositions();
-      Map<PolymorphicProposition, PolymorphicProposition> legalInputMap = propNet.getLegalInputMap();
-      int moveRawIndex = 0;
-
-      for (GdlSentence moveSentence : toDoes(moves))
-      {
-        ForwardDeadReckonProposition moveInputProposition = (ForwardDeadReckonProposition)inputProps
-            .get(moveSentence);
-        ForwardDeadReckonLegalMoveInfo moveInfo;
-
-        if (moveInputProposition != null)
-        {
-          ForwardDeadReckonProposition legalProp = (ForwardDeadReckonProposition)legalInputMap.get(moveInputProposition);
-
-          moveInfo = propNet.getMasterMoveList()[legalProp.getInfo().index];
-        }
-        else
-        {
-          moveInfo = new ForwardDeadReckonLegalMoveInfo();
-
-          moveInfo.isPseudoNoOp = true;
-        }
-
-        int internalMoveIndex = (roleOrdering == null ? moveRawIndex : roleOrdering.rawRoleIndexToRoleIndex(moveRawIndex));
-        internalMoves[internalMoveIndex] = moveInfo;
-        moveRawIndex++;
-      }
-
-      getNextState(state, null, internalMoves, result);
-
-      return result;
-    }
-    finally
-    {
-      methodSection.exitScope();
-    }
-  }
-
   /**
    * Get the next state given the current state and a set of moves.  Write the resulting state directly into the
    * supplied new state buffer.
@@ -2650,29 +2599,29 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       ForwardDeadReckonProposition moveProp =  moveProps[i];
       ForwardDeadReckonProposition previousMoveProp = (propNet == propNetX ? previousMovePropsX[i] : previousMovePropsO[i]);
 
-      if ( moveProp != null )
+      if ( previousMoveProp != moveProp )
       {
-        propNet.setProposition(instanceId, moveProp, true);
-      }
-      if ( previousMoveProp != null && previousMoveProp != moveProp )
-      {
-        propNet.setProposition(instanceId, previousMoveProp, false);
+        if ( propNet == propNetX )
+        {
+          previousMovePropsX[i] = moveProps[i];
+        }
+        else
+        {
+          previousMovePropsO[i] = moveProps[i];
+        }
+
+        if ( moveProp != null )
+        {
+          propNet.setProposition(instanceId, moveProp, true);
+        }
+        if ( previousMoveProp != null  )
+        {
+          propNet.setProposition(instanceId, previousMoveProp, false);
+        }
       }
     }
 
     getInternalStateFromBase(xbNewState);
-
-    for (int i = 0; i < movesCount; i++)
-    {
-      if ( propNet == propNetX )
-      {
-        previousMovePropsX[i] = moveProps[i];
-      }
-      else
-      {
-        previousMovePropsO[i] = moveProps[i];
-      }
-    }
 
     if ( nonNullMovesCount == 0 && factor != null )
     {
@@ -3828,6 +3777,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     lastInternalSetState = null;
     lastInternalSetStateX = null;
     lastInternalSetStateO = null;
+
+    for(int i = 0; i < numRoles; i++)
+    {
+      previousMovePropsX[i] = null;
+      previousMovePropsO[i] = null;
+    }
   }
 
   private int totalNumMoves = 0;

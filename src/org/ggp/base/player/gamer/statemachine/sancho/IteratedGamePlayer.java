@@ -1,6 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
@@ -129,6 +131,7 @@ public class IteratedGamePlayer
     for (Move move : moves)
     {
       ForwardDeadReckonInternalMachineState state = new ForwardDeadReckonInternalMachineState(currentState);
+      ForwardDeadReckonInternalMachineState newState = new ForwardDeadReckonInternalMachineState(currentState);
       Map<Move, Integer> moveWeights = opponentMoveSelectionCounts.get(move);
 
       LOGGER.info("Considering move: " + move);
@@ -143,62 +146,72 @@ public class IteratedGamePlayer
 
       while (!underlyingStateMachine.isTerminal(state))
       {
-        Move[] jointMove = new Move[2];
+        ForwardDeadReckonLegalMoveInfo[] jointMove = new ForwardDeadReckonLegalMoveInfo[2];
         int roleIndex = 0;
 
         for (Role role : underlyingStateMachine.getRoles())
         {
-          List<Move> roleMoves = underlyingStateMachine.getLegalMovesCopy(state, role);
+          Collection<ForwardDeadReckonLegalMoveInfo> roleMoves = underlyingStateMachine.getLegalMoves(state, role);
 
           if (roleMoves.size() == 1)
           {
-            jointMove[roleIndex] = roleMoves.get(0);
-          }
-          else if (role.equals(ourRole))
-          {
-            if (!roleMoves.contains(move))
-            {
-              LOGGER.warn("Unexpectedly cannot play intended move in iterated game!");
-            }
-            jointMove[roleIndex] = move;
-          }
-          else if (responderInNonSimultaneousGame)
-          {
-            jointMove[roleIndex] = lastPlayedOpponentChoice;
+            jointMove[roleIndex] = roleMoves.iterator().next();
           }
           else
           {
-            //  Do we have opponent response stats for this move?
-            if (moveWeights == null)
-            {
-              //  Assume flat distribution
-              moveWeights = new HashMap<>();
+            Map<Move,ForwardDeadReckonLegalMoveInfo> legalMoveMap = new HashMap<>();
 
-              for (Move m : roleMoves)
-              {
-                moveWeights.put(m, 1);
-              }
+            for(ForwardDeadReckonLegalMoveInfo moveInfo : roleMoves)
+            {
+              legalMoveMap.put(moveInfo.move, moveInfo);
             }
 
-            int total = 0;
-            for (Integer weight : moveWeights.values())
+            if (role.equals(ourRole))
             {
-              total += weight;
-            }
-
-            int rand = r.nextInt(total);
-            for (Move m : roleMoves)
-            {
-              Integer weight = moveWeights.get(m);
-              if (weight != null)
+              if (!legalMoveMap.containsKey(move))
               {
-                rand -= weight;
+                LOGGER.warn("Unexpectedly cannot play intended move in iterated game!");
+              }
+              jointMove[roleIndex] = legalMoveMap.get(move);
+            }
+            else if (responderInNonSimultaneousGame)
+            {
+              jointMove[roleIndex] = legalMoveMap.get(lastPlayedOpponentChoice);
+            }
+            else
+            {
+              //  Do we have opponent response stats for this move?
+              if (moveWeights == null)
+              {
+                //  Assume flat distribution
+                moveWeights = new HashMap<>();
+
+                for (Move m : legalMoveMap.keySet())
+                {
+                  moveWeights.put(m, 1);
+                }
               }
 
-              if (rand < 0)
+              int total = 0;
+              for (Integer weight : moveWeights.values())
               {
-                jointMove[roleIndex] = m;
-                break;
+                total += weight;
+              }
+
+              int rand = r.nextInt(total);
+              for (Move m : legalMoveMap.keySet())
+              {
+                Integer weight = moveWeights.get(m);
+                if (weight != null)
+                {
+                  rand -= weight;
+                }
+
+                if (rand < 0)
+                {
+                  jointMove[roleIndex] = legalMoveMap.get(m);
+                  break;
+                }
               }
             }
           }
@@ -206,7 +219,9 @@ public class IteratedGamePlayer
           roleIndex++;
         }
 
-        state = underlyingStateMachine.getNextState(state, jointMove);
+        underlyingStateMachine.getNextState(state, null, jointMove, newState);
+
+        state.copy(newState);
       }
 
       int score = underlyingStateMachine.getGoal(ourRole);
