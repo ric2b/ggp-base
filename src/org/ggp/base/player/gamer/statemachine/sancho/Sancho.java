@@ -77,7 +77,6 @@ public class Sancho extends SampleGamer
   private short                       currentMoveDepth                = 0;
   private boolean                     underExpectedRangeScoreReported = false;
   private boolean                     overExpectedRangeScoreReported  = false;
-  private TargetedSolutionStatePlayer puzzlePlayer                    = null;
   private GameSearcher                searchProcessor                 = null;
   private String                      mLogName                        = null;
   private SystemStatsLogger           mSysStatsLogger                 = null;
@@ -234,8 +233,6 @@ public class Sancho extends SampleGamer
     {
       plan.considerPlan(convertPlanString(planString));
     }
-
-    puzzlePlayer = null;
 
     ourRole = getRole();
     LOGGER.info("Start clock: " + getMatch().getStartClock() + "s");
@@ -781,24 +778,14 @@ public class Sancho extends SampleGamer
         }
         else
         {
-          puzzlePlayer = new TargetedSolutionStatePlayer(underlyingStateMachine, this);
-          puzzlePlayer.setTargetState(terminalState);
-
-          Collection<Move> solution = puzzlePlayer.attemptAStarSolve(99, timeout - SAFETY_MARGIN);
-
-          if ( solution != null )
+          Collection<Move> solution = new TargetedSolutionStatePlayer(underlyingStateMachine,
+                                                                      terminalState,
+                                                                      this).attemptAStarSolve(99,
+                                                                                              timeout - SAFETY_MARGIN);
+          if (solution != null)
           {
             plan.considerPlan(solution);
             LOGGER.info("Solved by A*");
-          }
-          else
-          {
-            //  We do not expect this case to (usefully) arise, as if A* cannot solve it, the
-            //  old-style target-state puzzle solver probably doesn't have much chance either.
-            //  Now that we attempt A* solving during meta-gaming we might want to consider entirely
-            //  ditching the old-style solver, and just falling back to MCTS if A* fails, but for now
-            //  leaving intact
-            LOGGER.warn("Not solved by A* in available meta-gaming time - remaining time: " + (timeout - System.currentTimeMillis()) + "ms");
           }
         }
       }
@@ -857,7 +844,7 @@ public class Sancho extends SampleGamer
       GamerLogger.log("GamePlayer", "Profile stats: \n" + ProfilerContext.getContext().toString());
     }
 
-    if ((!mGameCharacteristics.isIteratedGame || numRoles != 2) && puzzlePlayer == null)
+    if (!mGameCharacteristics.isIteratedGame || numRoles != 2)
     {
       if (ThreadControl.RUN_SYNCHRONOUSLY)
       {
@@ -943,12 +930,6 @@ public class Sancho extends SampleGamer
       IteratedGamePlayer iteratedPlayer = new IteratedGamePlayer(underlyingStateMachine, this, mGameCharacteristics.isPseudoSimultaneousMove, roleOrdering, mGameCharacteristics.competitivenessBonus);
       bestMove = iteratedPlayer.selectMove(moves, timeout);
       LOGGER.info("Playing best iterated game move: " + bestMove);
-    }
-    else if (puzzlePlayer != null)
-    {
-      //bestMove = selectAStarMove(moves, timeout);
-      bestMove = puzzlePlayer.selectMove(moves, timeout);
-      LOGGER.info("Playing best puzzle move: " + bestMove);
     }
     else
     {
@@ -1105,7 +1086,6 @@ public class Sancho extends SampleGamer
     plan                         = null;
     roleOrdering                 = null;
     underlyingStateMachine       = null;
-    puzzlePlayer                 = null;
 
     // Get our parent to tidy up too.
     cleanupAfterMatch();
