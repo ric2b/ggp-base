@@ -24,6 +24,7 @@ import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.profile.ProfilerContext;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
@@ -158,7 +159,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60f");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60g");
   }
 
   @Override
@@ -305,6 +306,18 @@ public class Sancho extends SampleGamer
     mGameCharacteristics.isPseudoSimultaneousMove = false;
     mGameCharacteristics.isPseudoPuzzle = underlyingStateMachine.getIsPseudoPuzzle();
 
+    //  Create masks of possible control props, which we'll whittle down during simulation
+    //  If we wind up with a unique prop for each role e'll note it for future use
+    ForwardDeadReckonInternalMachineState[] roleControlMasks = new ForwardDeadReckonInternalMachineState[numRoles];
+    ForwardDeadReckonPropositionInfo[] roleControlProps = new ForwardDeadReckonPropositionInfo[numRoles];
+
+    for(int i = 0; i < numRoles; i++)
+    {
+      roleControlMasks[i] = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+      roleControlMasks[i].clear();
+      roleControlMasks[i].invert();
+    }
+
     //	Also monitor whether any given player always has the SAME choice of move (or just a single choice)
     //	every turn - such games are (highly probably) iterated games
     List<Set<Move>> roleMoves = new ArrayList<>();
@@ -369,6 +382,9 @@ public class Sancho extends SampleGamer
 
           if (legalMoves.size() > 1)
           {
+            //  This player has control (may not be only this player)
+            roleControlMasks[i].intersect(sampleState);
+
             Set<Move> previousChoices = roleMoves.get(i);
 
             if (previousChoices != null)
@@ -497,6 +513,54 @@ public class Sancho extends SampleGamer
       {
         greedyRolloutsDisabled = true;
         underlyingStateMachine.disableGreedyRollouts();
+      }
+    }
+    else if ( numRoles == 1 )
+    {
+      roleControlProps = null;
+    }
+    else
+    {
+      //  Did we identify unique control props?
+      //  We look for a proposition that is always true when a given role has more than one
+      //  move choice, and is never true if any other player has more than one move choice
+      //  This is slightly ovr-specific, and will not work for games with control denoted by a
+      //  set of props rather than a single one (e.g. - Pentago), but it will suffice for now
+      ForwardDeadReckonInternalMachineState[] inverseMasks = new ForwardDeadReckonInternalMachineState[numRoles];
+
+      for(int i = 0; i < numRoles; i++)
+      {
+        inverseMasks[i] = new ForwardDeadReckonInternalMachineState(roleControlMasks[i]);
+        inverseMasks[i].invert();
+      }
+
+      for(int i = 0; i < numRoles; i++)
+      {
+        //  Eliminate anything common to multiple roles
+        for(int j = 0; j < numRoles; j++)
+        {
+          if ( j != i )
+          {
+            roleControlMasks[i].intersect(inverseMasks[j]);
+          }
+        }
+        if ( roleControlMasks[i].size() != 1 )
+        {
+          LOGGER.info("Non-unique control mask for role " + i + ": " + roleControlMasks[i]);
+
+          roleControlProps = null;
+          break;
+        }
+
+        roleControlProps[i] = roleControlMasks[i].resolveIndex(roleControlMasks[i].getContents().nextSetBit(0));
+      }
+
+      if ( roleControlProps != null )
+      {
+        for(int i = 0; i < numRoles; i++)
+        {
+          LOGGER.info("Role " + i + " has control prop: " + roleControlProps[i].sentence);
+        }
       }
     }
 
@@ -857,7 +921,8 @@ public class Sancho extends SampleGamer
                             mGameCharacteristics,
                             greedyRolloutsDisabled,
                             heuristic,
-                            plan);
+                            plan,
+                            roleControlProps);
       searchProcessor.startSearch(System.currentTimeMillis() + 60000,
                                   new ForwardDeadReckonInternalMachineState(initialState),
                                   (short)0);

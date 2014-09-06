@@ -66,7 +66,15 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   {
     super();
     setRolloutSampleSize(4);
-    mConfigFile = loadConfig(xiGameDirectory);
+
+    if ( xiGameDirectory != null )
+    {
+      mConfigFile = loadConfig(xiGameDirectory);
+    }
+    else
+    {
+      mConfigFile = null;
+    }
   }
 
   /**

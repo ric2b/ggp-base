@@ -21,6 +21,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
@@ -135,6 +136,7 @@ public class MCTSTree
   final RolloutRequest                                mNodeSynchronousRequest;
   final ForwardDeadReckonLegalMoveInfo[]              mNodeTopMoveCandidates;
   final ForwardDeadReckonInternalMachineState[]       mChildStatesBuffer;
+  final ForwardDeadReckonPropositionInfo[]            mRoleControlProps;
   final ForwardDeadReckonInternalMachineState         mNextStateBuffer;
   final ForwardDeadReckonLegalMoveInfo[]              mJointMoveBuffer;
   final double[]                                      mCorrectedAverageScoresBuffer;
@@ -150,11 +152,13 @@ public class MCTSTree
                   RolloutProcessorPool xiRolloutPool,
                   RuntimeGameCharacteristics xiGameCharacateristics,
                   Heuristic xiHeuristic,
-                  GameSearcher xiGameSearcher)
+                  GameSearcher xiGameSearcher,
+                  ForwardDeadReckonPropositionInfo[] roleControlProps)
   {
     underlyingStateMachine = xiStateMachine;
     numRoles = xiStateMachine.getRoles().length;
     mStateSimilarityMap = (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false) ? null : new StateSimilarityMap(xiStateMachine.getFullPropNet(), xiNodePool));
+    mRoleControlProps = roleControlProps;
     nodePool = xiNodePool;
     scoreVectorPool = xiScorePool;
     edgePool = xiEdgePool;

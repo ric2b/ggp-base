@@ -16,6 +16,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.UncappedPool;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.exceptions.GDLException;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
@@ -177,7 +178,8 @@ public class GameSearcher implements Runnable, ActivityController
                     RuntimeGameCharacteristics gameCharacteristics,
                     boolean disableGreedyRollouts,
                     Heuristic heuristic,
-                    GamePlan plan)
+                    GamePlan plan,
+                    ForwardDeadReckonPropositionInfo[] roleControlProps)
   {
     mGameCharacteristics = gameCharacteristics;
     mPlan = plan;
@@ -213,7 +215,8 @@ public class GameSearcher implements Runnable, ActivityController
                                                  rolloutPool,
                                                  gameCharacteristics,
                                                  heuristic,
-                                                 this)};
+                                                 this,
+                                                 roleControlProps)};
     }
     else
     {
@@ -231,7 +234,8 @@ public class GameSearcher implements Runnable, ActivityController
                                           rolloutPool,
                                           gameCharacteristics,
                                           heuristic.createIndependentInstance(),
-                                          this);
+                                          this,
+                                          roleControlProps);
       }
     }
 
