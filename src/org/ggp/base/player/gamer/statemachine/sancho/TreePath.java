@@ -132,6 +132,16 @@ public class TreePath
     }
 
     /**
+     * Retrieve the node this path element leads from (upwards).
+     *
+     * @return the parent node, or null if it has been freed.
+     */
+    public TreeNode getParentNode()
+    {
+      return getNode(mParentRef);
+    }
+
+    /**
      * @return the edge this element encapsulates, or null if the edge has become invalid (because the parent and/or the
      *         child has been freed).
      */

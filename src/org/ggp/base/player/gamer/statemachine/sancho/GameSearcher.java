@@ -244,12 +244,12 @@ public class GameSearcher implements Runnable, ActivityController
       }
     }
 
-    for (MCTSTree tree : factorTrees)
-    {
-      tree.root = tree.allocateNode(initialState, null, false);
-      tree.root.decidingRoleIndex = underlyingStateMachine.getRoles().length - 1;
-      tree.root.setDepth((short)0);
-    }
+//    for (MCTSTree tree : factorTrees)
+//    {
+//      tree.root = tree.allocateNode(initialState, null, false);
+//      tree.root.decidingRoleIndex = underlyingStateMachine.getRoles().length - 1;
+//      tree.root.setDepth((short)0);
+//    }
   }
 
 

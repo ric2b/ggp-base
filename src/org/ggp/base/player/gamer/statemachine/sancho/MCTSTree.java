@@ -21,6 +21,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool;
 import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
@@ -62,7 +63,7 @@ public class MCTSTree
   /**
    * Whether to use UCB tuned as opposed to simple UCB
    */
-  public static final boolean                          USE_UCB_TUNED = MachineSpecificConfiguration.getCfgVal(CfgItem.USE_UCB_TUNED, true);
+  public final boolean                                 USE_UCB_TUNED;
 
   /**
    * For reasons not well understood, allowing select() to select complete children and propagate
@@ -80,6 +81,8 @@ public class MCTSTree
   final boolean                                        useEstimatedValueForUnplayedNodes;
   ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
+  volatile TreeNode                                    oldRoot = null;
+  int                                                  numUnexpandedRootChildren = 0;
   final int                                            numRoles;
   final int                                            mWeightDecayKneeDepth;
   final double                                         mWeightDecayScaleFactor;
@@ -224,6 +227,7 @@ public class MCTSTree
       LOGGER.info("Weight decay disabled");
     }
 
+    USE_UCB_TUNED = MachineSpecificConfiguration.getCfgVal(CfgItem.USE_UCB_TUNED, true);
     if (USE_UCB_TUNED)
     {
       LOGGER.info("Using UCB-tuned");
@@ -355,9 +359,9 @@ public class MCTSTree
         if (state != null)
         {
           result.setState(state);
-          if (SUPPORT_TRANSITIONS && !disallowTransposition)
+          if (!disallowTransposition)
           {
-            mPositions.put(result.state, result);
+            addToTranspositionIndexes(result);
           }
         }
         assert(!result.freed) : "Bad ref in positions table";
@@ -365,7 +369,6 @@ public class MCTSTree
       else
       {
         assert(!result.freed) : "Bad ref in positions table";
-        assert(result.decidingRoleIndex == numRoles - 1) : "Non-null move in position cache";
 
         numTranspositions++;
       }
@@ -411,10 +414,28 @@ public class MCTSTree
    */
   public void nodeFreed(TreeNode xiTreeNode)
   {
+    removeFromTranspositionIndexes(xiTreeNode.state);
+  }
+
+  public void addToTranspositionIndexes(TreeNode xiTreeNode)
+  {
     if (SUPPORT_TRANSITIONS)
     {
-      mPositions.remove(xiTreeNode.state);
+      mPositions.put(xiTreeNode.state, xiTreeNode);
     }
+  }
+
+  public void removeFromTranspositionIndexes(ForwardDeadReckonInternalMachineState xiState)
+  {
+    if (SUPPORT_TRANSITIONS)
+    {
+      mPositions.remove(xiState);
+    }
+  }
+
+  public TreeNode findTransposition(ForwardDeadReckonInternalMachineState xiState)
+  {
+    return (SUPPORT_TRANSITIONS ? mPositions.get(xiState) : null);
   }
 
   void processNodeCompletions()
@@ -455,29 +476,35 @@ public class MCTSTree
 
     if (root == null)
     {
-      root = allocateNode(factorState, null, false);
+      oldRoot = null;
+      root = allocateNode(factorState, null, true);
       root.decidingRoleIndex = numRoles - 1;
       root.setDepth(rootDepth);
     }
     else
     {
-      TreeNode newRoot = root.findNode(factorState, underlyingStateMachine.getRoles().length + 1);
-      if (newRoot == null)
-      {
-        if (root.complete)
-        {
-          LOGGER.info("New root missing because old root was complete");
-        }
-        else
-        {
-          LOGGER.warn("Unable to find root node in existing tree");
-        }
-        empty();
-        root = allocateNode(factorState, null, false);
-        root.decidingRoleIndex = numRoles - 1;
-        root.setDepth(rootDepth);
-      }
-      else
+      oldRoot = root;
+
+      root = allocateNode(factorState, null, true);
+      root.decidingRoleIndex = numRoles - 1;
+      root.setDepth(rootDepth);
+
+//      if (newRoot == null || newRoot.decidingRoleIndex != numRoles-1 )
+//      {
+//        if (root.complete)
+//        {
+//          LOGGER.info("New root missing because old root was complete");
+//        }
+//        else
+//        {
+//          LOGGER.warn("Unable to find root node in existing tree");
+//        }
+//        empty();
+//        root = allocateNode(factorState, null, false);
+//        root.decidingRoleIndex = numRoles - 1;
+//        root.setDepth(rootDepth);
+//      }
+//      else
       {
         //  Note - we cannot assert that the root depth matches what we're given.  This
         //  is because in some games the same state can occur at different depths (English Draughts
@@ -485,13 +512,13 @@ public class MCTSTree
         //  depths.  The result is that the 'depth' of a node can only be considered indicative
         //  rather than absolute.  This is good enough for our current usage, but should be borne
         //  in mind if that usage is expanded.
-        if (newRoot != root)
-        {
-          root.freeAllBut(newRoot);
-          assert(!newRoot.freed) : "Root node has been freed";
-          root = newRoot;
-        }
-        else
+//        if (newRoot != root)
+//        {
+//          root.freeAllBut(newRoot);
+//          assert(!newRoot.freed) : "Root node has been freed";
+//          root = newRoot;
+//        }
+//        else
         {
           if ( rootDepth == 0 )
           {
@@ -499,8 +526,8 @@ public class MCTSTree
             //  If the root score variance is 0 and this is a factored game, we mark this factor as
             //  uninteresting, and will henceforth spend no time searching it
             if ( factor != null &&
-                 root.numVisits > 500 &&
-                 Math.abs(root.getAverageSquaredScore(0) - root.getAverageScore(0)*root.getAverageScore(0)) < TreeNode.EPSILON )
+                 oldRoot.numVisits > 500 &&
+                 Math.abs(oldRoot.getAverageSquaredScore(0) - oldRoot.getAverageScore(0)*oldRoot.getAverageScore(0)) < TreeNode.EPSILON )
             {
               mIsIrrelevantFactor = true;
 
@@ -620,6 +647,22 @@ public class MCTSTree
     }
   }
 
+  public void setForcedMoveProps(ForwardDeadReckonInternalMachineState xiState, ForwardDeadReckonLegalMoveInfo[] jointMove)
+  {
+    if ( !gameCharacteristics.isSimultaneousMove )
+    {
+      for(int i = 0; i < numRoles; i++)
+      {
+        Role role = roleOrdering.roleIndexToRole(i);
+        ForwardDeadReckonLegalMoveSet moves = underlyingStateMachine.getLegalMoveSet(xiState);
+        if (searchFilter.getFilteredMovesSize(xiState, moves, role, true) == 1)
+        {
+          jointMove[i] = moves.getContents(role).iterator().next();
+        }
+      }
+    }
+  }
+
   private void selectAction(boolean forceSynchronous, Move xiChosenMove)
     throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
@@ -633,8 +676,12 @@ public class MCTSTree
       TreePath visited = mPathPool.allocate(mTreePathAllocator);
       TreeNode cur = root;
       TreePathElement selected = null;
+      int parentDepth = 0;
+
       while (!cur.isUnexpanded())
       {
+        parentDepth = cur.getDepth();
+
         selected = cur.select(visited, mJointMoveBuffer, xiChosenMove);
         cur = selected.getChildNode();
         xiChosenMove = null;
@@ -644,17 +691,21 @@ public class MCTSTree
       TreeNode newNode;
       if (!cur.complete)
       {
+        assert(selected == null || cur == selected.getChildNode());
+
         //  Expand for each role so we're back to our-move as we always rollout after joint moves
-        cur.expand(selected, mJointMoveBuffer);
+        cur = cur.expand(selected, mJointMoveBuffer, parentDepth);
+        assert(selected == null || cur == selected.getChildNode());
 
         if (!cur.complete)
         {
           selected = cur.select(visited, mJointMoveBuffer, null);
           newNode = selected.getChildNode();
+          parentDepth = cur.getDepth();
 
           int autoExpansionDepth = 0;
 
-          while ((newNode.decidingRoleIndex != numRoles - 1 || newNode.autoExpand) &&
+          while (newNode.state == cur.state &&
                  !newNode.complete)
           {
             if ( newNode.decidingRoleIndex == numRoles - 1 )
@@ -665,10 +716,13 @@ public class MCTSTree
             //  to do another
             if (newNode.isUnexpanded())
             {
-              newNode.expand(selected, mJointMoveBuffer);
+              newNode = newNode.expand(selected, mJointMoveBuffer, parentDepth);
+
+              assert(newNode == selected.getChildNode());
             }
             if (!newNode.complete)
             {
+              parentDepth = newNode.getDepth();
               selected = newNode.select(visited, mJointMoveBuffer, null);
               newNode = selected.getChildNode();
             }
@@ -700,7 +754,9 @@ public class MCTSTree
         newNode = cur;
       }
 
+
       // Perform the rollout request.
+      assert(newNode == selected.getChildNode());
       assert(!newNode.freed);
       newNode.rollOut(visited,
                       mGameSearcher.getPipeline(),

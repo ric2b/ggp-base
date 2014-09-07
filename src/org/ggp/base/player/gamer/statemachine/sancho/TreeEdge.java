@@ -98,6 +98,14 @@ public class TreeEdge
   }
 
   /**
+   * Set the number of times this edge has been selected through
+   */
+  public void setNumVisits(int count)
+  {
+    numChildVisits = (numChildVisits & hasBeenTrimmedMask) | count;
+  }
+
+  /**
    * Note that this edge has been trimmed
    */
   public void setHasBeenTrimmed()
