@@ -563,6 +563,7 @@ public class MCTSTree
   {
     FactorMoveChoiceInfo bestMoveInfo = root.getBestMove(true, null);
 
+    LOGGER.info("Num nodes in use: " + nodePool.getNumItemsInUse());
     LOGGER.info("Num true rollouts added: " + numNonTerminalRollouts);
     LOGGER.info("Num terminal nodes revisited: " + numTerminalRollouts);
     LOGGER.info("Num incomplete nodes: " + numIncompleteNodes);
