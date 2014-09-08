@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Random;
 
 import org.apache.logging.log4j.LogManager;
@@ -37,7 +36,7 @@ public class MCTSTree
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  public static final boolean                          FREE_COMPLETED_NODE_CHILDREN                = true;                                                          //true;
+  public static final boolean                          FREE_COMPLETED_NODE_CHILDREN                = false;//true;
   public static final boolean                          DISABLE_ONE_LEVEL_MINIMAX                   = true;
   private static final boolean                         SUPPORT_TRANSITIONS                         = true;
   public static final int                              MAX_SUPPORTED_BRANCHING_FACTOR              = 300;
@@ -56,7 +55,7 @@ public class MCTSTree
   private static final double                          CUTOFF_SIGMA                                 = 4;
 
   /**
-   * Whether to use state-similarity measures to heuristically weight mov selection
+   * Whether to use state-similarity measures to heuristically weight move selection
    */
   public static final boolean                          USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false);
 
@@ -92,7 +91,7 @@ public class MCTSTree
   final Pool<TreeEdge>                                 edgePool;
   final Pool<TreePath>                                 mPathPool;
   final CappedPool<MoveScoreInfo>                      mCachedMoveScorePool;
-  private final Map<ForwardDeadReckonInternalMachineState, TreeNode> mPositions;
+  private final Map<ForwardDeadReckonInternalMachineState, Long> mPositions;
   int                                                  sweepInstance                               = 0;
   List<TreeNode>                                       completedNodeQueue                          = new LinkedList<>();
   Map<Move, MoveScoreInfo>                             cousinMoveCache                             = new HashMap<>();
@@ -341,7 +340,7 @@ public class MCTSTree
     ProfileSection methodSection = ProfileSection.newInstance("allocateNode");
     try
     {
-      TreeNode result = ((state != null && SUPPORT_TRANSITIONS && !disallowTransposition) ? mPositions.get(state) : null);
+      TreeNode result = ((state != null && !disallowTransposition) ? findTransposition(state) : null);
 
       //validateAll();
       //  Use of pseudo-noops in factors can result in recreation of the root state (only)
@@ -400,7 +399,8 @@ public class MCTSTree
   }
 
   /**
-   * @return total number of nodes allocations made that were transpositions
+   * @return total number of nodes allocations made that       }
+were transpositions
    */
   public int getNumTranspositions()
   {
@@ -421,7 +421,7 @@ public class MCTSTree
   {
     if (SUPPORT_TRANSITIONS)
     {
-      mPositions.put(xiTreeNode.state, xiTreeNode);
+      mPositions.put(xiTreeNode.state, xiTreeNode.getRef());
     }
   }
 
@@ -435,7 +435,25 @@ public class MCTSTree
 
   public TreeNode findTransposition(ForwardDeadReckonInternalMachineState xiState)
   {
-    return (SUPPORT_TRANSITIONS ? mPositions.get(xiState) : null);
+    if ( SUPPORT_TRANSITIONS )
+    {
+      Long ref = mPositions.get(xiState);
+
+      TreeNode result = (ref == null ? null : TreeNode.get(nodePool, ref));
+      if ( result == null )
+      {
+        //  Stale node (from the middle of a forced move sequence that has now been trimmed)
+        mPositions.remove(xiState);
+      }
+      else
+      {
+        assert(gameCharacteristics.isSimultaneousMove || result == root || result.complete || result.mNumChildren != 1);
+      }
+
+      return result;
+    }
+
+    return null;
   }
 
   void processNodeCompletions()
@@ -618,15 +636,20 @@ public class MCTSTree
     if (root != null)
       root.validate(true);
 
-    for (Entry<ForwardDeadReckonInternalMachineState, TreeNode> e : mPositions.entrySet())
+    for (ForwardDeadReckonInternalMachineState e : mPositions.keySet())
     {
-      if (e.getValue().decidingRoleIndex != numRoles - 1)
+      TreeNode node = findTransposition(e);
+
+      if ( node != null )
       {
-        LOGGER.warn("Position references bad type");
-      }
-      if (!e.getValue().state.equals(e.getKey()))
-      {
-        LOGGER.warn("Position state mismatch");
+        if (node.decidingRoleIndex != numRoles - 1)
+        {
+          LOGGER.warn("Position references bad type");
+        }
+        if (!node.state.equals(e))
+        {
+          LOGGER.warn("Position state mismatch");
+        }
       }
     }
 
@@ -636,11 +659,11 @@ public class MCTSTree
       {
         if (node.decidingRoleIndex == numRoles - 1)
         {
-          if (node != mPositions.get(node.state))
+          if (node != findTransposition(node.state))
           {
             LOGGER.warn("Missing reference in positions table");
             LOGGER.warn("node state is: " + node.state + " with hash " + node.state.hashCode());
-            LOGGER.warn(mPositions.get(node.state));
+            LOGGER.warn(findTransposition(node.state));
           }
         }
       }
@@ -692,6 +715,7 @@ public class MCTSTree
       if (!cur.complete)
       {
         assert(selected == null || cur == selected.getChildNode());
+        assert(selected == null || cur.parents.contains(selected.getParentNode()));
 
         //  Expand for each role so we're back to our-move as we always rollout after joint moves
         cur = cur.expand(selected, mJointMoveBuffer, parentDepth);

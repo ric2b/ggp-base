@@ -142,14 +142,15 @@ public class TreePath
     }
 
     /**
+     * @param validateChild If true return the edge only if the child is still valid, else return it even if the child has been freed
      * @return the edge this element encapsulates, or null if the edge has become invalid (because the parent and/or the
      *         child has been freed).
      */
-    public TreeEdge getEdge()
+    public TreeEdge getEdge(boolean validateChild)
     {
       // Check that the edge is still valid before returning it.
       if ((getNode(mParentRef) == null) ||
-          (getNode(mChildRef) == null)  ||
+          (validateChild && getNode(mChildRef) == null)  ||
           (mEdge.mChildRef != mChildRef) ||
           (mEdge.mParentRef != mParentRef))
       {
@@ -284,7 +285,7 @@ public class TreePath
   {
     for (int lii = 0; lii < mNumElements; lii++)
     {
-      TreeEdge edge = mElements[lii].getEdge();
+      TreeEdge edge = mElements[lii].getEdge(true);
       if (edge == null)
       {
         return true;
@@ -322,7 +323,7 @@ public class TreePath
       getNextNode();
       assert(getCurrentElement() != null);
 
-      TreeEdge lEdge = getCurrentElement().getEdge();
+      TreeEdge lEdge = getCurrentElement().getEdge(true);
       if (lEdge == null)
       {
         return false;

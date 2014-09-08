@@ -124,7 +124,7 @@ public class TreeNode
   Object[]                              children            = null;
   short                                 mNumChildren        = 0;
   short[]                               primaryChoiceMapping = null;
-  private final ArrayList<TreeNode>     parents             = new ArrayList<>(1);
+  final ArrayList<TreeNode>     parents             = new ArrayList<>(1);
   private int                           sweepSeq;
   //private TreeNode sweepParent = null;
   boolean                               freed               = false;
@@ -478,6 +478,10 @@ public class TreeNode
       {
         boolean decidingRoleWin = false;
         boolean mutualWin = true;
+        //  Because we link directly through force-move sequences the deciding role in the completed
+        //  node may not b the role that chose that path from the parent - we must check what the choosing
+        //  rol on the particular parent was
+        int choosingRoleIndex = (parent.decidingRoleIndex+1)%tree.numRoles;
 
         for (int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
         {
@@ -485,7 +489,7 @@ public class TreeNode
           if ( tree.latchedScoreRangeBuffer[1] > tree.latchedScoreRangeBuffer[0] &&
                getAverageScore(roleIndex) > tree.latchedScoreRangeBuffer[1] - EPSILON)
           {
-            if (roleIndex == decidingRoleIndex &&
+            if (roleIndex == choosingRoleIndex &&
                 (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == 0 || hasSiblinglessParents()))
             {
               decidingRoleWin = true;
@@ -1285,6 +1289,7 @@ public class TreeNode
     // Reset primitives.
     numVisits = 0;
     numUpdates = 0;
+    mNumChildren = 0;
     isTerminal = false;
     autoExpand = false;
     leastLikelyWinner = -1;
@@ -1781,7 +1786,7 @@ public class TreeNode
     return from;
   }
 
-  private StateInfo calculateTerminalityAndAutoExpansion(ForwardDeadReckonInternalMachineState theState, int roleIndex)
+  private StateInfo calculateTerminalityAndAutoExpansion(ForwardDeadReckonInternalMachineState theState)
   {
     StateInfo result = StateInfo.bufferInstance;
 
@@ -1994,6 +1999,8 @@ public class TreeNode
   {
     boolean freeOldRoot = false;
 
+    assert(pathTo == null || parents.contains(pathTo.getParentNode()));
+
     if ( tree.oldRoot != null && this.depth == tree.root.depth+1 )
     {
       //System.out.println("Expanding root child " + mRef + " (" + (pathTo == null ? "<null>" : pathTo.getEdge().mPartialMove.move) + ")");
@@ -2006,7 +2013,9 @@ public class TreeNode
       }
     }
 
-    TreeNode result = expandInternal(pathTo, jointPartialMove, parentDepth);
+    TreeNode result = expandInternal(pathTo, jointPartialMove, parentDepth, false);
+
+    assert(tree.gameCharacteristics.isSimultaneousMove || result.mNumChildren > 1 || result == tree.root || result.complete);
 
     if ( freeOldRoot )
     {
@@ -2019,12 +2028,12 @@ public class TreeNode
     return result;
   }
 
-
-  private TreeNode expandInternal(TreePathElement pathTo, ForwardDeadReckonLegalMoveInfo[] jointPartialMove, int parentDepth)
+  private TreeNode expandInternal(TreePathElement pathTo, ForwardDeadReckonLegalMoveInfo[] jointPartialMove, int parentDepth, boolean isRecursiveExpansion)
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.expand");
     try
     {
+      assert(this == tree.root || parents.size() > 0);
       //assert(state.size()==10);
       //boolean assertTerminal = !state.toString().contains("b");
       //  Find the role this node is choosing for
@@ -2035,7 +2044,7 @@ public class TreeNode
 
       //  Don't evaluate terminality on the root since it cannot be (and latched score states
       //  might indicate it should be treated as such, but this is never correct for the root)
-      if (roleIndex == 0 && this != tree.root)
+      if (this != tree.root)
       {
         //  If this node does not follow its parent in joint-move order (because interim forced-choices have
         //  been trimmed out) then the joint move array will not necessarily contain the correct
@@ -2045,27 +2054,30 @@ public class TreeNode
           tree.setForcedMoveProps(state, jointPartialMove);
         }
 
-        boolean parentEvaluatedTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation && pathTo != null && parentDepth >= tree.gameCharacteristics.getEarliestCompletionDepth());
-        if (!parentEvaluatedTerminalOnNodeCreation && mNumChildren == 0)
+        if ( roleIndex == 0 )
         {
-          StateInfo info = calculateTerminalityAndAutoExpansion(state, decidingRoleIndex);
-
-          isTerminal = info.isTerminal;
-          autoExpand = info.autoExpand;
-
-          if (isTerminal)
+          boolean parentEvaluatedTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation && !isRecursiveExpansion && parentDepth >= tree.gameCharacteristics.getEarliestCompletionDepth());
+          if (!parentEvaluatedTerminalOnNodeCreation && mNumChildren == 0)
           {
-            if ( tree.gameCharacteristics.isPseudoPuzzle )
-            {
-              tree.underlyingStateMachine.getLatchedScoreRange(tree.root.state, tree.roleOrdering.roleIndexToRole(0), tree.latchedScoreRangeBuffer);
+            StateInfo info = calculateTerminalityAndAutoExpansion(state);
 
-              if ( info.terminalScore[0] == tree.latchedScoreRangeBuffer[1] )
+            isTerminal = info.isTerminal;
+            autoExpand = info.autoExpand;
+
+            if (isTerminal)
+            {
+              if ( tree.gameCharacteristics.isPseudoPuzzle )
               {
-                considerPathToAsPlan();
+                tree.underlyingStateMachine.getLatchedScoreRange(tree.root.state, tree.roleOrdering.roleIndexToRole(0), tree.latchedScoreRangeBuffer);
+
+                if ( info.terminalScore[0] == tree.latchedScoreRangeBuffer[1] )
+                {
+                  considerPathToAsPlan();
+                }
               }
+              markComplete(info.terminalScore, depth);
+              return this;
             }
-            markComplete(info.terminalScore, depth);
-            return this;
           }
         }
       }
@@ -2077,7 +2089,7 @@ public class TreeNode
         Role choosingRole = tree.roleOrdering.roleIndexToRole(roleIndex);
         int topMoveWeight = 0;
 
-        if ( pathTo != null && pathTo.getEdge().getHasBeenTrimmed() )
+        if ( !isRecursiveExpansion && pathTo != null && pathTo.getEdge(true).getHasBeenTrimmed() )
         {
           //  If the node is unexpanded, yet has already been visited, this must
           //  be a re-expansion following trimming.
@@ -2094,6 +2106,8 @@ public class TreeNode
 
         if ( mNumChildren == 1 && this != tree.root && !tree.gameCharacteristics.isSimultaneousMove )
         {
+          assert(pathTo != null);
+
           //  Forced responses do not get their own nodes - we just re-purpose this one
           ForwardDeadReckonLegalMoveInfo forcedChoice = tree.searchFilter.nextFilteredMove(itr);
           ForwardDeadReckonInternalMachineState newState = tree.mChildStatesBuffer[0];
@@ -2123,15 +2137,18 @@ public class TreeNode
             if ( existing != null )
             {
               assert(existing != this);
+              assert(existing.state.equals(newState));
 
               //  If the transposed-to node is already expanded we're done
               if ( !existing.complete && existing.isUnexpanded() )
               {
-                result = existing.expandInternal(null, jointPartialMove, parentDepth);
+                result = existing.expandInternal(pathTo, jointPartialMove, parentDepth, true);
+                assert(tree.gameCharacteristics.isSimultaneousMove || result.mNumChildren > 1 || result == tree.root || result.complete);
               }
               else
               {
                 result = existing;
+                assert(tree.gameCharacteristics.isSimultaneousMove || result.mNumChildren > 1 || result == tree.root || result.complete);
               }
             }
             else
@@ -2145,7 +2162,7 @@ public class TreeNode
               state.copy(newState);
               tree.addToTranspositionIndexes(this);
               //assert(state.size()==10);
-            }
+           }
           }
 
           if ( result == this )
@@ -2155,65 +2172,81 @@ public class TreeNode
             decidingRoleIndex = (decidingRoleIndex+1)%tree.numRoles;
 
             //  Recurse
-            result = expandInternal(null, jointPartialMove, parentDepth);
+            result = expandInternal(pathTo, jointPartialMove, parentDepth, true);
           }
 
-          if ( pathTo != null && result != this )
+
+          if ( result != this )
           {
-            //  Adjust the edge that points to this forced move sequence to point to its terminus
-            TreeEdge edge = pathTo.getEdge();
             TreeNode parent = pathTo.getParentNode();
 
-            assert(parent != null);
-            assert(edge!=null);
-
-            //  This situation can only occur on the first expansion of the child of the edge
-            //  which happens the first or second time it is visited (first time it may result in
-            //  a playout from a leaf node that doesn't get expanded).  If it turn out to be a
-            //  transposition, not detected until the second selection, then the first selection
-            //  will not register on the visit counting of the new child, and the edge count needs
-            //  reducing to one for things to remain consistent
-            edge.setNumVisits(1);
-
-            //  In any other path it's only valid to create a path element where the number
-            //  of edge visits is no greater than the number of child node visits, but in the
-            //  selectAction path where this recursion can replace a node due to transpositions
-            //  we'll be in an intermediary state where the processing selection has incremented
-            //  the edge count, but not yet the child node count (which will be incremented on the
-            //  next step of the selection process).  This mans the constraint can be temporarily
-            //  'out by one', and rather than lose the power of these assertions we can make for the
-            //  'normal' case we transiently increment the child node count here if and only if
-            //  assertions are enabled.
-            assert(result.numVisits++ > 0);
-            edge.setChild(result);
-            pathTo.set(parent, edge);
-            assert(result.numVisits-- > 0);
-
-            //  Strictly this new path from parent to child by a forced-move path might
-            //  not be unique (it could turn out that multiple forced move sequences which
-            //  have different starting moves lead to the same result)
-            //  TODO - handle this case better (one of the moves should ideally no longer be
-            //  considered in selection)
-            if ( !result.parents.contains(result))
+            if ( !isRecursiveExpansion )
             {
-              result.addParent(parent);
+              //  Adjust the edge that points to this forced move sequence to point to its terminus
+              TreeEdge edge = pathTo.getEdge(false);
+
+              assert(parent != null);
+              assert(edge!=null);
+
+              //  This situation can only occur on the first expansion of the child of the edge
+              //  which happens the first or second time it is visited (first time it may result in
+              //  a playout from a leaf node that doesn't get expanded).  If it turn out to be a
+              //  transposition, not detected until the second selection, then the first selection
+              //  will not register on the visit counting of the new child, and the edge count needs
+              //  reducing to one for things to remain consistent
+              edge.setNumVisits(1);
+
+              //  In any other path it's only valid to create a path element where the number
+              //  of edge visits is no greater than the number of child node visits, but in the
+              //  selectAction path where this recursion can replace a node due to transpositions
+              //  we'll be in an intermediary state where the processing selection has incremented
+              //  the edge count, but not yet the child node count (which will be incremented on the
+              //  next step of the selection process).  This mans the constraint can be temporarily
+              //  'out by one', and rather than lose the power of these assertions we can make for the
+              //  'normal' case we transiently increment the child node count here if and only if
+              //  assertions are enabled.
+              assert(result.numVisits++ >= 0);
+              edge.setChild(result);
+              pathTo.set(parent, edge);
+              assert(result.numVisits-- > 0);
+
+              //  Strictly this new path from parent to child by a forced-move path might
+              //  not be unique (it could turn out that multiple forced move sequences which
+              //  have different starting moves lead to the same result)
+              //  TODO - handle this case better (one of the moves should ideally no longer be
+              //  considered in selection)
+              if ( !result.parents.contains(parent))
+              {
+                result.addParent(parent);
+              }
+
+              //  If the node transposed to was complete it must have been a non-decisive completion
+              //  but it could be that it completes all children of the new parent, so that must be
+              //  checked
+              if ( result.complete )
+              {
+                parent.checkChildCompletion(false);
+              }
             }
 
             //  The original node is no longer needed for this path since we wound up transposing
             //  However, it may have several parents, and we can only trim it from the current
             //  selection path (selection through the other paths will later transpose to the same result)
-            mNumChildren = 0; //  Must reset this so it appears unexpended for other paths if it doesn't get freed
-            freeFromAncestor(parent, null);
-
-            //  If the node transposed to was complete it must have been a non-decisive completion
-            //  but it could be that it completes all children of the new parent, so that must be
-            //  checked
-            if ( result.complete )
+            //  In rare cases this node may ALREADY have been freed by a decisive completion during
+            //  a recursive expansion of a node transposed into during the recursion (that shared a common
+            //  parent)
+            if ( !freed )
             {
-              parent.checkChildCompletion(false);
+              mNumChildren = 0; //  Must reset this so it appears unexpanded for other paths if it doesn't get freed
+              assert(parents.size() > 0);
+              if ( parents.contains(parent) )
+              {
+                freeFromAncestor(parent, null);
+              }
             }
           }
 
+          assert(tree.gameCharacteristics.isSimultaneousMove || result.mNumChildren > 1 || result == tree.root || result.complete);
           return result;
         }
 
@@ -2333,13 +2366,13 @@ public class TreeNode
           foundVirtualNoOp |= newChoice.isVirtualNoOp;
         }
 
-        if (evaluateTerminalOnNodeCreation && roleIndex == tree.numRoles - 1)
+        if (evaluateTerminalOnNodeCreation && (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == tree.numRoles - 1))
         {
           for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
           {
             if (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex)
             {
-              StateInfo info = calculateTerminalityAndAutoExpansion(tree.mChildStatesBuffer[lMoveIndex], roleIndex);
+              StateInfo info = calculateTerminalityAndAutoExpansion(tree.mChildStatesBuffer[lMoveIndex]);
 
               if (info.isTerminal || info.autoExpand)
               {
@@ -2407,7 +2440,7 @@ public class TreeNode
           }
         }
 
-        if (roleIndex == tree.numRoles - 1)
+        if ( !tree.gameCharacteristics.isSimultaneousMove || roleIndex == tree.numRoles - 1)
         {
           for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
           {
@@ -2469,7 +2502,7 @@ public class TreeNode
                   {
                     createChildNodeForEdge(edge, jointPartialMove);
 
-                    assert(!evaluateTerminalOnNodeCreation || !calculateTerminalityAndAutoExpansion(get(edge.mChildRef).state, roleIndex).isTerminal);
+                    assert(!evaluateTerminalOnNodeCreation || !calculateTerminalityAndAutoExpansion(get(edge.mChildRef).state).isTerminal);
                   }
 
                   TreeNode newChild = get(edge.mChildRef);
@@ -2497,7 +2530,7 @@ public class TreeNode
 
         //validateAll();
 
-        if (evaluateTerminalOnNodeCreation && roleIndex == tree.numRoles - 1 )
+        if (evaluateTerminalOnNodeCreation && (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == tree.numRoles - 1) )
         {
           boolean completeChildFound = false;
           TreeNode decisiveCompletionNode = null;
@@ -3123,12 +3156,12 @@ public class TreeNode
       assert(!tree.evaluateTerminalOnNodeCreation ||
              depth < tree.gameCharacteristics.getEarliestCompletionDepth() ||
              this == tree.root ||
-             !calculateTerminalityAndAutoExpansion(get(selected.mChildRef).state, decidingRoleIndex).isTerminal);
+             !calculateTerminalityAndAutoExpansion(get(selected.mChildRef).state).isTerminal);
     }
 
     assert(get(selected.mChildRef) != null);
 
-    if (!complete && roleIndex == 0 && MCTSTree.USE_STATE_SIMILARITY_IN_EXPANSION )
+    if (!complete && (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == 0) && MCTSTree.USE_STATE_SIMILARITY_IN_EXPANSION )
     {
       tree.mStateSimilarityMap.add(this);
     }
@@ -3384,7 +3417,8 @@ public class TreeNode
                     "@" +
                         depth +
                         ": Move " +
-                        arrivalPath.mPartialMove.move +
+                        (arrivalPath.mPartialMove.inputProposition == null ? arrivalPath.mPartialMove.move : arrivalPath.mPartialMove.inputProposition.getName()) +
+                        " (choosing role " + (decidingRoleIndex+1)%tree.numRoles + ")" +
                         " scores " + stringizeScoreVector() + "(ref " + mRef +
                         ") - visits: " + numVisits + " (" +
                         arrivalPath.getNumChildVisits() + ")");
@@ -3533,13 +3567,6 @@ public class TreeNode
           if (lNode.complete)
           {
             anyComplete = true;
-          }
-          else if (lNode.mNumChildren != 0 &&
-              tree.mGameSearcher.lowestRolloutScoreSeen < 100 && tree.gameCharacteristics.numRoles <= 2 &&
-              !tree.gameCharacteristics.isSimultaneousMove)
-          {
-            //	Post-process completions of children with respect the the observed rollout score range
-            lNode.postProcessResponseCompletion();
           }
         }
       }
@@ -3951,18 +3978,19 @@ public class TreeNode
     {
       TreePathElement lElement = xiPath.getCurrentElement();
       TreeEdge lChildEdge = (lElement == null ? null : lElement.getEdgeUnsafe());
-
-      TreeNode lChild = null;
-      if (lChildEdge != null)
-      {
-        lChild = lNode.get(lChildEdge.mChildRef);
-      }
-
       lNextNode = null;
+
+      // Across a turn end it is possible for queued paths to run into freed nodes due to trimming of the tree at the
+      // root to advance the turn.  Rather than add locking and force clearing the rollout pipeline synchronously on
+      // turn start it is more efficient to simply abort the update when the path leads to a no-longer extant region of
+      // the tree.
       if (xiPath.hasMore())
       {
         lNextNode = xiPath.getNextNode();
-        assert(lNextNode != null);
+        if (lNextNode == null)
+        {
+          return System.nanoTime() - lStartTime;
+        }
       }
 
       // Do the stats update for the selected node.
@@ -3987,6 +4015,7 @@ public class TreeNode
              tree.gameCharacteristics.numRoles > 2) &&
             lChildEdge != null)
         {
+          TreeNode lChild = lNode.get(lChildEdge.mChildRef);
           //  Take the min of the apparent edge selection and the total num visits in the child
           //  This is necessary because when we re-expand a node that was previously trimmed we
           //  leave the edge with its old selection count even though the child node will be

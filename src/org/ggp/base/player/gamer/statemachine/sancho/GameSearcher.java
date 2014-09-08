@@ -481,7 +481,7 @@ public class GameSearcher implements Runnable, ActivityController
   {
     synchronized(getSerializationObject())
     {
-      //  If we instiated a plan during this move calculation we must play from it
+      //  If we instigated a plan during this move calculation we must play from it
       if (!mPlan.isEmpty())
       {
         Move result = mPlan.nextMove();
