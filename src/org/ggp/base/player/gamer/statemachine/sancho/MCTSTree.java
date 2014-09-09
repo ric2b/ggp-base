@@ -36,7 +36,7 @@ public class MCTSTree
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  public static final boolean                          FREE_COMPLETED_NODE_CHILDREN                = false;//true;
+  public static final boolean                          FREE_COMPLETED_NODE_CHILDREN                = true;
   public static final boolean                          DISABLE_ONE_LEVEL_MINIMAX                   = true;
   private static final boolean                         SUPPORT_TRANSITIONS                         = true;
   public static final int                              MAX_SUPPORTED_BRANCHING_FACTOR              = 300;
@@ -782,7 +782,8 @@ were transpositions
 
 
       // Perform the rollout request.
-      assert(newNode == selected.getChildNode());
+      assert(selected != null || newNode == root);
+      assert(selected == null || newNode == selected.getChildNode());
       assert(!newNode.freed);
       newNode.rollOut(visited,
                       mGameSearcher.getPipeline(),
