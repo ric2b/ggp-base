@@ -207,6 +207,7 @@ public class StateMachinePerformanceAnalyser
                                                                                     gameCharacteristics);
         List<Gdl> description = theRepository.getGame(gameKey).getRules();
         theMachine.initialize(description);
+        theMachine.disableGreedyRollouts();
 
         GameSearcher gameSearcher = new GameSearcher(1000000, theMachine.getRoles().length, "PerfTest");
 
