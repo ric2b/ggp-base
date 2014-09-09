@@ -3584,19 +3584,20 @@ public class TreeNode
         {
           TreeNode lNode = get(edge.mChildRef);
 
-          if ( edge.getNumChildVisits() > maxChildVisitCount )
+          if ( lNode != null )
           {
-            maxChildVisitCount = edge.getNumChildVisits();
-          }
-          if (lNode.complete)
-          {
-            anyComplete = true;
+            if ( lNode.numVisits > maxChildVisitCount )
+            {
+              maxChildVisitCount = lNode.numVisits;
+            }
+            if (lNode.complete)
+            {
+              anyComplete = true;
+            }
           }
         }
       }
     }
-
-    tree.processNodeCompletions();
 
     for (int lii = 0; lii < mNumChildren; lii++)
     {
