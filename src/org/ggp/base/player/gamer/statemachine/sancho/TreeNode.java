@@ -165,6 +165,7 @@ public class TreeNode
   public void setState(ForwardDeadReckonInternalMachineState xiState)
   {
     state.copy(xiState);
+    //assert(mNumChildren <= 1 || state.toString().contains("control o") == (decidingRoleIndex == 1));
   }
 
   /**
@@ -401,6 +402,7 @@ public class TreeNode
   {
     if (!complete)
     {
+      //assert(state.toString().contains("control o") == (decidingRoleIndex == 1));
       //validateCompletionValues(values);
       //validateAll();
       for (int i = 0; i < tree.numRoles; i++)
@@ -1928,7 +1930,14 @@ public class TreeNode
     assert(!newChild.freed);
     edge.setChild(newChild);
 
-    newChild.decidingRoleIndex = roleIndex;
+    //assert(newChild.mNumChildren <= 1 || newChild.state.toString().contains("control o") == (newChild.decidingRoleIndex == 1));
+    //  Don't overwrite the deciding role index if the child we got was actually a transposition into an already
+    //  expanded node, as it could be some way down a forced response sequence
+    if ( newChild.mNumChildren == 0 )
+    {
+      newChild.decidingRoleIndex = roleIndex;
+    }
+    //assert(newChild.mNumChildren <= 1 || newChild.state.toString().contains("control o") == (newChild.decidingRoleIndex == 1));
 
     //  If this was a transposition to an existing node it can be linked at multiple depths.
     //  Give it the lowest depth at which it has been seen, as this is guaranteed to preserve
@@ -2016,6 +2025,7 @@ public class TreeNode
     TreeNode result = expandInternal(pathTo, jointPartialMove, parentDepth, false);
 
     assert(tree.gameCharacteristics.isSimultaneousMove || result.mNumChildren > 1 || result == tree.root || result.complete);
+    //assert(this == tree.root || result.state.toString().contains("control o") == (result.decidingRoleIndex == 1));
 
     if ( freeOldRoot )
     {
@@ -2104,6 +2114,7 @@ public class TreeNode
         mNumChildren = (short)tree.searchFilter.getFilteredMovesSize(state, moves, choosingRole, true);
         Iterator<ForwardDeadReckonLegalMoveInfo> itr = moves.getContents(choosingRole).iterator();
 
+        //assert(mNumChildren <= 1 || state.toString().contains("control o") == (decidingRoleIndex == 1));
         if ( mNumChildren == 1 && this != tree.root && !tree.gameCharacteristics.isSimultaneousMove )
         {
           assert(pathTo != null);
@@ -2144,24 +2155,34 @@ public class TreeNode
               {
                 result = existing.expandInternal(pathTo, jointPartialMove, parentDepth, true);
                 assert(tree.gameCharacteristics.isSimultaneousMove || result.mNumChildren > 1 || result == tree.root || result.complete);
+                //assert(result.state.toString().contains("control o") == (result.decidingRoleIndex == 1));
               }
               else
               {
                 result = existing;
                 assert(tree.gameCharacteristics.isSimultaneousMove || result.mNumChildren > 1 || result == tree.root || result.complete);
+                //assert(result.state.toString().contains("control o") == (result.decidingRoleIndex == 1));
               }
             }
             else
             {
               //  Update the node transposition indexes
-              //  Note - we do NOT remove any indexing of the previous state
+              //  Note - ideally we would NOT remove any indexing of the previous state
               //  since if it pointed to this node, then it is pointing at an interim
               //  state in a forced move sequence, which anyway should evaluate to
               //  the terminus of that sequence, which will be this node at the end of
-              //  the recursion
+              //  the recursion.  HOWEVER, the state is an object reference to a fixed collection
+              //  associated with this node, and we're about to change its value, which will
+              //  change its hash key, so we must either create a new internal state instance
+              //  of remove the old index entry.  Due to the difficulty of cleaning up index
+              //  entries that do not correspond to an extant node state we DO remove the old
+              //  entry and accept that other forced moves paths transitioning through it will have to
+              //  redo the sequence recursion.
+              tree.removeFromTranspositionIndexes(state);
               state.copy(newState);
               tree.addToTranspositionIndexes(this);
               //assert(state.size()==10);
+              //assert(mNumChildren <= 1 || state.toString().contains("control o") == (decidingRoleIndex == 1));
            }
           }
 
@@ -2173,6 +2194,7 @@ public class TreeNode
 
             //  Recurse
             result = expandInternal(pathTo, jointPartialMove, parentDepth, true);
+            //assert(result.state.toString().contains("control o") == (result.decidingRoleIndex == 1));
           }
 
 
@@ -2246,6 +2268,7 @@ public class TreeNode
             }
           }
 
+          //assert(result.state.toString().contains("control o") == (result.decidingRoleIndex == 1));
           assert(tree.gameCharacteristics.isSimultaneousMove || result.mNumChildren > 1 || result == tree.root || result.complete);
           return result;
         }
@@ -2278,6 +2301,7 @@ public class TreeNode
           boolean isPseudoNullMove = (tree.factor != null && mNumChildren > 1);
 
           jointPartialMove[roleIndex] = newChoice;
+          //assert(this == tree.root || state.toString().contains("control o") == (decidingRoleIndex == 1));
 
           if ( isPseudoNullMove )
           {

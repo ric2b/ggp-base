@@ -421,6 +421,7 @@ were transpositions
   {
     if (SUPPORT_TRANSITIONS)
     {
+      //assert(xiTreeNode == root || xiTreeNode.mNumChildren <= 1 || xiTreeNode.state.toString().contains("control o") == (xiTreeNode.decidingRoleIndex == 1));
       mPositions.put(xiTreeNode.state, xiTreeNode.getRef());
     }
   }
@@ -448,6 +449,7 @@ were transpositions
       else
       {
         assert(gameCharacteristics.isSimultaneousMove || result == root || result.complete || result.mNumChildren != 1);
+        //assert(result == root || result.mNumChildren == 0 || result.state.toString().contains("control o") == (result.decidingRoleIndex == 1));
       }
 
       return result;
