@@ -492,7 +492,7 @@ public class TreeNode
                getAverageScore(roleIndex) > tree.latchedScoreRangeBuffer[1] - EPSILON)
           {
             if (roleIndex == choosingRoleIndex &&
-                (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == 0 || hasSiblinglessParents()))
+                (tree.removeNonDecisionNodes || roleIndex == 0 || hasSiblinglessParents()))
             {
               decidingRoleWin = true;
               if ( tree.numRoles == 1 )
@@ -511,10 +511,6 @@ public class TreeNode
         {
           // Win for whoever just moved after they got to choose so parent node is also decided
           parent.markComplete(this, completionDepth);
-
-          //	Force win in this state means a very likely good move in sibling states
-          //	so note that their selection probabilities should be increased
-          //markCousinsAsPriorityToSelect();
         }
         else
         {
@@ -1186,7 +1182,7 @@ public class TreeNode
       //	best value and crystalize as our value.   However, if it's simultaneous
       //	move complete with the average score since
       //	opponents cannot make the pessimal (for us) choice reliably
-      if (tree.gameCharacteristics.isSimultaneousMove && !decidingRoleWin)// && decidingRoleIndex == 0)
+      if (tree.gameCharacteristics.isSimultaneousMove && !decidingRoleWin)
       {
         //	If all option are complete but not decisive due to incomplete information
         //  arising form the opponent's simultaneous turn then take a weighted average
@@ -1531,6 +1527,13 @@ public class TreeNode
     tree.edgePool.free(lEdge);
   }
 
+  /**
+   * Find an extant node in the tree (if any) for a specified state
+   * within a given depth of the root
+   * @param targetState
+   * @param maxDepth
+   * @return matching node or null
+   */
   public TreeNode findNode(ForwardDeadReckonInternalMachineState targetState, int maxDepth)
   {
     if (state.equals(targetState) && decidingRoleIndex == tree.numRoles - 1)
@@ -1775,13 +1778,13 @@ public class TreeNode
 
     //  Children of the root should never be trimmed.  For us to have wanted to unexpand
     //  the root all its children must be unexpanded.  This is possible in factored games
-    //  where one factor has a compleet root, so all node allocation occurs in the other
+    //  where one factor has a complete root, so all node allocation occurs in the other
     //  factor(s)'s tree(s), so it is only a warned condition at this level
     if (from == null)
     {
       if ( tree.factor == null )
       {
-        LOGGER.warn("Attempt to trim chuild of root");
+        LOGGER.warn("Attempt to trim child of root");
       }
     }
 
@@ -2012,7 +2015,6 @@ public class TreeNode
 
     if ( tree.oldRoot != null && this.depth == tree.root.depth+1 )
     {
-      //System.out.println("Expanding root child " + mRef + " (" + (pathTo == null ? "<null>" : pathTo.getEdge().mPartialMove.move) + ")");
       tree.numUnexpandedRootChildren--;
       assert(tree.numUnexpandedRootChildren >= 0);
 
@@ -2024,13 +2026,10 @@ public class TreeNode
 
     TreeNode result = expandInternal(pathTo, jointPartialMove, parentDepth, false);
 
-    assert(tree.gameCharacteristics.isSimultaneousMove || result.mNumChildren > 1 || result == tree.root || result.complete);
-    //assert(this == tree.root || result.state.toString().contains("control o") == (result.decidingRoleIndex == 1));
+    assert(!tree.removeNonDecisionNodes || result.mNumChildren > 1 || result == tree.root || result.complete);
 
     if ( freeOldRoot )
     {
-      //tree.oldRoot.dumpTree("c:\\temp\\oldRoot.txt");
-      //tree.root.dumpTree("c:\\temp\\root.txt");
       tree.oldRoot.freeAllBut(tree.root);
       tree.oldRoot = null;
     }
@@ -2114,8 +2113,7 @@ public class TreeNode
         mNumChildren = (short)tree.searchFilter.getFilteredMovesSize(state, moves, choosingRole, true);
         Iterator<ForwardDeadReckonLegalMoveInfo> itr = moves.getContents(choosingRole).iterator();
 
-        //assert(mNumChildren <= 1 || state.toString().contains("control o") == (decidingRoleIndex == 1));
-        if ( mNumChildren == 1 && this != tree.root && !tree.gameCharacteristics.isSimultaneousMove )
+        if ( mNumChildren == 1 && this != tree.root && tree.removeNonDecisionNodes )
         {
           assert(pathTo != null);
 
@@ -2125,7 +2123,6 @@ public class TreeNode
           TreeNode result = this;
 
           jointPartialMove[roleIndex] = forcedChoice;
-          //System.out.println("Forced choice for role " + roleIndex + "(" + choosingRole + ") is " + forcedChoice.move + " in state: " + state);
 
           if (roleIndex == tree.numRoles - 1)
           {
@@ -2154,14 +2151,12 @@ public class TreeNode
               if ( !existing.complete && existing.isUnexpanded() )
               {
                 result = existing.expandInternal(pathTo, jointPartialMove, parentDepth, true);
-                assert(tree.gameCharacteristics.isSimultaneousMove || result.mNumChildren > 1 || result == tree.root || result.complete);
-                //assert(result.state.toString().contains("control o") == (result.decidingRoleIndex == 1));
+                assert(result.mNumChildren > 1 || result == tree.root || result.complete);
               }
               else
               {
                 result = existing;
-                assert(tree.gameCharacteristics.isSimultaneousMove || result.mNumChildren > 1 || result == tree.root || result.complete);
-                //assert(result.state.toString().contains("control o") == (result.decidingRoleIndex == 1));
+                assert(result.mNumChildren > 1 || result == tree.root || result.complete);
               }
             }
             else
@@ -2181,8 +2176,6 @@ public class TreeNode
               tree.removeFromTranspositionIndexes(state);
               state.copy(newState);
               tree.addToTranspositionIndexes(this);
-              //assert(state.size()==10);
-              //assert(mNumChildren <= 1 || state.toString().contains("control o") == (decidingRoleIndex == 1));
            }
           }
 
@@ -2194,7 +2187,6 @@ public class TreeNode
 
             //  Recurse
             result = expandInternal(pathTo, jointPartialMove, parentDepth, true);
-            //assert(result.state.toString().contains("control o") == (result.decidingRoleIndex == 1));
           }
 
 
@@ -2268,8 +2260,7 @@ public class TreeNode
             }
           }
 
-          //assert(result.state.toString().contains("control o") == (result.decidingRoleIndex == 1));
-          assert(tree.gameCharacteristics.isSimultaneousMove || result.mNumChildren > 1 || result == tree.root || result.complete);
+          assert(result.mNumChildren > 1 || result == tree.root || result.complete);
           return result;
         }
 
@@ -2290,7 +2281,6 @@ public class TreeNode
         if ( this == tree.root )
         {
           tree.numUnexpandedRootChildren = 0;
-          //System.out.println("Clearing root child unexpanded count");
         }
 
         boolean foundVirtualNoOp = false;
@@ -2301,7 +2291,6 @@ public class TreeNode
           boolean isPseudoNullMove = (tree.factor != null && mNumChildren > 1);
 
           jointPartialMove[roleIndex] = newChoice;
-          //assert(this == tree.root || state.toString().contains("control o") == (decidingRoleIndex == 1));
 
           if ( isPseudoNullMove )
           {
@@ -2382,15 +2371,13 @@ public class TreeNode
             if (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex)
             {
               tree.numUnexpandedRootChildren++;
-
-              //System.out.println("Root child unexpanded count now " + tree.numUnexpandedRootChildren + " with move " + ((ForwardDeadReckonLegalMoveInfo)children[lMoveIndex]).move);
             }
           }
 
           foundVirtualNoOp |= newChoice.isVirtualNoOp;
         }
 
-        if (evaluateTerminalOnNodeCreation && (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == tree.numRoles - 1))
+        if (evaluateTerminalOnNodeCreation && (tree.removeNonDecisionNodes || roleIndex == tree.numRoles - 1))
         {
           for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
           {
@@ -2464,7 +2451,7 @@ public class TreeNode
           }
         }
 
-        if ( !tree.gameCharacteristics.isSimultaneousMove || roleIndex == tree.numRoles - 1)
+        if ( tree.removeNonDecisionNodes || roleIndex == tree.numRoles - 1)
         {
           for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
           {
@@ -2554,7 +2541,7 @@ public class TreeNode
 
         //validateAll();
 
-        if (evaluateTerminalOnNodeCreation && (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == tree.numRoles - 1) )
+        if (evaluateTerminalOnNodeCreation && (tree.removeNonDecisionNodes || roleIndex == tree.numRoles - 1) )
         {
           boolean completeChildFound = false;
           TreeNode decisiveCompletionNode = null;
@@ -2605,12 +2592,6 @@ public class TreeNode
             }
           }
         }
-//
-//        if (USE_STATE_SIMILARITY_IN_EXPANSION && !complete && roleIndex == 0)
-//        {
-//          tree.mStateSimilarityMap.add(getRef());
-//        }
-        //validateAll();
       }
 
       return this;
@@ -2921,7 +2902,7 @@ public class TreeNode
       if (mNumChildren == 1)
       {
         //  Non-simultaneous move games always collapse one-choice nodes
-        assert(tree.gameCharacteristics.isSimultaneousMove || this == tree.root);
+        assert(!tree.removeNonDecisionNodes || this == tree.root);
         selectedIndex = 0;
       }
       else if ((xiForceMove != null) && (roleIndex == 0))
@@ -3185,7 +3166,7 @@ public class TreeNode
 
     assert(get(selected.mChildRef) != null);
 
-    if (!complete && (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == 0) && MCTSTree.USE_STATE_SIMILARITY_IN_EXPANSION )
+    if (!complete && (tree.removeNonDecisionNodes || roleIndex == 0) && MCTSTree.USE_STATE_SIMILARITY_IN_EXPANSION )
     {
       tree.mStateSimilarityMap.add(this);
     }

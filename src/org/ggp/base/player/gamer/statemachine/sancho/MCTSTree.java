@@ -77,6 +77,7 @@ public class MCTSTree
    * Eventually this flag will probably be removed once we're more confident that always enabling is ok
    */
   final boolean                                        allowAllGamesToSelectThroughComplete        = true;
+  final boolean                                        removeNonDecisionNodes;
   final boolean                                        useEstimatedValueForUnplayedNodes;
   ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
@@ -155,7 +156,7 @@ public class MCTSTree
                   Pool<TreePath> xiPathPool,
                   RoleOrdering xiRoleOrdering,
                   RolloutProcessorPool xiRolloutPool,
-                  RuntimeGameCharacteristics xiGameCharacateristics,
+                  RuntimeGameCharacteristics xiGameCharacteristics,
                   Heuristic xiHeuristic,
                   GameSearcher xiGameSearcher,
                   ForwardDeadReckonPropositionInfo[] roleControlProps)
@@ -178,6 +179,16 @@ public class MCTSTree
       searchFilter = xiStateMachine.getBaseFilter();
     }
 
+    //  Most of the time we don't want to create tree nodes representing stats in which
+    //  only a single choice is available to whichever role is choosing at that node.
+    //  However we continue to do so in two cases:
+    //    1) Single player games - this is necessary to preserve plan-generation by (simple)
+    //       backward walking of the tree from a win-terminal node
+    //    2) Simultaneous move games, because we must assess the impact of a move in a cousin
+    //       to cope with partial information, and a forced choice in one node does not imply
+    //       a forced choice in all cousins
+    removeNonDecisionNodes = (numRoles > 1 && !xiGameCharacteristics.isSimultaneousMove);
+
     //  Apply decay and cutoff if either:
     //    1)  The goals are sufficiently stable (goals in a non-terminal state are a good predictor
     //        of final result)
@@ -189,24 +200,24 @@ public class MCTSTree
     //        wherein win vs draw distribution over depth tends not to increase.  Mostly it is intended to capture
     //        the use of decay in games that have artificial draw-after-N-turns terminal conditions and where the non-draws
     //        can happen a lot earlier
-    if ( xiGameCharacateristics.numRoles > 1 &&
-         xiGameCharacateristics.getAverageNonDrawLength() > 0 &&
-         (xiGameCharacateristics.getGoalsStability() > GOALS_STABILITY_THRESHOLD ||
-          (xiGameCharacateristics.getMaxGameLengthDrawsProportion() > 0.9 &&
-           xiGameCharacateristics.getAverageNonDrawLength() <= xiGameCharacateristics.getAverageLength() &&
-           xiGameCharacateristics.getAverageLength() < (xiGameCharacateristics.getMaxLength()+xiGameCharacateristics.getMinLength())*1.05/2.0)))
+    if ( xiGameCharacteristics.numRoles > 1 &&
+         xiGameCharacteristics.getAverageNonDrawLength() > 0 &&
+         (xiGameCharacteristics.getGoalsStability() > GOALS_STABILITY_THRESHOLD ||
+          (xiGameCharacteristics.getMaxGameLengthDrawsProportion() > 0.9 &&
+           xiGameCharacteristics.getAverageNonDrawLength() <= xiGameCharacteristics.getAverageLength() &&
+           xiGameCharacteristics.getAverageLength() < (xiGameCharacteristics.getMaxLength()+xiGameCharacteristics.getMinLength())*1.05/2.0)))
     {
       //  If goals are stable the decay depth is somewhat arbitrary, but we want finishes to be plausibly 'in range'
       //  so we use the shortest length seen from the initial state.
       //  If goals are NOT stable and we are using decay based on seeing
       //  non-draw results earlier than average finishes we use that non-draw average length
-      if ( xiGameCharacateristics.getGoalsStability() > GOALS_STABILITY_THRESHOLD )
+      if ( xiGameCharacteristics.getGoalsStability() > GOALS_STABILITY_THRESHOLD )
       {
-        mWeightDecayKneeDepth = xiGameCharacateristics.getMinLength();
+        mWeightDecayKneeDepth = xiGameCharacteristics.getMinLength();
       }
       else
       {
-        mWeightDecayKneeDepth = (int)xiGameCharacateristics.getAverageNonDrawLength();
+        mWeightDecayKneeDepth = (int)xiGameCharacteristics.getAverageNonDrawLength();
       }
       //  Steepness of the cutoff is proportional th the depth of the knee (so basically we use
       //  a scale-free shape for decay) - this is an empirical decision and seems to be better than using
@@ -248,7 +259,7 @@ public class MCTSTree
     roleOrdering = xiRoleOrdering;
     mOurRole = xiRoleOrdering.roleIndexToRole(0);
     heuristic = xiHeuristic;
-    gameCharacteristics = xiGameCharacateristics;
+    gameCharacteristics = xiGameCharacteristics;
     rolloutPool = xiRolloutPool;
     mPositions = new HashMap<>((int)(nodePool.getCapacity() / 0.75f), 0.75f);
 
@@ -290,7 +301,7 @@ public class MCTSTree
     //  scores
     for (int i = 0; i < numRoles; i++)
     {
-      if (xiGameCharacateristics.numRoles > 2)
+      if (xiGameCharacteristics.numRoles > 2)
       {
         roleRationality[i] = (i == 0 ? 1 : 0.8);
       }
@@ -440,17 +451,14 @@ were transpositions
     {
       Long ref = mPositions.get(xiState);
 
-      TreeNode result = (ref == null ? null : TreeNode.get(nodePool, ref));
-      if ( result == null )
+      if ( ref == null )
       {
-        //  Stale node (from the middle of a forced move sequence that has now been trimmed)
-        mPositions.remove(xiState);
+        return null;
       }
-      else
-      {
-        assert(gameCharacteristics.isSimultaneousMove || result == root || result.complete || result.mNumChildren != 1);
-        //assert(result == root || result.mNumChildren == 0 || result.state.toString().contains("control o") == (result.decidingRoleIndex == 1));
-      }
+
+      TreeNode result = TreeNode.get(nodePool, ref);
+      assert(result != null);
+      assert(!removeNonDecisionNodes || result == root || result.complete || result.mNumChildren != 1);
 
       return result;
     }
@@ -503,56 +511,71 @@ were transpositions
     }
     else
     {
-      oldRoot = root;
-
-      root = allocateNode(factorState, null, true);
-      root.decidingRoleIndex = numRoles - 1;
-      root.setDepth(rootDepth);
-
-//      if (newRoot == null || newRoot.decidingRoleIndex != numRoles-1 )
-//      {
-//        if (root.complete)
-//        {
-//          LOGGER.info("New root missing because old root was complete");
-//        }
-//        else
-//        {
-//          LOGGER.warn("Unable to find root node in existing tree");
-//        }
-//        empty();
-//        root = allocateNode(factorState, null, false);
-//        root.decidingRoleIndex = numRoles - 1;
-//        root.setDepth(rootDepth);
-//      }
-//      else
+      if ( rootDepth == 0 && root.state.equals(factorState))
       {
-        //  Note - we cannot assert that the root depth matches what we're given.  This
-        //  is because in some games the same state can occur at different depths (English Draughts
-        //  exhibits this), which means that transitions to the same node can occur at multiple
-        //  depths.  The result is that the 'depth' of a node can only be considered indicative
-        //  rather than absolute.  This is good enough for our current usage, but should be borne
-        //  in mind if that usage is expanded.
-//        if (newRoot != root)
-//        {
-//          root.freeAllBut(newRoot);
-//          assert(!newRoot.freed) : "Root node has been freed";
-//          root = newRoot;
-//        }
-//        else
+        //  This is the start of the first turn, after some searching at the end of meta-gaming
+        //  If the root score variance is 0 and this is a factored game, we mark this factor as
+        //  uninteresting, and will henceforth spend no time searching it
+        if ( factor != null &&
+             root.numVisits > 500 &&
+             Math.abs(root.getAverageSquaredScore(0) - root.getAverageScore(0)*root.getAverageScore(0)) < TreeNode.EPSILON )
         {
-          if ( rootDepth == 0 )
-          {
-            //  This is the start of the first turn, after some searching at the end of meta-gaming
-            //  If the root score variance is 0 and this is a factored game, we mark this factor as
-            //  uninteresting, and will henceforth spend no time searching it
-            if ( factor != null &&
-                 oldRoot.numVisits > 500 &&
-                 Math.abs(oldRoot.getAverageSquaredScore(0) - oldRoot.getAverageScore(0)*oldRoot.getAverageScore(0)) < TreeNode.EPSILON )
-            {
-              mIsIrrelevantFactor = true;
+          mIsIrrelevantFactor = true;
 
-              LOGGER.info("Identified irrelevant factor - supressing search");
-            }
+          LOGGER.info("Identified irrelevant factor - supressing search");
+        }
+      }
+
+      if ( removeNonDecisionNodes )
+      {
+        //  If we are removing non-decision nodes a slightly different process to 'join up' the
+        //  new root to the existing nodes of the tree is required.  This is because we always
+        //  keep the root itself as 'our choice' so we can pick movs from it as normal, even if we only
+        //  have one choice (i.e. - we always want the root to be 'our' choice for the benefit of
+        //  getBestMove()).  However, an existing node with the root's state may now be another role's
+        //  choice, so we cannot just use it as the new root.  Instead we create a new root node and
+        //  let transposition handling 'join up' the tree as the moves are expanded.  Trimming of the
+        //  unreachable nodes then occurs as part of expansion when all root moves have been expanded.
+        //  This is triggered by a non-null value for 'oldRoot'
+        oldRoot = root;
+
+        root = allocateNode(factorState, null, true);
+        root.decidingRoleIndex = numRoles - 1;
+        root.setDepth(rootDepth);
+      }
+      else
+      {
+        oldRoot = null;
+
+        TreeNode newRoot = root.findNode(factorState, underlyingStateMachine.getRoles().length + 1);
+        if (newRoot == null )
+        {
+          if (root.complete)
+          {
+            LOGGER.info("New root missing because old root was complete");
+          }
+          else
+          {
+            LOGGER.warn("Unable to find root node in existing tree");
+          }
+          empty();
+          root = allocateNode(factorState, null, false);
+          root.decidingRoleIndex = numRoles - 1;
+          root.setDepth(rootDepth);
+        }
+        else
+        {
+          //  Note - we cannot assert that the root depth matches what we're given.  This
+          //  is because in some games the same state can occur at different depths (English Draughts
+          //  exhibits this), which means that transitions to the same node can occur at multiple
+          //  depths.  The result is that the 'depth' of a node can only be considered indicative
+          //  rather than absolute.  This is good enough for our current usage, but should be borne
+          //  in mind if that usage is expanded.
+          if (newRoot != root)
+          {
+            root.freeAllBut(newRoot);
+            assert(!newRoot.freed) : "Root node has been freed";
+            root = newRoot;
           }
         }
       }
@@ -672,9 +695,15 @@ were transpositions
     }
   }
 
+  /**
+   * Set the forced moves for each role whose move IS forced in the specified state and we
+   * are eliminating non-decision nodes
+   * @param xiState
+   * @param jointMove
+   */
   public void setForcedMoveProps(ForwardDeadReckonInternalMachineState xiState, ForwardDeadReckonLegalMoveInfo[] jointMove)
   {
-    if ( !gameCharacteristics.isSimultaneousMove )
+    if ( removeNonDecisionNodes )
     {
       for(int i = 0; i < numRoles; i++)
       {
@@ -701,16 +730,19 @@ were transpositions
       TreePath visited = mPathPool.allocate(mTreePathAllocator);
       TreeNode cur = root;
       TreePathElement selected = null;
-      int parentDepth = 0;
+      int parentDepth;
 
       while (!cur.isUnexpanded())
       {
-        parentDepth = cur.getDepth();
-
         selected = cur.select(visited, mJointMoveBuffer, xiChosenMove);
         cur = selected.getChildNode();
         xiChosenMove = null;
       }
+
+      //  The above loop may have skipped roles with forced choices and leave the joint move
+      //  buffer with several role moves set - before we start on expansion this needs to be corrected
+      setForcedMoveProps(cur.state, mJointMoveBuffer);
+      parentDepth = cur.getDepth();
 
       long lExpandStartTime = System.nanoTime();
       TreeNode newNode;
