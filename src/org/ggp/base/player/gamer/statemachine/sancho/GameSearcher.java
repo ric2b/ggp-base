@@ -83,6 +83,11 @@ public class GameSearcher implements Runnable, ActivityController
   private final SampleAverageRMS          mRMSFringeDepth = new SampleAverageRMS();
 
   /**
+   * The move chosen at the end of a turn.  (Cleared at the start of a new one, when the tree is re-rooted.)
+   */
+  private Move                            mChosenMove;
+
+  /**
    * Average observed branching factor from ode expansions
    */
   public final SampleAverage              mAverageBranchingFactor = new SampleAverageMean();
@@ -476,7 +481,7 @@ public class GameSearcher implements Runnable, ActivityController
   {
     synchronized(getSerializationObject())
     {
-      //  If we instated a plan during this move calculation we must play from it
+      //  If we instiated a plan during this move calculation we must play from it
       if (!mPlan.isEmpty())
       {
         Move result = mPlan.nextMove();
@@ -639,7 +644,7 @@ public class GameSearcher implements Runnable, ActivityController
         }
 
         // Perform an MCTS iteration.
-        lAllTreesCompletelyExplored &= tree.growTree(forceSynchronous);
+        lAllTreesCompletelyExplored &= tree.growTree(forceSynchronous, mChosenMove);
       }
     }
 
@@ -708,6 +713,9 @@ public class GameSearcher implements Runnable, ActivityController
                           ForwardDeadReckonInternalMachineState startState,
                           short rootDepth)
   {
+    // We no longer have a chosen move.
+    mChosenMove = null;
+
     // If we don't have any factor trees, we're playing from a real live plan (not a test one) so there's nothing to do.
     if (factorTrees == null)
     {
@@ -743,6 +751,20 @@ public class GameSearcher implements Runnable, ActivityController
 
       this.notify();
     }
+  }
+
+  /**
+   * Mark a move as one that has been chosen (by us).  The tree can't be re-rooted yet because we haven't heard the
+   * complete set of moves back from the server - but we can assume that we'll have picked this move and therefore
+   * only look down this branch.
+   *
+   * This is cleared when {@link #startSearch} is called (to re-root the tree).
+   *
+   * @param xiMove - the chosen move.
+   */
+  public void chooseMove(Move xiMove)
+  {
+    mChosenMove = xiMove;
   }
 
   @Override

@@ -2647,12 +2647,15 @@ public class TreeNode
   }
 
   /**
-   * Select the child node to descend through during MCTS node selection
+   * Select the child node to descend through during MCTS node selection.
+   *
    * @param path - path taken from the root to this node
    * @param jointPartialMove - partial current move at this depth
+   * @param xiForceMove - force selection of the specified move, provided that it's our turn (or null not to force).
+   *
    * @return PathElement to add to the path representing the selected child
    */
-  TreePathElement select(TreePath path, ForwardDeadReckonLegalMoveInfo[] jointPartialMove)
+  TreePathElement select(TreePath path, ForwardDeadReckonLegalMoveInfo[] jointPartialMove, Move xiForceMove)
   {
     TreeEdge selected = null;
     int selectedIndex = -1;
@@ -2674,6 +2677,23 @@ public class TreeNode
       if (mNumChildren == 1)
       {
          selectedIndex = 0;
+      }
+      else if ((xiForceMove != null) && (roleIndex == 0))
+      {
+        // Find the move that we already know we're going to play.
+        for (short lii = 0; lii < mNumChildren; lii++)
+        {
+          if (children[lii] instanceof TreeEdge)
+          {
+            TreeEdge lEdge = (TreeEdge)children[lii];
+            if (lEdge.mPartialMove.move.equals(xiForceMove))
+            {
+              selectedIndex = lii;
+            }
+          }
+        }
+
+        assert(selectedIndex != -1) : "Failed to find forced move: " + xiForceMove;
       }
       else
       {

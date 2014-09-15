@@ -526,7 +526,9 @@ public class MCTSTree
 
   /**
    * Perform a single MCTS expansion.
+   *
    * @param forceSynchronous
+   * @param xiChosenMove - the move which has already been chosen (for us) this turn.
    *
    * @return whether the tree is now fully explored.
    *
@@ -535,7 +537,7 @@ public class MCTSTree
    * @throws GoalDefinitionException
    * @throws InterruptedException
    */
-  public boolean growTree(boolean forceSynchronous)
+  public boolean growTree(boolean forceSynchronous, Move xiChosenMove)
     throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     //  In an irrelevant factor we don't want to waste time searching - just need
@@ -547,7 +549,7 @@ public class MCTSTree
 
     //validateAll();
     //validationCount++;
-    selectAction(forceSynchronous);
+    selectAction(forceSynchronous, xiChosenMove);
     processNodeCompletions();
     return root.complete;
   }
@@ -615,7 +617,8 @@ public class MCTSTree
     }
   }
 
-  private void selectAction(boolean forceSynchronous) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
+  private void selectAction(boolean forceSynchronous, Move xiChosenMove)
+    throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.selectAction");
     try
@@ -629,8 +632,9 @@ public class MCTSTree
       TreePathElement selected = null;
       while (!cur.isUnexpanded())
       {
-        selected = cur.select(visited, mJointMoveBuffer);
+        selected = cur.select(visited, mJointMoveBuffer, xiChosenMove);
         cur = selected.getChildNode();
+        xiChosenMove = null;
       }
 
       long lExpandStartTime = System.nanoTime();
@@ -642,7 +646,7 @@ public class MCTSTree
 
         if (!cur.complete)
         {
-          selected = cur.select(visited, mJointMoveBuffer);
+          selected = cur.select(visited, mJointMoveBuffer, null);
           newNode = selected.getChildNode();
 
           int autoExpansionDepth = 0;
@@ -662,7 +666,7 @@ public class MCTSTree
             }
             if (!newNode.complete)
             {
-              selected = newNode.select(visited, mJointMoveBuffer);
+              selected = newNode.select(visited, mJointMoveBuffer, null);
               newNode = selected.getChildNode();
             }
           }

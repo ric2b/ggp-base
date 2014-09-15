@@ -976,8 +976,6 @@ public class Sancho extends SampleGamer
       }
     }
 
-    LOGGER.debug("Setting search root");
-
     if ((plan != null) && (!plan.isEmpty()))
     {
       // We have a pre-prepared plan.  Simply play the next move.
@@ -1001,6 +999,7 @@ public class Sancho extends SampleGamer
       //emptyTree();
       //root = null;
       //validateAll();
+      LOGGER.debug("Setting search root");
       searchProcessor.startSearch(finishBy, currentState, currentMoveDepth);
       currentMoveDepth += numRoles;
 
@@ -1027,6 +1026,10 @@ public class Sancho extends SampleGamer
         bestMove = moves.get(0);
       }
       LOGGER.info("Playing move: " + bestMove);
+
+      // Record that we've made the move.  Until we've heard back from the server, the game searcher will always search
+      // down this branch.  (This must be done before we release the game searcher again.)
+      searchProcessor.chooseMove(bestMove);
 
       searchProcessor.requestYield(false);
 

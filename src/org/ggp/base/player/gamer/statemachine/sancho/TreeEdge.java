@@ -57,9 +57,10 @@ public class TreeEdge
   /**
    * Top bit of the numChildVisits is used to encode an edge re-expansion event
    */
-  static final private int hasBeenTrimmedMask = 0x80000000;
-  static final private int childVisitNumVisitsMask = ~hasBeenTrimmedMask;
+  private static final int HAS_BEEN_TRIMMED_MASK = 0x80000000;
+  private static final int NUM_VISITS_MASK = ~HAS_BEEN_TRIMMED_MASK;
   private int  numChildVisits       = 0;
+
   double explorationAmplifier       = 0;
 
   /**
@@ -77,7 +78,7 @@ public class TreeEdge
    */
   public int getNumChildVisits()
   {
-    return (numChildVisits & childVisitNumVisitsMask);
+    return (numChildVisits & NUM_VISITS_MASK);
   }
 
   /**
@@ -85,7 +86,7 @@ public class TreeEdge
    */
   public boolean getHasBeenTrimmed()
   {
-    return (numChildVisits & hasBeenTrimmedMask) != 0;
+    return (numChildVisits & HAS_BEEN_TRIMMED_MASK) != 0;
   }
 
   /**
@@ -101,7 +102,7 @@ public class TreeEdge
    */
   public void setHasBeenTrimmed()
   {
-    numChildVisits |= hasBeenTrimmedMask;
+    numChildVisits |= HAS_BEEN_TRIMMED_MASK;
   }
 
   /**
