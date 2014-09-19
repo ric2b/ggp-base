@@ -108,7 +108,10 @@ public class TreeNode
   // sequence number is incremented each time the node is re-used (thereby invalidating old references).
   //
   // The index is in the low 32 bits.  The sequence number is in the high 32 bits.
+  //
+  // For performance we also keep the instance ID in its own field.  Having been set on allocation, this never changes.
   private long                          mRef                = 0;
+  private final int                     mInstanceID;
 
   public int                            numVisits           = 0;
   private double                        numUpdates          = 0;
@@ -149,6 +152,7 @@ public class TreeNode
   {
     tree = xiTree;
     mRef = xiPoolIndex;
+    mInstanceID = xiPoolIndex;
     state = new ForwardDeadReckonInternalMachineState(tree.underlyingStateMachine.getInfoSet());
     children = new Object[tree.gameCharacteristics.getChoicesHighWaterMark(0)];
   }
@@ -1318,32 +1322,26 @@ public class TreeNode
     return mRef;
   }
 
-  private int getInstanceId()
-  {
-    // The instance ID is packed into the bottom 32 bits of the node reference.
-    return (int)mRef;
-  }
-
   public double getAverageScore(int roleIndex)
   {
-    return tree.scoreVectorPool.getAverageScore(getInstanceId(), roleIndex);
+    return tree.scoreVectorPool.getAverageScore(mInstanceID, roleIndex);
   }
 
   public void setAverageScore(int roleIndex, double value)
   {
     assert(-EPSILON<=value);
     assert(100+EPSILON>=value);
-    tree.scoreVectorPool.setAverageScore(getInstanceId(), roleIndex, value);
+    tree.scoreVectorPool.setAverageScore(mInstanceID, roleIndex, value);
   }
 
   public double getAverageSquaredScore(int roleIndex)
   {
-    return tree.scoreVectorPool.getAverageSquaredScore(getInstanceId(), roleIndex);
+    return tree.scoreVectorPool.getAverageSquaredScore(mInstanceID, roleIndex);
   }
 
   public void setAverageSquaredScore(int roleIndex, double value)
   {
-    tree.scoreVectorPool.setAverageSquaredScore(getInstanceId(), roleIndex, value);
+    tree.scoreVectorPool.setAverageSquaredScore(mInstanceID, roleIndex, value);
   }
 
   void validate(boolean recursive)
