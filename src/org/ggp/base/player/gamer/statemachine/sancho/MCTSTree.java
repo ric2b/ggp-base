@@ -41,11 +41,13 @@ public class MCTSTree
   private static final boolean                         SUPPORT_TRANSITIONS                         = true;
   public static final int                              MAX_SUPPORTED_BRANCHING_FACTOR              = 300;
   private static final int                             NUM_TOP_MOVE_CANDIDATES                     = 4;
+
   /**
    * If goal stabiliy is above a certain threshold we can use interim-state goals to predict final results
    * which makes the use of weight decay and cutoffs appropriate
    */
   private static final double                          GOALS_STABILITY_THRESHOLD                   = 0.65;
+
   /**
    * The point in the weight decay at which cutoff occurs is set by how many sigmas past the knee
    * (4 is a weight of approximately 0.018, with the knee being the point of symmetry at 0.5)
@@ -55,11 +57,12 @@ public class MCTSTree
   /**
    * Whether to use state-similarity measures to heuristically weight mov selection
    */
-  public final boolean                                 USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false);
+  public static final boolean                          USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false);
+
   /**
    * Whether to use UCB tuned as opposed to simple UCB
    */
-  public final boolean                                 USE_UCB_TUNED;
+  public static final boolean                          USE_UCB_TUNED = MachineSpecificConfiguration.getCfgVal(CfgItem.USE_UCB_TUNED, true);
 
   /**
    * For reasons not well understood, allowing select() to select complete children and propagate
@@ -221,8 +224,7 @@ public class MCTSTree
       LOGGER.info("Weight decay disabled");
     }
 
-    USE_UCB_TUNED = MachineSpecificConfiguration.getCfgVal(CfgItem.USE_UCB_TUNED, true);
-    if ( USE_UCB_TUNED )
+    if (USE_UCB_TUNED)
     {
       LOGGER.info("Using UCB-tuned");
     }

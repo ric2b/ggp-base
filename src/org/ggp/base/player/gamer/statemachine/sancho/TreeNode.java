@@ -2059,7 +2059,7 @@ public class TreeNode
           children = new Object[tree.gameCharacteristics.getChoicesHighWaterMark(mNumChildren)];
         }
 
-        if (tree.USE_STATE_SIMILARITY_IN_EXPANSION)
+        if (MCTSTree.USE_STATE_SIMILARITY_IN_EXPANSION)
         {
           if (mNumChildren > 1)
           {
@@ -2191,7 +2191,7 @@ public class TreeNode
           }
         }
 
-        if (tree.USE_STATE_SIMILARITY_IN_EXPANSION && topMoveWeight > 0)
+        if (MCTSTree.USE_STATE_SIMILARITY_IN_EXPANSION && topMoveWeight > 0)
         {
           for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
           {
@@ -2433,6 +2433,8 @@ public class TreeNode
     double lVarianceExploration;
     double lUcbExploration;
 
+    int lNumChildVisits = edge.getNumChildVisits();
+
     //  If we're using weight decay we need to normalize the apparent sample sizes
     //  used to calculate the upper bound on variance for UCB-tuned or else the
     //  calculated upper bound on variance will be too low (we gain less information
@@ -2441,16 +2443,16 @@ public class TreeNode
     //  in conjunction with weight decay.
     //  Note - an analogous treatment of the sample sizes used to compute the simple UCB
     //  element is not helpful and actually does considerable harm in at last some games
-    if ( tree.mWeightDecayKneeDepth > 0 )
+    if (tree.mWeightDecayKneeDepth > 0)
     {
       double normalizedNumVisits;
       double normalizedNumChildVisits;
 
       TreeNode childNode = get(edge.mChildRef);
-      if ( childNode != null && childNode.numUpdates > 0 )
+      if (childNode != null && childNode.numUpdates > 0)
       {
-        normalizedNumVisits = effectiveTotalVists*(numUpdates+1)/numVisits;
-        normalizedNumChildVisits = edge.getNumChildVisits()*(childNode.numUpdates+1)/childNode.numVisits;
+        normalizedNumVisits = effectiveTotalVists * (numUpdates + 1) / numVisits;
+        normalizedNumChildVisits = edge.getNumChildVisits() * (childNode.numUpdates + 1) / childNode.numVisits;
       }
       else
       {
@@ -2459,17 +2461,17 @@ public class TreeNode
       }
 
       lVarianceExploration = 2 * Math.log(Math.max(normalizedNumVisits, normalizedNumChildVisits) + 1) / normalizedNumChildVisits;
-      lUcbExploration = 2 * Math.log(Math.max(effectiveTotalVists, edge.getNumChildVisits()) + 1) / edge.getNumChildVisits();
+      lUcbExploration = 2 * Math.log(Math.max(effectiveTotalVists, lNumChildVisits) + 1) / lNumChildVisits;
     }
     else
     {
-      lUcbExploration = 2 * Math.log(Math.max(effectiveTotalVists, edge.getNumChildVisits()) + 1) / edge.getNumChildVisits();
+      lUcbExploration = 2 * Math.log(Math.max(effectiveTotalVists, lNumChildVisits) + 1) / lNumChildVisits;
       lVarianceExploration = lUcbExploration;
     }
 
     double result;
 
-    if ( tree.USE_UCB_TUNED )
+    if (MCTSTree.USE_UCB_TUNED)
     {
       // When we propagate adjustments due to completion we do not also adjust the variance contribution so this can
       // result in 'impossibly' low (aka negative) variance - take a lower bound of 0
@@ -2930,7 +2932,7 @@ public class TreeNode
 
     assert(get(selected.mChildRef) != null);
 
-    if (!complete && roleIndex == 0 && tree.USE_STATE_SIMILARITY_IN_EXPANSION )
+    if (!complete && roleIndex == 0 && MCTSTree.USE_STATE_SIMILARITY_IN_EXPANSION )
     {
       tree.mStateSimilarityMap.add(this);
     }
