@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.apache.commons.lang.mutable.MutableDouble;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
@@ -20,7 +21,6 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.stats.PearsonCorrelation;
-import org.w3c.tidy.MutableInteger;
 
 /**
  * Heuristic which assumes that it's better to have more pieces than few.
@@ -838,85 +838,149 @@ public class PieceHeuristic implements Heuristic
   }
 
   @Override
-  public void getHeuristicValue(ForwardDeadReckonInternalMachineState state,
-                                ForwardDeadReckonInternalMachineState previousState,
-                                double[] xoHeuristicValue,
-                                MutableInteger xoHeuristicWeight)
+  public double getHeuristicValue(ForwardDeadReckonInternalMachineState state,
+                                  int choosingRoleIndex,
+                                  ForwardDeadReckonInternalMachineState previousState,
+                                  ForwardDeadReckonInternalMachineState xiHeuristicStabilityState,
+                                  double[] xoHeuristicValue,
+                                  MutableDouble xoHeuristicWeight)
   {
-    double total = 0;
-    double rootTotal = 0;
+    double ourPieceValue = pieceSets[0].getValue(state);
+    double theirPieceValue = pieceSets[1].getValue(state);
+    double ourPreviousPieceValue = 0;
+    double theirPreviousPieceValue = 0;
+    double result = 0;
+    double proportion = (ourPieceValue - theirPieceValue) / (ourPieceValue + theirPieceValue);
+    double previousProportion = 0;
+    double stableProportion = 0;
 
-    for (int i = 0; i < numRoles; i++)
+    if ( previousState != null )
     {
-      // Set the initial heuristic value for this role according to the difference in number of pieces between this
-      // state and the current state in the tree root.
-      double pieceValue = pieceSets[i].getValue(state);
-      xoHeuristicValue[i] = pieceValue - rootPieceValues[i];
+      ourPreviousPieceValue = pieceSets[0].getValue(previousState);
+      theirPreviousPieceValue = pieceSets[1].getValue(previousState);
 
-      total += pieceValue;
-      rootTotal += rootPieceValues[i];
+      previousProportion = (ourPreviousPieceValue - theirPreviousPieceValue) / (ourPreviousPieceValue + theirPreviousPieceValue);
 
-      // Counter-weight exchange sequences slightly to remove the first-capture bias, at least to first order.
-      double previousPieceValue = pieceSets[i].getValue(previousState);
-      if (pieceValue == rootPieceValues[i] &&
-          previousPieceValue < rootPieceValues[i])
+      if ( previousProportion != proportion )
       {
-        xoHeuristicValue[i] += 0.1;
-        total += 0.1;
+        //  Scaling is empirical based on some testing in Breakthrough and Skirmish.
+        //  However, given the decay factor on exploration bias this needs to be a fairly large
+        //  number to be effective
+        result = 2000*(proportion - previousProportion);
+        if ( choosingRoleIndex != 0 )
+        {
+          result = -result;
+        }
       }
-      else if (pieceValue == rootPieceValues[i] &&
-               previousPieceValue > rootPieceValues[i])
-      {
-        xoHeuristicValue[i] -= 0.1;
-        total -= 0.1;
-      }
-    }
 
-    for (int i = 0; i < numRoles; i++)
-    {
-      if (rootTotal != total)
+      if ( xiHeuristicStabilityState == previousState )
       {
-        // There has been an overall change in the number of pieces.  Calculate the proportion of that total gained/lost
-        // by this role and use that to generate a new average heuristic value for the role.
-        double proportion = (xoHeuristicValue[i] - (total - rootTotal) / numRoles) / (total / numRoles);
-        xoHeuristicValue[i] = 100 / (1 + Math.exp(-proportion * 10));
+        stableProportion = previousProportion;
       }
       else
       {
-        // There has been no overall change to the number of pieces.  Assume an average value.
-        // !! ARR Why?
-        xoHeuristicValue[i] = 50;
-      }
+        double ourStablePieceValue = pieceSets[0].getValue(xiHeuristicStabilityState);
+        double theirStablePieceValue = pieceSets[1].getValue(xiHeuristicStabilityState);
 
-      // Normalize against the root score since this is relative to the root state material balance.  Only do this if
-      // the root has had enough visits to have a credible estimate.
-      if (rootNode.numVisits > 50)
-      {
-        // Set the average score for the child to the average score of the root displaced towards the extremities
-        // (0/100) by a proportion of the amount that it currently deviates from the extremities, where that proportion
-        // is equal to the proportion by which the heuristic value deviates from the centre.
-        //
-        // This assumes that the root's score is a very good basis as the initial estimate for this child node and is
-        // certainly better than the heuristic value alone.
-        double rootAverageScore = rootNode.getAverageScore(i);
-        if (xoHeuristicValue[i] > 50)
-        {
-          xoHeuristicValue[i] = rootAverageScore +
-                                (100 - rootAverageScore) *
-                                (xoHeuristicValue[i] - 50) /
-                                50;
-        }
-        else
-        {
-          xoHeuristicValue[i] = rootAverageScore -
-                                (rootAverageScore) *
-                                (50 - xoHeuristicValue[i]) /
-                                50;
-        }
+        stableProportion = (ourStablePieceValue - theirStablePieceValue) / (ourStablePieceValue + theirStablePieceValue);
       }
     }
+    else
+    {
+      proportion = 0;
+    }
 
-    xoHeuristicWeight.value = heuristicSampleWeight;
+    //xoHeuristicValue[0] = 100 * sigma(10*(proportion-0.5));
+    xoHeuristicValue[0] = 100 * sigma(10*(proportion-stableProportion));
+    xoHeuristicValue[1] = 100 - xoHeuristicValue[0];
+
+    double weight = heuristicSampleWeight;
+
+    xoHeuristicWeight.setValue(weight);
+
+    //  For now we don't cope with negative exploration bias - this needs generalizing.
+    //  However, it would only happen in games where a role's own moves make their
+    //  position heuristically worse, which is not possible with the piece heuristic
+    //  for known games
+    return Math.max(0, result);
+//    double total = 0;
+//    double rootTotal = 0;
+//
+//    for (int i = 0; i < numRoles; i++)
+//    {
+//      // Set the initial heuristic value for this role according to the difference in number of pieces between this
+//      // state and the current state in the tree root.
+//      double pieceValue = pieceSets[i].getValue(state);
+//      xoHeuristicValue[i] = pieceValue - rootPieceValues[i];
+//
+//      total += pieceValue;
+//      rootTotal += rootPieceValues[i];
+//
+//      // Counter-weight exchange sequences slightly to remove the first-capture bias, at least to first order.
+//      double previousPieceValue = pieceSets[i].getValue(previousState);
+//      if (pieceValue == rootPieceValues[i] &&
+//          previousPieceValue < rootPieceValues[i])
+//      {
+//        xoHeuristicValue[i] += 0.1;
+//        total += 0.1;
+//      }
+//      else if (pieceValue == rootPieceValues[i] &&
+//               previousPieceValue > rootPieceValues[i])
+//      {
+//        xoHeuristicValue[i] -= 0.1;
+//        total -= 0.1;
+//      }
+//    }
+//
+//    for (int i = 0; i < numRoles; i++)
+//    {
+//      if (rootTotal != total)
+//      {
+//        // There has been an overall change in the number of pieces.  Calculate the proportion of that total gained/lost
+//        // by this role and use that to generate a new average heuristic value for the role.
+//        double proportion = (xoHeuristicValue[i] - (total - rootTotal) / numRoles) / (total / numRoles);
+//        xoHeuristicValue[i] = 100 / (1 + Math.exp(-proportion * 10));
+//      }
+//      else
+//      {
+//        // There has been no overall change to the number of pieces.  Assume an average value
+//        xoHeuristicValue[i] = 50;
+//      }
+//
+//      // Normalize against the root score since this is relative to the root state material balance.  Only do this if
+//      // the root has had enough visits to have a credible estimate.
+//      //if (rootNode.numVisits > 50)
+//      {
+//        // Set the average score for the child to the average score of the root displaced towards the extremities
+//        // (0/100) by a proportion of the amount that it currently deviates from the extremities, where that proportion
+//        // is equal to the proportion by which the heuristic value deviates from the centre.
+//        //
+//        // This assumes that the root's score is a very good basis as the initial estimate for this child node and is
+//        // certainly better than the heuristic value alone.
+//        double rootAverageScore = 50;//rootNode.getAverageScore(i);
+//        if (xoHeuristicValue[i] > 50)
+//        {
+//          xoHeuristicValue[i] = rootAverageScore +
+//                                (100 - rootAverageScore) *
+//                                (xoHeuristicValue[i] - 50) /
+//                                50;
+//        }
+//        else
+//        {
+//          xoHeuristicValue[i] = rootAverageScore -
+//                                (rootAverageScore) *
+//                                (50 - xoHeuristicValue[i]) /
+//                                50;
+//        }
+//      }
+//    }
+//
+//    xoHeuristicWeight.value = heuristicSampleWeight;
+  }
+
+  private static double sigma(double value)
+  {
+    return 1/(1 + Math.exp(-value));
   }
 
   @Override

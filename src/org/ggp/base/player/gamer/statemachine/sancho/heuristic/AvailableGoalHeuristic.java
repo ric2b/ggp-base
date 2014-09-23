@@ -2,11 +2,11 @@ package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
 import java.util.Arrays;
 
+import org.apache.commons.lang.mutable.MutableDouble;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
-import org.w3c.tidy.MutableInteger;
 
 /**
  * Available Goal Heuristic.
@@ -61,10 +61,12 @@ public class AvailableGoalHeuristic implements Heuristic
   }
 
   @Override
-  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                ForwardDeadReckonInternalMachineState xiPreviousState,
-                                double[] xoHeuristicValue,
-                                MutableInteger xoHeuristicWeight)
+  public double getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
+                                  int choosingRoleIndex,
+                                  ForwardDeadReckonInternalMachineState xiPreviousState,
+                                  ForwardDeadReckonInternalMachineState xiHeuristicStabilityState,
+                                  double[] xoHeuristicValue,
+                                  MutableDouble xoHeuristicWeight)
   {
     // Compute the heuristic value
     mStateMachine.getAverageAvailableGoals(xiState, mRoleOrdering, xoHeuristicValue);
@@ -72,7 +74,7 @@ public class AvailableGoalHeuristic implements Heuristic
 
     // If the heuristic value differs from our parent, set weight 10, otherwise 0.  (In children of the root state, it
     // isn't sufficiently interesting/reliable use.)
-    xoHeuristicWeight.value = 0;
+    xoHeuristicWeight.setValue(0);
     if (xiPreviousState != null)
     {
       double[] lParentValues = (double[])xiPreviousState.getHeuristicData(this);
@@ -89,11 +91,13 @@ public class AvailableGoalHeuristic implements Heuristic
       {
         if (lParentValues[lii] != xoHeuristicValue[lii])
         {
-          xoHeuristicWeight.value = 10;
+          xoHeuristicWeight.setValue(10);
           break;
         }
       }
     }
+
+    return 0;
   }
 
   @Override

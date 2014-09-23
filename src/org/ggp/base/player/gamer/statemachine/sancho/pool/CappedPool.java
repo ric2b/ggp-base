@@ -16,9 +16,11 @@ public class CappedPool<ItemType> implements Pool<ItemType>
   // The pool of items.
   private final ItemType[]                             mItems;
 
-  // Items that are available for re-use.
+  //  Items that are available for re-use.  This is a circular buffer
+  //  so that it has a LIFO access pattern
   private final ItemType[]                             mFreeItems;
   private int                                          mNumFreeItems;
+  private int                                          mFirstFreeitem;
 
   // Array index of the largest allocated item.  Used to track whether an attempt to allocate a new item should really
   // allocate a new item (if we're not yet at the maximum) or re-use and existing item.  This can never exceed
@@ -84,7 +86,7 @@ public class CappedPool<ItemType> implements Pool<ItemType>
     // (c) makes GC slower because there's a bigger heap to inspect.
     if (mNumFreeItems != 0)
     {
-      lAllocatedItem = mFreeItems[--mNumFreeItems];
+      lAllocatedItem = mFreeItems[(mFirstFreeitem + --mNumFreeItems)%mPoolSize];
 
       // Reset the item so that it's ready for re-use.
       xiAllocator.resetObject(lAllocatedItem, false);
@@ -118,7 +120,7 @@ public class CappedPool<ItemType> implements Pool<ItemType>
   public void free(ItemType xiItem)
   {
     mNumItemsInUse--;
-    mFreeItems[mNumFreeItems++] = xiItem;
+    mFreeItems[(mFirstFreeitem + mNumFreeItems++)%mPoolSize] = xiItem;
   }
 
   @Override
@@ -144,6 +146,7 @@ public class CappedPool<ItemType> implements Pool<ItemType>
 
       mNumFreeItems = mLargestUsedIndex + 1;
       mNumItemsInUse = 0;
+      mFirstFreeitem = 0;
     }
     else
     {
@@ -156,7 +159,7 @@ public class CappedPool<ItemType> implements Pool<ItemType>
         if (xiAllocator.shouldReset(mItems[i]))
         {
           xiAllocator.resetObject(mItems[i], true);
-          mFreeItems[mNumFreeItems++] = mItems[i];
+          mFreeItems[(mFirstFreeitem+mNumFreeItems++)%mPoolSize] = mItems[i];
           mNumItemsInUse--;
         }
       }

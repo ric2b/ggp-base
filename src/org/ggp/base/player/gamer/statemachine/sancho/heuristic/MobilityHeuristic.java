@@ -4,6 +4,7 @@ package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
 import java.util.Arrays;
 
+import org.apache.commons.lang.mutable.MutableDouble;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
@@ -12,7 +13,6 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.stats.PearsonCorrelation;
-import org.w3c.tidy.MutableInteger;
 
 /**
  * Heuristic which assumes that it's better to have more choices of move (greater "mobility").
@@ -135,10 +135,12 @@ public class MobilityHeuristic implements Heuristic
   }
 
   @Override
-  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                ForwardDeadReckonInternalMachineState xiPreviousState,
-                                double[] xoHeuristicValue,
-                                MutableInteger xoHeuristicWeight)
+  public double getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
+                                  int choosingRoleIndex,
+                                  ForwardDeadReckonInternalMachineState xiPreviousState,
+                                  ForwardDeadReckonInternalMachineState xiHeuristicStabilityState,
+                                  double[] xoHeuristicValue,
+                                  MutableDouble xoHeuristicWeight)
   {
     // Get the total mobility data from the previous state.
     MobilityData lMobilityData = ((MobilityData)(xiPreviousState.getHeuristicData(this)));
@@ -204,7 +206,9 @@ public class MobilityHeuristic implements Heuristic
       }
     }
 
-    xoHeuristicWeight.value = mWeight;
+    xoHeuristicWeight.setValue(mWeight);
+
+    return 0;
   }
 
   @Override

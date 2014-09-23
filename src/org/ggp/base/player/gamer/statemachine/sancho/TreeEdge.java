@@ -62,6 +62,7 @@ public class TreeEdge
   private int  numChildVisits       = 0;
 
   double explorationAmplifier       = 0;
+  boolean hasHeuristicDeviation     = false;
 
   /**
    * Create a tree edge.
@@ -125,6 +126,7 @@ public class TreeEdge
     mPartialMove = xiPartialMove;
 
     assert(mParentRef != TreeNode.NULL_REF);
+    assert(mChildRef != mParentRef);
     assert(mChildRef == TreeNode.NULL_REF ||
            TreeNode.get(xiParent.tree.nodePool, mChildRef).tree == xiParent.tree);
     assert(!xiPartialMove.isPseudoNoOp || xiParent == xiParent.tree.root || xiParent.mNumChildren == 1);
@@ -140,6 +142,7 @@ public class TreeEdge
     mChildRef = xiChild.getRef();
 
     assert(mChildRef != TreeNode.NULL_REF);
+    assert(mChildRef != mParentRef);
     assert(mParentRef == TreeNode.NULL_REF ||
            TreeNode.get(xiChild.tree.nodePool, mParentRef).tree == xiChild.tree);
   }
@@ -167,5 +170,6 @@ public class TreeEdge
     numChildVisits = 0;
     mPartialMove = null;
     explorationAmplifier = 0;
+    hasHeuristicDeviation = false;
   }
 }

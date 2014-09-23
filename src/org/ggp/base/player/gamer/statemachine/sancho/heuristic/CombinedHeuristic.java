@@ -4,13 +4,13 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.commons.lang.mutable.MutableDouble;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
-import org.w3c.tidy.MutableInteger;
 
 /**
  * Heuristic whose value comes from combining other heuristics.
@@ -174,29 +174,37 @@ public class CombinedHeuristic implements Heuristic
   }
 
   @Override
-  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                ForwardDeadReckonInternalMachineState xiPreviousState,
-                                double[] xoHeuristicValue,
-                                MutableInteger xoHeuristicWeight)
+  public double getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
+                                  int choosingRoleIndex,
+                                  ForwardDeadReckonInternalMachineState xiPreviousState,
+                                  ForwardDeadReckonInternalMachineState xiHeuristicStabilityState,
+                                  double[] xoHeuristicValue,
+                                  MutableDouble xoHeuristicWeight)
   {
-    int lTotalWeight = 0;
-    int lMaxWeight = 0;
-    xoHeuristicWeight.value = 0;
+    double lTotalWeight = 0;
+    double lMaxWeight = 0;
+    double maxBias = 0;
+    xoHeuristicWeight.setValue(0);
 
     // Combine the values from the underlying heuristics by taking a weighted average.
     for (Heuristic lHeuristic : mRuntimeHeuristics)
     {
       double[] lNewValues = new double[xoHeuristicValue.length];
-      lHeuristic.getHeuristicValue(xiState, xiPreviousState, lNewValues, xoHeuristicWeight);
-      lTotalWeight += xoHeuristicWeight.value;
+      double bias = lHeuristic.getHeuristicValue(xiState, choosingRoleIndex, xiPreviousState, xiHeuristicStabilityState, lNewValues, xoHeuristicWeight);
+      lTotalWeight += xoHeuristicWeight.doubleValue();
       for (int lii = 0; lii < xoHeuristicValue.length; lii++)
       {
-        xoHeuristicValue[lii] += (lNewValues[lii] * xoHeuristicWeight.value);
+        xoHeuristicValue[lii] += (lNewValues[lii] * xoHeuristicWeight.doubleValue());
       }
 
-      if (xoHeuristicWeight.value > lMaxWeight)
+      if (xoHeuristicWeight.doubleValue() > lMaxWeight)
       {
-        lMaxWeight = xoHeuristicWeight.value;
+        lMaxWeight = xoHeuristicWeight.doubleValue();
+      }
+
+      if ( bias > maxBias )
+      {
+        maxBias = bias;
       }
     }
 
@@ -213,7 +221,9 @@ public class CombinedHeuristic implements Heuristic
     // We could do something more clever, whereby if all the heuristics were pointing in the same direction, we
     // increased the weight and if they were all pulling if different directions, we decreased the weight.
     // But hopefully this is good enough for now.
-    xoHeuristicWeight.value = lMaxWeight;
+    xoHeuristicWeight.setValue(lMaxWeight);
+
+    return maxBias;
   }
 
   /**

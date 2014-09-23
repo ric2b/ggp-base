@@ -1,10 +1,10 @@
 package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
+import org.apache.commons.lang.mutable.MutableDouble;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
-import org.w3c.tidy.MutableInteger;
 
 /**
  * Interface for heuristics.
@@ -99,15 +99,20 @@ public interface Heuristic
    * Get the heuristic value for the specified state.
    *
    * @param xiState           - the state (never a terminal state).
+   * @param choosingRoleIndex - whose choice the move leading here is
    * @param xiPreviousState   - the previous state (can be null).
+   * @param xiHeuristicStabilityState - last previous state at which the heuristic valuation did not change
    * @param xoHeuristicValue  - array of per-role heuristic values.  All zeros on entry.  Heuristic value (0-100) on
    *                            exit.
    * @param xoHeuristicWeight - the certainty in the heuristic values, range 0-10.  Undefined on entry.  Set on exit.
+   * @return exploration bias to apply (assumed always non-0 if heuristic valuation differs from previous state)
    */
-  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                ForwardDeadReckonInternalMachineState xiPreviousState,
-                                double[] xoHeuristicValue,
-                                MutableInteger xoHeuristicWeight);
+  public double getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
+                                  int choosingRoleIndex,
+                                  ForwardDeadReckonInternalMachineState xiPreviousState,
+                                  ForwardDeadReckonInternalMachineState xiHeuristicStabilityState,
+                                  double[] xoHeuristicValue,
+                                  MutableDouble xoHeuristicWeight);
 
   /**
    * @return whether the heuristic should be used.

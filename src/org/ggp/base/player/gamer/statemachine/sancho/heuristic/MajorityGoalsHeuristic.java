@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.lang.mutable.MutableDouble;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
@@ -23,7 +24,6 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
-import org.w3c.tidy.MutableInteger;
 
 /**
  * @author steve
@@ -382,16 +382,20 @@ public class MajorityGoalsHeuristic implements Heuristic
   }
 
   @Override
-  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                ForwardDeadReckonInternalMachineState xiPreviousState,
-                                double[] xiXoHeuristicValue,
-                                MutableInteger xiXoHeuristicWeight)
+  public double getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
+                                  int choosingRoleIndex,
+                                  ForwardDeadReckonInternalMachineState xiPreviousState,
+                                  ForwardDeadReckonInternalMachineState xiHeuristicStabilityState,
+                                  double[] xoHeuristicValue,
+                                  MutableDouble xoHeuristicWeight)
   {
     //  If there is a derived heuristic delegate to it
     if ( derivedHeuristic != null )
     {
-      derivedHeuristic.getHeuristicValue(xiState, xiPreviousState, xiXoHeuristicValue, xiXoHeuristicWeight);
+      return derivedHeuristic.getHeuristicValue(xiState, choosingRoleIndex, xiPreviousState, xiHeuristicStabilityState, xoHeuristicValue, xoHeuristicWeight);
     }
+
+    return 0;
   }
 
   @Override

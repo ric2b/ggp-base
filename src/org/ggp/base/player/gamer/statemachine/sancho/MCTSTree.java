@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import org.apache.commons.lang.mutable.MutableDouble;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
@@ -30,7 +31,6 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.StateMachineFilter;
-import org.w3c.tidy.MutableInteger;
 
 public class MCTSTree
 {
@@ -81,8 +81,9 @@ public class MCTSTree
   final boolean                                        useEstimatedValueForUnplayedNodes;
   ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
-  volatile TreeNode                                    oldRoot = null;
-  int                                                  numUnexpandedRootChildren = 0;
+  //volatile TreeNode                                    oldRoot = null;
+  //volatile TreeNode                                    firstChoiceNode = null;
+  //int                                                  numUnexpandedRootChoices = 0;
   final int                                            numRoles;
   final int                                            mWeightDecayKneeDepth;
   final double                                         mWeightDecayScaleFactor;
@@ -136,7 +137,7 @@ public class MCTSTree
   // Note - several of these could probably be collapsed into a lesser number since they are not
   // concurrently used, but it's not worth the risk currently
   final double[]                                      mNodeHeuristicValues;
-  final MutableInteger                                mNodeHeuristicWeight;
+  final MutableDouble                                 mNodeHeuristicWeight;
   final double[]                                      mNodeAverageScores;
   final double[]                                      mNodeAverageSquaredScores;
   final RolloutRequest                                mNodeSynchronousRequest;
@@ -313,7 +314,7 @@ public class MCTSTree
 
     // Create the variables used by TreeNodes to avoid unnecessary object allocation.
     mNodeHeuristicValues          = new double[numRoles];
-    mNodeHeuristicWeight          = new MutableInteger();
+    mNodeHeuristicWeight          = new MutableDouble();
     mNodeAverageScores            = new double[numRoles];
     mNodeAverageSquaredScores     = new double[numRoles];
     mNodeSynchronousRequest       = new RolloutRequest(numRoles, underlyingStateMachine);
@@ -410,8 +411,8 @@ public class MCTSTree
   }
 
   /**
-   * @return total number of nodes allocations made that       }
-were transpositions
+   * @return total number of nodes allocations made that
+   * were transpositions
    */
   public int getNumTranspositions()
   {
@@ -425,23 +426,36 @@ were transpositions
    */
   public void nodeFreed(TreeNode xiTreeNode)
   {
-    removeFromTranspositionIndexes(xiTreeNode.state);
+    removeFromTranspositionIndexes(xiTreeNode);
   }
 
   public void addToTranspositionIndexes(TreeNode xiTreeNode)
   {
     if (SUPPORT_TRANSITIONS)
     {
-      //assert(xiTreeNode == root || xiTreeNode.mNumChildren <= 1 || xiTreeNode.state.toString().contains("control o") == (xiTreeNode.decidingRoleIndex == 1));
+      assert(!mPositions.containsKey(xiTreeNode.state));
       mPositions.put(xiTreeNode.state, xiTreeNode.getRef());
     }
   }
 
-  public void removeFromTranspositionIndexes(ForwardDeadReckonInternalMachineState xiState)
+  public void removeFromTranspositionIndexes(TreeNode xiTreeNode)
   {
     if (SUPPORT_TRANSITIONS)
     {
-      mPositions.remove(xiState);
+      Long ref = mPositions.get(xiTreeNode.state);
+
+      if ( ref == null )
+      {
+        return;
+      }
+      else if ( ref.longValue() == xiTreeNode.getRef() )
+      {
+        mPositions.remove(xiTreeNode.state);
+      }
+      else
+      {
+        assert(false) : "Attempt to remove incorrect node from position indexes";
+      }
     }
   }
 
@@ -458,6 +472,7 @@ were transpositions
 
       TreeNode result = TreeNode.get(nodePool, ref);
       assert(result != null);
+      assert(xiState.equals(result.state));
       assert(!removeNonDecisionNodes || result == root || result.complete || result.mNumChildren != 1);
 
       return result;
@@ -475,6 +490,7 @@ were transpositions
 
       if (!node.freed)
       {
+        assert(node.complete);
         node.processCompletion();
       }
     }
@@ -504,51 +520,118 @@ were transpositions
 
     if (root == null)
     {
-      oldRoot = null;
+      //oldRoot = null;
       root = allocateNode(factorState, null, true);
       root.decidingRoleIndex = numRoles - 1;
       root.setDepth(rootDepth);
     }
     else
     {
-      if ( rootDepth == 0 && root.state.equals(factorState))
+      if ( root.state.equals(factorState))
       {
-        //  This is the start of the first turn, after some searching at the end of meta-gaming
-        //  If the root score variance is 0 and this is a factored game, we mark this factor as
-        //  uninteresting, and will henceforth spend no time searching it
-        if ( factor != null &&
-             root.numVisits > 500 &&
-             Math.abs(root.getAverageSquaredScore(0) - root.getAverageScore(0)*root.getAverageScore(0)) < TreeNode.EPSILON )
+        if ( rootDepth == 0 )
         {
-          mIsIrrelevantFactor = true;
+          //  This is the start of the first turn, after some searching at the end of meta-gaming
+          //  If the root score variance is 0 and this is a factored game, we mark this factor as
+          //  uninteresting, and will henceforth spend no time searching it
+          if ( factor != null &&
+               root.numVisits > 500 &&
+               Math.abs(root.getAverageSquaredScore(0) - root.getAverageScore(0)*root.getAverageScore(0)) < TreeNode.EPSILON )
+          {
+            mIsIrrelevantFactor = true;
 
-          LOGGER.info("Identified irrelevant factor - supressing search");
+            LOGGER.info("Identified irrelevant factor - supressing search");
+          }
         }
-      }
-
-      if ( removeNonDecisionNodes )
-      {
-        //  If we are removing non-decision nodes a slightly different process to 'join up' the
-        //  new root to the existing nodes of the tree is required.  This is because we always
-        //  keep the root itself as 'our choice' so we can pick movs from it as normal, even if we only
-        //  have one choice (i.e. - we always want the root to be 'our' choice for the benefit of
-        //  getBestMove()).  However, an existing node with the root's state may now be another role's
-        //  choice, so we cannot just use it as the new root.  Instead we create a new root node and
-        //  let transposition handling 'join up' the tree as the moves are expanded.  Trimming of the
-        //  unreachable nodes then occurs as part of expansion when all root moves have been expanded.
-        //  This is triggered by a non-null value for 'oldRoot'
-        oldRoot = root;
-
-        root = allocateNode(factorState, null, true);
-        root.decidingRoleIndex = numRoles - 1;
-        root.setDepth(rootDepth);
       }
       else
       {
-        oldRoot = null;
+        TreeNode existingRootStateNode = findTransposition(factorState);
 
-        TreeNode newRoot = root.findNode(factorState, underlyingStateMachine.getRoles().length + 1);
-        if (newRoot == null )
+        assert(existingRootStateNode != null || root.findNode(factorState, underlyingStateMachine.getRoles().length + 1)==null);
+
+        if ( existingRootStateNode != null )
+        {
+          TreeNode oldRoot = root;
+
+          assert(oldRoot.linkageValid());
+
+          //  Either it's our turn, in which case the existing choice node for this state
+          //  can be used directly as the new root, or (and this can only happen if we are
+          //  collapsing non-choice nodes) the existing node indexed for the root state is
+          //  another role's choice.  In the latter case we need a 'proxy' node for the root
+          //  so that it has the correct (singular) choice ready for getBestMove().  That
+          //  singular choice will then point to the extant root state node, which is the
+          //  actual decision node.
+          if ( existingRootStateNode.decidingRoleIndex == numRoles-1 )
+          {
+            root = existingRootStateNode;
+            assert(root.linkageValid());
+            assert(root.parents.size()>0);
+          }
+          else
+          {
+            assert(removeNonDecisionNodes);
+
+            //  Allocate proxy node for the root
+            root = allocateNode(factorState, null, true);
+            root.decidingRoleIndex = numRoles - 1;
+            root.setDepth(rootDepth);
+
+            //  Expand to get the correct (singular) choice
+            root.expand(null, mJointMoveBuffer, rootDepth-1);
+
+            assert(root.mNumChildren == 1);
+
+            TreeEdge selected;
+
+            if (root.children[0] instanceof ForwardDeadReckonLegalMoveInfo)
+            {
+              //  Create an edge for the singular choice
+              selected = edgePool.allocate(mTreeEdgeAllocator);
+              selected.setParent(root, (ForwardDeadReckonLegalMoveInfo)root.children[0]);
+              root.children[0] = selected;
+            }
+            else
+            {
+              selected = (TreeEdge)root.children[0];
+            }
+
+            mJointMoveBuffer[0] = selected.mPartialMove;
+
+            if (selected.mChildRef == TreeNode.NULL_REF)
+            {
+              //  Point the edge at the extant decision node for the root state
+              selected.setChild(existingRootStateNode);
+              existingRootStateNode.addParent(root);
+            }
+
+            assert(root.linkageValid());
+            assert(existingRootStateNode.linkageValid());
+
+            //  Set the root's count stats to those of the extant choice node it is effectively
+            //  proxying
+            selected.setNumVisits(existingRootStateNode.numVisits);
+            root.numVisits = existingRootStateNode.numVisits;
+            root.numUpdates = existingRootStateNode.numUpdates;
+            for(int i = 0; i < numRoles; i++)
+            {
+              root.setAverageScore(i, existingRootStateNode.getAverageScore(i));
+              root.setAverageSquaredScore(i, existingRootStateNode.getAverageSquaredScore(i));
+            }
+
+            if ( existingRootStateNode.complete)
+            {
+              root.markComplete(existingRootStateNode, existingRootStateNode.getCompletionDepth());
+            }
+          }
+
+          oldRoot.freeAllBut(root);
+          assert(!root.freed) : "Root node has been freed";
+          assert(root.parents.size() == 0);
+          assert(existingRootStateNode == root || existingRootStateNode.parents.size()==1);
+        }
+        else
         {
           if (root.complete)
           {
@@ -563,22 +646,79 @@ were transpositions
           root.decidingRoleIndex = numRoles - 1;
           root.setDepth(rootDepth);
         }
-        else
-        {
-          //  Note - we cannot assert that the root depth matches what we're given.  This
-          //  is because in some games the same state can occur at different depths (English Draughts
-          //  exhibits this), which means that transitions to the same node can occur at multiple
-          //  depths.  The result is that the 'depth' of a node can only be considered indicative
-          //  rather than absolute.  This is good enough for our current usage, but should be borne
-          //  in mind if that usage is expanded.
-          if (newRoot != root)
-          {
-            root.freeAllBut(newRoot);
-            assert(!newRoot.freed) : "Root node has been freed";
-            root = newRoot;
-          }
-        }
       }
+//      else if ( removeNonDecisionNodes )
+//      {
+//        //  If we are removing non-decision nodes a slightly different process to 'join up' the
+//        //  new root to the existing nodes of the tree is required.  This is because we always
+//        //  keep the root itself as 'our choice' so we can pick moves from it as normal, even if we only
+//        //  have one choice (i.e. - we always want the root to be 'our' choice for the benefit of
+//        //  getBestMove()).  However, an existing node with the root's state may now be another role's
+//        //  choice, so we cannot just use it as the new root.  Instead we create a new root node and
+//        //  let transposition handling 'join up' the tree as the moves are expanded.  Trimming of the
+//        //  unreachable nodes then occurs as part of expansion when all root moves have been expanded.
+//        //  This is triggered by a non-null value for 'oldRoot'
+//        oldRoot = root;
+//        firstChoiceNode = null;
+//
+//        if(findTransposition(factorState) == null)
+//        {
+//          TreeNode oldRootDecisionNode = oldRoot;
+//
+//          while(oldRootDecisionNode.mNumChildren == 1)
+//          {
+//            oldRootDecisionNode = TreeNode.get(nodePool, ((TreeEdge)oldRootDecisionNode.children[0]).mChildRef);
+//          }
+//
+//          for(int i = 0; i < oldRootDecisionNode.mNumChildren; i++)
+//          {
+//            TreeNode child = TreeNode.get(nodePool, ((TreeEdge)oldRootDecisionNode.children[i]).mChildRef);
+//
+//            assert(mPositions.containsKey(child.state));
+//          }
+//        }
+//
+//        root = allocateNode(factorState, null, true);
+//        root.decidingRoleIndex = numRoles - 1;
+//        root.setDepth(rootDepth);
+//        assert(findTransposition(root.state) != null);
+//      }
+//      else
+//      {
+//        oldRoot = null;
+//
+//        TreeNode newRoot = root.findNode(factorState, underlyingStateMachine.getRoles().length + 1);
+//        if (newRoot == null )
+//        {
+//          if (root.complete)
+//          {
+//            LOGGER.info("New root missing because old root was complete");
+//          }
+//          else
+//          {
+//            LOGGER.warn("Unable to find root node in existing tree");
+//          }
+//          empty();
+//          root = allocateNode(factorState, null, false);
+//          root.decidingRoleIndex = numRoles - 1;
+//          root.setDepth(rootDepth);
+//        }
+//        else
+//        {
+//          //  Note - we cannot assert that the root depth matches what we're given.  This
+//          //  is because in some games the same state can occur at different depths (English Draughts
+//          //  exhibits this), which means that transitions to the same node can occur at multiple
+//          //  depths.  The result is that the 'depth' of a node can only be considered indicative
+//          //  rather than absolute.  This is good enough for our current usage, but should be borne
+//          //  in mind if that usage is expanded.
+//          if (newRoot != root)
+//          {
+//            root.freeAllBut(newRoot);
+//            assert(!newRoot.freed) : "Root node has been freed";
+//            root = newRoot;
+//          }
+//        }
+//      }
     }
     //validateAll();
 
@@ -652,7 +792,7 @@ were transpositions
     numNonTerminalRollouts = 0;
     numTerminalRollouts = 0;
 
-    //root.dumpTree("c:\\temp\\mctsTree.txt");
+    root.dumpTree("c:\\temp\\mctsTree.txt");
     return bestMoveInfo;
   }
 
@@ -730,19 +870,15 @@ were transpositions
       TreePath visited = mPathPool.allocate(mTreePathAllocator);
       TreeNode cur = root;
       TreePathElement selected = null;
-      int parentDepth;
+      int parentDepth = 0;
 
       while (!cur.isUnexpanded())
       {
+        parentDepth = cur.getDepth();
         selected = cur.select(visited, mJointMoveBuffer, xiChosenMove);
         cur = selected.getChildNode();
         xiChosenMove = null;
       }
-
-      //  The above loop may have skipped roles with forced choices and leave the joint move
-      //  buffer with several role moves set - before we start on expansion this needs to be corrected
-      setForcedMoveProps(cur.state, mJointMoveBuffer);
-      parentDepth = cur.getDepth();
 
       long lExpandStartTime = System.nanoTime();
       TreeNode newNode;
@@ -752,65 +888,14 @@ were transpositions
         assert(selected == null || cur.parents.contains(selected.getParentNode()));
 
         //  Expand for each role so we're back to our-move as we always rollout after joint moves
-        cur = cur.expand(selected, mJointMoveBuffer, parentDepth);
+        cur = cur.expand(visited, mJointMoveBuffer, parentDepth);
         assert(selected == null || cur == selected.getChildNode());
-
-        if (!cur.complete)
-        {
-          selected = cur.select(visited, mJointMoveBuffer, null);
-          newNode = selected.getChildNode();
-          parentDepth = cur.getDepth();
-
-          int autoExpansionDepth = 0;
-
-          while (newNode.state == cur.state &&
-                 !newNode.complete)
-          {
-            if ( newNode.decidingRoleIndex == numRoles - 1 )
-            {
-              autoExpansionDepth++;
-            }
-            //  Might have transposed into an already expanded node, in which case no need
-            //  to do another
-            if (newNode.isUnexpanded())
-            {
-              newNode = newNode.expand(selected, mJointMoveBuffer, parentDepth);
-
-              assert(newNode == selected.getChildNode());
-            }
-            if (!newNode.complete)
-            {
-              parentDepth = newNode.getDepth();
-              selected = newNode.select(visited, mJointMoveBuffer, null);
-              newNode = selected.getChildNode();
-            }
-          }
-
-          if ( autoExpansionDepth > 0 )
-          {
-            averageAutoExpansionDepth = (averageAutoExpansionDepth*numAutoExpansions + autoExpansionDepth)/(numAutoExpansions+1);
-            numAutoExpansions++;
-            if ( autoExpansionDepth > maxAutoExpansionDepth )
-            {
-              maxAutoExpansionDepth = autoExpansionDepth;
-            }
-          }
-          else
-          {
-            numNormalExpansions++;
-          }
-        }
-        else
-        {
-          newNode = cur;
-        }
       }
-      else
-      {
-        //  If we've selected a terminal node we still do a pseudo-rollout
-        //  from it so its value gets a weight increase via back propagation
-        newNode = cur;
-      }
+      
+      
+      //  Even if we've selected a terminal node we still do a pseudo-rollout
+      //  from it so its value gets a weight increase via back propagation
+      newNode = cur;
 
 
       // Perform the rollout request.

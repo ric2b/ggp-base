@@ -646,6 +646,11 @@ public class GameSearcher implements Runnable, ActivityController
         // Perform an MCTS iteration.
         lAllTreesCompletelyExplored &= tree.growTree(forceSynchronous, mChosenMove);
       }
+
+//      if ( numIterations == 500)
+//      {
+//        tree.root.dumpTree("c:\\temp\\mctsTree500.txt");
+//      }
     }
 
     return lAllTreesCompletelyExplored;

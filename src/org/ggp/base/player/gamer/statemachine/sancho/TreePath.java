@@ -85,6 +85,8 @@ public class TreePath
       mEdge      = xiEdge;
       mChildRef  = mEdge.mChildRef;
 
+      assert(mParentRef != mChildRef);
+      assert(mParentRef == xiEdge.mParentRef);
       assert(getNode(mChildRef) != null) : "Can't add invalid node ref to path";
       assert(xiEdge.getNumChildVisits() <= getNode(mChildRef).numVisits) : "Edge has more visits than child";
     }
@@ -151,7 +153,7 @@ public class TreePath
       // Check that the edge is still valid before returning it.
       if ((getNode(mParentRef) == null) ||
           (validateChild && getNode(mChildRef) == null)  ||
-          (mEdge.mChildRef != mChildRef) ||
+          (validateChild && mEdge.mChildRef != mChildRef) ||
           (mEdge.mParentRef != mParentRef))
       {
         return null;
@@ -264,6 +266,18 @@ public class TreePath
       return node;
     }
     return mTree.root;
+  }
+
+  /**
+   * @return the tail path element.
+   */
+  public TreePathElement getTailElement()
+  {
+    if (mNumElements == 0)
+    {
+      return null;
+    }
+    return mElements[mNumElements-1];
   }
 
   /**
