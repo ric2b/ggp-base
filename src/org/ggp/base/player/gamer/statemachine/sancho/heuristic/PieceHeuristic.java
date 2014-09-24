@@ -866,7 +866,7 @@ public class PieceHeuristic implements Heuristic
         //  Scaling is empirical based on some testing in Breakthrough and Skirmish.
         //  However, given the decay factor on exploration bias this needs to be a fairly large
         //  number to be effective
-        result = 2000*(proportion - previousProportion);
+        result = 2*(proportion - previousProportion);
         if ( choosingRoleIndex != 0 )
         {
           result = -result;
@@ -902,7 +902,7 @@ public class PieceHeuristic implements Heuristic
     //  However, it would only happen in games where a role's own moves make their
     //  position heuristically worse, which is not possible with the piece heuristic
     //  for known games
-    return Math.max(0, result);
+    return Math.max(0, result/100);
 //    double total = 0;
 //    double rootTotal = 0;
 //

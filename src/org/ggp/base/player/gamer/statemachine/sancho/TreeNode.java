@@ -2573,21 +2573,24 @@ public class TreeNode
               heuristicValue = tree.mNodeHeuristicValues[0];
               heuristicWeight = tree.mNodeHeuristicWeight.doubleValue();
 
-              if ( startOfHeuristicSequence != null  )
-              {
-                startOfHeuristicSequence.getEdge(false).explorationAmplifier *= 2;
-              }
+//              if ( startOfHeuristicSequence != null  )
+//              {
+//                startOfHeuristicSequence.getEdge(false).explorationAmplifier *= 2;
+//              }
             }
-//            for (int i = 0; i < tree.numRoles; i++)
-//            {
-//              setAverageScore(i, (getAverageScore(i)*numUpdates + tree.mNodeHeuristicValues[i]*tree.mNodeHeuristicWeight.doubleValue())/(numUpdates+tree.mNodeHeuristicWeight.doubleValue()));
-//            }
-//              // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
-//            // the new child.
-//            numUpdates += tree.mNodeHeuristicWeight.doubleValue();
-//            assert(!Double.isNaN(getAverageScore(0)));
-//
-//            numVisits += tree.mNodeHeuristicWeight.doubleValue();
+            if ( explorationBias > 0 )
+            {
+              for (int i = 0; i < tree.numRoles; i++)
+              {
+                setAverageScore(i, (getAverageScore(i)*numUpdates + tree.mNodeHeuristicValues[i]*tree.mNodeHeuristicWeight.doubleValue())/(numUpdates+tree.mNodeHeuristicWeight.doubleValue()));
+              }
+              // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
+              // the new child.
+              numUpdates += tree.mNodeHeuristicWeight.doubleValue();
+              assert(!Double.isNaN(getAverageScore(0)));
+
+              numVisits += tree.mNodeHeuristicWeight.doubleValue();
+            }
           }
         }
 
@@ -4338,7 +4341,7 @@ public class TreeNode
                                        lRequest.mAverageSquaredScores,
                                        lRequest.mPath,
                                        lRequest.mWeight,
-                                       true);
+                                       false);
       tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, lRolloutTime, 0, lBackPropTime);
       tree.mPathPool.free(lRequest.mPath);
       lRequest.mPath = null;
@@ -4373,7 +4376,6 @@ public class TreeNode
     {
       TreePathElement lElement = xiPath.getCurrentElement();
       TreeEdge lChildEdge = (lElement == null ? null : lElement.getEdgeUnsafe());
-      double applicationWeight = xiWeight;
       lNextNode = null;
 
 //      if ( lElement == null )
@@ -4389,33 +4391,44 @@ public class TreeNode
 //          applicationWeight /= 25;
 //        }
 //      }
-      if ( xiIsCompletePseudoRollout )
-      {
-        applicationWeight /= 10;
-      }
-
       if (!heuristicAdjustmentApplied && lNode.heuristicWeight > 0 && lNode.numUpdates > 0 /*&& (lNode.heuristicValue > 50) == (xiValues[1] > xiValues[0])*/)
       {
         double applicableValue = (lNode.heuristicValue > 50 ? lNode.heuristicValue : 100 - lNode.heuristicValue);
 
-        for(int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
+        //if ( applicableValue > EPSILON )
         {
-          double heuristicAdjustedValue;
-
-          if ((lNode.heuristicValue > 50) == (roleIndex == 0))
+          for(int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
           {
-            heuristicAdjustedValue = xiValues[roleIndex] + (100 - xiValues[roleIndex]) * (applicableValue - 50) / 50;
-          }
-          else
-          {
-            heuristicAdjustedValue = xiValues[roleIndex] - (xiValues[roleIndex]) * (applicableValue - 50) / 50;
+            double heuristicAdjustedValue;
+
+            if ((lNode.heuristicValue > 50) == (roleIndex == 0))
+            {
+              heuristicAdjustedValue = xiValues[roleIndex] + (100 - xiValues[roleIndex]) * (applicableValue - 50) / 50;
+            }
+            else
+            {
+              heuristicAdjustedValue = xiValues[roleIndex] - (xiValues[roleIndex]) * (applicableValue - 50) / 50;
+            }
+
+            xiValues[roleIndex] = heuristicAdjustedValue;
           }
 
-          xiValues[roleIndex] = heuristicAdjustedValue;
+          //xiWeight *= (decidingRoleIndex == 0 ? lNode.heuristicValue : 100 - lNode.heuristicValue)/50;
+//          xiWeight *= (lNode.heuristicValue*xiValues[0] + (100 - lNode.heuristicValue)*xiValues[1])/
+//                          Math.sqrt(((lNode.heuristicValue*lNode.heuristicValue + (100-lNode.heuristicValue)*(100-lNode.heuristicValue)))*
+//                                    ((xiValues[0]*xiValues[0] + xiValues[1]*xiValues[1])));
+//
+//          double normalizer = 50*(xiValues[0]+xiValues[1])/Math.sqrt(2500*(xiValues[0]*xiValues[0]*xiValues[1]*xiValues[1]));
+//          xiWeight /= normalizer;
+          //lNode.heuristicWeight = Math.max(lNode.heuristicWeight - 0.1, 0);
+          //heuristicAdjustmentApplied = true;
         }
+      }
 
-        //lNode.heuristicWeight = Math.max(lNode.heuristicWeight - 0.1, 0);
-        //heuristicAdjustmentApplied = true;
+      double applicationWeight = xiWeight;
+      if ( xiIsCompletePseudoRollout )
+      {
+        applicationWeight /= 10;
       }
 
       // Across a turn end it is possible for queued paths to run into freed nodes due to trimming of the tree at the
@@ -4493,6 +4506,7 @@ public class TreeNode
 
       assert(checkFixedSum(xiValues));
       assert(checkFixedSum());
+      assert(lNode.numUpdates > 0.25);
     }
 
     return System.nanoTime() - lStartTime;
