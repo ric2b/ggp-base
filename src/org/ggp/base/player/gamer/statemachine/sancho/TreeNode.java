@@ -2461,6 +2461,7 @@ public class TreeNode
           boolean previousEdgeHadHeuristicDeviation = false;
           TreePathElement startOfHeuristicSequence = null;
           TreePathElement precursorToHeuristicSequence = null;
+          TreeNode referenceNode = null;
 
           if ( fullPathTo != null )
           {
@@ -2580,9 +2581,45 @@ public class TreeNode
             }
             if ( explorationBias > 0 )
             {
+              if ( precursorToHeuristicSequence == null )
+              {
+                referenceNode = tree.root;
+              }
+              else
+              {
+                referenceNode = precursorToHeuristicSequence.getParentNode();
+              }
+
+              if ( evaluateRelativeToState != parentState )
+              {
+                tree.heuristic.getHeuristicValue( state,
+                                                   decidingRoleIndex,
+                                                   parentState,
+                                                   parentState,
+                                                   tree.mNodeHeuristicValues,
+                                                   tree.mNodeHeuristicWeight);
+              }
               for (int i = 0; i < tree.numRoles; i++)
               {
-                setAverageScore(i, (getAverageScore(i)*numUpdates + tree.mNodeHeuristicValues[i]*tree.mNodeHeuristicWeight.doubleValue())/(numUpdates+tree.mNodeHeuristicWeight.doubleValue()));
+                double adjustedRoleScore;
+                double referenceRoleScore = referenceNode.getAverageScore(i);
+
+                if (tree.mNodeHeuristicValues[i] > 50)
+                {
+                  adjustedRoleScore = referenceRoleScore +
+                                        (100 - referenceRoleScore) *
+                                        (tree.mNodeHeuristicValues[i] - 50) /
+                                        50;
+                }
+                else
+                {
+                  adjustedRoleScore = referenceRoleScore -
+                                        (referenceRoleScore) *
+                                        (50 - tree.mNodeHeuristicValues[i]) /
+                                        50;
+                }
+
+                setAverageScore(i, (getAverageScore(i)*numUpdates + adjustedRoleScore*tree.mNodeHeuristicWeight.doubleValue())/(numUpdates+tree.mNodeHeuristicWeight.doubleValue()));
               }
               // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
               // the new child.
@@ -3301,6 +3338,54 @@ public class TreeNode
       }
       else
       {
+//        if ( numVisits > 1000 && (numVisits&0xff) == 0xff )
+//        {
+//          double maxChooserScore = -Double.MAX_VALUE;
+//          TreeNode maxChoiceNode = null;
+//
+//          for(int i = 0; i < mNumChildren; i++)
+//          {
+//            Object choice = children[i];
+//
+//            if ( choice instanceof TreeEdge )
+//            {
+//              TreeEdge edge = (TreeEdge)choice;
+//
+//              if ( edge.mChildRef != NULL_REF )
+//              {
+//                TreeNode child = get(edge.mChildRef);
+//
+//                if ( child != null && child.getAverageScore(roleIndex) > maxChooserScore )
+//                {
+//                  maxChooserScore = child.getAverageScore(roleIndex);
+//                  maxChoiceNode = child;
+//                }
+//              }
+//            }
+//          }
+//
+//          if ( maxChoiceNode != null )
+//          {
+//            for(int i = 0; i < tree.numRoles; i++)
+//            {
+//              setAverageScore(i, maxChoiceNode.getAverageScore(i));
+//              setAverageSquaredScore(i, maxChoiceNode.getAverageSquaredScore(i));
+//            }
+//          }
+//
+////          if ( depth < tree.root.depth+4 )
+////          {
+////            if ( path != null )
+////            {
+////              TreePathElement pathElement = path.getTailElement();
+////
+////              if ( pathElement != null )
+////              {
+////                System.out.println("Move " + pathElement.getEdge(false).mPartialMove.move + " after " + numVisits + " visits adjust to max child score: " +stringizeScoreVector(pathElement.getEdge(false)) );
+////              }
+////            }
+////          }
+//        }
         //  It is clearly a bug to reset mostLikelyRunnerUpValue here, but empirically it is significantly
         //  useful in some games (D&B, D&B suicide notably).  The only games where a clear negative impact
         //  has been observed is the Breakthrough family.  Hypothetically this is probably because the
@@ -3558,10 +3643,6 @@ public class TreeNode
     selected.explorationAmplifier *= explorationAmplifierDecayRate;
     TreePathElement result = path.push(this, selected);
 
-    if ( get(selected.mChildRef).complete && get(selected.mChildRef).numVisits > 1000 && parents.contains(tree.root))//get(selected.mChildRef).getAverageScore(roleIndex) < 0.5 )
-    {
-      System.out.println("!");
-    }
     //  If the node that should have been selected through was complete
     //  note that in the path, so that on application of the update
     //  the propagation upward from this node can be corrected
@@ -4391,26 +4472,39 @@ public class TreeNode
 //          applicationWeight /= 25;
 //        }
 //      }
-      if (!heuristicAdjustmentApplied && lNode.heuristicWeight > 0 && lNode.numUpdates > 0 /*&& (lNode.heuristicValue > 50) == (xiValues[1] > xiValues[0])*/)
+      if (!heuristicAdjustmentApplied && lNode.heuristicWeight > 0 /*&& lNode.numUpdates > 0 && (lNode.heuristicValue > 50) == (xiValues[1] > xiValues[0])*/)
       {
         double applicableValue = (lNode.heuristicValue > 50 ? lNode.heuristicValue : 100 - lNode.heuristicValue);
 
-        //if ( applicableValue > EPSILON )
+        if ( applicableValue > EPSILON )
         {
-          for(int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
+//          for(int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
+//          {
+//            double heuristicAdjustedValue;
+//
+//            if ((lNode.heuristicValue > 50) == (roleIndex == 0))
+//            {
+//              heuristicAdjustedValue = xiValues[roleIndex] + (100 - xiValues[roleIndex]) * (applicableValue - 50) / 50;
+//            }
+//            else
+//            {
+//              heuristicAdjustedValue = xiValues[roleIndex] - (xiValues[roleIndex]) * (applicableValue - 50) / 50;
+//            }
+//
+//            xiValues[roleIndex] = heuristicAdjustedValue;
+//          }
+          if ( tree.r.nextDouble() < applicableValue/50 )
           {
-            double heuristicAdjustedValue;
-
-            if ((lNode.heuristicValue > 50) == (roleIndex == 0))
+            if (lNode.heuristicValue > 50)
             {
-              heuristicAdjustedValue = xiValues[roleIndex] + (100 - xiValues[roleIndex]) * (applicableValue - 50) / 50;
+              xiValues[0] = 100;
+              xiValues[1] = 0;
             }
             else
             {
-              heuristicAdjustedValue = xiValues[roleIndex] - (xiValues[roleIndex]) * (applicableValue - 50) / 50;
+              xiValues[0] = 0;
+              xiValues[1] = 100;
             }
-
-            xiValues[roleIndex] = heuristicAdjustedValue;
           }
 
           //xiWeight *= (decidingRoleIndex == 0 ? lNode.heuristicValue : 100 - lNode.heuristicValue)/50;
@@ -4506,7 +4600,6 @@ public class TreeNode
 
       assert(checkFixedSum(xiValues));
       assert(checkFixedSum());
-      assert(lNode.numUpdates > 0.25);
     }
 
     return System.nanoTime() - lStartTime;
