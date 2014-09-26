@@ -731,7 +731,7 @@ public class Sancho extends SampleGamer
     {
       //	Empirically games with piece count heuristics seem to like lower
       //	exploration bias - not entirely sure why!
-      //explorationBias = explorationBias * 0.7;
+      explorationBias = explorationBias * 0.7;
     }
 
     mGameCharacteristics.setExplorationBias(explorationBias);
