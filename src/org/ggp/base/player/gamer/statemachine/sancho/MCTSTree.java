@@ -454,7 +454,7 @@ public class MCTSTree
       }
       else
       {
-        assert(false) : "Attempt to remove incorrect node from position indexes";
+        //assert(false) : "Attempt to remove incorrect node from position indexes";
       }
     }
   }
