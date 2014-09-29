@@ -60,6 +60,10 @@ public class MCTSTree
   public static final boolean                          USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false);
 
   /**
+   * Whether to use periodic normalization on node scors
+   */
+  public final boolean                                 USE_NODE_SCORE_NORMALIZATION = MachineSpecificConfiguration.getCfgVal(CfgItem.USE_NODE_SCORE_NORMALIZATION, false);
+  /**
    * Whether to use UCB tuned as opposed to simple UCB
    */
   public final boolean                                 USE_UCB_TUNED;
@@ -236,6 +240,15 @@ public class MCTSTree
       mWeightDecayCutoffDepth = 1000;
 
       LOGGER.info("Weight decay disabled");
+    }
+
+    if ( USE_NODE_SCORE_NORMALIZATION )
+    {
+      LOGGER.info("Using periodic node score normalization");
+    }
+    else
+    {
+      LOGGER.info("Not using periodic node score normalization");
     }
 
     USE_UCB_TUNED = MachineSpecificConfiguration.getCfgVal(CfgItem.USE_UCB_TUNED, true);

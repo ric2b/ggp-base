@@ -48,6 +48,11 @@ public class MachineSpecificConfiguration
     DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING,
 
     /**
+     * Whether to periodically normalize tre node scores
+     */
+    USE_NODE_SCORE_NORMALIZATION,
+
+    /**
      * Whether to disable the use of learning (both using stuff already learned and also learning new stuff).
      */
     DISABLE_LEARNING,

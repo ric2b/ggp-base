@@ -2224,11 +2224,11 @@ public class TreeNode
 
         if ( mNumChildren == 1 && this != tree.root && tree.removeNonDecisionNodes )
         {
+          assert(pathTo != null);
+
           TreeNode parent = pathTo.getParentNode();
 
           itr = moves.getContents(choosingRole).iterator();
-
-          assert(pathTo != null);
 
           //  Forced responses do not get their own nodes - we just re-purpose this one
           ForwardDeadReckonLegalMoveInfo forcedChoice = tree.searchFilter.nextFilteredMove(itr);
@@ -2447,192 +2447,6 @@ public class TreeNode
           return result;
         }
 
-        //  Evaluate wrt the state that started the current heuristic modification sequence
-        ForwardDeadReckonInternalMachineState evaluateRelativeToState = tree.root.state;
-        ForwardDeadReckonInternalMachineState parentState = null;
-        boolean previousEdgeHadHeuristicDeviation = false;
-        TreePathElement startOfHeuristicSequence = null;
-        TreePathElement precursorToHeuristicSequence = null;
-        TreeNode referenceNode = tree.root;
-
-        if ( tree.removeNonDecisionNodes || roleIndex == tree.numRoles - 1)
-        {
-          // Determine the heuristic value for this node.
-          for (int lii = 0; lii < tree.numRoles; lii++)
-          {
-            tree.mNodeHeuristicValues[lii] = 0;
-          }
-
-//          if ( pathTo != null && !pathTo.getEdge(false).hasHeuristicDeviation && state.toString().contains("f 3 white queen"))
-//          {
-//            System.out.println("move after queen capture");
-//          }
-          if ( fullPathTo != null )
-          {
-            TreePathElement pathElement = null;
-            boolean seenHeuristicDeviation = false;
-            boolean previousEdgeProcessed = false;
-            //boolean breakOn = false;
-            //boolean breakOn2 = false;
-
-//            if ( pathTo != null && pathTo.getEdge(false).mPartialMove.move.toString().contains("5 5 6 6"))
-//            {
-//              breakOn = true;
-//            }
-//
-//            if ( pathTo != null && depth == tree.root.depth+2 && pathTo.getEdge(false).mPartialMove.move.toString().contains("5 7 6 6"))
-//            {
-//              if ( pathTo.getParentNode().heuristicValue > 52 )
-//              {
-//                System.out.println("!");
-//              }
-//            }
-            while(fullPathTo.hasMore())
-            {
-              fullPathTo.getNextNode();
-              pathElement = fullPathTo.getCurrentElement();
-
-              assert(pathElement != null);
-
-              boolean pathElementHasHeuristicDeviation = pathElement.getEdge(false).hasHeuristicDeviation;
-
-              if ( pathElementHasHeuristicDeviation )
-              {
-                startOfHeuristicSequence = pathElement;
-              }
-              else if ( startOfHeuristicSequence != null )
-              {
-                precursorToHeuristicSequence = pathElement;
-              }
-
-              if ( parentState == null )
-              {
-                parentState = pathElement.getParentNode().state;
-              }
-              if ( !previousEdgeProcessed )
-              {
-                previousEdgeHadHeuristicDeviation = pathElementHasHeuristicDeviation;
-                previousEdgeProcessed = true;
-              }
-
-//              if ( breakOn && pathElement.getChildNode().depth >= tree.root.depth+4 && pathElement.getEdge(false).mPartialMove.move.toString().contains("5 7 6 6"))
-//              {
-//                System.out.println("!");
-//              }
-
-              if ( (/*seenHeuristicDeviation ||*/ pathElement.getParentNode().numUpdates > 200) && !pathElementHasHeuristicDeviation )
-              {
-                break;
-              }
-
-              seenHeuristicDeviation |= pathElementHasHeuristicDeviation;
-            }
-
-            //  Restore path cursor so that next attempt to enumerate is clean
-            fullPathTo.resetCursor();
-
-            if ( pathElement != null )
-            {
-              referenceNode = pathElement.getParentNode();
-            }
-
-            evaluateRelativeToState = referenceNode.state;
-          }
-
-//          double explorationBias = tree.heuristic.getHeuristicValue( state,
-//                                                                     decidingRoleIndex,
-//                                                                     parentState,
-//                                                                     evaluateRelativeToState,
-//                                                                     tree.mNodeHeuristicValues,
-//                                                                     tree.mNodeHeuristicWeight);
-//
-//          if ( explorationBias != 0 && pathTo != null )
-//          {
-//            //  TODO - currently we assume exporationBias can only be positive
-//            //  This needs to be generalized
-//            TreeEdge edge = pathTo.getEdge(false);
-//            edge.explorationAmplifier += explorationBias;
-//            edge.hasHeuristicDeviation = true;
-//
-////            if ( startOfHeuristicSequence != null && decidingRoleIndex == startOfHeuristicSequence.getChildNode().decidingRoleIndex )
-////            {
-////              startOfHeuristicSequence.getEdge(false).explorationAmplifier += explorationBias;
-////            }
-////            else if ( precursorToHeuristicSequence != null && decidingRoleIndex == precursorToHeuristicSequence.getChildNode().decidingRoleIndex )
-////            {
-////              precursorToHeuristicSequence.getEdge(false).explorationAmplifier += explorationBias;
-////            }
-//          }
-//
-//          if (tree.mNodeHeuristicWeight.doubleValue() > 0)
-//          {
-//            if ( pathTo != null && (explorationBias != 0 || !previousEdgeHadHeuristicDeviation) )
-//            {
-//              //heuristicValue = pathTo.getParentNode().heuristicValue;
-//              heuristicWeight = 0;
-//            }
-//            else
-//            {
-//              heuristicValue = tree.mNodeHeuristicValues[0];
-//              heuristicWeight = tree.mNodeHeuristicWeight.doubleValue();
-//
-////              if ( startOfHeuristicSequence != null  )
-////              {
-////                startOfHeuristicSequence.getEdge(false).explorationAmplifier *= 2;
-////              }
-//            }
-//            if ( explorationBias > 0 )
-//            {
-//              if ( precursorToHeuristicSequence == null )
-//              {
-//                referenceNode = tree.root;
-//              }
-//              else
-//              {
-//                referenceNode = precursorToHeuristicSequence.getParentNode();
-//              }
-//
-//              if ( evaluateRelativeToState != parentState )
-//              {
-//                tree.heuristic.getHeuristicValue( state,
-//                                                   decidingRoleIndex,
-//                                                   parentState,
-//                                                   parentState,
-//                                                   tree.mNodeHeuristicValues,
-//                                                   tree.mNodeHeuristicWeight);
-//              }
-//              for (int i = 0; i < tree.numRoles; i++)
-//              {
-//                double adjustedRoleScore;
-//                double referenceRoleScore = referenceNode.getAverageScore(i);
-//
-//                if (tree.mNodeHeuristicValues[i] > 50)
-//                {
-//                  adjustedRoleScore = referenceRoleScore +
-//                                        (100 - referenceRoleScore) *
-//                                        (tree.mNodeHeuristicValues[i] - 50) /
-//                                        50;
-//                }
-//                else
-//                {
-//                  adjustedRoleScore = referenceRoleScore -
-//                                        (referenceRoleScore) *
-//                                        (50 - tree.mNodeHeuristicValues[i]) /
-//                                        50;
-//                }
-//
-//                setAverageScore(i, (getAverageScore(i)*numUpdates + adjustedRoleScore*tree.mNodeHeuristicWeight.doubleValue())/(numUpdates+tree.mNodeHeuristicWeight.doubleValue()));
-//              }
-//              // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
-//              // the new child.
-//              numUpdates += tree.mNodeHeuristicWeight.doubleValue();
-//              assert(!Double.isNaN(getAverageScore(0)));
-//
-//              numVisits += tree.mNodeHeuristicWeight.doubleValue();
-//            }
-//          }
-        }
-
         // If the child array isn't large enough, expand it.
         assert(mNumChildren <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
         if (mNumChildren > children.length)
@@ -2649,10 +2463,6 @@ public class TreeNode
         }
 
         //  If this is the first choice node discovered as we descend from the root not it and how many children it has
-//        if ( tree.oldRoot != null && tree.firstChoiceNode == null && mNumChildren > 1 )
-//        {
-//          tree.firstChoiceNode = this;
-//        }
         tree.setForcedMoveProps(state, jointPartialMove);
 
         //  Must retrieve the iterator AFTER setting any forcd move props, since it will also
@@ -2740,14 +2550,6 @@ public class TreeNode
             }
           }
 
-          //  If this is a unique choice from the new root's first choice node increment
-          //  the unexpanded root choice count
-//          if ( tree.firstChoiceNode == this && (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) )
-//          {
-//            tree.numUnexpandedRootChoices++;
-//            LOGGER.info("Adding root choice " + newChoice.move + " - count now: " + tree.numUnexpandedRootChoices);
-//          }
-
           assert(newChoice != null);
           children[lMoveIndex] = newChoice;
 
@@ -2834,8 +2636,54 @@ public class TreeNode
 
         assert(linkageValid());
 
-        if ( tree.removeNonDecisionNodes || roleIndex == tree.numRoles - 1)
+        if ( tree.heuristic.isEnabled() && (tree.removeNonDecisionNodes || roleIndex == tree.numRoles - 1) )
         {
+          //  Evaluate wrt the first ancestor state with a reasonable number of visits which
+          //  is not itself immediately preceded by a heuristic exchange
+          boolean previousEdgeHadHeuristicDeviation = false;
+          TreeNode referenceNode = tree.root;
+
+          // Determine the heuristic value for this node.
+          for (int lii = 0; lii < tree.numRoles; lii++)
+          {
+            tree.mNodeHeuristicValues[lii] = 0;
+          }
+
+          if ( fullPathTo != null )
+          {
+            boolean previousEdgeWalked = false;
+            TreePathElement pathElement = null;
+
+            while(fullPathTo.hasMore())
+            {
+              fullPathTo.getNextNode();
+              pathElement = fullPathTo.getCurrentElement();
+
+              assert(pathElement != null);
+
+              boolean pathElementHasHeuristicDeviation = pathElement.getEdge(false).hasHeuristicDeviation;
+
+              if ( !previousEdgeWalked )
+              {
+                previousEdgeHadHeuristicDeviation = pathElementHasHeuristicDeviation;
+                previousEdgeWalked = true;
+              }
+
+              if ( pathElement.getParentNode().numUpdates > 200 && !pathElementHasHeuristicDeviation )
+              {
+                break;
+              }
+            }
+
+            //  Restore path cursor so that next attempt to enumerate is clean
+            fullPathTo.resetCursor();
+
+            if ( pathElement != null )
+            {
+              referenceNode = pathElement.getParentNode();
+            }
+          }
+
           short firstIndexWithHeuristic = -1;
 
           for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
@@ -2862,7 +2710,7 @@ public class TreeNode
               explorationBias = tree.heuristic.getHeuristicValue( tree.mChildStatesBuffer[lMoveIndex],
                                                                        roleIndex,
                                                                        state,
-                                                                       evaluateRelativeToState,
+                                                                       referenceNode.state,
                                                                        tree.mNodeHeuristicValues,
                                                                        tree.mNodeHeuristicWeight);
 
@@ -2889,21 +2737,7 @@ public class TreeNode
 
                 edge.explorationAmplifier += explorationBias;
                 edge.hasHeuristicDeviation = true;
-
-//                if ( startOfHeuristicSequence != null && decidingRoleIndex == startOfHeuristicSequence.getChildNode().decidingRoleIndex )
-//                {
-//                  startOfHeuristicSequence.getEdge(false).explorationAmplifier += explorationBias;
-//                }
-//                else if ( precursorToHeuristicSequence != null && decidingRoleIndex == precursorToHeuristicSequence.getChildNode().decidingRoleIndex )
-//                {
-//                  precursorToHeuristicSequence.getEdge(false).explorationAmplifier += explorationBias;
-//                }
               }
-
-//              if ( pathTo != null && pathTo.getEdge(false).mPartialMove.move.toString().contains("rook d 3 d 2"))
-//              {
-//                System.out.println("Rook move");
-//              }
 
               if (tree.mNodeHeuristicWeight.doubleValue() > 0)
               {
@@ -2912,17 +2746,12 @@ public class TreeNode
 
                 if ( explorationBias != 0 || (pathTo != null && !previousEdgeHadHeuristicDeviation) )
                 {
-                  //heuristicValue = pathTo.getParentNode().heuristicValue;
                   applyHeuristicHere |= (explorationBias != 0);
                 }
                 else if ( pathTo != null )
                 {
                   heuristicWeightToApply = tree.mNodeHeuristicWeight.doubleValue();
 
-//                  if ( startOfHeuristicSequence != null  )
-//                  {
-//                    startOfHeuristicSequence.getEdge(false).explorationAmplifier *= 2;
-//                  }
                   applyHeuristicHere = true;
                 }
                 if ( applyHeuristicHere )
@@ -2950,6 +2779,8 @@ public class TreeNode
                       children[lMoveIndex] = edge;
                     }
                   }
+
+                  assert(edge != null);
 
                   jointPartialMove[roleIndex] = edge.mPartialMove;
 
@@ -2983,6 +2814,7 @@ public class TreeNode
                       double referenceRoleScore = referenceNode.getAverageScore(i);
 
                       //  Weight by a measure of confidence in the reference score
+                      //  TODO - experiment - should this be proportional to sqrt(num root visits)?
                       double referenceScoreWeight = referenceNode.numUpdates/50;
                       referenceRoleScore = (referenceRoleScore*referenceScoreWeight + 50)/(referenceScoreWeight+1);
 
@@ -3019,80 +2851,6 @@ public class TreeNode
                   }
                 }
               }
-//              tree.heuristic.getHeuristicValue(tree.mChildStatesBuffer[lMoveIndex],
-//                                               state,
-//                                               tree.mNodeHeuristicValues,
-//                                               tree.mNodeHeuristicWeight);
-//
-//              assert(linkageValid());
-//              if (tree.mNodeHeuristicWeight.value > 0)
-//              {
-//                double heuristicSquaredDeviation = 0;
-//
-//                //validateScoreVector(heuristicScores);
-//
-//                // Set the heuristic values, although note that this doesn't actually apply them.  There need to be some
-//                // recorded samples before the averageScores have any meaning.
-//                for (int i = 0; i < tree.numRoles; i++)
-//                {
-//                  //newChild.averageScores[i] = heuristicScores[i];
-//                  //double lDeviation = tree.root.getAverageScore(i) - tree.mNodeHeuristicValues[i];
-//                  double lDeviation = 50 - tree.mNodeHeuristicValues[i];
-//                  heuristicSquaredDeviation += (lDeviation * lDeviation);
-//                }
-//
-//                // Only apply the heuristic values if the current root has sufficient visits and there is some deviation
-//                // between the root's scores and the heuristic scores in the new child.
-//                if (heuristicSquaredDeviation > 0.01 )//&& tree.root.numVisits > 50)
-//                {
-//                  //  Create the edge if necessary
-//                  TreeEdge edge;
-//
-//                  if ( children[lMoveIndex] instanceof TreeEdge )
-//                  {
-//                    edge = (TreeEdge)children[lMoveIndex];
-//                  }
-//                  else
-//                  {
-//                    edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-//                    edge.setParent(this, (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex]);
-//                    children[lMoveIndex] = edge;
-//                  }
-//
-//                  jointPartialMove[roleIndex] = edge.mPartialMove;
-//
-//                  assert(linkageValid());
-//
-//                  if ( edge.mChildRef == NULL_REF )
-//                  {
-//                    createChildNodeForEdge(edge, jointPartialMove);
-//
-//                    assert(linkageValid());
-//
-//                    assert(!evaluateTerminalOnNodeCreation || !calculateTerminalityAndAutoExpansion(get(edge.mChildRef).state).isTerminal);
-//
-//                    assert(linkageValid());
-//                  }
-//
-//                  TreeNode newChild = get(edge.mChildRef);
-//
-//                  //  If this turns out to be a transition into an already visited child
-//                  //  then do not apply the heuristics
-//                  if (newChild.numVisits == 0 && !newChild.isTerminal)
-//                  {
-//                   for (int i = 0; i < tree.numRoles; i++)
-//                    {
-//                      newChild.setAverageScore(i, (newChild.getAverageScore(i)*newChild.numUpdates + tree.mNodeHeuristicValues[i]*tree.mNodeHeuristicWeight.value)/(newChild.numUpdates+tree.mNodeHeuristicWeight.value));
-//                    }
-//                    // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
-//                    // the new child.
-//                    newChild.numUpdates = tree.mNodeHeuristicWeight.value;
-//                    assert(!Double.isNaN(newChild.getAverageScore(0)));
-//
-//                    newChild.numVisits = tree.mNodeHeuristicWeight.value;
-//                  }
-//                }
-//              }
             }
           }
         }
@@ -3452,6 +3210,53 @@ public class TreeNode
     return 1000 + tree.r.nextDouble() * EPSILON + explorationAmplifier;
   }
 
+  private void normalizeScores()
+  {
+    double weightTotal = 0;
+
+    for(int role = 0; role < tree.numRoles; role++)
+    {
+      tree.mNodeAverageScores[role] = 0;
+      tree.mNodeAverageSquaredScores[role] = 0;
+    }
+
+    for(int i = 0; i < mNumChildren; i++)
+    {
+      Object choice = children[i];
+
+      if ( choice instanceof TreeEdge )
+      {
+        TreeEdge edge = (TreeEdge)choice;
+
+        if ( edge.mChildRef != NULL_REF )
+        {
+          TreeNode child = get(edge.mChildRef);
+
+          if ( child != null  )
+          {
+            double weight = edge.getNumChildVisits()*Math.sqrt(edge.getNumChildVisits());
+
+            for(int role = 0; role < tree.numRoles; role++)
+            {
+              tree.mNodeAverageScores[role] += weight*child.getAverageScore(role);
+              tree.mNodeAverageSquaredScores[role] += weight*child.getAverageSquaredScore(role);
+            }
+            weightTotal += weight;
+          }
+        }
+      }
+    }
+
+    if ( weightTotal > 0)
+    {
+      for(int role = 0; role < tree.numRoles; role++)
+      {
+        setAverageScore(role, tree.mNodeAverageScores[role]/weightTotal);
+        setAverageSquaredScore(role, tree.mNodeAverageSquaredScores[role]/weightTotal);
+      }
+    }
+  }
+
   /**
    * Select the child node to descend through during MCTS node selection.
    *
@@ -3505,73 +3310,9 @@ public class TreeNode
       }
       else
       {
-        if ( numVisits > 500 && (numVisits&0xff) == 0xff )
+        if ( tree.USE_NODE_SCORE_NORMALIZATION && numVisits > 500 && (numVisits&0xff) == 0xff )
         {
-          double weightTotal = 0;
-          double accumulatedValue = 0;
-          boolean trace = false;
-
-//          if (path.getTailElement() != null && parents.contains(tree.root))
-//          {
-//            TreeEdge edge = path.getTailElement().getEdge(false);
-//
-//            if ( edge.mPartialMove.move.toString().contains("6 3 7 4"))
-//            {
-//              trace = true;
-//            }
-//          }
-
-          for(int i = 0; i < mNumChildren; i++)
-          {
-            Object choice = children[i];
-
-            if ( choice instanceof TreeEdge )
-            {
-              TreeEdge edge = (TreeEdge)choice;
-
-              if ( edge.mChildRef != NULL_REF )
-              {
-                TreeNode child = get(edge.mChildRef);
-
-                if ( child != null  )
-                {
-                  double weight = edge.getNumChildVisits()*Math.sqrt(edge.getNumChildVisits());
-                  accumulatedValue += weight*child.getAverageScore(roleIndex);
-                  weightTotal += weight;
-
-                  if ( trace )
-                  {
-                    System.out.println("Child " + edge.mPartialMove.move + " score " + child.getAverageScore(roleIndex) + ", visits " + edge.getNumChildVisits() + ", weight: " + weight);
-                  }
-                }
-              }
-            }
-          }
-
-          if ( weightTotal > 0)
-          {
-            double adjustedScore = accumulatedValue/weightTotal;
-
-            if ( trace )
-            {
-              System.out.println("Adjusting parent score from " + getAverageScore(roleIndex) + " to " + adjustedScore);
-            }
-            setAverageScore(roleIndex, adjustedScore);
-            setAverageScore(decidingRoleIndex, 100-adjustedScore);
-          }
-//
-////          if ( depth < tree.root.depth+4 )
-////          {
-////            if ( path != null )
-////            {
-////              TreePathElement pathElement = path.getTailElement();
-////
-////              if ( pathElement != null )
-////              {
-////                System.out.println("Move " + pathElement.getEdge(false).mPartialMove.move + " after " + numVisits + " visits adjust to max child score: " +stringizeScoreVector(pathElement.getEdge(false)) );
-////              }
-////            }
-////          }
+          normalizeScores();
         }
         //  It is clearly a bug to reset mostLikelyRunnerUpValue here, but empirically it is significantly
         //  useful in some games (D&B, D&B suicide notably).  The only games where a clear negative impact
@@ -3912,7 +3653,7 @@ public class TreeNode
     return scoreForMostLikelyResponseRecursive(null, decidingRoleIndex);
   }
 
-  private String stringizeScoreVector(TreeEdge edge)
+  private String stringizeScoreVector()
   {
     StringBuilder sb = new StringBuilder();
 
@@ -3923,7 +3664,7 @@ public class TreeNode
       {
         sb.append(", ");
       }
-      sb.append(FORMAT_2DP.format(edge == null ? getAverageScore(i) : exploitationUCT(edge,i)));
+      sb.append(FORMAT_2DP.format(getAverageScore(i)));
     }
     sb.append("]");
     if (complete)
@@ -3938,7 +3679,7 @@ public class TreeNode
   {
     if (mNumChildren == 0)
     {
-      LOGGER.info("    No choice response scores " + stringizeScoreVector(null));
+      LOGGER.info("    No choice response scores " + stringizeScoreVector());
     }
     else if (mNumChildren > 1)
     {
@@ -3954,7 +3695,7 @@ public class TreeNode
             TreeNode lNode2 = get(edge2.mChildRef);
             String lLog = "    Response " +
                           edge2.mPartialMove.move +
-                          " scores " + lNode2.stringizeScoreVector(edge2) +
+                          " scores " + lNode2.stringizeScoreVector() +
                           ", visits " + lNode2.numVisits +
                           ", ref : " + lNode2.mRef +
                           (lNode2.complete ? " (complete)" : "");
@@ -4068,7 +3809,7 @@ public class TreeNode
     if (arrivalPath == null)
     {
       indentedPrint(writer, depth * 2, "Root scores " +
-          stringizeScoreVector(null));
+          stringizeScoreVector());
     }
     else
     {
@@ -4079,7 +3820,7 @@ public class TreeNode
                         ": Move " +
                         (arrivalPath.mPartialMove.inputProposition == null ? arrivalPath.mPartialMove.move : arrivalPath.mPartialMove.inputProposition.getName()) +
                         " (choosing role " + (decidingRoleIndex+1)%tree.numRoles + ")" +
-                        " scores " + stringizeScoreVector(arrivalPath) + "[" + heuristicValue + "@" + heuristicWeight + "] (ref " + mRef +
+                        " scores " + stringizeScoreVector() + "[" + heuristicValue + "@" + heuristicWeight + "] (ref " + mRef +
                         ") - visits: " + numVisits + " (" +
                         arrivalPath.getNumChildVisits() + ", " + arrivalPath.explorationAmplifier + "), updates: " + numUpdates);
     }
@@ -4333,7 +4074,7 @@ public class TreeNode
         double moveScore = (tree.gameCharacteristics.isSimultaneousMove ||
                             tree.gameCharacteristics.numRoles > 2 ||
                             anyComplete ||
-                            MCTSTree.DISABLE_ONE_LEVEL_MINIMAX) ? exploitationUCT(edge,roleIndex) :
+                            MCTSTree.DISABLE_ONE_LEVEL_MINIMAX) ? child.getAverageScore(roleIndex) :
                                                                   child.scoreForMostLikelyResponse();
 
         assert(-EPSILON <= moveScore && 100 + EPSILON >= moveScore);
@@ -4642,20 +4383,7 @@ public class TreeNode
       TreeEdge lChildEdge = (lElement == null ? null : lElement.getEdgeUnsafe());
       lNextNode = null;
 
-//      if ( lElement == null )
-//      {
-//        applicationWeight /= 25;
-//      }
-//      else if ( !xiIsCompletePseudoRollout )
-//      {
-//        TreeNode childNode = lElement.getChildNode();
-//        //applicationWeight *= (1 + Math.log(childNode.numVisits)*childNode.getAverageScore(childNode.decidingRoleIndex));
-//        if ( childNode.numVisits < childNode.mNumChildren || childNode.mNumChildren <= 1 )
-//        {
-//          applicationWeight /= 25;
-//        }
-//      }
-      if (!heuristicAdjustmentApplied && lNode.heuristicWeight > 0 /*&& lNode.numUpdates > 0 && (lNode.heuristicValue > 50) == (xiValues[1] > xiValues[0])*/)
+      if (!heuristicAdjustmentApplied && lNode.heuristicWeight > 0 && !xiIsCompletePseudoRollout )
       {
         double applicableValue = (lNode.heuristicValue > 50 ? lNode.heuristicValue : 100 - lNode.heuristicValue);
 
@@ -4675,35 +4403,20 @@ public class TreeNode
             }
 
             xiValues[roleIndex] = heuristicAdjustedValue;
+            xiSquaredValues[roleIndex] = heuristicAdjustedValue*heuristicAdjustedValue;
           }
-//          if ( tree.r.nextDouble() < applicableValue/50 )
-//          {
-//            if (lNode.heuristicValue > 50)
-//            {
-//              xiValues[0] = 100;
-//              xiValues[1] = 0;
-//            }
-//            else
-//            {
-//              xiValues[0] = 0;
-//              xiValues[1] = 100;
-//            }
-//          }
-
-          //xiWeight *= (decidingRoleIndex == 0 ? lNode.heuristicValue : 100 - lNode.heuristicValue)/50;
-//          xiWeight *= (lNode.heuristicValue*xiValues[0] + (100 - lNode.heuristicValue)*xiValues[1])/
-//                          Math.sqrt(((lNode.heuristicValue*lNode.heuristicValue + (100-lNode.heuristicValue)*(100-lNode.heuristicValue)))*
-//                                    ((xiValues[0]*xiValues[0] + xiValues[1]*xiValues[1])));
-//
-//          double normalizer = 50*(xiValues[0]+xiValues[1])/Math.sqrt(2500*(xiValues[0]*xiValues[0]*xiValues[1]*xiValues[1]));
-//          xiWeight /= normalizer;
-          //lNode.heuristicWeight = Math.max(lNode.heuristicWeight - 0.1, 0);
-          //heuristicAdjustmentApplied = true;
         }
       }
 
       double applicationWeight = xiWeight;
-      if ( xiIsCompletePseudoRollout )
+
+      //  For a non-decisive losing complete node we know this path will not actually be chosen
+      //  so reduce its weight significantly.  This helps a lot in games like breakthrough where
+      //  all responses but one (to an enemy pawn advancing the 7th/2nd rank) lose, by preventing
+      //  the necessary expansion of every child resulting in a very misleading value for the immediate
+      //  parent after O(branching factor) visits, which can otherwise cause it to sometimes not be
+      //  explored further
+      if ( xiIsCompletePseudoRollout && xiValues[(lNode.decidingRoleIndex+1)%tree.numRoles] == 0 )
       {
         applicationWeight /= 10;
       }
