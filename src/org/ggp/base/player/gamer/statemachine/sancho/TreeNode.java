@@ -39,14 +39,14 @@ public class TreeNode
   /**
    * An arbitrary small number to cope with rounding errors
    */
-  static final double         EPSILON = 1e-6;
+  static final double         EPSILON = 1e-4;
 
   static final double         scoreTemporalDecayRate = 0.99;
 
   /**
    * For debugging use only - enable assertion that the game is fixed sum
    */
-  private static final boolean       ASSERT_FIXED_SUM = true;
+  private static final boolean       ASSERT_FIXED_SUM = false;
 
   private static final DecimalFormat FORMAT_2DP = new DecimalFormat("####0.00");
 
@@ -564,29 +564,38 @@ public class TreeNode
         if ( children[i] instanceof TreeEdge )
         {
           TreeEdge edge = (TreeEdge)children[i];
-          TreeNode child = (edge.mChildRef == NULL_REF ? null : get(edge.mChildRef));
 
-          if ( child != null )
+          if ( edge.mChildRef != NULL_REF )
           {
-            if ( child != tree.root && !child.parents.contains(this) )
-            {
-              assert(false) : "child link not reflected in back-link";
-              return false;
-            }
+            TreeNode child = get(edge.mChildRef);
 
-            for(short j = 0; j < mNumChildren; j++)
+            if ( child != null )
             {
-              if ( i != j && children[j] instanceof TreeEdge )
+              if ( child != tree.root && !child.parents.contains(this) )
               {
-                TreeEdge edge2 = (TreeEdge)children[j];
-                TreeNode child2 = (edge2.mChildRef == NULL_REF ? null : get(edge2.mChildRef));
+                assert(false) : "child link not reflected in back-link";
+                return false;
+              }
 
-                if ( child == child2 )
+              for(short j = 0; j < mNumChildren; j++)
+              {
+                if ( i != j && children[j] instanceof TreeEdge )
                 {
-                  assert(false) : "multiply linked child";
-                  return false;
+                  TreeEdge edge2 = (TreeEdge)children[j];
+                  TreeNode child2 = (edge2.mChildRef == NULL_REF ? null : get(edge2.mChildRef));
+
+                  if ( child == child2 )
+                  {
+                    assert(false) : "multiply linked child";
+                    return false;
+                  }
                 }
               }
+            }
+            else
+            {
+              assert(false) : "edge points to stale child";
+              return false;
             }
           }
         }
@@ -2173,7 +2182,7 @@ public class TreeNode
         if ( roleIndex == 0 )
         {
           boolean parentEvaluatedTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation &&
-                                                           depth/tree.numRoles <= parentDepth/tree.numRoles + 1 &&
+                                                           !isRecursiveExpansion &&
                                                            parentDepth >= tree.gameCharacteristics.getEarliestCompletionDepth());
           if (!parentEvaluatedTerminalOnNodeCreation && mNumChildren == 0)
           {
@@ -2200,6 +2209,7 @@ public class TreeNode
         }
       }
 
+      assert(!tree.searchFilter.isFilteredTerminal(state));
       assert(linkageValid());
 
       assert (mNumChildren == 0);
@@ -2227,6 +2237,11 @@ public class TreeNode
           assert(pathTo != null);
 
           TreeNode parent = pathTo.getParentNode();
+          TreeEdge edge = pathTo.getEdge(false);
+
+          assert(parent != null);
+          assert(parent.linkageValid());
+          assert(edge.mChildRef == getRef());
 
           itr = moves.getContents(choosingRole).iterator();
 
@@ -2262,12 +2277,139 @@ public class TreeNode
               assert(existing != this);
               assert(existing != parent);
               assert(existing.state.equals(newState));
+              assert(edge.mChildRef != existing.getRef());
+              assert(existing.linkageValid());
+
+              //  Detach the edge from the old node we just transitioned out of
+              edge.mChildRef = NULL_REF;
+
+              //  Need to check that we don't already have a different edge leading from the same parent to this newly transposed-to
+              //  node (multiple forced move paths can have a common destination)
+              if ( existing.parents.contains(parent))
+              {
+                short thisIndex = -1;
+                short otherPathIndex = -1;
+
+                for(short i = 0; i < parent.mNumChildren; i++)
+                {
+                  if ( parent.children[i] instanceof TreeEdge )
+                  {
+                    TreeEdge linkingEdge = (TreeEdge)parent.children[i];
+
+                    if ( linkingEdge == edge )
+                    {
+                      thisIndex = i;
+                    }
+                    else if ( linkingEdge.mChildRef == existing.getRef() )
+                    {
+                      otherPathIndex = i;
+                    }
+                  }
+                }
+
+                assert(thisIndex != -1);
+                assert(otherPathIndex != -1);
+
+                //  This edge is being newly traversed (for the first time), but the
+                //  other may already have been traversed multiple times, so we must retire
+                //  this one in favour of the other
+                parent.children[thisIndex] = edge.mPartialMove;
+                if ( parent.primaryChoiceMapping == null )
+                {
+                  parent.primaryChoiceMapping = new short[parent.mNumChildren];
+
+                  for(short i = 0; i < parent.mNumChildren; i++)
+                  {
+                    parent.primaryChoiceMapping[i] = i;
+                  }
+                }
+
+                parent.primaryChoiceMapping[thisIndex] = otherPathIndex;
+
+                tree.edgePool.free(edge);
+                edge = (TreeEdge)parent.children[otherPathIndex];
+
+                pathTo.set(parent, edge);
+              }
+
+              //  This situation can only occur on the first expansion of the child of the edge
+              //  which happens the first or second time it is visited (first time it may result in
+              //  a playout from a leaf node that doesn't get expanded).  If it turn out to be a
+              //  transposition, not detected until the second selection, then the first selection
+              //  will not register on the visit counting of the new child, and the edge count needs
+              //  reducing to one for things to remain consistent
+              //edge.setNumVisits(1);
+
+              //  In any other path it's only valid to create a path element where the number
+              //  of edge visits is no greater than the number of child node visits, but in the
+              //  selectAction path where this recursion can replace a node due to transpositions
+              //  we'll be in an intermediary state where the processing selection has incremented
+              //  the edge count, but not yet the child node count (which will be incremented on the
+              //  next step of the selection process).  This means the constraint can be temporarily
+              //  'out by one', and rather than lose the power of these assertions we can make for the
+              //  'normal' case we transiently increment the child node count here if and only if
+              //  assertions are enabled.
+              assert(existing.numVisits++ >= 0);
+              edge.setChild(existing);
+              pathTo.set(parent, edge);
+              assert(existing.numVisits-- > 0);
+
+              //  Strictly this new path from parent to child by a forced-move path might
+              //  not be unique (it could turn out that multiple forced move sequences which
+              //  have different starting moves lead to the same result)
+              //  If it's NOT unique we must make it so
+              if ( !existing.parents.contains(parent))
+              {
+                existing.addParent(parent);
+              }
+
+              assert(existing.linkageValid());
+              assert(parent.linkageValid());
+
+              //  If the node transposed to was complete it must have been a non-decisive completion
+              //  but it could be that it completes all children of the new parent, so that must be
+              //  checked
+              if ( existing.complete )
+              {
+                parent.checkChildCompletion(false);
+              }
+
+              //  The original node is no longer needed for this path since we wound up transposing
+              //  However, it may have several parents, and we can only trim it from the current
+              //  selection path (selection through the other paths will later transpose to the same result)
+              //  In rare cases this node may ALREADY have been freed by a decisive completion during
+              //  a recursive expansion of a node transposed into during the recursion (that shared a common
+              //  parent)
+              if ( !freed )
+              {
+                mNumChildren = 0; //  Must reset this so it appears unexpanded for other paths if it doesn't get freed
+                assert(parents.size() > 0);
+                if ( parents.contains(parent) )
+                {
+//                  if ( isRecursiveExpansion )
+//                  {
+//                    //  Remove the forward link so things remain transiently
+//                    //  self consistent - there's no need to re-point this edge
+//                    //  to the new terminus yet - we do that (once) at the tail
+//                    //  end of the recursion unwinding.  However, keeping a degree
+//                    //  of transient consistency means we can continue to use strong
+//                    //  assertions on the linkage throughout which helps with debugging
+//                    edge.mChildRef = NULL_REF;
+//                  }
+
+                  freeFromAncestor(parent, null);
+                }
+
+                assert(freed || linkageValid());
+                assert(parent.linkageValid());
+              }
 
               //  If the transposed-to node is already expanded we're done
               if ( !existing.complete && existing.isUnexpanded() )
               {
                 result = existing.expandInternal(fullPathTo, jointPartialMove, parentDepth, true);
                 assert(result.mNumChildren > 1 || result == tree.root || result.complete);
+                assert(result.linkageValid());
               }
               else
               {
@@ -2276,6 +2418,7 @@ public class TreeNode
               }
               assert(result != this);
               assert(result != parent);
+              assert(parent.complete || pathTo.getEdge(false).mChildRef == result.getRef());
             }
             else
             {
@@ -2307,141 +2450,19 @@ public class TreeNode
 
             //  Recurse
             result = expandInternal(fullPathTo, jointPartialMove, parentDepth, true);
-          }
-
-
-          if ( result != this )
-          {
             assert(result.linkageValid());
-
-            //TreeNode parent = pathTo.getParentNode();
-            TreeEdge edge = pathTo.getEdge(false);
-
-            if ( !isRecursiveExpansion )
-            {
-              //  Adjust the edge that points to this forced move sequence to point to its terminus
-              assert(parent != null);
-              assert(edge!=null);
-
-              //  This situation can only occur on the first expansion of the child of the edge
-              //  which happens the first or second time it is visited (first time it may result in
-              //  a playout from a leaf node that doesn't get expanded).  If it turn out to be a
-              //  transposition, not detected until the second selection, then the first selection
-              //  will not register on the visit counting of the new child, and the edge count needs
-              //  reducing to one for things to remain consistent
-              edge.setNumVisits(1);
-
-              //  In any other path it's only valid to create a path element where the number
-              //  of edge visits is no greater than the number of child node visits, but in the
-              //  selectAction path where this recursion can replace a node due to transpositions
-              //  we'll be in an intermediary state where the processing selection has incremented
-              //  the edge count, but not yet the child node count (which will be incremented on the
-              //  next step of the selection process).  This mans the constraint can be temporarily
-              //  'out by one', and rather than lose the power of these assertions we can make for the
-              //  'normal' case we transiently increment the child node count here if and only if
-              //  assertions are enabled.
-              assert(result.numVisits++ >= 0);
-              edge.setChild(result);
-              pathTo.set(parent, edge);
-              assert(result.numVisits-- > 0);
-
-              //  Strictly this new path from parent to child by a forced-move path might
-              //  not be unique (it could turn out that multiple forced move sequences which
-              //  have different starting moves lead to the same result)
-              //  If it's NOT unique we must make it so
-              if ( !result.parents.contains(parent))
-              {
-                result.addParent(parent);
-              }
-              else
-              {
-                //  Find the other existing edge connecting this path
-                short thisIndex = -1;
-                short otherPathIndex = -1;
-
-                for(short i = 0; i < parent.mNumChildren; i++)
-                {
-                  if ( parent.children[i] instanceof TreeEdge )
-                  {
-                    TreeEdge linkingEdge = (TreeEdge)parent.children[i];
-
-                    if ( linkingEdge == edge )
-                    {
-                      thisIndex = i;
-                    }
-                    else if ( linkingEdge.mChildRef == edge.mChildRef )
-                    {
-                      otherPathIndex = i;
-                    }
-                  }
-                }
-
-                assert(thisIndex != -1);
-                assert(otherPathIndex != -1);
-
-                //  This edge is being newly traversed (for the first time), but the
-                //  other may already have been traversed multiple times, so we must retire
-                //  this one in favour of the other
-                parent.children[thisIndex] = edge.mPartialMove;
-                if ( parent.primaryChoiceMapping == null )
-                {
-                  parent.primaryChoiceMapping = new short[parent.mNumChildren];
-
-                  for(short i = 0; i < parent.mNumChildren; i++)
-                  {
-                    parent.primaryChoiceMapping[i] = i;
-                  }
-                }
-
-                parent.primaryChoiceMapping[thisIndex] = otherPathIndex;
-
-                tree.edgePool.free(edge);
-                edge = (TreeEdge)parent.children[otherPathIndex];
-
-                pathTo.set(parent, (TreeEdge)parent.children[otherPathIndex]);
-              }
-
-              assert(result.linkageValid());
-              assert(parent.linkageValid());
-
-              //  If the node transposed to was complete it must have been a non-decisive completion
-              //  but it could be that it completes all children of the new parent, so that must be
-              //  checked
-              if ( result.complete )
-              {
-                parent.checkChildCompletion(false);
-              }
-            }
-
-            //  The original node is no longer needed for this path since we wound up transposing
-            //  However, it may have several parents, and we can only trim it from the current
-            //  selection path (selection through the other paths will later transpose to the same result)
-            //  In rare cases this node may ALREADY have been freed by a decisive completion during
-            //  a recursive expansion of a node transposed into during the recursion (that shared a common
-            //  parent)
-            if ( !freed )
-            {
-              mNumChildren = 0; //  Must reset this so it appears unexpanded for other paths if it doesn't get freed
-              assert(parents.size() > 0);
-              if ( parents.contains(parent) )
-              {
-                if ( isRecursiveExpansion )
-                {
-                  //  Remove the forward link so things remain transiently
-                  //  self consistent - there's no need to re-point this edge
-                  //  to the new terminus yet - we do that (once) at the tail
-                  //  end of the recursion unwinding.  However, keeping a degree
-                  //  of transient consistency means we can continue to use strong
-                  //  assertions on the linkage throughout which helps with debugging
-                  edge.mChildRef = NULL_REF;
-                }
-
-                freeFromAncestor(parent, null);
-              }
-
-              assert(linkageValid());
-            }
           }
+
+
+//          if ( result != this )
+//          {
+//            assert(result.linkageValid());
+//            assert(edge.mChildRef != result.getRef());
+//
+//            //TreeNode parent = pathTo.getParentNode();
+//            //TreeEdge edge = pathTo.getEdge(false);
+//
+//          }
 
           assert(result.mNumChildren > 1 || result == tree.root || result.complete);
           return result;
@@ -2806,8 +2827,6 @@ public class TreeNode
                     newChild.heuristicValue = tree.mNodeHeuristicValues[0];
                     newChild.heuristicWeight = heuristicWeightToApply;
 
-                    double total1 = 0;
-                    double total2 = 0;
                     for (int i = 0; i < tree.numRoles; i++)
                     {
                       double adjustedRoleScore;
@@ -2835,13 +2854,8 @@ public class TreeNode
 
                       double newChildRoleScore = (newChild.getAverageScore(i)*newChild.numUpdates + adjustedRoleScore*tree.mNodeHeuristicWeight.doubleValue())/(newChild.numUpdates+tree.mNodeHeuristicWeight.doubleValue());
                       newChild.setAverageScore(i, newChildRoleScore);
-
-                      total1 += adjustedRoleScore;
-                      total2 += newChildRoleScore;
                     }
 
-                    assert(Math.abs(100-total1) < EPSILON);
-                    assert(Math.abs(100-total2) < EPSILON);
                     // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
                     // the new child.
                     newChild.numUpdates += tree.mNodeHeuristicWeight.doubleValue();
