@@ -93,16 +93,6 @@ public class GameSearcher implements Runnable, ActivityController
   public final SampleAverage              mAverageBranchingFactor = new SampleAverageMean();
 
   /**
-   * The highest score seen in the current turn (for our role).
-   */
-  public int                              highestRolloutScoreSeen;
-
-  /**
-   * The lowest score seen in the current turn (for our role).
-   */
-  public int                              lowestRolloutScoreSeen;
-
-  /**
    * The last combined performance statistics from all rollout threads.
    */
   private RolloutPerfStats                mLastRolloutPerfStats = new RolloutPerfStats(0, 0);
@@ -241,6 +231,7 @@ public class GameSearcher implements Runnable, ActivityController
                                           heuristic.createIndependentInstance(),
                                           this,
                                           roleControlProps);
+
       }
     }
 
@@ -740,9 +731,6 @@ public class GameSearcher implements Runnable, ActivityController
         tree.setRootState(startState, rootDepth);
       }
 
-      lowestRolloutScoreSeen = 1000;
-      highestRolloutScoreSeen = -100;
-
       moveTime = moveTimeout;
       startTime = System.currentTimeMillis();
       searchSeqRequested++;
@@ -836,17 +824,6 @@ public class GameSearcher implements Runnable, ActivityController
       averageLatency = (averageLatency*numCompletedRollouts + lRequest.mQueueLatency)/(numCompletedRollouts+1);
       numCompletedRollouts++;
 
-      // Update min/max scores.
-      if (lRequest.mMaxScore > highestRolloutScoreSeen)
-      {
-        highestRolloutScoreSeen = lRequest.mMaxScore;
-      }
-
-      if (lRequest.mMinScore < lowestRolloutScoreSeen)
-      {
-        lowestRolloutScoreSeen = lRequest.mMinScore;
-      }
-
       //masterMoveWeights.accumulate(request.playedMoveWeights);
 
       long lBackPropTime = 0;
@@ -855,6 +832,17 @@ public class GameSearcher implements Runnable, ActivityController
         TreeNode lNode = TreeNode.get(mNodePool, lRequest.mNodeRef);
         if (lNode != null && !lNode.complete)
         {
+          // Update min/max scores.
+          if (lRequest.mMaxScore > lNode.tree.highestRolloutScoreSeen)
+          {
+            lNode.tree.highestRolloutScoreSeen = lRequest.mMaxScore;
+          }
+
+          if (lRequest.mMinScore < lNode.tree.lowestRolloutScoreSeen)
+          {
+            lNode.tree.lowestRolloutScoreSeen = lRequest.mMinScore;
+          }
+
           mAverageFringeDepth.addSample(lNode.getDepth() - getRootDepth());
           mRMSFringeDepth.addSample(lNode.getDepth() - getRootDepth());
           lRequest.mPath.resetCursor();

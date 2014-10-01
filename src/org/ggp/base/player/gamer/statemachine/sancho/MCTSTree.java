@@ -136,6 +136,16 @@ public class MCTSTree
   final StateSimilarityMap                             mStateSimilarityMap;
   private final ForwardDeadReckonInternalMachineState  mNonFactorInitialState;
   public boolean                                       mIsIrrelevantFactor = false;
+  /**
+   * The highest score seen in the current turn (for our role).
+   */
+  public int                              highestRolloutScoreSeen;
+
+  /**
+   * The lowest score seen in the current turn (for our role).
+   */
+  public int                              lowestRolloutScoreSeen;
+
 
   // Scratch variables for tree nodes to use to avoid unnecessary object allocation.
   // Note - several of these could probably be collapsed into a lesser number since they are not
@@ -549,7 +559,7 @@ public class MCTSTree
           //  uninteresting, and will henceforth spend no time searching it
           if ( factor != null &&
                root.numVisits > 500 &&
-               Math.abs(root.getAverageSquaredScore(0) - root.getAverageScore(0)*root.getAverageScore(0)) < TreeNode.EPSILON )
+               lowestRolloutScoreSeen == highestRolloutScoreSeen )
           {
             mIsIrrelevantFactor = true;
 
@@ -746,6 +756,9 @@ public class MCTSTree
       numCompletedBranches--;
     }
 
+    lowestRolloutScoreSeen = 1000;
+    highestRolloutScoreSeen = -100;
+
     heuristic.newTurn(root.state, root);
   }
 
@@ -799,8 +812,8 @@ public class MCTSTree
       LOGGER.info("Maximum depth of auto-expansion instances: " + maxAutoExpansionDepth);
     }
     LOGGER.info("Current observed rollout score range: [" +
-                mGameSearcher.lowestRolloutScoreSeen + ", " +
-                mGameSearcher.highestRolloutScoreSeen + "]");
+                lowestRolloutScoreSeen + ", " +
+                highestRolloutScoreSeen + "]");
 
     numNonTerminalRollouts = 0;
     numTerminalRollouts = 0;

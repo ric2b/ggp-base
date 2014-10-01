@@ -2166,7 +2166,7 @@ public class TreeNode
     try
     {
       assert(this == tree.root || parents.size() > 0);
-      assert(depth/tree.numRoles == tree.root.depth/tree.numRoles || tree.findTransposition(state) == this);
+      assert(depth/tree.numRoles == tree.root.depth/tree.numRoles || tree.findTransposition(state) == this || (!tree.removeNonDecisionNodes && decidingRoleIndex != tree.numRoles-1));
       //assert(state.size()==10);
       //boolean assertTerminal = !state.toString().contains("b");
       //  Find the role this node is choosing for
@@ -2483,10 +2483,49 @@ public class TreeNode
           }
         }
 
+        if ( tree.factor != null && tree.heuristic.isEnabled() && (tree.removeNonDecisionNodes || roleIndex == tree.numRoles - 1) )
+        {
+          //  If we're expanding the pseudo-noop in a factored game we need to correct for the case where
+          //  it's ending a heuristic sequence
+          if ( pathTo != null )
+          {
+            TreeEdge edge = pathTo.getEdge(false);
+
+            if ( edge.mPartialMove.isPseudoNoOp )
+            {
+              assert(pathTo.getParentNode() == tree.root);
+
+              //  Look to see if a sibling move has no heuristic variance - we can clone
+              //  it's heuristic score and weight
+              for(short index = 0; index < tree.root.mNumChildren; index++)
+              {
+                Object choice = tree.root.children[index];
+
+                if ( choice != edge && choice instanceof TreeEdge )
+                {
+                  TreeEdge siblingEdge = (TreeEdge)choice;
+
+                  if ( !siblingEdge.hasHeuristicDeviation )
+                  {
+                    TreeNode siblingNode = get(siblingEdge.mChildRef);
+
+                    if ( siblingNode != null )
+                    {
+                      heuristicValue = siblingNode.heuristicValue;
+                      heuristicWeight = siblingNode.heuristicWeight;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
         //  If this is the first choice node discovered as we descend from the root not it and how many children it has
         tree.setForcedMoveProps(state, jointPartialMove);
 
-        //  Must retrieve the iterator AFTER setting any forcd move props, since it will also
+        //  Must retrieve the iterator AFTER setting any forced move props, since it will also
         //  iterate over moves internally, and the legal move set iterator is a singleton
         itr = moves.getContents(choosingRole).iterator();
 
@@ -3890,46 +3929,6 @@ public class TreeNode
     }
   }
 
-  private void postProcessResponseCompletion()
-  {
-    if (mNumChildren != 0)
-    {
-      if (mNumChildren > 1)
-      {
-        if (decidingRoleIndex != (tree.numRoles - 1) % tree.numRoles)
-        {
-          for (short index = 0; index < mNumChildren; index++)
-          {
-            if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
-            {
-              Object choice = children[index];
-
-              TreeEdge edge2 = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-              if (edge2 != null && edge2.mChildRef != NULL_REF && get(edge2.mChildRef) != null)
-              {
-                TreeNode lNode2 = get(edge2.mChildRef);
-                if (lNode2.getAverageScore(0) <= tree.mGameSearcher.lowestRolloutScoreSeen && lNode2.complete)
-                {
-                  LOGGER.info("Post-processing completion of response node");
-                  markComplete(lNode2, lNode2.completionDepth);
-                }
-              }
-            }
-          }
-        }
-      }
-      else if ( children[0] instanceof TreeEdge )
-      {
-        TreeEdge edge2 = (TreeEdge)children[0];
-
-        if (edge2.mChildRef != NULL_REF && get(edge2.mChildRef) != null)
-        {
-          get(edge2.mChildRef).postProcessResponseCompletion();
-        }
-      }
-    }
-  }
-
   public FactorMoveChoiceInfo getBestMove(boolean traceResponses, StringBuffer pathTrace)
   {
     double bestScore = -Double.MAX_VALUE;
@@ -4162,8 +4161,8 @@ public class TreeNode
         //	Don't accept a complete score which no rollout has seen worse than, if there is
         //	any alternative
         if (bestNode != null && !bestNode.complete && child.complete &&
-            moveScore < tree.mGameSearcher.lowestRolloutScoreSeen &&
-            tree.mGameSearcher.lowestRolloutScoreSeen < 100)
+            moveScore < tree.lowestRolloutScoreSeen &&
+            tree.lowestRolloutScoreSeen < 100)
         {
           continue;
         }
@@ -4171,7 +4170,7 @@ public class TreeNode
             selectionScore > bestScore ||
             (selectionScore == bestScore && child.complete && (child.completionDepth < bestNode.completionDepth || !bestNode.complete)) ||
             (bestNode.complete && !child.complete &&
-            bestNode.getAverageScore(roleIndex) < tree.mGameSearcher.lowestRolloutScoreSeen && tree.mGameSearcher.lowestRolloutScoreSeen < 100))
+            bestNode.getAverageScore(roleIndex) < tree.lowestRolloutScoreSeen && tree.lowestRolloutScoreSeen < 100))
         {
           bestNode = child;
           bestScore = selectionScore;
