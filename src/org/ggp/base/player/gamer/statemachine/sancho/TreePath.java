@@ -124,6 +124,10 @@ public class TreePath
      */
     public TreeNode getChildNode()
     {
+      // !! ARR We only ever call this function in cases where we already know the child reference is valid.  Better to
+      // !! ARR store the child (as well as it's ref) at creation time and then just return directly.  Should also
+      // !! ARR rename this method to getChildNodeUnsafe at that point, to indicate that the caller is responsible for
+      // !! ARR knowing that the child reference is still valid.
       return getNode(mChildRef);
     }
 
@@ -141,6 +145,18 @@ public class TreePath
       {
         return null;
       }
+      return mEdge;
+    }
+
+    /**
+     * WARNING: It is the caller's responsibility to ensure that this edge is still valid.  Typically the caller already
+     *          knows that it is valid because it has just validated the entire path (with {@link TreePath#isFreed()}).
+     *
+     * @return the edge this element encapsulates.
+     */
+    public TreeEdge getEdgeUnsafe()
+    {
+      assert(getEdge() != null);
       return mEdge;
     }
 

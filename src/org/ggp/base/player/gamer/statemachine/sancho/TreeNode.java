@@ -2595,9 +2595,13 @@ public class TreeNode
           Object choice = children[index];
 
           TreeEdge edge2 = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-          if (edge2 != null && edge2.mChildRef != NULL_REF && get(edge2.mChildRef).getAverageScore(roleIndex) > bestChildScore)
+          if (edge2 != null && edge2.mChildRef != NULL_REF)
           {
-            bestChildScore = get(edge2.mChildRef).getAverageScore(roleIndex);
+            TreeNode lChild = get(edge2.mChildRef);
+            if (lChild.getAverageScore(roleIndex) > bestChildScore)
+            {
+              bestChildScore = lChild.getAverageScore(roleIndex);
+            }
           }
         }
       }
@@ -3729,6 +3733,8 @@ public class TreeNode
   /**
    * Update the tree with details from a rollout, starting with this node, then working up the path.
    *
+   * WARNING: The caller is responsible for ensuring that the entire path is valid before calling this function.
+   *
    * @param xiValues                  - The per-role rollout values.
    * @param xiSquaredValues           - The per-role squared values (for computing variance).
    * @param xiPath                    - The path taken through the tree for the rollout.
@@ -3744,25 +3750,25 @@ public class TreeNode
   {
     long lStartTime = System.nanoTime();
     assert(checkFixedSum(xiValues));
+    assert(xiPath.isValid());
 
     TreeNode lNextNode;
     for (TreeNode lNode = this; lNode != null; lNode = lNextNode)
     {
       TreePathElement lElement = xiPath.getCurrentElement();
-      TreeEdge lChildEdge = (lElement == null ? null : lElement.getEdge());
-      lNextNode = null;
+      TreeEdge lChildEdge = (lElement == null ? null : lElement.getEdgeUnsafe());
 
-      // Across a turn end it is possible for queued paths to run into freed nodes due to trimming of the tree at the
-      // root to advance the turn.  Rather than add locking and force clearing the rollout pipeline synchronously on
-      // turn start it is more efficient to simply abort the update when the path leads to a no-longer extant region of
-      // the tree.
+      TreeNode lChild = null;
+      if (lChildEdge != null)
+      {
+        lChild = lNode.get(lChildEdge.mChildRef);
+      }
+
+      lNextNode = null;
       if (xiPath.hasMore())
       {
         lNextNode = xiPath.getNextNode();
-        if (lNextNode == null)
-        {
-          return System.nanoTime() - lStartTime;
-        }
+        assert(lNextNode != null);
       }
 
       // Do the stats update for the selected node.
@@ -3787,7 +3793,6 @@ public class TreeNode
              tree.gameCharacteristics.numRoles > 2) &&
             lChildEdge != null)
         {
-          TreeNode lChild = lNode.get(lChildEdge.mChildRef);
           //  Take the min of the apparent edge selection and the total num visits in the child
           //  This is necessary because when we re-expand a node that was previously trimmed we
           //  leave the edge with its old selection count even though the child node will be
