@@ -971,12 +971,8 @@ public class TreeNode
     TreeNode floorDeciderNode = null;
     short determiningChildCompletionDepth = Short.MAX_VALUE;
     boolean siblingCheckNeeded = false;
-    double selectedOurScore = Double.MAX_VALUE;
+    double selectedNonDeciderScore = Double.MAX_VALUE;
 
-    if ( this == tree.root && mNumChildren == 1 )
-    {
-      System.out.println("!");
-    }
     for (int i = 0; i < tree.numRoles; i++)
     {
       tree.mNodeAverageScores[i] = 0;
@@ -1029,11 +1025,30 @@ public class TreeNode
               }
 
               //  In the event of several choices having the same score for the deciding role
-              //  assume that the one with the worst score for us will be chosen
+              //  assume that the one with the worst score for us will be chosen.  If we are the decider
+              //  assume that which minimizes the sum of opponents is chosen
               double deciderScore = lNode.getAverageScore(roleIndex);
-              if ( deciderScore > bestValue || (deciderScore == bestValue && roleIndex != 0 && lNode.getAverageScore(0) < selectedOurScore))
+              double nonDeciderScore;
+
+              if ( roleIndex == 0 )
               {
-                selectedOurScore = lNode.getAverageScore(0);
+                nonDeciderScore = 0;
+
+                for(int opponentRoleIndex = 0; opponentRoleIndex < tree.numRoles; opponentRoleIndex++)
+                {
+                  if ( opponentRoleIndex != roleIndex )
+                  {
+                    nonDeciderScore += lNode.getAverageScore(opponentRoleIndex);
+                  }
+                }
+              }
+              else
+              {
+                nonDeciderScore = lNode.getAverageScore(0);
+              }
+              if ( deciderScore > bestValue || (deciderScore == bestValue && nonDeciderScore < selectedNonDeciderScore))
+              {
+                selectedNonDeciderScore = nonDeciderScore;
                 bestValue = deciderScore;
                 bestValueNode = lNode;
 
