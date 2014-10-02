@@ -1,6 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
-import org.apache.commons.lang.mutable.MutableDouble;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.SampleAverageMean;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
@@ -114,16 +113,20 @@ public class GoalsStabilityHeuristic implements Heuristic
 
   }
 
+  /**
+   * Get the heuristic value for the specified state.
+   *
+   * @param xiState           - the state (never a terminal state).
+   * @param xiPreviousState   - the previous state (can be null).
+   * @param xiReferenceState  - state with which to compare to determine heuristic values
+   */
   @Override
-  public double getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                  int choosingRoleIndex,
-                                  ForwardDeadReckonInternalMachineState xiPreviousState,
-                                  ForwardDeadReckonInternalMachineState xiHeuristicStabilityState,
-                                  double[] xoHeuristicValue,
-                                  MutableDouble xoHeuristicWeight)
+  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
+                                ForwardDeadReckonInternalMachineState xiPreviousState,
+                                ForwardDeadReckonInternalMachineState xiReferenceState,
+                                HeuristicInfo resultInfo)
   {
     // TODO Auto-generated method stub
-    return 0;
   }
 
   @Override

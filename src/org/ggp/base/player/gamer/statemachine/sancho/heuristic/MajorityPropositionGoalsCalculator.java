@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.apache.commons.lang.mutable.MutableDouble;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -201,13 +200,18 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator imple
 
   }
 
+  /**
+   * Get the heuristic value for the specified state.
+   *
+   * @param xiState           - the state (never a terminal state).
+   * @param xiPreviousState   - the previous state (can be null).
+   * @param xiReferenceState  - state with which to compare to determine heuristic values
+   */
   @Override
-  public double getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                  int choosingRoleIndex,
+  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
                                   ForwardDeadReckonInternalMachineState xiPreviousState,
-                                  ForwardDeadReckonInternalMachineState xiHeuristicStabilityState,
-                                  double[] xoHeuristicValue,
-                                  MutableDouble xoHeuristicWeight)
+                                  ForwardDeadReckonInternalMachineState xiReferenceState,
+                                  HeuristicInfo resultInfo)
   {
     if ( latchedRoleMasks != null )
     {
@@ -230,28 +234,28 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator imple
 
       if ( ourLatchCount > theirLatchCount )
       {
-        xoHeuristicValue[0] = 100;
-        xoHeuristicValue[1] = 0;
+        resultInfo.heuristicValue[0] = 100;
+        resultInfo.heuristicValue[1] = 0;
       }
       else if ( ourLatchCount < theirLatchCount )
       {
-        xoHeuristicValue[0] = 0;
-        xoHeuristicValue[1] = 100;
+        resultInfo.heuristicValue[0] = 0;
+        resultInfo.heuristicValue[1] = 100;
       }
       else
       {
-        xoHeuristicValue[0] = 50;
-        xoHeuristicValue[1] = 50;
+        resultInfo.heuristicValue[0] = 50;
+        resultInfo.heuristicValue[1] = 50;
       }
 
-      xoHeuristicWeight.setValue(5*Math.abs(ourLatchCount - theirLatchCount));
+      resultInfo.heuristicWeight = 5*Math.abs(ourLatchCount - theirLatchCount);
     }
     else
     {
-      xoHeuristicWeight.setValue(0);
+      resultInfo.heuristicWeight = 0;
     }
 
-    return 0;
+    resultInfo.treatAsSequenceStep = false;
   }
 
   @Override

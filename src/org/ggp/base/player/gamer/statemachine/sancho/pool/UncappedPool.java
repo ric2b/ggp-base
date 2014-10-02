@@ -19,6 +19,7 @@ public class UncappedPool<ItemType> implements Pool<ItemType>
   private final int                                    mMaxFreeItems;
   private final ItemType[]                             mFreeItems;
   private int                                          mNumFreeItems;
+  private boolean                                      mWarnedDiscard = false;
 
   // Statistical information about pool usage.
   //
@@ -66,9 +67,10 @@ public class UncappedPool<ItemType> implements Pool<ItemType>
     {
       mFreeItems[mNumFreeItems++] = xiItem;
     }
-    else
+    else if ( !mWarnedDiscard )
     {
       LOGGER.warn("Discarding " + xiItem.getClass().getSimpleName() + " on return to UncappedPool");
+      mWarnedDiscard = true;
     }
   }
 

@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.lang.mutable.MutableDouble;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
@@ -381,21 +380,29 @@ public class MajorityGoalsHeuristic implements Heuristic
     }
   }
 
+  /**
+   * Get the heuristic value for the specified state.
+   *
+   * @param xiState           - the state (never a terminal state).
+   * @param xiPreviousState   - the previous state (can be null).
+   * @param xiReferenceState  - state with which to compare to determine heuristic values
+   */
   @Override
-  public double getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                  int choosingRoleIndex,
+  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
                                   ForwardDeadReckonInternalMachineState xiPreviousState,
-                                  ForwardDeadReckonInternalMachineState xiHeuristicStabilityState,
-                                  double[] xoHeuristicValue,
-                                  MutableDouble xoHeuristicWeight)
+                                  ForwardDeadReckonInternalMachineState xiReferenceState,
+                                  HeuristicInfo resultInfo)
   {
     //  If there is a derived heuristic delegate to it
     if ( derivedHeuristic != null )
     {
-      return derivedHeuristic.getHeuristicValue(xiState, choosingRoleIndex, xiPreviousState, xiHeuristicStabilityState, xoHeuristicValue, xoHeuristicWeight);
+      derivedHeuristic.getHeuristicValue(xiState, xiPreviousState, xiReferenceState, resultInfo);
     }
-
-    return 0;
+    else
+    {
+      resultInfo.treatAsSequenceStep = false;
+      resultInfo.heuristicWeight = 0;
+    }
   }
 
   @Override

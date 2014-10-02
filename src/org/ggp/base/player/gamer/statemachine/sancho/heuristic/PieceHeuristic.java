@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import org.apache.commons.lang.mutable.MutableDouble;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
@@ -545,6 +544,14 @@ public class PieceHeuristic implements Heuristic
   {
     pieceSets = null;
     numRoles = stateMachine.getRoles().length;
+
+    //  Currently we only support piece heuristics in 2 player games as we apply them
+    //  in an assumed fixed-sum manner
+    if ( numRoles != 2 )
+    {
+      return false;
+    }
+
     rootPieceValues = new double[numRoles];
 
     Map<String, GdlFunctionInfo> basePropFns = new HashMap<>();
@@ -837,69 +844,55 @@ public class PieceHeuristic implements Heuristic
     }
   }
 
+  /**
+   * Get the heuristic value for the specified state.
+   *
+   * @param xiState           - the state (never a terminal state).
+   * @param xiPreviousState   - the previous state (can be null).
+   * @param xiReferenceState  - state with which to compare to determine heuristic values
+   */
   @Override
-  public double getHeuristicValue(ForwardDeadReckonInternalMachineState state,
-                                  int choosingRoleIndex,
-                                  ForwardDeadReckonInternalMachineState previousState,
-                                  ForwardDeadReckonInternalMachineState xiHeuristicStabilityState,
-                                  double[] xoHeuristicValue,
-                                  MutableDouble xoHeuristicWeight)
+  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
+                                ForwardDeadReckonInternalMachineState xiPreviousState,
+                                ForwardDeadReckonInternalMachineState xiReferenceState,
+                                HeuristicInfo resultInfo)
   {
-    double ourPieceValue = pieceSets[0].getValue(state);
-    double theirPieceValue = pieceSets[1].getValue(state);
+    double ourPieceValue = pieceSets[0].getValue(xiState);
+    double theirPieceValue = pieceSets[1].getValue(xiState);
     double ourPreviousPieceValue = 0;
     double theirPreviousPieceValue = 0;
-    double result = 0;
     double proportion = (ourPieceValue - theirPieceValue) / (ourPieceValue + theirPieceValue);
-    double previousProportion = 0;
-    double stableProportion = 0;
+    double referenceProportion = 0;
 
-    if ( previousState != null )
+    if ( xiPreviousState != null )
     {
-      ourPreviousPieceValue = pieceSets[0].getValue(previousState);
-      theirPreviousPieceValue = pieceSets[1].getValue(previousState);
+      ourPreviousPieceValue = pieceSets[0].getValue(xiPreviousState);
+      theirPreviousPieceValue = pieceSets[1].getValue(xiPreviousState);
 
-      previousProportion = (ourPreviousPieceValue - theirPreviousPieceValue) / (ourPreviousPieceValue + theirPreviousPieceValue);
+      resultInfo.treatAsSequenceStep = ( ourPreviousPieceValue - theirPreviousPieceValue != ourPieceValue - theirPieceValue );
 
-      if ( previousProportion != proportion )
+      if ( xiReferenceState == xiPreviousState )
       {
-        //  Scaling is empirical based on some testing in Breakthrough and Skirmish.
-        //  However, given the decay factor on exploration bias this needs to be a fairly large
-        //  number to be effective
-        result = 2*(proportion - previousProportion);
-        if ( choosingRoleIndex != 0 )
-        {
-          result = -result;
-        }
-      }
-
-      if ( xiHeuristicStabilityState == previousState )
-      {
-        stableProportion = previousProportion;
+        referenceProportion = (ourPreviousPieceValue - theirPreviousPieceValue) / (ourPreviousPieceValue + theirPreviousPieceValue);
       }
       else
       {
-        double ourStablePieceValue = pieceSets[0].getValue(xiHeuristicStabilityState);
-        double theirStablePieceValue = pieceSets[1].getValue(xiHeuristicStabilityState);
+        double ourReferencePieceValue = pieceSets[0].getValue(xiReferenceState);
+        double theirReferencePieceValue = pieceSets[1].getValue(xiReferenceState);
 
-        stableProportion = (ourStablePieceValue - theirStablePieceValue) / (ourStablePieceValue + theirStablePieceValue);
+        referenceProportion = (ourReferencePieceValue - theirReferencePieceValue) / (ourReferencePieceValue + theirReferencePieceValue);
       }
     }
     else
     {
       proportion = 0;
+      resultInfo.treatAsSequenceStep = false;
     }
 
-    xoHeuristicValue[0] = 100 * sigma(10*(proportion-stableProportion));
-    xoHeuristicValue[1] = 100 - xoHeuristicValue[0];
+    resultInfo.heuristicValue[0] = 100 * sigma(10*(proportion-referenceProportion));
+    resultInfo.heuristicValue[1] = 100 - resultInfo.heuristicValue[0];
 
-    xoHeuristicWeight.setValue(heuristicSampleWeight);
-
-    //  For now we don't cope with negative exploration bias - this needs generalizing.
-    //  However, it would only happen in games where a role's own moves make their
-    //  position heuristically worse, which is not possible with the piece heuristic
-    //  for known games
-    return Math.max(0, result/100);
+    resultInfo.heuristicWeight = heuristicSampleWeight;
   }
 
   private static double sigma(double value)

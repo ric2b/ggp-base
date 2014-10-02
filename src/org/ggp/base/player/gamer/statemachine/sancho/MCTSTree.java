@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import org.apache.commons.lang.mutable.MutableDouble;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
@@ -16,6 +15,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic.HeuristicInfo;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool;
 import org.ggp.base.util.profile.ProfileSection;
@@ -150,8 +150,7 @@ public class MCTSTree
   // Scratch variables for tree nodes to use to avoid unnecessary object allocation.
   // Note - several of these could probably be collapsed into a lesser number since they are not
   // concurrently used, but it's not worth the risk currently
-  final double[]                                      mNodeHeuristicValues;
-  final MutableDouble                                 mNodeHeuristicWeight;
+  final HeuristicInfo                                 mNodeHeuristicInfo;
   final double[]                                      mNodeAverageScores;
   final double[]                                      mNodeAverageSquaredScores;
   final RolloutRequest                                mNodeSynchronousRequest;
@@ -336,8 +335,7 @@ public class MCTSTree
     }
 
     // Create the variables used by TreeNodes to avoid unnecessary object allocation.
-    mNodeHeuristicValues          = new double[numRoles];
-    mNodeHeuristicWeight          = new MutableDouble();
+    mNodeHeuristicInfo            = new HeuristicInfo(numRoles);
     mNodeAverageScores            = new double[numRoles];
     mNodeAverageSquaredScores     = new double[numRoles];
     mNodeSynchronousRequest       = new RolloutRequest(numRoles, underlyingStateMachine);

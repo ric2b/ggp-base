@@ -4,7 +4,6 @@ package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
 import java.util.Arrays;
 
-import org.apache.commons.lang.mutable.MutableDouble;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
@@ -134,13 +133,18 @@ public class MobilityHeuristic implements Heuristic
     // We don't do anything relative to the current root, so there's nothing to store here.
   }
 
+  /**
+   * Get the heuristic value for the specified state.
+   *
+   * @param xiState           - the state (never a terminal state).
+   * @param xiPreviousState   - the previous state (can be null).
+   * @param xiReferenceState  - state with which to compare to determine heuristic values
+   */
   @Override
-  public double getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                  int choosingRoleIndex,
+  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
                                   ForwardDeadReckonInternalMachineState xiPreviousState,
-                                  ForwardDeadReckonInternalMachineState xiHeuristicStabilityState,
-                                  double[] xoHeuristicValue,
-                                  MutableDouble xoHeuristicWeight)
+                                  ForwardDeadReckonInternalMachineState xiReferenceState,
+                                  HeuristicInfo resultInfo)
   {
     // Get the total mobility data from the previous state.
     MobilityData lMobilityData = ((MobilityData)(xiPreviousState.getHeuristicData(this)));
@@ -194,7 +198,7 @@ public class MobilityHeuristic implements Heuristic
       if (lMobilityData.mMovesWithChoiceForRole[lii] == 0)
       {
         // This role hasn't had any moves where it can make a choice yet.  Assume it'll get an average result.
-        xoHeuristicValue[lii] = 50;
+        resultInfo.heuristicValue[lii] = 50;
       }
       else
       {
@@ -202,13 +206,12 @@ public class MobilityHeuristic implements Heuristic
         double lRoleAverage = (double)lMobilityData.mTotalChoicesForRole[lii] /
                               (double)lMobilityData.mMovesWithChoiceForRole[lii];
         double lDeviation = (lRoleAverage - lAverageMobilityPerTurn) / lAverageMobilityPerTurn;
-        xoHeuristicValue[lii] = 100 / (1 + Math.exp(-lDeviation));
+        resultInfo.heuristicValue[lii] = 100 / (1 + Math.exp(-lDeviation));
       }
     }
 
-    xoHeuristicWeight.setValue(mWeight);
-
-    return 0;
+    resultInfo.heuristicWeight = mWeight;
+    resultInfo.treatAsSequenceStep = false;
   }
 
   @Override

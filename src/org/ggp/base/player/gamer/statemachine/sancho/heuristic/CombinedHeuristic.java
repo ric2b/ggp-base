@@ -4,7 +4,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.apache.commons.lang.mutable.MutableDouble;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
@@ -24,6 +23,7 @@ public class CombinedHeuristic implements Heuristic
   private final List<Heuristic> mTuningHeuristics;
   private Heuristic[] mRuntimeHeuristics;
   private int mNumRoles;
+  private HeuristicInfo mInfo = null;
 
   /**
    * Create a combined heuristic.
@@ -75,6 +75,7 @@ public class CombinedHeuristic implements Heuristic
 
     // Remember the number of roles.
     mNumRoles = xiStateMachine.getRoles().length;
+    mInfo = new HeuristicInfo(mNumRoles);
 
     return result;
   }
@@ -173,46 +174,54 @@ public class CombinedHeuristic implements Heuristic
     }
   }
 
+  /**
+   * Get the heuristic value for the specified state.
+   *
+   * @param xiState           - the state (never a terminal state).
+   * @param xiPreviousState   - the previous state (can be null).
+   * @param xiReferenceState  - state with which to compare to determine heuristic values
+   */
   @Override
-  public double getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                  int choosingRoleIndex,
-                                  ForwardDeadReckonInternalMachineState xiPreviousState,
-                                  ForwardDeadReckonInternalMachineState xiHeuristicStabilityState,
-                                  double[] xoHeuristicValue,
-                                  MutableDouble xoHeuristicWeight)
+  public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
+                                ForwardDeadReckonInternalMachineState xiPreviousState,
+                                ForwardDeadReckonInternalMachineState xiReferenceState,
+                                HeuristicInfo resultInfo)
   {
     double lTotalWeight = 0;
     double lMaxWeight = 0;
     double maxBias = 0;
-    xoHeuristicWeight.setValue(0);
+
+    resultInfo.treatAsSequenceStep = false;
+    resultInfo.heuristicWeight = 0;
+    for(int i = 0; i < resultInfo.heuristicValue.length; i++)
+    {
+      resultInfo.heuristicValue[i] = 0;
+    }
 
     // Combine the values from the underlying heuristics by taking a weighted average.
     for (Heuristic lHeuristic : mRuntimeHeuristics)
     {
-      double[] lNewValues = new double[xoHeuristicValue.length];
-      double bias = lHeuristic.getHeuristicValue(xiState, choosingRoleIndex, xiPreviousState, xiHeuristicStabilityState, lNewValues, xoHeuristicWeight);
-      lTotalWeight += xoHeuristicWeight.doubleValue();
-      for (int lii = 0; lii < xoHeuristicValue.length; lii++)
+      lHeuristic.getHeuristicValue(xiState, xiPreviousState, xiReferenceState, mInfo);
+
+      lTotalWeight += mInfo.heuristicWeight;
+      for (int lii = 0; lii < mInfo.heuristicValue.length; lii++)
       {
-        xoHeuristicValue[lii] += (lNewValues[lii] * xoHeuristicWeight.doubleValue());
+        resultInfo.heuristicValue[lii] += (mInfo.heuristicValue[lii] * mInfo.heuristicWeight);
       }
 
-      if (xoHeuristicWeight.doubleValue() > lMaxWeight)
+      if (mInfo.heuristicWeight > lMaxWeight)
       {
-        lMaxWeight = xoHeuristicWeight.doubleValue();
+        lMaxWeight = mInfo.heuristicWeight;
       }
 
-      if ( bias > maxBias )
-      {
-        maxBias = bias;
-      }
+      resultInfo.treatAsSequenceStep |= mInfo.treatAsSequenceStep;
     }
 
     if (lTotalWeight > 0)
     {
-      for (int lii = 0; lii < xoHeuristicValue.length; lii++)
+      for (int lii = 0; lii < resultInfo.heuristicValue.length; lii++)
       {
-        xoHeuristicValue[lii] /= lTotalWeight;
+        resultInfo.heuristicValue[lii] /= lTotalWeight;
       }
     }
 
@@ -221,9 +230,7 @@ public class CombinedHeuristic implements Heuristic
     // We could do something more clever, whereby if all the heuristics were pointing in the same direction, we
     // increased the weight and if they were all pulling if different directions, we decreased the weight.
     // But hopefully this is good enough for now.
-    xoHeuristicWeight.setValue(lMaxWeight);
-
-    return maxBias;
+    resultInfo.heuristicWeight = lMaxWeight;
   }
 
   /**
