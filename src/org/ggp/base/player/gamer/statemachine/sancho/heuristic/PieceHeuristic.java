@@ -889,7 +889,7 @@ public class PieceHeuristic implements Heuristic
       resultInfo.treatAsSequenceStep = false;
     }
 
-    resultInfo.heuristicValue[0] = 100 * sigma(10*(proportion-referenceProportion));
+    resultInfo.heuristicValue[0] = 100 * sigma(15*(proportion-referenceProportion));
     resultInfo.heuristicValue[1] = 100 - resultInfo.heuristicValue[0];
 
     resultInfo.heuristicWeight = heuristicSampleWeight;
