@@ -62,7 +62,7 @@ public class MCTSTree
   /**
    * Whether to use periodic normalization on node scors
    */
-  public final boolean                                 USE_NODE_SCORE_NORMALIZATION = MachineSpecificConfiguration.getCfgVal(CfgItem.USE_NODE_SCORE_NORMALIZATION, false);
+  public final boolean                                 USE_NODE_SCORE_NORMALIZATION = MachineSpecificConfiguration.getCfgVal(CfgItem.USE_NODE_SCORE_NORMALIZATION, true);
   /**
    * Whether to use UCB tuned as opposed to simple UCB
    */
