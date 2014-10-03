@@ -544,6 +544,7 @@ public class PieceHeuristic implements Heuristic
   {
     pieceSets = null;
     numRoles = stateMachine.getRoles().length;
+    propGroupScoreSets = new HashMap<>();
 
     //  Currently we only support piece heuristics in 2 player games as we apply them
     //  in an assumed fixed-sum manner
@@ -587,8 +588,6 @@ public class PieceHeuristic implements Heuristic
             .add(new PotentialPiecePropSet(fnInfo.getName(), smallestFitIndex));
       }
     }
-
-    propGroupScoreSets = new HashMap<>();
 
     for (PotentialPiecePropSet pieceSet : potentialPiecePropSets)
     {
