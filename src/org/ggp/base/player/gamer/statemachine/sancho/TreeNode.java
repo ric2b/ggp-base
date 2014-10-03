@@ -2232,7 +2232,7 @@ public class TreeNode
         Role choosingRole = tree.roleOrdering.roleIndexToRole(roleIndex);
         int topMoveWeight = 0;
 
-        if ( !isRecursiveExpansion && pathTo != null && pathTo.getEdge(true).getHasBeenTrimmed() )
+        if ( !isRecursiveExpansion && pathTo != null && pathTo.getEdge().getHasBeenTrimmed() )
         {
           //  If the node is unexpanded, yet has already been visited, this must
           //  be a re-expansion following trimming.
@@ -2252,7 +2252,7 @@ public class TreeNode
           assert(pathTo != null);
 
           TreeNode parent = pathTo.getParentNode();
-          TreeEdge edge = pathTo.getEdge(false);
+          TreeEdge edge = pathTo.getEdgeUnsafe();
 
           assert(parent != null);
           assert(parent.linkageValid());
@@ -2422,7 +2422,7 @@ public class TreeNode
               }
               assert(result != this);
               assert(result != parent);
-              assert(parent.complete || pathTo.getEdge(false).mChildRef == result.getRef());
+              assert(parent.complete || pathTo.getEdgeUnsafe().mChildRef == result.getRef());
             }
             else
             {
@@ -2482,7 +2482,7 @@ public class TreeNode
           //  it's ending a heuristic sequence
           if ( pathTo != null )
           {
-            TreeEdge edge = pathTo.getEdge(false);
+            TreeEdge edge = pathTo.getEdgeUnsafe();
 
             if ( edge.mPartialMove.isPseudoNoOp )
             {
@@ -2650,7 +2650,7 @@ public class TreeNode
 
         assert(linkageValid());
 
-        if (MCTSTRee.USE_STATE_SIMILARITY_IN_EXPANSION && topMoveWeight > 0)
+        if (MCTSTree.USE_STATE_SIMILARITY_IN_EXPANSION && topMoveWeight > 0)
         {
           for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
           {
@@ -2709,7 +2709,7 @@ public class TreeNode
 
               assert(pathElement != null);
 
-              boolean pathElementHasHeuristicDeviation = pathElement.getEdge(false).hasHeuristicDeviation;
+              boolean pathElementHasHeuristicDeviation = pathElement.getEdgeUnsafe().hasHeuristicDeviation;
 
               if ( !previousEdgeWalked )
               {
@@ -3040,7 +3040,7 @@ public class TreeNode
 
     double result;
 
-    if (MCTSTree.USE_UCB_TUNED)
+    if (tree.USE_UCB_TUNED)
     {
       // When we propagate adjustments due to completion we do not also adjust the variance contribution so this can
       // result in 'impossibly' low (aka negative) variance - take a lower bound of 0

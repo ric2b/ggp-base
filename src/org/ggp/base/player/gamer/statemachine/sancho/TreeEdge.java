@@ -103,7 +103,7 @@ public class TreeEdge
    */
   public void setNumVisits(int count)
   {
-    numChildVisits = (numChildVisits & hasBeenTrimmedMask) | count;
+    numChildVisits = (numChildVisits & HAS_BEEN_TRIMMED_MASK) | count;
   }
 
   /**
