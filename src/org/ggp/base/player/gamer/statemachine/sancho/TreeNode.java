@@ -2877,6 +2877,7 @@ public class TreeNode
                     assert(!Double.isNaN(newChild.getAverageScore(0)));
 
                     newChild.numVisits += tree.mNodeHeuristicInfo.heuristicWeight;
+                    edge.setNumVisits(newChild.numVisits);
                   }
                 }
               }
@@ -3002,8 +3003,6 @@ public class TreeNode
     double lUcbExploration;
     TreeNode childNode = get(edge.mChildRef);
     int effectiveNumChildVisits = edge.getNumChildVisits() + 1;
-
-    int lNumChildVisits = edge.getNumChildVisits();
 
     //  If we're using weight decay we need to normalize the apparent sample sizes
     //  used to calculate the upper bound on variance for UCB-tuned or else the
@@ -3267,8 +3266,35 @@ public class TreeNode
 
             for(int role = 0; role < tree.numRoles; role++)
             {
-              tree.mNodeAverageScores[role] += weight*child.getAverageScore(role);
-              tree.mNodeAverageSquaredScores[role] += weight*child.getAverageSquaredScore(role);
+              double score = child.getAverageScore(role);
+              double squaredScore = child.getAverageSquaredScore(role);
+
+              //  Normalize for any heuristic bias that would normally have been
+              //  applied for propagations form this child to this parent
+              if ( heuristicWeight > 0 )
+              {
+                double applicableValue = (heuristicValue > 50 ? heuristicValue : 100 - heuristicValue);
+
+                if ( applicableValue > EPSILON )
+                {
+                  double rootSquaredScore = Math.sqrt(squaredScore);
+
+                  if ((heuristicValue > 50) == (role == 0))
+                  {
+                    score = score + (100 - score) * (applicableValue - 50) / 50;
+                    rootSquaredScore = rootSquaredScore + (100 - rootSquaredScore) * (applicableValue - 50) / 50;
+                  }
+                  else
+                  {
+                    score = score - (score) * (applicableValue - 50) / 50;
+                    rootSquaredScore = rootSquaredScore - (rootSquaredScore) * (applicableValue - 50) / 50;
+                  }
+
+                  squaredScore = rootSquaredScore*rootSquaredScore;
+                }
+              }
+              tree.mNodeAverageScores[role] += weight*score;
+              tree.mNodeAverageSquaredScores[role] += weight*squaredScore;
             }
             weightTotal += weight;
           }
@@ -3381,7 +3407,7 @@ public class TreeNode
             {
               double uctValue;
 
-              if (edge.getNumChildVisits() == 0 && !c.complete)
+              if (c.numVisits == 0 && !c.complete)
               {
                 uctValue = unexpandedChildUCTValue(roleIndex, edge.explorationAmplifier);
               }
@@ -3439,7 +3465,7 @@ public class TreeNode
                     edge.explorationAmplifier = 0;
                   }
 
-                  if (edge.getNumChildVisits() == 0)
+                  if (c.numVisits == 0)
                   {
                     uctValue = unexpandedChildUCTValue(roleIndex, edge.explorationAmplifier);
                   }
@@ -4364,7 +4390,8 @@ public class TreeNode
     assert(checkFixedSum(xiValues));
     assert(xiPath.isValid());
 
-    boolean heuristicAdjustmentApplied = false;
+    double applicationWeight = xiWeight;
+
     TreeNode lNextNode;
     for (TreeNode lNode = this; lNode != null; lNode = lNextNode)
     {
@@ -4372,7 +4399,7 @@ public class TreeNode
       TreeEdge lChildEdge = (lElement == null ? null : lElement.getEdgeUnsafe());
       lNextNode = null;
 
-      if (!heuristicAdjustmentApplied && lNode.heuristicWeight > 0 && !xiIsCompletePseudoRollout )
+      if ( lNode.heuristicWeight > 0 && !xiIsCompletePseudoRollout )
       {
         double applicableValue = (lNode.heuristicValue > 50 ? lNode.heuristicValue : 100 - lNode.heuristicValue);
 
@@ -4396,8 +4423,6 @@ public class TreeNode
           }
         }
       }
-
-      double applicationWeight = xiWeight;
 
       //  For a non-decisive losing complete node we know this path will not actually be chosen
       //  so reduce its weight significantly.  This helps a lot in games like breakthrough where
