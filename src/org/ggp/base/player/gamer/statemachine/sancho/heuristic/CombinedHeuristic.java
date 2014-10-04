@@ -49,7 +49,8 @@ public class CombinedHeuristic implements Heuristic
       mTuningHeuristics.add(lHeuristic.createIndependentInstance());
     }
     mRuntimeHeuristics = mTuningHeuristics.toArray(new Heuristic[mTuningHeuristics.size()]);
-  }
+    mInfo = new HeuristicInfo(mNumRoles);
+}
 
   /**
    * Remove all underlying heuristics

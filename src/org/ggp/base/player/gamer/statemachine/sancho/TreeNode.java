@@ -2181,7 +2181,7 @@ public class TreeNode
     try
     {
       assert(this == tree.root || parents.size() > 0);
-      assert(depth/tree.numRoles == tree.root.depth/tree.numRoles || tree.findTransposition(state) == this || (!tree.removeNonDecisionNodes && decidingRoleIndex != tree.numRoles-1));
+      assert(depth/tree.numRoles == tree.root.depth/tree.numRoles || (!tree.removeNonDecisionNodes && decidingRoleIndex != tree.numRoles-1) || (pathTo != null && pathTo.getEdgeUnsafe().mPartialMove.isPseudoNoOp) || tree.findTransposition(state) == this);
       //assert(state.size()==10);
       //boolean assertTerminal = !state.toString().contains("b");
       //  Find the role this node is choosing for
@@ -3354,16 +3354,17 @@ public class TreeNode
           if (children[lii] instanceof TreeEdge)
           {
             TreeEdge lEdge = (TreeEdge)children[lii];
-            if (lEdge.mPartialMove.move.equals(xiForceMove))
+            if (!lEdge.mPartialMove.isPseudoNoOp && lEdge.mPartialMove.move.equals(xiForceMove))
             {
               selectedIndex = lii;
             }
           }
         }
 
-        assert(selectedIndex != -1) : "Failed to find forced move: " + xiForceMove;
+        assert(selectedIndex != -1 || tree.factor != null) : "Failed to find forced move: " + xiForceMove;
       }
-      else
+
+      if (selectedIndex == -1)
       {
         if ( tree.USE_NODE_SCORE_NORMALIZATION && numVisits > 500 && (numVisits&0xff) == 0xff )
         {
@@ -4109,9 +4110,12 @@ public class TreeNode
           //  selected child has.  This avoids a tendency to throw a marginal win away for a
           //  definite draw.  Especially in games with low signal to noise ratio (everything looks
           //  close to 50%) this can be important
+          //  We add EPSILON to break ties with the most-selected (but incomplete) node in favour of
+          //  the complete one.  If we don't do this rounding errors can lead to an indeterminate
+          //  choice (between this and the most selected node)
           selectionScore = moveScore *
               (1 - 20 * Math.log(numVisits) /
-                  (20 * Math.log(numVisits) + maxChildVisitCount));
+                  (20 * Math.log(numVisits) + maxChildVisitCount)) + EPSILON;
         }
         else
         {
