@@ -3248,6 +3248,38 @@ public class TreeNode
       tree.mNodeAverageSquaredScores[role] = 0;
     }
 
+    //  Complete children are a problem since every would-be visit through
+    //  a complete child actually results in a visit through a non-complete
+    //  alternate selection, with override scores from the complete node
+    //  being applied during update.  The effect is that the non-completed nodes
+    //  will have exaggerated visit counts relative to their UCT selection.
+    //  We have insufficient information to fully correct for this, so we approximate
+    //  by assuming that the visits to the complete nodes have also been redistributed
+    //  in proportion to the visit counts of the other nodes
+    int numCompleteVisits = 0;
+
+    for(int i = 0; i < mNumChildren; i++)
+    {
+      Object choice = children[i];
+
+      if ( choice instanceof TreeEdge )
+      {
+        TreeEdge edge = (TreeEdge)choice;
+
+        if ( edge.mChildRef != NULL_REF )
+        {
+          TreeNode child = get(edge.mChildRef);
+
+          if ( child != null && child.complete )
+          {
+            numCompleteVisits += edge.getNumChildVisits();
+          }
+        }
+      }
+    }
+
+    double incompleteVisitProportion = (numVisits - numCompleteVisits)/numVisits;
+
     for(int i = 0; i < mNumChildren; i++)
     {
       Object choice = children[i];
@@ -3262,7 +3294,8 @@ public class TreeNode
 
           if ( child != null  )
           {
-            double weight = edge.getNumChildVisits()*Math.sqrt(edge.getNumChildVisits());
+            double effectiveVisits = (child.complete ? edge.getNumChildVisits() : incompleteVisitProportion*edge.getNumChildVisits());
+            double weight = effectiveVisits*Math.sqrt(effectiveVisits);
 
             for(int role = 0; role < tree.numRoles; role++)
             {
