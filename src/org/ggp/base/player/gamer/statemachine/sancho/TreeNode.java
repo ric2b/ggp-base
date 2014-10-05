@@ -3278,7 +3278,7 @@ public class TreeNode
       }
     }
 
-    double incompleteVisitProportion = (numVisits - numCompleteVisits)/numVisits;
+    double incompleteVisitProportion = ((double)numVisits - (double)numCompleteVisits)/numVisits;
 
     for(int i = 0; i < mNumChildren; i++)
     {
