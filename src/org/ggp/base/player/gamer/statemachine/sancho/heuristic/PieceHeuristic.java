@@ -43,6 +43,8 @@ public class PieceHeuristic implements Heuristic
   //  type weights for <=2 piece types
   private static final int                                               MIN_NUM_PIECES            = 2;
 
+  private static final double                                            EPSILON                   = 1e-6;
+
   private Map<PieceMaskSpecifier, HeuristicScoreInfo>                    propGroupScoreSets        = null;
   int                                                                    numRoles                  = 0;
   private PieceMaskSpecifier[]                                           pieceSets                 = null;
@@ -856,8 +858,9 @@ public class PieceHeuristic implements Heuristic
                                 ForwardDeadReckonInternalMachineState xiReferenceState,
                                 HeuristicInfo resultInfo)
   {
-    double ourPieceValue = pieceSets[0].getValue(xiState);
-    double theirPieceValue = pieceSets[1].getValue(xiState);
+    //  If a piece value is 0 thn we risk divide by zero issues, so add EPSILON
+    double ourPieceValue = pieceSets[0].getValue(xiState) + EPSILON;
+    double theirPieceValue = pieceSets[1].getValue(xiState) + EPSILON;
     double ourPreviousPieceValue = 0;
     double theirPreviousPieceValue = 0;
     double proportion = (ourPieceValue - theirPieceValue) / (ourPieceValue + theirPieceValue);
@@ -865,8 +868,8 @@ public class PieceHeuristic implements Heuristic
 
     if ( xiPreviousState != null )
     {
-      ourPreviousPieceValue = pieceSets[0].getValue(xiPreviousState);
-      theirPreviousPieceValue = pieceSets[1].getValue(xiPreviousState);
+      ourPreviousPieceValue = pieceSets[0].getValue(xiPreviousState) + EPSILON;
+      theirPreviousPieceValue = pieceSets[1].getValue(xiPreviousState) + EPSILON;
 
       resultInfo.treatAsSequenceStep = ( ourPreviousPieceValue - theirPreviousPieceValue != ourPieceValue - theirPieceValue );
 
@@ -876,8 +879,8 @@ public class PieceHeuristic implements Heuristic
       }
       else
       {
-        double ourReferencePieceValue = pieceSets[0].getValue(xiReferenceState);
-        double theirReferencePieceValue = pieceSets[1].getValue(xiReferenceState);
+        double ourReferencePieceValue = pieceSets[0].getValue(xiReferenceState) + EPSILON;
+        double theirReferencePieceValue = pieceSets[1].getValue(xiReferenceState) + EPSILON;
 
         referenceProportion = (ourReferencePieceValue - theirReferencePieceValue) / (ourReferencePieceValue + theirReferencePieceValue);
       }
