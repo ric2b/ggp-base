@@ -236,7 +236,7 @@ public class MCTSTree
       //  Steepness of the cutoff is proportional th the depth of the knee (so basically we use
       //  a scale-free shape for decay) - this is an empirical decision and seems to be better than using
       //  std deviation of game length
-      mWeightDecayScaleFactor = mWeightDecayKneeDepth/6;
+      mWeightDecayScaleFactor = (double)mWeightDecayKneeDepth/6;
       //  Cutoff set to occur at fixed decay factor
       mWeightDecayCutoffDepth = mWeightDecayKneeDepth + (int)(mWeightDecayScaleFactor*CUTOFF_SIGMA);
       LOGGER.info("Weight decay knee and scale factor: (" + mWeightDecayKneeDepth + ", " + mWeightDecayScaleFactor + ")");
@@ -915,8 +915,8 @@ public class MCTSTree
         cur = cur.expand(visited, mJointMoveBuffer, parentDepth);
         assert(selected == null || cur == selected.getChildNode());
       }
-      
-      
+
+
       //  Even if we've selected a terminal node we still do a pseudo-rollout
       //  from it so its value gets a weight increase via back propagation
       newNode = cur;
