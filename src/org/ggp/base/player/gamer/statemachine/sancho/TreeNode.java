@@ -455,27 +455,75 @@ public class TreeNode
     //	Children can all be freed, at least from this parentage
     if (MCTSTree.FREE_COMPLETED_NODE_CHILDREN)
     {
-      for (int index = 0; index < mNumChildren; index++)
+      boolean keepAll = false;
+      boolean keepBest = false;
+
+      if ( MCTSTree.KEEP_BEST_COMPLETION_PATHS )
       {
-        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+        if ( decidingRoleIndex == tree.numRoles-1 )
         {
-          Object choice = children[index];
+          //  Our choice from this node - just retain the best
+          keepBest = true;
+        }
+        else
+        {
+          //  Opponent choice from this node - need to keep all since they might play any
+          keepAll = true;
+        }
+      }
 
-          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-          if (edge != null)
+      if ( !keepAll )
+      {
+        int keepIndex = -1;
+
+        if ( keepBest )
+        {
+          double bestScore = -Double.MAX_VALUE;
+
+          for (int index = 0; index < mNumChildren; index++)
           {
-            TreeNode lChild = (edge.mChildRef == NULL_REF ? null : get(edge.mChildRef));
-
-            deleteEdge(index);
-            if (lChild != null)
+            if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
             {
-              lChild.freeFromAncestor(this, null);
+              Object choice = children[index];
+
+              TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+              if (edge != null)
+              {
+                TreeNode lChild = (edge.mChildRef == NULL_REF ? null : get(edge.mChildRef));
+
+                if ( lChild != null && lChild.complete && lChild.getAverageScore(0) > bestScore )
+                {
+                  bestScore = lChild.getAverageScore(0);
+                  keepIndex = index;
+                }
+              }
+            }
+          }
+        }
+
+        for (int index = 0; index < mNumChildren; index++)
+        {
+          if ( keepIndex != index )
+          {
+            if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+            {
+              Object choice = children[index];
+
+              TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+              if (edge != null)
+              {
+                TreeNode lChild = (edge.mChildRef == NULL_REF ? null : get(edge.mChildRef));
+
+                deleteEdge(index);
+                if (lChild != null)
+                {
+                  lChild.freeFromAncestor(this, null);
+                }
+              }
             }
           }
         }
       }
-
-      freeChildren();
     }
 
     for (TreeNode parent : parents)
