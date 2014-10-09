@@ -2191,7 +2191,7 @@ public class TreeNode
 //      }
 //    }
 
-    TreeNode result = expandInternal(fullPathTo, jointPartialMove, parentDepth, false);
+    TreeNode result = expandInternal(fullPathTo, jointPartialMove, parentDepth, false, false);
 
     assert(!tree.removeNonDecisionNodes || result.mNumChildren > 1 || result == tree.root || result.complete);
 
@@ -2221,7 +2221,7 @@ public class TreeNode
     return result;
   }
 
-  private TreeNode expandInternal(TreePath fullPathTo, ForwardDeadReckonLegalMoveInfo[] jointPartialMove, int parentDepth, boolean isRecursiveExpansion)
+  private TreeNode expandInternal(TreePath fullPathTo, ForwardDeadReckonLegalMoveInfo[] jointPartialMove, int parentDepth, boolean isRecursiveExpansion, boolean stateChangedInForcedExpansion)
   {
     TreePathElement pathTo = (fullPathTo == null ? null : fullPathTo.getTailElement());
 
@@ -2317,6 +2317,8 @@ public class TreeNode
 
           if (roleIndex == tree.numRoles - 1)
           {
+            stateChangedInForcedExpansion = true;
+
             tree.setForcedMoveProps(state, jointPartialMove);
             newState = tree.mChildStatesBuffer[0];
             tree.underlyingStateMachine.getNextState(state,
@@ -2392,7 +2394,23 @@ public class TreeNode
                 tree.edgePool.free(edge);
                 edge = (TreeEdge)parent.children[otherPathIndex];
 
+                //  The old edge will have been selected through (else we wouldn't be expanding it)
+                //  which will have incremented its visit count - need to do that on the replacement
+                //  path to keep things correctly counted
+                edge.incrementNumVisits();
+
+                //  In any other path it's only valid to create a path element where the number
+                //  of edge visits is no greater than the number of child node visits, but in the
+                //  selectAction path where this recursion can replace a node due to transpositions
+                //  we'll be in an intermediary state where the processing selection has incremented
+                //  the edge count, but not yet the child node count (which will be incremented on the
+                //  next step of the selection process).  This means the constraint can be temporarily
+                //  'out by one', and rather than lose the power of these assertions we can make for the
+                //  'normal' case we transiently increment the child node count here if and only if
+                //  assertions are enabled.
+                assert(existing.numVisits++ >= 0);
                 pathTo.set(parent, edge);
+                assert(existing.numVisits-- > 0);
               }
 
               //  This situation can only occur on the first expansion of the child of the edge
@@ -2412,6 +2430,15 @@ public class TreeNode
               //  'out by one', and rather than lose the power of these assertions we can make for the
               //  'normal' case we transiently increment the child node count here if and only if
               //  assertions are enabled.
+
+              //  Also there is the case where the edge has a heuristic weight bu the transposed to node did not
+              //  which can lead to a lower visit count on the node.  To keep things in order we just increase
+              //  it as necessary
+              if ( existing.numVisits < edge.getNumChildVisits() )
+              {
+                existing.numVisits = edge.getNumChildVisits() - 1;
+              }
+
               assert(existing.numVisits++ >= 0);
               edge.setChild(existing);
               pathTo.set(parent, edge);
@@ -2459,7 +2486,7 @@ public class TreeNode
               //  If the transposed-to node is already expanded we're done
               if ( !existing.complete && existing.isUnexpanded() )
               {
-                result = existing.expandInternal(fullPathTo, jointPartialMove, parentDepth, true);
+                result = existing.expandInternal(fullPathTo, jointPartialMove, parentDepth, true, stateChangedInForcedExpansion);
                 assert(result.mNumChildren > 1 || result == tree.root || result.complete);
                 assert(result.linkageValid());
               }
@@ -2501,7 +2528,7 @@ public class TreeNode
             assert(depth%tree.numRoles == (decidingRoleIndex+1)%tree.numRoles);
 
             //  Recurse
-            result = expandInternal(fullPathTo, jointPartialMove, parentDepth, true);
+            result = expandInternal(fullPathTo, jointPartialMove, parentDepth, true, stateChangedInForcedExpansion);
             assert(result.linkageValid());
           }
 
@@ -2777,6 +2804,27 @@ public class TreeNode
             if ( pathElement != null )
             {
               referenceNode = pathElement.getParentNode();
+            }
+          }
+
+          //  If the state represented by this node has changed due to forced move collapsing
+          //  there may have been a heuristic change, which needs to be noted on the incoming edge
+          if ( stateChangedInForcedExpansion && heuristicWeight == 0 && pathTo != null )
+          {
+            TreeEdge incomingEdge = pathTo.getEdgeUnsafe();
+
+            if ( !incomingEdge.hasHeuristicDeviation )
+            {
+              tree.heuristic.getHeuristicValue( state,
+                                                pathTo.getParentNode().state,
+                                                referenceNode.state,
+                                                tree.mNodeHeuristicInfo);
+
+              if ( tree.mNodeHeuristicInfo.treatAsSequenceStep )
+              {
+                incomingEdge.hasHeuristicDeviation = true;
+                previousEdgeHadHeuristicDeviation = true;
+              }
             }
           }
 
