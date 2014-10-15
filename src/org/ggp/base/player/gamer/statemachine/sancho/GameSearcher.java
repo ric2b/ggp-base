@@ -53,6 +53,8 @@ public class GameSearcher implements Runnable, ActivityController
   private static final long               STATS_LOG_INTERVAL_MS = 1000;
   private static final int                PIPELINE_SIZE = 24; //  Default set to give reasonable results on 2 and 4 cores
 
+  static final int                        THINK_BELOW_PLAN_SIZE = 2;  //  Once the plan is shorter than this start building up the search tree (using normal move time limits)
+
   private static final boolean            ADJUST_EXPLORATION_BIAS_FROM_TREE_SHAPE = false;
 
   private volatile long                   moveTime;
@@ -478,8 +480,12 @@ public class GameSearcher implements Runnable, ActivityController
         Move result = mPlan.nextMove();
         LOGGER.info("Playing first move from new plan: " + result);
 
-        //  No point in further searching
-        terminate();
+        if (mPlan.size() > THINK_BELOW_PLAN_SIZE)
+        {
+          //  No point in further searching
+          terminate();
+        }
+
         return result;
       }
 

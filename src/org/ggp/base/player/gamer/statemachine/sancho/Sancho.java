@@ -241,9 +241,7 @@ public class Sancho extends SampleGamer
     LOGGER.info("We are:      " + ourRole);
 
     numRoles = underlyingStateMachine.getRoles().length;
-    roleOrdering = new RoleOrdering(underlyingStateMachine, ourRole);
-
-    underlyingStateMachine.setRoleOrdering(roleOrdering);
+    roleOrdering = underlyingStateMachine.getRoleOrdering();
 
     mTurn = 0;
     StatsLogUtils.Series.TURN.logDataPoint(System.currentTimeMillis(), mTurn);
@@ -976,7 +974,7 @@ public class Sancho extends SampleGamer
       }
     }
 
-    if ((plan != null) && (!plan.isEmpty()))
+    if (plan != null && plan.size() > GameSearcher.THINK_BELOW_PLAN_SIZE)
     {
       // We have a pre-prepared plan.  Simply play the next move.
       bestMove = plan.nextMove();

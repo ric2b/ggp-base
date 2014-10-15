@@ -24,6 +24,15 @@ public class GamePlan
   private boolean                     enacting                        = false;
 
   /**
+   * Get the size of the plan (in moves)
+   * @return size
+   */
+  public int size()
+  {
+    return plan.size();
+  }
+
+  /**
    * Consider replacing the current plan by a provided candidate.
    * The shortest plan will be taken.  Note that this method is thread-safe
    * @param candidate new plan to consider

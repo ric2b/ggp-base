@@ -147,10 +147,10 @@ public class IteratedGamePlayer
       while (!underlyingStateMachine.isTerminal(state))
       {
         ForwardDeadReckonLegalMoveInfo[] jointMove = new ForwardDeadReckonLegalMoveInfo[2];
-        int roleIndex = 0;
 
-        for (Role role : underlyingStateMachine.getRoles())
+        for (int roleIndex = 0; roleIndex < underlyingStateMachine.getRoles().length; roleIndex++)
         {
+          Role role = roleOrdering.roleIndexToRole(roleIndex);
           Collection<ForwardDeadReckonLegalMoveInfo> roleMoves = underlyingStateMachine.getLegalMoves(state, role);
 
           if (roleMoves.size() == 1)
@@ -215,8 +215,6 @@ public class IteratedGamePlayer
               }
             }
           }
-
-          roleIndex++;
         }
 
         underlyingStateMachine.getNextState(state, null, jointMove, newState);

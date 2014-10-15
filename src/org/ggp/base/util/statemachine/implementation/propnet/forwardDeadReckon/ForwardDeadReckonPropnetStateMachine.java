@@ -373,7 +373,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return createInternalState(masterInfoSet, XSentence, state);
   }
 
-  public void setRoleOrdering(RoleOrdering xiRoleOrdering)
+  public RoleOrdering getRoleOrdering()
+  {
+    return roleOrdering;
+  }
+
+  private void setRoleOrdering(RoleOrdering xiRoleOrdering)
   {
     roleOrdering = xiRoleOrdering;
   }
@@ -1443,6 +1448,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     mPositiveGoalLatches = master.mPositiveGoalLatches;
     mNegativeGoalLatches = master.mNegativeGoalLatches;
     ourRole = master.ourRole;
+    setRoleOrdering(master.getRoleOrdering());
     totalNumMoves = master.totalNumMoves;
     if ( master.mGoalsCalculator != null )
     {
@@ -1558,6 +1564,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       fullPropNet.renderToFile("c:\\temp\\propnetReduced.dot");
       roles = fullPropNet.getRoles();
       numRoles = roles.length;
+      roleOrdering = new RoleOrdering(this, ourRole);
+      setRoleOrdering(roleOrdering);
 
       moveProps = new ForwardDeadReckonProposition[numRoles];
       previousMovePropsX = new ForwardDeadReckonProposition[numRoles];
