@@ -233,6 +233,10 @@ public class Sancho extends SampleGamer
     if (planString != null)
     {
       plan.considerPlan(convertPlanString(planString));
+
+      //  Start pre-warming he search tree 2 moves before he end of the plan so that we arrive
+      //  at the turn we need to search in earnest in with a warmed-up tree
+      GameSearcher.thinkBelowPlanSize = 2;
     }
 
     ourRole = getRole();
@@ -974,7 +978,7 @@ public class Sancho extends SampleGamer
       }
     }
 
-    if (plan != null && plan.size() > GameSearcher.THINK_BELOW_PLAN_SIZE)
+    if (plan != null && plan.size() > GameSearcher.thinkBelowPlanSize)
     {
       // We have a pre-prepared plan.  Simply play the next move.
       bestMove = plan.nextMove();
