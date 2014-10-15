@@ -41,7 +41,9 @@ public class PieceHeuristic implements Heuristic
   //  This is a bit of a hack (well, a lot of one really).  Empirically the metagaming tunes the piece values badly in
   //  the only known games with 2 piece types (checkers variants), so FOR NOW we disable differentiated piece
   //  type weights for <=2 piece types
-  private static final int                                               MIN_NUM_PIECES            = 2;
+  private static final int                                               MIN_NUM_PIECES            = 3;
+  //  How much of a material difference do we consider enough to warrant sequence flagging
+  private static final double                                            MIN_HEURISTIC_DIFF_FOR_SEQUENCE = 0.01;
 
   private static final double                                            EPSILON                   = 1e-6;
 
@@ -861,17 +863,16 @@ public class PieceHeuristic implements Heuristic
     //  If a piece value is 0 thn we risk divide by zero issues, so add EPSILON
     double ourPieceValue = pieceSets[0].getValue(xiState) + EPSILON;
     double theirPieceValue = pieceSets[1].getValue(xiState) + EPSILON;
-    double ourPreviousPieceValue = 0;
-    double theirPreviousPieceValue = 0;
     double proportion = (ourPieceValue - theirPieceValue) / (ourPieceValue + theirPieceValue);
     double referenceProportion = 0;
 
     if ( xiPreviousState != null )
     {
-      ourPreviousPieceValue = pieceSets[0].getValue(xiPreviousState) + EPSILON;
-      theirPreviousPieceValue = pieceSets[1].getValue(xiPreviousState) + EPSILON;
+      double ourPreviousPieceValue = pieceSets[0].getValue(xiPreviousState) + EPSILON;
+      double theirPreviousPieceValue = pieceSets[1].getValue(xiPreviousState) + EPSILON;
+      double previousProportion = (ourPreviousPieceValue - theirPreviousPieceValue) / (ourPreviousPieceValue + theirPreviousPieceValue);
 
-      resultInfo.treatAsSequenceStep = ( ourPreviousPieceValue - theirPreviousPieceValue != ourPieceValue - theirPieceValue );
+      resultInfo.treatAsSequenceStep = (Math.abs( proportion - previousProportion ) > MIN_HEURISTIC_DIFF_FOR_SEQUENCE);
 
       if ( xiReferenceState == xiPreviousState )
       {
@@ -891,7 +892,9 @@ public class PieceHeuristic implements Heuristic
       resultInfo.treatAsSequenceStep = false;
     }
 
-    resultInfo.heuristicValue[0] = 100 * sigma(15*(proportion-referenceProportion));
+    double sigmaScaling = (ourPieceValue+theirPieceValue)/4;
+
+    resultInfo.heuristicValue[0] = 100 * sigma(sigmaScaling*(proportion-referenceProportion));
     resultInfo.heuristicValue[1] = 100 - resultInfo.heuristicValue[0];
 
     resultInfo.heuristicWeight = heuristicSampleWeight;
