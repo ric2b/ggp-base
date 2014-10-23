@@ -240,6 +240,8 @@ public class GameSearcher implements Runnable, ActivityController
       }
     }
 
+    mNodePool.setNonFreeThreshold(factorTrees.length*MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
+
 //    for (MCTSTree tree : factorTrees)
 //    {
 //      tree.root = tree.allocateNode(initialState, null, false);

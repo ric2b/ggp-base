@@ -621,7 +621,7 @@ public class MCTSTree
 
             mJointMoveBuffer[0] = selected.mPartialMove;
 
-            if (selected.mChildRef == TreeNode.NULL_REF)
+            if (selected.getChildRef() == TreeNode.NULL_REF)
             {
               //  Point the edge at the extant decision node for the root state
               selected.setChild(existingRootStateNode);
@@ -922,6 +922,19 @@ public class MCTSTree
       //  from it so its value gets a weight increase via back propagation
       newNode = cur;
 
+      long selectTime = lExpandStartTime - lSelectStartTime;
+      long expandTime = System.nanoTime() - lExpandStartTime;
+
+      if ( selectTime > maxSelectTime )
+      {
+        maxSelectTime = selectTime;
+        LOGGER.info("Max select time seen (ms): " + (selectTime/1000000));
+      }
+      if ( expandTime > maxExpandTime )
+      {
+        maxExpandTime = expandTime;
+        LOGGER.info("Max expand time seen (ms): " + (expandTime/1000000));
+      }
 
       // Perform the rollout request.
       assert(selected != null || newNode == root);
@@ -930,12 +943,15 @@ public class MCTSTree
       newNode.rollOut(visited,
                       mGameSearcher.getPipeline(),
                       forceSynchronous,
-                      lExpandStartTime - lSelectStartTime,
-                      System.nanoTime() - lExpandStartTime);
+                      selectTime,
+                      expandTime);
     }
     finally
     {
       methodSection.exitScope();
     }
   }
+
+  private static long maxSelectTime = 0;
+  private static long maxExpandTime = 0;
 }

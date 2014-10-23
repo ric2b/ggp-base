@@ -83,7 +83,7 @@ public class TreePath
     {
       mParentRef = xiParent.getRef();
       mEdge      = xiEdge;
-      mChildRef  = mEdge.mChildRef;
+      mChildRef  = mEdge.getChildRef();
 
       assert(mParentRef != mChildRef);
       assert(mParentRef == xiEdge.mParentRef);
@@ -152,7 +152,7 @@ public class TreePath
       // Check that the edge is still valid before returning it.
       if ((getNode(mParentRef) == null) ||
           (getNode(mChildRef) == null)  ||
-          (mEdge.mChildRef != mChildRef) ||
+          (mEdge.getChildRef() != mChildRef) ||
           (mEdge.mParentRef != mParentRef))
       {
         return null;
@@ -230,6 +230,14 @@ public class TreePath
     lElement.set(xiParent, xiEdge);
     mCursor++;
     return lElement;
+  }
+
+  /**
+   * Pop the leaf element off the path
+   */
+  public void pop()
+  {
+    mCursor = --mNumElements;
   }
 
   /**

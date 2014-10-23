@@ -52,17 +52,25 @@ public class TreeEdge
    *
    * This may be TreeNode.NULL_REF if the child node is yet to be created.
    */
-  long                           mChildRef                  = TreeNode.NULL_REF;
+  private long                   mChildRef                  = TreeNode.NULL_REF;
 
   /**
    * Top bit of the numChildVisits is used to encode an edge re-expansion event
    */
   private static final int HAS_BEEN_TRIMMED_MASK = 0x80000000;
   private static final int NUM_VISITS_MASK = ~HAS_BEEN_TRIMMED_MASK;
-  private int  numChildVisits       = 0;
+  private int                   numChildVisits       = 0;
 
-  double explorationAmplifier       = 0;
-  boolean hasHeuristicDeviation     = false;
+  double                        explorationAmplifier = 0;
+  /**
+   * Edge flags hold some binary properties for the edge, which are accessed through
+   * public get/setters
+   */
+  private static final short  EDGE_FLAG_HAS_HEURISTIC_DEVIATION = 1;
+  private static final short  EDGE_FLAG_IS_UNSELECTABLE         = 2;
+  private short                 mFlags               = 0;
+  TreeEdge                      hyperSuccessor       = null;
+
 
   /**
    * Create a tree edge.
@@ -72,6 +80,97 @@ public class TreeEdge
    */
   TreeEdge()
   {
+  }
+
+  /**
+   * @return child ref of this edge
+   */
+  public long getChildRef()
+  {
+//    if ( hyperSuccessor != null )
+//    {
+//      return hyperSuccessor.getChildRef();
+//    }
+
+    return mChildRef;
+  }
+
+  /**
+   * Set the child ref of this edge
+   * @param ref
+   */
+  public void setChildRef(long ref)
+  {
+    mChildRef = ref;
+  }
+
+  /**
+   * @return whether this edge traverses a heuristic  deviation
+   */
+  public boolean hasHeuristicDeviation()
+  {
+    return (mFlags & EDGE_FLAG_HAS_HEURISTIC_DEVIATION) != 0;
+  }
+
+  /**
+   * Set whether this edge traverses a heuristic deviation
+   * @param hasHeuristicDeviation
+   */
+  public void setHasHeuristicDeviation(boolean hasHeuristicDeviation)
+  {
+    if ( hasHeuristicDeviation )
+    {
+      mFlags |= EDGE_FLAG_HAS_HEURISTIC_DEVIATION;
+    }
+    else
+    {
+      mFlags &= ~EDGE_FLAG_HAS_HEURISTIC_DEVIATION;
+    }
+  }
+
+  /**
+   * @return whether this edge traverses a heuristic  deviation
+   */
+  public boolean isSelectable()
+  {
+    return (mFlags & EDGE_FLAG_IS_UNSELECTABLE) == 0;
+  }
+
+  /**
+   * Set whether this edge traverses a heuristic deviation
+   * @param hasHeuristicDeviation
+   */
+  public void setIsSelectable(boolean isSelectable)
+  {
+    if ( isSelectable )
+    {
+      mFlags &= ~EDGE_FLAG_IS_UNSELECTABLE;
+    }
+    else
+    {
+      mFlags |= EDGE_FLAG_IS_UNSELECTABLE;
+    }
+  }
+
+  /**
+   * @return True if the hyper-path passes through a stale node
+   */
+  public boolean hyperLinkageStale()
+  {
+    boolean linkageStale = false;
+
+    for(TreeEdge nextEdge = hyperSuccessor; nextEdge != null; nextEdge = nextEdge.hyperSuccessor)
+    {
+      //  Stale linkage will manifest as a different childRef
+      //  somewhere along the chain, which can only arise via re-expansion
+      if ( getChildRef() != nextEdge.getChildRef() )
+      {
+        linkageStale = true;
+        break;
+      }
+    }
+
+    return linkageStale;
   }
 
   /**
@@ -152,12 +251,23 @@ public class TreeEdge
    */
   public String descriptiveName()
   {
+    String result;
+
     if ( mPartialMove.isPseudoNoOp )
     {
-      return "<Pseudo no-op>";
+      result = "<Pseudo no-op>";
+    }
+    else
+    {
+      result = mPartialMove.move.toString();
     }
 
-    return mPartialMove.move.toString();
+    if ( hyperSuccessor != null )
+    {
+      result += " (hyper)";
+    }
+
+    return result;
   }
 
   /**
@@ -170,6 +280,7 @@ public class TreeEdge
     numChildVisits = 0;
     mPartialMove = null;
     explorationAmplifier = 0;
-    hasHeuristicDeviation = false;
+    mFlags = 0;
+    hyperSuccessor = null;
   }
 }

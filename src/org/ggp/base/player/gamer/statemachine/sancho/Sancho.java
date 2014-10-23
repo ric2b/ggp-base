@@ -58,6 +58,8 @@ public class Sancho extends SampleGamer
     {
       System.err.println("WARNING: Assertions are enabled - this will impact performance");
     }
+
+    StdOutErrLog.tieSystemOutAndErrToLog();
   }
 
   /**
@@ -159,7 +161,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60n");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60o");
   }
 
   @Override
@@ -384,6 +386,10 @@ public class Sancho extends SampleGamer
 
           if (legalMoves.size() > 1)
           {
+            if ( roleControlMasks[i].intersectionSize(sampleState) == 0)
+            {
+              System.out.println("Eliminating role control props");
+            }
             //  This player has control (may not be only this player)
             roleControlMasks[i].intersect(sampleState);
 
@@ -1018,7 +1024,7 @@ public class Sancho extends SampleGamer
       bestMove = searchProcessor.getBestMove();
       if ( System.currentTimeMillis() - getBestMoveStartTime > 250 )
       {
-        LOGGER.warn("Retrieveing the best move took " + (System.currentTimeMillis() - getBestMoveStartTime) + "ms");
+        LOGGER.warn("Retrieving the best move took " + (System.currentTimeMillis() - getBestMoveStartTime) + "ms");
       }
 
       if (!moves.contains(bestMove))

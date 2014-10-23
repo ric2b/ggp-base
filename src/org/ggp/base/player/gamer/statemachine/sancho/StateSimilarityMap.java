@@ -172,11 +172,11 @@ public class StateSimilarityMap
           childFound = true;
 
           if (childEdge != null &&
-              childEdge.mChildRef != TreeNode.NULL_REF &&
-              getNode(childEdge.mChildRef) != null &&
-              getNode(childEdge.mChildRef).mNumChildren != 0)
+              childEdge.getChildRef() != TreeNode.NULL_REF &&
+              getNode(childEdge.getChildRef()) != null &&
+              getNode(childEdge.getChildRef()).mNumChildren != 0)
           {
-            result = getNode(childEdge.mChildRef);
+            result = getNode(childEdge.getChildRef());
             moveRoot = result;
             index++;
             break;
@@ -247,11 +247,11 @@ public class StateSimilarityMap
                 Object child = node.children[lii];
                 TreeEdge childEdge = (child instanceof TreeEdge ? (TreeEdge)child : null);
                 if ( childEdge != null &&
-                     childEdge.mChildRef != TreeNode.NULL_REF &&
-                     getNode(childEdge.mChildRef) != null &&
-                     getNode(childEdge.mChildRef).numVisits > 0)
+                     childEdge.getChildRef() != TreeNode.NULL_REF &&
+                     getNode(childEdge.getChildRef()) != null &&
+                     getNode(childEdge.getChildRef()).numVisits > 0)
                 {
-                  TreeNode lChild = getNode(childEdge.mChildRef);
+                  TreeNode lChild = getNode(childEdge.getChildRef());
                   ForwardDeadReckonLegalMoveInfo move = childEdge.mPartialMove;
                   int moveSlotIndex = getMoveSlot(move);
 

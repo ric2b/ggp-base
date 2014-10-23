@@ -13,6 +13,9 @@ public class CappedPool<ItemType> implements Pool<ItemType>
   // Maximum number of items to allocate.
   private final int                                    mPoolSize;
 
+  // Number of free entries required for isFull() to return false
+  private int                                          mFreeThresholdForNonFull;
+
   // The pool of items.
   private final ItemType[]                             mItems;
 
@@ -43,6 +46,20 @@ public class CappedPool<ItemType> implements Pool<ItemType>
     mPoolSize  = xiPoolSize;
     mItems     = (ItemType[])(new Object[xiPoolSize]);
     mFreeItems = (ItemType[])(new Object[xiPoolSize]);
+
+    mFreeThresholdForNonFull = xiPoolSize/100;  //  Default to 1% free
+  }
+
+  /**
+   * Set a minimum free node requirement to report non-full
+   * @param threshold
+   */
+  public void setNonFreeThreshold(int threshold)
+  {
+    if ( mFreeThresholdForNonFull < threshold )
+    {
+      mFreeThresholdForNonFull = threshold;
+    }
   }
 
   /**
@@ -126,7 +143,7 @@ public class CappedPool<ItemType> implements Pool<ItemType>
   @Override
   public boolean isFull()
   {
-    return (mNumItemsInUse > mPoolSize - 200);
+    return (mNumItemsInUse > mPoolSize - mFreeThresholdForNonFull);
   }
 
   @Override
