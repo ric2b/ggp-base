@@ -69,6 +69,12 @@ public class MCTSTree
    */
   public final boolean                                 USE_UCB_TUNED;
 
+  static final short  MAX_HYPER_RECURSION_DEPTH = 3;
+
+  private long maxSelectTime = 0;
+  private long maxExpandTime = 0;
+  public int maxChildrenSeen = 0;
+
   /**
    * For reasons not well understood, allowing select() to select complete children and propagate
    * upward their values (while playing out something that adds information at the level below) seems
@@ -899,6 +905,13 @@ public class MCTSTree
 
       while (!cur.isUnexpanded())
       {
+        //  Hyper expand first choice layer for each role
+        if ( cur.getDepth() < root.getDepth()+2*numRoles && cur.mNumChildren > 1 )
+        {
+          setForcedMoveProps(cur.state, mJointMoveBuffer);
+          cur.hyperExpand(visited, mJointMoveBuffer, MAX_HYPER_RECURSION_DEPTH);
+        }
+
         parentDepth = cur.getDepth();
         selected = cur.select(visited, mJointMoveBuffer, xiChosenMove);
         cur = selected.getChildNode();
@@ -951,7 +964,4 @@ public class MCTSTree
       methodSection.exitScope();
     }
   }
-
-  private static long maxSelectTime = 0;
-  private static long maxExpandTime = 0;
 }

@@ -629,7 +629,17 @@ public class GameSearcher implements Runnable, ActivityController
         }
       }
 
-      assert(somethingDisposed);
+      if (!somethingDisposed)
+      {
+        //  Sometimes hyper-edges can block trimming.  For now in such cases we just accept that we cannot search any
+        //  more until the next turn frees up some space
+        //  TODO - find a way to trim even in these cases, or at least to continue to select and perform playouts/updates
+        //  without doing further expansions
+        assert(factorTrees[0].mRoleControlProps != null && factorTrees[0].removeNonDecisionNodes);
+
+        System.out.println("Cannot trim due to hyper-edges");
+        return false;
+      }
     }
 
     numIterations++;

@@ -50,8 +50,6 @@ public class TreeNode
 
   private static final DecimalFormat FORMAT_2DP = new DecimalFormat("####0.00");
 
-  private static final int    MAX_HYPER_RECURSION_DEPTH = 3;
-
   /**
    * Dummy reference value to use when a reference doesn't currently refer to a tree node.
    */
@@ -147,6 +145,9 @@ public class TreeNode
   private short                         completionDepth;
   private double                        heuristicValue;
   private double                        heuristicWeight;
+
+  //  To what depth is the hypr-linkage tree expanded from this node
+  private short                         hyperExpansionDepth = 0;
 
   /**
    * Create a tree node.
@@ -520,7 +521,7 @@ public class TreeNode
             {
               if ( keepIndex != index )
               {
-                TreeNode lChild = (edge.getChildRef() == NULL_REF || edge.hyperSuccessor != null) ? null : get(edge.getChildRef());
+                TreeNode lChild = (edge.getChildRef() == NULL_REF || edge.isHyperEdge()) ? null : get(edge.getChildRef());
 
                 deleteEdge(index);
                 if (lChild != null)
@@ -629,6 +630,59 @@ public class TreeNode
     return result;
   }
 
+  boolean validateHyperChain(TreeEdge edge)
+  {
+    if ( complete )
+    {
+      return true;
+    }
+
+    if ( edge.mParentRef != getRef() )
+    {
+      //  Stale hyper-edge - can happen after trimming
+      return true;
+    }
+
+    if ( edge.hyperSuccessor == null )
+    {
+      if ( edge.getChildRef() != NULL_REF )
+      {
+        TreeNode child = get(edge.getChildRef());
+
+        if ( child != null )
+        {
+          assert(child.depth > 115 || child.depth/2 == depth/2 + 1);
+          //assert(depth/2 == state.size()-3);
+        }
+      }
+    }
+    else
+    {
+      if ( edge.getChildRef() != edge.hyperSuccessor.getChildRef() )
+      {
+        //  Stale hyper-edge - can happen after trimming
+        return true;
+      }
+
+      TreeNode child = get(edge.nextHyperChild);
+
+      if ( child == null )
+      {
+        assert(false) : "Null node link in the middle of a hyper chain";
+        return false;
+      }
+      if (child.depth <= 115 && child.depth/2 != depth/2 + 1)
+      {
+        assert(false) : "Unexpected depth change across on link of hyper-chain";
+        return false;
+      }
+
+      child.validateHyperChain(edge.hyperSuccessor);
+    }
+
+    return true;
+  }
+
   boolean linkageValid()
   {
     if ( mNumChildren > 0 )
@@ -641,7 +695,7 @@ public class TreeNode
         {
           TreeEdge edge = (TreeEdge)children[i];
 
-          if ( edge.hyperSuccessor != null )
+          if ( edge.isHyperEdge() )
           {
             hyperEdgeSeen = true;
           }
@@ -662,7 +716,7 @@ public class TreeNode
                 return false;
               }
 
-              if ( edge.hyperSuccessor == null )
+              if ( !edge.isHyperEdge() )
               {
                 for(short j = 0; j < mNumChildren; j++)
                 {
@@ -671,13 +725,17 @@ public class TreeNode
                     TreeEdge edge2 = (TreeEdge)children[j];
                     TreeNode child2 = (edge2.getChildRef() == NULL_REF ? null : get(edge2.getChildRef()));
 
-                    if ( child == child2 )
+                    if ( child == child2 && edge.isSelectable() )
                     {
                       assert(false) : "multiply linked child";
                       return false;
                     }
                   }
                 }
+              }
+              else
+              {
+                validateHyperChain(edge);
               }
             }
             else if ( edge.hyperSuccessor == null )
@@ -729,7 +787,7 @@ public class TreeNode
         TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
         if (edge != null )
         {
-          lChild = (edge.getChildRef() == NULL_REF || edge.hyperSuccessor != null) ? null : get(edge.getChildRef());
+          lChild = (edge.getChildRef() == NULL_REF || edge.isHyperEdge()) ? null : get(edge.getChildRef());
 
           deleteEdge(index);
 
@@ -1084,6 +1142,12 @@ public class TreeNode
       if (primaryChoiceMapping == null || primaryChoiceMapping[index] == index)
       {
         Object choice = children[index];
+
+        //  Check for a freed stale hyper-edge (if we're onto hyper edges we can stop anyway)
+        if ( choice == null )
+        {
+          break;
+        }
 
         TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
 
@@ -1501,6 +1565,7 @@ public class TreeNode
     //sweepParent = null;
     heuristicValue = 0;
     heuristicWeight = 0;
+    hyperExpansionDepth = 0;
 
     // Reset objects (without allocating new ones).
     tree = xiTree;
@@ -1803,13 +1868,61 @@ public class TreeNode
     TreeEdge lEdge = (TreeEdge)children[xiChildIndex];
 
     // Replace the edge with its move (so that it can be re-expanded later if required).
-    children[xiChildIndex] = lEdge.mPartialMove;
+    if ( lEdge.hyperSuccessor == null )
+    {
+      children[xiChildIndex] = lEdge.mPartialMove;
+    }
+    else
+    {
+      children[xiChildIndex] = null;
+    }
 
     //  Make sure it is reset when freed not just whn re-allocated as it may still
     //  be referenced by a hyper-path, which will check validity via the refs
     lEdge.reset();
     // Return the edge to the pool.
     tree.edgePool.free(lEdge);
+  }
+
+  private void deleteHyperEdge(int xiChildIndex)
+  {
+    //  If the hyper-edge bing deleted is the last on through this mov then
+    //  the principal (non-hyper) edge for that move must become selectable
+    //  again
+    Move move = ((TreeEdge)children[xiChildIndex]).mPartialMove.move;
+
+    deleteEdge(xiChildIndex);
+
+    TreeEdge principalEdge = null;
+
+    for(int i = 0; i < mNumChildren; i++)
+    {
+      Object choice = children[i];
+
+      if ( choice instanceof TreeEdge )
+      {
+        TreeEdge edge = (TreeEdge)choice;
+
+        if ( edge.mPartialMove.move == move )
+        {
+          if ( edge.hyperSuccessor == null )
+          {
+            principalEdge = edge;
+          }
+          else
+          {
+            //  Still extant hypr-edge
+            return;
+          }
+        }
+      }
+    }
+
+    if ( principalEdge != null )
+    {
+      assert(!principalEdge.isSelectable());
+      principalEdge.setIsSelectable(true);
+    }
   }
 
   /**
@@ -1992,6 +2105,7 @@ public class TreeNode
         if (selectedIndex == -1)
         {
           leastLikelyRunnerUpValue = -Double.MAX_VALUE;
+
           for (int i = 0; i < mNumChildren; i++)
           {
             Object choice = children[i];
@@ -2000,13 +2114,11 @@ public class TreeNode
             {
               TreeEdge edge = (TreeEdge)choice;
 
-              //  Must traverse just the selectable edges (non-hyperlinks to states that are
-              //  no also hyper-linked, and hyper-link terminuses).  If we traverse unselectable
-              //  links we can end up trimming for the middle of a hyper-sequence which we cannot
-              //  maintain consistent data structures across
-              if ( !edge.isSelectable() )
+              //  We just traverse the regular tree looking for nodes to free, so
+              //  stop when we reach the start of the hyper edges
+              if(edge.isHyperEdge())
               {
-                continue;
+                break;
               }
 
               long cr = edge.getChildRef();
@@ -2244,14 +2356,7 @@ public class TreeNode
         newChild.setState(state);
       }
     }
-//    else
-//    {
-//      if ( tree.firstChoiceNode == this )
-//      {
-//        tree.numUnexpandedRootChoices--;
-//        LOGGER.info("Transpositioned on root choice " + edge.mPartialMove.move + " - count now: " + tree.numUnexpandedRootChoices);
-//      }
-//    }
+
 
     //  If this was a transposition to an existing node it can be linked at multiple depths.
     //  Give it the lowest depth at which it has been seen, as this is guaranteed to preserve
@@ -2271,14 +2376,7 @@ public class TreeNode
       newChild.depth = (short)expectedDepth;
     }
 
-    //assert(!tree.removeNonDecisionNodes || this == tree.root || newChild.depth/tree.numRoles == depth/tree.numRoles + 1);
-    //assert(newChild.depth/tree.numRoles >= depth/tree.numRoles && newChild.depth > depth);
     assert(newChild.depth%tree.numRoles == (newChild.decidingRoleIndex+1)%tree.numRoles);
-
-//    if(newChild.depth <= depth)
-//    {
-//      tree.root.dumpTree("c:\\temp\\mctsTree.txt");
-//    }
 
     //  If we transition into a complete node we need to have it re-process that
     //  completion again in the light of the new parentage
@@ -2332,57 +2430,291 @@ public class TreeNode
     assert(this == tree.root || fullPathTo == null || parents.contains(fullPathTo.getTailElement().getParentNode()));
 
     assert(linkageValid());
-//    if ( pathTo != null && tree.oldRoot != null && tree.firstChoiceNode != null )
-//    {
-//      if ( pathTo.getParentNode() == tree.firstChoiceNode )
-//      {
-//        System.out.println("!");
-//      }
-//    }
 
-    TreeNode result = expandInternal(fullPathTo, jointPartialMove, parentDepth, false, false, 0);
+    TreeNode result = expandInternal(fullPathTo, jointPartialMove, parentDepth, false, false);
 
     assert(!tree.removeNonDecisionNodes || result.mNumChildren > 1 || result == tree.root || result.complete);
-
-    //  Node trimming can only occur once all root choices have been 'reconnected' to the previous tree.
-    //  Depending on whose turn it is this could be when all immediate children of the root have been
-    //  expanded (our turn) or it could be that the immediate child of the root is a forced move for us,
-    //  in which case it is when ITS children have all been expanded.  We record the node which represents
-    //  the first choice (the root or its immediate child always) and how many children it has.  Any expansion
-    //  of a child of that recorded node then decrements said count, and when it gets to zero we can trim
-//    if ( pathTo != null && tree.oldRoot != null && tree.firstChoiceNode != null )
-//    {
-//      if ( pathTo.getParentNode() == tree.firstChoiceNode )
-//      {
-//        tree.numUnexpandedRootChoices--;
-//        LOGGER.info("Expanding root choice " + pathTo.getEdge(true).mPartialMove.move + " - count now: " + tree.numUnexpandedRootChoices);
-//      }
-//
-//      if ( tree.numUnexpandedRootChoices == 0 )
-//      {
-//        tree.oldRoot.freeAllBut(tree.root);
-//        tree.oldRoot = null;
-//        tree.firstChoiceNode = null;
-//      }
-//    }
-
     assert(result.linkageValid());
     return result;
   }
 
-  private TreeNode expandInternal(TreePath fullPathTo, ForwardDeadReckonLegalMoveInfo[] jointPartialMove, int parentDepth, boolean isRecursiveExpansion, boolean stateChangedInForcedExpansion, int hyperDepth)
+  public void hyperExpand(TreePath fullPathTo, ForwardDeadReckonLegalMoveInfo[] jointPartialMove, short hyperDepth)
+  {
+    int roleIndex = (decidingRoleIndex+1)%tree.numRoles;
+
+    //  Perform hyper-expansion and add in hyper-edges
+    //  This involves checking which children still have the same player with control
+    //  (so only applies to non-simultaneous move games) and recursively expanding
+    //  them, and then inserting 'hyper-edges' to the descendants where this player
+    //  in NOT in control (i.e. - to all states reachable without any opponent
+    //  choice).  Because this is recursive some car is needed with the singleton
+    //  buffers in the MCTSTree instance used for interim results (to avoid memory allocation)
+    //  We piggyback on the processing done by no-choice node removal, which guarantees
+    //  that each child has moved to a different state (except in a special-case of root handling),
+    //  and so only enable hyper-edge analysis if no-choice removal is active
+    if (tree.removeNonDecisionNodes && tree.mRoleControlProps != null && fullPathTo != null && hyperDepth > hyperExpansionDepth)
+    {
+      boolean hyperExpansionNeeded = false;
+
+      assert(state.contains(tree.mRoleControlProps[roleIndex]));
+
+      //  First create child nodes for all with the same player in control.  This node creation
+      //  is anyway implied by the need to recursively expand such children.
+      //  TODO - we can optimize this by flagging the children that are same-control in expansion
+      //  so that we don't have to create all children here
+      if ( hyperExpansionDepth == 0 )
+      {
+        for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
+        {
+          if (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex)
+          {
+            //  Create if necessary
+            TreeNode child = createChildIfNeccessary(lMoveIndex, jointPartialMove, roleIndex);
+
+            if ( child != null && child.state.contains(tree.mRoleControlProps[roleIndex]) )
+            {
+              hyperExpansionNeeded = true;
+            }
+          }
+        }
+      }
+      else
+      {
+        Object lastChild = children[mNumChildren-1];
+
+        hyperExpansionNeeded = (lastChild == null || (lastChild instanceof TreeEdge && ((TreeEdge)lastChild).isHyperEdge()));
+      }
+
+      //  Now perform the recursive expansion if any is needed
+      if ( hyperExpansionNeeded )
+      {
+        for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
+        {
+          if (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex)
+          {
+            Object choice = children[lMoveIndex];
+            if ( choice instanceof TreeEdge &&  ((TreeEdge)choice).isHyperEdge() )
+            {
+              //  We're only interested in recursively expanding the regular tree linkage
+              //  so as soon as we hit a hyper-edge we can stop
+              break;
+            }
+
+            TreeNode child = getChild(lMoveIndex);
+
+            if ( child != null && !child.complete && child.state.contains(tree.mRoleControlProps[roleIndex]) )
+            {
+              assert(choice instanceof TreeEdge);
+              TreeEdge edge = (TreeEdge)choice;
+
+              TreeNode expandedChild;
+
+              assert(validateHyperChain(edge));
+
+              if ( child.isUnexpanded() )
+              {
+                //  expand recursively
+                fullPathTo.push(this, edge);
+
+                expandedChild = child.expandInternal(fullPathTo, jointPartialMove, depth, false, false);
+
+                fullPathTo.pop();
+
+                //  Expanding can result in the discovery that forced moves transpose to the same state as another
+                //  edge, in which case expansion can retire this edge - check before continuing
+                if ( edge != children[lMoveIndex] )
+                {
+                  assert(primaryChoiceMapping != null && primaryChoiceMapping[lMoveIndex] != lMoveIndex);
+                  continue;
+                }
+              }
+              else
+              {
+                expandedChild = child;
+              }
+              assert(validateHyperChain(edge));
+
+              expandedChild.hyperExpand(fullPathTo, jointPartialMove, (short)(hyperDepth-1));
+
+              if ( !expandedChild.complete )
+              {
+                boolean expandedChildHasHyperEdges = false;
+                Object lastChoice = expandedChild.children[expandedChild.mNumChildren-1];
+
+                if ( (lastChoice instanceof TreeEdge) && ((TreeEdge)lastChoice).hyperSuccessor != null )
+                {
+                  expandedChildHasHyperEdges = true;
+                }
+
+                //  Mark this edge as unselectable
+                edge.setIsSelectable(false);
+
+                //  Add in the implied hyper-edges
+                if ( expandedChildHasHyperEdges )
+                {
+                  for(short index = 0; index < expandedChild.mNumChildren; index++)
+                  {
+                    Object childChoice = expandedChild.children[index];
+                    if ( childChoice instanceof TreeEdge && !((TreeEdge)childChoice).isSelectable())
+                    {
+                      continue;
+                    }
+
+                    if ( childChoice != null && (expandedChild.primaryChoiceMapping == null || expandedChild.primaryChoiceMapping[index] == index))
+                    {
+                      //  Children will have already been expanded by the recursive call above usually, but in
+                      //  the case of a transposition it is possible they will not have been
+                      TreeNode descendant = expandedChild.createChildIfNeccessary(index, jointPartialMove, roleIndex);
+
+                      //  In the case of a hyper-edge who terminus no longer exists (because an intermediary step has been completed usually)
+                      //  we may have no descendant, which means it's a dead hyper-edge and we should ignore it
+                      if ( descendant == null )
+                      {
+                        continue;
+                      }
+
+                      //  In principal hyper-edges should provide direct access to all possible successor states which the
+                      //  currently choosing player can force arrival at (those where the opponent gets the next choice)
+                      //  In practice this leads to too much of a combinatoric explosion in the branching factor, so instead
+                      //  we link to the terminal nodes of the sequences wherein the choosing player retains control.  This provides
+                      //  most of the selection power of the theoretical approach with much less of an increase in branching factor
+                      if ( !descendant.state.contains(tree.mRoleControlProps[roleIndex]) )
+                      {
+                        assert(!((TreeEdge)expandedChild.children[index]).isHyperEdge());
+                        continue;
+                      }
+                      assert(((TreeEdge)expandedChild.children[index]).isHyperEdge());
+
+                      //  Only need to add if we don't already have a (hyper or otherwise) child
+                      //  which is this node
+                      boolean alreadyPresent = false;
+
+                      for(short ourIndex = 0; ourIndex < mNumChildren; ourIndex++)
+                      {
+                        TreeNode ourChild = getChild(ourIndex);
+                        if ( ourChild != null && ourChild.state.equals(descendant.state))
+                        {
+                          alreadyPresent = true;
+                          break;
+                        }
+                      }
+
+                      if ( !alreadyPresent )
+                      {
+                        //  Add the new hyper-edge
+                        TreeEdge descendantEdge = (TreeEdge)expandedChild.children[index];
+
+                        assert(descendantEdge.mParentRef == expandedChild.getRef());
+
+                        //  Do we need to expand the children array?
+                        if ( children.length == mNumChildren )
+                        {
+                          Object[] newChildren = new Object[mNumChildren*2];
+
+                          System.arraycopy(children, 0, newChildren, 0, mNumChildren);
+
+                          children = newChildren;
+
+                          if ( primaryChoiceMapping != null )
+                          {
+                            short[] newPrimaryChoiceMapping = new short[mNumChildren*2];
+
+                            System.arraycopy(primaryChoiceMapping, 0, newPrimaryChoiceMapping, 0, mNumChildren);
+
+                            primaryChoiceMapping = newPrimaryChoiceMapping;
+                          }
+                        }
+
+                        TreeEdge hyperEdge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
+                        hyperEdge.setParent(this, edge.mPartialMove);
+                        hyperEdge.hyperSuccessor = descendantEdge;
+                        hyperEdge.setIsHyperEdge(true);
+                        //  Because edges are pooled and can be reallocated aftr being freed by an un-expansion
+                        //  it is possible that the hyperSuccessor chain can contain stale edges that have been
+                        //  reused.  So that we can validate chain integrity we therefore store the ref of the next
+                        //  node in the chain, so that at each link the expected next node ref can be validated against
+                        //  the succesor's parent ref
+                        hyperEdge.nextHyperChild = expandedChild.getRef();
+                        hyperEdge.setChildRef(descendantEdge.getChildRef());
+
+                        if ( primaryChoiceMapping != null )
+                        {
+                          primaryChoiceMapping[mNumChildren] = mNumChildren;
+                        }
+                        children[mNumChildren++] = hyperEdge;
+
+                        assert(validateHyperChain(hyperEdge));
+                      }
+                    }
+                  }
+                }
+                else
+                {
+                  //  Do we need to expand the children array?
+                  if ( children.length == mNumChildren )
+                  {
+                    Object[] newChildren = new Object[mNumChildren*2];
+
+                    System.arraycopy(children, 0, newChildren, 0, mNumChildren);
+
+                    children = newChildren;
+
+                    if ( primaryChoiceMapping != null )
+                    {
+                      short[] newPrimaryChoiceMapping = new short[mNumChildren*2];
+
+                      System.arraycopy(primaryChoiceMapping, 0, newPrimaryChoiceMapping, 0, mNumChildren);
+
+                      primaryChoiceMapping = newPrimaryChoiceMapping;
+                    }
+                  }
+
+                  //  Hyper link directly to the expanded child
+                  TreeEdge hyperEdge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
+                  hyperEdge.setParent(this, edge.mPartialMove);
+                  hyperEdge.hyperSuccessor = null;
+                  hyperEdge.setIsHyperEdge(true);
+                  //  Because edges are pooled and can be reallocated aftr being freed by an un-expansion
+                  //  it is possible that the hyperSuccessor chain can contain stale edges that have been
+                  //  reused.  So that we can validate chain integrity we therefore store the ref of the next
+                  //  node in the chain, so that at each link the expected next node ref can be validated against
+                  //  the succesor's parent ref
+                  hyperEdge.nextHyperChild = expandedChild.getRef();
+                  hyperEdge.setChildRef(edge.getChildRef());
+                  //  Can safely take on the visit count of the replaced normal edge
+                  hyperEdge.setNumVisits(edge.getNumChildVisits());
+
+                  if ( primaryChoiceMapping != null )
+                  {
+                    primaryChoiceMapping[mNumChildren] = mNumChildren;
+                  }
+                  children[mNumChildren++] = hyperEdge;
+
+                  assert(validateHyperChain(hyperEdge));
+                }
+
+                assert(linkageValid());
+              }
+            }
+          }
+        }
+
+        if ( mNumChildren > tree.maxChildrenSeen )
+        {
+          tree.maxChildrenSeen = mNumChildren;
+
+          LOGGER.info("Max children for one node seen: " + tree.maxChildrenSeen);
+        }
+      }
+
+      hyperExpansionDepth = hyperDepth;
+    }
+  }
+
+  private TreeNode expandInternal(TreePath fullPathTo, ForwardDeadReckonLegalMoveInfo[] jointPartialMove, int parentDepth, boolean isRecursiveExpansion, boolean stateChangedInForcedExpansion)
   {
     TreePathElement pathTo = (fullPathTo == null ? null : fullPathTo.getTailElement());
 
-//    if ( pathTo != null && pathTo.getEdgeUnsafe().mPartialMove.move.toString().contains("f 3 e 4") && (depth == 94))
-//    {
-//      System.out.println("Move expansion at depth: " + depth);
-//      String stateStr = state.toString();
-//      if ( stateStr.contains("a 8 white") )//&& stateStr.contains("e 4 black") )
-//      {
-//        System.out.println("!");
-//      }
-//    }
     ProfileSection methodSection = ProfileSection.newInstance("TreeNode.expand");
     try
     {
@@ -2475,7 +2807,7 @@ public class TreeNode
 
           if (roleIndex == tree.numRoles - 1)
           {
-            stateChangedInForcedExpansion = true;
+             stateChangedInForcedExpansion = true;
 
             tree.setForcedMoveProps(state, jointPartialMove);
             newState = tree.mChildStatesBuffer[0];
@@ -2645,7 +2977,7 @@ public class TreeNode
               //  If the transposed-to node is already expanded we're done
               if ( !existing.complete && existing.isUnexpanded() )
               {
-                result = existing.expandInternal(fullPathTo, jointPartialMove, parentDepth, true, stateChangedInForcedExpansion, hyperDepth);
+                result = existing.expandInternal(fullPathTo, jointPartialMove, parentDepth, true, stateChangedInForcedExpansion);
                 assert(result.mNumChildren > 1 || result == tree.root || result.complete);
                 assert(result.linkageValid());
               }
@@ -2710,7 +3042,7 @@ public class TreeNode
             assert(depth%tree.numRoles == (decidingRoleIndex+1)%tree.numRoles);
 
             //  Recurse
-            result = expandInternal(fullPathTo, jointPartialMove, parentDepth, true, stateChangedInForcedExpansion, hyperDepth);
+            result = expandInternal(fullPathTo, jointPartialMove, parentDepth, true, stateChangedInForcedExpansion);
             assert(result.linkageValid());
           }
 
@@ -2901,194 +3233,6 @@ public class TreeNode
                   newChild.markComplete(info.terminalScore, (short)(depth + 1));
                 }
               }
-            }
-          }
-        }
-
-        assert(linkageValid());
-
-        //  Perform hyper-expansion and add in hyper-edges
-        //  This involves checking which children still have the same player with control
-        //  (so only applies to non-simultaneous move games) and recursively expanding
-        //  them, and then inserting 'hyper-edges' to the descendants where this player
-        //  in NOT in control (i.e. - to all states reachable without any opponent
-        //  choice).  Because this is recursive some car is needed with the singleton
-        //  buffers in the MCTSTree instance used for interim results (to avoid memory allocation)
-        //  We piggyback on the processing done by no-choice node removal, which guarantees
-        //  that each child has moved to a different state (except in a special-case of root handling),
-        //  and so only enable hyper-edge analysis if no-choice removal is active
-        if (tree.removeNonDecisionNodes && tree.mRoleControlProps != null && mNumChildren > 1 && fullPathTo != null  && hyperDepth < MAX_HYPER_RECURSION_DEPTH)
-        {
-          boolean hyperExpansionNeeded = false;
-
-          assert(state.contains(tree.mRoleControlProps[roleIndex]));
-
-          //  First create child nodes for all with the same player in control.  This node creation
-          //  is anyway implied by the need to recursively expand such children, and is done as a separate
-          //  step to decouple the later recursive processing from the child state buffers (which are a single
-          //  scratch array in the MCTSTree)
-          for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
-          {
-            if (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex)
-            {
-              //  Same player in control or this is a hyper-expansion (in which case we will have
-              //  ancestors wanting to hyperlink all the children so all will need nodes)?
-              boolean hasSameControl = tree.mChildStatesBuffer[lMoveIndex].contains(tree.mRoleControlProps[roleIndex]);
-              hyperExpansionNeeded |= hasSameControl;
-
-              if ( hasSameControl )
-              {
-                //  Create if necessary
-                createChildIfNeccessary(lMoveIndex, jointPartialMove, roleIndex);
-              }
-            }
-          }
-
-          //  Now perform the recursive expansion if any is needed
-          if ( hyperExpansionNeeded )
-          {
-            short numRegularChildren = mNumChildren;
-
-            for (short lMoveIndex = 0; lMoveIndex < numRegularChildren; lMoveIndex++)
-            {
-              if (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex)
-              {
-                TreeNode child = getChild(lMoveIndex);
-
-                if ( child != null && !child.complete && child.state.contains(tree.mRoleControlProps[roleIndex]) )
-                {
-                  assert(children[lMoveIndex] instanceof TreeEdge);
-                  TreeEdge edge = (TreeEdge)children[lMoveIndex];
-
-                  TreeNode expandedChild;
-                  boolean wasUnexpanded;
-
-                  if ( child.isUnexpanded() )
-                  {
-                    wasUnexpanded = true;
-                    //  expand recursively
-                    fullPathTo.push(this, edge);
-
-                    expandedChild = child.expandInternal(fullPathTo, jointPartialMove, depth, false, false, hyperDepth+1);
-
-                    fullPathTo.pop();
-
-                    //  Expanding can result in the discovery that forced moves transpose to th same state as another
-                    //  edge, in which case expansion can retire this edge - check before continuing
-                    if ( edge != children[lMoveIndex] )
-                    {
-                      assert(primaryChoiceMapping != null && primaryChoiceMapping[lMoveIndex] != lMoveIndex);
-                      continue;
-                    }
-                  }
-                  else
-                  {
-                    wasUnexpanded = false;
-                    expandedChild = child;
-                  }
-
-                  if ( !expandedChild.complete )
-                  {
-                    boolean expandedChildHasHyperEdges = false;
-                    Object lastChoice = expandedChild.children[expandedChild.mNumChildren-1];
-
-                    if ( (lastChoice instanceof TreeEdge) && ((TreeEdge)lastChoice).hyperSuccessor != null )
-                    {
-                      expandedChildHasHyperEdges = true;
-                    }
-
-                    //  Mark this edge as unselectable
-                    edge.setIsSelectable(false);
-
-                    //  Add in the implied hyper-edges
-                    for(short index = 0; index < expandedChild.mNumChildren; index++)
-                    {
-                      if (expandedChild.primaryChoiceMapping == null || expandedChild.primaryChoiceMapping[index] == index)
-                      {
-                        //  Children will have already been expanded by the recursive call above usually, but in
-                        //  the case of a transposition it is possible they will not have been
-                        TreeNode descendant = expandedChild.createChildIfNeccessary(index, jointPartialMove, roleIndex);
-
-                        //  In the case of a hyper-edge who terminus no longer exists (because an intermediary step has been completed usually)
-                        //  we may have no descendant, which means it's a dead hyper-edge and we should ignore it
-                        if ( descendant == null )
-                        {
-                          continue;
-                        }
-
-                        //  In principal hyper-edges should provide direct access to all possible successor states which the
-                        //  currently choosing player can force arrival at (those where the opponent gets the next choice)
-                        //  In practice this leads to too much of a combinatoric explosion in the branching factor, so instead
-                        //  we link to the terminal nodes of the sequences wherein the choosing player retains control.  This provides
-                        //  most of the selection power of the theoretical approach with much less of an increase in branching factor
-                        if ( expandedChildHasHyperEdges && !descendant.state.contains(tree.mRoleControlProps[roleIndex]) )
-                        {
-                          continue;
-                        }
-
-                        //  Only need to add if we don't already have a (hyper or otherwise) child
-                        //  which is this node
-                        boolean alreadyPresent = false;
-
-                        for(short ourIndex = 0; ourIndex < mNumChildren; ourIndex++)
-                        {
-                          TreeNode ourChild = getChild(ourIndex);
-                          if ( ourChild != null && ourChild.state.equals(descendant.state))
-                          {
-                            alreadyPresent = true;
-                            break;
-                          }
-                        }
-
-                        if ( !alreadyPresent )
-                        {
-                          //  Add the new hyper-edge
-                          TreeEdge descendantEdge = (TreeEdge)expandedChild.children[index];
-
-                          //  Do we need to expand the children array?
-                          if ( children.length == mNumChildren )
-                          {
-                            Object[] newChildren = new Object[mNumChildren*2];
-
-                            System.arraycopy(children, 0, newChildren, 0, mNumChildren);
-
-                            children = newChildren;
-
-                            if ( primaryChoiceMapping != null )
-                            {
-                              short[] newPrimaryChoiceMapping = new short[mNumChildren*2];
-
-                              System.arraycopy(primaryChoiceMapping, 0, newPrimaryChoiceMapping, 0, mNumChildren);
-
-                              primaryChoiceMapping = newPrimaryChoiceMapping;
-                            }
-                          }
-
-                          TreeEdge hyperEdge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-                          hyperEdge.setParent(this, edge.mPartialMove);
-                          hyperEdge.hyperSuccessor = descendantEdge;
-                          hyperEdge.setChildRef(descendantEdge.getChildRef());
-
-                          if ( primaryChoiceMapping != null )
-                          {
-                            primaryChoiceMapping[mNumChildren] = mNumChildren;
-                          }
-                          children[mNumChildren++] = hyperEdge;
-                        }
-                      }
-                    }
-
-                    assert(linkageValid());
-                  }
-                }
-              }
-            }
-
-            if ( mNumChildren > maxChildrenSeen )
-            {
-              maxChildrenSeen = mNumChildren;
-
-              LOGGER.info("Max children for one node seen: " + maxChildrenSeen);
             }
           }
         }
@@ -3430,8 +3574,6 @@ public class TreeNode
     }
   }
 
-  private static int maxChildrenSeen = 0;
-
   private void validateScoreVector(double[] scores)
   {
     double total = 0;
@@ -3540,7 +3682,7 @@ public class TreeNode
           Math.sqrt(lUcbExploration) / tree.roleRationality[roleIndex];
     }
 
-    result *= (1 + edge.explorationAmplifier);
+    result *= (1 + edge.explorationAmplifier)*(edge.isHyperEdge() ? 5 : 1);
     return result;
   }
 
@@ -3718,9 +3860,10 @@ public class TreeNode
     return 1000 + tree.r.nextDouble() * EPSILON + explorationAmplifier;
   }
 
-  private void normalizeScores()
+  private void normalizeScores(boolean bTrace)
   {
     double weightTotal = 0;
+    int choosingRoleIndex = (decidingRoleIndex+1)%tree.numRoles;
 
     for(int role = 0; role < tree.numRoles; role++)
     {
@@ -3737,6 +3880,8 @@ public class TreeNode
     //  by assuming that the visits to the complete nodes have also been redistributed
     //  in proportion to the visit counts of the other nodes
     int numCompleteVisits = 0;
+    double highestScore = -Double.MAX_VALUE;
+    double highestScoreWeight = 0;
 
     for(int i = 0; i < mNumChildren; i++)
     {
@@ -3746,13 +3891,23 @@ public class TreeNode
       {
         TreeEdge edge = (TreeEdge)choice;
 
-        if ( edge.getChildRef() != NULL_REF )
+        if ( edge.getChildRef() != NULL_REF && edge.isSelectable() )
         {
           TreeNode child = get(edge.getChildRef());
 
-          if ( child != null && child.complete )
+          if ( child != null )
           {
-            numCompleteVisits += edge.getNumChildVisits();
+            if ( child.complete )
+            {
+              numCompleteVisits += edge.getNumChildVisits();
+            }
+
+            double score = child.getAverageScore(choosingRoleIndex);
+            if ( score > highestScore )
+            {
+              highestScore = score;
+              highestScoreWeight = edge.getNumChildVisits();
+            }
           }
         }
       }
@@ -3768,15 +3923,20 @@ public class TreeNode
       {
         TreeEdge edge = (TreeEdge)choice;
 
-        if ( edge.getChildRef() != NULL_REF )
+        if ( edge.getChildRef() != NULL_REF && edge.isSelectable() )
         {
           TreeNode child = get(edge.getChildRef());
 
           if ( child != null  )
           {
-            double effectiveVisits = (child.complete ? edge.getNumChildVisits() : incompleteVisitProportion*edge.getNumChildVisits());
-            double weight = effectiveVisits*Math.sqrt(effectiveVisits);
+            //double effectiveVisits = (child.complete ? edge.getNumChildVisits() : incompleteVisitProportion*edge.getNumChildVisits());
+            //double weight = effectiveVisits*Math.sqrt(effectiveVisits);
+            double weight = highestScoreWeight/(1 + highestScoreWeight*(highestScore - child.getAverageScore(choosingRoleIndex))/(30*Math.log(numVisits)));
 
+            if ( bTrace )
+            {
+              LOGGER.info("Move " + edge.descriptiveName() + "choosing score " + child.getAverageScore(choosingRoleIndex) + " [" + edge.getNumChildVisits() + "], weight: " + weight);
+            }
             for(int role = 0; role < tree.numRoles; role++)
             {
               double score = child.getAverageScore(role);
@@ -3882,7 +4042,7 @@ public class TreeNode
       {
         if ( tree.USE_NODE_SCORE_NORMALIZATION && numVisits > 500 && (numVisits&0xff) == 0xff )
         {
-          normalizeScores();
+          normalizeScores(false);
         }
         //  It is clearly a bug to reset mostLikelyRunnerUpValue here, but empirically it is significantly
         //  useful in some games (D&B, D&B suicide notably).  The only games where a clear negative impact
@@ -3913,36 +4073,46 @@ public class TreeNode
             edge.setParent(this, (ForwardDeadReckonLegalMoveInfo)choice);
             children[mostLikelyWinner] = edge;
           }
-          long cr = edge.getChildRef();
 
-          if(cr != NULL_REF)
+          //  Hyper-edges may become stale due to down-stream links being freed - ignore
+          //  hyper paths with stale linkage
+          if(edge.hyperSuccessor != null && edge.hyperLinkageStale())
           {
-            TreeNode c = get(cr);
-            if (c != null && (!c.complete) && !c.allChildrenComplete)
+            deleteHyperEdge(mostLikelyWinner);
+          }
+          else
+          {
+            long cr = edge.getChildRef();
+
+            if(cr != NULL_REF)
             {
-              double uctValue;
+              TreeNode c = get(cr);
+              if (c != null && (!c.complete) && !c.allChildrenComplete)
+              {
+                double uctValue;
 
-              if (c.numVisits == 0 && !c.complete)
-              {
-                uctValue = unexpandedChildUCTValue(roleIndex, edge.explorationAmplifier);
-              }
-              else
-              {
-                //  Various experiments have been done to try to find the best selection
-                //  weighting, and it seems that using the number of times we've visited the
-                //  child FROM THIS PARENT coupled with the num visits here in standard UCT
-                //  manner works best.  In particular using the visit count on the child node
-                //  (rather than through the child edge to it, which can be radically different
-                //  in highly transpositional games) does not seem to work as well (even with a
-                //  'corrected' parent visit count obtained by summing the number of visits to all
-                //  the child's parents)
-                uctValue = explorationUCT(numVisits, edge, roleIndex) +
-                           exploitationUCT(edge, roleIndex);
-              }
+                if (c.numVisits == 0 && !c.complete)
+                {
+                  uctValue = unexpandedChildUCTValue(roleIndex, edge.explorationAmplifier);
+                }
+                else
+                {
+                  //  Various experiments have been done to try to find the best selection
+                  //  weighting, and it seems that using the number of times we've visited the
+                  //  child FROM THIS PARENT coupled with the num visits here in standard UCT
+                  //  manner works best.  In particular using the visit count on the child node
+                  //  (rather than through the child edge to it, which can be radically different
+                  //  in highly transpositional games) does not seem to work as well (even with a
+                  //  'corrected' parent visit count obtained by summing the number of visits to all
+                  //  the child's parents)
+                  uctValue = explorationUCT(numVisits, edge, roleIndex) +
+                             exploitationUCT(edge, roleIndex);
+                }
 
-              if (uctValue >= mostLikelyRunnerUpValue)
-              {
-                selectedIndex = mostLikelyWinner;
+                if (uctValue >= mostLikelyRunnerUpValue)
+                {
+                  selectedIndex = mostLikelyWinner;
+                }
               }
             }
           }
@@ -3954,128 +4124,143 @@ public class TreeNode
           //  to recalculate
           mostLikelyRunnerUpValue = Double.MIN_VALUE;
 
-          for (short i = 0; i < mNumChildren; i++)
+          boolean hyperLinksRemoved;
+
+          do
           {
-            //  Only select one move that is state-equivalent, and don't allow selection of a pseudo-noop
-            if ( primaryChoiceMapping == null || primaryChoiceMapping[i] == i )
+            hyperLinksRemoved = false;
+
+            for (short i = 0; i < mNumChildren; i++)
             {
-              Object choice = children[i];
-
-              TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-              double uctValue;
-              long cr;
-              TreeNode c;
-
-              if (edge != null && (cr = edge.getChildRef()) != NULL_REF && (c = get(cr)) != null)
+              //  Only select one move that is state-equivalent, and don't allow selection of a pseudo-noop
+              if ( primaryChoiceMapping == null || primaryChoiceMapping[i] == i )
               {
-                //  In the presence of hyper edges some normal edges will not be selectable because
-                //  they are just sub-elements of selectable hyper-edges
-                if ( !edge.isSelectable() )
+                Object choice = children[i];
+
+                if ( choice == null )
                 {
+                  //  Previously removed stale hyper-edge (slot)
                   continue;
                 }
 
-                //  Hyper-edges may become stale due to down-stream links being freed - ignore
-                //  hyper paths with stale linkage
-                if(edge.hyperSuccessor != null && edge.hyperLinkageStale())
+                TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+                double uctValue;
+                long cr;
+                TreeNode c;
+
+                if (edge != null && (cr = edge.getChildRef()) != NULL_REF && (c = get(cr)) != null)
                 {
-                  continue;
-                }
-
-                //  Don't allow selection of a pseudo-noop
-                //  except from the root since we just want to know the difference in cost or omitting one
-                //  move (at root level) if we play in another factor
-                if ((!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2)) &&
-                         (tree.root == this || !edge.mPartialMove.isPseudoNoOp))
-                {
-                  //  Don't preferentially explore paths once they are known to have complete results
-                  if ( c.complete )
+                  //  In the presence of hyper edges some normal edges will not be selectable because
+                  //  they are just sub-elements of selectable hyper-edges
+                  if ( !edge.isSelectable() )
                   {
-                    edge.explorationAmplifier = 0;
+                    continue;
                   }
 
-                  if (c.numVisits == 0)
+                  //  Hyper-edges may become stale due to down-stream links being freed - ignore
+                  //  hyper paths with stale linkage
+                  if(edge.hyperSuccessor != null && edge.hyperLinkageStale())
                   {
-                    uctValue = unexpandedChildUCTValue(roleIndex, edge.explorationAmplifier);
-                  }
-                  else
-                  {
-                    assert(edge.getNumChildVisits() <= c.numVisits || (edge.hyperSuccessor != null && c.complete));
-
-                    //  Various experiments have been done to try to find the best selection
-                    //  weighting, and it seems that using the number of times we've visited the
-                    //  child FROM THIS PARENT coupled with the num visits here in standard UCT
-                    //  manner works best.  In particular using the visit count on the child node
-                    //  (rather than through the child edge to it, which can be radically different
-                    //  in highly transpositional games) does not seem to work as well (even with a
-                    //  'corrected' parent visit count obtained by summing the number of visits to all
-                    //  the child's parents)
-                    //  Empirically the half value for the exploration term applied to complete
-                    //  children seems to give decent results.  Both applying it in full and not
-                    //  applying it (both of which can be rationalized!) seem to fare worse in at
-                    //  least some games
-                    uctValue = (c.complete ? explorationUCT(numVisits,
-                                                            edge,
-                                                            roleIndex)/2
-                                           : explorationUCT(numVisits,
-                                                            edge,
-                                                            roleIndex)) +
-                               exploitationUCT(edge, roleIndex);
+                    deleteHyperEdge(i);
+                    hyperLinksRemoved = true;
+                    continue;
                   }
 
-                  //  If the node we most want to select through is complete (or all its
-                  //  children are, in either case of which there is nothing further to
-                  //  learn) we select the best non-compleet choice but record the fact
-                  //  so that on propagation of the result we can propagate upwards from this
-                  //  node the score of the complete node that in some sense 'should' have
-                  //  been selected
-                  if (!c.complete && !c.allChildrenComplete)
+                  //  Don't allow selection of a pseudo-noop
+                  //  except from the root since we just want to know the difference in cost or omitting one
+                  //  move (at root level) if we play in another factor
+                  if ((!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2)) &&
+                           (tree.root == this || !edge.mPartialMove.isPseudoNoOp))
                   {
-                    if (uctValue > bestValue)
+                    //  Don't preferentially explore paths once they are known to have complete results
+                    if ( c.complete )
                     {
-                      selectedIndex = i;
-                      if (bestValue != Double.MIN_VALUE)
+                      edge.explorationAmplifier = 0;
+                    }
+
+                    if (c.numVisits == 0)
+                    {
+                      uctValue = unexpandedChildUCTValue(roleIndex, edge.explorationAmplifier);
+                    }
+                    else
+                    {
+                      assert(edge.getNumChildVisits() <= c.numVisits || (edge.hyperSuccessor != null && c.complete));
+
+                      //  Various experiments have been done to try to find the best selection
+                      //  weighting, and it seems that using the number of times we've visited the
+                      //  child FROM THIS PARENT coupled with the num visits here in standard UCT
+                      //  manner works best.  In particular using the visit count on the child node
+                      //  (rather than through the child edge to it, which can be radically different
+                      //  in highly transpositional games) does not seem to work as well (even with a
+                      //  'corrected' parent visit count obtained by summing the number of visits to all
+                      //  the child's parents)
+                      //  Empirically the half value for the exploration term applied to complete
+                      //  children seems to give decent results.  Both applying it in full and not
+                      //  applying it (both of which can be rationalized!) seem to fare worse in at
+                      //  least some games
+                      uctValue = (c.complete ? explorationUCT(numVisits,
+                                                              edge,
+                                                              roleIndex)/2
+                                             : explorationUCT(numVisits,
+                                                              edge,
+                                                              roleIndex)) +
+                                 exploitationUCT(edge, roleIndex);
+                    }
+
+                    //  If the node we most want to select through is complete (or all its
+                    //  children are, in either case of which there is nothing further to
+                    //  learn) we select the best non-compleet choice but record the fact
+                    //  so that on propagation of the result we can propagate upwards from this
+                    //  node the score of the complete node that in some sense 'should' have
+                    //  been selected
+                    if (!c.complete && !c.allChildrenComplete)
+                    {
+                      if (uctValue > bestValue)
                       {
-                        mostLikelyRunnerUpValue = bestValue;
+                        selectedIndex = i;
+                        if (bestValue != Double.MIN_VALUE)
+                        {
+                          mostLikelyRunnerUpValue = bestValue;
+                        }
+                        bestValue = uctValue;
                       }
-                      bestValue = uctValue;
                     }
-                  }
-                  else
-                  {
-                    if (uctValue > bestCompleteValue)
+                    else
                     {
-                      bestCompleteValue = uctValue;
-                      bestCompleteNode = c;
-                      bestSelectedIndex = i;
+                      if (uctValue > bestCompleteValue)
+                      {
+                        bestCompleteValue = uctValue;
+                        bestCompleteNode = c;
+                        bestSelectedIndex = i;
+                      }
                     }
                   }
                 }
-              }
-              else if ( tree.root == this || !(edge == null ? (ForwardDeadReckonLegalMoveInfo)choice : edge.mPartialMove).isPseudoNoOp )
-              {
-                if ( edge != null && edge.hyperSuccessor != null )
+                else if ( tree.root == this || !(edge == null ? (ForwardDeadReckonLegalMoveInfo)choice : edge.mPartialMove).isPseudoNoOp )
                 {
-                  //  Stale hyper-link - can be ignored now its target has gone
-                  continue;
-                }
-
-                //  A null child ref in an extant edge is a not-yet selected through
-                //  path which is asserted to be non-terminal and unvisited
-                uctValue = unexpandedChildUCTValue(roleIndex, edge == null ? 0 : edge.explorationAmplifier);
-
-                if (uctValue > bestValue)
-                {
-                  selectedIndex = i;
-                  if (bestValue != Double.MIN_VALUE)
+                  if ( edge != null && edge.hyperSuccessor != null )
                   {
-                    mostLikelyRunnerUpValue = bestValue;
+                    //  Stale hyper-link - can be ignored now its target has gone
+                    continue;
                   }
-                  bestValue = uctValue;
+
+                  //  A null child ref in an extant edge is a not-yet selected through
+                  //  path which is asserted to be non-terminal and unvisited
+                  uctValue = unexpandedChildUCTValue(roleIndex, edge == null ? 0 : edge.explorationAmplifier);
+
+                  if (uctValue > bestValue)
+                  {
+                    selectedIndex = i;
+                    if (bestValue != Double.MIN_VALUE)
+                    {
+                      mostLikelyRunnerUpValue = bestValue;
+                    }
+                    bestValue = uctValue;
+                  }
                 }
               }
             }
-          }
+          } while(hyperLinksRemoved);
         }
       }
     }
@@ -4198,6 +4383,7 @@ public class TreeNode
         result = path.push(intermediaryParent, principalEdge);
         principalEdge.incrementNumVisits();
 
+        assert(principalEdge.getChildRef() == selected.nextHyperChild);
         TreeNode nextNode = get(principalEdge.getChildRef());
 
         assert(nextNode.parents.contains(intermediaryParent));
@@ -4346,6 +4532,11 @@ public class TreeNode
         {
           Object choice = children[index];
 
+          if ( choice == null )
+          {
+            continue;
+          }
+
           TreeEdge edge2 = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
           if ( edge2 != null )
           {
@@ -4359,7 +4550,7 @@ public class TreeNode
               {
                 TreeNode lNode2 = get(edge2.getChildRef());
                 String lLog = "    Response " +
-                              edge2.mPartialMove.move + (edge2.hyperSuccessor != null ? " (hyper)" : "") +
+                              edge2.mPartialMove.move + (edge2.isHyperEdge() ? " (hyper)" : "") +
                               " scores " + lNode2.stringizeScoreVector() +
                               ", visits " + lNode2.numVisits +
                               ", ref : " + lNode2.mRef +
@@ -4457,7 +4648,7 @@ public class TreeNode
     writer.println(indent + line);
   }
 
-  private void dumpTree(PrintWriter writer, int dumpDepth, TreeEdge arrivalPath)
+  private void dumpTree(PrintWriter writer, int dumpDepth, TreeEdge arrivalPath, int childIndex)
   {
     if (arrivalPath == null)
     {
@@ -4470,9 +4661,9 @@ public class TreeNode
                     dumpDepth * 2,
                     "@" +
                         dumpDepth +
-                        "(" + depth +
-                        "): Move " +
-                        (arrivalPath.mPartialMove.inputProposition == null ? arrivalPath.mPartialMove.move : arrivalPath.mPartialMove.inputProposition.getName()) +
+                        ": Move " +
+                        arrivalPath.descriptiveName() +
+                        " [" + childIndex + "] D" + depth +
                         " (choosing role " + (decidingRoleIndex+1)%tree.numRoles + ")" +
                         " scores " + stringizeScoreVector() + "[" + heuristicValue + "@" + heuristicWeight + "] (ref " + mRef +
                         ") - visits: " + numVisits + " (" +
@@ -4492,11 +4683,25 @@ public class TreeNode
         if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
         {
           Object choice = children[index];
+          if ( choice == null )
+          {
+            continue;
+          }
 
           TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-          if (edge != null && edge.getChildRef() != NULL_REF && get(edge.getChildRef()) != null)
+          if (edge != null && edge.getChildRef() != NULL_REF && get(edge.getChildRef()) != null && edge.isSelectable())
           {
-            get(edge.getChildRef()).dumpTree(writer, dumpDepth + 1, edge);
+            get(edge.getChildRef()).dumpTree(writer, dumpDepth + 1, edge, index);
+          }
+          else if ( edge != null && !edge.isSelectable() )
+          {
+            indentedPrint(writer,
+                          (dumpDepth+1) * 2,
+                          "@" +
+                              (dumpDepth + 1) +
+                              ": Move " +
+                              edge.mPartialMove.move +
+                              " unselectable (" + edge.getNumChildVisits() + ")");
           }
           else
           {
@@ -4521,7 +4726,7 @@ public class TreeNode
     {
       File f = new File(filename);
       PrintWriter writer = new PrintWriter(f);
-      dumpTree(writer, 0, null);
+      dumpTree(writer, 0, null, 0);
       writer.close();
     }
     catch (Exception e)
@@ -4593,6 +4798,12 @@ public class TreeNode
     for (int lii = 0; lii < mNumChildren; lii++)
     {
       Object choice = children[lii];
+
+      if ( choice == null )
+      {
+        continue;
+      }
+
       TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
       if (edge == null || edge.getChildRef() == NULL_REF)
       {

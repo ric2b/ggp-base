@@ -68,8 +68,10 @@ public class TreeEdge
    */
   private static final short  EDGE_FLAG_HAS_HEURISTIC_DEVIATION = 1;
   private static final short  EDGE_FLAG_IS_UNSELECTABLE         = 2;
+  private static final short  EDGE_FLAG_IS_HYPEREDGE            = 4;
   private short                 mFlags               = 0;
   TreeEdge                      hyperSuccessor       = null;
+  long                          nextHyperChild       = TreeNode.NULL_REF;
 
 
   /**
@@ -131,6 +133,30 @@ public class TreeEdge
   /**
    * @return whether this edge traverses a heuristic  deviation
    */
+  public boolean isHyperEdge()
+  {
+    return (mFlags & EDGE_FLAG_IS_HYPEREDGE) != 0;
+  }
+
+  /**
+   * Set whether this edge traverses a heuristic deviation
+   * @param hasHeuristicDeviation
+   */
+  public void setIsHyperEdge(boolean isHyperEdge)
+  {
+    if ( isHyperEdge )
+    {
+      mFlags |= EDGE_FLAG_IS_HYPEREDGE;
+    }
+    else
+    {
+      mFlags &= ~EDGE_FLAG_IS_HYPEREDGE;
+    }
+  }
+
+  /**
+   * @return whether this edge traverses a heuristic  deviation
+   */
   public boolean isSelectable()
   {
     return (mFlags & EDGE_FLAG_IS_UNSELECTABLE) == 0;
@@ -158,11 +184,22 @@ public class TreeEdge
   public boolean hyperLinkageStale()
   {
     boolean linkageStale = false;
+    long    expectedStepParentRef = nextHyperChild;
 
     for(TreeEdge nextEdge = hyperSuccessor; nextEdge != null; nextEdge = nextEdge.hyperSuccessor)
     {
       //  Stale linkage will manifest as a different childRef
       //  somewhere along the chain, which can only arise via re-expansion
+      //  or unequal hyperChild <->next step parent which can arise if an intermediary
+      //  edge is freed and later re-used
+      if ( expectedStepParentRef != nextEdge.mParentRef )
+      {
+        linkageStale = true;
+        break;
+      }
+
+      expectedStepParentRef = nextEdge.nextHyperChild;
+
       if ( getChildRef() != nextEdge.getChildRef() )
       {
         linkageStale = true;
@@ -262,7 +299,7 @@ public class TreeEdge
       result = mPartialMove.move.toString();
     }
 
-    if ( hyperSuccessor != null )
+    if ( isHyperEdge() )
     {
       result += " (hyper)";
     }
@@ -282,5 +319,6 @@ public class TreeEdge
     explorationAmplifier = 0;
     mFlags = 0;
     hyperSuccessor = null;
+    nextHyperChild = TreeNode.NULL_REF;
   }
 }
