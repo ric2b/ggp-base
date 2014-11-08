@@ -34,7 +34,7 @@ public class PieceHeuristic implements Heuristic
   private static final int                                               MIN_PIECE_PROP_ARITY      = 3;    // Assume board of at least 2 dimensions + piece type
   private static final int                                               MAX_PIECE_PROP_ARITY      = 4;    // For now (until we can do game-specific learning) restrict to exactly 2-d boards
   private static final int                                               MIN_PIECES_THRESHOLD      = 6;
-  private static final double                                            MIN_HEURISTIC_CORRELATION = 0.06;
+  private static final double                                            MIN_HEURISTIC_CORRELATION = 0.03;
   //  Whether to use mobility values for pieces (else score-weighted aggregate presence)
   //  Empirically (in its current form at least) aggregate presence does not seem to work well
   private static final boolean                                           USE_MOBILITY_VALUES_FOR_PIECES = true;
@@ -304,6 +304,29 @@ public class PieceHeuristic implements Heuristic
         GdlFunctionInfo fnInfo = basePropFns.values().iterator().next();
         int smallestRangeSize = Integer.MAX_VALUE;
         int smallestRangeIndex = -1;
+        int ignoreSize = -1;
+
+        for (int i = 0; i < fnInfo.paramRanges.size(); i++)
+        {
+          int rangeSize = fnInfo.paramRanges.get(i).size();
+
+          //  Special case - a range size of 1 could just be a role indicator
+          //  so if the arity is sufficient that ignoring such a range still
+          //  leaves sufficient arity for a piece prop ignore it
+          if ( rangeSize > 1 || fnInfo.paramRanges.size() == MIN_PIECE_PROP_ARITY )
+          {
+            if ( rangeSize < smallestRangeSize )
+            {
+              smallestRangeSize = rangeSize;
+            }
+            else if ( rangeSize == smallestRangeSize )
+            {
+              ignoreSize = smallestRangeSize;
+            }
+          }
+        }
+
+        smallestRangeSize = Integer.MAX_VALUE;
 
         for(int rangeIndex = 0; rangeIndex < fnInfo.paramRanges.size(); rangeIndex++)
         {
@@ -312,7 +335,7 @@ public class PieceHeuristic implements Heuristic
           //  Special case - a range size of 1 could just be a role indicator
           //  so if the arity is sufficient that ignoring such a range still
           //  leaves sufficient arity for a piece prop ignore it
-          if ( rangeSize < smallestRangeSize && (rangeSize > 1 || fnInfo.paramRanges.size() == MIN_PIECE_PROP_ARITY))
+          if ( rangeSize != ignoreSize && rangeSize < smallestRangeSize && (rangeSize > 1 || fnInfo.paramRanges.size() == MIN_PIECE_PROP_ARITY))
           {
             smallestRangeSize = rangeSize;
             smallestRangeIndex = rangeIndex;
@@ -357,7 +380,7 @@ public class PieceHeuristic implements Heuristic
 
         assert(pieceTypeMasks.size() == smallestRangeSize);
 
-        if ( pieceTypeMasks.size() >= MIN_NUM_PIECES )
+        //if ( pieceTypeMasks.size() >= MIN_NUM_PIECES )
         {
           individualPieceTypes = new ConstituentPieceInfo[pieceTypeMasks.size()];
 
@@ -380,7 +403,7 @@ public class PieceHeuristic implements Heuristic
     {
       overallPieceMask.merge(other.overallPieceMask);
 
-      int newPieceTypeCount = (individualPieceTypes == null ? 0 : individualPieceTypes.length) + (other.individualPieceTypes == null ? 0 : other.individualPieceTypes.length);
+      int newPieceTypeCount = (individualPieceTypes == null ? 1 : individualPieceTypes.length) + (other.individualPieceTypes == null ? 1 : other.individualPieceTypes.length);
 
       if ( newPieceTypeCount > 0 )
       {
@@ -411,6 +434,11 @@ public class PieceHeuristic implements Heuristic
 
     public void finalizePieceValues(int roleIndex)
     {
+      if ( individualPieceTypes.length < MIN_NUM_PIECES )
+      {
+        individualPieceTypes = null;
+      }
+
       if ( USE_MOBILITY_VALUES_FOR_PIECES )
       {
         double minExpMobilityMeasure = Double.MAX_VALUE;
@@ -572,13 +600,34 @@ public class PieceHeuristic implements Heuristic
     {
       int smallestFit = Integer.MAX_VALUE;
       int smallestFitIndex = -1;
+      int ignoreSize = -1;
+
+      for (int i = 0; i < fnInfo.paramRanges.size(); i++)
+      {
+        int numValues = fnInfo.paramRanges.get(i).size();
+
+        if ( numValues % numRoles == 0 || numValues % numRoles == 1)
+        {
+          if ( numValues < smallestFit )
+          {
+            smallestFit = numValues;
+          }
+          else if ( numValues == smallestFit )
+          {
+            ignoreSize = smallestFit;
+          }
+        }
+      }
+
+      smallestFit = Integer.MAX_VALUE;
 
       //	Look for ranges that have cardinality of a multiple of the number of roles
       for (int i = 0; i < fnInfo.paramRanges.size(); i++)
       {
         int numValues = fnInfo.paramRanges.get(i).size();
 
-        if (numValues < smallestFit &&
+        if (numValues != ignoreSize &&
+            numValues < smallestFit &&
             (numValues % numRoles == 0 || numValues % numRoles == 1))
         {
           smallestFit = numValues;
