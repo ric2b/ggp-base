@@ -34,7 +34,7 @@ public class PieceHeuristic implements Heuristic
   private static final int                                               MIN_PIECE_PROP_ARITY      = 3;    // Assume board of at least 2 dimensions + piece type
   private static final int                                               MAX_PIECE_PROP_ARITY      = 4;    // For now (until we can do game-specific learning) restrict to exactly 2-d boards
   private static final int                                               MIN_PIECES_THRESHOLD      = 6;
-  private static final double                                            MIN_HEURISTIC_CORRELATION = 0.03;
+  private static final double                                            MIN_HEURISTIC_CORRELATION = 0.06;
   //  Whether to use mobility values for pieces (else score-weighted aggregate presence)
   //  Empirically (in its current form at least) aggregate presence does not seem to work well
   private static final boolean                                           USE_MOBILITY_VALUES_FOR_PIECES = true;
@@ -42,6 +42,9 @@ public class PieceHeuristic implements Heuristic
   //  the only known games with 2 piece types (checkers variants), so FOR NOW we disable differentiated piece
   //  type weights for <=2 piece types
   private static final int                                               MIN_NUM_PIECES            = 3;
+  //  Similarly - we don't want to consider very large choices as possibly being piece types - for now we
+  //  cap at what chess needs (6 types of pieces, possibly encoded separately for each of two roles)
+  private static final int                                               MAX_NUM_PIECES            = 12;
   //  How much of a material difference do we consider enough to warrant sequence flagging
   private static final double                                            MIN_HEURISTIC_DIFF_FOR_SEQUENCE = 0.01;
 
@@ -211,7 +214,7 @@ public class PieceHeuristic implements Heuristic
         {
           //  A piece of this type has been moved
           usageInGame += (double)1/maskedState.size();
-         }
+        }
         usageCountInGame++;
       }
 
@@ -247,6 +250,8 @@ public class PieceHeuristic implements Heuristic
         double normalizedScore = ((double)result[i])/100;
         scoreWeightedPresence[i] = (scoreWeightedPresence[i]*numSampleGames + weightedPresence*normalizedScore)/(numSampleGames+1);
         scoreWeightedUsage[i] = (scoreWeightedUsage[i]*numSampleGames + weightedUsage*normalizedScore)/(numSampleGames+1);
+
+        assert(!Double.isNaN(scoreWeightedUsage[i]));
       }
       numSampleGames++;
     }
@@ -450,6 +455,13 @@ public class PieceHeuristic implements Heuristic
 
           if ( mobilityMeasure < minExpMobilityMeasure )
           {
+            //  If a piece has correlation but no mobility at all we cannot measure relative values
+            //  so don;t attempt to discriminate
+            if ( mobilityMeasure == 0 )
+            {
+              individualPieceTypes = null;
+            }
+
             minExpMobilityMeasure = mobilityMeasure;
             mobilityNormalizer = 1/minExpMobilityMeasure;
           }
@@ -459,7 +471,7 @@ public class PieceHeuristic implements Heuristic
         {
           LOGGER.info("Piece type " + pieceUsage.getPieceName() + " mobility value: " + pieceUsage.getMobilityWeighting(roleIndex)*mobilityNormalizer);
 
-          pieceUsage.getPieceInfo().value =pieceUsage.getMobilityWeighting(roleIndex)*mobilityNormalizer;
+          pieceUsage.getPieceInfo().value = pieceUsage.getMobilityWeighting(roleIndex)*mobilityNormalizer;
         }
       }
       else
@@ -635,7 +647,7 @@ public class PieceHeuristic implements Heuristic
         }
       }
 
-      if (smallestFitIndex != -1)
+      if (smallestFitIndex != -1 && smallestFitIndex <= MAX_NUM_PIECES)
       {
         potentialPiecePropSets
             .add(new PotentialPiecePropSet(fnInfo.getName(), smallestFitIndex));
