@@ -281,7 +281,10 @@ public class Sancho extends SampleGamer
 
     // Analyze game semantics.  This includes latch identification and search filter generation.
     // This needs to be done before the AvailableGoalHeuristic is initialized.
-    underlyingStateMachine.performSemanticAnalysis();
+    long lSemanticAnalysisStartTime = System.currentTimeMillis();
+    long lSemanticAnalysisStopTime = Math.min(timeout - 10000, lSemanticAnalysisStartTime + (timeout - lSemanticAnalysisStartTime)/2);
+
+    underlyingStateMachine.performSemanticAnalysis(lSemanticAnalysisStopTime);
 
     CombinedHeuristic heuristic;
 
@@ -386,12 +389,15 @@ public class Sancho extends SampleGamer
 
           if (legalMoves.size() > 1)
           {
-            if ( roleControlMasks[i].intersectionSize(sampleState) == 0)
+            if ( roleControlMasks[i].size() > 0 )
             {
-              System.out.println("Eliminating role control props");
+              if ( roleControlMasks[i].intersectionSize(sampleState) == 0)
+              {
+                System.out.println("Eliminating role control props");
+              }
+              //  This player has control (may not be only this player)
+              roleControlMasks[i].intersect(sampleState);
             }
-            //  This player has control (may not be only this player)
-            roleControlMasks[i].intersect(sampleState);
 
             Set<Move> previousChoices = roleMoves.get(i);
 

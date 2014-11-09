@@ -392,9 +392,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return isPseudoPuzzle;
   }
 
-  public void performSemanticAnalysis()
+  public void performSemanticAnalysis(long timeout)
   {
-    findLatches();
+    findLatches(timeout);
 
     if ( factors == null )
     {
@@ -414,7 +414,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
    * Find latches.
    */
   // !! ARR Work in progress - will need to return something
-  private void findLatches()
+  private void findLatches(long timeout)
   {
     // As a quick win for now, we'll keep a simple record of any propositions which latch a goal proposition (either
     // positively or negatively).
@@ -434,6 +434,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     for (PolymorphicProposition lBaseProp : fullPropNet.getBasePropositionsArray())
     {
+      if ( System.currentTimeMillis() > timeout )
+      {
+        return;
+      }
+
       if (lBaseProp.getSingleInput() instanceof PolymorphicTransition)
       {
         // Assume that this base proposition is a positive latch and look for the consequences.
