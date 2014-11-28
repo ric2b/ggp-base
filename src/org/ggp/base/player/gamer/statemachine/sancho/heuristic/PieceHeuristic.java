@@ -252,6 +252,7 @@ public class PieceHeuristic implements Heuristic
         scoreWeightedUsage[i] = (scoreWeightedUsage[i]*numSampleGames + weightedUsage*normalizedScore)/(numSampleGames+1);
 
         assert(!Double.isNaN(scoreWeightedUsage[i]));
+        assert(!Double.isInfinite(scoreWeightedUsage[i]));
       }
       numSampleGames++;
     }
@@ -340,7 +341,13 @@ public class PieceHeuristic implements Heuristic
           //  Special case - a range size of 1 could just be a role indicator
           //  so if the arity is sufficient that ignoring such a range still
           //  leaves sufficient arity for a piece prop ignore it
-          if ( rangeSize != ignoreSize && rangeSize < smallestRangeSize && (rangeSize > 1 || fnInfo.paramRanges.size() == MIN_PIECE_PROP_ARITY))
+          //  MASSIVE HACK - if all the plausible ranges have the same size then this will be the ignore size
+          //  and we cannot be sure (without much more analysis!) which is the plausible piece-type one.  For now we
+          //  just take the last in such cases which tends to work because the GDL tends to specify coordinates then type
+          //  However this is totally arbitrary and therefore a complete hack
+          //  TODO - more advanced analysis needed of how props change to detect the difference between a corrdinate
+          //  a a piece type qualifier more reliably
+          if ( (rangeSize != ignoreSize || rangeIndex == fnInfo.paramRanges.size()-1) && rangeSize < smallestRangeSize && (rangeSize > 1 || fnInfo.paramRanges.size() == MIN_PIECE_PROP_ARITY))
           {
             smallestRangeSize = rangeSize;
             smallestRangeIndex = rangeIndex;
@@ -452,18 +459,22 @@ public class PieceHeuristic implements Heuristic
         for(PieceUsageStats pieceUsage : individualPieceUsageStats)
         {
           double mobilityMeasure = pieceUsage.getMobilityWeighting(roleIndex);
+          double presenceMeasure = pieceUsage.getPresenceWeighting(roleIndex);
 
-          if ( mobilityMeasure < minExpMobilityMeasure )
+          if ( presenceMeasure != 0 )
           {
-            //  If a piece has correlation but no mobility at all we cannot measure relative values
-            //  so don;t attempt to discriminate
-            if ( mobilityMeasure == 0 )
+            if ( mobilityMeasure < minExpMobilityMeasure )
             {
-              individualPieceTypes = null;
-            }
+              //  If a piece has correlation but no mobility at all we cannot measure relative values
+              //  so don't attempt to discriminate
+              if ( mobilityMeasure == 0 )
+              {
+                individualPieceTypes = null;
+              }
 
-            minExpMobilityMeasure = mobilityMeasure;
-            mobilityNormalizer = 1/minExpMobilityMeasure;
+              minExpMobilityMeasure = mobilityMeasure;
+              mobilityNormalizer = 1/minExpMobilityMeasure;
+            }
           }
         }
 
