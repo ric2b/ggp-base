@@ -523,6 +523,8 @@ public class Sancho extends SampleGamer
 
     if (mGameCharacteristics.isSimultaneousMove || mGameCharacteristics.isPseudoSimultaneousMove)
     {
+      roleControlProps = null;
+
       if (!greedyRolloutsDisabled)
       {
         greedyRolloutsDisabled = true;
