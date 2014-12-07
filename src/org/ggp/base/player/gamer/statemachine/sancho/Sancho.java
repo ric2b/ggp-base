@@ -14,6 +14,7 @@ import org.apache.logging.log4j.ThreadContext;
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.player.gamer.statemachine.sample.SampleGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
+import org.ggp.base.player.gamer.statemachine.sancho.PayoffMatrixGamePlayer.UnsupportedGameException;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.GoalsStabilityHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MajorityGoalsHeuristic;
@@ -286,6 +287,14 @@ public class Sancho extends SampleGamer
 
     underlyingStateMachine.performSemanticAnalysis(lSemanticAnalysisStopTime);
 
+    PayoffMatrixGamePlayer lPayoffMatrixGamePlayer;
+    try
+    {
+      lPayoffMatrixGamePlayer = new PayoffMatrixGamePlayer(underlyingStateMachine, lSemanticAnalysisStopTime);
+      LOGGER.info("Game can be represented by a simple payoff matrix");
+    }
+    catch (UnsupportedGameException lEx) {/* Do nothing */}
+
     CombinedHeuristic heuristic;
 
     MajorityGoalsHeuristic goalsPredictionHeuristic = new MajorityGoalsHeuristic();
@@ -389,11 +398,11 @@ public class Sancho extends SampleGamer
 
           if (legalMoves.size() > 1)
           {
-            if ( roleControlMasks[i].size() > 0 )
+            if (roleControlMasks[i].size() > 0)
             {
-              if ( roleControlMasks[i].intersectionSize(sampleState) == 0)
+              if (roleControlMasks[i].intersectionSize(sampleState) == 0)
               {
-                System.out.println("Eliminating role control props");
+                LOGGER.debug("Eliminating role control props");
               }
               //  This player has control (may not be only this player)
               roleControlMasks[i].intersect(sampleState);

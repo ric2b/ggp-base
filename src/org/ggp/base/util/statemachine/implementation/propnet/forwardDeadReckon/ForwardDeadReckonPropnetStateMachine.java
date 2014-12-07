@@ -396,14 +396,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   {
     findLatches(timeout);
 
-    if ( factors == null )
+    if (factors == null)
     {
       PartitionedChoiceAnalyser analyzer = new PartitionedChoiceAnalyser(this);
       //  If it did not factorize does it partition? (currently we do not support both
       //  at once).  Note that this analysis must be done after the propnet is crystallized
       StateMachineFilter partitionFilter = analyzer.generatePartitionedChoiceFilter();
 
-      if ( partitionFilter != null )
+      if (partitionFilter != null)
       {
         setBaseFilter(partitionFilter);
       }
@@ -1566,7 +1566,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       // small propagation step).
       OptimizingPolymorphicPropNetFactory.removeNonBaseOrDoesPropositionOutputs(fullPropNet);
 
-      fullPropNet.renderToFile("c:\\temp\\propnetReduced.dot");
+      fullPropNet.renderToFile("c:\\temp\\propnet_040_Reduced.dot");
       roles = fullPropNet.getRoles();
       numRoles = roles.length;
       roleOrdering = new RoleOrdering(this, ourRole);
@@ -3935,11 +3935,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public Set<Factor> getFactors()
   {
     return factors;
-  }
-
-  public void disableFactorization()
-  {
-    factors = null;
   }
 
   public Set<GdlSentence> getBasePropositions()
