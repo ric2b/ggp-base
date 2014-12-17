@@ -20,9 +20,6 @@ import org.ggp.base.player.gamer.statemachine.sancho.heuristic.GoalsStabilityHeu
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MajorityGoalsHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.logging.GamerLogger;
-import org.ggp.base.util.profile.ProfileSection;
-import org.ggp.base.util.profile.ProfilerContext;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
@@ -103,60 +100,52 @@ public class Sancho extends SampleGamer
   private int netScore(ForwardDeadReckonPropnetStateMachine stateMachine,
                        ForwardDeadReckonInternalMachineState state)
   {
-    ProfileSection methodSection = ProfileSection.newInstance("TreeNode.netScore");
-    try
+    int result = 0;
+    int bestEnemyScore = 0;
+    for (Role role : stateMachine.getRoles())
     {
-      int result = 0;
-      int bestEnemyScore = 0;
-      for (Role role : stateMachine.getRoles())
+      if (!role.equals(ourRole))
       {
-        if (!role.equals(ourRole))
+        int score = stateMachine.getGoal(state, role);
+        if (score > bestEnemyScore)
         {
-          int score = stateMachine.getGoal(state, role);
-          if (score > bestEnemyScore)
-          {
-            bestEnemyScore = score;
-          }
-        }
-        else
-        {
-          result = stateMachine.getGoal(state, role);
+          bestEnemyScore = score;
         }
       }
+      else
+      {
+        result = stateMachine.getGoal(state, role);
+      }
+    }
 
-      int winBonus = 0;
-      if (result >= bestEnemyScore)
+    int winBonus = 0;
+    if (result >= bestEnemyScore)
+    {
+      winBonus += 5;
+
+      if (result > bestEnemyScore)
       {
         winBonus += 5;
-
-        if (result > bestEnemyScore)
-        {
-          winBonus += 5;
-        }
       }
-      int rawResult = (mGameCharacteristics.numRoles == 1 ? result : ((result + winBonus) * 100) / 110);
-      int normalizedResult = ((rawResult - MinRawNetScore) * 100) /
-                             (MaxRawNetScore - MinRawNetScore);
-
-      if (normalizedResult > 100 && !overExpectedRangeScoreReported)
-      {
-        normalizedResult = 100;
-        overExpectedRangeScoreReported = true;
-        LOGGER.warn("Saw score that nornmalized to > 100");
-      }
-      else if (normalizedResult < 0 && !underExpectedRangeScoreReported)
-      {
-        normalizedResult = 0;
-        underExpectedRangeScoreReported = true;
-        LOGGER.warn("Saw score that nornmalized to < 0");
-      }
-
-      return normalizedResult;
     }
-    finally
+    int rawResult = (mGameCharacteristics.numRoles == 1 ? result : ((result + winBonus) * 100) / 110);
+    int normalizedResult = ((rawResult - MinRawNetScore) * 100) /
+                           (MaxRawNetScore - MinRawNetScore);
+
+    if (normalizedResult > 100 && !overExpectedRangeScoreReported)
     {
-      methodSection.exitScope();
+      normalizedResult = 100;
+      overExpectedRangeScoreReported = true;
+      LOGGER.warn("Saw score that nornmalized to > 100");
     }
+    else if (normalizedResult < 0 && !underExpectedRangeScoreReported)
+    {
+      normalizedResult = 0;
+      underExpectedRangeScoreReported = true;
+      LOGGER.warn("Saw score that nornmalized to < 0");
+    }
+
+    return normalizedResult;
   }
 
   @Override
@@ -928,11 +917,6 @@ public class Sancho extends SampleGamer
                 (simulationStopTime - simulationStartTime) +
                 " simulations/second performed - setting rollout sample size to " + mGameCharacteristics.getRolloutSampleSize());
 
-    if (ProfilerContext.getContext() != null)
-    {
-      GamerLogger.log("GamePlayer", "Profile stats: \n" + ProfilerContext.getContext().toString());
-    }
-
     if (!mGameCharacteristics.isIteratedGame || numRoles != 2)
     {
       if (ThreadControl.RUN_SYNCHRONOUSLY)
@@ -973,11 +957,6 @@ public class Sancho extends SampleGamer
     mTurn++;
     LOGGER.info("Starting turn " + mTurn);
     StatsLogUtils.Series.TURN.logDataPoint(start, mTurn);
-
-    if (ProfilerContext.getContext() != null)
-    {
-      ProfilerContext.getContext().resetStats();
-    }
 
     ForwardDeadReckonInternalMachineState currentState;
 
@@ -1059,12 +1038,6 @@ public class Sancho extends SampleGamer
       searchProcessor.requestYield(false);
 
       //validateAll();
-    }
-
-    if (ProfilerContext.getContext() != null)
-    {
-      GamerLogger.log("GamePlayer", "Profile stats: \n" +
-                                    ProfilerContext.getContext().toString());
     }
 
     // We get the end time

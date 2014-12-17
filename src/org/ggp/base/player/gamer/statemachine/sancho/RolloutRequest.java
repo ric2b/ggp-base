@@ -2,7 +2,6 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.util.List;
 
-import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.Role;
@@ -75,92 +74,81 @@ class RolloutRequest
 
     mRolloutStartTime = System.nanoTime();
     mQueueLatency = mRolloutStartTime - mEnqueueTime;
-    ProfileSection methodSection = ProfileSection.newInstance("TreeNode.rollOut");
-    try
+    for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
     {
-      //playedMoveWeights = stateMachine.createMoveWeights();
+      mAverageScores[roleIndex] = 0;
+      mAverageSquaredScores[roleIndex] = 0;
+    }
+    mMinScore = 1000;
+    mMaxScore = -100;
+    mWeight = 0;
 
-      // Reset the scores.
+    int numScoringRollouts = 0;
+
+    List<ForwardDeadReckonLegalMoveInfo> playedMoves = mPlayedMovesForWin;
+
+    // Perform the request number of samples.
+    for (int i = 0; i < mSampleSize; i++)
+    {
+      if ( playedMoves != null )
+      {
+        playedMoves.clear();
+      }
+
+      // Do the rollout.
+      int playoutLength = stateMachine.getDepthChargeResult(mState, mFactor, xiOurRole, null, null, playedMoves, mTree.mWeightDecayCutoffDepth);
+
+      double weight = (mTree.mWeightDecayKneeDepth == -1 ? 1 : 1 - sigma((playoutLength-mTree.mWeightDecayKneeDepth)/mTree.mWeightDecayScaleFactor));
+      assert(!Double.isNaN(weight));
+      assert(weight > TreeNode.EPSILON);
+
+      mWeight += weight;
+
+      // Record the results.
       for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
       {
-        mAverageScores[roleIndex] = 0;
-        mAverageSquaredScores[roleIndex] = 0;
-      }
-      mMinScore = 1000;
-      mMaxScore = -100;
-      mWeight = 0;
+        int lScore = stateMachine.getGoal(xiRoleOrdering.roleIndexToRole(roleIndex));
+        mAverageScores[roleIndex] += lScore*weight;
+        mAverageSquaredScores[roleIndex] += lScore * lScore * weight;
 
-      int numScoringRollouts = 0;
-
-      List<ForwardDeadReckonLegalMoveInfo> playedMoves = mPlayedMovesForWin;
-
-      // Perform the request number of samples.
-      for (int i = 0; i < mSampleSize; i++)
-      {
-        if ( playedMoves != null )
+        // Check for new min/max.
+        if (roleIndex == 0)
         {
-          playedMoves.clear();
-        }
-
-        // Do the rollout.
-        int playoutLength = stateMachine.getDepthChargeResult(mState, mFactor, xiOurRole, null, null, playedMoves, mTree.mWeightDecayCutoffDepth);
-
-        double weight = (mTree.mWeightDecayKneeDepth == -1 ? 1 : 1 - sigma((playoutLength-mTree.mWeightDecayKneeDepth)/mTree.mWeightDecayScaleFactor));
-        assert(!Double.isNaN(weight));
-        assert(weight > TreeNode.EPSILON);
-
-        mWeight += weight;
-
-        // Record the results.
-        for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
-        {
-          int lScore = stateMachine.getGoal(xiRoleOrdering.roleIndexToRole(roleIndex));
-          mAverageScores[roleIndex] += lScore*weight;
-          mAverageSquaredScores[roleIndex] += lScore * lScore * weight;
-
-          // Check for new min/max.
-          if (roleIndex == 0)
+          if (lScore > mMaxScore)
           {
-            if (lScore > mMaxScore)
-            {
-              mMaxScore = lScore;
-            }
-            if (lScore < mMinScore)
-            {
-              mMinScore = lScore;
-            }
+            mMaxScore = lScore;
+          }
+          if (lScore < mMinScore)
+          {
+            mMinScore = lScore;
+          }
 
-            if ( playedMoves != null )
-            {
-              stateMachine.getLatchedScoreRange(mState, xiRoleOrdering.roleIndexToRole(0), latchedScoreRangeBuffer);
+          if ( playedMoves != null )
+          {
+            stateMachine.getLatchedScoreRange(mState, xiRoleOrdering.roleIndexToRole(0), latchedScoreRangeBuffer);
 
-              if ( lScore == latchedScoreRangeBuffer[1] && latchedScoreRangeBuffer[1] > latchedScoreRangeBuffer[0] )
+            if ( lScore == latchedScoreRangeBuffer[1] && latchedScoreRangeBuffer[1] > latchedScoreRangeBuffer[0] )
 
-              //  Stop updating the played moves list since we have now found a win
-              playedMoves = null;
-            }
+            //  Stop updating the played moves list since we have now found a win
+            playedMoves = null;
           }
         }
       }
-
-      if ( playedMoves != null )
-      {
-        //  No win was found so don't report a win sequence
-        mPlayedMovesForWin = null;
-      }
-
-      assert(!Double.isNaN(mAverageScores[0]));
-      // Normalize the results for the number of samples.
-      for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
-      {
-        mAverageScores[roleIndex] /= mWeight;
-        mAverageSquaredScores[roleIndex] /= mWeight;
-      }
-      assert(!Double.isNaN(mAverageScores[0]));
     }
-    finally
+
+    if ( playedMoves != null )
     {
-      methodSection.exitScope();
+      //  No win was found so don't report a win sequence
+      mPlayedMovesForWin = null;
     }
+
+    assert(!Double.isNaN(mAverageScores[0]));
+    // Normalize the results for the number of samples.
+    for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
+    {
+      mAverageScores[roleIndex] /= mWeight;
+      mAverageSquaredScores[roleIndex] /= mWeight;
+    }
+    assert(!Double.isNaN(mAverageScores[0]));
   }
 }

@@ -15,8 +15,6 @@ import org.ggp.base.util.game.GameRepository;
 import org.ggp.base.util.game.LocalGameRepository;
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.logging.GamerLogger;
-import org.ggp.base.util.profile.ProfilerContext;
-import org.ggp.base.util.profile.ProfilerSampleSetSimple;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
@@ -154,7 +152,6 @@ public class StateMachinePerformanceAnalyser
         ForwardDeadReckonInternalMachineState initialState = theMachine.createInternalState(theMachine.getInitialState());
         Role ourRole = theMachine.getRoles()[0];
 
-        ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
         try
         {
           long startTime = System.currentTimeMillis();

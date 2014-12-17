@@ -18,7 +18,6 @@ import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic.HeuristicInfo;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool;
-import org.ggp.base.util.profile.ProfileSection;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
@@ -377,57 +376,49 @@ public class MCTSTree
                         TreeNode parent,
                         boolean disallowTransposition)
   {
-    ProfileSection methodSection = ProfileSection.newInstance("allocateNode");
-    try
+    TreeNode result = ((state != null && !disallowTransposition) ? findTransposition(state) : null);
+
+    //validateAll();
+    //  Use of pseudo-noops in factors can result in recreation of the root state (only)
+    //  a lower level with a joint move of (pseudo-noop, noop, noop, ..., noop).  This
+    //  must not be linked back to or else a loop will be created
+    if ((!SUPPORT_TRANSITIONS || result == null) || result == root)
     {
-      TreeNode result = ((state != null && !disallowTransposition) ? findTransposition(state) : null);
+      //LOGGER.debug("Add state " + state);
+      result = nodePool.allocate(mTreeNodeAllocator);
 
-      //validateAll();
-      //  Use of pseudo-noops in factors can result in recreation of the root state (only)
-      //  a lower level with a joint move of (pseudo-noop, noop, noop, ..., noop).  This
-      //  must not be linked back to or else a loop will be created
-      if ((!SUPPORT_TRANSITIONS || result == null) || result == root)
+      //if ( positions.values().contains(result))
+      //{
+      //  LOGGER.info("Node already referenced by a state!");
+      //}
+      if (state != null)
       {
-        //LOGGER.debug("Add state " + state);
-        result = nodePool.allocate(mTreeNodeAllocator);
-
-        //if ( positions.values().contains(result))
-        //{
-        //  LOGGER.info("Node already referenced by a state!");
-        //}
-        if (state != null)
+        result.setState(state);
+        if (!disallowTransposition)
         {
-          result.setState(state);
-          if (!disallowTransposition)
-          {
-            addToTranspositionIndexes(result);
-          }
+          addToTranspositionIndexes(result);
         }
-        assert(!result.freed) : "Bad ref in positions table";
       }
-      else
-      {
-        assert(!result.freed) : "Bad ref in positions table";
-
-        numTranspositions++;
-      }
-
-      if (parent != null)
-      {
-        result.addParent(parent);
-
-        //parent.adjustDescendantCounts(result.descendantCount+1);
-      }
-
-      numAllocations++;
-
-      //validateAll();
-      return result;
+      assert(!result.freed) : "Bad ref in positions table";
     }
-    finally
+    else
     {
-      methodSection.exitScope();
+      assert(!result.freed) : "Bad ref in positions table";
+
+      numTranspositions++;
     }
+
+    if (parent != null)
+    {
+      result.addParent(parent);
+
+      //parent.adjustDescendantCounts(result.descendantCount+1);
+    }
+
+    numAllocations++;
+
+    //validateAll();
+    return result;
   }
 
   /**
@@ -891,77 +882,68 @@ public class MCTSTree
   private void selectAction(boolean forceSynchronous, Move xiChosenMove)
     throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
-    ProfileSection methodSection = ProfileSection.newInstance("TreeNode.selectAction");
-    try
+    completedNodeQueue.clear();
+
+    long lSelectStartTime = System.nanoTime();
+    TreePath visited = mPathPool.allocate(mTreePathAllocator);
+    TreeNode cur = root;
+    TreePathElement selected = null;
+    int parentDepth = 0;
+
+    while (!cur.isUnexpanded())
     {
-      //validateAll();
-      completedNodeQueue.clear();
-
-      long lSelectStartTime = System.nanoTime();
-      TreePath visited = mPathPool.allocate(mTreePathAllocator);
-      TreeNode cur = root;
-      TreePathElement selected = null;
-      int parentDepth = 0;
-
-      while (!cur.isUnexpanded())
+      //  Hyper expand first choice layer for each role
+      if ( cur.getDepth() < root.getDepth()+2*numRoles && cur.mNumChildren > 1 )
       {
-        //  Hyper expand first choice layer for each role
-        if ( cur.getDepth() < root.getDepth()+2*numRoles && cur.mNumChildren > 1 )
-        {
-          setForcedMoveProps(cur.state, mJointMoveBuffer);
-          cur.hyperExpand(visited, mJointMoveBuffer, MAX_HYPER_RECURSION_DEPTH);
-        }
-
-        parentDepth = cur.getDepth();
-        selected = cur.select(visited, mJointMoveBuffer, xiChosenMove);
-        cur = selected.getChildNode();
-        xiChosenMove = null;
+        setForcedMoveProps(cur.state, mJointMoveBuffer);
+        cur.hyperExpand(visited, mJointMoveBuffer, MAX_HYPER_RECURSION_DEPTH);
       }
 
-      long lExpandStartTime = System.nanoTime();
-      TreeNode newNode;
-      if (!cur.complete)
-      {
-        assert(selected == null || cur == selected.getChildNode());
-        assert(selected == null || cur.parents.contains(selected.getParentNode()));
-
-        //  Expand for each role so we're back to our-move as we always rollout after joint moves
-        cur = cur.expand(visited, mJointMoveBuffer, parentDepth);
-        assert(selected == null || cur == selected.getChildNode());
-      }
-
-
-      //  Even if we've selected a terminal node we still do a pseudo-rollout
-      //  from it so its value gets a weight increase via back propagation
-      newNode = cur;
-
-      long selectTime = lExpandStartTime - lSelectStartTime;
-      long expandTime = System.nanoTime() - lExpandStartTime;
-
-      if ( selectTime > maxSelectTime )
-      {
-        maxSelectTime = selectTime;
-        LOGGER.info("Max select time seen (ms): " + (selectTime/1000000));
-      }
-      if ( expandTime > maxExpandTime )
-      {
-        maxExpandTime = expandTime;
-        LOGGER.info("Max expand time seen (ms): " + (expandTime/1000000));
-      }
-
-      // Perform the rollout request.
-      assert(selected != null || newNode == root);
-      assert(selected == null || newNode == selected.getChildNode());
-      assert(!newNode.freed);
-      newNode.rollOut(visited,
-                      mGameSearcher.getPipeline(),
-                      forceSynchronous,
-                      selectTime,
-                      expandTime);
+      parentDepth = cur.getDepth();
+      selected = cur.select(visited, mJointMoveBuffer, xiChosenMove);
+      cur = selected.getChildNode();
+      xiChosenMove = null;
     }
-    finally
+
+    long lExpandStartTime = System.nanoTime();
+    TreeNode newNode;
+    if (!cur.complete)
     {
-      methodSection.exitScope();
+      assert(selected == null || cur == selected.getChildNode());
+      assert(selected == null || cur.parents.contains(selected.getParentNode()));
+
+      //  Expand for each role so we're back to our-move as we always rollout after joint moves
+      cur = cur.expand(visited, mJointMoveBuffer, parentDepth);
+      assert(selected == null || cur == selected.getChildNode());
     }
+
+
+    //  Even if we've selected a terminal node we still do a pseudo-rollout
+    //  from it so its value gets a weight increase via back propagation
+    newNode = cur;
+
+    long selectTime = lExpandStartTime - lSelectStartTime;
+    long expandTime = System.nanoTime() - lExpandStartTime;
+
+    if ( selectTime > maxSelectTime )
+    {
+      maxSelectTime = selectTime;
+      LOGGER.info("Max select time seen (ms): " + (selectTime/1000000));
+    }
+    if ( expandTime > maxExpandTime )
+    {
+      maxExpandTime = expandTime;
+      LOGGER.info("Max expand time seen (ms): " + (expandTime/1000000));
+    }
+
+    // Perform the rollout request.
+    assert(selected != null || newNode == root);
+    assert(selected == null || newNode == selected.getChildNode());
+    assert(!newNode.freed);
+    newNode.rollOut(visited,
+                    mGameSearcher.getPipeline(),
+                    forceSynchronous,
+                    selectTime,
+                    expandTime);
   }
 }
