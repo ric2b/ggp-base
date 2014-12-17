@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.concurrency.ConcurrencyUtils;
 import org.ggp.base.util.gdl.GdlUtils;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
@@ -24,12 +26,13 @@ import com.google.common.collect.Maps;
 // Represents information about a sentence form that is constant.
 public class FunctionInfoImpl implements FunctionInfo
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private SentenceForm                                       form;
 
   //True iff the slot has at most one value given the other slots' values
   private List<Boolean>                                      dependentSlots = new ArrayList<>();
-  private List<Map<ImmutableList<GdlConstant>, GdlConstant>> valueMaps      = Lists
-                                                                                .newArrayList();
+  private List<Map<ImmutableList<GdlConstant>, GdlConstant>> valueMaps      = Lists.newArrayList();
 
   public FunctionInfoImpl(SentenceForm form, Set<GdlSentence> trueSentences)
       throws InterruptedException
@@ -41,16 +44,13 @@ public class FunctionInfoImpl implements FunctionInfo
     for (int i = 0; i < numSlots; i++)
     {
       //We want to establish whether or not this is a constant...
-      Map<ImmutableList<GdlConstant>, GdlConstant> functionMap = Maps
-          .newHashMap();
+      Map<ImmutableList<GdlConstant>, GdlConstant> functionMap = Maps.newHashMap();
       boolean functional = true;
       for (GdlSentence sentence : trueSentences)
       {
         ConcurrencyUtils.checkForInterruption();
-        List<GdlConstant> tuple = GdlUtils
-            .getTupleFromGroundSentence(sentence);
-        List<GdlConstant> tuplePart = Lists.newArrayListWithCapacity(tuple
-            .size() - 1);
+        List<GdlConstant> tuple = GdlUtils.getTupleFromGroundSentence(sentence);
+        List<GdlConstant> tuplePart = Lists.newArrayListWithCapacity(tuple.size() - 1);
         tuplePart.addAll(tuple.subList(0, i));
         tuplePart.addAll(tuple.subList(i + 1, tuple.size()));
         if (functionMap.containsKey(tuplePart))
@@ -137,12 +137,10 @@ public class FunctionInfoImpl implements FunctionInfo
 
   }
 
-  public static FunctionInfo create(SentenceForm form,
-                                    ConstantChecker constantChecker)
+  public static FunctionInfo create(SentenceForm form, ConstantChecker constantChecker)
       throws InterruptedException
   {
-    return new FunctionInfoImpl(form, ImmutableSet.copyOf(constantChecker
-        .getTrueSentences(form)));
+    return new FunctionInfoImpl(form, ImmutableSet.copyOf(constantChecker.getTrueSentences(form)));
   }
 
   public static FunctionInfo create(SentenceForm form, Set<GdlSentence> set)
@@ -160,7 +158,6 @@ public class FunctionInfoImpl implements FunctionInfo
   @Override
   public String toString()
   {
-    return "FunctionInfoImpl [form=" + form + ", dependentSlots=" +
-           dependentSlots + ", valueMaps=" + valueMaps + "]";
+    return "FunctionInfoImpl [form=" + form + ", dependentSlots=" + dependentSlots + ", valueMaps=" + valueMaps + "]";
   }
 }

@@ -72,8 +72,7 @@ public class GameSelector implements ActionListener
   {
     if (e.getSource() == theRepositoryList)
     {
-      String theRepositoryName = theRepositoryList.getSelectedItem()
-          .toString();
+      String theRepositoryName = theRepositoryList.getSelectedItem().toString();
       if (theCachedRepositories.containsKey(theRepositoryName))
       {
         theSelectedRepository = theCachedRepositories.get(theRepositoryName);

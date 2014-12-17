@@ -190,11 +190,8 @@ public class OptimizingPolymorphicPropNetFactory
       if (constantChecker.isConstantForm(form))
       {
         // We only add sentence in constant form if they are important (i.e. legal, goal or init).
-        LOGGER.trace("Sentence form is constant - check if important");
         if (form.getName().equals(LEGAL) || form.getName().equals(GOAL) || form.getName().equals(INIT))
         {
-          LOGGER.trace("Sentence form is important");
-
           for (GdlSentence trueSentence : constantChecker.getTrueSentences(form))
           {
             // Create the proposition and wire it up to the 'true' constant.
@@ -205,7 +202,6 @@ public class OptimizingPolymorphicPropNetFactory
           }
         }
 
-        LOGGER.trace("Checking whether " + form + " is a functional constant...");
         addConstantsToFunctionInfo(form, constantChecker, functionInfoMap);
         addFormToCompletedValues(form,
                                  completedSentenceFormValues,
@@ -233,7 +229,6 @@ public class OptimizingPolymorphicPropNetFactory
                         completedSentenceFormValues,
                         xiComponentFactory);
         //TODO: Pass these over groups of multiple sentence forms
-        LOGGER.trace("Processing temporary components...");
         processTemporaryComponents(temporaryComponents,
                                    temporaryNegations,
                                    components,
@@ -242,6 +237,12 @@ public class OptimizingPolymorphicPropNetFactory
                                    falseComponent);
         addFormToCompletedValues(form, completedSentenceFormValues, components);
       }
+    }
+
+    LOGGER.trace("Final function info");
+    for (FunctionInfo lInfo : functionInfoMap.values())
+    {
+      LOGGER.trace(lInfo.toString());
     }
 
     //Connect "next" to "true"
@@ -1085,8 +1086,7 @@ public class OptimizingPolymorphicPropNetFactory
           alwaysTrueSentence.getName().equals(NEXT) ||
           alwaysTrueSentence.getName().equals(GOAL))
       {
-        PolymorphicProposition prop = componentFactory
-            .createProposition(-1, alwaysTrueSentence);
+        PolymorphicProposition prop = componentFactory.createProposition(-1, alwaysTrueSentence);
         //Attach to true
         trueComponent.addOutput(prop);
         prop.addInput(trueComponent);
@@ -4121,7 +4121,7 @@ public class OptimizingPolymorphicPropNetFactory
     return false;
   }
 
-  public static void OptimizeInvertedInputs(PolymorphicPropNet pn)
+  public static void optimizeInvertedInputs(PolymorphicPropNet pn)
   {
     Set<PolymorphicComponent> refactoredComponents = new HashSet<>();
     Set<PolymorphicComponent> newComponents = new HashSet<>();

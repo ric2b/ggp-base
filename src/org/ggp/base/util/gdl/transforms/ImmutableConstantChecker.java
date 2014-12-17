@@ -39,23 +39,20 @@ public class ImmutableConstantChecker implements ConstantChecker
     }
 
     SentenceFormModel model = other.getSentenceFormModel();
-    SetMultimap<SentenceForm, GdlSentence> sentencesByForm = HashMultimap
-        .create();
+    SetMultimap<SentenceForm, GdlSentence> sentencesByForm = HashMultimap.create();
     for (SentenceForm form : other.getConstantSentenceForms())
     {
       sentencesByForm.putAll(form, other.getTrueSentences(form));
     }
     return new ImmutableConstantChecker(ImmutableSentenceFormModel.copyOf(model),
-                                        ImmutableSetMultimap
-                                            .copyOf(sentencesByForm));
+                                        ImmutableSetMultimap.copyOf(sentencesByForm));
   }
 
   public static ImmutableConstantChecker create(SentenceFormModel sentenceModel,
                                                 Multimap<SentenceForm, GdlSentence> sentencesByForm)
   {
     return new ImmutableConstantChecker(ImmutableSentenceFormModel.copyOf(sentenceModel),
-                                        ImmutableSetMultimap
-                                            .copyOf(sentencesByForm));
+                                        ImmutableSetMultimap.copyOf(sentencesByForm));
   }
 
   @Override

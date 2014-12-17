@@ -115,8 +115,7 @@ public final class SchedulingPanel extends JPanel implements Observer,
       {
         if (queueTable.getSelectedRow() >= 0)
         {
-          String matchId = queueTable.getModel()
-              .getValueAt(queueTable.getSelectedRow(), 0).toString();
+          String matchId = queueTable.getModel().getValueAt(queueTable.getSelectedRow(), 0).toString();
           if (matchIdToURL.containsKey(matchId))
           {
             try
@@ -143,8 +142,7 @@ public final class SchedulingPanel extends JPanel implements Observer,
       {
         if (queueTable.getSelectedRow() >= 0)
         {
-          String matchId = queueTable.getModel()
-              .getValueAt(queueTable.getSelectedRow(), 0).toString();
+          String matchId = queueTable.getModel().getValueAt(queueTable.getSelectedRow(), 0).toString();
           if (matchIdToFilename.containsKey(matchId))
           {
             try

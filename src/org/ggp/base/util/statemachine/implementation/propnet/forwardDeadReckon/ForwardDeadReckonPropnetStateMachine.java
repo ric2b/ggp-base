@@ -1552,7 +1552,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       OptimizingPolymorphicPropNetFactory.optimizeInputSets(fullPropNet);
       LOGGER.debug("Num components after input set optimization: " + fullPropNet.getComponents().size());
 
-      OptimizingPolymorphicPropNetFactory.OptimizeInvertedInputs(fullPropNet);
+      OptimizingPolymorphicPropNetFactory.optimizeInvertedInputs(fullPropNet);
       LOGGER.debug("Num components after inverted input optimization: " + fullPropNet.getComponents().size());
 
       OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(fullPropNet);
