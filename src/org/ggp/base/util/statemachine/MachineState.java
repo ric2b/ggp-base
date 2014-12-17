@@ -38,7 +38,7 @@ public class MachineState
   @Override
   public MachineState clone()
   {
-    return new MachineState(new HashSet<GdlSentence>(contents));
+    return new MachineState(new HashSet<>(contents));
   }
 
   /* Utility methods */

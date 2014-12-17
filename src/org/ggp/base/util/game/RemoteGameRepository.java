@@ -29,7 +29,7 @@ public final class RemoteGameRepository extends GameRepository
   @Override
   protected Set<String> getUncachedGameKeys()
   {
-    Set<String> theGameKeys = new HashSet<String>();
+    Set<String> theGameKeys = new HashSet<>();
     try
     {
       JSONArray theArray = RemoteResourceLoader.loadJSONArray(theRepoURL +

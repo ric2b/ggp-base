@@ -23,7 +23,7 @@ public class StateMachineValidator
 {
   public static void main(String args[])
   {
-    Set<String> exceptedGames = new HashSet<String>();
+    Set<String> exceptedGames = new HashSet<>();
 
     // Set of games to omit from tests - e.g. - due to known GDL issues
     exceptedGames.add("merrills");
@@ -57,7 +57,7 @@ public class StateMachineValidator
     boolean stopOnError = true; // Whether to stop on first failing game or continue
     final int REPS_PER_GAME = 1;  //  Set to repeat each game multiple times
 
-    Set<String> failureCases = new HashSet<String>();
+    Set<String> failureCases = new HashSet<>();
 
     // Usually we'll want the default repository but local can be useful
     //GameRepository theRepository = new LocalGameRepository();

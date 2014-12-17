@@ -16,17 +16,17 @@ import com.google.common.collect.MapMaker;
 
 public final class GdlPool
 {
-  private static final ConcurrentMap<GdlTerm, ConcurrentMap<GdlTerm, GdlDistinct>>           distinctPool    = new ConcurrentHashMap<GdlTerm, ConcurrentMap<GdlTerm, GdlDistinct>>();
-  private static final ConcurrentMap<GdlConstant, ConcurrentMap<List<GdlTerm>, GdlFunction>> functionPool    = new ConcurrentHashMap<GdlConstant, ConcurrentMap<List<GdlTerm>, GdlFunction>>();
-  private static final ConcurrentMap<GdlLiteral, GdlNot>                                     notPool         = new ConcurrentHashMap<GdlLiteral, GdlNot>();
-  private static final ConcurrentMap<List<GdlLiteral>, GdlOr>                                orPool          = new ConcurrentHashMap<List<GdlLiteral>, GdlOr>();
-  private static final ConcurrentMap<GdlConstant, GdlProposition>                            propositionPool = new ConcurrentHashMap<GdlConstant, GdlProposition>();
-  private static final ConcurrentMap<GdlConstant, ConcurrentMap<List<GdlTerm>, GdlRelation>> relationPool    = new ConcurrentHashMap<GdlConstant, ConcurrentMap<List<GdlTerm>, GdlRelation>>();
-  private static final ConcurrentMap<GdlSentence, ConcurrentMap<List<GdlLiteral>, GdlRule>>  rulePool        = new ConcurrentHashMap<GdlSentence, ConcurrentMap<List<GdlLiteral>, GdlRule>>();
-  private static final ConcurrentMap<String, GdlVariable>                                    variablePool    = new ConcurrentHashMap<String, GdlVariable>();
-  private static final ConcurrentMap<String, GdlConstant>                                    constantPool    = new ConcurrentHashMap<String, GdlConstant>();
-  private static final Map<String, String>                                                   constantCases   = new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER);
-  private static final Map<String, String>                                                   variableCases   = new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER);
+  private static final ConcurrentMap<GdlTerm, ConcurrentMap<GdlTerm, GdlDistinct>>           distinctPool    = new ConcurrentHashMap<>();
+  private static final ConcurrentMap<GdlConstant, ConcurrentMap<List<GdlTerm>, GdlFunction>> functionPool    = new ConcurrentHashMap<>();
+  private static final ConcurrentMap<GdlLiteral, GdlNot>                                     notPool         = new ConcurrentHashMap<>();
+  private static final ConcurrentMap<List<GdlLiteral>, GdlOr>                                orPool          = new ConcurrentHashMap<>();
+  private static final ConcurrentMap<GdlConstant, GdlProposition>                            propositionPool = new ConcurrentHashMap<>();
+  private static final ConcurrentMap<GdlConstant, ConcurrentMap<List<GdlTerm>, GdlRelation>> relationPool    = new ConcurrentHashMap<>();
+  private static final ConcurrentMap<GdlSentence, ConcurrentMap<List<GdlLiteral>, GdlRule>>  rulePool        = new ConcurrentHashMap<>();
+  private static final ConcurrentMap<String, GdlVariable>                                    variablePool    = new ConcurrentHashMap<>();
+  private static final ConcurrentMap<String, GdlConstant>                                    constantPool    = new ConcurrentHashMap<>();
+  private static final Map<String, String>                                                   constantCases   = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+  private static final Map<String, String>                                                   variableCases   = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
   // Controls whether we normalize the case of incoming constants and variables.
   public static boolean                                                                      caseSensitive   = true;
@@ -91,7 +91,7 @@ public final class GdlPool
     // game has begun. As such, when draining the constant pool, these special keywords
     // are set aside and returned to the pool after all of the other constants (which
     // were game-specific) have been drained.
-    Map<String, GdlConstant> keywordConstants = new HashMap<String, GdlConstant>();
+    Map<String, GdlConstant> keywordConstants = new HashMap<>();
     for (String keyword : KEYWORDS)
     {
       keywordConstants.put(keyword, GdlPool.getConstant(keyword));
@@ -310,7 +310,7 @@ public final class GdlPool
 
   private static <T> List<T> getImmutableCopy(List<T> list)
   {
-    return Collections.unmodifiableList(new ArrayList<T>(list));
+    return Collections.unmodifiableList(new ArrayList<>(list));
   }
 
   /**
@@ -338,7 +338,7 @@ public final class GdlPool
     else if (foreignGdl instanceof GdlOr)
     {
       GdlOr or = (GdlOr)foreignGdl;
-      List<GdlLiteral> rval = new ArrayList<GdlLiteral>();
+      List<GdlLiteral> rval = new ArrayList<>();
       for (int i = 0; i < or.arity(); i++)
       {
         rval.add((GdlLiteral)immerse(or.get(i)));
@@ -354,7 +354,7 @@ public final class GdlPool
     else if (foreignGdl instanceof GdlRelation)
     {
       GdlRelation rel = (GdlRelation)foreignGdl;
-      List<GdlTerm> rval = new ArrayList<GdlTerm>();
+      List<GdlTerm> rval = new ArrayList<>();
       for (int i = 0; i < rel.arity(); i++)
       {
         rval.add((GdlTerm)immerse(rel.get(i)));
@@ -364,7 +364,7 @@ public final class GdlPool
     else if (foreignGdl instanceof GdlRule)
     {
       GdlRule rule = (GdlRule)foreignGdl;
-      List<GdlLiteral> rval = new ArrayList<GdlLiteral>();
+      List<GdlLiteral> rval = new ArrayList<>();
       for (int i = 0; i < rule.arity(); i++)
       {
         rval.add((GdlLiteral)immerse(rule.get(i)));
@@ -378,7 +378,7 @@ public final class GdlPool
     else if (foreignGdl instanceof GdlFunction)
     {
       GdlFunction func = (GdlFunction)foreignGdl;
-      List<GdlTerm> rval = new ArrayList<GdlTerm>();
+      List<GdlTerm> rval = new ArrayList<>();
       for (int i = 0; i < func.arity(); i++)
       {
         rval.add((GdlTerm)immerse(func.get(i)));

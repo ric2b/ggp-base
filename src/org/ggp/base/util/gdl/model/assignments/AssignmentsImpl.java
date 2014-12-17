@@ -97,7 +97,7 @@ public class AssignmentsImpl implements Assignments
     //We first have to find the remaining variables in the body
     varsToAssign = GdlUtils.getVariables(rule);
     //Remove all the duplicates; we do, however, want to keep the ordering
-    List<GdlVariable> newVarsToAssign = new ArrayList<GdlVariable>();
+    List<GdlVariable> newVarsToAssign = new ArrayList<>();
     for (GdlVariable v : varsToAssign)
       if (!newVarsToAssign.contains(v))
         newVarsToAssign.add(v);
@@ -117,13 +117,13 @@ public class AssignmentsImpl implements Assignments
 
     //We can run the A* search for a good set of source conjuncts
     //at this point, then use the result to build the rest.
-    Map<SentenceForm, Integer> completedSentenceFormSizes = new HashMap<SentenceForm, Integer>();
+    Map<SentenceForm, Integer> completedSentenceFormSizes = new HashMap<>();
     if (completedSentenceFormValues != null)
       for (SentenceForm form : completedSentenceFormValues.keySet())
         completedSentenceFormSizes.put(form,
                                        completedSentenceFormValues.get(form)
                                            .size());
-    Map<GdlVariable, Integer> varDomainSizes = new HashMap<GdlVariable, Integer>();
+    Map<GdlVariable, Integer> varDomainSizes = new HashMap<>();
     for (GdlVariable var : varDomains.keySet())
       varDomainSizes.put(var, varDomains.get(var).size());
 
@@ -159,7 +159,7 @@ public class AssignmentsImpl implements Assignments
     }
     //Okay, the iteration-over-domain is done.
     //Now let's look at sourced iteration.
-    sourceDefiningSlot = new ArrayList<Integer>(varsToAssign.size());
+    sourceDefiningSlot = new ArrayList<>(varsToAssign.size());
     for (int i = 0; i < varsToAssign.size(); i++)
     {
       sourceDefiningSlot.add(-1);
@@ -182,10 +182,10 @@ public class AssignmentsImpl implements Assignments
       List<GdlTerm> conjunctTuple = GdlUtils
           .getTupleFromSentence(sourceConjunct);
       //Go through the vars/constants in the tuple
-      List<Integer> constraintSlots = new ArrayList<Integer>();
-      List<GdlConstant> constraintValues = new ArrayList<GdlConstant>();
-      List<Integer> varsChosen = new ArrayList<Integer>();
-      List<Boolean> putDontCheck = new ArrayList<Boolean>();
+      List<Integer> constraintSlots = new ArrayList<>();
+      List<GdlConstant> constraintValues = new ArrayList<>();
+      List<Integer> varsChosen = new ArrayList<>();
+      List<Boolean> putDontCheck = new ArrayList<>();
       for (int i = 0; i < conjunctTuple.size(); i++)
       {
         GdlTerm term = conjunctTuple.get(i);
@@ -244,7 +244,7 @@ public class AssignmentsImpl implements Assignments
         }
         List<GdlConstant> longTuple = GdlUtils
             .getTupleFromGroundSentence(sentence);
-        List<GdlConstant> shortTuple = new ArrayList<GdlConstant>(varsChosen.size());
+        List<GdlConstant> shortTuple = new ArrayList<>(varsChosen.size());
         for (int c = 0; c < constraintSlots.size(); c++)
         {
           int slot = constraintSlots.get(c);
@@ -270,13 +270,13 @@ public class AssignmentsImpl implements Assignments
 
 
     //We now want to see which we can give assignment functions to
-    valuesToCompute = new ArrayList<AssignmentFunction>(varsToAssign.size());
+    valuesToCompute = new ArrayList<>(varsToAssign.size());
     for (@SuppressWarnings("unused")
     GdlVariable var : varsToAssign)
     {
       valuesToCompute.add(null);
     }
-    indicesToChangeWhenNull = new ArrayList<Integer>(varsToAssign.size());
+    indicesToChangeWhenNull = new ArrayList<>(varsToAssign.size());
     for (int i = 0; i < varsToAssign.size(); i++)
     {
       //Change itself, why not?
@@ -328,7 +328,7 @@ public class AssignmentsImpl implements Assignments
             continue;
           int index = varsToAssign.indexOf(rightmostVar);
           valuesToCompute.set(index, function);
-          Set<GdlVariable> remainingVarsInSentence = new HashSet<GdlVariable>(varsInSentence);
+          Set<GdlVariable> remainingVarsInSentence = new HashSet<>(varsInSentence);
           remainingVarsInSentence.remove(rightmostVar);
           GdlVariable nextRightmostVar = getRightmostVar(remainingVarsInSentence);
           indicesToChangeWhenNull.set(index,
@@ -340,7 +340,7 @@ public class AssignmentsImpl implements Assignments
     //We now have the remainingVars also assigned their domains
     //We also cover the distincts here
     //Assume these are just variables and constants
-    distincts = new ArrayList<GdlDistinct>();
+    distincts = new ArrayList<>();
     for (GdlLiteral literal : rule.getBody())
     {
       if (literal instanceof GdlDistinct)
@@ -433,13 +433,13 @@ public class AssignmentsImpl implements Assignments
   private void computeVarsToChangePerDistinct()
   {
     //remember that iterators must be set up first
-    varsToChangePerDistinct = new ArrayList<GdlVariable>(varsToAssign.size());
+    varsToChangePerDistinct = new ArrayList<>(varsToAssign.size());
     for (GdlDistinct distinct : distincts)
     {
       //For two vars, we want to record the later of the two
       //For one var, we want to record the one
       //For no vars, we just put null
-      List<GdlVariable> varsInDistinct = new ArrayList<GdlVariable>(2);
+      List<GdlVariable> varsInDistinct = new ArrayList<>(2);
       if (distinct.getArg1() instanceof GdlVariable)
         varsInDistinct.add((GdlVariable)distinct.getArg1());
       if (distinct.getArg2() instanceof GdlVariable)
@@ -470,7 +470,7 @@ public class AssignmentsImpl implements Assignments
   {
     //First, we see which variables must be set according to the rule head
     //(and see if there's any contradiction)
-    Map<GdlVariable, GdlConstant> headAssignment = new HashMap<GdlVariable, GdlConstant>();
+    Map<GdlVariable, GdlConstant> headAssignment = new HashMap<>();
     if (!setVariablesInHead(rule.getHead(), sentence, headAssignment))
     {
       return new AssignmentsImpl();//Collections.emptySet();
@@ -565,13 +565,13 @@ public class AssignmentsImpl implements Assignments
                                                                           boolean analyticFunctionOrdering)
   {
     //Here are the things we need to pass into the first IOC constructor
-    List<GdlSentence> sourceConjunctCandidates = new ArrayList<GdlSentence>();
+    List<GdlSentence> sourceConjunctCandidates = new ArrayList<>();
     //What is a source conjunct candidate?
     //- It is a positive conjunct in the rule (i.e. a GdlSentence in the body).
     //- It has already been fully defined; i.e. it is not recursively defined in terms of the current form.
     //Furthermore, we know the number of potentially true tuples in it.
     List<GdlVariable> varsToAssign = GdlUtils.getVariables(rule);
-    List<GdlVariable> newVarsToAssign = new ArrayList<GdlVariable>();
+    List<GdlVariable> newVarsToAssign = new ArrayList<>();
     for (GdlVariable var : varsToAssign)
       if (!newVarsToAssign.contains(var))
         newVarsToAssign.add(var);
@@ -585,7 +585,7 @@ public class AssignmentsImpl implements Assignments
                                                                             * model
                                                                             */);
 
-    List<Integer> sourceConjunctSizes = new ArrayList<Integer>();
+    List<Integer> sourceConjunctSizes = new ArrayList<>();
     for (GdlLiteral conjunct : rule.getBody())
     {
       if (conjunct instanceof GdlRelation)
@@ -603,7 +603,7 @@ public class AssignmentsImpl implements Assignments
           //to decide that this is worthwhile
           GdlRelation relation = (GdlRelation)conjunct;
           int maxSize = 1;
-          Set<GdlVariable> vars = new HashSet<GdlVariable>(GdlUtils.getVariables(relation));
+          Set<GdlVariable> vars = new HashSet<>(GdlUtils.getVariables(relation));
           for (GdlVariable var : vars)
           {
             int domainSize = varDomainSizes.get(var);
@@ -617,8 +617,8 @@ public class AssignmentsImpl implements Assignments
       }
     }
 
-    List<GdlSentence> functionalSentences = new ArrayList<GdlSentence>();
-    List<FunctionInfo> functionalSentencesInfo = new ArrayList<FunctionInfo>();
+    List<GdlSentence> functionalSentences = new ArrayList<>();
+    List<FunctionInfo> functionalSentencesInfo = new ArrayList<>();
     for (GdlLiteral conjunct : rule.getBody())
     {
       if (conjunct instanceof GdlSentence)
@@ -641,7 +641,7 @@ public class AssignmentsImpl implements Assignments
                                                                          functionalSentences,
                                                                          functionalSentencesInfo,
                                                                          varDomainSizes);
-    PriorityQueue<IterationOrderCandidate> searchQueue = new PriorityQueue<IterationOrderCandidate>();
+    PriorityQueue<IterationOrderCandidate> searchQueue = new PriorityQueue<>();
     searchQueue.add(emptyCandidate);
 
     while (!searchQueue.isEmpty())
@@ -663,7 +663,7 @@ public class AssignmentsImpl implements Assignments
                                                               * model
                                                               */Map<GdlVariable, Set<GdlConstant>> varDomains)
   {
-    Map<GdlVariable, Integer> varDomainSizes = new HashMap<GdlVariable, Integer>();
+    Map<GdlVariable, Integer> varDomainSizes = new HashMap<>();
     //Map<GdlVariable, Set<GdlConstant>> varDomains = model.getVarDomains(rule);
     for (GdlVariable var : varDomains.keySet())
     {
@@ -684,14 +684,14 @@ public class AssignmentsImpl implements Assignments
     //- completed sentence form sizes
     //- Variable domain sizes?
 
-    Map<SentenceForm, FunctionInfo> functionInfoMap = new HashMap<SentenceForm, FunctionInfo>();
+    Map<SentenceForm, FunctionInfo> functionInfoMap = new HashMap<>();
     for (SentenceForm form : checker.getConstantSentenceForms())
     {
       functionInfoMap.put(form, FunctionInfoImpl.create(form, checker));
     }
 
     //Populate variable domain sizes using the constant checker
-    Map<SentenceForm, Integer> domainSizes = new HashMap<SentenceForm, Integer>();
+    Map<SentenceForm, Integer> domainSizes = new HashMap<>();
     for (SentenceForm form : checker.getConstantSentenceForms())
     {
       domainSizes.put(form, checker.getTrueSentences(form).size());

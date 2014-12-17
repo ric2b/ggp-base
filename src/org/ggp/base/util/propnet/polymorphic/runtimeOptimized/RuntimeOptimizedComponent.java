@@ -41,7 +41,7 @@ public abstract class RuntimeOptimizedComponent extends
     if (numInputs < 0)
     {
       inputsArray = null;
-      inputsList = new LinkedList<RuntimeOptimizedComponent>();
+      inputsList = new LinkedList<>();
     }
     else
     {
@@ -51,7 +51,7 @@ public abstract class RuntimeOptimizedComponent extends
     if (numOutputs < 0)
     {
       outputsArray = null;
-      outputsList = new LinkedList<RuntimeOptimizedComponent>();
+      outputsList = new LinkedList<>();
     }
     else
     {
@@ -207,7 +207,7 @@ public abstract class RuntimeOptimizedComponent extends
     {
       return inputsList;
     }
-    LinkedList<RuntimeOptimizedComponent> result = new LinkedList<RuntimeOptimizedComponent>();
+    LinkedList<RuntimeOptimizedComponent> result = new LinkedList<>();
 
     for (int i = 0; i < inputIndex; i++)
     {
@@ -241,7 +241,7 @@ public abstract class RuntimeOptimizedComponent extends
     {
       return outputsList;
     }
-    LinkedList<RuntimeOptimizedComponent> result = new LinkedList<RuntimeOptimizedComponent>();
+    LinkedList<RuntimeOptimizedComponent> result = new LinkedList<>();
 
     for (RuntimeOptimizedComponent c : outputsArray)
     {

@@ -65,7 +65,7 @@ public class PlayerPresenceManager implements Subject
         {
           e.printStackTrace();
         }
-        Set<String> keys = new HashSet<String>(monitoredPlayers.keySet());
+        Set<String> keys = new HashSet<>(monitoredPlayers.keySet());
         for (String key : keys)
         {
           PlayerPresence presence = monitoredPlayers.get(key);
@@ -94,7 +94,7 @@ public class PlayerPresenceManager implements Subject
 
   public PlayerPresenceManager()
   {
-    monitoredPlayers = new HashMap<String, PlayerPresence>();
+    monitoredPlayers = new HashMap<>();
     loadPlayersJSON();
     if (monitoredPlayers.size() == 0)
     {
@@ -163,10 +163,10 @@ public class PlayerPresenceManager implements Subject
 
   public Set<String> getSortedPlayerNames()
   {
-    return new TreeSet<String>(monitoredPlayers.keySet());
+    return new TreeSet<>(monitoredPlayers.keySet());
   }
 
-  private Set<Observer> observers = new HashSet<Observer>();
+  private Set<Observer> observers = new HashSet<>();
 
   @Override
   public void addObserver(Observer observer)

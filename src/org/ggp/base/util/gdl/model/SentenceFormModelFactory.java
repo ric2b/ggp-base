@@ -139,7 +139,7 @@ public class SentenceFormModelFactory
   private static Set<SentenceForm> getSentenceFormsInBody(GdlLiteral bodyLiteral,
                                                           final ImmutableSet<SentenceForm> sentenceForms)
   {
-    final Set<SentenceForm> forms = new HashSet<SentenceForm>();
+    final Set<SentenceForm> forms = new HashSet<>();
     GdlVisitors.visitAll(bodyLiteral, new GdlVisitor()
     {
       @Override

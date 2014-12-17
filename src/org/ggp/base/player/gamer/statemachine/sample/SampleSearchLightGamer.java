@@ -76,7 +76,7 @@ public final class SampleSearchLightGamer extends StateMachineGamer
     // Shuffle the moves into a random order, so that when we find the first
     // move that doesn't give our opponent a forced win, we aren't always choosing
     // the first legal move over and over (which is visibly repetitive).
-    List<Move> movesInRandomOrder = new ArrayList<Move>();
+    List<Move> movesInRandomOrder = new ArrayList<>();
     while (!moves.isEmpty())
     {
       Move aMove = moves.get(theRandom.nextInt(moves.size()));

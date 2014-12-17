@@ -54,13 +54,13 @@ public class GameSelector implements ActionListener
 
   public GameSelector()
   {
-    theGameList = new JComboBox<NamedItem>();
+    theGameList = new JComboBox<>();
     theGameList.addActionListener(this);
 
-    theRepositoryList = new JComboBox<String>();
+    theRepositoryList = new JComboBox<>();
     theRepositoryList.addActionListener(this);
 
-    theCachedRepositories = new HashMap<String, GameRepository>();
+    theCachedRepositories = new HashMap<>();
     theRepositoryList.addItem("games.ggp.org/base");
     theRepositoryList.addItem("games.ggp.org/dresden");
     theRepositoryList.addItem("games.ggp.org/stanford");
@@ -102,7 +102,7 @@ public class GameSelector implements ActionListener
   public void repopulateGameList()
   {
     GameRepository theRepository = getSelectedGameRepository();
-    List<String> theKeyList = new ArrayList<String>(theRepository.getGameKeys());
+    List<String> theKeyList = new ArrayList<>(theRepository.getGameKeys());
     Collections.sort(theKeyList);
     theGameList.removeAllItems();
     for (String theKey : theKeyList)

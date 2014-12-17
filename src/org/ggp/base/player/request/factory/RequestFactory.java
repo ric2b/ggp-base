@@ -233,7 +233,7 @@ public final class RequestFactory
     {
       return null;
     }
-    List<GdlTerm> moves = new ArrayList<GdlTerm>();
+    List<GdlTerm> moves = new ArrayList<>();
     SymbolList list = (SymbolList)symbol;
 
     for (int i = 0; i < list.size(); i++)

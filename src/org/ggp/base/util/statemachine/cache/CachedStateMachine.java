@@ -28,9 +28,9 @@ public final class CachedStateMachine extends StateMachine
 
     public Entry()
     {
-      goals = new HashMap<Role, Integer>();
-      moves = new HashMap<Role, List<Move>>();
-      nexts = new HashMap<List<Move>, MachineState>();
+      goals = new HashMap<>();
+      moves = new HashMap<>();
+      nexts = new HashMap<>();
       terminal = null;
     }
   }
@@ -38,7 +38,7 @@ public final class CachedStateMachine extends StateMachine
   public CachedStateMachine(StateMachine backingStateMachine)
   {
     this.backingStateMachine = backingStateMachine;
-    ttlCache = new TtlCache<MachineState, Entry>(1);
+    ttlCache = new TtlCache<>(1);
   }
 
   private Entry getEntry(MachineState state)

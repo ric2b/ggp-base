@@ -68,7 +68,7 @@ public class BiddingTicTacToeCanvas extends GameCanvas_FancyGrid
       return gameStateHasFactsMatching("\\( coins " + myRole + " " + nScore +
                                        " \\)");
     }
-    return new HashSet<String>();
+    return new HashSet<>();
   }
 
   @Override
@@ -85,7 +85,7 @@ public class BiddingTicTacToeCanvas extends GameCanvas_FancyGrid
       return gameStateHasLegalMovesMatching("\\( bid " + nScore +
                                             " (.*) \\)");
     }
-    return new HashSet<String>();
+    return new HashSet<>();
   }
 
   @Override

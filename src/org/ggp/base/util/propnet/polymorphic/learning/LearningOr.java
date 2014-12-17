@@ -34,7 +34,7 @@ public final class LearningOr extends LearningComponent implements
   {
     if (successSearchCount == null)
     {
-      successSearchCount = new HashMap<PolymorphicComponent, Integer>();
+      successSearchCount = new HashMap<>();
     }
 
     for (LearningComponent component : inputs)
@@ -160,7 +160,7 @@ public final class LearningOr extends LearningComponent implements
   {
     if (successSearchCount != null)
     {
-      LinkedList<LearningComponent> newInputs = new LinkedList<LearningComponent>();
+      LinkedList<LearningComponent> newInputs = new LinkedList<>();
 
       for (LearningComponent c : inputs)
       {

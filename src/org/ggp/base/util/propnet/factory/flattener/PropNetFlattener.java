@@ -88,7 +88,7 @@ public class PropNetFlattener
   private class RuleReference
   {
     public List<GdlTerm>   productionTemplate;                     //The template from the rule head, contains only variables and constants
-    public List<Condition> conditions = new ArrayList<Condition>(); //the conditions (right hand side of the rule)
+    public List<Condition> conditions = new ArrayList<>(); //the conditions (right hand side of the rule)
     public Gdl             originalRule;
 
     public RuleReference(GdlRule originalRule)
@@ -131,8 +131,8 @@ public class PropNetFlattener
     }
 
     public Assignments        assignments = new Assignments();
-    public List<Index>        indices     = new ArrayList<Index>();
-    public Set<RuleReference> ruleRefs    = new HashSet<RuleReference>();
+    public List<Index>        indices     = new ArrayList<>();
+    public Set<RuleReference> ruleRefs    = new HashSet<>();
 
     @SuppressWarnings("unused")
     public GdlTerm            name, name2;
@@ -151,7 +151,7 @@ public class PropNetFlattener
       }
       for (RuleReference ruleRef : ruleRefs)
       {
-        List<Condition> newConditions = new ArrayList<Condition>();
+        List<Condition> newConditions = new ArrayList<>();
         for (Condition c : ruleRef.conditions)
         {
           if (c.dom == null)
@@ -184,9 +184,9 @@ public class PropNetFlattener
 
   private GdlVariable         fillerVar = GdlPool.getVariable("?#*#");
 
-  HashMap<GdlTerm, Domain>    domains   = new HashMap<GdlTerm, Domain>();
+  HashMap<GdlTerm, Domain>    domains   = new HashMap<>();
 
-  private List<RuleReference> extraRefs = new ArrayList<RuleReference>();
+  private List<RuleReference> extraRefs = new ArrayList<>();
 
   public PropNetFlattener(List<Gdl> description)
   {
@@ -215,7 +215,7 @@ public class PropNetFlattener
 
   private List<GdlRule> getAllInstantiations()
   {
-    List<GdlRule> rval = new ArrayList<GdlRule>();
+    List<GdlRule> rval = new ArrayList<>();
 
     for (Gdl gdl : description)
     {
@@ -251,7 +251,7 @@ public class PropNetFlattener
 
     for (RuleReference ruleRef : extraRefs)
     {
-      List<Condition> newConditions = new ArrayList<Condition>();
+      List<Condition> newConditions = new ArrayList<>();
       for (Condition c : ruleRef.conditions)
       {
         if (c.dom == null)
@@ -299,7 +299,7 @@ public class PropNetFlattener
     {
       GdlRelation relation = (GdlRelation)gdl;
 
-      List<GdlTerm> body = new ArrayList<GdlTerm>();
+      List<GdlTerm> body = new ArrayList<>();
       for (int i = 0; i < relation.arity(); i++)
       {
         body.add((GdlTerm)getInstantiationAux(relation.get(i),
@@ -313,7 +313,7 @@ public class PropNetFlattener
       GdlSentence head = (GdlSentence)getInstantiationAux(rule.getHead(),
                                                           varInstantiation);
 
-      List<GdlLiteral> body = new ArrayList<GdlLiteral>();
+      List<GdlLiteral> body = new ArrayList<>();
       for (int i = 0; i < rule.arity(); i++)
       {
         body.add((GdlLiteral)getInstantiationAux(rule.get(i), varInstantiation));
@@ -339,7 +339,7 @@ public class PropNetFlattener
     else if (gdl instanceof GdlOr)
     {
       GdlOr or = (GdlOr)gdl;
-      List<GdlLiteral> body = new ArrayList<GdlLiteral>();
+      List<GdlLiteral> body = new ArrayList<>();
       for (int i = 0; i < or.arity(); i++)
       {
         body.add((GdlLiteral)getInstantiationAux(or.get(i), varInstantiation));
@@ -357,7 +357,7 @@ public class PropNetFlattener
     else if (gdl instanceof GdlFunction)
     {
       GdlFunction func = (GdlFunction)gdl;
-      List<GdlTerm> body = new ArrayList<GdlTerm>();
+      List<GdlTerm> body = new ArrayList<>();
       for (int i = 0; i < func.arity(); i++)
       {
         body.add((GdlTerm)getInstantiationAux(func.get(i), varInstantiation));
@@ -465,7 +465,7 @@ public class PropNetFlattener
 
   private List<GdlTerm> getConstantAndVariableList(GdlTerm term)
   {
-    List<GdlTerm> rval = new ArrayList<GdlTerm>();
+    List<GdlTerm> rval = new ArrayList<>();
     if (term instanceof GdlConstant)
     {
       rval.add(term);
@@ -498,7 +498,7 @@ public class PropNetFlattener
       return fillerVar;
 
     GdlFunction func = (GdlFunction)term;
-    List<GdlTerm> newBody = new ArrayList<GdlTerm>();
+    List<GdlTerm> newBody = new ArrayList<>();
     for (GdlTerm t : func.getBody())
       newBody.add(findGenericForm(t));
     GdlConstant name = func.getName();
@@ -513,14 +513,14 @@ public class PropNetFlattener
 
   private List<List<GdlLiteral>> deOr(List<GdlLiteral> rhs)
   {
-    List<List<GdlLiteral>> wrapped = new ArrayList<List<GdlLiteral>>();
+    List<List<GdlLiteral>> wrapped = new ArrayList<>();
     wrapped.add(rhs);
     return deOr2(wrapped);
   }
 
   private List<List<GdlLiteral>> deOr2(List<List<GdlLiteral>> rhsList)
   {
-    List<List<GdlLiteral>> rval = new ArrayList<List<GdlLiteral>>();
+    List<List<GdlLiteral>> rval = new ArrayList<>();
     boolean expandedSomething = false;
     for (List<GdlLiteral> rhs : rhsList)
     {
@@ -537,7 +537,7 @@ public class PropNetFlattener
             {
               for (Gdl replacement : expandedList)
               {
-                List<GdlLiteral> newRhs = new ArrayList<GdlLiteral>(rhs);
+                List<GdlLiteral> newRhs = new ArrayList<>(rhs);
                 if (!(replacement instanceof GdlLiteral))
                   throw new RuntimeException("Top level return value is different type of gdl.");
                 GdlLiteral newLit = (GdlLiteral)replacement;
@@ -571,7 +571,7 @@ public class PropNetFlattener
     if (gdl instanceof GdlDistinct)
     {
       //Can safely be ignored, won't contain 'or'
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       rval.add(gdl);
       return rval;
     }
@@ -579,7 +579,7 @@ public class PropNetFlattener
     {
       GdlNot not = (GdlNot)gdl;
       expandedChild = expandFirstOr(not.getBody());
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       for (Gdl g : expandedChild)
       {
         if (!(g instanceof GdlLiteral))
@@ -592,7 +592,7 @@ public class PropNetFlattener
     else if (gdl instanceof GdlOr)
     {
       GdlOr or = (GdlOr)gdl;
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       for (int i = 0; i < or.arity(); i++)
       {
         rval.add(or.get(i));
@@ -602,14 +602,14 @@ public class PropNetFlattener
     else if (gdl instanceof GdlProposition)
     {
       //Can safely be ignored, won't contain 'or'
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       rval.add(gdl);
       return rval;
     }
     else if (gdl instanceof GdlRelation)
     {
       //Can safely be ignored, won't contain 'or'
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       rval.add(gdl);
       return rval;
     }
@@ -620,21 +620,21 @@ public class PropNetFlattener
     else if (gdl instanceof GdlConstant)
     {
       //Can safely be ignored, won't contain 'or'
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       rval.add(gdl);
       return rval;
     }
     else if (gdl instanceof GdlFunction)
     {
       //Can safely be ignored, won't contain 'or'
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       rval.add(gdl);
       return rval;
     }
     else if (gdl instanceof GdlVariable)
     {
       //Can safely be ignored, won't contain 'or'
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       rval.add(gdl);
       return rval;
     }
@@ -648,12 +648,12 @@ public class PropNetFlattener
   {
     boolean changedSomething = true;
     int itrNum = 0;
-    Set<Domain> lastUpdatedDomains = new HashSet<Domain>(domains.values());
+    Set<Domain> lastUpdatedDomains = new HashSet<>(domains.values());
     while (changedSomething)
     {
       GamerLogger.log("StateMachine", "Beginning domain finding iteration: " +
                                       itrNum);
-      Set<Domain> currUpdatedDomains = new HashSet<Domain>();
+      Set<Domain> currUpdatedDomains = new HashSet<>();
       changedSomething = false;
       int rulesConsidered = 0;
       for (Domain d : domains.values())
@@ -731,7 +731,7 @@ public class PropNetFlattener
 
   private Set<Map<GdlVariable, GdlConstant>> findSatisfyingInstantiations(RuleReference ruleRef)
   {
-    Map<GdlVariable, GdlConstant> emptyInstantiation = new HashMap<GdlVariable, GdlConstant>();
+    Map<GdlVariable, GdlConstant> emptyInstantiation = new HashMap<>();
 
     return findSatisfyingInstantiations(ruleRef.conditions,
                                         0,
@@ -743,7 +743,7 @@ public class PropNetFlattener
                                                                           int idx,
                                                                           Map<GdlVariable, GdlConstant> instantiation)
   {
-    Set<Map<GdlVariable, GdlConstant>> rval = new HashSet<Map<GdlVariable, GdlConstant>>();
+    Set<Map<GdlVariable, GdlConstant>> rval = new HashSet<>();
     if (idx == conditions.size())
     {
       rval.add(instantiation);
@@ -799,7 +799,7 @@ public class PropNetFlattener
 
     for (Assignment a : assignments)
     {
-      Map<GdlVariable, GdlConstant> newInstantiation = new HashMap<GdlVariable, GdlConstant>(instantiation);
+      Map<GdlVariable, GdlConstant> newInstantiation = new HashMap<>(instantiation);
       for (int i = 0; i < a.size(); i++)
       {
         GdlTerm t = cond.template.get(i);
@@ -830,7 +830,7 @@ public class PropNetFlattener
     System.out.println("Flattened description for connect four contains: \n" +
                        flattened.size() + "\n\n");
 
-    List<String> strings = new ArrayList<String>();
+    List<String> strings = new ArrayList<>();
     for (GdlRule rule : flattened)
       strings.add(rule.toString());
     Collections.sort(strings);

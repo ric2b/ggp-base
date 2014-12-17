@@ -45,7 +45,7 @@ import external.JSON.JSONObject;
  * will break the Game object. This processing can be done by calling
  * "Game.preprocessRulesheet" on the raw rulesheet. Note that rules transmitted
  * over the network are always processed.
- * 
+ *
  * @author Sam
  */
 
@@ -115,7 +115,7 @@ public final class Game
    * local disk or a repository server. This is always done to rulesheets
    * before they're stored in Game objects or sent over the network as part of
    * a START request.
-   * 
+   *
    * @param raw
    *          rulesheet
    * @return processed rulesheet
@@ -150,14 +150,14 @@ public final class Game
    * only once per match, when the state machine is initialized -- as a result
    * it's actually better to only parse the rules when they're needed rather
    * than parsing them for every game when the game repository is created.
-   * 
+   *
    * @return
    */
   public List<Gdl> getRules()
   {
     try
     {
-      List<Gdl> rules = new ArrayList<Gdl>();
+      List<Gdl> rules = new ArrayList<>();
       SymbolList list = (SymbolList)SymbolFactory.create(theRulesheet);
       for (int i = 0; i < list.size(); i++)
       {

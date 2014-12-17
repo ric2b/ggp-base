@@ -103,7 +103,7 @@ public final class CloudGameRepository extends GameRepository
   @Override
   protected Set<String> getUncachedGameKeys()
   {
-    Set<String> theKeys = new HashSet<String>();
+    Set<String> theKeys = new HashSet<>();
     for (File game : theCacheDirectory.listFiles())
     {
       theKeys.add(game.getName().replace(".zip", ""));
@@ -212,7 +212,7 @@ public final class CloudGameRepository extends GameRepository
       JSONObject bundledMetadata = remoteRepository.getBundledMetadata();
       if (bundledMetadata != null)
       {
-        Set<String> unchangedKeys = new HashSet<String>();
+        Set<String> unchangedKeys = new HashSet<>();
         for (String theKey : theGameKeys)
         {
           try
@@ -246,7 +246,7 @@ public final class CloudGameRepository extends GameRepository
 
       // Start threads to update every entry in the cache (or at least verify
       // that the entry doesn't need to be updated).
-      Set<Thread> theThreads = new HashSet<Thread>();
+      Set<Thread> theThreads = new HashSet<>();
       for (String gameKey : theGameKeys)
       {
         Thread t = new RefreshCacheForGameThread(remoteRepository, gameKey);
@@ -337,7 +337,7 @@ public final class CloudGameRepository extends GameRepository
 
     long beginTime = System.currentTimeMillis();
 
-    Map<String, Game> theGames = new HashMap<String, Game>();
+    Map<String, Game> theGames = new HashMap<>();
     for (String gameKey : theRepository.getGameKeys())
     {
       theGames.put(gameKey, theRepository.getGame(gameKey));

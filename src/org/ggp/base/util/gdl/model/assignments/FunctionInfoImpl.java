@@ -27,7 +27,7 @@ public class FunctionInfoImpl implements FunctionInfo
   private SentenceForm                                       form;
 
   //True iff the slot has at most one value given the other slots' values
-  private List<Boolean>                                      dependentSlots = new ArrayList<Boolean>();
+  private List<Boolean>                                      dependentSlots = new ArrayList<>();
   private List<Map<ImmutableList<GdlConstant>, GdlConstant>> valueMaps      = Lists
                                                                                 .newArrayList();
 
@@ -105,11 +105,11 @@ public class FunctionInfoImpl implements FunctionInfo
                                  " does not match constant form");
     List<GdlTerm> tuple = GdlUtils.getTupleFromSentence(sentence);
 
-    Set<GdlVariable> candidateVars = new HashSet<GdlVariable>();
+    Set<GdlVariable> candidateVars = new HashSet<>();
     //Variables that appear multiple times go into multipleVars
-    Set<GdlVariable> multipleVars = new HashSet<GdlVariable>();
+    Set<GdlVariable> multipleVars = new HashSet<>();
     //...which, of course, means we have to spot non-candidate vars
-    Set<GdlVariable> nonCandidateVars = new HashSet<GdlVariable>();
+    Set<GdlVariable> nonCandidateVars = new HashSet<>();
 
     for (int i = 0; i < tuple.size(); i++)
     {

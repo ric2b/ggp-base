@@ -27,11 +27,11 @@ public class MappingGdlScrambler implements GdlScrambler
   public MappingGdlScrambler(Random theRandom)
   {
     random = theRandom;
-    scrambleMapping = new HashMap<String, String>();
-    unscrambleMapping = new HashMap<String, String>();
+    scrambleMapping = new HashMap<>();
+    unscrambleMapping = new HashMap<>();
 
     scrambledPrefix = 0;
-    scrambledTokens = new Stack<String>();
+    scrambledTokens = new Stack<>();
     for (String word : WordList.words)
     {
       scrambledTokens.add(word);

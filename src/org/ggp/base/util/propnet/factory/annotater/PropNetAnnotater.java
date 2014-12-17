@@ -39,8 +39,8 @@ public class PropNetAnnotater
 {
   private List<Gdl>        description;
   //  private List<GdlRelation> relations = new ArrayList<GdlRelation>();
-  private Set<GdlRelation> baseRelations = new HashSet<GdlRelation>();
-  private Set<GdlConstant> universe      = new HashSet<GdlConstant>();
+  private Set<GdlRelation> baseRelations = new HashSet<>();
+  private Set<GdlConstant> universe      = new HashSet<>();
   private GdlFunction      universalDom  = null;
 
   private class Domain
@@ -50,8 +50,8 @@ public class PropNetAnnotater
       this.loc = loc;
     }
 
-    public Set<GdlConstant> values       = new HashSet<GdlConstant>();
-    public Set<Set<Domain>> functionRefs = new HashSet<Set<Domain>>();
+    public Set<GdlConstant> values       = new HashSet<>();
+    public Set<Set<Domain>> functionRefs = new HashSet<>();
     public Location         loc;
 
     @Override
@@ -103,7 +103,7 @@ public class PropNetAnnotater
     }
   }
 
-  HashMap<Location, Domain> domains = new HashMap<Location, Domain>();
+  HashMap<Location, Domain> domains = new HashMap<>();
 
   public PropNetAnnotater(List<Gdl> description)
   {
@@ -126,7 +126,7 @@ public class PropNetAnnotater
     //printDomainRefs();
 
     //Compute function corresponding to universal set for insertion in baseprops
-    List<GdlTerm> body = new ArrayList<GdlTerm>();
+    List<GdlTerm> body = new ArrayList<>();
     body.addAll(universe);
     universalDom = GdlPool.getFunction(GdlPool.getConstant("thing"), body);
 
@@ -139,14 +139,14 @@ public class PropNetAnnotater
     baseRelations = mergeBaseRelations(baseRelations);
 
     //Return the results
-    List<Gdl> rval = new ArrayList<Gdl>();
+    List<Gdl> rval = new ArrayList<>();
     rval.addAll(baseRelations);
     return rval;
   }
 
   private Set<GdlRelation> mergeBaseRelations(Set<GdlRelation> rels)
   {
-    HashMap<GdlConstant, List<Set<GdlConstant>>> merges = new HashMap<GdlConstant, List<Set<GdlConstant>>>();
+    HashMap<GdlConstant, List<Set<GdlConstant>>> merges = new HashMap<>();
     for (GdlRelation rel : rels)
     {
       GdlConstant name = (GdlConstant)rel.get(0);
@@ -156,13 +156,13 @@ public class PropNetAnnotater
       addRelToMerge(rel, merge);
     }
 
-    Set<GdlRelation> rval = new HashSet<GdlRelation>();
+    Set<GdlRelation> rval = new HashSet<>();
 
     GdlConstant valConst = GdlPool.getConstant("val");
     for (GdlConstant c : merges.keySet())
     {
       List<Set<GdlConstant>> merge = merges.get(c);
-      List<GdlTerm> body = new ArrayList<GdlTerm>();
+      List<GdlTerm> body = new ArrayList<>();
       body.add(c);
       for (Set<GdlConstant> mergeSet : merge)
       {
@@ -339,7 +339,7 @@ public class PropNetAnnotater
         GdlTerm template = relation.get(0);
         if (template instanceof GdlConstant)
         {
-          List<GdlTerm> body = new ArrayList<GdlTerm>();
+          List<GdlTerm> body = new ArrayList<>();
           body.add(template);
           GdlRelation toAdd = GdlPool.getRelation(baseConstant, body);
           baseRelations.add(toAdd);
@@ -348,7 +348,7 @@ public class PropNetAnnotater
         else if (template instanceof GdlVariable)
         {
           System.err.println("Weird init of constant");
-          List<GdlTerm> body = new ArrayList<GdlTerm>();
+          List<GdlTerm> body = new ArrayList<>();
           body.add(universalDom);
           GdlRelation toAdd = GdlPool.getRelation(baseConstant, body);
           baseRelations.add(toAdd);
@@ -378,7 +378,7 @@ public class PropNetAnnotater
           Domain dom = domains.get(l);
           for (GdlConstant c : dom.values)
           {
-            List<GdlTerm> body = new ArrayList<GdlTerm>();
+            List<GdlTerm> body = new ArrayList<>();
             body.add(c);
             baseRelations.add(GdlPool.getRelation(baseConstant, body));
           }
@@ -391,14 +391,14 @@ public class PropNetAnnotater
 
   private void instantiateBaseProps(GdlSentence template)
   {
-    List<GdlTerm> body = new ArrayList<GdlTerm>();
+    List<GdlTerm> body = new ArrayList<>();
     body.add(template.getName());
     for (int i = 0; i < template.arity(); i++)
     {
       GdlTerm arg = template.get(i);
       if (arg instanceof GdlConstant)
       {
-        List<GdlTerm> domBody = new ArrayList<GdlTerm>();
+        List<GdlTerm> domBody = new ArrayList<>();
         domBody.add(arg);
         GdlFunction dom = GdlPool.getFunction(GdlPool.getConstant("val"),
                                               domBody);
@@ -406,7 +406,7 @@ public class PropNetAnnotater
       }
       else if (arg instanceof GdlVariable)
       {
-        List<GdlTerm> domBody = new ArrayList<GdlTerm>();
+        List<GdlTerm> domBody = new ArrayList<>();
         Location loc = new Location();
         loc.idx = i;
         loc.name = template.getName();
@@ -498,7 +498,7 @@ public class PropNetAnnotater
 
   private Set<Domain> findAllInstancesOf(GdlVariable var, List<GdlLiteral> RHS)
   {
-    Set<Domain> rval = new HashSet<Domain>();
+    Set<Domain> rval = new HashSet<>();
 
     for (GdlLiteral literal : RHS)
     {
@@ -518,7 +518,7 @@ public class PropNetAnnotater
     if (!domains.containsKey(loc))
       domains.put(loc, new Domain(loc));
 
-    Set<Domain> rval = new HashSet<Domain>();
+    Set<Domain> rval = new HashSet<>();
 
     if (gdl instanceof GdlRelation)
     {
@@ -645,7 +645,7 @@ public class PropNetAnnotater
             if (d2 != null)
             {
               if (domain == null)
-                domain = new HashSet<GdlConstant>(d2.values);
+                domain = new HashSet<>(d2.values);
               else
                 domain.retainAll(d2.values);
             }
@@ -693,7 +693,7 @@ public class PropNetAnnotater
 
   public List<Gdl> getAugmentedDescription()
   {
-    List<Gdl> rval = new ArrayList<Gdl>();
+    List<Gdl> rval = new ArrayList<>();
     for (Gdl gdl : description)
     {
       boolean notBase = true;

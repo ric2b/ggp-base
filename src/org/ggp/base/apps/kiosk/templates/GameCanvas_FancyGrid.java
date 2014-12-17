@@ -117,7 +117,7 @@ public abstract class GameCanvas_FancyGrid extends GameCanvas_SimpleGrid
     if (selectedRow != yCell || selectedColumn != xCell ||
         !possibleSelectedMoves.hasNext())
     {
-      SortedSet<String> theMoves = new TreeSet<String>(getLegalMovesForCell(xCell,
+      SortedSet<String> theMoves = new TreeSet<>(getLegalMovesForCell(xCell,
                                                                             yCell));
       if (theMoves.size() == 0)
         return;
@@ -133,7 +133,7 @@ public abstract class GameCanvas_FancyGrid extends GameCanvas_SimpleGrid
 
   // Cache all of the facts about cells that we compute, since they should not
   // change unless the game state changes.
-  private Map<Integer, Set<String>> factsCache = new HashMap<Integer, Set<String>>();
+  private Map<Integer, Set<String>> factsCache = new HashMap<>();
 
   protected Set<String> getCachedFactsAboutCell(int xCell, int yCell)
   {

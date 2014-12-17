@@ -40,8 +40,8 @@ public abstract class LearningComponent extends
    */
   public LearningComponent()
   {
-    this.inputs = new LinkedList<LearningComponent>();
-    this.outputs = new HashSet<LearningComponent>();
+    this.inputs = new LinkedList<>();
+    this.outputs = new HashSet<>();
 
     dirty = true;
   }

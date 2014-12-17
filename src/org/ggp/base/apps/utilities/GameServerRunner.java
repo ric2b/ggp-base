@@ -72,9 +72,9 @@ public final class GameServerRunner
     {
       throw new RuntimeException("Invalid number of player arguments of the form host/port/name.");
     }
-    List<String> hostNames = new ArrayList<String>();
-    List<String> playerNames = new ArrayList<String>();
-    List<Integer> portNumbers = new ArrayList<Integer>();
+    List<String> hostNames = new ArrayList<>();
+    List<String> playerNames = new ArrayList<>();
+    List<Integer> portNumbers = new ArrayList<>();
     String matchName = tourneyName + "." + gameKey + "." +
                        System.currentTimeMillis();
     for (int i = NUM_FIXED_ARGS; i < args.length; i += 3)

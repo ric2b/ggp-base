@@ -170,7 +170,7 @@ public class GameGUI extends JPanel implements Subject, Observer,
   }
 
   // Subject boilerplate
-  private Set<Observer> theObservers = new HashSet<Observer>();
+  private Set<Observer> theObservers = new HashSet<>();
 
   @Override
   public void addObserver(Observer observer)

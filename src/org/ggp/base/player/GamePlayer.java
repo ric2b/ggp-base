@@ -36,7 +36,7 @@ public final class GamePlayer extends Thread implements Subject
 
   public GamePlayer(int port, Gamer gamer)
   {
-    observers = new ArrayList<Observer>();
+    observers = new ArrayList<>();
     listener = null;
 
     while (listener == null)

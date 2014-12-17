@@ -57,12 +57,12 @@ public class BasesInputsValidator implements GameValidator
                                                     new GdlTerm[] {X, Y});
       Set<GdlSentence> inputs = prover.askAll(inputsQuery, Collections
           .<GdlSentence> emptySet());
-      Set<GdlSentence> truesFromBases = new HashSet<GdlSentence>();
+      Set<GdlSentence> truesFromBases = new HashSet<>();
       for (GdlSentence base : bases)
       {
         truesFromBases.add(GdlPool.getRelation(TRUE, base.getBody()));
       }
-      Set<GdlSentence> legalsFromInputs = new HashSet<GdlSentence>();
+      Set<GdlSentence> legalsFromInputs = new HashSet<>();
       for (GdlSentence input : inputs)
       {
         legalsFromInputs.add(GdlPool.getRelation(LEGAL, input.getBody()));
@@ -83,7 +83,7 @@ public class BasesInputsValidator implements GameValidator
         {
           if (!truesFromBases.containsAll(state.getContents()))
           {
-            Set<GdlSentence> missingBases = new HashSet<GdlSentence>();
+            Set<GdlSentence> missingBases = new HashSet<>();
             missingBases.addAll(state.getContents());
             missingBases.removeAll(truesFromBases);
             throw new ValidatorException("Found missing bases: " +
@@ -93,7 +93,7 @@ public class BasesInputsValidator implements GameValidator
 
         if (!legalsFromInputs.isEmpty())
         {
-          List<GdlSentence> legalSentences = new ArrayList<GdlSentence>();
+          List<GdlSentence> legalSentences = new ArrayList<>();
           for (Role role : sm.getRoles())
           {
             List<Move> legalMoves = sm.getLegalMoves(state, role);
@@ -105,7 +105,7 @@ public class BasesInputsValidator implements GameValidator
           }
           if (!legalsFromInputs.containsAll(legalSentences))
           {
-            Set<GdlSentence> missingInputs = new HashSet<GdlSentence>();
+            Set<GdlSentence> missingInputs = new HashSet<>();
             missingInputs.addAll(legalSentences);
             missingInputs.removeAll(legalsFromInputs);
             throw new ValidatorException("Found missing inputs: " +

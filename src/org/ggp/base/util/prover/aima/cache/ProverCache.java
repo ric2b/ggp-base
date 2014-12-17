@@ -22,7 +22,7 @@ public final class ProverCache
 
   public ProverCache()
   {
-    contents = new HashMap<GdlSentence, Set<GdlSentence>>();
+    contents = new HashMap<>();
   }
 
   public boolean contains(GdlSentence sentence)
@@ -32,19 +32,19 @@ public final class ProverCache
 
   public List<Substitution> get(GdlSentence sentence)
   {
-    Set<Substitution> results = new HashSet<Substitution>();
+    Set<Substitution> results = new HashSet<>();
     for (GdlSentence answer : contents.get(new VariableRenamer()
         .rename(sentence)))
     {
       results.add(Unifier.unify(sentence, answer));
     }
 
-    return new ArrayList<Substitution>(results);
+    return new ArrayList<>(results);
   }
 
   public void put(GdlSentence sentence, Set<Substitution> answers)
   {
-    Set<GdlSentence> results = new HashSet<GdlSentence>();
+    Set<GdlSentence> results = new HashSet<>();
     for (Substitution answer : answers)
     {
       results.add(Substituter.substitute(sentence, answer));

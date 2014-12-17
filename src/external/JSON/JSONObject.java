@@ -160,7 +160,7 @@ public class JSONObject
    */
   public JSONObject()
   {
-    this.map = new HashMap<Object, Object>();
+    this.map = new HashMap<>();
   }
 
 
@@ -273,7 +273,7 @@ public class JSONObject
    */
   public JSONObject(Map<?, ?> map)
   {
-    this.map = new HashMap<Object, Object>();
+    this.map = new HashMap<>();
     if (map != null)
     {
       Iterator<?> i = map.entrySet().iterator();
@@ -1477,7 +1477,7 @@ public class JSONObject
    */
   public Iterator<?> sortedKeys()
   {
-    return new TreeSet<Object>(this.map.keySet()).iterator();
+    return new TreeSet<>(this.map.keySet()).iterator();
   }
 
   /**

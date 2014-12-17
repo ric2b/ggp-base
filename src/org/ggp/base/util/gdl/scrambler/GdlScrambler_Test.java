@@ -96,7 +96,7 @@ public class GdlScrambler_Test extends TestCase
     for (String gameKey : repo.getGameKeys())
     {
       Game game = repo.getGame(gameKey);
-      List<Gdl> theScrambledRules = new ArrayList<Gdl>();
+      List<Gdl> theScrambledRules = new ArrayList<>();
       for (Gdl rule : game.getRules())
       {
         String renderedRule = rule.toString();

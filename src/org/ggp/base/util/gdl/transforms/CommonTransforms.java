@@ -74,7 +74,7 @@ public class CommonTransforms
     else if (gdl instanceof GdlOr)
     {
       GdlOr or = (GdlOr)gdl;
-      List<GdlLiteral> rval = new ArrayList<GdlLiteral>();
+      List<GdlLiteral> rval = new ArrayList<>();
       for (int i = 0; i < or.arity(); i++)
       {
         rval.add((GdlLiteral)replaceVariableInternal(or.get(i),
@@ -90,7 +90,7 @@ public class CommonTransforms
     else if (gdl instanceof GdlRelation)
     {
       GdlRelation rel = (GdlRelation)gdl;
-      List<GdlTerm> rval = new ArrayList<GdlTerm>();
+      List<GdlTerm> rval = new ArrayList<>();
       for (int i = 0; i < rel.arity(); i++)
       {
         rval.add((GdlTerm)replaceVariableInternal(rel.get(i),
@@ -102,7 +102,7 @@ public class CommonTransforms
     else if (gdl instanceof GdlRule)
     {
       GdlRule rule = (GdlRule)gdl;
-      List<GdlLiteral> rval = new ArrayList<GdlLiteral>();
+      List<GdlLiteral> rval = new ArrayList<>();
       for (int i = 0; i < rule.arity(); i++)
       {
         rval.add((GdlLiteral)replaceVariableInternal(rule.get(i),
@@ -120,7 +120,7 @@ public class CommonTransforms
     else if (gdl instanceof GdlFunction)
     {
       GdlFunction func = (GdlFunction)gdl;
-      List<GdlTerm> rval = new ArrayList<GdlTerm>();
+      List<GdlTerm> rval = new ArrayList<>();
       for (int i = 0; i < func.arity(); i++)
       {
         rval.add((GdlTerm)replaceVariableInternal(func.get(i),
@@ -185,7 +185,7 @@ public class CommonTransforms
     {
       GdlRelation relation = (GdlRelation)gdl;
       GdlConstant name = relation.getName();
-      List<GdlTerm> newBody = new ArrayList<GdlTerm>(relation.arity());
+      List<GdlTerm> newBody = new ArrayList<>(relation.arity());
       for (GdlTerm term : relation.getBody())
       {
         newBody.add(replaceVariables(term, assignment));
@@ -206,7 +206,7 @@ public class CommonTransforms
     {
       GdlFunction function = (GdlFunction)gdl;
       GdlConstant name = function.getName();
-      List<GdlTerm> newBody = new ArrayList<GdlTerm>(function.arity());
+      List<GdlTerm> newBody = new ArrayList<>(function.arity());
       for (GdlTerm term : function.getBody())
       {
         newBody.add(replaceVariables(term, assignment));
@@ -228,7 +228,7 @@ public class CommonTransforms
     else if (gdl instanceof GdlOr)
     {
       GdlOr or = (GdlOr)gdl;
-      List<GdlLiteral> newInternals = new ArrayList<GdlLiteral>(or.arity());
+      List<GdlLiteral> newInternals = new ArrayList<>(or.arity());
       for (int i = 0; i < or.arity(); i++)
       {
         newInternals.add(replaceVariables(or.get(i), assignment));

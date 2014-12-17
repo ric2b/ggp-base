@@ -20,7 +20,7 @@ public final class KnowledgeBase
 
   public KnowledgeBase(Set<? extends Gdl> description)
   {
-    contents = new HashMap<GdlConstant, List<GdlRule>>();
+    contents = new HashMap<>();
     for (Gdl gdl : description)
     {
       GdlRule rule = (gdl instanceof GdlRule) ? (GdlRule)gdl : GdlPool
@@ -43,6 +43,6 @@ public final class KnowledgeBase
     {
       return contents.get(key);
     }
-    return new ArrayList<GdlRule>();
+    return new ArrayList<>();
   }
 }

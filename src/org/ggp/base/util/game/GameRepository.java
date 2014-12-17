@@ -51,5 +51,5 @@ public abstract class GameRepository
 
   // Cached values, lazily filled.
   private Set<String>       theGameKeys;
-  private Map<String, Game> theGames = new HashMap<String, Game>();
+  private Map<String, Game> theGames = new HashMap<>();
 }

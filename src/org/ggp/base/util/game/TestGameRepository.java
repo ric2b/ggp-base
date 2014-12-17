@@ -19,7 +19,7 @@ public final class TestGameRepository extends GameRepository
   @Override
   protected Set<String> getUncachedGameKeys()
   {
-    Set<String> theKeys = new HashSet<String>();
+    Set<String> theKeys = new HashSet<>();
     for (File game : new File("games/test").listFiles())
     {
       if (!game.getName().endsWith(".kif"))

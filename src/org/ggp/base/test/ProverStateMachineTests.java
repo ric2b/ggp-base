@@ -178,7 +178,7 @@ public class ProverStateMachineTests extends Assert
     GdlConstant head = GdlPool.getConstant(parts[0]);
     if (parts.length == 1)
       return new Move(head);
-    List<GdlTerm> body = new ArrayList<GdlTerm>();
+    List<GdlTerm> body = new ArrayList<>();
     for (int i = 1; i < parts.length; i++)
     {
       body.add(GdlPool.getConstant(parts[i]));

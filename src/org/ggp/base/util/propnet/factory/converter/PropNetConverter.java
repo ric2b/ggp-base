@@ -55,8 +55,8 @@ public final class PropNetConverter
    */
   public PropNet convert(Role[] roles, List<GdlRule> description)
   {
-    propositions = new HashMap<GdlSentence, Proposition>();
-    components = new HashSet<Component>();
+    propositions = new HashMap<>();
+    components = new HashSet<>();
 
     for (GdlRule rule : description)
     {
@@ -82,7 +82,7 @@ public final class PropNetConverter
    */
   private void addMissingInputs()
   {
-    List<Proposition> addList = new ArrayList<Proposition>();
+    List<Proposition> addList = new ArrayList<>();
     for (Proposition proposition : propositions.values())
     {
       if (proposition.getName() instanceof GdlRelation)
@@ -256,7 +256,7 @@ public final class PropNetConverter
    */
   private void fixDisjunctions()
   {
-    List<Proposition> fixList = new ArrayList<Proposition>();
+    List<Proposition> fixList = new ArrayList<>();
     for (Proposition proposition : propositions.values())
     {
       if (proposition.getInputs().size() > 1)

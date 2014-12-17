@@ -56,7 +56,7 @@ public final class ProverQueryBuilder
                                             Role[] roles,
                                             List<Move> moves)
   {
-    Set<GdlSentence> context = new HashSet<GdlSentence>(state.getContents());
+    Set<GdlSentence> context = new HashSet<>(state.getContents());
     for (int i = 0; i < roles.length; i++)
     {
       context.add(toDoes(roles[i], moves.get(i)));

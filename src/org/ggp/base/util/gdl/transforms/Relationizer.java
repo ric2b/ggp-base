@@ -44,7 +44,7 @@ public class Relationizer
     SentenceFormModel model = SentenceFormModelFactory.create(description);
     GdlConstant NEXT = GdlPool.getConstant("next");
 
-    List<SentenceForm> nextFormsToReplace = new ArrayList<SentenceForm>();
+    List<SentenceForm> nextFormsToReplace = new ArrayList<>();
     //Find the update rules for each "true" statement
     for (SentenceForm nextForm : model.getSentenceForms())
     {
@@ -75,7 +75,7 @@ public class Relationizer
                 if (headTuple.equals(bodyTuple))
                 {
                   //Distinct variables?
-                  Set<GdlTerm> vars = new HashSet<GdlTerm>(headTuple);
+                  Set<GdlTerm> vars = new HashSet<>(headTuple);
                   if (vars.size() == headTuple.size())
                   {
                     nextFormsToReplace.add(nextForm);
@@ -88,7 +88,7 @@ public class Relationizer
       }
     }
 
-    List<Gdl> newDescription = new ArrayList<Gdl>(description);
+    List<Gdl> newDescription = new ArrayList<>(description);
     //Now, replace the next forms
     for (SentenceForm nextForm : nextFormsToReplace)
     {
@@ -139,7 +139,7 @@ public class Relationizer
   private static List<GdlLiteral> replaceRelationInBody(List<GdlLiteral> body,
                                                         SentenceForm trueForm)
   {
-    List<GdlLiteral> newBody = new ArrayList<GdlLiteral>();
+    List<GdlLiteral> newBody = new ArrayList<>();
     for (GdlLiteral literal : body)
     {
       newBody.add(replaceRelationInLiteral(literal, trueForm));
@@ -168,7 +168,7 @@ public class Relationizer
     else if (literal instanceof GdlOr)
     {
       GdlOr or = (GdlOr)literal;
-      List<GdlLiteral> newOrBody = new ArrayList<GdlLiteral>();
+      List<GdlLiteral> newOrBody = new ArrayList<>();
       for (int i = 0; i < or.arity(); i++)
         newOrBody.add(replaceRelationInLiteral(or.get(i), trueForm));
       return GdlPool.getOr(newOrBody);

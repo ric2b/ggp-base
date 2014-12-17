@@ -63,10 +63,10 @@ public class AssignmentFunction
                                           Map<GdlVariable, GdlConstant> preassignment)
   {
     //We have to set up the things mentioned above...
-    List<AssignmentFunction> internalFunctions = new ArrayList<AssignmentFunction>();
+    List<AssignmentFunction> internalFunctions = new ArrayList<>();
 
     //We can traverse the conjunct for the list of variables/constants...
-    List<GdlTerm> terms = new ArrayList<GdlTerm>();
+    List<GdlTerm> terms = new ArrayList<>();
     gatherVars(conjunct.getBody(), terms);
     //Note that we assume here that the var of interest only
     //appears once in the relation...
@@ -83,9 +83,9 @@ public class AssignmentFunction
 
     //Set up inputs and such, using terms
     int querySize = terms.size();
-    List<Boolean> isInputConstant = new ArrayList<Boolean>(terms.size());
+    List<Boolean> isInputConstant = new ArrayList<>(terms.size());
     Map<Integer, GdlConstant> queryConstants = Maps.newHashMap();
-    List<Integer> queryInputIndices = new ArrayList<Integer>(terms.size());
+    List<Integer> queryInputIndices = new ArrayList<>(terms.size());
     for (int i = 0; i < terms.size(); i++)
     {
       GdlTerm term = terms.get(i);
@@ -146,7 +146,7 @@ public class AssignmentFunction
     //We have a map from a tuple of GdlConstants
     //to the GdlConstant we need, provided by the FunctionInfo.
     //We need to make the tuple for this map.
-    List<GdlConstant> queryTuple = new ArrayList<GdlConstant>(querySize);
+    List<GdlConstant> queryTuple = new ArrayList<>(querySize);
     //Now we have to fill in the query
     for (int i = 0; i < querySize; i++)
     {

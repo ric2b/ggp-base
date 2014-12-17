@@ -302,7 +302,7 @@ public final class TiltyardRequestFarm
       new TiltyardRegistration().start();
     }
 
-    Set<String> activeRequests = new HashSet<String>();
+    Set<String> activeRequests = new HashSet<>();
     while (true)
     {
       try

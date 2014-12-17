@@ -121,7 +121,7 @@ public class InfoResponse
 
   public Symbol toSymbol()
   {
-    List<Symbol> infoList = new ArrayList<Symbol>();
+    List<Symbol> infoList = new ArrayList<>();
     if (name != null)
     {
       infoList.add(getKeyValueSymbol("name", name));

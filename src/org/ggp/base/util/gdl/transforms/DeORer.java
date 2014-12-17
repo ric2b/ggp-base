@@ -32,7 +32,7 @@ public class DeORer
 {
   public static List<Gdl> run(List<Gdl> description)
   {
-    List<Gdl> newDesc = new ArrayList<Gdl>();
+    List<Gdl> newDesc = new ArrayList<>();
     for (Gdl gdl : description)
     {
       if (gdl instanceof GdlRule)
@@ -52,14 +52,14 @@ public class DeORer
 
   private static List<List<GdlLiteral>> deOr(List<GdlLiteral> rhs)
   {
-    List<List<GdlLiteral>> wrapped = new ArrayList<List<GdlLiteral>>();
+    List<List<GdlLiteral>> wrapped = new ArrayList<>();
     wrapped.add(rhs);
     return deOr2(wrapped);
   }
 
   private static List<List<GdlLiteral>> deOr2(List<List<GdlLiteral>> rhsList)
   {
-    List<List<GdlLiteral>> rval = new ArrayList<List<GdlLiteral>>();
+    List<List<GdlLiteral>> rval = new ArrayList<>();
     boolean expandedSomething = false;
     for (List<GdlLiteral> rhs : rhsList)
     {
@@ -76,7 +76,7 @@ public class DeORer
             {
               for (Gdl replacement : expandedList)
               {
-                List<GdlLiteral> newRhs = new ArrayList<GdlLiteral>(rhs);
+                List<GdlLiteral> newRhs = new ArrayList<>(rhs);
                 if (!(replacement instanceof GdlLiteral))
                   throw new RuntimeException("Top level return value is different type of gdl.");
                 GdlLiteral newLit = (GdlLiteral)replacement;
@@ -110,7 +110,7 @@ public class DeORer
     if (gdl instanceof GdlDistinct)
     {
       //Can safely be ignored, won't contain 'or'
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       rval.add(gdl);
       return rval;
     }
@@ -118,7 +118,7 @@ public class DeORer
     {
       GdlNot not = (GdlNot)gdl;
       expandedChild = expandFirstOr(not.getBody());
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       for (Gdl g : expandedChild)
       {
         if (!(g instanceof GdlLiteral))
@@ -131,7 +131,7 @@ public class DeORer
     else if (gdl instanceof GdlOr)
     {
       GdlOr or = (GdlOr)gdl;
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       for (int i = 0; i < or.arity(); i++)
       {
         rval.add(or.get(i));
@@ -141,14 +141,14 @@ public class DeORer
     else if (gdl instanceof GdlProposition)
     {
       //Can safely be ignored, won't contain 'or'
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       rval.add(gdl);
       return rval;
     }
     else if (gdl instanceof GdlRelation)
     {
       //Can safely be ignored, won't contain 'or'
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       rval.add(gdl);
       return rval;
     }
@@ -159,21 +159,21 @@ public class DeORer
     else if (gdl instanceof GdlConstant)
     {
       //Can safely be ignored, won't contain 'or'
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       rval.add(gdl);
       return rval;
     }
     else if (gdl instanceof GdlFunction)
     {
       //Can safely be ignored, won't contain 'or'
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       rval.add(gdl);
       return rval;
     }
     else if (gdl instanceof GdlVariable)
     {
       //Can safely be ignored, won't contain 'or'
-      rval = new ArrayList<Gdl>();
+      rval = new ArrayList<>();
       rval.add(gdl);
       return rval;
     }

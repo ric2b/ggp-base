@@ -42,8 +42,8 @@ public final class SchedulingPanel extends JPanel implements Observer,
 
   // Track the external filenames and URLs for each match, so that they can
   // be opened for viewing as needed.
-  private final Map<String, String> matchIdToURL      = new HashMap<String, String>();
-  private final Map<String, String> matchIdToFilename = new HashMap<String, String>();
+  private final Map<String, String> matchIdToURL      = new HashMap<>();
+  private final Map<String, String> matchIdToFilename = new HashMap<>();
 
   public SchedulingPanel()
   {
@@ -277,8 +277,8 @@ public final class SchedulingPanel extends JPanel implements Observer,
         {
           model.setValueAt(getLinebreakString(match.getGoalValues()), i, 5);
         }
-        List<Integer> errorCounts = new ArrayList<Integer>();
-        List<String> errorCountStrings = new ArrayList<String>();
+        List<Integer> errorCounts = new ArrayList<>();
+        List<String> errorCountStrings = new ArrayList<>();
         for (int j = 0; j < match.getPlayerNamesFromHost().size(); j++)
         {
           errorCounts.add(0);
@@ -332,7 +332,7 @@ public final class SchedulingPanel extends JPanel implements Observer,
 
   private static List<String> getNamesForPlayers(List<PlayerPresence> players)
   {
-    List<String> playerNames = new ArrayList<String>();
+    List<String> playerNames = new ArrayList<>();
     for (PlayerPresence player : players)
     {
       playerNames.add(player.getName());

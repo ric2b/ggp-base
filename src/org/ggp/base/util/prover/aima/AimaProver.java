@@ -41,11 +41,11 @@ public final class AimaProver extends Prover
                                Set<GdlSentence> context,
                                boolean askOne)
   {
-    LinkedList<GdlLiteral> goals = new LinkedList<GdlLiteral>();
+    LinkedList<GdlLiteral> goals = new LinkedList<>();
     goals.add(query);
 
-    Set<Substitution> answers = new HashSet<Substitution>();
-    Set<GdlSentence> alreadyAsking = new HashSet<GdlSentence>();
+    Set<Substitution> answers = new HashSet<>();
+    Set<GdlSentence> alreadyAsking = new HashSet<>();
     ask(goals,
         new KnowledgeBase(context),
         new Substitution(),
@@ -55,7 +55,7 @@ public final class AimaProver extends Prover
         answers,
         alreadyAsking);
 
-    Set<GdlSentence> results = new HashSet<GdlSentence>();
+    Set<GdlSentence> results = new HashSet<>();
     for (Substitution theta : answers)
     {
       results.add(Substituter.substitute(query, theta));
@@ -178,10 +178,10 @@ public final class AimaProver extends Prover
                       Set<Substitution> results,
                       Set<GdlSentence> alreadyAsking)
   {
-    LinkedList<GdlLiteral> notGoals = new LinkedList<GdlLiteral>();
+    LinkedList<GdlLiteral> notGoals = new LinkedList<>();
     notGoals.add(not.getBody());
 
-    Set<Substitution> notResults = new HashSet<Substitution>();
+    Set<Substitution> notResults = new HashSet<>();
     ask(notGoals,
         context,
         theta,
@@ -259,11 +259,11 @@ public final class AimaProver extends Prover
         return;
       }
       alreadyAsking.add(sentence);
-      List<GdlRule> candidates = new ArrayList<GdlRule>();
+      List<GdlRule> candidates = new ArrayList<>();
       candidates.addAll(knowledgeBase.fetch(sentence));
       candidates.addAll(context.fetch(sentence));
 
-      Set<Substitution> sentenceResults = new HashSet<Substitution>();
+      Set<Substitution> sentenceResults = new HashSet<>();
       for (GdlRule rule : candidates)
       {
         GdlRule r = renamer.rename(rule);
@@ -271,7 +271,7 @@ public final class AimaProver extends Prover
 
         if (thetaPrime != null)
         {
-          LinkedList<GdlLiteral> sentenceGoals = new LinkedList<GdlLiteral>();
+          LinkedList<GdlLiteral> sentenceGoals = new LinkedList<>();
           for (int i = 0; i < r.arity(); i++)
           {
             sentenceGoals.add(r.get(i));

@@ -54,7 +54,7 @@ public final class TtlCache<K, V> implements Map<K, V>
 
   public TtlCache(int ttl)
   {
-    this.contents = new HashMap<K, Entry>();
+    this.contents = new HashMap<>();
     this.ttl = ttl;
   }
 
@@ -78,7 +78,7 @@ public final class TtlCache<K, V> implements Map<K, V>
 
   public synchronized void prune()
   {
-    List<K> toPrune = new ArrayList<K>();
+    List<K> toPrune = new ArrayList<>();
     for (K key : contents.keySet())
     {
       Entry entry = contents.get(key);
@@ -152,7 +152,7 @@ public final class TtlCache<K, V> implements Map<K, V>
   @Override
   public synchronized Collection<V> values()
   {
-    Collection<V> theValues = new HashSet<V>();
+    Collection<V> theValues = new HashSet<>();
     for (Entry e : contents.values())
       theValues.add(e.value);
     return theValues;
@@ -191,7 +191,7 @@ public final class TtlCache<K, V> implements Map<K, V>
   @Override
   public synchronized Set<java.util.Map.Entry<K, V>> entrySet()
   {
-    Set<Map.Entry<K, V>> theEntries = new HashSet<Map.Entry<K, V>>();
+    Set<Map.Entry<K, V>> theEntries = new HashSet<>();
     for (Map.Entry<K, Entry> e : contents.entrySet())
       theEntries.add(new entrySetMapEntry(e.getKey(), e.getValue().value));
     return theEntries;

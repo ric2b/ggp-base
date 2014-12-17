@@ -97,12 +97,12 @@ public final class Match
 
     this.numRoles = Role.computeRoles(theGame.getRules()).length;
 
-    this.moveHistory = new ArrayList<List<GdlTerm>>();
-    this.stateHistory = new ArrayList<Set<GdlSentence>>();
-    this.stateTimeHistory = new ArrayList<Date>();
-    this.errorHistory = new ArrayList<List<String>>();
+    this.moveHistory = new ArrayList<>();
+    this.stateHistory = new ArrayList<>();
+    this.stateTimeHistory = new ArrayList<>();
+    this.errorHistory = new ArrayList<>();
 
-    this.goalValues = new ArrayList<Integer>();
+    this.goalValues = new ArrayList<>();
   }
 
   public Match(String theJSON, Game theGame, String authToken)
@@ -153,15 +153,15 @@ public final class Match
 
     this.numRoles = Role.computeRoles(this.theGame.getRules()).length;
 
-    this.moveHistory = new ArrayList<List<GdlTerm>>();
-    this.stateHistory = new ArrayList<Set<GdlSentence>>();
-    this.stateTimeHistory = new ArrayList<Date>();
-    this.errorHistory = new ArrayList<List<String>>();
+    this.moveHistory = new ArrayList<>();
+    this.stateHistory = new ArrayList<>();
+    this.stateTimeHistory = new ArrayList<>();
+    this.errorHistory = new ArrayList<>();
 
     JSONArray theMoves = theMatchObject.getJSONArray("moves");
     for (int i = 0; i < theMoves.length(); i++)
     {
-      List<GdlTerm> theMove = new ArrayList<GdlTerm>();
+      List<GdlTerm> theMove = new ArrayList<>();
       JSONArray moveElements = theMoves.getJSONArray(i);
       for (int j = 0; j < moveElements.length(); j++)
       {
@@ -172,7 +172,7 @@ public final class Match
     JSONArray theStates = theMatchObject.getJSONArray("states");
     for (int i = 0; i < theStates.length(); i++)
     {
-      Set<GdlSentence> theState = new HashSet<GdlSentence>();
+      Set<GdlSentence> theState = new HashSet<>();
       SymbolList stateElements = (SymbolList)SymbolFactory.create(theStates
           .getString(i));
       for (int j = 0; j < stateElements.size(); j++)
@@ -193,7 +193,7 @@ public final class Match
       JSONArray theErrors = theMatchObject.getJSONArray("errors");
       for (int i = 0; i < theErrors.length(); i++)
       {
-        List<String> theMoveErrors = new ArrayList<String>();
+        List<String> theMoveErrors = new ArrayList<>();
         JSONArray errorElements = theErrors.getJSONArray(i);
         for (int j = 0; j < errorElements.length(); j++)
         {
@@ -203,7 +203,7 @@ public final class Match
       }
     }
 
-    this.goalValues = new ArrayList<Integer>();
+    this.goalValues = new ArrayList<>();
     try
     {
       JSONArray theGoalValues = theMatchObject.getJSONArray("goalValues");
@@ -221,7 +221,7 @@ public final class Match
 
     if (theMatchObject.has("playerNamesFromHost"))
     {
-      thePlayerNamesFromHost = new ArrayList<String>();
+      thePlayerNamesFromHost = new ArrayList<>();
       JSONArray thePlayerNames = theMatchObject
           .getJSONArray("playerNamesFromHost");
       for (int i = 0; i < thePlayerNames.length(); i++)
@@ -231,7 +231,7 @@ public final class Match
     }
     if (theMatchObject.has("isPlayerHuman"))
     {
-      isPlayerHuman = new ArrayList<Boolean>();
+      isPlayerHuman = new ArrayList<>();
       JSONArray isPlayerHumanArray = theMatchObject
           .getJSONArray("isPlayerHuman");
       for (int i = 0; i < isPlayerHumanArray.length(); i++)
@@ -282,7 +282,7 @@ public final class Match
     // NOTE: This is appendMoves2 because it Java can't handle two
     // appendMove methods that both take List objects with different
     // templatized parameters.
-    List<GdlTerm> theMoves = new ArrayList<GdlTerm>();
+    List<GdlTerm> theMoves = new ArrayList<>();
     for (Move m : moves)
     {
       theMoves.add(m.getContents());
@@ -303,7 +303,7 @@ public final class Match
 
   public void appendNoErrors()
   {
-    List<String> theNoErrors = new ArrayList<String>();
+    List<String> theNoErrors = new ArrayList<>();
     for (int i = 0; i < this.numRoles; i++)
     {
       theNoErrors.add("");
@@ -607,7 +607,7 @@ public final class Match
 
   private static final List<String> renderStateHistory(List<Set<GdlSentence>> stateHistory)
   {
-    List<String> renderedStates = new ArrayList<String>();
+    List<String> renderedStates = new ArrayList<>();
     for (Set<GdlSentence> aState : stateHistory)
     {
       renderedStates.add(renderStateAsSymbolList(aState));
@@ -617,7 +617,7 @@ public final class Match
 
   private static final List<String> renderMoveHistory(List<List<GdlTerm>> moveHistory)
   {
-    List<String> renderedMoves = new ArrayList<String>();
+    List<String> renderedMoves = new ArrayList<>();
     for (List<GdlTerm> aMove : moveHistory)
     {
       renderedMoves.add(renderArrayAsJSON(aMove, true));
@@ -627,7 +627,7 @@ public final class Match
 
   private static final List<String> renderErrorHistory(List<List<String>> errorHistory)
   {
-    List<String> renderedErrors = new ArrayList<String>();
+    List<String> renderedErrors = new ArrayList<>();
     for (List<String> anError : errorHistory)
     {
       renderedErrors.add(renderArrayAsJSON(anError, true));

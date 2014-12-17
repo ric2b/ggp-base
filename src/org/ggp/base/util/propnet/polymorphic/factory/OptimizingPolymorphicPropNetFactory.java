@@ -215,8 +215,8 @@ public class OptimizingPolymorphicPropNetFactory
       {
         //TODO: Adjust "recursive forms" appropriately
         //Add a temporary sentence form thingy? ...
-        Map<GdlSentence, PolymorphicComponent> temporaryComponents = new HashMap<GdlSentence, PolymorphicComponent>();
-        Map<GdlSentence, PolymorphicComponent> temporaryNegations = new HashMap<GdlSentence, PolymorphicComponent>();
+        Map<GdlSentence, PolymorphicComponent> temporaryComponents = new HashMap<>();
+        Map<GdlSentence, PolymorphicComponent> temporaryNegations = new HashMap<>();
         addSentenceForm(form,
                         model,
                         components,
@@ -259,7 +259,7 @@ public class OptimizingPolymorphicPropNetFactory
                                   falseComponent);
     LOGGER.trace("Num components after useless removed: " + components.size());
     LOGGER.trace("Creating component set...");
-    Set<PolymorphicComponent> componentSet = new HashSet<PolymorphicComponent>(components.values());
+    Set<PolymorphicComponent> componentSet = new HashSet<>(components.values());
     //Try saving some memory here...
     components = null;
     negations = null;
@@ -338,7 +338,7 @@ public class OptimizingPolymorphicPropNetFactory
                                                Map<SentenceForm, Collection<GdlSentence>> completedSentenceFormValues,
                                                ConstantChecker constantChecker)
   {
-    List<GdlSentence> sentences = new ArrayList<GdlSentence>();
+    List<GdlSentence> sentences = new ArrayList<>();
     sentences.addAll(constantChecker.getTrueSentences(form));
 
     completedSentenceFormValues.put(form, sentences);
@@ -353,7 +353,7 @@ public class OptimizingPolymorphicPropNetFactory
     //Kind of inefficient. Could do better by collecting these as we go,
     //then adding them back into the CSFV map once the sentence forms are complete.
     //completedSentenceFormValues.put(form, new ArrayList<GdlSentence>());
-    List<GdlSentence> sentences = new ArrayList<GdlSentence>();
+    List<GdlSentence> sentences = new ArrayList<>();
     for (GdlSentence sentence : components.keySet())
     {
       ConcurrencyUtils.checkForInterruption();
@@ -475,7 +475,7 @@ public class OptimizingPolymorphicPropNetFactory
   private static Set<PolymorphicComponent> findImmediatelyNonEssentialChildren(PolymorphicComponent parent,
                                                                                boolean forFalse)
   {
-    Set<PolymorphicComponent> result = new HashSet<PolymorphicComponent>();
+    Set<PolymorphicComponent> result = new HashSet<>();
 
     for (PolymorphicComponent c : parent.getOutputs())
     {
@@ -795,8 +795,8 @@ public class OptimizingPolymorphicPropNetFactory
 
   private static void completeComponentSet(Set<PolymorphicComponent> componentSet)
   {
-    Set<PolymorphicComponent> newComponents = new HashSet<PolymorphicComponent>();
-    Set<PolymorphicComponent> componentsToTry = new HashSet<PolymorphicComponent>(componentSet);
+    Set<PolymorphicComponent> newComponents = new HashSet<>();
+    Set<PolymorphicComponent> componentsToTry = new HashSet<>(componentSet);
     while (!componentsToTry.isEmpty())
     {
       for (PolymorphicComponent c : componentsToTry)
@@ -814,7 +814,7 @@ public class OptimizingPolymorphicPropNetFactory
       }
       componentSet.addAll(newComponents);
       componentsToTry = newComponents;
-      newComponents = new HashSet<PolymorphicComponent>();
+      newComponents = new HashSet<>();
     }
   }
 
@@ -893,7 +893,7 @@ public class OptimizingPolymorphicPropNetFactory
             //input and init go into or, or goes into transition
             input.removeOutput(transition);
             transition.removeInput(input);
-            List<PolymorphicComponent> orInputs = new ArrayList<PolymorphicComponent>(2);
+            List<PolymorphicComponent> orInputs = new ArrayList<>(2);
             orInputs.add(input);
             orInputs.add(initProposition);
             orify(orInputs, transition, falseComponent, componentFactory);
@@ -973,9 +973,9 @@ public class OptimizingPolymorphicPropNetFactory
   {
     //We want each form as a key of the dependency graph to
     //follow all the forms in the dependency graph, except maybe itself
-    Queue<SentenceForm> queue = new LinkedList<SentenceForm>(forms);
-    List<SentenceForm> ordering = new ArrayList<SentenceForm>(forms.size());
-    Set<SentenceForm> alreadyOrdered = new HashSet<SentenceForm>();
+    Queue<SentenceForm> queue = new LinkedList<>(forms);
+    List<SentenceForm> ordering = new ArrayList<>(forms.size());
+    Set<SentenceForm> alreadyOrdered = new HashSet<>();
 
     int processingSequence = 0;
     int lastProcessedSequence = 0;
@@ -1130,7 +1130,7 @@ public class OptimizingPolymorphicPropNetFactory
       return;
     }
 
-    Map<GdlSentence, Set<PolymorphicComponent>> inputsToOr = new HashMap<GdlSentence, Set<PolymorphicComponent>>();
+    Map<GdlSentence, Set<PolymorphicComponent>> inputsToOr = new HashMap<>();
     for (GdlRule rule : rules)
     {
       Assignments assignments = AssignmentsFactory
@@ -1144,7 +1144,7 @@ public class OptimizingPolymorphicPropNetFactory
                                                                     constantChecker
                                                                         .getConstantSentenceForms());
       varsInLiveConjuncts.addAll(GdlUtils.getVariables(rule.getHead()));
-      Set<GdlVariable> varsInRule = new HashSet<GdlVariable>(GdlUtils.getVariables(rule));
+      Set<GdlVariable> varsInRule = new HashSet<>(GdlUtils.getVariables(rule));
       boolean preventDuplicatesFromConstants = (varsInRule.size() > varsInLiveConjuncts
           .size());
 
@@ -1162,7 +1162,7 @@ public class OptimizingPolymorphicPropNetFactory
             .getHead(), assignment);
 
         //Now we go through the conjuncts as before, but we wait to hook them up.
-        List<PolymorphicComponent> componentsToConnect = new ArrayList<PolymorphicComponent>(rule
+        List<PolymorphicComponent> componentsToConnect = new ArrayList<>(rule
             .arity());
         for (GdlLiteral literal : rule.getBody())
         {
@@ -1357,7 +1357,7 @@ public class OptimizingPolymorphicPropNetFactory
 
       GdlSentence sentence = entry.getKey();
       Set<PolymorphicComponent> inputs = entry.getValue();
-      Set<PolymorphicComponent> realInputs = new HashSet<PolymorphicComponent>();
+      Set<PolymorphicComponent> realInputs = new HashSet<>();
       for (PolymorphicComponent input : inputs)
       {
         if (input instanceof PolymorphicConstant ||
@@ -1400,7 +1400,7 @@ public class OptimizingPolymorphicPropNetFactory
   private static Set<GdlVariable> getVarsInLiveConjuncts(GdlRule rule,
                                                          Set<SentenceForm> constantSentenceForms)
   {
-    Set<GdlVariable> result = new HashSet<GdlVariable>();
+    Set<GdlVariable> result = new HashSet<>();
     for (GdlLiteral literal : rule.getBody())
     {
       if (literal instanceof GdlRelation)
@@ -1536,7 +1536,7 @@ public class OptimizingPolymorphicPropNetFactory
 
   static class ReEvaulationSet implements Iterable<PolymorphicComponent>
   {
-    private Set<PolymorphicComponent>       contents = new LinkedHashSet<PolymorphicComponent>();
+    private Set<PolymorphicComponent>       contents = new LinkedHashSet<>();
     private Map<PolymorphicComponent, Type> reachability;
 
     public ReEvaulationSet(Map<PolymorphicComponent, Type> reachability)
@@ -1875,8 +1875,8 @@ public class OptimizingPolymorphicPropNetFactory
     PolymorphicComponentFactory componentFactory = pn.getComponentFactory();
     //This actually might remove more than bases and inputs
     //We flow through the game graph to see what can be true (and what can be false?)...
-    Map<PolymorphicComponent, Type> reachability = new HashMap<PolymorphicComponent, Type>();
-    Set<GdlTerm> initted = new HashSet<GdlTerm>();
+    Map<PolymorphicComponent, Type> reachability = new HashMap<>();
+    Set<GdlTerm> initted = new HashSet<>();
     for (PolymorphicComponent c : pn.getComponents())
     {
       reachability.put(c, Type.STAR);
@@ -1901,7 +1901,7 @@ public class OptimizingPolymorphicPropNetFactory
 
     //Set<Component> toReevaluate = new LinkedHashSet<Component>();
     ReEvaulationSet toReevaluate = new ReEvaulationSet(reachability);
-    Set<PolymorphicComponent> explicitlyInitedBases = new HashSet<PolymorphicComponent>();
+    Set<PolymorphicComponent> explicitlyInitedBases = new HashSet<>();
 
     for (PolymorphicComponent c : pn.getComponents())
     {
@@ -2018,7 +2018,7 @@ public class OptimizingPolymorphicPropNetFactory
         {
           //All parents must be capable of being true
           boolean allCanBeTrue = true;
-          Set<PolymorphicComponent> starParents = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> starParents = new HashSet<>();
           for (PolymorphicComponent parent : parents)
           {
             Type parentType = reachability.get(parent);
@@ -2048,7 +2048,7 @@ public class OptimizingPolymorphicPropNetFactory
         if (checkFalse)
         {
           //Some parent must be capable of being false
-          Set<PolymorphicComponent> starParents = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> starParents = new HashSet<>();
           for (PolymorphicComponent parent : parents)
           {
             Type parentType = reachability.get(parent);
@@ -2080,7 +2080,7 @@ public class OptimizingPolymorphicPropNetFactory
         if (checkTrue)
         {
           //Some parent must be capable of being true
-          Set<PolymorphicComponent> starParents = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> starParents = new HashSet<>();
           for (PolymorphicComponent parent : parents)
           {
             Type parentType = reachability.get(parent);
@@ -2110,7 +2110,7 @@ public class OptimizingPolymorphicPropNetFactory
         {
           //All parents must be capable of being false
           boolean allCanBeFalse = true;
-          Set<PolymorphicComponent> starParents = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> starParents = new HashSet<>();
           for (PolymorphicComponent parent : parents)
           {
             Type parentType = reachability.get(parent);
@@ -2351,9 +2351,9 @@ public class OptimizingPolymorphicPropNetFactory
   {
     //Approach: Collect useful propositions based on a backwards
     //search from goal/legal/terminal (passing through transitions)
-    Set<Component> usefulComponents = new HashSet<Component>();
+    Set<Component> usefulComponents = new HashSet<>();
     //TODO: Also try with queue?
-    Stack<Component> toAdd = new Stack<Component>();
+    Stack<Component> toAdd = new Stack<>();
     toAdd.add(pn.getTerminalProposition());
     usefulComponents.add(pn.getInitProposition()); //Can't remove it...
     for (Set<Proposition> goalProps : pn.getGoalPropositions().values())
@@ -2371,7 +2371,7 @@ public class OptimizingPolymorphicPropNetFactory
     }
 
     //Remove the components not marked as useful
-    List<Component> allComponents = new ArrayList<Component>(pn.getComponents());
+    List<Component> allComponents = new ArrayList<>(pn.getComponents());
     for (Component c : allComponents)
     {
       if (!usefulComponents.contains(c))
@@ -2387,7 +2387,7 @@ public class OptimizingPolymorphicPropNetFactory
    */
   public static void removeInits(PropNet pn)
   {
-    List<Proposition> toRemove = new ArrayList<Proposition>();
+    List<Proposition> toRemove = new ArrayList<>();
     for (Proposition p : pn.getPropositions())
     {
       if (p.getName() instanceof GdlRelation)
@@ -2415,7 +2415,7 @@ public class OptimizingPolymorphicPropNetFactory
                                                       boolean allowRemovalOfInputProps)
   {
     //	What about constants other than true and false props?
-    Set<PolymorphicComponent> redundantComponents = new HashSet<PolymorphicComponent>();
+    Set<PolymorphicComponent> redundantComponents = new HashSet<>();
     int removedRedundantComponentCount = 0;
 
     PolymorphicComponent trueConst = null;
@@ -2537,7 +2537,7 @@ public class OptimizingPolymorphicPropNetFactory
     while (redundantComponents.size() > 0);
 
     //	Eliminate TRUE inputs to ANDs and FALSE inputs to ORs.  Also eliminate single input ANDs/ORs
-    List<PolymorphicComponent> eliminations = new LinkedList<PolymorphicComponent>();
+    List<PolymorphicComponent> eliminations = new LinkedList<>();
 
     do
     {
@@ -2545,7 +2545,7 @@ public class OptimizingPolymorphicPropNetFactory
 
       if (trueConst != null)
       {
-        List<PolymorphicComponent> disconnected = new LinkedList<PolymorphicComponent>();
+        List<PolymorphicComponent> disconnected = new LinkedList<>();
 
         for (PolymorphicComponent c : trueConst.getOutputs())
         {
@@ -2563,7 +2563,7 @@ public class OptimizingPolymorphicPropNetFactory
 
       if (falseConst != null)
       {
-        List<PolymorphicComponent> disconnected = new LinkedList<PolymorphicComponent>();
+        List<PolymorphicComponent> disconnected = new LinkedList<>();
 
         for (PolymorphicComponent c : falseConst.getOutputs())
         {
@@ -2644,8 +2644,8 @@ public class OptimizingPolymorphicPropNetFactory
 
   public static void refactorLargeGates(PolymorphicPropNet pn)
   {
-    Set<PolymorphicComponent> newComponents = new HashSet<PolymorphicComponent>();
-    Set<PolymorphicComponent> removedComponents = new HashSet<PolymorphicComponent>();
+    Set<PolymorphicComponent> newComponents = new HashSet<>();
+    Set<PolymorphicComponent> removedComponents = new HashSet<>();
     int inputToOutputFactorizationRemovedCount = 0;
     int inputToOutputFactorizationAddedCount = 0;
 
@@ -2656,7 +2656,7 @@ public class OptimizingPolymorphicPropNetFactory
         if ((c instanceof PolymorphicOr))
         {
           //	Can we find a common factor across input ANDs?
-          Set<PolymorphicComponent> inputANDinputs = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> inputANDinputs = new HashSet<>();
           boolean nonAndsPresent = false;
           int numFactorInstances = 0;
           int numPotentiallyRemovableComponents = 0;
@@ -2725,8 +2725,8 @@ public class OptimizingPolymorphicPropNetFactory
               factoredOr = c;
             }
 
-            Set<PolymorphicComponent> removedOrInputs = new HashSet<PolymorphicComponent>();
-            Set<PolymorphicComponent> addedOrInputs = new HashSet<PolymorphicComponent>();
+            Set<PolymorphicComponent> removedOrInputs = new HashSet<>();
+            Set<PolymorphicComponent> addedOrInputs = new HashSet<>();
 
             //	We have one or more common factors - move them past the OR
             for (PolymorphicComponent input : c.getInputs())
@@ -2821,7 +2821,7 @@ public class OptimizingPolymorphicPropNetFactory
         else if ((c instanceof PolymorphicAnd))
         {
           //	Can we find a common factor across input ORs?
-          Set<PolymorphicComponent> inputORinputs = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> inputORinputs = new HashSet<>();
           boolean nonOrsPresent = false;
           int numFactorInstances = 0;
           int numPotentiallyRemovableComponents = 0;
@@ -2890,8 +2890,8 @@ public class OptimizingPolymorphicPropNetFactory
               factoredAnd = c;
             }
 
-            Set<PolymorphicComponent> removedAndInputs = new HashSet<PolymorphicComponent>();
-            Set<PolymorphicComponent> addedAndInputs = new HashSet<PolymorphicComponent>();
+            Set<PolymorphicComponent> removedAndInputs = new HashSet<>();
+            Set<PolymorphicComponent> addedAndInputs = new HashSet<>();
 
             //	We have one or more common factors - move them past the OR
             for (PolymorphicComponent input : c.getInputs())
@@ -3007,8 +3007,8 @@ public class OptimizingPolymorphicPropNetFactory
 
   public static void refactorLargeFanouts(PolymorphicPropNet pn)
   {
-    Set<PolymorphicComponent> newComponents = new HashSet<PolymorphicComponent>();
-    Set<PolymorphicComponent> removedComponents = new HashSet<PolymorphicComponent>();
+    Set<PolymorphicComponent> newComponents = new HashSet<>();
+    Set<PolymorphicComponent> removedComponents = new HashSet<>();
     int outputFanoutFactorizationRemovedCount = 0;
     int outputFanoutFactorizationAddedCount = 0;
     int outputFactorizationFanoutReduction = 0;
@@ -3020,7 +3020,7 @@ public class OptimizingPolymorphicPropNetFactory
         if ((c instanceof PolymorphicOr))
         {
           //	Can we find a common factor across output ANDs?
-          Set<PolymorphicComponent> outputANDinputs = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> outputANDinputs = new HashSet<>();
 
           for (PolymorphicComponent output : c.getOutputs())
           {
@@ -3071,7 +3071,7 @@ public class OptimizingPolymorphicPropNetFactory
             }
 
             //	Remove the factors from the outputs
-            Set<PolymorphicComponent> outputs = new HashSet<PolymorphicComponent>(c
+            Set<PolymorphicComponent> outputs = new HashSet<>(c
                 .getOutputs());
             for (PolymorphicComponent output : outputs)
             {
@@ -3113,7 +3113,7 @@ public class OptimizingPolymorphicPropNetFactory
         else if ((c instanceof PolymorphicAnd))
         {
           //	Can we find a common factor across output ORs?
-          Set<PolymorphicComponent> outputORinputs = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> outputORinputs = new HashSet<>();
 
           for (PolymorphicComponent output : c.getOutputs())
           {
@@ -3164,7 +3164,7 @@ public class OptimizingPolymorphicPropNetFactory
             }
 
             //	Remove the factors from the outputs
-            Set<PolymorphicComponent> outputs = new HashSet<PolymorphicComponent>(c
+            Set<PolymorphicComponent> outputs = new HashSet<>(c
                 .getOutputs());
             for (PolymorphicComponent output : outputs)
             {
@@ -3233,8 +3233,8 @@ public class OptimizingPolymorphicPropNetFactory
    */
   public static void removeAnonymousPropositions(PolymorphicPropNet pn)
   {
-    List<PolymorphicProposition> toSplice = new ArrayList<PolymorphicProposition>();
-    List<PolymorphicProposition> toReplaceWithFalse = new ArrayList<PolymorphicProposition>();
+    List<PolymorphicProposition> toSplice = new ArrayList<>();
+    List<PolymorphicProposition> toReplaceWithFalse = new ArrayList<>();
     for (PolymorphicProposition p : pn.getPropositions())
     {
       //If it's important, continue to the next proposition
@@ -3298,7 +3298,7 @@ public class OptimizingPolymorphicPropNetFactory
 
   public static void removeInitPropositions(PolymorphicPropNet propNet)
   {
-    List<PolymorphicComponent> removedComponents = new LinkedList<PolymorphicComponent>();
+    List<PolymorphicComponent> removedComponents = new LinkedList<>();
 
     for (PolymorphicComponent c : propNet.getComponents())
     {
@@ -3357,7 +3357,7 @@ public class OptimizingPolymorphicPropNetFactory
 
   public static void removeGoalPropositions(PolymorphicPropNet propNet)
   {
-    List<PolymorphicComponent> removedComponents = new LinkedList<PolymorphicComponent>();
+    List<PolymorphicComponent> removedComponents = new LinkedList<>();
 
     for (PolymorphicProposition[] roleGoals : propNet.getGoalPropositions()
         .values())
@@ -3377,7 +3377,7 @@ public class OptimizingPolymorphicPropNetFactory
   {
     if (inputClosure == null)
     {
-      inputClosure = new HashSet<PolymorphicComponent>();
+      inputClosure = new HashSet<>();
     }
 
     for (PolymorphicComponent input : c.getInputs())
@@ -3418,7 +3418,7 @@ public class OptimizingPolymorphicPropNetFactory
 
   public static void removeAllButGoalPropositions(PolymorphicPropNet propNet)
   {
-    List<PolymorphicComponent> removedComponents = new LinkedList<PolymorphicComponent>();
+    List<PolymorphicComponent> removedComponents = new LinkedList<>();
 
     boolean goalsRequireLegals = false;
     for (PolymorphicComponent c : propNet.getComponents())
@@ -3570,7 +3570,7 @@ public class OptimizingPolymorphicPropNetFactory
 
   public static void removeDuplicateLogic(PolymorphicPropNet pn)
   {
-    Map<Long, List<PolymorphicComponent>> componentSignatureMap = new HashMap<Long, List<PolymorphicComponent>>();
+    Map<Long, List<PolymorphicComponent>> componentSignatureMap = new HashMap<>();
 
     for (PolymorphicComponent c : pn.getComponents())
     {
@@ -3616,7 +3616,7 @@ public class OptimizingPolymorphicPropNetFactory
     LOGGER.debug("Removed " + duplicateCount + " duplicate components");
   }
 
-  private static Map<Class<?>, Long> componentTypeBaseSignatures = new HashMap<Class<?>, Long>();
+  private static Map<Class<?>, Long> componentTypeBaseSignatures = new HashMap<>();
 
   private static class FastHasher
   {
@@ -3698,7 +3698,7 @@ public class OptimizingPolymorphicPropNetFactory
             .getSignature());
         if (sigMatchList == null)
         {
-          sigMatchList = new LinkedList<PolymorphicComponent>();
+          sigMatchList = new LinkedList<>();
           componentSignatureMap.put(c.getSignature(), sigMatchList);
         }
         else
@@ -3806,7 +3806,7 @@ public class OptimizingPolymorphicPropNetFactory
   public static void optimizeInputSets(PolymorphicPropNet pn)
   {
     //	First find the input proposition sets for each role
-    Map<Role, Set<PolymorphicProposition>> roleInputMap = new HashMap<Role, Set<PolymorphicProposition>>();
+    Map<Role, Set<PolymorphicProposition>> roleInputMap = new HashMap<>();
 
     for (Role role : pn.getRoles())
     {
@@ -4123,8 +4123,8 @@ public class OptimizingPolymorphicPropNetFactory
 
   public static void OptimizeInvertedInputs(PolymorphicPropNet pn)
   {
-    Set<PolymorphicComponent> refactoredComponents = new HashSet<PolymorphicComponent>();
-    Set<PolymorphicComponent> newComponents = new HashSet<PolymorphicComponent>();
+    Set<PolymorphicComponent> refactoredComponents = new HashSet<>();
+    Set<PolymorphicComponent> newComponents = new HashSet<>();
 
     for (PolymorphicComponent c : pn.getComponents())
     {
@@ -4177,7 +4177,7 @@ public class OptimizingPolymorphicPropNetFactory
         newOr.addOutput(newNot);
         newNot.addInput(newOr);
 
-        Set<PolymorphicComponent> removedNots = new HashSet<PolymorphicComponent>();
+        Set<PolymorphicComponent> removedNots = new HashSet<>();
 
         for (PolymorphicComponent inputNot : c.getInputs())
         {
@@ -4219,7 +4219,7 @@ public class OptimizingPolymorphicPropNetFactory
         newAnd.addOutput(newNot);
         newNot.addInput(newAnd);
 
-        Set<PolymorphicComponent> removedNots = new HashSet<PolymorphicComponent>();
+        Set<PolymorphicComponent> removedNots = new HashSet<>();
 
         for (PolymorphicComponent inputNot : c.getInputs())
         {

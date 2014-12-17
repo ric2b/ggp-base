@@ -11,8 +11,8 @@ public class ProfilerSampleSetSimple extends ProfileSampleSet
 
   public ProfilerSampleSetSimple()
   {
-    sampleSet = new HashMap<String, ProfileSample>();
-    profileStack = new ThreadLocal<Stack<ProfileSample>>();
+    sampleSet = new HashMap<>();
+    profileStack = new ThreadLocal<>();
     profileStack.set(new Stack<ProfileSample>());
   }
 
