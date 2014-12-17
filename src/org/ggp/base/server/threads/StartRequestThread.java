@@ -31,8 +31,5 @@ public final class StartRequestThread extends RequestThread
   }
 
   @Override
-  protected void handleResponse(String response)
-  {
-    ;
-  }
+  protected void handleResponse(String response) { /* Do nothing */ }
 }

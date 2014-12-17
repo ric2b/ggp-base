@@ -2039,9 +2039,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
    */
   public StateMachineFilter getBaseFilter()
   {
-    if ( searchFilter == null )
+    if (searchFilter == null)
     {
-      searchFilter = new NullStateMachineFilter(this);;
+      searchFilter = new NullStateMachineFilter(this);
     }
 
     return searchFilter;

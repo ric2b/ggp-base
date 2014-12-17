@@ -140,10 +140,6 @@ public class TTCC4SmallCanvas extends GameCanvas_FancyGrid
       {
         CommonGraphics.drawCheckersPiece(g, "bk");
       }
-      else if (cellType.contains("Disc"))
-      {
-        ;
-      }
     }
   }
 

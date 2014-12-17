@@ -45,8 +45,7 @@ public class MatchPublisher
 
       if (connection.getResponseCode() == HttpURLConnection.HTTP_OK)
       {
-        return new BufferedReader(new InputStreamReader(connection.getInputStream()))
-            .readLine();
+        return new BufferedReader(new InputStreamReader(connection.getInputStream())).readLine();
       }
       String errorDescription = "?";
       try
@@ -54,12 +53,8 @@ public class MatchPublisher
         errorDescription = new BufferedReader(new InputStreamReader(connection
             .getInputStream())).readLine();
       }
-      catch (Exception q)
-      {
-      }
-      ;
-      throw new IOException(connection.getResponseCode() + ": " +
-                            errorDescription);
+      catch (Exception q) { /* Do nothing */ }
+      throw new IOException(connection.getResponseCode() + ": " + errorDescription);
     }
     catch (MalformedURLException e)
     {

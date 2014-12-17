@@ -35,7 +35,7 @@ public abstract class GameCanvas extends JPanel implements Subject
   protected MachineState   gameState;
   protected Role           myRole;
 
-  // Cache the location of the last click 
+  // Cache the location of the last click
   private int              lastClickX;
   private int              lastClickY;
 
@@ -47,7 +47,7 @@ public abstract class GameCanvas extends JPanel implements Subject
     super();
     setFocusable(true);
 
-    // Fiddle with Mouse Settings       
+    // Fiddle with Mouse Settings
     addMouseListener(new MouseAdapter()
     {
       @Override
@@ -308,15 +308,9 @@ public abstract class GameCanvas extends JPanel implements Subject
     paintGameDefault(g, "paintGame not implemented");
   }
 
-  protected void handleDragEvent(int dx, int dy)
-  {
-    ;
-  }
+  protected void handleDragEvent(int dx, int dy) { /* Do nothing */ }
 
-  protected void handleClickEvent(int x, int y)
-  {
-    ;
-  }
+  protected void handleClickEvent(int x, int y) { /* Do nothing */ }
 
   public abstract void clearMoveSelection();
 }

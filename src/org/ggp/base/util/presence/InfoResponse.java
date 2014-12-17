@@ -15,7 +15,7 @@ import org.ggp.base.util.symbol.grammar.SymbolPool;
  * Wherein we poorly reinvent JSON, so that we can keep INFO responses
  * consistent with the Symbol-based KIF format that the other GGP protocol
  * messages are in.
- * 
+ *
  * @author schreib
  */
 
@@ -27,7 +27,7 @@ public class InfoResponse
 
   public InfoResponse()
   {
-    ;
+    // Default constructor for lazy setting of fields.
   }
 
   public void setName(String name)

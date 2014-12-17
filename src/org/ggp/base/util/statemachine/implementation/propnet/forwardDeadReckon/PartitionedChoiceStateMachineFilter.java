@@ -25,7 +25,7 @@ public class PartitionedChoiceStateMachineFilter implements StateMachineFilter
   private final List<PartitionInfo> partitions = new ArrayList<>();
   private ForwardDeadReckonLegalMoveSet activePartition = null;
   private ForwardDeadReckonLegalMoveSet activeMoveSet = null;
-  private final ForwardDeadReckonLegalMoveSet activePartitionBuffer;;
+  private final ForwardDeadReckonLegalMoveSet activePartitionBuffer;
   private final ForwardDeadReckonInternalMachineState activeState;
   private final ForwardDeadReckonPropnetStateMachine stateMachine;
 

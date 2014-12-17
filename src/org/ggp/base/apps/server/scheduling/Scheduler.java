@@ -232,10 +232,8 @@ public final class Scheduler implements Observer
         {
           Thread.sleep(100);
         }
-        catch (InterruptedException ie)
-        {
-          ;
-        }
+        catch (InterruptedException ie) { /* Do nothing */ }
+
         PendingMatch matchToSchedule = null;
         for (PendingMatch spec : schedulingQueue)
         {

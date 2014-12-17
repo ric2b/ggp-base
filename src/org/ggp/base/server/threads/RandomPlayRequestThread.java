@@ -25,8 +25,5 @@ public final class RandomPlayRequestThread extends PlayRequestThread
   }
 
   @Override
-  public void run()
-  {
-    ;
-  }
+  public void run()  { /* Do nothing */ }
 }

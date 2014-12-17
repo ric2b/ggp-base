@@ -10,13 +10,13 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.ggp.base.util.loader.RemoteResourceLoader;
-import org.ggp.base.util.crypto.SignableJSON;
 import org.ggp.base.util.crypto.BaseCryptography.EncodedKeyPair;
+import org.ggp.base.util.crypto.SignableJSON;
 import org.ggp.base.util.files.FileUtils;
 import org.ggp.base.util.http.HttpReader;
 import org.ggp.base.util.http.HttpRequest;
 import org.ggp.base.util.http.HttpWriter;
+import org.ggp.base.util.loader.RemoteResourceLoader;
 
 import external.JSON.JSONException;
 import external.JSON.JSONObject;
@@ -40,7 +40,7 @@ import external.JSON.JSONObject;
  * original request. You shouldn't be running this server unless you are
  * bringing up an instance of the online GGP.org Tiltyard or an equivalent
  * service.
- * 
+ *
  * @author Sam Schreiber
  */
 public final class TiltyardRequestFarm
@@ -200,10 +200,7 @@ public final class TiltyardRequestFarm
           {
             Thread.sleep(timeoutClock - timeSpent);
           }
-          catch (InterruptedException e)
-          {
-            ;
-          }
+          catch (InterruptedException e) { /* Do nothing */ }
         }
         int nPostAttempts = 0;
         while (true)
@@ -222,10 +219,7 @@ public final class TiltyardRequestFarm
             {
               Thread.sleep(nPostAttempts < 10 ? 1000 : 15000);
             }
-            catch (InterruptedException e)
-            {
-              ;
-            }
+            catch (InterruptedException e) { /* Do nothing */ }
           }
         }
         synchronized (ongoingRequests)

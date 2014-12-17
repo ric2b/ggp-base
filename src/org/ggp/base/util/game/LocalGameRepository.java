@@ -170,10 +170,7 @@ public final class LocalGameRepository extends GameRepository
         theExplicitVersion = Integer.parseInt(vPart);
         thePrefix = thePrefix.substring(0, thePrefix.lastIndexOf("/v"));
       }
-      catch (Exception e)
-      {
-        ;
-      }
+      catch (Exception e) { /* Do nothing */ }
 
       // Sanity check: raise an exception if the parsing didn't work.
       if (theExplicitVersion == null)

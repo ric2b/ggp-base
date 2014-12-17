@@ -34,7 +34,7 @@ import external.JSON.JSONObject;
  * stored locally, in a directory managed by this class. These files are
  * compressed, to decrease their footprint on the local disk. GGP Base has its
  * SVN rules set up so that these caches are ignored by SVN.
- * 
+ *
  * @author Sam
  */
 public final class CloudGameRepository extends GameRepository
@@ -93,10 +93,7 @@ public final class CloudGameRepository extends GameRepository
         {
           refreshThread.join();
         }
-        catch (InterruptedException e)
-        {
-          ;
-        }
+        catch (InterruptedException e) { /* Do nothing */ }
       }
       theCacheDirectory.setLastModified(System.currentTimeMillis());
       needsRefresh = false;
@@ -264,10 +261,7 @@ public final class CloudGameRepository extends GameRepository
         {
           t.join();
         }
-        catch (InterruptedException e)
-        {
-          ;
-        }
+        catch (InterruptedException e) { /* Do nothing */ }
       }
 
       long endTime = System.currentTimeMillis();
@@ -276,7 +270,7 @@ public final class CloudGameRepository extends GameRepository
     }
   }
 
-  // ================================================================    
+  // ================================================================
 
   private synchronized void saveGameToCache(String theKey, Game theGame)
   {
@@ -318,10 +312,7 @@ public final class CloudGameRepository extends GameRepository
       gIn.close();
       fIn.close();
     }
-    catch (Exception e)
-    {
-      ;
-    }
+    catch (Exception e) { /* Do nothing */ }
 
     if (theLine == null)
       return null;

@@ -172,15 +172,10 @@ public final class SchedulingPanel extends JPanel implements Observer,
       {
         if (queueTable.getSelectedRow() >= 0)
         {
-          String matchId = queueTable.getModel()
-              .getValueAt(queueTable.getSelectedRow(), 0).toString();
-          String state = queueTable.getModel()
-              .getValueAt(queueTable.getSelectedRow(), 3).toString();
-          if (state.equals("pending"))
-          {
-            ;
-          }
-          else if (state.equals("active"))
+          String matchId = queueTable.getModel().getValueAt(queueTable.getSelectedRow(), 0).toString();
+          String state = queueTable.getModel().getValueAt(queueTable.getSelectedRow(), 3).toString();
+
+          if (state.equals("active"))
           {
             if (scheduler != null)
             {

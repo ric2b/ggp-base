@@ -105,10 +105,7 @@ public class PlayerPresenceManager implements Subject
         addPlayer("127.0.0.1:9147");
         addPlayer("127.0.0.1:9148");
       }
-      catch (InvalidHostportException e)
-      {
-        ;
-      }
+      catch (InvalidHostportException e)  { /* Do nothing */ }
     }
     new PresenceMonitor().start();
   }

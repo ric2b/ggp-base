@@ -126,10 +126,7 @@ public final class Kiosk extends JPanel implements ActionListener,
                                                 theCanvas.getGameKey(),
                                                 availableCanvas));
       }
-      catch (Exception e)
-      {
-        ;
-      }
+      catch (Exception e) { /* Do nothing */ }
     }
 
     flipRoles = new JCheckBox("Flip roles?");

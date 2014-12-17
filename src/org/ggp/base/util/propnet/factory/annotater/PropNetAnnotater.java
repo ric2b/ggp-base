@@ -32,7 +32,7 @@ import org.ggp.base.util.gdl.grammar.GdlVariable;
  * Annotater generates ( base ?x ) annotations that explicitly specify the
  * domains of the propositions in a game. This only works on some relatively
  * simple games, unfortunately.
- * 
+ *
  * @author Ethan Dreyfuss
  */
 public class PropNetAnnotater
@@ -715,9 +715,7 @@ public class PropNetAnnotater
    */
   public static void main(String[] args)
   {
-    List<Gdl> description = GameRepository.getDefaultRepository()
-        .getGame("conn4").getRules();
-    ;
+    List<Gdl> description = GameRepository.getDefaultRepository().getGame("conn4").getRules();
 
     PropNetAnnotater aa = new PropNetAnnotater(description);
     System.out.println("Annotations for connect four are: \n" +

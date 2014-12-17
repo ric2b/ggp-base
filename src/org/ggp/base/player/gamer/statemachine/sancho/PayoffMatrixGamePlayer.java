@@ -78,6 +78,7 @@ public class PayoffMatrixGamePlayer
    *
    * @throws UnsupportedGameException if analysis fails to demonstrate that this is a payoff-matrix game.
    */
+  @SuppressWarnings("unchecked")
   private void analyseGame(ForwardDeadReckonPropnetStateMachine xiStateMachine, long xiTimeout)
     throws UnsupportedGameException
   {

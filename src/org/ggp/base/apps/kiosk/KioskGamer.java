@@ -159,8 +159,5 @@ public class KioskGamer extends StateMachineGamer implements Observer
   }
 
   @Override
-  public void preview(Game g, long timeout)
-  {
-    ;
-  }
+  public void preview(Game g, long timeout) { /* Do nothing */ }
 }

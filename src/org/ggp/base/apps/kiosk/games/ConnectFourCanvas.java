@@ -74,10 +74,6 @@ public class ConnectFourCanvas extends GameCanvas_SimpleGrid
       g.setColor(Color.BLACK);
       CommonGraphics.drawCheckersPiece(g, "bp");
     }
-    else
-    {
-      ;
-    }
 
     if (selectedColumn == xCell)
     {

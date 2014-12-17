@@ -77,10 +77,6 @@ public class GoldenRectangleCanvas extends GameCanvas_SimpleGrid
       g.setColor(Color.YELLOW);
       CommonGraphics.drawDisc(g);
     }
-    else
-    {
-      ;
-    }
 
     if (selectedColumn == xCell)
     {

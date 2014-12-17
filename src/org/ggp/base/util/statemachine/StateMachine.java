@@ -140,10 +140,7 @@ public abstract class StateMachine
   // This constraint can be used to optimize certain state machine implementations.
   // CONTRACT: After calling this method, the state machine never deals with a state that
   //           is not "theState" or one of its descendants in the game tree.
-  public void updateRoot(MachineState theState)
-  {
-    ;
-  }
+  public void updateRoot(MachineState theState) { /* Do nothing */ }
 
   // ============================================
   //   Implementations of convenience methods

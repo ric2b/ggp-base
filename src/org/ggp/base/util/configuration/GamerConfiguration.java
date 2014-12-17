@@ -96,10 +96,7 @@ public class GamerConfiguration
       }
       in.close();
     }
-    catch (FileNotFoundException fe)
-    {
-      ;
-    }
+    catch (FileNotFoundException fe) { /* Do nothing */ }
     catch (Exception e)
     {
       e.printStackTrace();
@@ -123,10 +120,6 @@ public class GamerConfiguration
     else if (strSystemOS.contains("Windows"))
     {
       nOperatingSystem = OS_WINDOWS;
-    }
-    else
-    {
-      ;
     }
   }
 

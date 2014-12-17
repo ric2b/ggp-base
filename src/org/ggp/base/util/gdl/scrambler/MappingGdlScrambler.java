@@ -147,10 +147,8 @@ public class MappingGdlScrambler implements GdlScrambler
       Integer.parseInt(token);
       return false;
     }
-    catch (NumberFormatException e)
-    {
-      ;
-    }
+    catch (NumberFormatException e) { /* Do nothing */ }
+
     return true;
   }
 }
