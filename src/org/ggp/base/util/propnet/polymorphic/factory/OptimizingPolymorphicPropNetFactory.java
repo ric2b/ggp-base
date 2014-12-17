@@ -1,4 +1,3 @@
-
 package org.ggp.base.util.propnet.polymorphic.factory;
 
 import java.util.ArrayList;
@@ -68,30 +67,37 @@ import org.ggp.base.util.statemachine.Role;
 
 import com.google.common.collect.Multimap;
 
-
-/*
- * A propnet factory meant to optimize the propnet before it's even built,
- * mostly through transforming the GDL. (The transformations identify certain
- * classes of rules that have poor performance and replace them with equivalent
- * rules that have better performance, with performance measured by the size of
- * the propnet.) Known issues: - Does not work on games with many advanced
- * forms of recursion. These include: - Anything that breaks the SentenceModel
- * - Multiple sentence forms which reference one another in rules - Not 100%
- * confirmed to work on games where recursive rules have multiple recursive
- * conjuncts - Currently runs some of the transformations multiple times. A
- * Description object containing information about the description and its
- * properties would alleviate this. - Its current solution to the
- * "unaffected piece rule" problem is somewhat clumsy and ungeneralized,
- * relying on the combined behaviors of CrudeSplitter and CondensationIsolator.
- * - The mutex finder in particular is very ungeneralized. It should be
- * replaced with a more general mutex finder. - Actually, the referenced
- * solution is not even enabled at the moment. It may not be working even with
- * the proper options set. - Depending on the settings and the situation, the
- * behavior of the CondensationIsolator can be either too aggressive or not
- * aggressive enough. Both result in excessively large games. A more
- * sophisticated version of the CondensationIsolator could solve these
- * problems. A stopgap alternative is to try both settings and use the smaller
- * propnet (or the first to be created, if multithreading).
+/**
+ * A propnet factory meant to optimize the propnet before it's even built, mostly through transforming the GDL.
+ * (The transformations identify certain classes of rules that have poor performance and replace them with equivalent
+ * rules that have better performance, with performance measured by the size of the propnet.)
+ *
+ * Known issues:
+ *
+ * <ol>
+ *
+ * <li> Does not work on games with many advanced forms of recursion. These include:<ol>
+ *   <li> Anything that breaks the SentenceModel
+ *   <li> Multiple sentence forms which reference one another in rules
+ *   <li> Not 100% confirmed to work on games where recursive rules have multiple recursive conjuncts</ol>
+ *
+ * <li> Currently runs some of the transformations multiple times. A Description object containing information about the
+ *      description and its properties would alleviate this.
+ *
+ * <li> Its current solution to the "unaffected piece rule" problem is somewhat clumsy and ungeneralized, relying on the
+ *      combined behaviors of CrudeSplitter and CondensationIsolator.
+ *
+ * <li> The mutex finder in particular is very ungeneralized. It should be replaced with a more general mutex finder.
+ *
+ * <li> Actually, the referenced solution is not even enabled at the moment. It may not be working even with the proper
+ *      options set.
+ *
+ * <li> Depending on the settings and the situation, the behavior of the CondensationIsolator can be either too
+ *      aggressive or not aggressive enough.  Both result in excessively large games.  A more sophisticated version of
+ *      the CondensationIsolator could solve these problems.  A stopgap alternative is to try both settings and use the
+ *      smaller propnet (or the first to be created, if multithreading).
+ *
+ * Adapted from OptimizingPropNetFactory as supplied upstream.
  */
 public class OptimizingPolymorphicPropNetFactory
 {
@@ -105,46 +111,41 @@ public class OptimizingPolymorphicPropNetFactory
   static final private GdlConstant    INIT      = GdlPool.getConstant("init");
   //TODO: This currently doesn't actually give a different constant from INIT
   static final private GdlConstant    INIT_CAPS = GdlPool.getConstant("INIT");
-  static final private GdlConstant    TERMINAL  = GdlPool
-                                                    .getConstant("terminal");
+  static final private GdlConstant    TERMINAL  = GdlPool.getConstant("terminal");
   static final private GdlConstant    BASE      = GdlPool.getConstant("base");
   static final private GdlConstant    INPUT     = GdlPool.getConstant("input");
-  static final private GdlProposition TEMP      = GdlPool
-                                                    .getProposition(GdlPool
-                                                        .getConstant("TEMP"));
+  static final private GdlProposition TEMP      = GdlPool.getProposition(GdlPool.getConstant("TEMP"));
 
   /**
-   * Creates a PropNet for the game with the given description.
+   * @return a PropNet for the game with the given description.
+   *
+   * @param xiDescription      - the GDL description of the game.
+   * @param xiComponentFactory - a factory for creating individual propnet components.
    *
    * @throws InterruptedException
    *           if the thread is interrupted during PropNet creation.
    */
-  public static PolymorphicPropNet create(List<Gdl> description,
-                                          PolymorphicComponentFactory componentFactory)
+  public static PolymorphicPropNet create(List<Gdl> xiDescription,
+                                          PolymorphicComponentFactory xiComponentFactory)
       throws InterruptedException
   {
     LOGGER.debug("Building propnet");
 
-    long startTime = System.currentTimeMillis();
+    xiDescription = GdlCleaner.run(xiDescription);
+    xiDescription = DeORer.run(xiDescription);
+    xiDescription = VariableConstrainer.replaceFunctionValuedVariables(xiDescription);
+    xiDescription = Relationizer.run(xiDescription);
+    xiDescription = CondensationIsolator.run(xiDescription);
 
-    description = GdlCleaner.run(description);
-    description = DeORer.run(description);
-    description = VariableConstrainer
-        .replaceFunctionValuedVariables(description);
-    description = Relationizer.run(description);
-
-    description = CondensationIsolator.run(description);
-
-
-    for (Gdl gdl : description)
+    for (Gdl gdl : xiDescription)
     {
       LOGGER.trace(gdl);
     }
 
     //We want to start with a rule graph and follow the rule graph.
     //Start by finding general information about the game
-    SentenceDomainModel model = SentenceDomainModelFactory
-        .createWithCartesianDomains(description);
+    SentenceDomainModel model = SentenceDomainModelFactory.createWithCartesianDomains(xiDescription);
+
     //Restrict domains to values that could actually come up in rules.
     //See chinesecheckers4's "count" relation for an example of why this
     //could be useful.
@@ -160,10 +161,10 @@ public class OptimizingPolymorphicPropNetFactory
     boolean usingInput = sentenceFormNames.contains("input");
 
 
-    //For now, we're going to build this to work on those with a
-    //particular restriction on the dependency graph:
-    //Recursive loops may only contain one sentence form.
-    //This describes most games, but not all legal games.
+    // For now, we're going to build this to work on those with a particular restriction on the dependency graph:
+    //   Recursive loops may only contain one sentence form.
+    //
+    // This describes most games, but not all legal games.
     Multimap<SentenceForm, SentenceForm> dependencyGraph = model.getDependencyGraph();
     LOGGER.trace("Computing topological ordering... ");
     ConcurrencyUtils.checkForInterruption();
@@ -171,35 +172,33 @@ public class OptimizingPolymorphicPropNetFactory
                                                                     dependencyGraph,
                                                                     usingBase,
                                                                     usingInput);
-    LOGGER.trace("done");
+    LOGGER.trace("Done computing topological ordering");
 
-    Role[] roles = Role.computeRoles(description);
-    Map<GdlSentence, PolymorphicComponent> components = new HashMap<GdlSentence, PolymorphicComponent>();
-    Map<GdlSentence, PolymorphicComponent> negations = new HashMap<GdlSentence, PolymorphicComponent>();
-    PolymorphicConstant trueComponent = componentFactory.createConstant(-1,
-                                                                        true);
-    PolymorphicConstant falseComponent = componentFactory
-        .createConstant(-1, false);
-    Map<SentenceForm, FunctionInfo> functionInfoMap = new HashMap<SentenceForm, FunctionInfo>();
-    Map<SentenceForm, Collection<GdlSentence>> completedSentenceFormValues = new HashMap<SentenceForm, Collection<GdlSentence>>();
+    Role[] roles = Role.computeRoles(xiDescription);
+    Map<GdlSentence, PolymorphicComponent> components = new HashMap<>();
+    Map<GdlSentence, PolymorphicComponent> negations = new HashMap<>();
+    PolymorphicConstant trueComponent = xiComponentFactory.createConstant(-1, true);
+    PolymorphicConstant falseComponent = xiComponentFactory.createConstant(-1, false);
+    Map<SentenceForm, FunctionInfo> functionInfoMap = new HashMap<>();
+    Map<SentenceForm, Collection<GdlSentence>> completedSentenceFormValues = new HashMap<>();
     for (SentenceForm form : topologicalOrdering)
     {
       ConcurrencyUtils.checkForInterruption();
 
-      LOGGER.trace("Adding sentence form " + form);
+      LOGGER.trace("Adding sentence form: " + form);
+
       if (constantChecker.isConstantForm(form))
       {
-        LOGGER.trace(" (constant)");
-        //Only add it if it's important
-        if (form.getName().equals(LEGAL) || form.getName().equals(GOAL) ||
-            form.getName().equals(INIT))
+        // We only add sentence in constant form if they are important (i.e. legal, goal or init).
+        LOGGER.trace("Sentence form is constant - check if important");
+        if (form.getName().equals(LEGAL) || form.getName().equals(GOAL) || form.getName().equals(INIT))
         {
-          //Add it
-          for (GdlSentence trueSentence : constantChecker
-              .getTrueSentences(form))
+          LOGGER.trace("Sentence form is important");
+
+          for (GdlSentence trueSentence : constantChecker.getTrueSentences(form))
           {
-            PolymorphicProposition trueProp = componentFactory
-                .createProposition(-1, trueSentence);
+            // Create the proposition and wire it up to the 'true' constant.
+            PolymorphicProposition trueProp = xiComponentFactory.createProposition(-1, trueSentence);
             trueProp.addInput(trueComponent);
             trueComponent.addOutput(trueProp);
             components.put(trueSentence, trueComponent);
@@ -211,46 +210,46 @@ public class OptimizingPolymorphicPropNetFactory
         addFormToCompletedValues(form,
                                  completedSentenceFormValues,
                                  constantChecker);
-
-        continue;
       }
-      //TODO: Adjust "recursive forms" appropriately
-      //Add a temporary sentence form thingy? ...
-      Map<GdlSentence, PolymorphicComponent> temporaryComponents = new HashMap<GdlSentence, PolymorphicComponent>();
-      Map<GdlSentence, PolymorphicComponent> temporaryNegations = new HashMap<GdlSentence, PolymorphicComponent>();
-      addSentenceForm(form,
-                      model,
-                      components,
-                      negations,
-                      trueComponent,
-                      falseComponent,
-                      usingBase,
-                      usingInput,
-                      Collections.singleton(form),
-                      temporaryComponents,
-                      temporaryNegations,
-                      functionInfoMap,
-                      constantChecker,
-                      completedSentenceFormValues,
-                      componentFactory);
-      //TODO: Pass these over groups of multiple sentence forms
-      LOGGER.trace("Processing temporary components...");
-      processTemporaryComponents(temporaryComponents,
-                                 temporaryNegations,
-                                 components,
-                                 negations,
-                                 trueComponent,
-                                 falseComponent);
-      addFormToCompletedValues(form, completedSentenceFormValues, components);
-      //if(verbose)
-      //TODO: Add this, but with the correct total number of components (not just Propositions)
+      else
+      {
+        //TODO: Adjust "recursive forms" appropriately
+        //Add a temporary sentence form thingy? ...
+        Map<GdlSentence, PolymorphicComponent> temporaryComponents = new HashMap<GdlSentence, PolymorphicComponent>();
+        Map<GdlSentence, PolymorphicComponent> temporaryNegations = new HashMap<GdlSentence, PolymorphicComponent>();
+        addSentenceForm(form,
+                        model,
+                        components,
+                        negations,
+                        trueComponent,
+                        falseComponent,
+                        usingBase,
+                        usingInput,
+                        Collections.singleton(form),
+                        temporaryComponents,
+                        temporaryNegations,
+                        functionInfoMap,
+                        constantChecker,
+                        completedSentenceFormValues,
+                        xiComponentFactory);
+        //TODO: Pass these over groups of multiple sentence forms
+        LOGGER.trace("Processing temporary components...");
+        processTemporaryComponents(temporaryComponents,
+                                   temporaryNegations,
+                                   components,
+                                   negations,
+                                   trueComponent,
+                                   falseComponent);
+        addFormToCompletedValues(form, completedSentenceFormValues, components);
+      }
     }
+
     //Connect "next" to "true"
     LOGGER.trace("Adding transitions...");
-    addTransitions(components, componentFactory);
+    addTransitions(components, xiComponentFactory);
     //Set up "init" proposition
     LOGGER.trace("Setting up 'init' proposition...");
-    setUpInit(components, trueComponent, falseComponent, componentFactory);
+    setUpInit(components, trueComponent, falseComponent, xiComponentFactory);
     //Now we can safely...
     LOGGER.trace("Num components before useless removed: " + components.size());
 
@@ -270,7 +269,10 @@ public class OptimizingPolymorphicPropNetFactory
     //Make it look the same as the PropNetFactory results, until we decide
     //how we want it to look
     normalizePropositions(componentSet);
-    PolymorphicPropNet propnet = componentFactory.createPropNet(roles, componentSet);
+    PolymorphicPropNet propnet = xiComponentFactory.createPropNet(roles, componentSet);
+
+    LOGGER.trace("Num components at end of propnet construction (pre-optimization): " + componentSet.size());
+
     return propnet;
   }
 

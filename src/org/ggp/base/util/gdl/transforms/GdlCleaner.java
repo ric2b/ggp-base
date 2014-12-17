@@ -1,4 +1,3 @@
-
 package org.ggp.base.util.gdl.transforms;
 
 import java.util.ArrayList;
@@ -19,16 +18,26 @@ import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
 import org.ggp.base.util.gdl.grammar.GdlVariable;
 
-
-// Cleans up various issues with games to make them more standardized.
+/**
+ * Static utility class for cleaning up various issues with games to make them more standardised.
+ *
+ * The only public interface to this class in the {@link #run} method.
+ */
 public class GdlCleaner
 {
   private final static int         MAX_ITERATIONS = 100;
-  private final static GdlConstant BASE           = GdlPool
-                                                      .getConstant("base");
+  private final static GdlConstant BASE           = GdlPool.getConstant("base");
 
+  /**
+   * Run the GDL cleaner to standardize the GDL.
+   *
+   * @param description - unclean GDL input.
+   * @return Clean GDL output.
+   */
   public static List<Gdl> run(List<Gdl> description)
   {
+    // Each time the GDL is cleaned, it may make further optimisations possible.  Continue until either there is no
+    // change or until we hit the limit of the number of iterations we're prepared to do.
     for (int i = 0; i < MAX_ITERATIONS; i++)
     {
       List<Gdl> newDescription = runOnce(description);
