@@ -180,9 +180,10 @@ public class ThreadControl
     {
       Kernel32Library.INSTANCE.SetThreadAffinityMask(Kernel32Library.INSTANCE.GetCurrentThread(), lAffinityMask);
     }
-    catch (LastErrorException lEx)
+    catch (Throwable lEx)
     {
-      throw new IllegalStateException("Failed to set thread affinity: err=" + lEx.getErrorCode(), lEx);
+      // On non-Windows platforms, we'll never manage to load the library.  For now, just log an error.
+      LOGGER.error("Failed to set thread affinity: err=", lEx);
     }
   }
 }
