@@ -42,6 +42,8 @@ import org.ggp.base.util.statemachine.Role;
 
 public class PolymorphicPropNet
 {
+  private static final String TEMP_DIR = System.getProperty("java.io.tmpdir");
+
   /** References to every component in the PropNet. */
   private final Set<PolymorphicComponent>                           components;
 
@@ -833,7 +835,7 @@ public class PolymorphicPropNet
   {
     try
     {
-      File f = new File(filename);
+      File f = new File(TEMP_DIR, filename);
       try(FileOutputStream fos = new FileOutputStream(f))
       {
         try(OutputStreamWriter fout = new OutputStreamWriter(fos, "UTF-8"))

@@ -27,8 +27,8 @@ public class GDLTranslator
 
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private static final String LEARNING_DIR = "data\\games";
-  private static final String GDL_FILE = "gdl.txt";
+  private static final File LEARNING_DIR   = new File("data", "games");
+  private static final String GDL_FILENAME = "gdl.txt";
 
   private final Map<SymbolAtom, SymbolAtom> mInternalToNetwork;
   private final Map<SymbolAtom, SymbolAtom> mNetworkToInternal;
@@ -146,8 +146,7 @@ public class GDLTranslator
     {
       // Iterate over all the games that we've previously played, checking
       // if any of them are equivalent to the current game.
-      final File lLearningDir = new File(LEARNING_DIR);
-      final File lGameDirs[] = lLearningDir.listFiles();
+      final File lGameDirs[] = LEARNING_DIR.listFiles();
 
       for (final File lGameDir : lGameDirs)
       {
@@ -236,7 +235,7 @@ public class GDLTranslator
     final String lGameName = xiGameDir.getName();
 
     // Load the GDL from disk.
-    final String lGDL = readStringFromFile(new File(xiGameDir, GDL_FILE));
+    final String lGDL = readStringFromFile(new File(xiGameDir, GDL_FILENAME));
     if (lGDL == null)
     {
       return null;
@@ -289,11 +288,10 @@ public class GDLTranslator
   private void saveGDL(List<SymbolAtom> xiFlatGDL)
   {
     // Create a directory for this game.
-    final String lDirName = LEARNING_DIR + "\\" + System.currentTimeMillis();
-    final File lDir = new File(lDirName);
+    final File lDir = new File(LEARNING_DIR, "" + System.currentTimeMillis());
     lDir.mkdirs();
 
-    LOGGER.warn("Unrecognised game.  Created new game directory: " + lDirName);
+    LOGGER.warn("Unrecognised game.  Created new game directory: " + lDir.getAbsolutePath());
 
     if (xiFlatGDL.size() > MAX_GDL_SIZE)
     {
@@ -309,7 +307,7 @@ public class GDLTranslator
     }
 
     // Save the GDL to disk.
-    writeStringToFile(lGDLBuffer.toString(), new File(lDir, GDL_FILE));
+    writeStringToFile(lGDLBuffer.toString(), new File(lDir, GDL_FILENAME));
 
     mGameDir = lDir;
   }

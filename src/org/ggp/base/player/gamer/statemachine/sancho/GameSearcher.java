@@ -582,8 +582,6 @@ public class GameSearcher implements Runnable, ActivityController
         {
           LOGGER.warn("  Factor best move is NULL");
         }
-
-        //tree.root.dumpTree("c:\\temp\\treeDump_factor" + factorIndex + ".txt");
       }
 
       assert(bestChoice != null) : "No move choice found";
@@ -658,11 +656,6 @@ public class GameSearcher implements Runnable, ActivityController
         // Perform an MCTS iteration.
         lAllTreesCompletelyExplored &= tree.growTree(forceSynchronous, mChosenMove);
       }
-
-//      if ( numIterations == 500)
-//      {
-//        tree.root.dumpTree("c:\\temp\\mctsTree500.txt");
-//      }
     }
 
     return lAllTreesCompletelyExplored;

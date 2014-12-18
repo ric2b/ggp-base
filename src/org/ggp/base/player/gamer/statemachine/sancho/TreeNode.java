@@ -35,6 +35,8 @@ public class TreeNode
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
+  private static final String TEMP_DIR = System.getProperty("java.io.tmpdir");
+
   /**
    * An arbitrary small number to cope with rounding errors
    */
@@ -1804,8 +1806,6 @@ public class TreeNode
   public void freeAllBut(TreeNode descendant)
   {
     LOGGER.info("Free all but rooted in state: " + descendant.state);
-    //tree.oldRoot.dumpTree("c:\\temp\\oldTree.txt");
-    //tree.root.dumpTree("c:\\temp\\newTree.txt");
 
     int numNodesInUseBeforeTrim = tree.nodePool.getNumItemsInUse();
 
@@ -3732,7 +3732,7 @@ public class TreeNode
     {
       if ( lNode.numUpdates > 0 )
       {
-        parents.get(0).dumpTree("c:\\temp\\subTree.txt");
+        parents.get(0).dumpTree("subTree.txt");
         LOGGER.warn("No newphews found for search move including own child!");
         tree.cousinMovesCachedFor = NULL_REF;
       }
@@ -4696,7 +4696,7 @@ public class TreeNode
 
     try
     {
-      File f = new File(filename);
+      File f = new File(TEMP_DIR, filename);
       PrintWriter writer = new PrintWriter(f);
       dumpTree(writer, 0, null, 0);
       writer.close();
@@ -4978,8 +4978,6 @@ public class TreeNode
         }
       }
     }
-
-    //dumpTree("C:\\temp\\mctsTree.txt");
 
     if (!lRecursiveCall)
     {

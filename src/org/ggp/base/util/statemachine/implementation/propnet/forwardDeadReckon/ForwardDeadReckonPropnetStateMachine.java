@@ -1521,29 +1521,29 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       fullPropNet = (ForwardDeadReckonPropNet)OptimizingPolymorphicPropNetFactory.create(
                                                                                description,
                                                                                new ForwardDeadReckonComponentFactory());
-      fullPropNet.renderToFile("c:\\temp\\propnet_001.dot");
+      fullPropNet.renderToFile("propnet_001.dot");
 
       OptimizingPolymorphicPropNetFactory.removeAnonymousPropositions(fullPropNet);
-      fullPropNet.renderToFile("c:\\temp\\propnet_012_AnonRemoved.dot");
+      fullPropNet.renderToFile("propnet_012_AnonRemoved.dot");
       LOGGER.debug("Num components after anon prop removal: " + fullPropNet.getComponents().size());
 
       OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(fullPropNet);
-      fullPropNet.renderToFile("c:\\temp\\propnet_014_UnreachablesRemoved.dot");
+      fullPropNet.renderToFile("propnet_014_UnreachablesRemoved.dot");
 
       isPseudoPuzzle = OptimizingPolymorphicPropNetFactory.removeIrrelevantBasesAndInputs(fullPropNet, ourRole, mFillerMoves);
-      fullPropNet.renderToFile("c:\\temp\\propnet_016_IrrelevantRemoved.dot");
+      fullPropNet.renderToFile("propnet_016_IrrelevantRemoved.dot");
       LOGGER.debug("Num components after unreachable removal: " + fullPropNet.getComponents().size());
 
       OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(fullPropNet, false);
-      fullPropNet.renderToFile("c:\\temp\\propnet_018_RedundantRemoved.dot");
+      fullPropNet.renderToFile("propnet_018_RedundantRemoved.dot");
       LOGGER.debug("Num components after first pass redundant components removal: " +
                    fullPropNet.getComponents().size());
 
       OptimizingPolymorphicPropNetFactory.refactorLargeGates(fullPropNet);
-      fullPropNet.renderToFile("c:\\temp\\propnet_020_BeforeLargeFanout.dot");
+      fullPropNet.renderToFile("propnet_020_BeforeLargeFanout.dot");
 
       OptimizingPolymorphicPropNetFactory.refactorLargeFanouts(fullPropNet);
-      fullPropNet.renderToFile("c:\\temp\\propnet_030_AfterLargeFanout.dot");
+      fullPropNet.renderToFile("propnet_030_AfterLargeFanout.dot");
       LOGGER.debug("Num components after large gate refactoring: " + fullPropNet.getComponents().size());
 
       OptimizingPolymorphicPropNetFactory.removeDuplicateLogic(fullPropNet);
@@ -1565,7 +1565,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       // small propagation step).
       OptimizingPolymorphicPropNetFactory.removeNonBaseOrDoesPropositionOutputs(fullPropNet);
 
-      fullPropNet.renderToFile("c:\\temp\\propnet_040_Reduced.dot");
+      fullPropNet.renderToFile("propnet_040_Reduced.dot");
       roles = fullPropNet.getRoles();
       numRoles = roles.length;
       roleOrdering = new RoleOrdering(this, ourRole);
@@ -1863,8 +1863,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, XSentence, false);
         }
         //OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, XSentence, false);
-        propNetX.renderToFile("c:\\temp\\propnet_050_ReducedX.dot");
-        propNetO.renderToFile("c:\\temp\\propnet_060_ReducedO.dot");
+        propNetX.renderToFile("propnet_050_ReducedX.dot");
+        propNetO.renderToFile("propnet_060_ReducedO.dot");
         LOGGER.debug("Num components remaining in X-net: " + propNetX.getComponents().size());
         LOGGER.debug("Num components remaining in O-net: " + propNetO.getComponents().size());
       }
@@ -1875,11 +1875,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       propNetOWithoutGoals.RemoveGoals();
       OptimizingPolymorphicPropNetFactory.minimizeNetwork(propNetXWithoutGoals);
       OptimizingPolymorphicPropNetFactory.minimizeNetwork(propNetOWithoutGoals);
-      propNetXWithoutGoals.renderToFile("c:\\temp\\propnet_070_XWithoutGoals.dot");
-      propNetOWithoutGoals.renderToFile("c:\\temp\\propnet_080_OWithoutGoals.dot");
+      propNetXWithoutGoals.renderToFile("propnet_070_XWithoutGoals.dot");
+      propNetOWithoutGoals.renderToFile("propnet_080_OWithoutGoals.dot");
 
       goalsNet.RemoveAllButGoals();
-      goalsNet.renderToFile("c:\\temp\\propnet_090_GoalsReduced.dot");
+      goalsNet.renderToFile("propnet_090_GoalsReduced.dot");
 
       LOGGER.info("Num components in goal-less X-net: " + propNetXWithoutGoals.getComponents().size());
       LOGGER.info("Num components in goal-less O-net: " + propNetOWithoutGoals.getComponents().size());
