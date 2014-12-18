@@ -98,7 +98,13 @@ public class MachineSpecificConfiguration
   private static final Properties MACHINE_PROPERTIES = new Properties();
   static
   {
+    // Computer is identified by the COMPUTERNAME environment variable (Windows) or HOSTNAME (Linux).
     String lComputerName = System.getenv("COMPUTERNAME");
+    if (lComputerName == null)
+    {
+      lComputerName = System.getenv("HOSTNAME");
+    }
+
     if (lComputerName != null)
     {
       try (InputStream lPropStream = new FileInputStream("data/cfg/" + lComputerName + ".properties"))
@@ -112,7 +118,7 @@ public class MachineSpecificConfiguration
     }
     else
     {
-      System.err.println("Failed to identify computer name - no environment variable COMPUTERNAME");
+      System.err.println("Failed to identify computer name - no environment variable COMPUTERNAME or HOSTNAME");
     }
   }
 
