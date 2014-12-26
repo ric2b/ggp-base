@@ -1,6 +1,11 @@
 
 package org.ggp.base.util.gdl.grammar;
 
+/**
+ * A <i>not</i> is a negated <i>literal</i>.
+ *
+ * See {@link Gdl} for a complete description of the GDL hierarchy.
+ */
 @SuppressWarnings("serial")
 public final class GdlNot extends GdlLiteral
 {

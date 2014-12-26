@@ -3,6 +3,13 @@ package org.ggp.base.util.gdl.grammar;
 
 import java.util.List;
 
+/**
+ * A <i>function</i> is a complex <i>term</i> that contains other <i>terms</i>.  It has a name (which is a
+ * <i>constant</i>) and a body consisting of other <i>terms</i>, much like a <i>sentence</i>.  Unlike a <i>sentence</i>,
+ * however, it does not have a truth value.
+ *
+ * See {@link Gdl} for a complete description of the GDL hierarchy.
+ */
 @SuppressWarnings("serial")
 public final class GdlFunction extends GdlTerm
 {
@@ -63,7 +70,7 @@ public final class GdlFunction extends GdlTerm
   }
 
   @Override
-  public GdlSentence toSentence()
+  public GdlRelation toSentence()
   {
     return GdlPool.getRelation(name, body);
   }

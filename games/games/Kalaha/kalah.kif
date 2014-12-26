@@ -63,7 +63,7 @@
 ;;; - The turn marker is an enum (over roles).
 ;;;
 ;;; Note that 'at ?p' is untyped because it's possible for all of these
-;;; propositions to be simultaneously false, so it isn't a one-of.
+;;; propositions to be simultaneously false, so it isn't a 'one-of'.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (type (pit naming int))
 (type (hand naming int))

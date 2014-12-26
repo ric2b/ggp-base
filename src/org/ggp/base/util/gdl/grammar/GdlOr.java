@@ -3,6 +3,12 @@ package org.ggp.base.util.gdl.grammar;
 
 import java.util.List;
 
+/**
+ * An <i>or</i> (deprecated) is a disjunction of <i>literals</i>.  This should no longer appear in valid GDL but is
+ * maintained for back-compatibility.
+ *
+ * See {@link Gdl} for a complete description of the GDL hierarchy.
+ */
 @SuppressWarnings("serial")
 public final class GdlOr extends GdlLiteral
 {

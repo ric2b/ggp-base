@@ -131,19 +131,23 @@ public class OptimizingPolymorphicPropNetFactory
   {
     LOGGER.debug("Building propnet");
 
+    // Perform transformations of the GDL.  Note that some of the later transformations re-run the earlier
+    // transformations.  This is deliberate and is required because some later simplifications allow the earlier
+    // simplifications to be applied again.
     xiDescription = GdlCleaner.run(xiDescription);
     xiDescription = DeORer.run(xiDescription);
     xiDescription = VariableConstrainer.replaceFunctionValuedVariables(xiDescription);
     xiDescription = Relationizer.run(xiDescription);
     xiDescription = CondensationIsolator.run(xiDescription);
 
+    // Trace out the final GDL.
     for (Gdl gdl : xiDescription)
     {
-      LOGGER.trace(gdl);
+      LOGGER.trace(gdl.getClass().getSimpleName() + ": " + gdl);
     }
 
-    //We want to start with a rule graph and follow the rule graph.
-    //Start by finding general information about the game
+    // We want to start with a rule graph and follow the rule graph.  Start by finding general information about the
+    // game.
     SentenceDomainModel model = SentenceDomainModelFactory.createWithCartesianDomains(xiDescription);
 
     //Restrict domains to values that could actually come up in rules.

@@ -3,6 +3,12 @@ package org.ggp.base.util.gdl.grammar;
 
 import java.util.List;
 
+/**
+ * A rule in a GDL description starts with the <= operator, follows it with a <i>sentence</i> (whatever is implied by
+ * the <i>rule</i>) known as the head and then has a body consisting of <i>literals</i>.
+ *
+ * See {@link Gdl} for a complete description of the GDL hierarchy.
+ */
 @SuppressWarnings("serial")
 public final class GdlRule extends Gdl
 {

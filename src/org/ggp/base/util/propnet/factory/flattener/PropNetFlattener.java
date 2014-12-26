@@ -824,15 +824,17 @@ public class PropNetFlattener
   public static void main(String[] args)
   {
     List<Gdl> description = GameRepository.getDefaultRepository().getGame("conn4").getRules();
+    // List<Gdl> description = new LocalGameRepository().getGame("Kalaha").getRules();
 
     PropNetFlattener flattener = new PropNetFlattener(description);
     List<GdlRule> flattened = flattener.flatten();
-    System.out.println("Flattened description for connect four contains: \n" +
-                       flattened.size() + "\n\n");
+    System.out.println("Flattened description contains: " + flattened.size() + " rules.");
 
     List<String> strings = new ArrayList<>();
     for (GdlRule rule : flattened)
+    {
       strings.add(rule.toString());
+    }
     Collections.sort(strings);
 
     for (String s : strings)
