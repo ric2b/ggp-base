@@ -1985,7 +1985,7 @@ public class TreeNode
         if ( choice instanceof TreeEdge )
         {
           TreeEdge edge = (TreeEdge)choice;
-          TreeNode child = (edge.getChildRef() == NULL_REF || edge.hyperSuccessor != null) ? null : get(edge.getChildRef());
+          TreeNode child = (edge.getChildRef() == NULL_REF || edge.isHyperEdge()) ? null : get(edge.getChildRef());
 
           deleteEdge(index);
 

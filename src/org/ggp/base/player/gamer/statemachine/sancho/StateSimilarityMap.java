@@ -268,66 +268,64 @@ public class StateSimilarityMap
         //  We look at all hashes within a Hamming distance of 1 from the original
         hammingCloseHash = hash ^ (1<<nearbyHashIndex);
       }
-
-      int numTopMoves = 0;
-      for(int i = 0; i < numMovesBuffered; i++)
-      {
-        int index = numTopMoves - 1;
-
-        while( index >= 0 && moveValueBuffer[i] > topValues[index] )
-        {
-          index--;
-        }
-
-        if ( ++index < result.length )
-        {
-          for(int j = numTopMoves-1; j > index; j--)
-          {
-            topValues[j] = topValues[j-1];
-            topWeights[j] = topWeights[j-1];
-
-            result[j] = result[j-1];
-          }
-
-          topValues[index] = moveValueBuffer[i];
-          topWeights[index] = moveWeightBuffer[i];
-          result[index] = moveBuffer[i];
-
-          if ( index == numTopMoves )
-          {
-            numTopMoves = index+1;
-          }
-        }
-      }
-
-      int i;
-      double totalWeight = 0;
-      double bestScore = topValues[0];
-      final double ratioToBestCutoff = 0.8;
-
-      for(i = 0; i < numTopMoves; i++)
-      {
-        if ( topValues[i] < ratioToBestCutoff*bestScore )
-        {
-          numTopMoves = i;
-          break;
-        }
-        totalWeight += topWeights[i];
-      }
-      while(i < result.length)
-      {
-        result[i++] = null;
-      }
-
-      if ( numTopMoves > 0 )
-      {
-        totalWeight /= numTopMoves;
-      }
-
-      return (int)(totalWeight);
     }
 
-    return 0;
+    int numTopMoves = 0;
+    for(int i = 0; i < numMovesBuffered; i++)
+    {
+      int index = numTopMoves - 1;
+
+      while( index >= 0 && moveValueBuffer[i] > topValues[index] )
+      {
+        index--;
+      }
+
+      if ( ++index < result.length )
+      {
+        for(int j = numTopMoves-1; j > index; j--)
+        {
+          topValues[j] = topValues[j-1];
+          topWeights[j] = topWeights[j-1];
+
+          result[j] = result[j-1];
+        }
+
+        topValues[index] = moveValueBuffer[i];
+        topWeights[index] = moveWeightBuffer[i];
+        result[index] = moveBuffer[i];
+
+        if ( index == numTopMoves )
+        {
+          numTopMoves = index+1;
+        }
+      }
+    }
+
+    int i;
+    double totalWeight = 0;
+    double bestScore = topValues[0];
+    final double ratioToBestCutoff = 0.8;
+
+    for(i = 0; i < numTopMoves; i++)
+    {
+      if ( topValues[i] < ratioToBestCutoff*bestScore )
+      {
+        numTopMoves = i;
+        break;
+      }
+      totalWeight += topWeights[i];
+    }
+    while(i < result.length)
+    {
+      result[i++] = null;
+    }
+
+    if ( numTopMoves > 0 )
+    {
+      totalWeight /= numTopMoves;
+    }
+
+    return (int)(totalWeight);
   }
 
   private TreeNode getNode(long xiNodeRef)
