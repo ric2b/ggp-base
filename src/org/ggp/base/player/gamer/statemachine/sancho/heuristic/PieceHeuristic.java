@@ -446,7 +446,7 @@ public class PieceHeuristic implements Heuristic
 
     public void finalizePieceValues(int roleIndex)
     {
-      if ( individualPieceTypes.length < MIN_NUM_PIECES )
+      if ( individualPieceTypes != null && individualPieceTypes.length < MIN_NUM_PIECES )
       {
         individualPieceTypes = null;
       }
