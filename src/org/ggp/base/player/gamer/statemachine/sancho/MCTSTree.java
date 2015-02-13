@@ -29,6 +29,7 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine.MoveWeights;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.StateMachineFilter;
 
 public class MCTSTree
@@ -67,6 +68,11 @@ public class MCTSTree
    * Whether to use UCB tuned as opposed to simple UCB
    */
   public final boolean                                 USE_UCB_TUNED;
+
+  /**
+   * Coefficient to apply to dependency distance heuristic
+   */
+  public final double                                  DEPENDENCY_HEURISTIC_STRENGTH;
 
   static final short  MAX_HYPER_RECURSION_DEPTH = 3;
 
@@ -110,6 +116,7 @@ public class MCTSTree
   long                                                 cousinMovesCachedFor                        = TreeNode.NULL_REF;
   final double[]                                       roleRationality;
   final double[]                                       bonusBuffer;
+  final MoveWeights                                    weightsToUse;
   final int[]                                          latchedScoreRangeBuffer                     = new int[2];
   final int[]                                          roleMaxScoresBuffer;
   long                                                 numCompletionsProcessed                     = 0;
@@ -285,6 +292,8 @@ public class MCTSTree
       LOGGER.info("Early cutoff depth: " + mWeightDecayCutoffDepth);
     }
 
+    DEPENDENCY_HEURISTIC_STRENGTH = ((double)MachineSpecificConfiguration.getCfgVal(CfgItem.DEPENDENCY_HEURISTIC_STRENGTH, 0))/10000;
+
     roleOrdering = xiRoleOrdering;
     mOurRole = xiRoleOrdering.roleIndexToRole(0);
     heuristic = xiHeuristic;
@@ -324,6 +333,7 @@ public class MCTSTree
     bonusBuffer = new double[numRoles];
     roleRationality = new double[numRoles];
     roleMaxScoresBuffer = new int[numRoles];
+    weightsToUse = xiStateMachine.createMoveWeights();
 
     //  For now assume players in muli-player games are somewhat irrational.
     //  FUTURE - adjust during the game based on correlations with expected

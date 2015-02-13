@@ -92,7 +92,12 @@ public class MachineSpecificConfiguration
     /**
      * Whether to use UCB tuned or just UCB (default is true)
      */
-    USE_UCB_TUNED;
+    USE_UCB_TUNED,
+
+    /**
+     * Coefficient applied to the dependency distance heuristic
+     */
+    DEPENDENCY_HEURISTIC_STRENGTH;
   }
 
   private static final Properties MACHINE_PROPERTIES = new Properties();

@@ -73,6 +73,7 @@ public class TreeEdge
   TreeEdge                      hyperSuccessor       = null;
   long                          nextHyperChild       = TreeNode.NULL_REF;
 
+  double                        moveWeight = 0;
 
   /**
    * Create a tree edge.
@@ -320,5 +321,6 @@ public class TreeEdge
     mFlags = 0;
     hyperSuccessor = null;
     nextHyperChild = TreeNode.NULL_REF;
+    moveWeight = 0;
   }
 }

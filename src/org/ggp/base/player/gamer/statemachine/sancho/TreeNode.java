@@ -9,6 +9,8 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -3255,6 +3257,8 @@ public class TreeNode
 
       assert(linkageValid());
 
+      //calculatePathMoveWeights(fullPathTo);
+
       if ( tree.heuristic.isEnabled() && (tree.removeNonDecisionNodes || roleIndex == tree.numRoles - 1) )
       {
         // Determine the appropriate reference node to evaluate children with respect to
@@ -3645,12 +3649,12 @@ public class TreeNode
                                     roleAverageScore) /
                                     10000 +
                                     Math.sqrt(lVarianceExploration);
-      result = tree.gameCharacteristics.getExplorationBias() *
+      result = getExplorationBias(edge) *
           Math.sqrt(Math.min(0.25, varianceBound) * lUcbExploration) / tree.roleRationality[roleIndex];
     }
     else
     {
-      result = tree.gameCharacteristics.getExplorationBias() *
+      result = getExplorationBias(edge) *
           Math.sqrt(lUcbExploration) / tree.roleRationality[roleIndex];
     }
 
@@ -3742,10 +3746,34 @@ public class TreeNode
     return accumulatedMoveInfo.averageScores[roleIndex];
   }
 
+  private double getExplorationBias(TreeEdge moveEdge)
+  {
+    double result = tree.gameCharacteristics.getExplorationBias();
+
+//    if ( moveEdge.moveWeight != 0 )
+//    {
+//      result *= (1 + moveEdge.moveWeight/25);
+//    }
+
+    return result;
+  }
+
+  private double sigma(double x)
+  {
+    return 1/(1+Math.exp(-x));
+  }
+
+  private double heuristicUCT(TreeEdge moveEdge)
+  {
+    //return tree.DEPENDENCY_HEURISTIC_STRENGTH*moveEdge.moveWeight/(numVisits+1);
+    //return tree.DEPENDENCY_HEURISTIC_STRENGTH*moveEdge.moveWeight/Math.sqrt(moveEdge.getNumChildVisits()+1);
+    return tree.DEPENDENCY_HEURISTIC_STRENGTH*moveEdge.moveWeight*sigma(-moveEdge.getNumChildVisits()/20);
+  }
+
   private double exploitationUCT(TreeEdge inboundEdge, int roleIndex)
   {
     //  Force selection of a pseudo-noop as an immediate child of the
-    //  root aas much as the best scoring node as there is a 50-50 chance we'll need to pass
+    //  root as much as the best scoring node as there is a 50-50 chance we'll need to pass
     //  on this factor (well strictly (#factors-1)/#factors but 1:1 is good
     //  enough), so we need good estimates on the score for the pseudo-noop
     if (inboundEdge.mPartialMove.isPseudoNoOp && this == tree.root)
@@ -3785,23 +3813,6 @@ public class TreeNode
 
     double result = lInboundChild.getAverageScore(roleIndex) / 100;// + heuristicValue()/Math.log(numVisits+2);// + averageSquaredScore/20000;
 
-//    if (lInboundChild.heuristicValue != 0)
-//    {
-//      double applicableValue = (lInboundChild.heuristicValue > 50 ? lInboundChild.heuristicValue : 100 - lInboundChild.heuristicValue);
-//      double heuristicAdjustedValue;
-//
-//      if ((heuristicValue > 50) == (roleIndex == 0))
-//      {
-//        heuristicAdjustedValue = result + (1 - result) * (applicableValue - 50) / 50;
-//      }
-//      else
-//      {
-//        heuristicAdjustedValue = result - (result) * (applicableValue - 50) / 50;
-//      }
-//
-//      result = (result*lInboundChild.numUpdates + 50*heuristicAdjustedValue)/(lInboundChild.numUpdates+50);
-//    }
-
     return result;
   }
 
@@ -3813,7 +3824,7 @@ public class TreeNode
   //  visit to a child whose value was the same as that of the parent - i.e. - we start from
   //  the assumption that the best estimate of a child node's value without any play-throughs
   //  is the same as that of its parent
-  private double unexpandedChildUCTValue(int roleIndex, double explorationAmplifier)
+  private double unexpandedChildUCTValue(int roleIndex, TreeEdge edge)
   {
     if ( tree.useEstimatedValueForUnplayedNodes )
     {
@@ -3822,14 +3833,19 @@ public class TreeNode
 
       double varianceBound = Math.sqrt(lCommon);
       double explorationTerm = tree.gameCharacteristics.getExplorationBias() *
-             Math.sqrt(Math.min(0.5, varianceBound) * lCommon) *
-             (1+explorationAmplifier);
+             Math.sqrt(Math.min(0.5, varianceBound) * lCommon);
+
+      if ( edge != null )
+      {
+        explorationTerm *= (1 + edge.explorationAmplifier);
+        explorationTerm += heuristicUCT(edge);
+      }
 
       return explorationTerm + getAverageScore(roleIndex)/100 + tree.r.nextDouble() * EPSILON;
     }
 
     //  Else use standard MCTS very high values for unplayed
-    return 1000 + tree.r.nextDouble() * EPSILON + explorationAmplifier;
+    return 1000 + tree.r.nextDouble() * EPSILON + (edge == null ? 0 : edge.explorationAmplifier);
   }
 
   private void normalizeScores(boolean bTrace)
@@ -4012,6 +4028,8 @@ public class TreeNode
 
       if (selectedIndex == -1)
       {
+        calculatePathMoveWeights(path);
+
         if ( tree.USE_NODE_SCORE_NORMALIZATION && numVisits > 500 && (numVisits&0xff) == 0xff )
         {
           normalizeScores(false);
@@ -4065,7 +4083,7 @@ public class TreeNode
 
                 if (c.numVisits == 0 && !c.complete)
                 {
-                  uctValue = unexpandedChildUCTValue(roleIndex, edge.explorationAmplifier);
+                  uctValue = unexpandedChildUCTValue(roleIndex, edge);
                 }
                 else
                 {
@@ -4078,7 +4096,8 @@ public class TreeNode
                   //  'corrected' parent visit count obtained by summing the number of visits to all
                   //  the child's parents)
                   uctValue = explorationUCT(numVisits, edge, roleIndex) +
-                             exploitationUCT(edge, roleIndex);
+                             exploitationUCT(edge, roleIndex) +
+                             heuristicUCT(edge);
                 }
 
                 if (uctValue >= mostLikelyRunnerUpValue)
@@ -4152,7 +4171,7 @@ public class TreeNode
 
                     if (c.numVisits == 0)
                     {
-                      uctValue = unexpandedChildUCTValue(roleIndex, edge.explorationAmplifier);
+                      uctValue = unexpandedChildUCTValue(roleIndex, edge);
                     }
                     else
                     {
@@ -4176,7 +4195,8 @@ public class TreeNode
                                              : explorationUCT(numVisits,
                                                               edge,
                                                               roleIndex)) +
-                                 exploitationUCT(edge, roleIndex);
+                                 exploitationUCT(edge, roleIndex) +
+                                 heuristicUCT(edge);
                     }
 
                     //  If the node we most want to select through is complete (or all its
@@ -4218,7 +4238,7 @@ public class TreeNode
 
                   //  A null child ref in an extant edge is a not-yet selected through
                   //  path which is asserted to be non-terminal and unvisited
-                  uctValue = unexpandedChildUCTValue(roleIndex, edge == null ? 0 : edge.explorationAmplifier);
+                  uctValue = unexpandedChildUCTValue(roleIndex, edge);
 
                   if (uctValue > bestValue)
                   {
@@ -5302,6 +5322,206 @@ public class TreeNode
     }
 
     return System.nanoTime() - lStartTime;
+  }
+
+  private static Pattern C4MoveColumnMatchPattern = Pattern.compile("drop (\\d+)");
+  private static Pattern BrkthruMoveCellMatchPattern = Pattern.compile("move (\\d+) (\\d+) (\\d+) (\\d+)");
+  private static Pattern HexMoveCellMatchPattern = Pattern.compile("place ([abcdefghi]) (\\d+)");
+
+  private static double[][] moveDistances = null;
+
+  private double[][] generateMoveDistanceMatrix()
+  {
+    ForwardDeadReckonLegalMoveInfo[] masterMoveList = tree.underlyingStateMachine.getFullPropNet().getMasterMoveList();
+    double[][] result = new double[masterMoveList.length][masterMoveList.length];
+
+    for(int fromIndex = 0; fromIndex < masterMoveList.length; fromIndex++)
+    {
+      int locusColumn = -1;
+      int locusX = -1;
+      int locusY = -1;
+
+      Pattern pattern = null;
+      String moveName = masterMoveList[fromIndex].move.toString();
+      Matcher lMatcher = C4MoveColumnMatchPattern.matcher(moveName);
+      if (!lMatcher.find() )
+      {
+        lMatcher = BrkthruMoveCellMatchPattern.matcher(moveName);
+        if (!lMatcher.find() )
+        {
+          lMatcher = HexMoveCellMatchPattern.matcher(moveName);
+          if ( lMatcher.find() )
+          {
+            pattern = HexMoveCellMatchPattern;
+
+            String locusCellX = lMatcher.group(1);
+            String locusCellY = lMatcher.group(2);
+            locusX = locusCellX.charAt(0) - 'a';
+            locusY = Integer.parseInt(locusCellY);
+          }
+          else
+          {
+            lMatcher = null;
+          }
+        }
+        else
+        {
+          pattern = BrkthruMoveCellMatchPattern;
+
+          String locusTargetCellX = lMatcher.group(3);
+          String locusTargetCellY = lMatcher.group(4);
+          locusX = Integer.parseInt(locusTargetCellX);
+          locusY = Integer.parseInt(locusTargetCellY);
+        }
+      }
+      else
+      {
+        pattern = C4MoveColumnMatchPattern;
+
+        String locusColumnName = lMatcher.group(1);
+        locusColumn = Integer.parseInt(locusColumnName);
+      }
+
+      for(int toIndex = 0; toIndex < masterMoveList.length; toIndex++)
+      {
+        if (pattern == null )
+        {
+          result[fromIndex][toIndex] = 0;
+        }
+        else
+        {
+          moveName = masterMoveList[toIndex].move.toString();
+          if ( moveName != "noop" )
+          {
+            lMatcher = pattern.matcher(moveName);
+            if (lMatcher.find() )
+            {
+              int distance = -1;
+
+              if ( pattern == C4MoveColumnMatchPattern )
+              {
+                assert(locusColumn != -1);
+                String moveColumnName = lMatcher.group(1);
+                int moveColumn = Integer.parseInt(moveColumnName);
+                distance = Math.abs(moveColumn-locusColumn) - 2;
+
+                if ( distance < 0 )
+                {
+                  distance = 0;
+                }
+              }
+              else if ( pattern == BrkthruMoveCellMatchPattern )
+              {
+                assert(locusX != -1);
+                assert(locusY!= -1);
+
+                String moveSourceCellX = lMatcher.group(1);
+                String moveSourceCellY = lMatcher.group(2);
+                String moveTargetCellX = lMatcher.group(3);
+                String moveTargetCellY = lMatcher.group(4);
+                int sourceX = Integer.parseInt(moveSourceCellX);
+                int sourceY = Integer.parseInt(moveSourceCellY);
+                int sourceDistance = Math.max(Math.abs(sourceX-locusX), Math.abs(sourceY-locusY));
+                int targetX = Integer.parseInt(moveTargetCellX);
+                int targetY = Integer.parseInt(moveTargetCellY);
+                int targetDistance = Math.max(Math.abs(targetX-locusX), Math.abs(targetY-locusY));
+
+                distance = Math.min(sourceDistance, targetDistance);
+              }
+              else if ( pattern == HexMoveCellMatchPattern )
+              {
+                assert(locusX != -1);
+                assert(locusY!= -1);
+
+                String moveCellX = lMatcher.group(1);
+                String moveCellY = lMatcher.group(2);
+                int moveX = moveCellX.charAt(0) - 'a';
+                int moveY = Integer.parseInt(moveCellY);
+
+                distance = Math.max(Math.abs(moveX-locusX), Math.abs(moveY-locusY));
+              }
+
+              assert(distance >= 0);
+
+              result[fromIndex][toIndex] = 100*Math.exp(-distance);
+            }
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  public void calculatePathMoveWeights(TreePath path)
+  {
+    if ( path != null )
+    {
+      if ( moveDistances == null )
+      {
+        moveDistances = generateMoveDistanceMatrix();
+      }
+
+      int skipCount = 0;
+      int includeCount = 2;
+
+      path.resetCursor();
+      while(path.hasMore() && includeCount > 0)
+      {
+        // Get the edge in the path.  If this returns null, the path has become invalid at this point.
+        path.getNextNode();
+        assert(path.getCurrentElement() != null);
+
+        TreeEdge lEdge = path.getCurrentElement().getEdge();
+        if (lEdge == null)
+        {
+          break;
+        }
+
+        if ( skipCount-- <= 0 )
+        {
+          includeCount--;
+
+          int fromMoveIndex = lEdge.mPartialMove.masterIndex;
+
+          for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
+          {
+            if ((primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) )
+            {
+              Object choice = children[lMoveIndex];
+
+              //  Skip this for pseudo-noops since we don't want to expand them except when they are immediate
+              //  children of the root (and in that case their heuristic value is the same as the root's)
+              if ( ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice).isPseudoNoOp )
+              {
+                continue;
+              }
+
+              TreeEdge edge = null;
+              if ( children[lMoveIndex] instanceof TreeEdge )
+              {
+                edge = (TreeEdge)children[lMoveIndex];
+              }
+              else
+              {
+                edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
+                edge.setParent(this, (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex]);
+                children[lMoveIndex] = edge;
+              }
+
+              assert(edge!=null);
+
+              if ( skipCount == -1 )
+              {
+                edge.moveWeight = 1;
+              }
+
+              edge.moveWeight += moveDistances[fromMoveIndex][edge.mPartialMove.masterIndex];
+            }
+          }
+        }
+      }
+      path.resetCursor();
+    }
   }
 
   /**
