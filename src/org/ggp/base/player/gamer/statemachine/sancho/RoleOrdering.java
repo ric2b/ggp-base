@@ -30,6 +30,10 @@ public class RoleOrdering
     int rawRoleIndex = 0;
     for (Role role : underlyingStateMachine.getRoles())
     {
+      if ( ourRole == null )
+      {
+        ourRole = role;
+      }
       if (role.equals(ourRole))
       {
         roleOrderMap[0] = rawRoleIndex;

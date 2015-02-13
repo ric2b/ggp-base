@@ -247,6 +247,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
     }
 
+    public void setWeight(int moveIndex, double weight)
+    {
+        weightScore[moveIndex] = weight;
+    }
+
     public MoveWeights copy()
     {
       MoveWeights result = new MoveWeights(weightSize, averageScores.length);
@@ -1639,36 +1644,39 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //   now.
       long factorizationAnalysisTimeout = (metagameTimeout - System.currentTimeMillis()) / 2;
 
-      if ((mGameCharacteristics.getNumFactors() != 1) &&
-          (factorizationAnalysisTimeout > mGameCharacteristics.getMaxFactorFailureTime() * 1.25))
+      if (mGameCharacteristics != null )
       {
-        FactorAnalyser factorAnalyser = new FactorAnalyser(this);
-        factors = factorAnalyser.analyse(factorizationAnalysisTimeout, mGameCharacteristics);
-
-        if (factors != null)
+        if ((mGameCharacteristics.getNumFactors() != 1) &&
+            (factorizationAnalysisTimeout > mGameCharacteristics.getMaxFactorFailureTime() * 1.25))
         {
-          LOGGER.info("Game appears to factorize into " + factors.size() + " factors");
-        }
+          FactorAnalyser factorAnalyser = new FactorAnalyser(this);
+          factors = factorAnalyser.analyse(factorizationAnalysisTimeout, mGameCharacteristics);
 
-        mNonControlMask = new ForwardDeadReckonInternalMachineState(masterInfoSet);
-
-        if (factorAnalyser.getControlProps() != null)
-        {
-          for (PolymorphicProposition p : factorAnalyser.getControlProps())
+          if (factors != null)
           {
-            ForwardDeadReckonPropositionInfo info = ((ForwardDeadReckonProposition)p).getInfo();
-
-            mNonControlMask.add(info);
+            LOGGER.info("Game appears to factorize into " + factors.size() + " factors");
           }
-        }
 
-        mNonControlMask.invert();
-      }
-      else
-      {
-        LOGGER.info("Not attempting to factor this game.  Previous attempted showed " +
-                    mGameCharacteristics.getNumFactors() + " factor(s) in " +
-                    mGameCharacteristics.getMaxFactorFailureTime() + "ms.");
+          mNonControlMask = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+
+          if (factorAnalyser.getControlProps() != null)
+          {
+            for (PolymorphicProposition p : factorAnalyser.getControlProps())
+            {
+              ForwardDeadReckonPropositionInfo info = ((ForwardDeadReckonProposition)p).getInfo();
+
+              mNonControlMask.add(info);
+            }
+          }
+
+          mNonControlMask.invert();
+        }
+        else
+        {
+          LOGGER.info("Not attempting to factor this game.  Previous attempted showed " +
+                      mGameCharacteristics.getNumFactors() + " factor(s) in " +
+                      mGameCharacteristics.getMaxFactorFailureTime() + "ms.");
+        }
       }
 
       for (ForwardDeadReckonPropositionInfo info : masterInfoSet)
@@ -2980,21 +2988,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       return totalRoleoutChoices / totalRoleoutNodesExamined;
     }
     return 0;
-  }
-
-  private String mungedState(ForwardDeadReckonInternalMachineState state)
-  {
-    StringBuilder sb = new StringBuilder();
-
-    for (GdlSentence s : state.getMachineState().getContents())
-    {
-      if (s.toString().contains("wn"))
-      {
-        sb.append(s.toString());
-      }
-    }
-
-    return sb.toString();
   }
 
   private Set<ForwardDeadReckonProposition> terminatingMoveProps             = new HashSet<>();
