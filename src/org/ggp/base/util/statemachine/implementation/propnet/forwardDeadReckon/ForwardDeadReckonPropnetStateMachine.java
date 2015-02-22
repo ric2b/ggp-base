@@ -440,6 +440,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     {
       if ( System.currentTimeMillis() > timeout )
       {
+        mPositiveGoalLatches = null;
+        mNegativeGoalLatches = null;
         return;
       }
 
