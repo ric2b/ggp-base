@@ -824,6 +824,7 @@ public class MCTSTree
     numNonTerminalRollouts = 0;
     numTerminalRollouts = 0;
 
+    //root.dumpTree("treeDump.txt");
     return bestMoveInfo;
   }
 
