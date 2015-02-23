@@ -150,9 +150,10 @@ public class OptimizingPolymorphicPropNetFactory
     // game.
     SentenceDomainModel model = SentenceDomainModelFactory.createWithCartesianDomains(xiDescription);
 
-    //Restrict domains to values that could actually come up in rules.
-    //See chinesecheckers4's "count" relation for an example of why this
-    //could be useful.
+    // Restrict domains to values that could actually come up in rules.  See the "toCount" relation in
+    // base.chinesecheckers4 for an example of why this could be useful.  When used in the body of rules as
+    // {@code (toCount ?player ?x ?y ?z)}, this relation has 4 * 37 * 37 * 37 (i.e. 202,612) possible sets of arguments.
+    // However, of those, only 4 can ever be true!
     model = SentenceDomainModelOptimizer.restrictDomainsToUsefulValues(model);
 
     LOGGER.trace("Setting constants...");
