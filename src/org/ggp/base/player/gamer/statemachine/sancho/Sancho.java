@@ -63,7 +63,7 @@ public class Sancho extends SampleGamer
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
-  public Role                         ourRole;
+  private Role                        ourRole;
   private int                         mTurn                           = 0;
   private String                      planString                      = null;
   private GamePlan                    plan                            = null;
@@ -81,6 +81,7 @@ public class Sancho extends SampleGamer
   private GameSearcher                searchProcessor                 = null;
   private String                      mLogName                        = null;
   private SystemStatsLogger           mSysStatsLogger                 = null;
+  private Move                        mLastMove                       = null;
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
@@ -962,6 +963,17 @@ public class Sancho extends SampleGamer
 
     searchProcessor.requestYield(true);
 
+    // Check that the last move as reported by the server is the same that was sent.  Flag up if they differ because
+    // there has obviously been some communication problem.
+    if (mLastMove != null)
+    {
+      Move lLastMove = new Move(getMatch().getMostRecentMoves().get(roleOrdering.getOurRawRoleIndex()));
+      if (!mLastMove.equals(lLastMove))
+      {
+        LOGGER.error("Wrong move recorded!  Submitted move was " + mLastMove + " but the server reported " + lLastMove);
+      }
+    }
+
     LOGGER.debug("Calculating current state");
 
     synchronized (searchProcessor.getSerializationObject())
@@ -1053,6 +1065,9 @@ public class Sancho extends SampleGamer
       LOGGER.error("NO MOVE FOUND!");
       System.exit(0);
     }
+
+    mLastMove = bestMove;
+
     /**
      * These are functions used by other parts of the GGP codebase You
      * shouldn't worry about them, just make sure that you have moves,
@@ -1152,6 +1167,7 @@ public class Sancho extends SampleGamer
     plan                         = null;
     roleOrdering                 = null;
     underlyingStateMachine       = null;
+    mLastMove                    = null;
 
     // Get our parent to tidy up too.
     cleanupAfterMatch();

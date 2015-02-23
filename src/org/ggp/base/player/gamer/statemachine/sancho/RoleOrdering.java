@@ -9,6 +9,8 @@ public class RoleOrdering
   private final Role[] reorderedRoles;
   private final int[]  roleOrderMap;
   private final int[]  inverseRoleOrderMap;
+  private final Role   mOurRole;
+  private final int    mOurRawRoleIndex;
 
   /**
    * Construct a role ordering instance.  This is used to map
@@ -25,7 +27,9 @@ public class RoleOrdering
     roleOrderMap = new int[numRoles];
     inverseRoleOrderMap = new int[numRoles];
     reorderedRoles[0] = ourRole;
+    mOurRole = ourRole;
 
+    int lOurRawRoleIndex = -1;
     int roleIndex = 1;
     int rawRoleIndex = 0;
     for (Role role : underlyingStateMachine.getRoles())
@@ -36,6 +40,7 @@ public class RoleOrdering
       }
       if (role.equals(ourRole))
       {
+        lOurRawRoleIndex = rawRoleIndex;
         roleOrderMap[0] = rawRoleIndex;
         inverseRoleOrderMap[rawRoleIndex] = 0;
       }
@@ -47,6 +52,9 @@ public class RoleOrdering
       }
       rawRoleIndex++;
     }
+
+    assert(lOurRawRoleIndex != -1);
+    mOurRawRoleIndex = lOurRawRoleIndex;
   }
 
   /**
@@ -62,7 +70,7 @@ public class RoleOrdering
   /**
    * Convert a role to a (logical) role index
    * @param xiRole
-   * @return correspond ing logical index
+   * @return corresponding logical index
    */
   public int roleToRoleIndex(Role xiRole)
   {
@@ -97,5 +105,21 @@ public class RoleOrdering
   public int rawRoleIndexToRoleIndex(int rawRoleIndex)
   {
     return inverseRoleOrderMap[rawRoleIndex];
+  }
+
+  /**
+   * @return our role.
+   */
+  public Role getOurRole()
+  {
+    return mOurRole;
+  }
+
+  /**
+   * @return our (raw) role index.  Note that our logical role index is always 0.
+   */
+  public int getOurRawRoleIndex()
+  {
+    return mOurRawRoleIndex;
   }
 }
