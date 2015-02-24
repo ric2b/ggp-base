@@ -1617,7 +1617,13 @@ public class OptimizingPolymorphicPropNetFactory
     //  Initially just mark the components on which OUR goals depend if we have been given our role
     //  Don't try this if we only have a single goal value anyway - this is some stupid test game not
     //  a real game!
-    if ( ourRole != null && pn.getGoalPropositions().get(ourRole).length > 1 )
+    PolymorphicProposition[] lOurGoals = pn.getGoalPropositions().get(ourRole);
+    if (lOurGoals == null)
+    {
+      LOGGER.error("Invalid GDL.  No goals defined for our role (" + ourRole + ")!  We will crash.");
+    }
+
+    if ((ourRole != null) && (lOurGoals != null) && (lOurGoals.length > 1))
     {
       Set<PolymorphicComponent> coreReachableComponents = new HashSet<>();
 
