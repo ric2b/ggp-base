@@ -81,7 +81,7 @@
 (<= (init (pit ?p s3))
   (normalpit ?p))
 
-(<= (init (pit ?p s3))
+(<= (init (pit ?p s0))
   (scoringpit ?r ?p))
 
 (<= (init (hand ?r s0))
