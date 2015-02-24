@@ -41,8 +41,7 @@ public class ProverStateMachineTests extends Assert
     GdlConstant O_PLAYER = GdlPool.getConstant("oplayer");
     Role xRole = new Role(X_PLAYER);
     Role oRole = new Role(O_PLAYER);
-    List<Role> roles = Arrays.asList(xRole, oRole);
-    assertEquals(roles, sm.getRoles());
+    assertTrue(Arrays.equals(sm.getRoles(), new Role[] {xRole, oRole}));
 
     assertEquals(9, sm.getLegalJointMoves(state).size());
     assertEquals(9, sm.getLegalMoves(state, xRole).size());

@@ -2034,12 +2034,35 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   }
 
   /**
-   * Retrieve a reference to the underlying full propnet
-   * @return the underlying full propnet
+   * @return the underlying full propnet.
    */
   public ForwardDeadReckonPropNet getFullPropNet()
   {
     return fullPropNet;
+  }
+
+  /**
+   * @return the underlying goal propnet.
+   */
+  public ForwardDeadReckonPropNet getGoalPropNet()
+  {
+    return goalsNet;
+  }
+
+  /**
+   * @return the underlying goal-less X-net.
+   */
+  public ForwardDeadReckonPropNet getXPropNet()
+  {
+    return propNetXWithoutGoals;
+  }
+
+  /**
+   * @return the underlying goal-less O-net.
+   */
+  public ForwardDeadReckonPropNet getOPropNet()
+  {
+    return propNetOWithoutGoals;
   }
 
   /**
