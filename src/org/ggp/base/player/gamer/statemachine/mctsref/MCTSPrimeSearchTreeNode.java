@@ -147,7 +147,7 @@ public class MCTSPrimeSearchTreeNode extends SearchTreeNode
         }
       }
 
-      System.out.println("weigth total = " + weightTotal);
+      System.out.println("weight total = " + weightTotal);
 
       assert(weightTotal > 0);
       for(int i = 0; i < scoreVector.length; i++)

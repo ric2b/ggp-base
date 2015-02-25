@@ -1,6 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.mctsref;
 
-import org.ggp.base.player.gamer.exception.GamePreviewException;
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.ThreadControl;
 import org.ggp.base.util.game.Game;
@@ -89,7 +88,7 @@ public class ARRGamer extends StateMachineGamer
   }
 
   @Override
-  public void preview(Game xiG, long xiTimeout) throws GamePreviewException
+  public void preview(Game xiG, long xiTimeout)
   {
     // TODO Auto-generated method stub
 

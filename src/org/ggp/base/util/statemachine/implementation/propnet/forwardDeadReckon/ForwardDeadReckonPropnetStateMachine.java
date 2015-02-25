@@ -1675,7 +1675,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
         else
         {
-          LOGGER.info("Not attempting to factor this game.  Previous attempted showed " +
+          LOGGER.info("Not attempting to factor this game.  Previous attempt showed " +
                       mGameCharacteristics.getNumFactors() + " factor(s) in " +
                       mGameCharacteristics.getMaxFactorFailureTime() + "ms.");
         }
