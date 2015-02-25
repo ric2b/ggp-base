@@ -5,6 +5,7 @@
               directory with the processing instruction <?eclipse.ant.import?>
               as the first entry and export the buildfile again. --><project basedir="." default="build" name="GGP">
     <property environment="env"/>
+    <property name="junit.output.dir" value="junit"/>
     <property name="debuglevel" value="source,lines,vars"/>
     <property name="target" value="1.7"/>
     <property name="source" value="1.7"/>
@@ -38,16 +39,19 @@
         <mkdir dir="bin"/>
         <copy includeemptydirs="false" todir="bin">
             <fileset dir="src">
+                <exclude name="**/*.launch"/>
                 <exclude name="**/*.java"/>
             </fileset>
         </copy>
         <copy includeemptydirs="false" todir="bin">
             <fileset dir="src_py">
+                <exclude name="**/*.launch"/>
                 <exclude name="**/*.java"/>
             </fileset>
         </copy>
         <copy includeemptydirs="false" todir="bin">
             <fileset dir="src_clj">
+                <exclude name="**/*.launch"/>
                 <exclude name="**/*.java"/>
             </fileset>
         </copy>
@@ -135,5 +139,21 @@
         <java classname="org.ggp.base.apps.utilities.WaitTimings" failonerror="true" fork="yes">
             <classpath refid="GGP.classpath"/>
         </java>
+    </target>
+    <target name="AllTests">
+        <mkdir dir="${junit.output.dir}"/>
+        <junit fork="yes" printsummary="withOutAndErr">
+            <formatter type="xml"/>
+            <test name="org.ggp.base.test.AllTests" todir="${junit.output.dir}"/>
+            <classpath refid="GGP.classpath"/>
+        </junit>
+    </target>
+    <target name="junitreport">
+        <junitreport todir="${junit.output.dir}">
+            <fileset dir="${junit.output.dir}">
+                <include name="TEST-*.xml"/>
+            </fileset>
+            <report format="frames" todir="${junit.output.dir}"/>
+        </junitreport>
     </target>
 </project>
