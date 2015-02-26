@@ -1,15 +1,11 @@
 package org.ggp.base.player.gamer.statemachine.mctsref;
 
-import org.ggp.base.player.gamer.exception.GamePreviewException;
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.ThreadControl;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.StateMachine;
-import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
-import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 public class MctsRefGamer extends StateMachineGamer
@@ -34,16 +30,12 @@ public class MctsRefGamer extends StateMachineGamer
 
   @Override
   public void stateMachineMetaGame(long xiTimeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
   {
     tree = new BasicMCTSSearchTree(underlyingStateMachine);
   }
 
   @Override
   public Move stateMachineSelectMove(long xiTimeout)
-      throws TransitionDefinitionException, MoveDefinitionException,
-      GoalDefinitionException
   {
     long finishBy = xiTimeout - SAFETY_MARGIN;// + 100000000;
     int iterations = 0;
@@ -79,7 +71,7 @@ public class MctsRefGamer extends StateMachineGamer
   }
 
   @Override
-  public void preview(Game xiG, long xiTimeout) throws GamePreviewException
+  public void preview(Game xiG, long xiTimeout)
   {
     // TODO Auto-generated method stub
 

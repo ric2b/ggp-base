@@ -6,14 +6,23 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 public class ARRSearchTree extends SearchTree
 {
 
+  boolean mSuppressBackProp = false;
+
   public ARRSearchTree(ForwardDeadReckonPropnetStateMachine xiStateMachine)
   {
     super(xiStateMachine);
   }
 
   @Override
-  protected SearchTreeNode createRootTreeNode(ForwardDeadReckonInternalMachineState xiRootState)
+  protected SearchTreeNode<ARRSearchTree> createRootTreeNode(ForwardDeadReckonInternalMachineState xiRootState)
   {
     return new ARRSearchTreeNode(this, xiRootState, 0);
+  }
+
+  @Override
+  public void grow()
+  {
+    mSuppressBackProp = false;
+    super.grow();
   }
 }

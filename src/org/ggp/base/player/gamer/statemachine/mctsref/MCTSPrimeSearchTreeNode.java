@@ -16,7 +16,7 @@ public class MCTSPrimeSearchTreeNode extends SearchTreeNode
   }
 
   @Override
-  void updateScore(SearchTreeNode xiChild, double[] xiPlayoutResult)
+  protected void updateScore(SearchTreeNode xiChild, double[] xiPlayoutResult)
   {
     updateScoreNormalDistAllCompare(xiChild, xiPlayoutResult);
   }
