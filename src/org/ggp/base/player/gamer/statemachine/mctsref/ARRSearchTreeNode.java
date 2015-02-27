@@ -29,7 +29,7 @@ public class ARRSearchTreeNode extends SearchTreeNode<ARRSearchTree>
     for(int i = 0; i < children.length; i++)
     {
       SearchTreeNode<ARRSearchTree> child = children[i];
-      double lExploitationScore = exploitationScore(child);
+      double lExploitationScore = lowerBound(child);
 
       if (lExploitationScore > lBestExploitationScore)
       {
@@ -42,12 +42,32 @@ public class ARRSearchTreeNode extends SearchTreeNode<ARRSearchTree>
 
     // If the exploitation value of the selected child isn't sufficiently large, assume that it wouldn't be chosen and
     // block back-prop at this point.
-    if (exploitationScore(lSelected) < (lBestExploitationScore - 0.02))
+    if (upperBound(lSelected) < lBestExploitationScore)
     {
       mStopBackPropHere = true;
     }
 
     return lSelected;
+  }
+
+  private double lowerBound(SearchTreeNode<ARRSearchTree> xiChild)
+  {
+    if (xiChild.numVisits == 0)
+    {
+      return 0;
+    }
+
+    return exploitationScore(xiChild) - (1 / Math.sqrt(4 * xiChild.numVisits));
+  }
+
+  private double upperBound(SearchTreeNode<ARRSearchTree> xiChild)
+  {
+    if (xiChild.numVisits == 0)
+    {
+      return 1;
+    }
+
+    return exploitationScore(xiChild) + (1 / Math.sqrt(4 * xiChild.numVisits));
   }
 
   @Override
@@ -59,6 +79,7 @@ public class ARRSearchTreeNode extends SearchTreeNode<ARRSearchTree>
       return;
     }
 
+    numVisits++;
     for(int i = 0; i < scoreVector.length; i++)
     {
       scoreVector[i] = (scoreVector[i]*numVisits + playoutResult[i])/(numVisits+1);
