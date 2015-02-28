@@ -79,11 +79,11 @@ public class ARRSearchTreeNode extends SearchTreeNode<ARRSearchTree>
       return;
     }
 
-    numVisits++;
     for(int i = 0; i < scoreVector.length; i++)
     {
       scoreVector[i] = (scoreVector[i]*numVisits + playoutResult[i])/(numVisits+1);
     }
+    numVisits++;
   }
 
   @Override

@@ -14,11 +14,11 @@ public class BasicMCTSSearchTreeNode extends SearchTreeNode<BasicMCTSSearchTree>
   @Override
   protected void updateScore(SearchTreeNode<BasicMCTSSearchTree> xiChild, double[] playoutResult)
   {
-    numVisits++;
     for(int i = 0; i < scoreVector.length; i++)
     {
       scoreVector[i] = (scoreVector[i]*numVisits + playoutResult[i])/(numVisits+1);
     }
+    numVisits++;
   }
 
   @Override
