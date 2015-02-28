@@ -2,9 +2,11 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -20,6 +22,8 @@ import org.ggp.base.player.gamer.statemachine.sancho.heuristic.GoalsStabilityHeu
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MajorityGoalsHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
+import org.ggp.base.util.gdl.grammar.GdlTerm;
+import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
@@ -166,10 +170,11 @@ public class Sancho extends SampleGamer
 
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
-    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
+    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS + 1,
                                                                       getMetaGamingTimeout(),
                                                                       getRole(),
                                                                       mGameCharacteristics);
+    localSearchStateMachine = null;
 
     System.gc();
 
@@ -942,6 +947,34 @@ public class Sancho extends SampleGamer
     LOGGER.info("Ready to play");
   }
 
+  private ForwardDeadReckonLegalMoveInfo ourLastMove = null;
+  private ForwardDeadReckonLegalMoveInfo theirLastMove = null;
+  private ForwardDeadReckonLegalMoveInfo lastMove = null;
+
+  private ForwardDeadReckonLegalMoveInfo findMoveInfo(Role role, GdlTerm moveTerm)
+  {
+    Move move = underlyingStateMachine.getMoveFromTerm(moveTerm);
+    HashSet<PolymorphicProposition> legalsForRole = new HashSet<>();
+    legalsForRole.addAll(Arrays.asList(underlyingStateMachine.getFullPropNet().getLegalPropositions().get(role)));
+    Map<PolymorphicProposition,PolymorphicProposition> legalInputMap = underlyingStateMachine.getFullPropNet().getLegalInputMap();
+
+    for(ForwardDeadReckonLegalMoveInfo info : underlyingStateMachine.getFullPropNet().getMasterMoveList())
+    {
+      if ( info.move.equals(move) && info.inputProposition != null )
+      {
+        PolymorphicProposition legalProp = legalInputMap.get(info.inputProposition);
+        if ( legalsForRole.contains(legalProp))
+        {
+          return info;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private ForwardDeadReckonPropnetStateMachine localSearchStateMachine = null;
+
   @Override
   public Move stateMachineSelectMove(long timeout)
     throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
@@ -951,8 +984,28 @@ public class Sancho extends SampleGamer
     long finishBy = timeout - SAFETY_MARGIN;
     Move bestMove;
     List<Move> moves;
+    List<GdlTerm> lastJointMove = getMatch().getMostRecentMoves();
 
-    LOGGER.info("Moves played for turn " + mTurn + ": " + getMatch().getMostRecentMoves());
+    if ( lastJointMove != null )
+    {
+      LOGGER.info("Moves played for turn " + mTurn + ": " + lastJointMove);
+
+      ForwardDeadReckonLegalMoveInfo lastMoveForUs = findMoveInfo(roleOrdering.roleIndexToRole(roleOrdering.rawRoleIndexToRoleIndex(0)), lastJointMove.get(roleOrdering.rawRoleIndexToRoleIndex(0)));
+      ForwardDeadReckonLegalMoveInfo lastMoveForThem = findMoveInfo(roleOrdering.roleIndexToRole(roleOrdering.rawRoleIndexToRoleIndex(1)), lastJointMove.get(roleOrdering.rawRoleIndexToRoleIndex(1)));
+
+      LOGGER.info("Our move last turn was: " + (lastMoveForUs == null ? "<NONE>" : lastMoveForUs.move));
+      if ( lastMoveForUs != null )
+      {
+        ourLastMove = lastMoveForUs;
+        lastMove = lastMoveForUs;
+      }
+      LOGGER.info("Their move last turn was: " + (lastMoveForThem == null ? "<NONE>" : lastMoveForThem.move));
+      if ( lastMoveForThem != null )
+      {
+        theirLastMove = lastMoveForThem;
+        lastMove = lastMoveForThem;
+      }
+    }
 
     mTurn++;
     LOGGER.info("Starting turn " + mTurn);
@@ -980,6 +1033,11 @@ public class Sancho extends SampleGamer
       }
     }
 
+    if ( localSearchStateMachine == null )
+    {
+      localSearchStateMachine = underlyingStateMachine.createInstance();
+    }
+
     if (plan != null && plan.size() > GameSearcher.thinkBelowPlanSize)
     {
       // We have a pre-prepared plan.  Simply play the next move.
@@ -1000,6 +1058,15 @@ public class Sancho extends SampleGamer
     }
     else
     {
+      LocalRegionSearcher localSearcher = new LocalRegionSearcher(localSearchStateMachine, currentState, roleOrdering, lastMove, 1);
+
+      //if ( ourLastMove != null )
+      {
+        Thread lSearchProcessorThread = new Thread(localSearcher, "Local Searcher");
+        lSearchProcessorThread.setDaemon(true);
+        lSearchProcessorThread.start();
+      }
+
       //emptyTree();
       //root = null;
       //validateAll();
@@ -1012,8 +1079,13 @@ public class Sancho extends SampleGamer
       LOGGER.debug("Waiting for processing");
       searchUntil(finishBy);
 
+      while(System.currentTimeMillis() < finishBy)
+      {
+        Thread.yield();
+      }
       LOGGER.debug("Time to submit order - ask GameSearcher to yield");
       searchProcessor.requestYield(true);
+      localSearcher.stop();
 
       //validateAll();
       long getBestMoveStartTime = System.currentTimeMillis();
