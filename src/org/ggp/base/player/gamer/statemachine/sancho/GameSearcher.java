@@ -960,49 +960,52 @@ public class GameSearcher implements Runnable, ActivityController
    */
   private void updateSampleSize()
   {
-    // Get the most recent combined total statistics and calculate the difference from last time round.
-    RolloutPerfStats lCombinedStatsTotal = new RolloutPerfStats(mPipeline.getRolloutPerfStats());
-    RolloutPerfStats lStatsDiff = lCombinedStatsTotal.getDifference(mLastRolloutPerfStats);
-    mLastRolloutPerfStats = lCombinedStatsTotal;
-
-    double lSampleSize = mGameCharacteristics.getExactRolloutSampleSize();
-
-    double lNewSampleSize = lSampleSize * 0.8 / lStatsDiff.mUsefulWorkFraction;
-
-    // The measured ratio is really quite volatile.  To prevent the sample size jumping all over the place, adjust it
-    // slowly.  The rules vary depending on whether the current sample size is very small (in which case we need to
-    // take care to avoid rounding preventing any change).
-    if (lSampleSize > 4)
+    if ( mPipeline != null )
     {
-      // Only let the sample size 33% of the way towards its new value.  Also, only let it grow to 120% of its
-      // previous value in one go.
-      lNewSampleSize = (lNewSampleSize + (2 * lSampleSize)) / 3;
-      lNewSampleSize = Math.min(1.2 * lSampleSize, lNewSampleSize);
+      // Get the most recent combined total statistics and calculate the difference from last time round.
+      RolloutPerfStats lCombinedStatsTotal = new RolloutPerfStats(mPipeline.getRolloutPerfStats());
+      RolloutPerfStats lStatsDiff = lCombinedStatsTotal.getDifference(mLastRolloutPerfStats);
+      mLastRolloutPerfStats = lCombinedStatsTotal;
+
+      double lSampleSize = mGameCharacteristics.getExactRolloutSampleSize();
+
+      double lNewSampleSize = lSampleSize * 0.8 / lStatsDiff.mUsefulWorkFraction;
+
+      // The measured ratio is really quite volatile.  To prevent the sample size jumping all over the place, adjust it
+      // slowly.  The rules vary depending on whether the current sample size is very small (in which case we need to
+      // take care to avoid rounding preventing any change).
+      if (lSampleSize > 4)
+      {
+        // Only let the sample size 33% of the way towards its new value.  Also, only let it grow to 120% of its
+        // previous value in one go.
+        lNewSampleSize = (lNewSampleSize + (2 * lSampleSize)) / 3;
+        lNewSampleSize = Math.min(1.2 * lSampleSize, lNewSampleSize);
+      }
+      else
+      {
+        // Very small sample size.  Jump straight to the new size, up to a maximum of 5.
+        lNewSampleSize = Math.min(5.0,  lNewSampleSize);
+      }
+
+      // The sample size is always absolutely bound between 1 and 100 (inclusive).
+      lNewSampleSize = Math.max(1.0,  Math.min(100.0, lNewSampleSize));
+
+      // Set the new sample size, unless it has to be suppressed because turn end processing meant we couldn't fill the
+      // pipeline (and therefore have invalid measurements from the rollout threads).
+      if (!mSuppressSampleSizeUpdate)
+      {
+        mGameCharacteristics.setRolloutSampleSize(lNewSampleSize);
+      }
+
+      LOGGER.debug("Dynamic sample size");
+      LOGGER.debug("  Useful work last time:  " + (int)(lStatsDiff.mUsefulWorkFraction * 100) + "%");
+      LOGGER.debug("  Calculated sample size: " + (int)(lNewSampleSize + 0.5));
+      LOGGER.debug("  Suppress update:        " + mSuppressSampleSizeUpdate);
+      LOGGER.debug("  Now using sample size:  " + mGameCharacteristics.getRolloutSampleSize());
+      LOGGER.debug("  Useful work total:      " + (int)(lCombinedStatsTotal.mUsefulWorkFraction * 100) + "%");
+
+      mSuppressSampleSizeUpdate = false;
     }
-    else
-    {
-      // Very small sample size.  Jump straight to the new size, up to a maximum of 5.
-      lNewSampleSize = Math.min(5.0,  lNewSampleSize);
-    }
-
-    // The sample size is always absolutely bound between 1 and 100 (inclusive).
-    lNewSampleSize = Math.max(1.0,  Math.min(100.0, lNewSampleSize));
-
-    // Set the new sample size, unless it has to be suppressed because turn end processing meant we couldn't fill the
-    // pipeline (and therefore have invalid measurements from the rollout threads).
-    if (!mSuppressSampleSizeUpdate)
-    {
-      mGameCharacteristics.setRolloutSampleSize(lNewSampleSize);
-    }
-
-    LOGGER.debug("Dynamic sample size");
-    LOGGER.debug("  Useful work last time:  " + (int)(lStatsDiff.mUsefulWorkFraction * 100) + "%");
-    LOGGER.debug("  Calculated sample size: " + (int)(lNewSampleSize + 0.5));
-    LOGGER.debug("  Suppress update:        " + mSuppressSampleSizeUpdate);
-    LOGGER.debug("  Now using sample size:  " + mGameCharacteristics.getRolloutSampleSize());
-    LOGGER.debug("  Useful work total:      " + (int)(lCombinedStatsTotal.mUsefulWorkFraction * 100) + "%");
-
-    mSuppressSampleSizeUpdate = false;
   }
 
   /**
