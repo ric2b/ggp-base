@@ -211,10 +211,11 @@ public class FactorAnalyser
       } while(!dependenciesAtDepth.isEmpty() && dInfo.dependencies.size() < numBaseProps);
 
       // If we find a base prop that depends on more than 2/3rds of the others assume we're not going to be able to
-      // factorize, so stop wasting time on the factorization analysis.
+      // factorize, so minimize wasting time on the factorization analysis.  We cannot simply quit now however, since we need to
+      //  complete analysis of the control set if possible
       if (dInfo.dependencies.size() > (numBaseProps * 2) / 3)
       {
-        return null;
+        factors = null;
       }
     }
 
@@ -239,6 +240,10 @@ public class FactorAnalyser
     }
 
     mbControlSetCalculated = true;
+    if ( factors == null )
+    {
+      return null;
+    }
 
     for( Entry<PolymorphicComponent, DependencyInfo> e : disjunctiveInputs.entrySet())
     {
