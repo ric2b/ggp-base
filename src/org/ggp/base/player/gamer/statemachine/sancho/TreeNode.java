@@ -3766,13 +3766,13 @@ public class TreeNode
 
   private double heuristicUCT(TreeEdge moveEdge)
   {
-    int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
-    double scoreDelta = (moveEdge.getChildRef() == NULL_REF ? 0.5 : (get(moveEdge.getChildRef()).getAverageScore(roleIndex) - getAverageScore(roleIndex))/100);
+    //int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
+    //double scoreDelta = (moveEdge.getChildRef() == NULL_REF ? 0.5 : (get(moveEdge.getChildRef()).getAverageScore(roleIndex) - getAverageScore(roleIndex))/100);
     //return tree.DEPENDENCY_HEURISTIC_STRENGTH*moveEdge.moveWeight/(numVisits+1);
     //return Math.max(-100, tree.DEPENDENCY_HEURISTIC_STRENGTH*moveEdge.moveWeight*10*scoreDelta/Math.sqrt(moveEdge.getNumChildVisits()+1));
-    return tree.DEPENDENCY_HEURISTIC_STRENGTH*moveEdge.moveWeight*10*scoreDelta/Math.sqrt(numVisits+1);
+    //return tree.DEPENDENCY_HEURISTIC_STRENGTH*moveEdge.moveWeight*10*scoreDelta/Math.sqrt(numVisits+1);
     //return tree.DEPENDENCY_HEURISTIC_STRENGTH*moveEdge.moveWeight*sigma(-moveEdge.getNumChildVisits()/20);
-    //return 0;
+    return 0;
   }
 
   private double exploitationUCT(TreeEdge inboundEdge, int roleIndex)
@@ -4033,7 +4033,7 @@ public class TreeNode
 
       if (selectedIndex == -1)
       {
-        calculatePathMoveWeights(path);
+        //calculatePathMoveWeights(path);
 
         if ( tree.USE_NODE_SCORE_NORMALIZATION && numVisits > 500 && (numVisits&0xff) == 0xff )
         {
