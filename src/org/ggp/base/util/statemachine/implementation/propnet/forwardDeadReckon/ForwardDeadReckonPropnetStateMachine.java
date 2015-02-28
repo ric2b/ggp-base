@@ -127,6 +127,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private Set<Factor>                                                  factors                         = null;
   private StateMachineFilter                                           searchFilter                    = null;
   private ForwardDeadReckonInternalMachineState                        mNonControlMask                 = null;
+  private ForwardDeadReckonInternalMachineState                        mControlMask                    = null;
   public long                                                          totalNumGatesPropagated         = 0;
   public long                                                          totalNumPropagates              = 0;
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mPositiveGoalLatches      = null;
@@ -1440,6 +1441,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     propNetO = master.propNetO;
     propNetXWithoutGoals = master.propNetXWithoutGoals;
     propNetOWithoutGoals = master.propNetOWithoutGoals;
+    enableGreedyRollouts = master.enableGreedyRollouts;
     goalsNet = master.goalsNet;
     XSentence = master.XSentence;
     OSentence = master.OSentence;
@@ -1467,6 +1469,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
     mRoleUnionPositiveGoalLatches = master.mRoleUnionPositiveGoalLatches;
     mGameCharacteristics = master.mGameCharacteristics;
+    mControlMask = master.mControlMask;
+    mNonControlMask = master.mNonControlMask;
 
     stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
     stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -1648,7 +1652,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       if (mGameCharacteristics != null )
       {
-        if ((mGameCharacteristics.getNumFactors() != 1) &&
+        if ((mGameCharacteristics.getNumFactors() != -1) &&
             (factorizationAnalysisTimeout > mGameCharacteristics.getMaxFactorFailureTime() * 1.25))
         {
           FactorAnalyser factorAnalyser = new FactorAnalyser(this);
@@ -1659,7 +1663,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             LOGGER.info("Game appears to factorize into " + factors.size() + " factors");
           }
 
-          mNonControlMask = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+          mControlMask = new ForwardDeadReckonInternalMachineState(masterInfoSet);
 
           if (factorAnalyser.getControlProps() != null)
           {
@@ -1667,10 +1671,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             {
               ForwardDeadReckonPropositionInfo info = ((ForwardDeadReckonProposition)p).getInfo();
 
-              mNonControlMask.add(info);
+              mControlMask.add(info);
             }
           }
 
+          mNonControlMask = new ForwardDeadReckonInternalMachineState(mControlMask);
           mNonControlMask.invert();
         }
         else
@@ -2068,6 +2073,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public ForwardDeadReckonInternalMachineState getNonControlMask()
   {
     return mNonControlMask;
+  }
+
+  /**
+   * Get a state mask for the control propositions
+   * @return null if unknown else state mask
+   */
+  public ForwardDeadReckonInternalMachineState getControlMask()
+  {
+    return mControlMask;
   }
 
   private void setBasePropositionsFromState(MachineState state)
@@ -2556,17 +2570,34 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     getInternalStateFromBase(xbNewState);
 
-    if ( nonNullMovesCount == 0 && factor != null )
+    if ( nonNullMovesCount == 0 )
     {
-      //  Hack - re-impose the base props from the starting state.  We need to do it this
-      //  way in order for the non-factor turn logic (control prop, step, etc) to generate
-      //  correctly, but then make sure we have not changed any factor-specific base props
-      //  which can happen because no moves were played (consider distinct clauses on moves)
-      ForwardDeadReckonInternalMachineState basePropState = new ForwardDeadReckonInternalMachineState(state);
+      ForwardDeadReckonInternalMachineState nonControlMask;
+      ForwardDeadReckonInternalMachineState controlMask;
 
-      basePropState.intersect(factor.getStateMask(true));
-      xbNewState.intersect(factor.getInverseStateMask(true));
-      xbNewState.merge(basePropState);
+      if ( factor != null )
+      {
+        nonControlMask = factor.getStateMask(true);
+        controlMask = factor.getInverseStateMask(true);
+      }
+      else
+      {
+        nonControlMask = getNonControlMask();
+        controlMask = getControlMask();
+      }
+
+      if ( controlMask != null )
+      {
+        //  Hack - re-impose the base props from the starting state.  We need to do it this
+        //  way in order for the non-factor turn logic (control prop, step, etc) to generate
+        //  correctly, but then make sure we have not changed any factor-specific base props
+        //  which can happen because no moves were played (consider distinct clauses on moves)
+        ForwardDeadReckonInternalMachineState basePropState = new ForwardDeadReckonInternalMachineState(state);
+
+        basePropState.intersect(nonControlMask);
+        xbNewState.intersect(controlMask);
+        xbNewState.merge(basePropState);
+      }
     }
   }
 
