@@ -3,6 +3,9 @@ package org.ggp.base.player.gamer.statemachine.mctsref;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 
+/**
+ * Test-ground for #199.
+ */
 public class ARRSearchTreeNode extends SearchTreeNode<ARRSearchTree>
 {
   private boolean mStopBackPropHere;
