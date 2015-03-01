@@ -57,4 +57,15 @@ public class ForwardDeadReckonLegalMoveInfo
   {
     this.isPseudoNoOp = moveIsPseudoNoOp;
   }
+
+  @Override
+  public String toString()
+  {
+    if ( move == null )
+    {
+      return "NONE";
+    }
+
+    return move.toString();
+  }
 }
