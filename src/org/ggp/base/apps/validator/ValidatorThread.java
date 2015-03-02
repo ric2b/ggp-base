@@ -52,6 +52,7 @@ public final class ValidatorThread extends Thread implements Subject
     }
     catch (ValidatorException ve)
     {
+      System.err.println(ve);
       notifyObservers(new ValidatorFailureEvent(theValidator.getClass()
           .getSimpleName(), ve));
     }
