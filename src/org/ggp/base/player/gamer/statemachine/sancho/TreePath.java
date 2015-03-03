@@ -85,8 +85,8 @@ public class TreePath
       mEdge      = xiEdge;
       mChildRef  = mEdge.getChildRef();
 
-      assert(mParentRef != mChildRef);
-      assert(mParentRef == xiEdge.mParentRef);
+      assert(mParentRef != mChildRef) : "Parent and child mustn't be the same";
+      assert(mParentRef == xiEdge.mParentRef) : "Edge must come from the parent";
       assert(getNode(mChildRef) != null) : "Can't add invalid node ref to path";
       assert(xiEdge.getNumChildVisits() <= getNode(mChildRef).numVisits) : "Edge has more visits than child";
     }
@@ -201,6 +201,9 @@ public class TreePath
 
   // A cursor to an item in the path.  Used for iteration.
   private int mCursor = 0;
+
+  // The node at which to stop back-propagation.
+  private TreeNode mBackPropLimitNode;
 
   /**
    * Construct a new selection path.
@@ -359,5 +362,10 @@ public class TreePath
     }
     resetCursor();
     return true;
+  }
+
+  public void setBackPropLimit(TreeNode xiLimitNode)
+  {
+    mBackPropLimitNode = xiLimitNode;
   }
 }
