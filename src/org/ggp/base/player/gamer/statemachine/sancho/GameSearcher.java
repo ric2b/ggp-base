@@ -64,7 +64,6 @@ public class GameSearcher implements Runnable, ActivityController
   private volatile long                   startTime;
   private volatile int                    searchSeqRequested  = 0;
   private volatile int                    searchSeqProcessing = 0;
-  private int                             numIterations       = 0;
   private volatile boolean                requestYield        = false;
   private MCTSTree[]                      factorTrees;
   private GamePlan                        mPlan               = null;
@@ -640,7 +639,6 @@ public class GameSearcher implements Runnable, ActivityController
       }
     }
 
-    numIterations++;
     lAllTreesCompletelyExplored = true;
     for (MCTSTree tree : factorTrees)
     {
@@ -666,7 +664,10 @@ public class GameSearcher implements Runnable, ActivityController
    */
   public int getNumIterations()
   {
-    return numIterations;
+    synchronized(this)
+    {
+      return (int)(mNumIterations - mLastNumIterations);
+    }
   }
 
   /**
@@ -748,7 +749,6 @@ public class GameSearcher implements Runnable, ActivityController
       moveTime = moveTimeout;
       startTime = System.currentTimeMillis();
       searchSeqRequested++;
-      numIterations = 0;
       setRootDepth(rootDepth);
 
       //  Clear stat averages
@@ -908,7 +908,6 @@ public class GameSearcher implements Runnable, ActivityController
       lRequest.mPath = null;
       mPipeline.completedBackPropagation();
       xiNeedToDoOne = false;
-      mNumIterations++;
     }
 
     return lStallTime;
@@ -940,6 +939,8 @@ public class GameSearcher implements Runnable, ActivityController
     mRolloutTime  += xiRolloutTime;
     mQueue2Time   += xiQueue2Time;
     mBackPropTime += xiBackPropTime;
+
+    mNumIterations++;
   }
 
   /**
