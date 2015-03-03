@@ -85,6 +85,7 @@ public class Sancho extends SampleGamer
   private GameSearcher                searchProcessor                 = null;
   private String                      mLogName                        = null;
   private SystemStatsLogger           mSysStatsLogger                 = null;
+  private MoveConsequenceSearcher     moveConsequenceSearcher         = null;
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
@@ -233,7 +234,7 @@ public class Sancho extends SampleGamer
 
       //  Start pre-warming he search tree 2 moves before he end of the plan so that we arrive
       //  at the turn we need to search in earnest in with a warmed-up tree
-      GameSearcher.thinkBelowPlanSize = 2;
+      GameSearcher.thinkBelowPlanSize = 0;//  TEMP HACK
     }
 
     ourRole = getRole();
@@ -944,6 +945,12 @@ public class Sancho extends SampleGamer
       searchUntil(timeout - SAFETY_MARGIN);
     }
 
+    moveConsequenceSearcher = new MoveConsequenceSearcher(underlyingStateMachine.createInstance(), roleOrdering, mLogName);
+
+    Thread lMoveConsequenceProcessorThread = new Thread(moveConsequenceSearcher, "Move Consequence Processor");
+    lMoveConsequenceProcessorThread.setDaemon(true);
+    lMoveConsequenceProcessorThread.start();
+
     LOGGER.info("Ready to play");
   }
 
@@ -990,8 +997,8 @@ public class Sancho extends SampleGamer
     {
       LOGGER.info("Moves played for turn " + mTurn + ": " + lastJointMove);
 
-      ForwardDeadReckonLegalMoveInfo lastMoveForUs = findMoveInfo(roleOrdering.roleIndexToRole(roleOrdering.rawRoleIndexToRoleIndex(0)), lastJointMove.get(roleOrdering.rawRoleIndexToRoleIndex(0)));
-      ForwardDeadReckonLegalMoveInfo lastMoveForThem = findMoveInfo(roleOrdering.roleIndexToRole(roleOrdering.rawRoleIndexToRoleIndex(1)), lastJointMove.get(roleOrdering.rawRoleIndexToRoleIndex(1)));
+      ForwardDeadReckonLegalMoveInfo lastMoveForUs = findMoveInfo(roleOrdering.roleIndexToRole(0), lastJointMove.get(roleOrdering.roleIndexToRawRoleIndex(0)));
+      ForwardDeadReckonLegalMoveInfo lastMoveForThem = findMoveInfo(roleOrdering.roleIndexToRole(1), lastJointMove.get(roleOrdering.roleIndexToRawRoleIndex(1)));
 
       LOGGER.info("Our move last turn was: " + (lastMoveForUs == null ? "<NONE>" : lastMoveForUs.move));
       if ( lastMoveForUs != null )
@@ -1033,10 +1040,10 @@ public class Sancho extends SampleGamer
       }
     }
 
-    if ( localSearchStateMachine == null )
-    {
-      localSearchStateMachine = underlyingStateMachine.createInstance();
-    }
+//    if ( localSearchStateMachine == null )
+//    {
+//      localSearchStateMachine = underlyingStateMachine.createInstance();
+//    }
 
     if (plan != null && plan.size() > GameSearcher.thinkBelowPlanSize)
     {
@@ -1058,14 +1065,15 @@ public class Sancho extends SampleGamer
     }
     else
     {
-      LocalRegionSearcher localSearcher = new LocalRegionSearcher(localSearchStateMachine, currentState, roleOrdering, lastMove, 1);
-
-      //if ( ourLastMove != null )
-      {
-        Thread lSearchProcessorThread = new Thread(localSearcher, "Local Searcher");
-        lSearchProcessorThread.setDaemon(true);
-        lSearchProcessorThread.start();
-      }
+      moveConsequenceSearcher.newSearch(currentState, lastMove);
+//      LocalRegionSearcher localSearcher = new LocalRegionSearcher(localSearchStateMachine, currentState, roleOrdering, lastMove, (lastMove == ourLastMove ? 1 : 0), mLogName);
+//
+//      //if ( ourLastMove != null )
+//      {
+//        Thread lSearchProcessorThread = new Thread(localSearcher, "Local Searcher");
+//        lSearchProcessorThread.setDaemon(true);
+//        lSearchProcessorThread.start();
+//      }
 
       //emptyTree();
       //root = null;
@@ -1079,13 +1087,14 @@ public class Sancho extends SampleGamer
       LOGGER.debug("Waiting for processing");
       searchUntil(finishBy);
 
-      while(System.currentTimeMillis() < finishBy)
-      {
-        Thread.yield();
-      }
+//      while(System.currentTimeMillis() < finishBy)
+//      {
+//        Thread.yield();
+//      }
       LOGGER.debug("Time to submit order - ask GameSearcher to yield");
       searchProcessor.requestYield(true);
-      localSearcher.stop();
+      //localSearcher.stop();
+      moveConsequenceSearcher.endSearch();
 
       //validateAll();
       long getBestMoveStartTime = System.currentTimeMillis();
@@ -1207,6 +1216,12 @@ public class Sancho extends SampleGamer
     {
       searchProcessor.terminate();
       searchProcessor = null;
+    }
+
+    if ( moveConsequenceSearcher != null )
+    {
+      moveConsequenceSearcher.stop();
+      moveConsequenceSearcher = null;
     }
 
     if (mSysStatsLogger != null)

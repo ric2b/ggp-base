@@ -1,5 +1,6 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -11,43 +12,46 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
-public class LocalRegionSearcher implements Runnable
+public class LocalRegionSearcher
 {
+  public interface LocalSearchController
+  {
+    boolean terminateSearch();
+  }
+
   private static final Logger LOGGER       = LogManager.getLogger();
 
   private final int MAX_BRANCHING_FACTOR = 100;
   private final int MAX_DEPTH            = 20;
 
   private final ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
-  private final ForwardDeadReckonInternalMachineState startingState;
+  private ForwardDeadReckonInternalMachineState startingState;
   private final RoleOrdering roleOrdering;
-  private final ForwardDeadReckonLegalMoveInfo regionCentre;
-  private final int optionalPlayRole;
   private final int numRoles;
-  private volatile int                    searchSeqRequested  = 0;
-  private volatile int                    searchSeqProcessing = 0;
-  private volatile boolean                mTerminateRequested = false;
+  private final LocalSearchController controller;
 
-  private final ForwardDeadReckonLegalMoveInfo[] jointMove;
+  private boolean                         optionalRoleHasOddDepthParity;
+
+  private final ForwardDeadReckonLegalMoveInfo[][] jointMove;
   private final ForwardDeadReckonLegalMoveInfo[][] chooserMoveChoiceStack;
   private final ForwardDeadReckonInternalMachineState[] childStateBuffer;
   private final ForwardDeadReckonLegalMoveInfo pseudoNoop;
 
+  private int numNodesSearched;
+  private int currentDepth;
+  private boolean  unconstrainedSearch;
+
   public LocalRegionSearcher(
                     ForwardDeadReckonPropnetStateMachine xiUnderlyingStateMachine,
-                    ForwardDeadReckonInternalMachineState xiStartingState,
                     RoleOrdering xiRoleOrdering,
-                    ForwardDeadReckonLegalMoveInfo xiRegionCentre,
-                    int xiOptionalPlayRole)
+                    LocalSearchController xiController)
   {
     underlyingStateMachine = xiUnderlyingStateMachine;
-    startingState = new ForwardDeadReckonInternalMachineState(xiStartingState);
     roleOrdering = xiRoleOrdering;
-    regionCentre = xiRegionCentre;
-    optionalPlayRole = xiOptionalPlayRole;
+    controller = xiController;
 
     numRoles = underlyingStateMachine.getRoles().length;
-    jointMove = new ForwardDeadReckonLegalMoveInfo[numRoles];
+    jointMove = new ForwardDeadReckonLegalMoveInfo[MAX_DEPTH][];
     chooserMoveChoiceStack = new ForwardDeadReckonLegalMoveInfo[MAX_DEPTH][];
     childStateBuffer = new ForwardDeadReckonInternalMachineState[MAX_DEPTH];
 
@@ -55,49 +59,57 @@ public class LocalRegionSearcher implements Runnable
     pseudoNoop.isPseudoNoOp = true;
   }
 
-  /**
-   *
-   */
-  public void stop()
+  public void setSearchParameters(
+    ForwardDeadReckonInternalMachineState xiStartingState,
+    ForwardDeadReckonLegalMoveInfo xiRegionCentre)
   {
-    mTerminateRequested = true;
+    startingState = new ForwardDeadReckonInternalMachineState(xiStartingState);
+
+    jointMove[0] = new ForwardDeadReckonLegalMoveInfo[numRoles];
+    jointMove[0][0] = xiRegionCentre;
+
+    currentDepth = 1;
+
+    unconstrainedSearch = (xiRegionCentre == null);
+
+    LOGGER.info("Starting new search with seed move: " + xiRegionCentre);
   }
 
-  @Override
-  public void run()
+  public boolean iterate()
   {
-    // Register this thread.
-    ThreadControl.registerSearchThread();
+    numNodesSearched = 0;
+    LOGGER.info("Local move search beginning for depth " + currentDepth);
 
-    int depth = 0;
+    chooserMoveChoiceStack[currentDepth] = new ForwardDeadReckonLegalMoveInfo[MAX_BRANCHING_FACTOR];
+    jointMove[currentDepth] = new ForwardDeadReckonLegalMoveInfo[numRoles];
+    childStateBuffer[currentDepth] = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
 
-    do
+    for(int optionalRole = 0; optionalRole < numRoles; optionalRole++)
     {
-      LOGGER.info("Local move search beginning for depth " + depth);
-
-      for(int i = 0; i < MAX_BRANCHING_FACTOR; i++)
+      int searchResult = searchToDepth(startingState, 1, currentDepth, optionalRole);
+      if ( searchResult == 0 || searchResult == 100 )
       {
-        chooserMoveChoiceStack[depth] = new ForwardDeadReckonLegalMoveInfo[MAX_BRANCHING_FACTOR];
+        LOGGER.info("Local search finds win at depth " + currentDepth + " for role " + roleOrdering.roleIndexToRole(1-optionalRole));
+        LOGGER.info("Last examined move trace:");
+        for(int i = 1; i <= currentDepth; i++)
+        {
+          LOGGER.info(Arrays.toString(jointMove[i]));
+        }
+        return true;
       }
-      childStateBuffer[depth] = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+    }
 
-      ForwardDeadReckonInternalMachineState state = new ForwardDeadReckonInternalMachineState(startingState);
+    if ( controller.terminateSearch() )
+    {
+      LOGGER.info("Local search terminated at depth " + currentDepth + " with " + numNodesSearched + " states visited");
+    }
+    else
+    {
+      LOGGER.info("Local search completed at depth " + currentDepth + " with " + numNodesSearched + " states visited");
+      currentDepth++;
+    }
 
-      int searchResult = searchToDepth(state, 0, depth);
-      if ( searchResult == 0 )
-      {
-        LOGGER.info("Local search finds loss at depth " + depth);
-        break;
-      }
-      if ( searchResult == 100 )
-      {
-        LOGGER.info("Local search finds win at depth " + depth);
-        break;
-      }
-      depth++;
-    } while (!mTerminateRequested && depth < MAX_DEPTH);
-
-    LOGGER.info("Terminating LocalRegionSearcher");
+    return false;
   }
 
   /*
@@ -106,8 +118,10 @@ public class LocalRegionSearcher implements Runnable
    *  100 if role 0 win
    *  else 50
    */
-  private int searchToDepth(ForwardDeadReckonInternalMachineState state, int depth, int maxDepth)
+  private int searchToDepth(ForwardDeadReckonInternalMachineState state, int depth, int maxDepth, int optionalRole)
   {
+    numNodesSearched++;
+
     if ( underlyingStateMachine.isTerminal(state))
     {
       int result = underlyingStateMachine.getGoal(state, roleOrdering.roleIndexToRole(0));
@@ -116,7 +130,7 @@ public class LocalRegionSearcher implements Runnable
       return result;
     }
 
-    if ( depth == maxDepth || mTerminateRequested )
+    if ( depth > maxDepth || controller.terminateSearch() )
     {
       return 50;
     }
@@ -136,21 +150,55 @@ public class LocalRegionSearcher implements Runnable
       }
       else
       {
-        numChoices = getLocalMoves(legalMoves, chooserMoveChoiceStack[depth], maxDepth);
+        numChoices = getLocalMoves(legalMoves, chooserMoveChoiceStack[depth], depth, maxDepth);
         choosingRole = i;
       }
     }
 
     assert(choosingRole != -1);
+    if ( depth == 1 )
+    {
+      optionalRoleHasOddDepthParity = (choosingRole == optionalRole);
+    }
 
     boolean incomplete = false;
 
+    //  At depth 1 consider the optional tenuki first as a complete result
+    //  there will allow cutoff in the MCTS tree (in principal)
+    if ( choosingRole == optionalRole && depth == 1 )
+    {
+      jointMove[depth][1-choosingRole] = nonChooserMove;
+      jointMove[depth][choosingRole] = pseudoNoop;
+
+      underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth]);
+
+      int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole);
+
+      if ( childValue == (choosingRole == 0 ? 100 : 0) )
+      {
+        //  Tenuki is a forced win for the optional role!  This means that there is
+        //  nothing decisive in the local-search-space
+        return 50;
+      }
+
+      incomplete |= (childValue != (choosingRole == 0 ? 0 : 100));
+
+      if ( !incomplete )
+      {
+        LOGGER.info("Tenuki is a loss for " + (optionalRole == 0 ? "us" : "them") + " at this depth");
+      }
+    }
+
     for(int i = 0; i < numChoices; i++)
     {
-      jointMove[1-choosingRole] = nonChooserMove;
-      jointMove[choosingRole] = chooserMoveChoiceStack[depth][i];
+      jointMove[depth][1-choosingRole] = nonChooserMove;
+      jointMove[depth][choosingRole] = chooserMoveChoiceStack[depth][i];
 
-      underlyingStateMachine.getNextState(state, null, jointMove, childStateBuffer[depth]);
+//      if ( depth == 1 )
+//      {
+//        LOGGER.info("Examining depth 1 choice: " + chooserMoveChoiceStack[depth][i] + " (optional role is " + optionalRole + ")");
+//      }
+      underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth]);
 
 //      String moveDesc = "";
 //      for(int j = 0; j < depth; j++)
@@ -159,7 +207,11 @@ public class LocalRegionSearcher implements Runnable
 //      }
 //      moveDesc += "@" + depth + " choosing role " + choosingRole + ": " + jointMove[choosingRole].move;
 //      LOGGER.info(moveDesc);
-      int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth);
+      int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole);
+//      if ( depth == 1 )
+//      {
+//        System.out.println("Move " + Arrays.toString(jointMove[1]) + " scored " + childValue);
+//      }
 
       if ( childValue == (choosingRole == 0 ? 100 : 0) )
       {
@@ -176,13 +228,19 @@ public class LocalRegionSearcher implements Runnable
 //      LOGGER.info("Complete loss without Tenuki at depth " + depth);
 //    }
 
-    if ( choosingRole == optionalPlayRole )
+    if ( choosingRole == optionalRole && depth > 1 )
     {
-      //  Consider also a pseudo-noop
-      jointMove[1-choosingRole] = nonChooserMove;
-      jointMove[choosingRole] = pseudoNoop;
+      //  Discount winning tenukis, so only search to avoid loss
+      if ( incomplete )
+      {
+        return 50;
+      }
 
-      underlyingStateMachine.getNextState(state, null, jointMove, childStateBuffer[depth]);
+      //  Consider also a pseudo-noop
+      jointMove[depth][1-choosingRole] = nonChooserMove;
+      jointMove[depth][choosingRole] = pseudoNoop;
+
+      underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth]);
 
 //      ForwardDeadReckonInternalMachineState diff = new ForwardDeadReckonInternalMachineState(childStateBuffer[depth]);
 //      diff.xor(state);
@@ -194,7 +252,7 @@ public class LocalRegionSearcher implements Runnable
 //      }
 //      moveDesc += "@" + depth + " choosing role " + choosingRole + ": Tenuki";
 //      LOGGER.info(moveDesc);
-      int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth);
+      int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole);
 
       if ( childValue == (choosingRole == 0 ? 100 : 0) )
       {
@@ -205,7 +263,7 @@ public class LocalRegionSearcher implements Runnable
 
       incomplete |= (childValue != (choosingRole == 0 ? 0 : 100));
     }
-    else
+    else if ( numChoices == 0 )
     {
       //  No moves available for non-optional role implies this branch completely
       //  searched with no win found
@@ -221,7 +279,7 @@ public class LocalRegionSearcher implements Runnable
     return 50;
   }
 
-  private int getLocalMoves(Collection<ForwardDeadReckonLegalMoveInfo> allMoves, ForwardDeadReckonLegalMoveInfo[] localMoves, int maxDistance)
+  private int getLocalMoves(Collection<ForwardDeadReckonLegalMoveInfo> allMoves, ForwardDeadReckonLegalMoveInfo[] localMoves, int depth, int maxDistance)
   {
     int numChoices = 0;
 
@@ -232,7 +290,34 @@ public class LocalRegionSearcher implements Runnable
 
     for(ForwardDeadReckonLegalMoveInfo move : allMoves)
     {
-      if ( regionCentre == null || moveDistances[move.masterIndex][regionCentre.masterIndex] <= maxDistance )
+      boolean include = true;
+
+      if ( !unconstrainedSearch )
+      {
+        for(int i = depth-1; i >= 0; i--)
+        {
+          if ( i == 0 || optionalRoleHasOddDepthParity != (i%2 == 1))
+          {
+            ForwardDeadReckonLegalMoveInfo plyMove = null;
+
+            for(int j = 0; j < jointMove[i].length; j++)
+            {
+              if ( jointMove[i][j].inputProposition != null )
+              {
+                plyMove = jointMove[i][j];
+                break;
+              }
+            }
+            if ( plyMove != null )
+            {
+              include = (moveDistances[plyMove.masterIndex][move.masterIndex] <= maxDistance - i);
+              break;
+            }
+          }
+        }
+      }
+
+      if ( include )
       {
         localMoves[numChoices++] = move;
       }
@@ -245,124 +330,206 @@ public class LocalRegionSearcher implements Runnable
   private static Pattern BrkthruMoveCellMatchPattern = Pattern.compile("move (\\d+) (\\d+) (\\d+) (\\d+)");
   private static Pattern HexMoveCellMatchPattern = Pattern.compile("place ([abcdefghi]) (\\d+)");
 
-  private static double[][] moveDistances = null;
+  private double[][] moveDistances = null;
 
   private double[][] generateMoveDistanceMatrix()
   {
     ForwardDeadReckonLegalMoveInfo[] masterMoveList = underlyingStateMachine.getFullPropNet().getMasterMoveList();
     double[][] result = new double[masterMoveList.length][masterMoveList.length];
 
-    for(int fromIndex = 0; fromIndex < masterMoveList.length; fromIndex++)
-    {
-      int locusColumn = -1;
-      int locusX = -1;
-      int locusY = -1;
+    int sourceX[] = new int[masterMoveList.length];
+    int sourceY[] = new int[masterMoveList.length];
+    int targetX[] = new int[masterMoveList.length];
+    int targetY[] = new int[masterMoveList.length];
+    Pattern pattern = null;
 
-      Pattern pattern = null;
-      String moveName = masterMoveList[fromIndex].move.toString();
-      Matcher lMatcher = C4MoveColumnMatchPattern.matcher(moveName);
-      if (!lMatcher.find() )
+    for(int index = 0; index < masterMoveList.length; index++)
+    {
+      String moveName = masterMoveList[index].move.toString();
+
+      if ( pattern == null )
       {
-        lMatcher = BrkthruMoveCellMatchPattern.matcher(moveName);
+        Matcher lMatcher = C4MoveColumnMatchPattern.matcher(moveName);
         if (!lMatcher.find() )
         {
-          lMatcher = HexMoveCellMatchPattern.matcher(moveName);
-          if ( lMatcher.find() )
+          lMatcher = BrkthruMoveCellMatchPattern.matcher(moveName);
+          if (!lMatcher.find() )
           {
-            pattern = HexMoveCellMatchPattern;
-
-            String locusCellX = lMatcher.group(1);
-            String locusCellY = lMatcher.group(2);
-            locusX = locusCellX.charAt(0) - 'a';
-            locusY = Integer.parseInt(locusCellY);
+            lMatcher = HexMoveCellMatchPattern.matcher(moveName);
+            if ( lMatcher.find() )
+            {
+              pattern = HexMoveCellMatchPattern;
+            }
           }
           else
           {
-            lMatcher = null;
+            pattern = BrkthruMoveCellMatchPattern;
           }
         }
         else
         {
-          pattern = BrkthruMoveCellMatchPattern;
-
-          String locusTargetCellX = lMatcher.group(3);
-          String locusTargetCellY = lMatcher.group(4);
-          locusX = Integer.parseInt(locusTargetCellX);
-          locusY = Integer.parseInt(locusTargetCellY);
+          pattern = C4MoveColumnMatchPattern;
         }
+      }
+
+      if ( pattern == null )
+      {
+        sourceX[index] = -1;
       }
       else
       {
-        pattern = C4MoveColumnMatchPattern;
+        Matcher lMatcher = pattern.matcher(moveName);
 
-        String locusColumnName = lMatcher.group(1);
-        locusColumn = Integer.parseInt(locusColumnName);
+        if ( lMatcher.find() )
+        {
+          if ( pattern == C4MoveColumnMatchPattern )
+          {
+            String locusColumnName = lMatcher.group(1);
+            sourceX[index] = Integer.parseInt(locusColumnName);
+          }
+          else if ( pattern == BrkthruMoveCellMatchPattern )
+          {
+            String moveSourceCellX = lMatcher.group(1);
+            String moveSourceCellY = lMatcher.group(2);
+            String moveTargetCellX = lMatcher.group(3);
+            String moveTargetCellY = lMatcher.group(4);
+            sourceX[index] = Integer.parseInt(moveSourceCellX);
+            sourceY[index] = Integer.parseInt(moveSourceCellY);
+            targetX[index] = Integer.parseInt(moveTargetCellX);
+            targetY[index] = Integer.parseInt(moveTargetCellY);
+          }
+          else if ( pattern == HexMoveCellMatchPattern )
+          {
+            String moveCellX = lMatcher.group(1);
+            String moveCellY = lMatcher.group(2);
+            sourceX[index] = moveCellX.charAt(0) - 'a';
+            sourceY[index] = Integer.parseInt(moveCellY);
+          }
+        }
+        else
+        {
+          sourceX[index] = -1;
+        }
       }
+    }
 
+    for(int fromIndex = 0; fromIndex < masterMoveList.length; fromIndex++)
+    {
       for(int toIndex = 0; toIndex < masterMoveList.length; toIndex++)
       {
-        if (pattern == null )
+        if ( sourceX[fromIndex] == -1 || sourceX[toIndex] == -1 )
         {
           result[fromIndex][toIndex] = 0;
         }
         else
         {
-          moveName = masterMoveList[toIndex].move.toString();
-          if ( moveName != "noop" )
+          int distance = 0;
+
+          if ( pattern == C4MoveColumnMatchPattern )
           {
-            lMatcher = pattern.matcher(moveName);
-            if (lMatcher.find() )
+            distance = Math.abs(sourceX[fromIndex]-sourceX[toIndex]) - 1;//2;
+
+            if ( distance < 0 )
             {
-              int distance = -1;
-
-              if ( pattern == C4MoveColumnMatchPattern )
-              {
-                assert(locusColumn != -1);
-                String moveColumnName = lMatcher.group(1);
-                int moveColumn = Integer.parseInt(moveColumnName);
-                distance = Math.abs(moveColumn-locusColumn) - 1;//2;
-
-                if ( distance < 0 )
-                {
-                  distance = 0;
-                }
-              }
-              else if ( pattern == BrkthruMoveCellMatchPattern )
-              {
-                assert(locusX != -1);
-                assert(locusY!= -1);
-
-                String moveSourceCellX = lMatcher.group(1);
-                String moveSourceCellY = lMatcher.group(2);
-                String moveTargetCellX = lMatcher.group(3);
-                String moveTargetCellY = lMatcher.group(4);
-                int sourceX = Integer.parseInt(moveSourceCellX);
-                int sourceY = Integer.parseInt(moveSourceCellY);
-                int sourceDistance = Math.max(Math.abs(sourceX-locusX), Math.abs(sourceY-locusY));
-                int targetX = Integer.parseInt(moveTargetCellX);
-                int targetY = Integer.parseInt(moveTargetCellY);
-                int targetDistance = Math.max(Math.abs(targetX-locusX), Math.abs(targetY-locusY));
-
-                distance = Math.min(sourceDistance, targetDistance);
-              }
-              else if ( pattern == HexMoveCellMatchPattern )
-              {
-                assert(locusX != -1);
-                assert(locusY!= -1);
-
-                String moveCellX = lMatcher.group(1);
-                String moveCellY = lMatcher.group(2);
-                int moveX = moveCellX.charAt(0) - 'a';
-                int moveY = Integer.parseInt(moveCellY);
-
-                distance = Math.max(Math.abs(moveX-locusX), Math.abs(moveY-locusY));
-              }
-
-              assert(distance >= 0);
-
-              result[fromIndex][toIndex] = distance;
+              distance = 0;
             }
           }
+          else if ( pattern == BrkthruMoveCellMatchPattern )
+          {
+//            if (fromIndex == regionCentre.masterIndex)
+//            {
+//              if ( sourceX[toIndex] == 6 && sourceY[toIndex] == 6 )
+//              {
+//                System.out.println("!");
+//              }
+//            }
+            int sourceDistance = Math.max(Math.abs(sourceX[toIndex]-targetX[fromIndex]), Math.abs(sourceY[toIndex]-targetY[fromIndex]));
+            int targetDistance = Math.max(Math.abs(targetX[toIndex]-targetX[fromIndex]), Math.abs(targetY[toIndex]-targetY[fromIndex]));
+            int manhattenDistance = Math.min(sourceDistance, targetDistance);
+
+            boolean toIncreasingY = (sourceY[toIndex] - targetY[toIndex] < 0);
+            boolean fromIncreasingY = (sourceY[fromIndex] - targetY[fromIndex] < 0);
+            int deltaX = Math.abs(targetX[fromIndex] - sourceX[toIndex]);
+            int deltaY = Math.abs(sourceY[toIndex] - targetY[fromIndex]);
+
+            if ( toIncreasingY == fromIncreasingY )
+            {
+              if ( deltaX <= deltaY )
+              {
+                //  In cone
+                distance = deltaY*2 + 1;
+              }
+              else
+              {
+                //  Off cone
+                int offConeAmount = (deltaX-deltaY+1)/2;
+
+                distance = (deltaY + offConeAmount)*2 + 1;
+              }
+            }
+            else
+            {
+              if ( (toIncreasingY && sourceY[toIndex] <= targetY[fromIndex]) || (!toIncreasingY && sourceY[toIndex] >= targetY[fromIndex]) )
+              {
+                //  Forward
+                if ( deltaX <= deltaY )
+                {
+                  //  Forward cone
+                  distance = deltaY + 1;
+                }
+                else
+                {
+                  //  Forward off-cone
+                  int offConeAmount = (deltaX-deltaY+1)/2;
+
+                  //  If target doesn't move towards the cone then increase the off-cone amount by 1
+                  int targetDeltaX = Math.abs(targetX[fromIndex] - targetX[toIndex]);
+                  if ( targetDeltaX >= deltaX )
+                  {
+                    offConeAmount++;
+                  }
+
+                  distance = 4*offConeAmount - 1 + deltaY;
+
+                  //int offConeAmount = Math.abs(targetX[fromIndex] - sourceX[toIndex]) - (sourceY[toIndex] - targetY[fromIndex]);
+
+                  //distance = sourceY[toIndex] - targetY[fromIndex] + offConeAmount*2 + 1;
+                }
+              }
+              else
+              {
+                //  Backward
+                if ( deltaX <= deltaY )
+                {
+                  //  Backward cone
+                  distance = 2*(deltaY+1) + 1;
+                }
+                else
+                {
+                  //  Backward off-cone
+                  int offConeAmount = (deltaX-deltaY+1)/2;
+
+                  //  If target doesn't move towards the cone then increase the off-cone amount by 1
+                  int targetDeltaX = Math.abs(targetX[fromIndex] - targetX[toIndex]);
+                  if ( targetDeltaX > deltaX )
+                  {
+                    offConeAmount++;
+                  }
+
+                  distance = 4*offConeAmount + 2*(deltaY+1);
+                  //distance = sourceY[toIndex] - targetY[fromIndex] + offConeAmount*2 + 1;
+                }
+              }
+            }
+          }
+          else if ( pattern == HexMoveCellMatchPattern )
+          {
+            distance = Math.max(Math.abs(sourceX[fromIndex]-sourceX[toIndex]), Math.abs(sourceY[fromIndex]-sourceY[toIndex]));
+          }
+
+          assert(distance >= 0);
+
+          result[fromIndex][toIndex] = distance;
         }
       }
     }
