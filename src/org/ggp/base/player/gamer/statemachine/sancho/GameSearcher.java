@@ -131,6 +131,12 @@ public class GameSearcher implements Runnable, ActivityController
   private long mBackPropTime;
 
   /**
+   * Tree statistics when the last log was made.  (Used for calculating rates.)
+   */
+  private int mLastAllocations = 0;
+  private int mLastTranspositions = 0;
+
+  /**
    * Create a game tree searcher with the specified maximum number of nodes.
    *
    * @param nodeTableSize - the maximum number of nodes.
@@ -260,8 +266,6 @@ public class GameSearcher implements Runnable, ActivityController
 
     long lNextUpdateSampleSizeTime = 0;
     long lNextStatsTime = System.currentTimeMillis() + STATS_LOG_INTERVAL_MS;
-    int numAllocations = 0;
-    int numTranspositions = 0;
 
     try
     {
@@ -282,120 +286,14 @@ public class GameSearcher implements Runnable, ActivityController
           {
             long time = System.currentTimeMillis();
 
+            // Every STATS_LOG_INTERVAL_MS make a whole load of stats logs.
             if (time > lNextStatsTime)
             {
-              StringBuffer lLogBuf = new StringBuffer(1024);
-              Series.NODE_EXPANSIONS.logDataPoint(lLogBuf, time, mNumIterations);
-              Series.POOL_USAGE.logDataPoint(lLogBuf, time, mNodePool.getPoolUsage());
-
-              int numReExpansions = 0;
-              int newNumAllocations = 0;
-              int newNumTranspositions = 0;
-
-              for(MCTSTree factorTree : factorTrees)
-              {
-                numReExpansions += factorTree.numReExpansions;
-                newNumAllocations += factorTree.getNumAllocations();
-                newNumTranspositions += factorTree.getNumTranspositions();
-              }
-
-              Series.NODE_RE_EXPANSIONS.logDataPoint(lLogBuf, time, numReExpansions);
-              if ( newNumAllocations > numAllocations )
-              {
-                Series.TRANSITION_RATE.logDataPoint(lLogBuf, time, (100*(newNumTranspositions-numTranspositions))/(newNumAllocations-numAllocations));
-              }
-              numAllocations = newNumAllocations;
-              numTranspositions = newNumTranspositions;
-
-              // Log the iteration timings
-              long lTotalTime = mSelectTime +
-                                mExpandTime +
-                                mGetSlotTime +
-                                //mQueueTime +
-                                mRolloutTime +
-                                //mQueue2Time +
-                                mBackPropTime;
-              if (lTotalTime != 0)
-              {
-                long lRunning = mSelectTime;
-                Series.STACKED_SELECT.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
-
-                lRunning += mExpandTime;
-                Series.STACKED_EXPAND.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
-
-                lRunning += mGetSlotTime;
-                Series.STACKED_GET_SLOT.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
-
-                //lRunning += mQueueTime;
-                //Series.STACKED_QUEUE.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
-
-                lRunning += mRolloutTime;
-                Series.STACKED_ROLLOUT.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
-
-                //lRunning += mQueue2Time;
-                //Series.STACKED_QUEUE2.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
-
-                lRunning += mBackPropTime;
-                Series.STACKED_BACKPROP.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
-
-                assert(lRunning == lTotalTime) : "Timings don't add up - " + lRunning + " != " + lTotalTime;
-              }
-
-              mSelectTime   = 0;
-              mExpandTime   = 0;
-              mGetSlotTime  = 0;
-              mQueueTime    = 0;
-              mRolloutTime  = 0;
-              mQueue2Time   = 0;
-              mBackPropTime = 0;
-
-              //Future intent will be to add these to the stats logger when it is stable
-              //double fringeDepth = mAverageFringeDepth.getMean();
-              //Series.FRINGE_DEPTH.logDataPoint(lLogBuf, time, (long)(fringeDepth+0.5));
-              //Series.TREE_ASPECT_RATIO.logDataPoint(lLogBuf, time, (long)(nodePool.getNumUsedItems()/(fringeDepth*fringeDepth)));
-              //mAverageFringeDepth.clear();
-
-              STATS_LOGGER.info(lLogBuf.toString());
+              logStats(time);
               lNextStatsTime += STATS_LOG_INTERVAL_MS;
-
-              if ( ADJUST_EXPLORATION_BIAS_FROM_TREE_SHAPE )
-              {
-                double fringeDepth = mAverageFringeDepth.getAverage();
-                double branchingFactor = mAverageBranchingFactor.getAverage();
-
-                //  Adjust the branching factor to the correct geometric mean
-                if ( !mGameCharacteristics.isSimultaneousMove )
-                {
-                  branchingFactor = Math.exp(Math.log(branchingFactor*mGameCharacteristics.numRoles)/mGameCharacteristics.numRoles);
-                }
-                if ( fringeDepth > 0 && branchingFactor > 0 )
-                {
-                  //  Calculate the tree aspect ratio, which is the ratio of the observed average fringe
-                  //  depth to its expected depth given its observed branching factor
-                  double aspect = fringeDepth/(Math.log(mNodePool.getNumItemsInUse())/Math.log(branchingFactor));
-
-                  if ( aspect < 1.2 && currentExplorationBias > 0.2 )//minExplorationBias )
-                  {
-                    currentExplorationBias /= 1.1;
-                    LOGGER.info("Decreasing exploration bias to: " + currentExplorationBias);
-                  }
-                  else if ( aspect > 1.3 && currentExplorationBias < maxExplorationBias )
-                  {
-                    currentExplorationBias *= 1.1;
-                    LOGGER.info("Increasing exploration bias to: " + currentExplorationBias);
-                  }
-                }
-              }
-              else
-              {
-                double percentThroughTurn = Math.min(100, (time - startTime) * 100 / (moveTime - startTime));
-                currentExplorationBias = maxExplorationBias -
-                                          percentThroughTurn *
-                                          (maxExplorationBias - minExplorationBias) /
-                                          100;
-              }
             }
 
+            // Every SAMPLE_SIZE_UPDATE_INTERVAL_MS, recalculate how many rollouts to do per iteration.
             if ((USE_DYNAMIC_SAMPLE_SIZING) && (time > lNextUpdateSampleSizeTime))
             {
               updateSampleSize();
@@ -422,6 +320,8 @@ public class GameSearcher implements Runnable, ActivityController
                   {
                     tree.gameCharacteristics.setExplorationBias(currentExplorationBias);
                   }
+
+                  // Grow the search tree - this is the heart of the GameSearcher function.
                   complete = expandSearch(false);
                 }
               }
@@ -470,6 +370,119 @@ public class GameSearcher implements Runnable, ActivityController
     }
 
     return true;
+  }
+
+  private void logStats(long xiTime)
+  {
+    StringBuffer lLogBuf = new StringBuffer(1024);
+    Series.NODE_EXPANSIONS.logDataPoint(lLogBuf, xiTime, mNumIterations);
+    Series.POOL_USAGE.logDataPoint(lLogBuf, xiTime, mNodePool.getPoolUsage());
+
+    int numReExpansions = 0;
+    int newNumAllocations = 0;
+    int newNumTranspositions = 0;
+
+    for (MCTSTree factorTree : factorTrees)
+    {
+      numReExpansions += factorTree.numReExpansions;
+      newNumAllocations += factorTree.getNumAllocations();
+      newNumTranspositions += factorTree.getNumTranspositions();
+    }
+
+    Series.NODE_RE_EXPANSIONS.logDataPoint(lLogBuf, xiTime, numReExpansions);
+    if (newNumAllocations > mLastAllocations)
+    {
+      Series.TRANSITION_RATE.logDataPoint(lLogBuf, xiTime, (100*(newNumTranspositions-mLastTranspositions))/(newNumAllocations-mLastAllocations));
+    }
+    mLastAllocations = newNumAllocations;
+    mLastTranspositions = newNumTranspositions;
+
+    // Log the iteration timings
+    long lTotalTime = mSelectTime +
+                      mExpandTime +
+                      mGetSlotTime +
+                      //mQueueTime +
+                      mRolloutTime +
+                      //mQueue2Time +
+                      mBackPropTime;
+    if (lTotalTime != 0)
+    {
+      long lRunning = mSelectTime;
+      Series.STACKED_SELECT.logDataPoint(lLogBuf, xiTime, lRunning * 100 / lTotalTime);
+
+      lRunning += mExpandTime;
+      Series.STACKED_EXPAND.logDataPoint(lLogBuf, xiTime, lRunning * 100 / lTotalTime);
+
+      lRunning += mGetSlotTime;
+      Series.STACKED_GET_SLOT.logDataPoint(lLogBuf, xiTime, lRunning * 100 / lTotalTime);
+
+      //lRunning += mQueueTime;
+      //Series.STACKED_QUEUE.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+      lRunning += mRolloutTime;
+      Series.STACKED_ROLLOUT.logDataPoint(lLogBuf, xiTime, lRunning * 100 / lTotalTime);
+
+      //lRunning += mQueue2Time;
+      //Series.STACKED_QUEUE2.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
+
+      lRunning += mBackPropTime;
+      Series.STACKED_BACKPROP.logDataPoint(lLogBuf, xiTime, lRunning * 100 / lTotalTime);
+
+      assert(lRunning == lTotalTime) : "Timings don't add up - " + lRunning + " != " + lTotalTime;
+    }
+
+    mSelectTime   = 0;
+    mExpandTime   = 0;
+    mGetSlotTime  = 0;
+    mQueueTime    = 0;
+    mRolloutTime  = 0;
+    mQueue2Time   = 0;
+    mBackPropTime = 0;
+
+    //Future intent will be to add these to the stats logger when it is stable
+    //double fringeDepth = mAverageFringeDepth.getMean();
+    //Series.FRINGE_DEPTH.logDataPoint(lLogBuf, time, (long)(fringeDepth+0.5));
+    //Series.TREE_ASPECT_RATIO.logDataPoint(lLogBuf, time, (long)(nodePool.getNumUsedItems()/(fringeDepth*fringeDepth)));
+    //mAverageFringeDepth.clear();
+
+    STATS_LOGGER.info(lLogBuf.toString());
+
+    if ( ADJUST_EXPLORATION_BIAS_FROM_TREE_SHAPE )
+    {
+      double fringeDepth = mAverageFringeDepth.getAverage();
+      double branchingFactor = mAverageBranchingFactor.getAverage();
+
+      //  Adjust the branching factor to the correct geometric mean
+      if ( !mGameCharacteristics.isSimultaneousMove )
+      {
+        branchingFactor = Math.exp(Math.log(branchingFactor*mGameCharacteristics.numRoles)/mGameCharacteristics.numRoles);
+      }
+      if ( fringeDepth > 0 && branchingFactor > 0 )
+      {
+        //  Calculate the tree aspect ratio, which is the ratio of the observed average fringe
+        //  depth to its expected depth given its observed branching factor
+        double aspect = fringeDepth/(Math.log(mNodePool.getNumItemsInUse())/Math.log(branchingFactor));
+
+        if ( aspect < 1.2 && currentExplorationBias > 0.2 )//minExplorationBias )
+        {
+          currentExplorationBias /= 1.1;
+          LOGGER.info("Decreasing exploration bias to: " + currentExplorationBias);
+        }
+        else if ( aspect > 1.3 && currentExplorationBias < maxExplorationBias )
+        {
+          currentExplorationBias *= 1.1;
+          LOGGER.info("Increasing exploration bias to: " + currentExplorationBias);
+        }
+      }
+    }
+    else
+    {
+      double percentThroughTurn = Math.min(100, (xiTime - startTime) * 100 / (moveTime - startTime));
+      currentExplorationBias = maxExplorationBias -
+                                percentThroughTurn *
+                                (maxExplorationBias - minExplorationBias) /
+                                100;
+    }
   }
 
   /**
