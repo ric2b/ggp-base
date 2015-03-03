@@ -1,0 +1,1 @@
+Version of Kalah with 5 pits, each initially containing 3 seeds.
