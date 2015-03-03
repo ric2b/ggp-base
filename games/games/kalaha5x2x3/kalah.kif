@@ -1,23 +1,41 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; Kalah (a.k.a. Kalaha and Mancala).
 ;;;
 ;;; 5 pits, 3 seeds.
+;;;
+;;;   /--------------------------------\
+;;;   |   |    |    |    |    |    |   |
+;;;   | N | 10 |  9 |  8 |  7 |  6 | S |
+;;;   | O |    |    |    |    |    | O |
+;;;   | R |------------------------| U |
+;;;   | T |    |    |    |    |    | T |
+;;;   | H |  1 |  2 |  3 |  4 |  5 | H |
+;;;   |   |    |    |    |    |    |   |
+;;;   \--------------------------------/
+;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; Roles.
+;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (role north)
 (role south)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; Base propositions.
 ;;;
 ;;; - Number of seeds in each pit (or scoring pit).
 ;;; - Number of seeds in each hand.
 ;;; - Which pit (or scoring pit) we're at.  (Only valid when sowing seeds.)
 ;;; - Which role's turn is it.
+;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (<= (base (pit ?p ?n))
   (anypit ?p)
   (number ?n))
@@ -33,13 +51,16 @@
   (role ?r))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; Input propositions.
 ;;;
 ;;; - No-op (Primarily when it isn't a role's turn).
 ;;; - Pick up all the seeds from a pit into hand.
 ;;; - Put a seed into the next pit (including scoring pits).
 ;;; - Clear a pit into the scoring pot (at the end of the game).
+;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (<= (input ?r noop)
   (role ?r))
 
@@ -56,26 +77,14 @@
   (normalpit ?p))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Type information.
 ;;;
-;;; - The number of seeds in each pit is an integer.
-;;; - The number of seeds in each hand is an integer.
-;;; - The turn marker is an enum (over roles).
-;;;
-;;; Note that 'at ?p' is untyped because it's possible for all of these
-;;; propositions to be simultaneously false, so it isn't a 'one-of'.
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(type (pit naming int))
-(type (hand naming int))
-(type (control enum))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Initially true propositions.
 ;;;
 ;;; - 3 seeds in each pit.
 ;;; - No seeds in the scoring pits.
 ;;; - No seeds in hand.
 ;;; - North to play.
+;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (<= (init (pit ?p s3))
@@ -90,8 +99,11 @@
 (init (control north))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; Legal moves.
+;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (<= (legal ?r noop)
   (role ?r)
   (true (control ?r2))
@@ -126,11 +138,14 @@
   (distinct ?n s0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; Game end.
 ;;;
 ;;; - Game ends when all the (non-scoring) pits are empty (for both roles).
 ;;; - Score is mapped from the number of seeds in the scoring pits.
+;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (<= terminal
   (allempty north)
   (allempty south))
@@ -141,8 +156,11 @@
   (map_to_score ?n ?score))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; Next state.
+;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (<= (next (control ?r))
   (does ?r (pick ?p)))
 
@@ -282,10 +300,13 @@
   (true (pit ?p ?n)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; Views.
 ;;;
+;;; - Emptiness checking.
 ;;; - The 'opposite' relation is symmetric.
 ;;; - Addition (recursive).
+;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (<= (allempty north)
@@ -337,6 +358,7 @@
   (scoringpit ?r ?p))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; Data.
 ;;;
 ;;; - Names of the pits.
@@ -344,8 +366,10 @@
 ;;; - Pit layout.
 ;;;   - Which pits are opposite each other (for captures).
 ;;;   - Sequence of pits when sowing seeds (different for each role).
-;;; - Score map.
+;;; - Score map.  (Strong incentive to win.  Thereafter, small incentive to
+;;;   finish with more seeds.)
 ;;; - Numbers (including successors).
+;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (normalpit p1)
@@ -404,35 +428,35 @@
 (nextpit north pwinnorth p1)
 
 (map_to_score s0 0)
-(map_to_score s1 3)
-(map_to_score s2 6)
-(map_to_score s3 9)
-(map_to_score s4 12)
-(map_to_score s5 15)
-(map_to_score s6 18)
-(map_to_score s7 21)
-(map_to_score s8 24)
-(map_to_score s9 27)
-(map_to_score s10 30)
-(map_to_score s11 33)
-(map_to_score s12 36)
-(map_to_score s13 39)
-(map_to_score s14 42)
+(map_to_score s1 0)
+(map_to_score s2 0)
+(map_to_score s3 0)
+(map_to_score s4 0)
+(map_to_score s5 0)
+(map_to_score s6 0)
+(map_to_score s7 0)
+(map_to_score s8 0)
+(map_to_score s9 0)
+(map_to_score s10 0)
+(map_to_score s11 0)
+(map_to_score s12 0)
+(map_to_score s13 0)
+(map_to_score s14 0)
 (map_to_score s15 50)
-(map_to_score s16 58)
-(map_to_score s17 61)
-(map_to_score s18 64)
-(map_to_score s19 67)
-(map_to_score s20 70)
-(map_to_score s21 73)
-(map_to_score s22 76)
-(map_to_score s23 79)
-(map_to_score s24 82)
-(map_to_score s25 85)
-(map_to_score s26 88)
-(map_to_score s27 91)
-(map_to_score s28 94)
-(map_to_score s29 97)
+(map_to_score s16 86)
+(map_to_score s17 87)
+(map_to_score s18 88)
+(map_to_score s19 89)
+(map_to_score s20 90)
+(map_to_score s21 91)
+(map_to_score s22 92)
+(map_to_score s23 93)
+(map_to_score s24 94)
+(map_to_score s25 95)
+(map_to_score s26 96)
+(map_to_score s27 97)
+(map_to_score s28 98)
+(map_to_score s29 99)
 (map_to_score s30 100)
 
 (number s0)
