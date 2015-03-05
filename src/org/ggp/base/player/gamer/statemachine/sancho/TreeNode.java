@@ -4732,7 +4732,7 @@ public class TreeNode
     }
   }
 
-  public FactorMoveChoiceInfo getBestMove(boolean traceResponses, StringBuffer pathTrace)
+  public FactorMoveChoiceInfo getBestMove(boolean traceResponses, StringBuffer pathTrace, boolean firstDecision)
   {
     double bestScore = -Double.MAX_VALUE;
     double bestMoveScore = -Double.MAX_VALUE;
@@ -4750,12 +4750,18 @@ public class TreeNode
     int numPrimaryMoves = 0;
     int numSecondaryMoves = 0;
 
+    //  If were asked for the first actual decision drill down through any leading no-choice path
+    if ( firstDecision && mNumChildren == 1 )
+    {
+      return get(((TreeEdge)children[0]).getChildRef()).getBestMove(traceResponses, pathTrace, firstDecision);
+    }
+
     //  If there is no pseudo-noop then there cannot be any penalty for not taking
     //  this factor's results - we simply return a pseudo-noop penalty value of 0
     result.pseudoNoopValue = 100;
 
     // This routine is called recursively for path tracing purposes.  When
-    // calling this routing for path tracing purposes, don't make any other
+    // calling this routine for path tracing purposes, don't make any other
     // debugging output (because it would be confusing).
     boolean lRecursiveCall = (pathTrace != null);
 
@@ -4763,7 +4769,7 @@ public class TreeNode
     // being called for real (rather than for debug trace) it MUST be our role
     // (always 0), otherwise why are we trying to get the best move?
     int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
-    assert(lRecursiveCall || roleIndex == 0);
+    assert(lRecursiveCall || roleIndex == 0 || firstDecision);
     assert(mNumChildren != 0) : "Asked to get best move when there are NO CHILDREN!";
 
     int maxChildVisitCount = 1;
@@ -4804,7 +4810,7 @@ public class TreeNode
       TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
       if (edge == null || edge.getChildRef() == NULL_REF)
       {
-        if ( !lRecursiveCall )
+        if ( !lRecursiveCall && !firstDecision )
         {
           ForwardDeadReckonLegalMoveInfo partialMove;
 
@@ -4956,7 +4962,7 @@ public class TreeNode
                     (20 * Math.log(numVisits) + numChildVisits));
           }
         }
-        if (!lRecursiveCall)
+        if (!lRecursiveCall && !firstDecision)
         {
           LOGGER.info("Move " + edge.descriptiveName() +
                       " scores " + FORMAT_2DP.format(moveScore) + " (selectionScore score " +
@@ -4965,7 +4971,7 @@ public class TreeNode
                       (child.complete ? (", complete [" + ((child.completionDepth - tree.root.depth)/tree.numRoles) + "]") : "") + ")");
         }
 
-        if (child.mNumChildren != 0 && !child.complete && traceResponses)
+        if (child.mNumChildren != 0 && !child.complete && traceResponses && !firstDecision)
         {
           lResponsesTraced = child.traceFirstChoiceNode(lResponsesTraced);
         }
@@ -5004,7 +5010,7 @@ public class TreeNode
       }
     }
 
-    if (!lRecursiveCall)
+    if (!lRecursiveCall && !firstDecision)
     {
       if (bestEdge == null && tree.factor == null)
       {
@@ -5016,25 +5022,28 @@ public class TreeNode
       }
     }
 
-    // Trace the most likely path through the tree
-    if (!lRecursiveCall)
+    // Trace the most likely path through the tree if searching from the root
+    if ( !firstDecision )
     {
-      pathTrace = new StringBuffer("Most likely path: ");
-    }
-    assert(pathTrace != null);
-    if (bestEdge != null)
-    {
-      pathTrace.append(bestEdge.descriptiveName());
-      pathTrace.append(roleIndex == 0 ? ", " : " | ");
-    }
+      if (!lRecursiveCall)
+      {
+        pathTrace = new StringBuffer("Most likely path: ");
+      }
+      assert(pathTrace != null);
+      if (bestEdge != null)
+      {
+        pathTrace.append(bestEdge.descriptiveName());
+        pathTrace.append(roleIndex == 0 ? ", " : " | ");
+      }
 
-    if ((bestNode != null) && (bestNode.mNumChildren != 0))
-    {
-      bestNode.getBestMove(false, pathTrace);
-    }
-    else
-    {
-      LOGGER.info(pathTrace.toString());
+      if ((bestNode != null) && (bestNode.mNumChildren != 0))
+      {
+        bestNode.getBestMove(false, pathTrace, false);
+      }
+      else
+      {
+        LOGGER.info(pathTrace.toString());
+      }
     }
 
     if (bestEdge == null)
@@ -5045,7 +5054,8 @@ public class TreeNode
     {
       ForwardDeadReckonLegalMoveInfo moveInfo = bestEdge.mPartialMove;
 
-      result.bestMove = (moveInfo.isPseudoNoOp ? null : moveInfo.move);
+      result.bestMove = moveInfo;
+      result.resultingState = get(bestEdge.getChildRef()).state;
       if (!moveInfo.isPseudoNoOp)
       {
         result.bestMoveValue = bestMoveScore;

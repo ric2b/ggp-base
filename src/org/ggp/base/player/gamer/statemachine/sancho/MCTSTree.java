@@ -799,30 +799,34 @@ public class MCTSTree
   }
 
   /**
-   * @return the best top-level move from this tree.
+   * @param firstDecision if false choice from the root always else choice from first node that has one
+   * @return the best move from this tree.
    */
-  public FactorMoveChoiceInfo getBestMove()
+  public FactorMoveChoiceInfo getBestMove(boolean firstDecision)
   {
-    FactorMoveChoiceInfo bestMoveInfo = root.getBestMove(true, null);
+    FactorMoveChoiceInfo bestMoveInfo = root.getBestMove(true, null, firstDecision);
 
-    LOGGER.info("Num nodes in use: " + nodePool.getNumItemsInUse());
-    LOGGER.info("Num true rollouts added: " + numNonTerminalRollouts);
-    LOGGER.info("Num terminal nodes revisited: " + numTerminalRollouts);
-    LOGGER.info("Num incomplete nodes: " + numIncompleteNodes);
-    LOGGER.info("Num completely explored branches: " + numCompletedBranches);
-    if (numAutoExpansions + numNormalExpansions > 0)
+    if ( !firstDecision )
     {
-      LOGGER.info("Percentage forced single-choice expansion: " +
-                  ((double)numAutoExpansions / (numAutoExpansions + numNormalExpansions)));
-      LOGGER.info("Average depth of auto-expansion instances: " + averageAutoExpansionDepth);
-      LOGGER.info("Maximum depth of auto-expansion instances: " + maxAutoExpansionDepth);
-    }
-    LOGGER.info("Current observed rollout score range: [" +
-                lowestRolloutScoreSeen + ", " +
-                highestRolloutScoreSeen + "]");
+      LOGGER.info("Num nodes in use: " + nodePool.getNumItemsInUse());
+      LOGGER.info("Num true rollouts added: " + numNonTerminalRollouts);
+      LOGGER.info("Num terminal nodes revisited: " + numTerminalRollouts);
+      LOGGER.info("Num incomplete nodes: " + numIncompleteNodes);
+      LOGGER.info("Num completely explored branches: " + numCompletedBranches);
+      if (numAutoExpansions + numNormalExpansions > 0)
+      {
+        LOGGER.info("Percentage forced single-choice expansion: " +
+                    ((double)numAutoExpansions / (numAutoExpansions + numNormalExpansions)));
+        LOGGER.info("Average depth of auto-expansion instances: " + averageAutoExpansionDepth);
+        LOGGER.info("Maximum depth of auto-expansion instances: " + maxAutoExpansionDepth);
+      }
+      LOGGER.info("Current observed rollout score range: [" +
+                  lowestRolloutScoreSeen + ", " +
+                  highestRolloutScoreSeen + "]");
 
-    numNonTerminalRollouts = 0;
-    numTerminalRollouts = 0;
+      numNonTerminalRollouts = 0;
+      numTerminalRollouts = 0;
+    }
 
     //root.dumpTree("treeDump.txt");
     return bestMoveInfo;

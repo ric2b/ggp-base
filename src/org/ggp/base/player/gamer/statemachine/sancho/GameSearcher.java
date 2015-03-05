@@ -472,6 +472,27 @@ public class GameSearcher implements Runnable, ActivityController
   }
 
   /**
+   * @param resultingState Set to the state resulting from the first move in the primary path which was a choice
+   * @return First move in primary path where there was a choice
+   */
+  public ForwardDeadReckonLegalMoveInfo getPrimaryPathLeadingMoveAndState(ForwardDeadReckonInternalMachineState resultingState)
+  {
+    //  Currently no attempt to local serach in factored games
+    if ( factorTrees.length > 1 )
+    {
+      return null;
+    }
+
+    synchronized(getSerializationObject())
+    {
+      FactorMoveChoiceInfo factorChoice = factorTrees[0].getBestMove(true);
+
+      resultingState.copy(factorChoice.resultingState);
+      return factorChoice.bestMove;
+    }
+  }
+
+  /**
    * @return the best move discovered (from the current root of the tree).
    */
   public Move getBestMove()
@@ -518,10 +539,10 @@ public class GameSearcher implements Runnable, ActivityController
       LOGGER.debug("Searching for best move amongst factors:");
       for (MCTSTree tree : factorTrees)
       {
-        FactorMoveChoiceInfo factorChoice = tree.getBestMove();
+        FactorMoveChoiceInfo factorChoice = tree.getBestMove(false);
         if (factorChoice.bestMove != null)
         {
-          LOGGER.debug("  Factor best move: " + factorChoice.bestMove);
+          LOGGER.debug("  Factor best move: " + (factorChoice.bestMove.isPseudoNoOp ? null : factorChoice.bestMove.move));
 
           if (bestChoice == null)
           {
@@ -585,7 +606,7 @@ public class GameSearcher implements Runnable, ActivityController
 
       assert(bestChoice != null) : "No move choice found";
       StatsLogUtils.Series.SCORE.logDataPoint((long)Math.max(0, bestChoice.bestMoveValue + 0.5));
-      return bestChoice.bestMove;
+      return (bestChoice.bestMove.isPseudoNoOp ? null : bestChoice.bestMove.move);
     }
   }
 

@@ -35,14 +35,18 @@ public class MoveConsequenceSearcher implements Runnable, LocalSearchController
   public void newSearch(ForwardDeadReckonInternalMachineState startState,
                         ForwardDeadReckonLegalMoveInfo seed)
   {
-    synchronized(this)
+    //  If we're being asked for the same search again just continue
+    if ( seedMove != seed || !startState.equals(currentState) )
     {
-      currentState = startState;
-      seedMove = seed;
+      synchronized(this)
+      {
+        currentState = startState;
+        seedMove = seed;
 
-      searchRequested = ++nextSearch;
+        searchRequested = ++nextSearch;
 
-      this.notifyAll();
+        this.notifyAll();
+      }
     }
   }
 
