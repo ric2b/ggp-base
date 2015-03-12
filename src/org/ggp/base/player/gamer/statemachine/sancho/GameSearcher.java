@@ -8,7 +8,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
 import org.ggp.base.player.gamer.statemachine.sancho.LocalRegionSearcher.LocalSearchResultConsumer;
-import org.ggp.base.player.gamer.statemachine.sancho.LocalRegionSearcher.LocalSearchResults;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.StatsLogUtils.Series;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
@@ -129,7 +128,9 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   private MoveConsequenceSearcher     moveConsequenceSearcher         = null;
   private ForwardDeadReckonInternalMachineState localSearchRoot       = null;
   private ForwardDeadReckonLegalMoveInfo priorityLocalSearchSeed      = null;
-
+  private LocalSearchResults searchResultsBuffer = new LocalSearchResults();
+  private volatile int lastProcessedSearchResultSeq = 0;
+  private int lastQueuedSearchResultSeq = 0;
   /**
    * Accumulated iteration timings.
    */
@@ -677,36 +678,41 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       }
     }
 
-    if ( moveConsequenceSearcher != null && System.currentTimeMillis() > localSearchRefreshTime )
+    if ( moveConsequenceSearcher != null )
     {
-      ForwardDeadReckonLegalMoveInfo primaryLine = null;
-      int choosingRole = 0;
+      ProcessQueuedLocalSearchResults();
 
-      if ( priorityLocalSearchSeed != null && getRootDepth() != rootDepthAtLastLocalSearchStart )
+      if (System.currentTimeMillis() > localSearchRefreshTime )
       {
-        LOGGER.info("Setting priority search seed: " + priorityLocalSearchSeed);
-        primaryLine = priorityLocalSearchSeed;
-        priorityLocalSearchSeed = null;
-        choosingRole = (getRootDepth()/2)%2;
-      }
-      else
-      {
-        TreeEdge primaryPathEdge = getPrimaryPath(localSearchRoot);
-        if ( primaryPathEdge != null )
+        ForwardDeadReckonLegalMoveInfo primaryLine = null;
+        int choosingRole = 0;
+
+        if ( priorityLocalSearchSeed != null && getRootDepth() != rootDepthAtLastLocalSearchStart )
         {
-          primaryLine = primaryPathEdge.mPartialMove;
-          choosingRole = (factorTrees[0].root.get(primaryPathEdge.getChildRef()).decidingRoleIndex+1)%2;
+          LOGGER.info("Setting priority search seed: " + priorityLocalSearchSeed);
+          primaryLine = priorityLocalSearchSeed;
+          priorityLocalSearchSeed = null;
+          choosingRole = (getRootDepth()/2)%2;
         }
-      }
+        else
+        {
+          TreeEdge primaryPathEdge = getPrimaryPath(localSearchRoot);
+          if ( primaryPathEdge != null )
+          {
+            primaryLine = primaryPathEdge.mPartialMove;
+            choosingRole = (factorTrees[0].root.get(primaryPathEdge.getChildRef()).decidingRoleIndex+1)%2;
+          }
+        }
 
-      if ( primaryLine != null )
-      {
-        moveConsequenceSearcher.newSearch(localSearchRoot, primaryLine, choosingRole, getRootDepth() != rootDepthAtLastLocalSearchStart, false);
-        rootDepthAtLastLocalSearchStart = getRootDepth();
-      }
+        if ( primaryLine != null )
+        {
+          moveConsequenceSearcher.newSearch(localSearchRoot, primaryLine, choosingRole, getRootDepth() != rootDepthAtLastLocalSearchStart, false);
+          rootDepthAtLastLocalSearchStart = getRootDepth();
+        }
 
-      //  Recheck periodically that we're still thinking the same move is most interesting
-      localSearchRefreshTime = System.currentTimeMillis() + LOCAL_SEARCH_REFRESH_PERIOD;
+        //  Recheck periodically that we're still thinking the same move is most interesting
+        localSearchRefreshTime = System.currentTimeMillis() + LOCAL_SEARCH_REFRESH_PERIOD;
+      }
     }
 
     lAllTreesCompletelyExplored = true;
@@ -902,7 +908,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         // If the rollout threads are not keeping up and the pipeline is full then perform an expansion synchronously
         // while we wait for the rollout pool to have results for us.
         expandSearch(true);
-        mNumIterations++;
+        //mNumIterations++;
 
         // This method can be called re-entrantly from the above, which means that the rollout pipeline may no longer be
         // blocked, in which case we should return immediately.
@@ -1136,10 +1142,22 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   @Override
   public void ProcessLocalSearchResult(LocalSearchResults xiResults)
   {
-    LOGGER.info("Receieved search result for processing when numIterations=" + mNumIterations);
-    synchronized(getSerializationObject())
+    LOGGER.info("Received search result for processing when numIterations=" + mNumIterations);
+    while ( lastProcessedSearchResultSeq != lastQueuedSearchResultSeq && !mTerminateRequested )
     {
-      LOGGER.info("Obtained GameSearcher lock when numIterations=" + mNumIterations);
+      //  Spin-wait
+      Thread.yield();
+    }
+
+    lastQueuedSearchResultSeq++;
+    searchResultsBuffer.copyFrom(xiResults);
+  }
+
+  private void ProcessQueuedLocalSearchResults()
+  {
+    if ( lastQueuedSearchResultSeq > lastProcessedSearchResultSeq )
+    {
+      LOGGER.info("Processing queued search results when numIterations=" + mNumIterations);
       //  Transfer the search results into the MCTS tree
       assert(factorTrees.length == 1);
       MCTSTree tree = factorTrees[0];
@@ -1147,7 +1165,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       assert(tree.numRoles == 2) : "Unexpected use of local search on non 2-player game";
 
       //  Find the root node for the local search
-      TreeNode node = tree.findTransposition(xiResults.startState);
+      TreeNode node = tree.findTransposition(searchResultsBuffer.startState);
       if ( node == null )
       {
         LOGGER.warn("Unexpectedly unable to find MCTS node for root of completed local search");
@@ -1161,28 +1179,28 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         }
         LOGGER.info("Node depth is " + node.getDepth() + " (root depth " + tree.root.getDepth() + ")");
         //  Is this a win, or a must-play-local-move?
-        if ( xiResults.winForRole != -1 )
+        if ( searchResultsBuffer.winForRole != -1 )
         {
-          assert(xiResults.tenukiLossForRole == -1);
+          assert(searchResultsBuffer.tenukiLossForRole == -1);
 
           double completeResultBuffer[] = new double[tree.numRoles];
 
           for(int i = 0; i < tree.numRoles; i++)
           {
-            completeResultBuffer[i] = (i == xiResults.winForRole ? 100 : 0);
+            completeResultBuffer[i] = (i == searchResultsBuffer.winForRole ? 100 : 0);
           }
 
-          if ( xiResults.winForRole == node.decidingRoleIndex )
+          if ( searchResultsBuffer.winForRole == node.decidingRoleIndex )
           {
             //  Unconditional win here whatever is played
-            LOGGER.info("noop win for " + tree.roleOrdering.roleIndexToRole(xiResults.winForRole) + " from seed move " + xiResults.seedMove);
-            node.markComplete(completeResultBuffer,(short)( node.getDepth() + xiResults.atDepth));
+            LOGGER.info("noop win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove);
+            node.markComplete(completeResultBuffer,(short)( node.getDepth() + searchResultsBuffer.atDepth));
 
-            if ( node == tree.root && xiResults.winForRole == 0 )
+            if ( node == tree.root && searchResultsBuffer.winForRole == 0 )
             {
               LOGGER.info("Root complete without known win path for us - storing seed move for next priority search seed");
 
-              priorityLocalSearchSeed = xiResults.seedMove;
+              priorityLocalSearchSeed = searchResultsBuffer.seedMove;
             }
           }
           else
@@ -1194,7 +1212,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
               ForwardDeadReckonLegalMoveInfo moveInfo = ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice);
 
-              if ( moveInfo == xiResults.winningMove )
+              if ( moveInfo == searchResultsBuffer.winningMove )
               {
                 if ( node.primaryChoiceMapping != null )
                 {
@@ -1206,34 +1224,34 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                   TreeNode child = node.get(edge.getChildRef());
                   if (child != null)
                   {
-                    LOGGER.info("Win for " + tree.roleOrdering.roleIndexToRole(xiResults.winForRole) + " from seed move " + xiResults.seedMove + " with move " + xiResults.winningMove);
-                    child.markComplete(completeResultBuffer, (short)(node.getDepth()+xiResults.atDepth-1));
+                    LOGGER.info("Win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove + " with move " + searchResultsBuffer.winningMove);
+                    child.markComplete(completeResultBuffer, (short)(node.getDepth()+searchResultsBuffer.atDepth-1));
                     break;
                   }
                 }
 
-                LOGGER.warn("Winning move " + xiResults.winningMove + " from local search not found in MCTS tree!");
+                LOGGER.warn("Winning move " + searchResultsBuffer.winningMove + " from local search not found in MCTS tree!");
                 break;
               }
             }
 
-            if ( node == tree.root && xiResults.winForRole == 0 )
+            if ( node == tree.root && searchResultsBuffer.winForRole == 0 )
             {
               LOGGER.info("Root complete with known win path for us - storing winning move for next priority search seed");
 
-              priorityLocalSearchSeed = xiResults.winningMove;
+              priorityLocalSearchSeed = searchResultsBuffer.winningMove;
             }
           }
         }
         else
         {
-          assert(xiResults.tenukiLossForRole != -1);
+          assert(searchResultsBuffer.tenukiLossForRole != -1);
 
           double tenukiLossResultBuffer[] = new double[tree.numRoles];
 
           for(int i = 0; i < tree.numRoles; i++)
           {
-            tenukiLossResultBuffer[i] = (i == xiResults.tenukiLossForRole ? 0 : 100);
+            tenukiLossResultBuffer[i] = (i == searchResultsBuffer.tenukiLossForRole ? 0 : 100);
           }
 
           //  Win here if the optional player does not play locally
@@ -1245,7 +1263,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
               ForwardDeadReckonLegalMoveInfo moveInfo = ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice);
 
-              if ( !xiResults.region.isLocal(moveInfo) )
+              if ( !searchResultsBuffer.isLocal(moveInfo) )
               {
                 TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
                 if (edge != null && edge.getChildRef() != TreeNode.NULL_REF)
@@ -1253,8 +1271,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                   TreeNode child = node.get(edge.getChildRef());
                   if (child != null)
                   {
-                    LOGGER.info(moveInfo.move.toString() + " is a loss for " + tree.roleOrdering.roleIndexToRole(xiResults.tenukiLossForRole) + " from seed move " + xiResults.seedMove );
-                    child.markComplete(tenukiLossResultBuffer, (short)(node.getDepth()+xiResults.atDepth-1));
+                    LOGGER.info(moveInfo.move.toString() + " is a loss for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
+                    child.markComplete(tenukiLossResultBuffer, (short)(node.getDepth()+searchResultsBuffer.atDepth-1));
                   }
                 }
               }
@@ -1263,7 +1281,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
           LOGGER.info("Storing tenuki-loss seed move for next priority search seed");
 
-          priorityLocalSearchSeed = xiResults.seedMove;
+          priorityLocalSearchSeed = searchResultsBuffer.seedMove;
         }
 
         //  Re-evaluate what we should be searching in light of the tree changes
@@ -1271,6 +1289,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
         factorTrees[0].processNodeCompletions();
       }
+
+      lastProcessedSearchResultSeq = lastQueuedSearchResultSeq;
     }
   }
 }

@@ -13,47 +13,11 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 
-public class LocalRegionSearcher implements LocalRegionDefiner
+public class LocalRegionSearcher
 {
   public interface LocalSearchController
   {
     boolean terminateSearch();
-  }
-
-  /**
-   * @author steve
-   * Information structure detailing local search results
-   */
-  public class LocalSearchResults
-  {
-    /**
-     * Role for whom a (local) forced win was found or -1 if none
-     */
-    public int winForRole;
-    /**
-     * Role for whom a (local) tenuki is a loss or -1 if none
-     */
-    public int tenukiLossForRole;
-    /**
-     * Seeding move for the local space
-     */
-    public ForwardDeadReckonLegalMoveInfo seedMove;
-    /**
-     * State from which the search began
-     */
-    public ForwardDeadReckonInternalMachineState startState;
-    /**
-     * Move found to be a win (or null if none)
-     */
-    public ForwardDeadReckonLegalMoveInfo winningMove;
-    /**
-     * Depth of search result found at
-     */
-    public int atDepth;
-    /**
-     * Queriable region defining the local search the results pertain to
-     */
-    LocalRegionDefiner region;
   }
 
   /**
@@ -128,6 +92,8 @@ public class LocalRegionSearcher implements LocalRegionDefiner
 
     optionalMoveKillerWeight = new int[underlyingStateMachine.getFullPropNet().getMasterMoveList().length];
     NonOptionalMoveKillerWeight = new int[underlyingStateMachine.getFullPropNet().getMasterMoveList().length];
+
+    searchResult.searchProvider = this;
   }
 
   public void decayKillerStatistics()
@@ -254,9 +220,10 @@ public class LocalRegionSearcher implements LocalRegionDefiner
           searchResult.winForRole = 1-optionalRole;
           searchResult.tenukiLossForRole = -1;
           searchResult.seedMove = jointMove[0][0];
+          searchResult.jointSearchSecondarySeed = jointMove[0][1];
           searchResult.winningMove = jointMove[1][1-optionalRole];
           searchResult.startState = startingState;
-          searchResult.region = this;
+          searchResult.searchRadius = currentDepth;
 
           resultsConsumer.ProcessLocalSearchResult(searchResult);
         }
@@ -391,9 +358,10 @@ public class LocalRegionSearcher implements LocalRegionDefiner
           searchResult.winForRole = -1;
           searchResult.tenukiLossForRole = optionalRole;
           searchResult.seedMove = jointMove[0][0];
+          searchResult.jointSearchSecondarySeed = jointMove[0][1];
           searchResult.winningMove = null;
           searchResult.startState = startingState;
-          searchResult.region = this;
+          searchResult.searchRadius = currentDepth;
 
           resultsConsumer.ProcessLocalSearchResult(searchResult);
         }
@@ -484,6 +452,11 @@ public class LocalRegionSearcher implements LocalRegionDefiner
     }
 
     return 50;
+  }
+
+  public int getMoveDistance(ForwardDeadReckonLegalMoveInfo from, ForwardDeadReckonLegalMoveInfo to)
+  {
+    return moveDistances[from.masterIndex][to.masterIndex];
   }
 
   private int heuristicValue(ForwardDeadReckonLegalMoveInfo move, int depth, ForwardDeadReckonLegalMoveInfo previousLocalMove, boolean forOptionalRole)
@@ -639,17 +612,6 @@ public class LocalRegionSearcher implements LocalRegionDefiner
     }
 
     return numChoices;
-  }
-
-  @Override
-  public boolean isLocal(ForwardDeadReckonLegalMoveInfo xiMove)
-  {
-    boolean result = (jointMove[0][0] == null ? null : (moveDistances[jointMove[0][0].masterIndex][xiMove.masterIndex] <= currentDepth));
-    if ( jointMove[0][1] != null )
-    {
-      result |= (moveDistances[jointMove[0][1].masterIndex][xiMove.masterIndex] <= currentDepth);
-    }
-    return result;
   }
 
   private static Pattern C4MoveColumnMatchPattern = Pattern.compile("drop (\\d+)");
