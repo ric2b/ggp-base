@@ -131,6 +131,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   private LocalSearchResults searchResultsBuffer = new LocalSearchResults();
   private volatile int lastProcessedSearchResultSeq = 0;
   private int lastQueuedSearchResultSeq = 0;
+  private int localSearchResultProcessingAttemptSeq = 0;
+  private static final int LOCAL_SEARCH_WIN_PROCESSING_MAX_RETRIES = 100;
   /**
    * Accumulated iteration timings.
    */
@@ -1158,6 +1160,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     if ( lastQueuedSearchResultSeq > lastProcessedSearchResultSeq )
     {
       LOGGER.info("Processing queued search results when numIterations=" + mNumIterations);
+
       //  Transfer the search results into the MCTS tree
       assert(factorTrees.length == 1);
       MCTSTree tree = factorTrees[0];
@@ -1230,8 +1233,21 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                   }
                 }
 
-                LOGGER.warn("Winning move " + searchResultsBuffer.winningMove + " from local search not found in MCTS tree!");
-                break;
+                LOGGER.info("Winning move " + searchResultsBuffer.winningMove + " from local search not found in MCTS tree");
+
+                //  This can happen across a new move if the win was found while unreferenced parts of the old tree are being trimmed (which
+                //  can take a while) and the result is a root that need re-expanding.  In such cases this attempt to process the found
+                //  win can occur before that child is recreated in the first few dozen MCTS iterations following creation of the new
+                //  root.
+                //  To cope with this circumstance we just leave the result queued and allow up to a fixed threshold iterations to take
+                //  place before we give up (which should never really happen)
+                if ( localSearchResultProcessingAttemptSeq > LOCAL_SEARCH_WIN_PROCESSING_MAX_RETRIES )
+                {
+                  LOGGER.warn("Winning move " + searchResultsBuffer.winningMove + " from local search not found in MCTS tree after retry period");
+                  break;
+                }
+
+                return;
               }
             }
 
@@ -1290,6 +1306,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         factorTrees[0].processNodeCompletions();
       }
 
+      localSearchResultProcessingAttemptSeq = 0;
       lastProcessedSearchResultSeq = lastQueuedSearchResultSeq;
     }
   }
