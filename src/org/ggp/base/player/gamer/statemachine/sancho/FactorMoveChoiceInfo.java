@@ -6,6 +6,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 public class FactorMoveChoiceInfo
 {
   public double bestMoveValue;
+  public TreeEdge bestEdge;
   public ForwardDeadReckonLegalMoveInfo   bestMove;
   public ForwardDeadReckonInternalMachineState resultingState;
   public double pseudoNoopValue;

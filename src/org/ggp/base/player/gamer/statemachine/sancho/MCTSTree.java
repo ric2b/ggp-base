@@ -519,7 +519,7 @@ public class MCTSTree
 
       if (!node.freed)
       {
-        assert(node.complete);
+        assert(node.complete) : "Incomplete node in compleet node queue - depth is " + node.getDepth() + " vs root depth " + root.getDepth();
         node.processCompletion();
       }
     }
@@ -651,7 +651,13 @@ public class MCTSTree
 
             if ( existingRootStateNode.complete)
             {
-              root.markComplete(existingRootStateNode, existingRootStateNode.getCompletionDepth());
+              //  There are two possible reasons the old root could have been marked as
+              //  complete - either it was complete because of the state of its children
+              //  in which case we want to re-propagate that, or else it had been marked
+              //  complete but local search without known path (in which case we must re-find
+              //  the completion and so clear the completion)
+              existingRootStateNode.complete = false;
+              existingRootStateNode.checkChildCompletion(false);
             }
           }
 
@@ -751,16 +757,27 @@ public class MCTSTree
     }
     //validateAll();
 
-    if (root.complete && root.mNumChildren == 0)
+    if (root.mNumChildren == 0)
     {
-      LOGGER.info("Encountered complete root with trimmed children - must re-expand");
+      LOGGER.info("Encountered childless root - must re-expand");
+
+      if ( root.complete )
+      {
+        numCompletedBranches--;
+      }
       root.complete = false;
       //  Latched score detection can cause a node that is not strictly terminal (but has totally
       //  fixed scores for all subtrees) to be flagged as terminal - we must reset this to ensure
       //  it get re-expanded one level (from which we'll essentially make a random choice)
       root.isTerminal = false;
-      numCompletedBranches--;
+
+      //  Must expand here as async activity on the local search can mark the root complete again
+      //  before an expansion takes place if we let control flow out of the synchronized section
+      //  before expanding
+      root.expand(null, mJointMoveBuffer, rootDepth-1);
     }
+
+    LOGGER.info("Root has " + root.mNumChildren + " children, and is " + (root.complete ? "complete" : "not complete"));
 
     lowestRolloutScoreSeen = 1000;
     highestRolloutScoreSeen = -100;
@@ -896,7 +913,7 @@ public class MCTSTree
   private void selectAction(boolean forceSynchronous, Move xiChosenMove)
     throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
-    completedNodeQueue.clear();
+    //completedNodeQueue.clear();
 
     long lSelectStartTime = System.nanoTime();
     TreePath visited = mPathPool.allocate(mTreePathAllocator);

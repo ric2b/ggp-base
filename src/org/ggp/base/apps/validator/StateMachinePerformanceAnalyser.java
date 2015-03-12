@@ -233,7 +233,7 @@ public class StateMachinePerformanceAnalyser
                              null);
 
           endTime = System.currentTimeMillis() + numSeconds*1000;
-          gameSearcher.startSearch(endTime, initialState, (short)0);
+          gameSearcher.startSearch(endTime, initialState, (short)0, null);
 
           if (ThreadControl.RUN_SYNCHRONOUSLY)
           {

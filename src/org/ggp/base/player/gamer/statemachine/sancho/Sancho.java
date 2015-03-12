@@ -85,8 +85,6 @@ public class Sancho extends SampleGamer
   private GameSearcher                searchProcessor                 = null;
   private String                      mLogName                        = null;
   private SystemStatsLogger           mSysStatsLogger                 = null;
-  private MoveConsequenceSearcher     moveConsequenceSearcher         = null;
-  private ForwardDeadReckonInternalMachineState localSearchRoot       = null;
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
@@ -233,7 +231,7 @@ public class Sancho extends SampleGamer
 
       //  Start pre-warming he search tree 2 moves before he end of the plan so that we arrive
       //  at the turn we need to search in earnest in with a warmed-up tree
-      GameSearcher.thinkBelowPlanSize = 0;//  TEMP HACK
+      GameSearcher.thinkBelowPlanSize = 2;
     }
 
     ourRole = getRole();
@@ -939,17 +937,11 @@ public class Sancho extends SampleGamer
                             roleControlProps);
       searchProcessor.startSearch(System.currentTimeMillis() + 60000,
                                   new ForwardDeadReckonInternalMachineState(initialState),
-                                  (short)0);
+                                  (short)0,
+                                  null);
 
-      searchUntil(timeout - SAFETY_MARGIN, null);
+      searchUntil(timeout - SAFETY_MARGIN);
     }
-
-    localSearchRoot = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
-    moveConsequenceSearcher = new MoveConsequenceSearcher(underlyingStateMachine.createInstance(), roleOrdering, mLogName);
-
-    Thread lMoveConsequenceProcessorThread = new Thread(moveConsequenceSearcher, "Move Consequence Processor");
-    lMoveConsequenceProcessorThread.setDaemon(true);
-    lMoveConsequenceProcessorThread.start();
 
     LOGGER.info("Ready to play");
   }
@@ -1052,7 +1044,7 @@ public class Sancho extends SampleGamer
       //  We need to keep the search 'up with' the plan to make forced-play
       //  testing work properly, or else the search will not be 'primed'
       //  during forced play when the plan runs out
-      searchProcessor.startSearch(finishBy, currentState, currentMoveDepth);
+      searchProcessor.startSearch(finishBy, currentState, currentMoveDepth, null);
       currentMoveDepth += numRoles;
     }
     else if (mGameCharacteristics.isIteratedGame && numRoles == 2)
@@ -1063,7 +1055,6 @@ public class Sancho extends SampleGamer
     }
     else
     {
-      moveConsequenceSearcher.newSearch(currentState, lastMove);
 //      LocalRegionSearcher localSearcher = new LocalRegionSearcher(localSearchStateMachine, currentState, roleOrdering, lastMove, (lastMove == ourLastMove ? 1 : 0), mLogName);
 //
 //      //if ( ourLastMove != null )
@@ -1077,13 +1068,13 @@ public class Sancho extends SampleGamer
       //root = null;
       //validateAll();
       LOGGER.debug("Setting search root");
-      searchProcessor.startSearch(finishBy, currentState, currentMoveDepth);
+      searchProcessor.startSearch(finishBy, currentState, currentMoveDepth, lastMove);
       currentMoveDepth += numRoles;
 
       searchProcessor.requestYield(false);
 
       LOGGER.debug("Waiting for processing");
-      searchUntil(finishBy, moveConsequenceSearcher);
+      searchUntil(finishBy);
 
 //      while(System.currentTimeMillis() < finishBy)
 //      {
@@ -1092,7 +1083,7 @@ public class Sancho extends SampleGamer
       LOGGER.debug("Time to submit order - ask GameSearcher to yield");
       searchProcessor.requestYield(true);
       //localSearcher.stop();
-      moveConsequenceSearcher.endSearch();
+      //moveConsequenceSearcher.endSearch();
 
       //validateAll();
       long getBestMoveStartTime = System.currentTimeMillis();
@@ -1142,37 +1133,20 @@ public class Sancho extends SampleGamer
     return bestMove;
   }
 
-  private void searchUntil(long xiFinishBy, MoveConsequenceSearcher localSearcher)
+  private void searchUntil(long xiFinishBy)
     throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
-    //  Devote the first 5 seconds to searching the last move played in case it wasn't what
-    //  was previously expected and so had not been subject to local search
-    long localSearchRefreshTime = System.currentTimeMillis() + 5000;
-
     try
     {
       while (System.currentTimeMillis() < xiFinishBy && !searchProcessor.isComplete())
       {
-        if ( localSearcher != null && System.currentTimeMillis() > localSearchRefreshTime )
-        {
-          ForwardDeadReckonLegalMoveInfo primaryLine = searchProcessor.getPrimaryPathLeadingMoveAndState(localSearchRoot);
-
-          if ( primaryLine != null )
-          {
-            localSearcher.newSearch(localSearchRoot, primaryLine);
-          }
-
-          //  Recheck each second that we're still thinking the same move is most interesting
-          localSearchRefreshTime = System.currentTimeMillis() + 1000;
-        }
-
         if (ThreadControl.RUN_SYNCHRONOUSLY)
         {
           searchProcessor.expandSearch(true);
         }
         else
         {
-          Thread.sleep(250);
+          Thread.sleep(Math.min(250, xiFinishBy - System.currentTimeMillis()));
         }
       }
     }
@@ -1231,12 +1205,6 @@ public class Sancho extends SampleGamer
     {
       searchProcessor.terminate();
       searchProcessor = null;
-    }
-
-    if ( moveConsequenceSearcher != null )
-    {
-      moveConsequenceSearcher.stop();
-      moveConsequenceSearcher = null;
     }
 
     if (mSysStatsLogger != null)

@@ -392,7 +392,7 @@ public class TreeNode
     }
   }
 
-  private void markComplete(double[] values, short atCompletionDepth)
+  void markComplete(double[] values, short atCompletionDepth)
   {
     if (!complete)
     {
@@ -456,7 +456,6 @@ public class TreeNode
   {
     assert(linkageValid());
     //validateCompletionValues(averageScores);
-    //LOGGER.debug("Process completion of node seq: " + seq);
     //validateAll();
     //	Children can all be freed, at least from this parentage
     if (MCTSTree.FREE_COMPLETED_NODE_CHILDREN)
@@ -484,7 +483,7 @@ public class TreeNode
 
         if ( keepBest )
         {
-          double bestScore = -Double.MAX_VALUE;
+          double bestScore = 0;
 
           for (int index = 0; index < mNumChildren; index++)
           {
@@ -513,32 +512,42 @@ public class TreeNode
           }
         }
 
-        for (int index = 0; index < mNumChildren; index++)
+        if ( keepIndex != -1 || this != tree.root )
         {
-          if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+          for (int index = 0; index < mNumChildren; index++)
           {
-            Object choice = children[index];
-
-            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-            if (edge != null)
+            if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
             {
-              if ( keepIndex != index )
-              {
-                TreeNode lChild = (edge.getChildRef() == NULL_REF || edge.isHyperEdge()) ? null : get(edge.getChildRef());
+              Object choice = children[index];
 
-                deleteEdge(index);
-                if (lChild != null)
+              TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+              if (edge != null)
+              {
+                if ( keepIndex != index )
                 {
-                  lChild.freeFromAncestor(this, null);
+                  TreeNode lChild = (edge.getChildRef() == NULL_REF || edge.isHyperEdge()) ? null : get(edge.getChildRef());
+
+                  deleteEdge(index);
+                  if (lChild != null)
+                  {
+                    lChild.freeFromAncestor(this, null);
+                  }
+                }
+                else
+                {
+                  //  Must make sure the edge we retain becomes selectable if it was previously handled by
+                  //  a hyper-edge alternative
+                  edge.setIsSelectable(true);
                 }
               }
-              else
-              {
-                //  Must make sure the edge we retain becomes selectable if it was previously handled by
-                //  a hyper-edge alternative
-                edge.setIsSelectable(true);
-              }
             }
+          }
+
+          if ( keepIndex == -1 )
+          {
+            assert(this != tree.root);
+            //  Actually retained nothing - can get rid of the children entirely
+            mNumChildren = 0;
           }
         }
       }
@@ -551,8 +560,8 @@ public class TreeNode
         boolean decidingRoleWin = false;
         boolean mutualWin = true;
         //  Because we link directly through force-move sequences the deciding role in the completed
-        //  node may not b the role that chose that path from the parent - we must check what the choosing
-        //  rol on the particular parent was
+        //  node may not be the role that chose that path from the parent - we must check what the choosing
+        //  role on the particular parent was
         int choosingRoleIndex = (parent.decidingRoleIndex+1)%tree.numRoles;
 
         for (int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
@@ -1116,8 +1125,7 @@ public class TreeNode
     return result;
   }
 
-  @SuppressWarnings("null")
-  private void checkChildCompletion(boolean checkConsequentialSiblingCompletion)
+  @SuppressWarnings("null") void checkChildCompletion(boolean checkConsequentialSiblingCompletion)
   {
     boolean allImmediateChildrenComplete = true;
     double bestValue = -1000;
@@ -2942,6 +2950,7 @@ public class TreeNode
             //  parent)
             if ( !freed )
             {
+              assert(this != tree.root);
               mNumChildren = 0; //  Must reset this so it appears unexpanded for other paths if it doesn't get freed
               assert(parents.size() > 0);
               if ( parents.contains(parent) )
@@ -3015,6 +3024,7 @@ public class TreeNode
 
         if ( result == this )
         {
+          assert(this != tree.root);
           mNumChildren = 0;
           depth++;
           decidingRoleIndex = (decidingRoleIndex+1)%tree.numRoles;
@@ -4912,6 +4922,15 @@ public class TreeNode
                                                                   child.scoreForMostLikelyResponse();
 
         assert(-EPSILON <= moveScore && 100 + EPSILON >= moveScore);
+//        if ( firstDecision && edge.mPartialMove.toString().contains("2 2 2 3"))
+//        {
+//          LOGGER.info("Force-selecting " + edge.mPartialMove);
+//          bestNode = child;
+//          bestScore = 99;
+//          bestMoveScore = bestNode.getAverageScore(0);
+//          bestEdge = edge;
+//          break;
+//        }
         //	If we have complete nodes with equal scores choose the one with the highest variance
         if (child.complete)
         {
@@ -5048,12 +5067,22 @@ public class TreeNode
 
     if (bestEdge == null)
     {
-      result.bestMove = null;
+      //  This can happen if the node has no expanded children
+      assert(this != tree.root || complete) : "Root incomplete but has no expanded children";
+
+      //  If nothing is expanded pick the first (arbitrarily)
+      Object firstChoice = children[0];
+      result.bestEdge = null;
+      result.bestMove = (firstChoice instanceof ForwardDeadReckonLegalMoveInfo) ? (ForwardDeadReckonLegalMoveInfo)firstChoice : ((TreeEdge)firstChoice).mPartialMove;
+      //  Complete with no expanded children implies arbitrary child must match parent score
+      result.bestMoveValue = getAverageScore(0);
+      result.resultingState = null;
     }
     else
     {
       ForwardDeadReckonLegalMoveInfo moveInfo = bestEdge.mPartialMove;
 
+      result.bestEdge = bestEdge;
       result.bestMove = moveInfo;
       result.resultingState = get(bestEdge.getChildRef()).state;
       if (!moveInfo.isPseudoNoOp)
@@ -5588,7 +5617,7 @@ public class TreeNode
    *
    * @return the referenced node, or null if it has been recycled.
    */
-  private TreeNode get(long xiNodeRef)
+  TreeNode get(long xiNodeRef)
   {
     return get(tree.nodePool, xiNodeRef);
   }
