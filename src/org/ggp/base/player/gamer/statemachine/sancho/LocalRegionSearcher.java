@@ -234,7 +234,7 @@ public class LocalRegionSearcher
         {
           if ( jointMove[1][i] != null )
           {
-            tenukiLossSeeds[optionalRole] = jointMove[1][i];
+            tenukiLossSeeds[1-optionalRole] = jointMove[1][i];
             break;
           }
         }
