@@ -126,6 +126,7 @@ public class TreeNode
   boolean                               autoExpand          = false;
   boolean                               complete            = false;
   private boolean                       allChildrenComplete = false;
+  boolean                               hasBeenLocalSearched = false;
   Object[]                              children            = null;
   short                                 mNumChildren        = 0;
   short[]                               primaryChoiceMapping = null;
@@ -1566,6 +1567,7 @@ public class TreeNode
     numUpdates = 0;
     isTerminal = false;
     autoExpand = false;
+    hasBeenLocalSearched = false;
     leastLikelyWinner = -1;
     mostLikelyWinner = -1;
     complete = false;
@@ -4922,7 +4924,7 @@ public class TreeNode
                                                                   child.scoreForMostLikelyResponse();
 
         assert(-EPSILON <= moveScore && 100 + EPSILON >= moveScore);
-//        if ( firstDecision && edge.mPartialMove.toString().contains("2 2 2 3"))
+//        if ( firstDecision && edge.mPartialMove.toString().contains("2 5 1 4"))
 //        {
 //          LOGGER.info("Force-selecting " + edge.mPartialMove);
 //          bestNode = child;
@@ -4979,6 +4981,17 @@ public class TreeNode
             selectionScore = moveScore *
                 (1 - 20 * Math.log(numVisits) /
                     (20 * Math.log(numVisits) + numChildVisits));
+            //  Also down-weight nodes that have not been subject to local-search
+            //  This helps cope with cases where the MCTS convergence tips over
+            //  to a new node near the end of turn processing where the previous candidate
+            //  had been confirmed to have no local loss, but the new choice turns out
+            //  to actually be a loss.  The slight loss of potentially going for the second best
+            //  MCTS choice when things are very close is more than compensated for by the
+            //  added safety
+            if ( !child.hasBeenLocalSearched )
+            {
+              selectionScore *= 0.95;
+            }
           }
         }
         if (!lRecursiveCall && !firstDecision)
