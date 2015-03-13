@@ -186,7 +186,7 @@ public class LocalRegionSearcher
 //      }
       if ( !resultFound )
       {
-//        if ( optionalRole == 0 && currentDepth==9 && regionCentre.toString().contains("3 3 3 4"))
+//        if ( optionalRole == 0 && currentDepth==9 && regionCentre.toString().contains("7 7 7 6"))
 //        {
 //          System.out.println("!");
 //        }
@@ -498,8 +498,15 @@ public class LocalRegionSearcher
 //
           boolean isOptionalRolePly = (optionalRoleHasOddDepthParity == (i%2 == 1));
 
-          if ( i == 0 )
+          if ( i == 0 && (!isOptionalRolePly || depth==1) )
           {
+            //  The first non-optional role move is distance gated by the seed, but the first
+            //  optional role move is only gated by the seed if it is the first move of the
+            //  sequence (optional role moves that are within distance of the seed but are
+            //  not dependent on any non-optional role move made need not be searched - they
+            //  may potentially be wins for the optional role, but only if they are independently
+            //  of the non-optional moves played, and thus discoverable when searched with role
+            //  optionality reversed)
             isDistanceGating = true;
             plyIsResponse = false;
             terminateTrackBack = true;
@@ -507,8 +514,8 @@ public class LocalRegionSearcher
           else if ( (depth%2==1) == optionalRoleHasOddDepthParity )
           {
             //  Optional role moves are distance gated by any non-optional role
-            //  move or the last optional role move
-            if ( !isOptionalRolePly || jointSearch || i >= depth-2 )
+            //  move [or the last optional role move?]
+            if ( !isOptionalRolePly || jointSearch )//|| i >= depth-2 )
             {
               isDistanceGating = true;
               plyIsResponse = false;
