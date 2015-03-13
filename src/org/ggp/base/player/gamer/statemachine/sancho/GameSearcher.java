@@ -46,9 +46,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   private static final boolean DISABLE_NODE_TRIMMING =
                                                      MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_NODE_TRIMMING, false);
 
-  private final long LOCAL_SEARCH_REFRESH_PERIOD = 2000;
-  private final long LOCAL_SEARCH_REVIEW_PLAYED_MOVE_TIME = 5000;
-  private final long REEVALUATE_AFTER_LOCAL_SEARCH_RESULT_TIME = 200;
+  private final long LOCAL_SEARCH_REFRESH_PERIOD = 1000;
+  private final long LOCAL_SEARCH_REVIEW_PLAYED_MOVE_TIME = 3000;
 
   /**
    * The update interval for sample size.
@@ -701,8 +700,11 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           TreeEdge primaryPathEdge = getPrimaryPath(localSearchRoot);
           if ( primaryPathEdge != null )
           {
+            TreeNode primaryPathNode = factorTrees[0].root.get(primaryPathEdge.getChildRef());
+
             primaryLine = primaryPathEdge.mPartialMove;
-            choosingRole = (factorTrees[0].root.get(primaryPathEdge.getChildRef()).decidingRoleIndex+1)%2;
+            primaryPathNode.hasBeenLocalSearched = true;
+            choosingRole = (primaryPathNode.decidingRoleIndex+1)%2;
           }
         }
 
@@ -1181,81 +1183,98 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           return;
         }
         LOGGER.info("Node depth is " + node.getDepth() + " (root depth " + tree.root.getDepth() + ")");
+
+        boolean nodeIsRootEquivalent = (node.getDepth() <= tree.root.getDepth()+1);
+        boolean nodeIsRootChild = !nodeIsRootEquivalent && (node.getDepth() <= tree.root.getDepth()+3);
+
         //  Is this a win, or a must-play-local-move?
         if ( searchResultsBuffer.winForRole != -1 )
         {
           assert(searchResultsBuffer.tenukiLossForRole == -1);
 
-          double completeResultBuffer[] = new double[tree.numRoles];
-
-          for(int i = 0; i < tree.numRoles; i++)
+          //  If this completes the tree as a win for our opponent just ignore it!
+          //  At this pointy it cannot help find an escape and letting MCTS in on the loss
+          //  will just result in random moves, making the opponent's job that much easier.
+          //  Better to let MCTS labour on in ignorance and try to make life as hard as
+          //  possible for the opponent
+          if ( searchResultsBuffer.winForRole != 0 &&
+               (nodeIsRootEquivalent || (nodeIsRootChild && node.decidingRoleIndex!=0)))
           {
-            completeResultBuffer[i] = (i == searchResultsBuffer.winForRole ? 100 : 0);
-          }
-
-          if ( searchResultsBuffer.winForRole == node.decidingRoleIndex )
-          {
-            //  Unconditional win here whatever is played
-            LOGGER.info("noop win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove);
-            node.markComplete(completeResultBuffer,(short)( node.getDepth() + searchResultsBuffer.atDepth));
-
-            if ( node == tree.root && searchResultsBuffer.winForRole == 0 )
-            {
-              LOGGER.info("Root complete without known win path for us - storing seed move for next priority search seed");
-
-              priorityLocalSearchSeed = searchResultsBuffer.seedMove;
-            }
+            LOGGER.info("Result is an unconditonal loss for us - ignoring to allow MCTS to obfuscate!");
           }
           else
           {
-            //  Win if the winning move is played
-            for (short index = 0; index < node.mNumChildren; index++)
+            double completeResultBuffer[] = new double[tree.numRoles];
+
+            for(int i = 0; i < tree.numRoles; i++)
             {
-              Object choice = node.children[index];
-
-              ForwardDeadReckonLegalMoveInfo moveInfo = ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice);
-
-              if ( moveInfo == searchResultsBuffer.winningMove )
-              {
-                if ( node.primaryChoiceMapping != null )
-                {
-                  choice = node.children[node.primaryChoiceMapping[index]];
-                }
-                TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-                if (edge != null && edge.getChildRef() != TreeNode.NULL_REF)
-                {
-                  TreeNode child = node.get(edge.getChildRef());
-                  if (child != null)
-                  {
-                    LOGGER.info("Win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove + " with move " + searchResultsBuffer.winningMove);
-                    child.markComplete(completeResultBuffer, (short)(node.getDepth()+searchResultsBuffer.atDepth-1));
-                    break;
-                  }
-                }
-
-                LOGGER.info("Winning move " + searchResultsBuffer.winningMove + " from local search not found in MCTS tree");
-
-                //  This can happen across a new move if the win was found while unreferenced parts of the old tree are being trimmed (which
-                //  can take a while) and the result is a root that need re-expanding.  In such cases this attempt to process the found
-                //  win can occur before that child is recreated in the first few dozen MCTS iterations following creation of the new
-                //  root.
-                //  To cope with this circumstance we just leave the result queued and allow up to a fixed threshold iterations to take
-                //  place before we give up (which should never really happen)
-                if ( localSearchResultProcessingAttemptSeq > LOCAL_SEARCH_WIN_PROCESSING_MAX_RETRIES )
-                {
-                  LOGGER.warn("Winning move " + searchResultsBuffer.winningMove + " from local search not found in MCTS tree after retry period");
-                  break;
-                }
-
-                return;
-              }
+              completeResultBuffer[i] = (i == searchResultsBuffer.winForRole ? 100 : 0);
             }
 
-            if ( node == tree.root && searchResultsBuffer.winForRole == 0 )
+            if ( searchResultsBuffer.winForRole == node.decidingRoleIndex )
             {
-              LOGGER.info("Root complete with known win path for us - storing winning move for next priority search seed");
+              //  Unconditional win here whatever is played
+              LOGGER.info("noop win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove);
+              node.markComplete(completeResultBuffer,(short)( node.getDepth() + searchResultsBuffer.atDepth));
 
-              priorityLocalSearchSeed = searchResultsBuffer.winningMove;
+              if ( node == tree.root && searchResultsBuffer.winForRole == 0 )
+              {
+                LOGGER.info("Root complete without known win path for us - storing seed move for next priority search seed");
+
+                priorityLocalSearchSeed = searchResultsBuffer.seedMove;
+              }
+            }
+            else
+            {
+              //  Win if the winning move is played
+              for (short index = 0; index < node.mNumChildren; index++)
+              {
+                Object choice = node.children[index];
+
+                ForwardDeadReckonLegalMoveInfo moveInfo = ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice);
+
+                if ( moveInfo == searchResultsBuffer.winningMove )
+                {
+                  if ( node.primaryChoiceMapping != null )
+                  {
+                    choice = node.children[node.primaryChoiceMapping[index]];
+                  }
+                  TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+                  if (edge != null && edge.getChildRef() != TreeNode.NULL_REF)
+                  {
+                    TreeNode child = node.get(edge.getChildRef());
+                    if (child != null)
+                    {
+                      LOGGER.info("Win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove + " with move " + searchResultsBuffer.winningMove);
+                      child.markComplete(completeResultBuffer, (short)(node.getDepth()+searchResultsBuffer.atDepth-1));
+                      break;
+                    }
+                  }
+
+                  LOGGER.info("Winning move " + searchResultsBuffer.winningMove + " from local search not found in MCTS tree");
+
+                  //  This can happen across a new move if the win was found while unreferenced parts of the old tree are being trimmed (which
+                  //  can take a while) and the result is a root that need re-expanding.  In such cases this attempt to process the found
+                  //  win can occur before that child is recreated in the first few dozen MCTS iterations following creation of the new
+                  //  root.
+                  //  To cope with this circumstance we just leave the result queued and allow up to a fixed threshold iterations to take
+                  //  place before we give up (which should never really happen)
+                  if ( localSearchResultProcessingAttemptSeq > LOCAL_SEARCH_WIN_PROCESSING_MAX_RETRIES )
+                  {
+                    LOGGER.warn("Winning move " + searchResultsBuffer.winningMove + " from local search not found in MCTS tree after retry period");
+                    break;
+                  }
+
+                  return;
+                }
+              }
+
+              if ( node == tree.root && searchResultsBuffer.winForRole == 0 )
+              {
+                LOGGER.info("Root complete with known win path for us - storing winning move for next priority search seed");
+
+                priorityLocalSearchSeed = searchResultsBuffer.winningMove;
+              }
             }
           }
         }
@@ -1301,7 +1320,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         }
 
         //  Re-evaluate what we should be searching in light of the tree changes
-        localSearchRefreshTime = System.currentTimeMillis() + REEVALUATE_AFTER_LOCAL_SEARCH_RESULT_TIME;
+        localSearchRefreshTime = System.currentTimeMillis();
 
         factorTrees[0].processNodeCompletions();
       }
