@@ -327,7 +327,7 @@ public class LocalRegionSearcher
 
     //  At depth 1 consider the optional tenuki first as a complete result
     //  there will allow cutoff in the MCTS tree (in principal)
-    if ( choosingRole == optionalRole && depth == 1 && tenukiLossDepth[optionalRole] > currentDepth )
+    if ( choosingRole == optionalRole && tenukiLossDepth[optionalRole] > currentDepth )
     {
       jointMove[depth][1-choosingRole] = nonChooserMove;
       jointMove[depth][choosingRole] = pseudoNoop;
@@ -337,21 +337,20 @@ public class LocalRegionSearcher
 
       int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole);
 
-      if ( childValue == (choosingRole == 0 ? 100 : 0) )
+      if ( childValue != (optionalRole == 0 ? 0 : 100) )
       {
-        //  Tenuki is a forced win for the optional role!  This means that there is
+        //  Tenuki is not a forced win for the non-optional role.  This means that there is
         //  nothing decisive in the local-search-space
-        return 50;
+        return (choosingRole == 0 ? 100 : 0);
       }
 
-      incomplete |= (childValue != (choosingRole == 0 ? 0 : 100));
-
-      if ( !incomplete )
+      if ( depth == 1 )
       {
-        LOGGER.info("Tenuki is a loss for " + (optionalRole == 0 ? "us" : "them") + " at depth " + currentDepth);
-
         tenukiLossDepth[optionalRole] = currentDepth;
         tenukiLossSeeds[optionalRole] = jointMove[0][0];
+
+        LOGGER.info("Tenuki is a loss for " + (optionalRole == 0 ? "us" : "them") + " at depth " + currentDepth);
+
         if ( resultsConsumer != null )
         {
           searchResult.atDepth = currentDepth;
@@ -365,13 +364,6 @@ public class LocalRegionSearcher
 
           resultsConsumer.ProcessLocalSearchResult(searchResult);
         }
-      }
-
-      if ( childValue == 50 )
-      {
-        //  If the optional role gets a draw by tenuki then there is no forced win so
-        //  no point searching further
-        return 50;
       }
     }
 
@@ -410,34 +402,7 @@ public class LocalRegionSearcher
       incomplete |= (childValue != (choosingRole == 0 ? 0 : 100));
     }
 
-    if ( choosingRole == optionalRole && depth > 1 )
-    {
-      //  Discount winning tenukis, so only search to avoid loss
-      if ( incomplete )
-      {
-        return 50;
-      }
-
-      //  Consider also a pseudo-noop
-      jointMove[depth][1-choosingRole] = nonChooserMove;
-      jointMove[depth][choosingRole] = pseudoNoop;
-      moveIsResponse[depth] = false;
-
-      underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth]);
-
-      int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole);
-
-      if ( childValue == (choosingRole == 0 ? 100 : 0) )
-      {
-        //assert(depth!=1);
-        //  Complete result
-        //LOGGER.info("Complete result: " + childValue + " (" + moveDesc + ")");
-        return childValue;
-      }
-
-      incomplete |= (childValue != (choosingRole == 0 ? 0 : 100));
-    }
-    else if ( numChoices == 0 )
+    if ( numChoices == 0 && choosingRole != optionalRole )
     {
       //  No moves available for non-optional role implies this branch completely
       //  searched with no win found
