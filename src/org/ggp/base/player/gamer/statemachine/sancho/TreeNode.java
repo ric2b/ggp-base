@@ -4924,7 +4924,7 @@ public class TreeNode
                                                                   child.scoreForMostLikelyResponse();
 
         assert(-EPSILON <= moveScore && 100 + EPSILON >= moveScore);
-//        if ( firstDecision && edge.mPartialMove.toString().contains("2 5 1 4"))
+//        if ( firstDecision && edge.mPartialMove.toString().contains("2 4 1 5"))
 //        {
 //          LOGGER.info("Force-selecting " + edge.mPartialMove);
 //          bestNode = child;
@@ -4932,6 +4932,11 @@ public class TreeNode
 //          bestMoveScore = bestNode.getAverageScore(0);
 //          bestEdge = edge;
 //          break;
+//        }
+//        if ( firstDecision && (edge.mPartialMove.toString().contains("5 7 4 6") || edge.mPartialMove.toString().contains("4 7 4 6")))
+//        {
+//          LOGGER.info("Force-UNselecting " + edge.mPartialMove);
+//          moveScore = 1;
 //        }
         //	If we have complete nodes with equal scores choose the one with the highest variance
         if (child.complete)
