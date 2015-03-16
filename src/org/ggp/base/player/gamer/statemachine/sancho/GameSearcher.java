@@ -710,7 +710,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
         if ( primaryLine != null )
         {
-          moveConsequenceSearcher.newSearch(localSearchRoot, primaryLine, choosingRole, getRootDepth() != rootDepthAtLastLocalSearchStart, false);
+          moveConsequenceSearcher.newSearch(localSearchRoot, factorTrees[0].root.state, primaryLine, choosingRole, getRootDepth() != rootDepthAtLastLocalSearchStart, false);
           rootDepthAtLastLocalSearchStart = getRootDepth();
         }
 
@@ -821,7 +821,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
       if ( lastMove != null )
       {
-        moveConsequenceSearcher.newSearch(startState, lastMove, choosingRole, true, false);
+        moveConsequenceSearcher.newSearch(startState, null, lastMove, choosingRole, true, false);
       }
 
       rootDepthAtLastLocalSearchStart = rootDepth;
@@ -1266,6 +1266,39 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                   }
 
                   return;
+                }
+              }
+
+              if (searchResultsBuffer.choiceFromState != null && !searchResultsBuffer.seedMayEnableResult())
+              {
+                TreeNode choiceFromNode = tree.findTransposition(searchResultsBuffer.choiceFromState);
+                if ( choiceFromNode == null )
+                {
+                  LOGGER.warn("Unexpectedly unable to find MCTS node for choice node");
+                }
+                else
+                {
+                  for (short index = 0; index < choiceFromNode.mNumChildren; index++)
+                  {
+                    Object choice = choiceFromNode.children[index];
+
+                    if ( choice instanceof TreeEdge )
+                    {
+                      TreeEdge edge = (TreeEdge)choice;
+                      if ( edge.getChildRef() != TreeNode.NULL_REF )
+                      {
+                        TreeNode childNode = node.get(edge.getChildRef());
+                        if ( childNode != null )
+                        {
+                          if ( !searchResultsBuffer.canInfluenceFoundResult(edge.mPartialMove))
+                          {
+                            LOGGER.info("Looks like move " + edge.mPartialMove + " would also allow this win");
+                            childNode.markComplete(completeResultBuffer,(short)( childNode.getDepth() + searchResultsBuffer.atDepth));
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
 

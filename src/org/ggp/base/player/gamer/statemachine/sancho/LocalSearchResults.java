@@ -26,6 +26,10 @@ public class LocalSearchResults implements LocalRegionDefiner
    */
   public ForwardDeadReckonInternalMachineState startState;
   /**
+   * State from which the start state was a child (or null)
+   */
+  public ForwardDeadReckonInternalMachineState choiceFromState;
+  /**
    * Move found to be a win (or null if none)
    */
   public ForwardDeadReckonLegalMoveInfo winningMove;
@@ -37,6 +41,7 @@ public class LocalSearchResults implements LocalRegionDefiner
   ForwardDeadReckonLegalMoveInfo jointSearchSecondarySeed;
   int searchRadius;
   LocalRegionSearcher searchProvider;
+  ForwardDeadReckonLegalMoveInfo[] winPath;
 
   /**
    * Make this object a shallow copy of source
@@ -53,6 +58,8 @@ public class LocalSearchResults implements LocalRegionDefiner
     jointSearchSecondarySeed = source.jointSearchSecondarySeed;
     searchRadius = source.searchRadius;
     searchProvider = source.searchProvider;
+    winPath = source.winPath;
+    choiceFromState = source.choiceFromState;
   }
 
   @Override
@@ -64,5 +71,67 @@ public class LocalSearchResults implements LocalRegionDefiner
       result |= (searchProvider.getMoveDistance(jointSearchSecondarySeed, xiMove) <= searchRadius);
     }
     return result;
+  }
+
+  @Override
+  public boolean canInfluenceFoundResult(ForwardDeadReckonLegalMoveInfo xiMove)
+  {
+    //  TEMP until I can sort out the correct semantics
+    return true;
+//    if ( winPath == null )
+//    {
+//      return true;
+//    }
+//
+//    for(int i = 1; i <= searchRadius; i++)
+//    {
+//      ForwardDeadReckonLegalMoveInfo winPathMove = winPath[i];
+//      if ( winPathMove != null && winPathMove.inputProposition != null )
+//      {
+//        //  Could this move have been disturbed by the move being checked?
+//        //  The check for the very last (winning move) has a tighter bound since
+//        //  the interaction has to be on the winning role's move (to prevent it)
+//        //  not the optional role's (to counter it after it is played)
+//        //  TODO - validate this holds in all games and is not an unintended Breakthrough
+//        //  category property!
+//        //if ( searchProvider.getMoveDistance(winPathMove, xiMove) < i + (i == searchRadius ? 1 : 0))
+//        if ( searchProvider.getMoveDistance(winPathMove, xiMove) < searchRadius)
+//        {
+//          return true;
+//        }
+//        break;
+//      }
+//    }
+//
+//    return false;
+  }
+
+  @Override
+  public boolean seedMayEnableResult()
+  {
+    //  TEMP until I can sort out the correct semantics
+    return true;
+//    if ( winPath == null )
+//    {
+//      return true;
+//    }
+//
+//    for(int i = 1; i <= searchRadius; i++)
+//    {
+//      ForwardDeadReckonLegalMoveInfo winPathMove = winPath[i];
+//      if ( winPathMove != null && winPathMove.inputProposition != null )
+//      {
+//        //  Could this move have been enabled by the seed move?
+//        //  Note <= here not < since the seed is assume to preceed
+//        //  the found move path
+//        if ( searchProvider.getMoveDistance(winPathMove, seedMove) <= searchRadius )
+//        {
+//          return true;
+//        }
+//        break;
+//      }
+//    }
+//
+//    return false;
   }
 }

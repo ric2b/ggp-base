@@ -18,6 +18,7 @@ public class MoveConsequenceSearcher implements Runnable, LocalSearchController
   private int searchProcessing = -1;
   private int nextSearch = 0;
   private ForwardDeadReckonInternalMachineState currentState;
+  private ForwardDeadReckonInternalMachineState choiceFromState;
   private ForwardDeadReckonLegalMoveInfo        seedMove;
   private int                                   choosingRole;
   private boolean resetStats = false;
@@ -66,6 +67,7 @@ public class MoveConsequenceSearcher implements Runnable, LocalSearchController
   }
 
   public void newSearch(ForwardDeadReckonInternalMachineState startState,
+                        ForwardDeadReckonInternalMachineState xiChoiceFromState,
                         ForwardDeadReckonLegalMoveInfo seed,
                         int xiChoosingRole,
                         boolean isNewTurn,
@@ -78,6 +80,14 @@ public class MoveConsequenceSearcher implements Runnable, LocalSearchController
       {
         LOGGER.info("New local search request - move " + ((seedMove == null || seedMove.masterIndex != seed.masterIndex) ?  "differs" : "does not differ") + ", state " + (startState.equals(currentState) ? "does not differ" : "differs"));
         currentState = new ForwardDeadReckonInternalMachineState(startState);
+        if ( xiChoiceFromState != null )
+        {
+          choiceFromState = new ForwardDeadReckonInternalMachineState(xiChoiceFromState);
+        }
+        else
+        {
+          choiceFromState = null;
+        }
         seedMove = seed;
         choosingRole = xiChoosingRole;
 
@@ -132,7 +142,7 @@ public class MoveConsequenceSearcher implements Runnable, LocalSearchController
         if ( searchRequested != searchProcessing )
         {
           //  Start a new search
-          regionSearcher.setSearchParameters(currentState, seedMove, choosingRole);
+          regionSearcher.setSearchParameters(currentState, choiceFromState, seedMove, choosingRole);
           searchProcessing = searchRequested;
 
           if ( resetStats )

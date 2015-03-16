@@ -15,4 +15,17 @@ public interface LocalRegionDefiner
    * @return whether the move is part of the local region
    */
   boolean isLocal(ForwardDeadReckonLegalMoveInfo move);
+
+  /**
+   * If the region includes a found win path whether a given move from the start
+   * state could influence that win
+   * @param move Move to check for possible influence
+   * @return true if the move could potentially disturb the found win
+   */
+  boolean canInfluenceFoundResult(ForwardDeadReckonLegalMoveInfo move);
+
+  /**
+   * @return true if the region's seed itself may influence the found result
+   */
+  boolean seedMayEnableResult();
 }

@@ -41,6 +41,7 @@ public class LocalRegionSearcher
 
   private final ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
   private ForwardDeadReckonInternalMachineState startingState = null;
+  private ForwardDeadReckonInternalMachineState choiceFromState = null;
   private final RoleOrdering roleOrdering;
   private final int numRoles;
   private final LocalSearchController controller;
@@ -113,11 +114,10 @@ public class LocalRegionSearcher
 
   public void setSearchParameters(
     ForwardDeadReckonInternalMachineState xiStartingState,
+    ForwardDeadReckonInternalMachineState xiChoiceFromState,
     ForwardDeadReckonLegalMoveInfo xiRegionCentre,
     int choosingRole)
   {
-    ForwardDeadReckonInternalMachineState newStartingState = xiStartingState;
-
     jointMove[0] = new ForwardDeadReckonLegalMoveInfo[numRoles];
     regionCentre = xiRegionCentre;
 
@@ -132,7 +132,8 @@ public class LocalRegionSearcher
 
     unconstrainedSearch = (xiRegionCentre == null);
 
-    startingState = newStartingState;
+    startingState = xiStartingState;
+    choiceFromState = xiChoiceFromState;
 
     LOGGER.info("Starting new search with seed move: " + xiRegionCentre + " and first choosing role " + choosingRole);
   }
@@ -195,7 +196,7 @@ public class LocalRegionSearcher
         if ( tenukiLossSeeds[1-optionalRole] != null )
         {
           jointMove[0][1] = tenukiLossSeeds[1-optionalRole];
-          LOGGER.info("Performing joint search for optional role " + optionalRole + " at depth " + currentDepth);
+          LOGGER.info("Performing joint search for optional role " + optionalRole + " at depth " + currentDepth + " with secondary seed " + tenukiLossSeeds[1-optionalRole]);
         }
         else
         {
@@ -224,6 +225,19 @@ public class LocalRegionSearcher
           searchResult.winningMove = jointMove[1][1-optionalRole];
           searchResult.startState = startingState;
           searchResult.searchRadius = currentDepth;
+          searchResult.choiceFromState = choiceFromState;
+          if ( choiceFromState != null )
+          {
+            searchResult.winPath = new ForwardDeadReckonLegalMoveInfo[currentDepth+1];
+            for( int i = 0; i <= currentDepth; i++)
+            {
+              searchResult.winPath[i] = jointMove[i][1-optionalRole];
+            }
+          }
+          else
+          {
+            searchResult.winPath = null;
+          }
 
           resultsConsumer.ProcessLocalSearchResult(searchResult);
         }
@@ -232,7 +246,7 @@ public class LocalRegionSearcher
         //  force searching relative to it in other alternatives
         for(int i = 0; i < jointMove[1].length; i++)
         {
-          if ( jointMove[1][i] != null )
+          if ( jointMove[1][i] != null && jointMove[1][i].inputProposition != null )
           {
             tenukiLossSeeds[1-optionalRole] = jointMove[1][i];
             break;
@@ -291,6 +305,15 @@ public class LocalRegionSearcher
         if ( depth == 1 && i == 0 )
         {
           optionalRoleHasOddDepthParity = (i != optionalRole);
+
+          //  Wins can only occur on the move of the putative winning player so we
+          //  cannot have a forced win for the non-optional player with a given
+          //  max search depth that was not findable at a lesser depth unless the
+          //  max depth is such that the final ply choice is the non-optional player
+          if ( (maxDepth%2 == 0) != optionalRoleHasOddDepthParity )
+          {
+            return 50;
+          }
 //          if ( optionalRoleHasOddDepthParity )
 //          {
 //            LOGGER.info("Non-optional role chooses at depth 1");
@@ -307,6 +330,15 @@ public class LocalRegionSearcher
         if ( depth == 1 && i == 0 )
         {
           optionalRoleHasOddDepthParity = (i == optionalRole);
+
+          //  Wins can only occur on the move of the putative winning player so we
+          //  cannot have a forced win for the non-optional player with a given
+          //  max search depth that was not findable at a lesser depth unless the
+          //  max depth is such that the final ply choice is the non-optional player
+          if ( (maxDepth%2 == 0) != optionalRoleHasOddDepthParity )
+          {
+            return 50;
+          }
 //          if ( optionalRoleHasOddDepthParity )
 //          {
 //            LOGGER.info("Non-optional role chooses at depth 1");
@@ -361,6 +393,8 @@ public class LocalRegionSearcher
           searchResult.winningMove = null;
           searchResult.startState = startingState;
           searchResult.searchRadius = currentDepth;
+          searchResult.winPath = null;
+          searchResult.choiceFromState = null;
 
           resultsConsumer.ProcessLocalSearchResult(searchResult);
         }
@@ -426,6 +460,12 @@ public class LocalRegionSearcher
 
   private int heuristicValue(ForwardDeadReckonLegalMoveInfo move, int depth, ForwardDeadReckonLegalMoveInfo previousLocalMove, boolean forOptionalRole)
   {
+    //  If we're joint searching with a secondary seed and a legal move at depth 1 is exactly the
+    //  secondary seed move choose it first
+    if ( depth == 1 && jointMove[0][1] != null && jointMove[0][1].masterIndex == move.masterIndex )
+    {
+      return Integer.MAX_VALUE;
+    }
     if ( forOptionalRole )
     {
       return optionalMoveKillerWeight[move.masterIndex];
