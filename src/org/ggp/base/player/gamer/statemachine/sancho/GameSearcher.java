@@ -834,7 +834,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     LOGGER.debug("Start move search...");
     synchronized (this)
     {
-      //  Devote the first 5 seconds to searching the last move played in case it wasn't what
+      //  Devote the first few seconds to searching the last move played in case it wasn't what
       //  was previously expected and so had not been subject to local search
       localSearchRefreshTime = System.currentTimeMillis() + LOCAL_SEARCH_REVIEW_PLAYED_MOVE_TIME;
 
@@ -1180,182 +1180,201 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         if ( node.complete )
         {
           LOGGER.info("Node already complete");
-          return;
         }
-        LOGGER.info("Node depth is " + node.getDepth() + " (root depth " + tree.root.getDepth() + ")");
-
-        boolean nodeIsRootEquivalent = (node.getDepth() <= tree.root.getDepth()+1);
-        boolean nodeIsRootChild = !nodeIsRootEquivalent && (node.getDepth() <= tree.root.getDepth()+3);
-
-        //  Is this a win, or a must-play-local-move?
-        if ( searchResultsBuffer.winForRole != -1 )
+        else
         {
-          assert(searchResultsBuffer.tenukiLossForRole == -1);
+          LOGGER.info("Node depth is " + node.getDepth() + " (root depth " + tree.root.getDepth() + ")");
 
-          //  If this completes the tree as a win for our opponent just ignore it!
-          //  At this pointy it cannot help find an escape and letting MCTS in on the loss
-          //  will just result in random moves, making the opponent's job that much easier.
-          //  Better to let MCTS labour on in ignorance and try to make life as hard as
-          //  possible for the opponent
-          if ( searchResultsBuffer.winForRole != 0 &&
-               (nodeIsRootEquivalent || (nodeIsRootChild && node.decidingRoleIndex!=0)))
+          boolean nodeIsRootEquivalent = (node.getDepth() <= tree.root.getDepth()+1);
+          boolean nodeIsRootChild = !nodeIsRootEquivalent && (node.getDepth() <= tree.root.getDepth()+3);
+
+          //  Is this a win, or a must-play-local-move?
+          if ( searchResultsBuffer.winForRole != -1 )
           {
-            LOGGER.info("Result is an unconditonal loss for us - ignoring to allow MCTS to obfuscate!");
-          }
-          else
-          {
-            double completeResultBuffer[] = new double[tree.numRoles];
+            assert(searchResultsBuffer.tenukiLossForRole == -1);
 
-            for(int i = 0; i < tree.numRoles; i++)
+            //  If this completes the tree as a win for our opponent just ignore it!
+            //  At this pointy it cannot help find an escape and letting MCTS in on the loss
+            //  will just result in random moves, making the opponent's job that much easier.
+            //  Better to let MCTS labour on in ignorance and try to make life as hard as
+            //  possible for the opponent
+            if ( searchResultsBuffer.winForRole != 0 &&
+                 (nodeIsRootEquivalent || (nodeIsRootChild && node.decidingRoleIndex!=0)))
             {
-              completeResultBuffer[i] = (i == searchResultsBuffer.winForRole ? 100 : 0);
-            }
-
-            if ( searchResultsBuffer.winForRole == node.decidingRoleIndex )
-            {
-              //  Unconditional win here whatever is played
-              LOGGER.info("noop win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove);
-              node.markComplete(completeResultBuffer,(short)( node.getDepth() + searchResultsBuffer.atDepth));
-
-              if ( node == tree.root && searchResultsBuffer.winForRole == 0 )
-              {
-                LOGGER.info("Root complete without known win path for us - storing seed move for next priority search seed");
-
-                priorityLocalSearchSeed = searchResultsBuffer.seedMove;
-              }
+              LOGGER.info("Result is an unconditonal loss for us - ignoring to allow MCTS to obfuscate!");
             }
             else
             {
-              //  Win if the winning move is played
-              for (short index = 0; index < node.mNumChildren; index++)
+              double completeResultBuffer[] = new double[tree.numRoles];
+
+              for(int i = 0; i < tree.numRoles; i++)
+              {
+                completeResultBuffer[i] = (i == searchResultsBuffer.winForRole ? 100 : 0);
+              }
+
+              if ( searchResultsBuffer.winForRole == node.decidingRoleIndex )
+              {
+                //  Unconditional win here whatever is played
+                LOGGER.info("noop win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove);
+                node.markComplete(completeResultBuffer,(short)( node.getDepth() + searchResultsBuffer.atDepth));
+
+                if ( node == tree.root && searchResultsBuffer.winForRole == 0 )
+                {
+                  LOGGER.info("Root complete without known win path for us - storing seed move for next priority search seed");
+
+                  priorityLocalSearchSeed = searchResultsBuffer.seedMove;
+                }
+              }
+              else
+              {
+                //  Win if the winning move is played
+                for (short index = 0; index < node.mNumChildren; index++)
+                {
+                  Object choice = node.children[index];
+
+                  ForwardDeadReckonLegalMoveInfo moveInfo = ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice);
+
+                  if ( moveInfo == searchResultsBuffer.winningMove )
+                  {
+                    if ( node.primaryChoiceMapping != null )
+                    {
+                      choice = node.children[node.primaryChoiceMapping[index]];
+                    }
+                    TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+                    if (edge != null && edge.getChildRef() != TreeNode.NULL_REF)
+                    {
+                      TreeNode child = node.get(edge.getChildRef());
+                      if (child != null)
+                      {
+                        LOGGER.info("Win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove + " with move " + searchResultsBuffer.winningMove);
+                        child.markComplete(completeResultBuffer, (short)(node.getDepth()+searchResultsBuffer.atDepth-1));
+                        break;
+                      }
+                    }
+
+                    LOGGER.info("Winning move " + searchResultsBuffer.winningMove + " from local search not found in MCTS tree");
+
+                    //  This can happen across a new move if the win was found while unreferenced parts of the old tree are being trimmed (which
+                    //  can take a while) and the result is a root that need re-expanding.  In such cases this attempt to process the found
+                    //  win can occur before that child is recreated in the first few dozen MCTS iterations following creation of the new
+                    //  root.
+                    //  To cope with this circumstance we just leave the result queued and allow up to a fixed threshold iterations to take
+                    //  place before we give up (which should never really happen)
+                    if ( localSearchResultProcessingAttemptSeq > LOCAL_SEARCH_WIN_PROCESSING_MAX_RETRIES )
+                    {
+                      LOGGER.warn("Winning move " + searchResultsBuffer.winningMove + " from local search not found in MCTS tree after retry period");
+                      break;
+                    }
+
+                    return;
+                  }
+                }
+
+                if (searchResultsBuffer.choiceFromState != null && !searchResultsBuffer.seedMayEnableResult())
+                {
+                  LOGGER.info("Win is not enabled by this seed, so checking for other non-relevant moves to eliminate");
+                  TreeNode choiceFromNode = tree.findTransposition(searchResultsBuffer.choiceFromState);
+                  if ( choiceFromNode == null )
+                  {
+                    LOGGER.warn("Unexpectedly unable to find MCTS node for choice node");
+                  }
+                  else
+                  {
+                    for (short index = 0; index < choiceFromNode.mNumChildren; index++)
+                    {
+                      Object choice = choiceFromNode.children[index];
+
+                      if ( choice instanceof TreeEdge )
+                      {
+                        TreeEdge edge = (TreeEdge)choice;
+                        if ( edge.getChildRef() != TreeNode.NULL_REF )
+                        {
+                          TreeNode childNode = node.get(edge.getChildRef());
+                          if ( childNode != null )
+                          {
+                            if ( !searchResultsBuffer.canInfluenceFoundResult(edge.mPartialMove))
+                            {
+                              LOGGER.info("Looks like move " + edge.mPartialMove + " would also allow this win");
+                              childNode.markComplete(completeResultBuffer,(short)( childNode.getDepth() + searchResultsBuffer.atDepth));
+                            }
+                            else
+                            {
+                              LOGGER.info("Choice " + edge.mPartialMove + " could influence the win");
+                            }
+                          }
+                          else
+                          {
+                            LOGGER.info("Choice " + edge.mPartialMove + " freed");
+                          }
+                        }
+                        else
+                        {
+                          LOGGER.info("Choice " + edge.mPartialMove + " unexpanded");
+                        }
+                      }
+                      else
+                      {
+                        LOGGER.info("Choice " + choice + " unexpanded");
+                      }
+                    }
+                  }
+                }
+
+                if ( node == tree.root && searchResultsBuffer.winForRole == 0 )
+                {
+                  LOGGER.info("Root complete with known win path for us - storing winning move for next priority search seed");
+
+                  priorityLocalSearchSeed = searchResultsBuffer.winningMove;
+                }
+              }
+            }
+          }
+          else
+          {
+            assert(searchResultsBuffer.tenukiLossForRole != -1);
+
+            double tenukiLossResultBuffer[] = new double[tree.numRoles];
+
+            for(int i = 0; i < tree.numRoles; i++)
+            {
+              tenukiLossResultBuffer[i] = (i == searchResultsBuffer.tenukiLossForRole ? 0 : 100);
+            }
+
+            //  Win here if the optional player does not play locally
+            for (short index = 0; index < node.mNumChildren; index++)
+            {
+              if ( node.primaryChoiceMapping == null || node.primaryChoiceMapping[index] == index )
               {
                 Object choice = node.children[index];
 
                 ForwardDeadReckonLegalMoveInfo moveInfo = ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice);
 
-                if ( moveInfo == searchResultsBuffer.winningMove )
+                if ( !searchResultsBuffer.isLocal(moveInfo) )
                 {
-                  if ( node.primaryChoiceMapping != null )
-                  {
-                    choice = node.children[node.primaryChoiceMapping[index]];
-                  }
                   TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
                   if (edge != null && edge.getChildRef() != TreeNode.NULL_REF)
                   {
                     TreeNode child = node.get(edge.getChildRef());
                     if (child != null)
                     {
-                      LOGGER.info("Win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove + " with move " + searchResultsBuffer.winningMove);
-                      child.markComplete(completeResultBuffer, (short)(node.getDepth()+searchResultsBuffer.atDepth-1));
-                      break;
-                    }
-                  }
-
-                  LOGGER.info("Winning move " + searchResultsBuffer.winningMove + " from local search not found in MCTS tree");
-
-                  //  This can happen across a new move if the win was found while unreferenced parts of the old tree are being trimmed (which
-                  //  can take a while) and the result is a root that need re-expanding.  In such cases this attempt to process the found
-                  //  win can occur before that child is recreated in the first few dozen MCTS iterations following creation of the new
-                  //  root.
-                  //  To cope with this circumstance we just leave the result queued and allow up to a fixed threshold iterations to take
-                  //  place before we give up (which should never really happen)
-                  if ( localSearchResultProcessingAttemptSeq > LOCAL_SEARCH_WIN_PROCESSING_MAX_RETRIES )
-                  {
-                    LOGGER.warn("Winning move " + searchResultsBuffer.winningMove + " from local search not found in MCTS tree after retry period");
-                    break;
-                  }
-
-                  return;
-                }
-              }
-
-              if (searchResultsBuffer.choiceFromState != null && !searchResultsBuffer.seedMayEnableResult())
-              {
-                TreeNode choiceFromNode = tree.findTransposition(searchResultsBuffer.choiceFromState);
-                if ( choiceFromNode == null )
-                {
-                  LOGGER.warn("Unexpectedly unable to find MCTS node for choice node");
-                }
-                else
-                {
-                  for (short index = 0; index < choiceFromNode.mNumChildren; index++)
-                  {
-                    Object choice = choiceFromNode.children[index];
-
-                    if ( choice instanceof TreeEdge )
-                    {
-                      TreeEdge edge = (TreeEdge)choice;
-                      if ( edge.getChildRef() != TreeNode.NULL_REF )
-                      {
-                        TreeNode childNode = node.get(edge.getChildRef());
-                        if ( childNode != null )
-                        {
-                          if ( !searchResultsBuffer.canInfluenceFoundResult(edge.mPartialMove))
-                          {
-                            LOGGER.info("Looks like move " + edge.mPartialMove + " would also allow this win");
-                            childNode.markComplete(completeResultBuffer,(short)( childNode.getDepth() + searchResultsBuffer.atDepth));
-                          }
-                        }
-                      }
+                      LOGGER.info(moveInfo.move.toString() + " is a loss for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
+                      child.markComplete(tenukiLossResultBuffer, (short)(node.getDepth()+searchResultsBuffer.atDepth-1));
                     }
                   }
                 }
               }
-
-              if ( node == tree.root && searchResultsBuffer.winForRole == 0 )
-              {
-                LOGGER.info("Root complete with known win path for us - storing winning move for next priority search seed");
-
-                priorityLocalSearchSeed = searchResultsBuffer.winningMove;
-              }
             }
+
+            LOGGER.info("Storing tenuki-loss seed move for next priority search seed");
+
+            priorityLocalSearchSeed = searchResultsBuffer.seedMove;
           }
+
+          //  Re-evaluate what we should be searching in light of the tree changes
+          localSearchRefreshTime = System.currentTimeMillis();
+
+          factorTrees[0].processNodeCompletions();
         }
-        else
-        {
-          assert(searchResultsBuffer.tenukiLossForRole != -1);
-
-          double tenukiLossResultBuffer[] = new double[tree.numRoles];
-
-          for(int i = 0; i < tree.numRoles; i++)
-          {
-            tenukiLossResultBuffer[i] = (i == searchResultsBuffer.tenukiLossForRole ? 0 : 100);
-          }
-
-          //  Win here if the optional player does not play locally
-          for (short index = 0; index < node.mNumChildren; index++)
-          {
-            if ( node.primaryChoiceMapping == null || node.primaryChoiceMapping[index] == index )
-            {
-              Object choice = node.children[index];
-
-              ForwardDeadReckonLegalMoveInfo moveInfo = ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice);
-
-              if ( !searchResultsBuffer.isLocal(moveInfo) )
-              {
-                TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-                if (edge != null && edge.getChildRef() != TreeNode.NULL_REF)
-                {
-                  TreeNode child = node.get(edge.getChildRef());
-                  if (child != null)
-                  {
-                    LOGGER.info(moveInfo.move.toString() + " is a loss for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
-                    child.markComplete(tenukiLossResultBuffer, (short)(node.getDepth()+searchResultsBuffer.atDepth-1));
-                  }
-                }
-              }
-            }
-          }
-
-          LOGGER.info("Storing tenuki-loss seed move for next priority search seed");
-
-          priorityLocalSearchSeed = searchResultsBuffer.seedMove;
-        }
-
-        //  Re-evaluate what we should be searching in light of the tree changes
-        localSearchRefreshTime = System.currentTimeMillis();
-
-        factorTrees[0].processNodeCompletions();
       }
 
       localSearchResultProcessingAttemptSeq = 0;

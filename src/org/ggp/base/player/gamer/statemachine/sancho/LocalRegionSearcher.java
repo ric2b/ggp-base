@@ -9,6 +9,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
@@ -42,7 +43,7 @@ public class LocalRegionSearcher
   private final ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
   private ForwardDeadReckonInternalMachineState startingState = null;
   private ForwardDeadReckonInternalMachineState choiceFromState = null;
-  private final RoleOrdering roleOrdering;
+  final RoleOrdering roleOrdering;
   private final int numRoles;
   private final LocalSearchController controller;
 
@@ -68,6 +69,8 @@ public class LocalRegionSearcher
   private final int[] tenukiLossDepth;
   private final ForwardDeadReckonLegalMoveInfo[] tenukiLossSeeds;
 
+  private final ForwardDeadReckonLegalMoveSet[][] relevantMoves;
+
   public LocalRegionSearcher(
                     ForwardDeadReckonPropnetStateMachine xiUnderlyingStateMachine,
                     RoleOrdering xiRoleOrdering,
@@ -80,13 +83,14 @@ public class LocalRegionSearcher
     resultsConsumer = xiResultsConsumer;
 
     numRoles = underlyingStateMachine.getRoles().length;
-    jointMove = new ForwardDeadReckonLegalMoveInfo[MAX_DEPTH][];
-    chooserMoveChoiceStack = new ForwardDeadReckonLegalMoveInfo[MAX_DEPTH][];
-    childStateBuffer = new ForwardDeadReckonInternalMachineState[MAX_DEPTH];
+    jointMove = new ForwardDeadReckonLegalMoveInfo[MAX_DEPTH+1][];
+    chooserMoveChoiceStack = new ForwardDeadReckonLegalMoveInfo[MAX_DEPTH+1][];
+    childStateBuffer = new ForwardDeadReckonInternalMachineState[MAX_DEPTH+1];
     tenukiLossDepth = new int[xiUnderlyingStateMachine.getRoles().length];
     tenukiLossSeeds = new ForwardDeadReckonLegalMoveInfo[xiUnderlyingStateMachine.getRoles().length];
-    moveIsResponse = new boolean[MAX_DEPTH];
-    chooserMoveChoiceIsResponse = new boolean[MAX_DEPTH][];
+    moveIsResponse = new boolean[MAX_DEPTH+1];
+    chooserMoveChoiceIsResponse = new boolean[MAX_DEPTH+1][];
+    relevantMoves = new ForwardDeadReckonLegalMoveSet[MAX_DEPTH+1][];
 
     pseudoNoop = new ForwardDeadReckonLegalMoveInfo();
     pseudoNoop.isPseudoNoOp = true;
@@ -95,6 +99,19 @@ public class LocalRegionSearcher
     NonOptionalMoveKillerWeight = new int[underlyingStateMachine.getFullPropNet().getMasterMoveList().length];
 
     searchResult.searchProvider = this;
+
+    for(int i = 0; i <= MAX_DEPTH; i++ )
+    {
+      chooserMoveChoiceStack[i] = new ForwardDeadReckonLegalMoveInfo[MAX_BRANCHING_FACTOR];
+      jointMove[i] = new ForwardDeadReckonLegalMoveInfo[numRoles];
+      childStateBuffer[i] = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+      chooserMoveChoiceIsResponse[i] = new boolean[MAX_BRANCHING_FACTOR];
+      relevantMoves[i] = new ForwardDeadReckonLegalMoveSet[MAX_DEPTH+1];
+      for(int j = 0; j <= MAX_DEPTH; j++)
+      {
+        relevantMoves[i][j] = new ForwardDeadReckonLegalMoveSet(underlyingStateMachine.getFullPropNet().getActiveLegalProps(0));
+      }
+    }
   }
 
   public void decayKillerStatistics()
@@ -142,11 +159,6 @@ public class LocalRegionSearcher
   {
     //LOGGER.info("Local move search beginning for depth " + currentDepth);
 
-    chooserMoveChoiceStack[currentDepth] = new ForwardDeadReckonLegalMoveInfo[MAX_BRANCHING_FACTOR];
-    jointMove[currentDepth] = new ForwardDeadReckonLegalMoveInfo[numRoles];
-    childStateBuffer[currentDepth] = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
-    chooserMoveChoiceIsResponse[currentDepth] = new boolean[MAX_BRANCHING_FACTOR];
-
     if ( tenukiLossSeeds[firstSearchedRole] != null )
     {
       firstSearchedRole = 1-firstSearchedRole;
@@ -187,7 +199,7 @@ public class LocalRegionSearcher
 //      }
       if ( !resultFound )
       {
-//        if ( optionalRole == 0 && currentDepth==9 && regionCentre.toString().contains("7 7 7 6"))
+//        if ( optionalRole == 0 && currentDepth==3 && regionCentre.toString().contains("5 3 4 4"))
 //        {
 //          System.out.println("!");
 //        }
@@ -229,14 +241,17 @@ public class LocalRegionSearcher
           if ( choiceFromState != null )
           {
             searchResult.winPath = new ForwardDeadReckonLegalMoveInfo[currentDepth+1];
+            searchResult.relevantMovesForWin = new ForwardDeadReckonLegalMoveSet[currentDepth+1];
             for( int i = 0; i <= currentDepth; i++)
             {
               searchResult.winPath[i] = jointMove[i][1-optionalRole];
+              searchResult.relevantMovesForWin[i] = relevantMoves[1][i];
             }
           }
           else
           {
             searchResult.winPath = null;
+            searchResult.relevantMovesForWin = null;
           }
 
           resultsConsumer.ProcessLocalSearchResult(searchResult);
@@ -270,6 +285,14 @@ public class LocalRegionSearcher
     return false;
   }
 
+  private void clearWinPathRelevantMoves(int depth)
+  {
+    for(int i = depth; i <= currentDepth; i++)
+    {
+      relevantMoves[depth][i].clear();
+    }
+  }
+
   /*
    * Search to specified depth, returning:
    *  0 if role 1 win
@@ -290,6 +313,8 @@ public class LocalRegionSearcher
     {
       return 50;
     }
+
+    clearWinPathRelevantMoves(depth);
 
     int choosingRole = -1;
     int numChoices = 0;
@@ -395,6 +420,7 @@ public class LocalRegionSearcher
           searchResult.searchRadius = currentDepth;
           searchResult.winPath = null;
           searchResult.choiceFromState = null;
+          searchResult.relevantMovesForWin = null;
 
           resultsConsumer.ProcessLocalSearchResult(searchResult);
         }
@@ -429,8 +455,27 @@ public class LocalRegionSearcher
         else
         {
           NonOptionalMoveKillerWeight[jointMove[depth][choosingRole].masterIndex] += killerValue;
+
+          if ( depth < maxDepth )
+          {
+            //  This is the path we would take from here so it is relevant to the solution
+            relevantMoves[depth][depth].add(jointMove[depth][choosingRole]);
+            //  As are all the descendant relevant moves found in solving this node
+            for(int j = depth+1; j <= maxDepth; j++)
+            {
+              relevantMoves[depth][j].merge(relevantMoves[depth+1][j]);
+            }
+          }
         }
         return (choosingRole == 0 ? 100 : 0);//childValue;
+      }
+      else if ( choosingRole == optionalRole && depth < maxDepth )
+      {
+        //  This path is one we have to be able to handle from here so it is relevant
+        for(int j = depth+1; j <= maxDepth; j++)
+        {
+          relevantMoves[depth][j].merge(relevantMoves[depth+1][j]);
+        }
       }
 
       incomplete |= (childValue != (choosingRole == 0 ? 0 : 100));
@@ -822,6 +867,29 @@ public class LocalRegionSearcher
         }
       }
     }
+
+    //  Symmetrify
+    for(int fromIndex = 0; fromIndex < masterMoveList.length; fromIndex++)
+    {
+      for(int toIndex = 0; toIndex < masterMoveList.length; toIndex++)
+      {
+        int fromToDistance = result[fromIndex][toIndex];
+        int toFromDistance = result[toIndex][fromIndex];
+        int symmetrifiedDistance = Math.min(toFromDistance, fromToDistance);
+
+//        if ( Math.abs(fromToDistance-toFromDistance) > 1)
+//        {
+//          String moveName1 = masterMoveList[fromIndex].move.toString();
+//          String moveName2 = masterMoveList[toIndex].move.toString();
+//
+//          LOGGER.info("Moves " + moveName1 + " and " + moveName2 + " have initial assymetric distnces of " + fromToDistance + " and " + toFromDistance);
+//        }
+
+        result[fromIndex][toIndex] = symmetrifiedDistance;
+        result[toIndex][fromIndex] = symmetrifiedDistance;
+      }
+    }
+
     return result;
   }
 }
