@@ -517,9 +517,12 @@ public class MCTSTree
       //validateAll();
       TreeNode node = completedNodeQueue.remove(0);
 
-      if (!node.freed)
+      //  Rarely we can have a situation where a complete node is queued, but gets freed by a parent completion DIRECTLY
+      //  processed from expand, and then reallocated before it gets processed here.  To address this flaw we really ought
+      //  to queue refs rather than actual nodes, but it is extremely rare, so, for now we just (heuristically) trap it
+      //  by checking this is actually a compete unfreed node
+      if (!node.freed && node.complete)
       {
-        assert(node.complete) : "Incomplete node in compleet node queue - depth is " + node.getDepth() + " vs root depth " + root.getDepth();
         node.processCompletion();
       }
     }
