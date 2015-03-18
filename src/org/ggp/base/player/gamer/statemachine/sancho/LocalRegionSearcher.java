@@ -135,7 +135,6 @@ public class LocalRegionSearcher
     ForwardDeadReckonLegalMoveInfo xiRegionCentre,
     int choosingRole)
   {
-    jointMove[0] = new ForwardDeadReckonLegalMoveInfo[numRoles];
     regionCentre = xiRegionCentre;
 
     currentDepth = 1;
@@ -153,6 +152,51 @@ public class LocalRegionSearcher
     choiceFromState = xiChoiceFromState;
 
     LOGGER.info("Starting new search with seed move: " + xiRegionCentre + " and first choosing role " + choosingRole);
+  }
+
+  /**
+   * Encapsulated iterated deepening search to run synchronously in one call
+   * @param xiStartingState
+   * @param xiSeed
+   * @param maxDepth
+   * @return final score (0, 100 , 50).  If 0 or 100 result is a forced win.  50 implies indeterminate
+   */
+  public int completeResultSearchToDepthFromSeed(
+    ForwardDeadReckonInternalMachineState xiStartingState,
+    ForwardDeadReckonLegalMoveInfo xiSeed,
+    int maxDepth)
+  {
+    if ( maxDepth > MAX_DEPTH )
+    {
+      maxDepth = MAX_DEPTH;
+    }
+
+    //  For now don't try to use local search - just global scope
+    unconstrainedSearch = true;
+
+    //  Search with iterative deepening for each role in turn
+    regionCentre = xiSeed;
+    numNodesSearched = 0;
+    for(int i = 0; i < tenukiLossDepth.length; i++)
+    {
+      tenukiLossDepth[i] = MAX_DEPTH;
+    }
+
+    for(int depth = 1; depth <= maxDepth; depth++)
+    {
+      currentDepth = depth;
+
+      for(int role = 0; role < numRoles; role++)
+      {
+        int score = searchToDepth(xiStartingState, depth, maxDepth, role);
+        if ( score == (role == 0 ? 0 : 100) )
+        {
+          return score;
+        }
+      }
+    }
+
+    return 50;
   }
 
   public boolean iterate()
@@ -272,7 +316,7 @@ public class LocalRegionSearcher
       }
     }
 
-    if ( controller.terminateSearch() )
+    if ( controller != null && controller.terminateSearch() )
     {
       LOGGER.info("Local search terminated at depth " + currentDepth + " with " + numNodesSearched + " states visited");
     }
@@ -309,7 +353,7 @@ public class LocalRegionSearcher
       return result;
     }
 
-    if ( depth > maxDepth || controller.terminateSearch() )
+    if ( depth > maxDepth || (controller != null && controller.terminateSearch()) )
     {
       return 50;
     }
@@ -406,10 +450,10 @@ public class LocalRegionSearcher
         tenukiLossDepth[optionalRole] = currentDepth;
         tenukiLossSeeds[optionalRole] = jointMove[0][0];
 
-        LOGGER.info("Tenuki is a loss for " + (optionalRole == 0 ? "us" : "them") + " at depth " + currentDepth);
-
         if ( resultsConsumer != null )
         {
+          LOGGER.info("Tenuki is a loss for " + (optionalRole == 0 ? "us" : "them") + " at depth " + currentDepth);
+
           searchResult.atDepth = currentDepth;
           searchResult.winForRole = -1;
           searchResult.tenukiLossForRole = optionalRole;
