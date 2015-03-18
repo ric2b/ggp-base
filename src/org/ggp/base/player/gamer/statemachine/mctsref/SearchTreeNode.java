@@ -12,19 +12,19 @@ import org.ggp.base.util.statemachine.Role;
 public abstract class SearchTreeNode
 {
   protected final double EXPLORATION_BIAS = 0.5;
-  private final double EPSILON = 0.001;
+  protected final double EPSILON = 0.001;
 
   protected final SearchTree tree;
   protected SearchTreeNode[] children = null;
   private ForwardDeadReckonLegalMoveInfo[] childMoves = null;
   protected double[] scoreVector;
   protected int numVisits = 0;
-  private final ForwardDeadReckonInternalMachineState state;
+  protected final ForwardDeadReckonInternalMachineState state;
   protected final int choosingRole;
   private static Random rand = new Random();
   boolean complete = false;
 
-  abstract void updateScore(SearchTreeNode child, double[] playoutResult);
+  abstract boolean updateScore(SearchTreeNode child, double[] playoutResult);
 
   abstract SearchTreeNode createNode(ForwardDeadReckonInternalMachineState state, int choosingRole);
 
@@ -52,7 +52,7 @@ public abstract class SearchTreeNode
       if ( children[i].scoreVector[choosingRole] > bestScore || (children[i].scoreVector[choosingRole] == bestScore && children[i].complete) )
       {
         bestScore = children[i].scoreVector[choosingRole];
-          result = childMoves[i].move;
+        result = childMoves[i].move;
       }
     }
 
@@ -102,9 +102,10 @@ public abstract class SearchTreeNode
     }
   }
 
-  public void grow(double[] playoutResult, ForwardDeadReckonLegalMoveInfo[] jointMove)
+  public boolean grow(double[] playoutResult, ForwardDeadReckonLegalMoveInfo[] jointMove)
   {
     SearchTreeNode selectedChild = null;
+    boolean result = true;
 
     if ( !complete )
     {
@@ -114,42 +115,11 @@ public abstract class SearchTreeNode
         selectedChild = select(jointMove);
 
         //  Recurse
-        selectedChild.grow(playoutResult, jointMove);
+        result = selectedChild.grow(playoutResult, jointMove);
 
         if ( selectedChild.complete )
         {
-          if ( selectedChild.scoreVector[choosingRole] > 100 - EPSILON )
-          {
-            scoreVector = selectedChild.scoreVector;
-            complete = true;
-          }
-          else
-          {
-            double bestScore = -Double.MAX_VALUE;
-            SearchTreeNode bestChild = null;
-            boolean allComplete = true;
-
-            for(int i = 0; i < children.length; i++ )
-            {
-              if ( !children[i].complete )
-              {
-                allComplete = false;
-                break;
-              }
-              else if ( children[i].scoreVector[choosingRole] > bestScore )
-              {
-                bestScore = children[i].scoreVector[choosingRole];
-                bestChild = children[i];
-              }
-            }
-
-            if ( allComplete )
-            {
-              assert(bestChild != null);
-              scoreVector = bestChild.scoreVector;
-              complete = true;
-            }
-          }
+          processChildCompletion(selectedChild);
         }
       }
       else
@@ -159,16 +129,30 @@ public abstract class SearchTreeNode
 
         if ( !complete )
         {
-          playout(playoutResult);
+          //playout(playoutResult);
 
           selectedChild = select(jointMove);
-          selectedChild.playout(playoutResult);
+          if ( selectedChild.choosingRole == 0 )
+          {
+            selectedChild.playout(playoutResult);
+            if ( !selectedChild.complete )
+            {
+              selectedChild.updateScore(null, playoutResult);
+            }
+            assert(selectedChild.numVisits == 0);
+            selectedChild.numVisits = 1;
+          }
+          else
+          {
+            result = selectedChild.grow(playoutResult, jointMove);
+          }
 
           assert(selectedChild != this);
-          assert(selectedChild.numVisits == 0);
 
-          selectedChild.updateScore(null, playoutResult);
-          selectedChild.numVisits = 1;
+          if ( selectedChild.complete )
+          {
+            processChildCompletion(selectedChild);
+          }
         }
       }
     }
@@ -180,15 +164,53 @@ public abstract class SearchTreeNode
         playoutResult[i] = scoreVector[i];
       }
     }
-    else
+    else if ( result )
     {
       assert(selectedChild != null);
 
       //  Update our score with the playout result
-      updateScore(selectedChild, playoutResult);
+      result = updateScore(selectedChild, playoutResult);
     }
 
     numVisits++;
+
+    return result;
+  }
+
+  private void processChildCompletion(SearchTreeNode selectedChild)
+  {
+    if ( selectedChild.scoreVector[choosingRole] > 100 - EPSILON )
+    {
+      scoreVector = selectedChild.scoreVector;
+      complete = true;
+    }
+    else
+    {
+      double bestScore = -Double.MAX_VALUE;
+      SearchTreeNode bestChild = null;
+      boolean allComplete = true;
+
+      for(int i = 0; i < children.length; i++ )
+      {
+        if ( !children[i].complete )
+        {
+          allComplete = false;
+          break;
+        }
+        else if ( children[i].scoreVector[choosingRole] > bestScore )
+        {
+          bestScore = children[i].scoreVector[choosingRole];
+          bestChild = children[i];
+        }
+      }
+
+      if ( allComplete )
+      {
+        assert(bestChild != null);
+        scoreVector = bestChild.scoreVector;
+        complete = true;
+      }
+    }
   }
 
   private SearchTreeNode select(ForwardDeadReckonLegalMoveInfo[] jointMove)
@@ -237,7 +259,7 @@ public abstract class SearchTreeNode
   }
 
   private static int count = 0;
-  private void playout(double[] playoutResult)
+  protected void playout(double[] playoutResult)
   {
     //if ( count++ < 30 )
 //    if ( rand.nextInt(2) == 0 )

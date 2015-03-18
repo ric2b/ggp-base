@@ -37,6 +37,7 @@ public class MctsRefGamer extends StateMachineGamer
       throws TransitionDefinitionException, MoveDefinitionException,
       GoalDefinitionException
   {
+    //underlyingStateMachine.disableGreedyRollouts();
     tree = new BasicMCTSSearchTree(underlyingStateMachine);
   }
 
