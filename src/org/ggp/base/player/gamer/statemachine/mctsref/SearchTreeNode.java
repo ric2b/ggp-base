@@ -120,38 +120,7 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
 
         if ( selectedChild.complete )
         {
-          if ( selectedChild.scoreVector[choosingRole] > 100 - EPSILON )
-          {
-            scoreVector = selectedChild.scoreVector;
-            complete = true;
-          }
-          else
-          {
-            double bestScore = -Double.MAX_VALUE;
-            SearchTreeNode<TreeType> bestChild = null;
-            boolean allComplete = true;
-
-            for(int i = 0; i < children.length; i++ )
-            {
-              if ( !children[i].complete )
-              {
-                allComplete = false;
-                break;
-              }
-              else if ( children[i].scoreVector[choosingRole] > bestScore )
-              {
-                bestScore = children[i].scoreVector[choosingRole];
-                bestChild = children[i];
-              }
-            }
-
-            if ( allComplete )
-            {
-              assert(bestChild != null);
-              scoreVector = bestChild.scoreVector;
-              complete = true;
-            }
-          }
+          processChildCompletion(selectedChild);
         }
       }
       else
@@ -161,16 +130,35 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
 
         if ( !complete )
         {
-          playout(playoutResult);
+          //playout(playoutResult);
 
           selectedChild = select(jointMove);
-          selectedChild.playout(playoutResult);
 
-          assert(selectedChild != this);
-          assert(selectedChild.numVisits == 0);
+          if ( selectedChild.choosingRole == 0 )
+          {
+            selectedChild.playout(playoutResult);
 
-          selectedChild.updateScore(null, playoutResult);
-          selectedChild.numVisits = 1;
+            assert(selectedChild != this);
+            assert(selectedChild.numVisits == 0);
+
+            selectedChild.updateScore(null, playoutResult);
+            selectedChild.numVisits = 1;
+          }
+          else
+          {
+            //  Recurse down to a complete joint move.  This
+            //  is necessary because we cannot playout from a node
+            //  which has a partial joint move, since this will have the
+            //  same state as its parent, and any playout would be from
+            //  that state and not respect the move choice made from the
+            //  parent to this node
+            selectedChild.grow(playoutResult, jointMove);
+
+            if ( selectedChild.complete )
+            {
+              processChildCompletion(selectedChild);
+            }
+          }
         }
       }
     }
@@ -188,6 +176,42 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
 
       //  Update our score with the playout result
       updateScore(selectedChild, playoutResult);
+    }
+  }
+
+  private void processChildCompletion(SearchTreeNode<TreeType> selectedChild)
+  {
+    if ( selectedChild.scoreVector[choosingRole] > 100 - EPSILON )
+    {
+      scoreVector = selectedChild.scoreVector;
+      complete = true;
+    }
+    else
+    {
+      double bestScore = -Double.MAX_VALUE;
+      SearchTreeNode<TreeType> bestChild = null;
+      boolean allComplete = true;
+
+      for(int i = 0; i < children.length; i++ )
+      {
+        if ( !children[i].complete )
+        {
+          allComplete = false;
+          break;
+        }
+        else if ( children[i].scoreVector[choosingRole] > bestScore )
+        {
+          bestScore = children[i].scoreVector[choosingRole];
+          bestChild = children[i];
+        }
+      }
+
+      if ( allComplete )
+      {
+        assert(bestChild != null);
+        scoreVector = bestChild.scoreVector;
+        complete = true;
+      }
     }
   }
 
