@@ -153,11 +153,11 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
             //  that state and not respect the move choice made from the
             //  parent to this node
             selectedChild.grow(playoutResult, jointMove);
+          }
 
-            if ( selectedChild.complete )
-            {
-              processChildCompletion(selectedChild);
-            }
+          if ( selectedChild.complete )
+          {
+            processChildCompletion(selectedChild);
           }
         }
       }
