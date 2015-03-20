@@ -17,7 +17,7 @@ public class ValidatedPlayoutMCTSSearchTreeNode extends SearchTreeNode
   @Override
   boolean updateScore(SearchTreeNode xiChild, double[] xiPlayoutResult)
   {
-    if ( xiChild != null && xiChild.complete && xiPlayoutResult[choosingRole] < EPSILON )
+    if ( xiChild != null && xiChild.complete && xiPlayoutResult[choosingRole] < EPSILON && scoreVector[choosingRole] > EPSILON )
     {
       return false;
     }
