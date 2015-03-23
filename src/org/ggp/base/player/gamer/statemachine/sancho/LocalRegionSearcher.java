@@ -363,6 +363,7 @@ public class LocalRegionSearcher
     int choosingRole = -1;
     int numChoices = 0;
     ForwardDeadReckonLegalMoveInfo nonChooserMove = null;
+    boolean tenukiPossible = true;
 
     for(int i = 0; i < numRoles; i++)
     {
@@ -419,6 +420,7 @@ public class LocalRegionSearcher
         }
         numChoices = getLocalMoves(legalMoves, chooserMoveChoiceStack[depth], depth, maxDepth);
         choosingRole = i;
+        tenukiPossible = (numChoices < legalMoves.size());
       }
     }
 
@@ -428,7 +430,7 @@ public class LocalRegionSearcher
 
     //  At depth 1 consider the optional tenuki first as a complete result
     //  there will allow cutoff in the MCTS tree (in principal)
-    if ( choosingRole == optionalRole && tenukiLossDepth[optionalRole] > currentDepth )
+    if ( choosingRole == optionalRole && tenukiPossible && tenukiLossDepth[optionalRole] > currentDepth )
     {
       jointMove[depth][1-choosingRole] = nonChooserMove;
       jointMove[depth][choosingRole] = pseudoNoop;
