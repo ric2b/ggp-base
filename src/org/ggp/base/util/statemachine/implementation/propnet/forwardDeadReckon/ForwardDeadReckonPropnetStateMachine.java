@@ -2990,6 +2990,37 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         setPropNetUsage(decisionState.state);
         setBasePropositionsFromState(decisionState.state, true);
       }
+      else if ( rolloutDecisionStack[rolloutStackDepth].chooserIndex == -1 )
+      {
+        //  No choice lead to terminality.  If there was a choice at the previous level and the
+        //  result is bad for that player should pop and retry
+        if (rolloutStackDepth > 0 &&
+            rolloutDecisionStack[rolloutStackDepth - 1].nextChoiceIndex != rolloutDecisionStack[rolloutStackDepth - 1].baseChoiceIndex)
+        {
+          if (rolloutDecisionStack[rolloutStackDepth].chooserIndex != rolloutDecisionStack[rolloutStackDepth - 1].chooserIndex)
+          {
+            int lScoreForChoosingRole = getGoal(roles[rolloutDecisionStack[rolloutStackDepth - 1].chooserIndex]);
+
+            getLatchedScoreRange(lastInternalSetState, roles[rolloutDecisionStack[rolloutStackDepth - 1].chooserIndex], parentLatchedScoreRangeBuffer);
+            if ( lScoreForChoosingRole == parentLatchedScoreRangeBuffer[0] )
+            {
+              rolloutDecisionStack[rolloutStackDepth].chooserMoves = null;
+
+              RolloutDecisionState poppedState = rolloutDecisionStack[--rolloutStackDepth];
+              if (playedMoves != null)
+              {
+                playedMoves.remove(playedMoves.size() - 1);
+              }
+
+              setPropNetUsage(poppedState.state);
+              setBasePropositionsFromState(poppedState.state, true);
+              continue;
+            }
+          }
+        }
+
+        break;
+      }
       else
       {
         break;
@@ -3638,6 +3669,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private int     rolloutDepth;
   private boolean enableGreedyRollouts = true;
+
+  /**
+   * @return whehehr greedy rollouts are enabled
+   */
+  public boolean getIsGreedyRollouts()
+  {
+    return enableGreedyRollouts;
+  }
 
   public void disableGreedyRollouts()
   {
