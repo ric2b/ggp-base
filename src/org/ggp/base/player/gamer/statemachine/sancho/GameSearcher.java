@@ -255,11 +255,11 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
     mNodePool.setNonFreeThreshold(factorTrees.length*MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
 
-    if ( factorTrees.length == 1 )
-    {
-      localSearchRoot = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
-      moveConsequenceSearcher = new MoveConsequenceSearcher(underlyingStateMachine.createInstance(), roleOrdering, mLogName, this);
-    }
+//    if ( factorTrees.length == 1 )
+//    {
+//      localSearchRoot = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+//      moveConsequenceSearcher = new MoveConsequenceSearcher(underlyingStateMachine.createInstance(), roleOrdering, mLogName, this);
+//    }
 //    for (MCTSTree tree : factorTrees)
 //    {
 //      tree.root = tree.allocateNode(initialState, null, false);
@@ -985,11 +985,19 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
             mPlan.considerPlan(fullPlayoutList);
           }
 
+          if ( lRequest.mComplete )
+          {
+//            LocalRegionSearcher localSearcher = new LocalRegionSearcher(lNode.tree.underlyingStateMachine, lNode.tree.underlyingStateMachine.getRoleOrdering(), null, null);
+//            int localRegionScore = localSearcher.completeResultSearchToDepthFromSeed(lNode.state, null, 2);
+//            assert(localRegionScore == lRequest.mAverageScores[0]);
+            lNode.markComplete(lRequest.mAverageScores, (short)(lNode.getDepth()+1));
+          }
+
           lBackPropTime = lNode.updateStats(lRequest.mAverageScores,
                                             lRequest.mAverageSquaredScores,
                                             lRequest.mPath,
                                             lRequest.mWeight,
-                                            false);
+                                            lRequest.mComplete);
         }
       }
 

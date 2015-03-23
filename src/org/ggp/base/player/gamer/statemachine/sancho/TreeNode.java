@@ -5228,11 +5228,15 @@ public class TreeNode
       lRequest.process(tree.underlyingStateMachine, tree.mOurRole, tree.roleOrdering);
       long lRolloutTime = System.nanoTime() - lRequest.mRolloutStartTime;
       assert(!Double.isNaN(lRequest.mAverageScores[0]));
+      if ( lRequest.mComplete )
+      {
+        markComplete(lRequest.mAverageScores, (short)(depth+1));
+      }
       long lBackPropTime = updateStats(lRequest.mAverageScores,
                                        lRequest.mAverageSquaredScores,
                                        lRequest.mPath,
                                        lRequest.mWeight,
-                                       false);
+                                       lRequest.mComplete);
       tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, lRolloutTime, 0, lBackPropTime);
       tree.mPathPool.free(lRequest.mPath);
       lRequest.mPath = null;
@@ -5301,9 +5305,13 @@ public class TreeNode
       //  the necessary expansion of every child resulting in a very misleading value for the immediate
       //  parent after O(branching factor) visits, which can otherwise cause it to sometimes not be
       //  explored further
-      if ( xiIsCompletePseudoRollout && xiValues[(lNode.decidingRoleIndex+1)%tree.numRoles] == 0 )
+      applicationWeight = xiWeight;
+      if ( xiIsCompletePseudoRollout )
       {
-        applicationWeight /= 10;
+        if ( xiValues[(lNode.decidingRoleIndex+1)%tree.numRoles] == 0 )
+        {
+          applicationWeight = xiWeight/10;
+        }
       }
 
       // Across a turn end it is possible for queued paths to run into freed nodes due to trimming of the tree at the
@@ -5331,6 +5339,14 @@ public class TreeNode
         {
           xiSquaredValues[lRoleIndex] = xiValues[lRoleIndex]*xiValues[lRoleIndex];
         }
+
+        applicationWeight = 1;
+      }
+
+      if ( applicationWeight < xiWeight && lNode.numUpdates > 0 )
+      {
+        xiIsCompletePseudoRollout = lNode.complete;
+        continue;
       }
 
       for (int lRoleIndex = 0; lRoleIndex < tree.numRoles; lRoleIndex++)
@@ -5399,6 +5415,7 @@ public class TreeNode
       //validateScoreVector(averageScores);
       lNode.numUpdates += applicationWeight;
       //assert(lNode.numUpdates <= lNode.numVisits);
+      xiIsCompletePseudoRollout = lNode.complete;
 
       assert(checkFixedSum(xiValues));
       assert(checkFixedSum());

@@ -29,6 +29,7 @@ class RolloutRequest
   public final double[]                        mAverageScores;
   public final double[]                        mAverageSquaredScores;
   public double                                mWeight;
+  public boolean                               mComplete;
   public MCTSTree                              mTree;
   public int                                   mMinScore;
   public int                                   mMaxScore;
@@ -87,6 +88,7 @@ class RolloutRequest
     mMinScore = 1000;
     mMaxScore = -100;
     mWeight = 0;
+    mComplete = false;
 
     List<ForwardDeadReckonLegalMoveInfo> playedMoves = mPlayedMovesForWin;
 
@@ -94,7 +96,7 @@ class RolloutRequest
 
     //playedMoves = new LinkedList<ForwardDeadReckonLegalMoveInfo>();
     // Perform the request number of samples.
-    for (int i = 0; i < mSampleSize; i++)
+    for (int i = 0; i < mSampleSize && !mComplete; i++)
     {
       if ( playedMoves != null )
       {
@@ -144,6 +146,15 @@ class RolloutRequest
             playedMoves = null;
           }
         }
+      }
+
+      if ( playoutLength < 2 && stateMachine.getIsGreedyRollouts() )
+      {
+        mComplete = true;
+//        int rolloutScore = stateMachine.getGoal(xiRoleOrdering.roleIndexToRole(0));
+//        LocalRegionSearcher localSearcher = new LocalRegionSearcher(stateMachine, stateMachine.getRoleOrdering(), null, null);
+//        int localRegionScore = localSearcher.completeResultSearchToDepthFromSeed(mState, null, 2);
+//        assert(localRegionScore != 50 || rolloutScore == 50);
       }
     }
 

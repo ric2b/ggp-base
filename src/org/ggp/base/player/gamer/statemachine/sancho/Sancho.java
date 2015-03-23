@@ -279,6 +279,11 @@ public class Sancho extends SampleGamer
 
     underlyingStateMachine.performSemanticAnalysis(lSemanticAnalysisStopTime);
 
+    DependencyDistanceAnalyser distanceAnalyser = new DependencyDistanceAnalyser(underlyingStateMachine);
+    LOGGER.info("Begin analysing move distnaces...");
+    int[][] moveDistances = distanceAnalyser.createMoveDistanceMatrix();
+    LOGGER.info("Completed analysing move distnaces...");
+
     PayoffMatrixGamePlayer lPayoffMatrixGamePlayer;
     try
     {
