@@ -725,6 +725,10 @@ public class LocalRegionSearcher
 
   private int[][] generateMoveDistanceMatrix()
   {
+//  DependencyDistanceAnalyser distanceAnalyser = new DependencyDistanceAnalyser(underlyingStateMachine);
+//  LOGGER.info("Begin analysing move distnaces...");
+//  int[][] moveDistances = distanceAnalyser.createMoveDistanceMatrix();
+//  LOGGER.info("Completed analysing move distnaces...");
     ForwardDeadReckonLegalMoveInfo[] masterMoveList = underlyingStateMachine.getFullPropNet().getMasterMoveList();
     int[][] result = new int[masterMoveList.length][masterMoveList.length];
 

@@ -5156,8 +5156,7 @@ public class TreeNode
       long lBackPropTime = updateStats(tree.mNodeAverageScores,
                                        tree.mNodeAverageSquaredScores,
                                        path,
-                                       1,//Math.pow(tree.mWeightDecay, depth),
-                                       true);
+                                       1);
       tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, 0, 0, lBackPropTime);
       tree.mPathPool.free(path);
 
@@ -5228,15 +5227,36 @@ public class TreeNode
       lRequest.process(tree.underlyingStateMachine, tree.mOurRole, tree.roleOrdering);
       long lRolloutTime = System.nanoTime() - lRequest.mRolloutStartTime;
       assert(!Double.isNaN(lRequest.mAverageScores[0]));
+
+      TreeNode updateFromNode;
+
       if ( lRequest.mComplete )
       {
-        markComplete(lRequest.mAverageScores, (short)(depth+1));
+        //  Propagate the implication sof the completion discovered by the playout
+        markComplete(lRequest.mAverageScores, (short)(getDepth()+1));
+        tree.processNodeCompletions();
+        lRequest.mPath.trimToCompleteLeaf();
+        //  Trim down the update path so that we start updating only from the
+        //  first completed node as several trailing elements may be complete
+        updateFromNode = lRequest.mPath.getTailElement().getChildNode();
       }
-      long lBackPropTime = updateStats(lRequest.mAverageScores,
-                                       lRequest.mAverageSquaredScores,
-                                       lRequest.mPath,
-                                       lRequest.mWeight,
-                                       lRequest.mComplete);
+      else
+      {
+        updateFromNode = this;
+      }
+
+      long lBackPropTime;
+      //if ( lRequest.mPath.isValid() )
+      {
+        lBackPropTime = updateFromNode.updateStats(lRequest.mAverageScores,
+                                         lRequest.mAverageSquaredScores,
+                                         lRequest.mPath,
+                                         lRequest.mWeight);
+      }
+//      else
+//      {
+//        lBackPropTime = 0;
+//      }
       tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, lRolloutTime, 0, lBackPropTime);
       tree.mPathPool.free(lRequest.mPath);
       lRequest.mPath = null;
@@ -5251,22 +5271,18 @@ public class TreeNode
    * @param xiValues                  - The per-role rollout values.
    * @param xiSquaredValues           - The per-role squared values (for computing variance).
    * @param xiPath                    - The path taken through the tree for the rollout.
-   * @param xiIsCompletePseudoRollout - Whether this is a complete pseudo-rollout.
    *
    * @return the time taken to do the update, in nanoseconds
    */
   public long updateStats(double[] xiValues,
                           double[] xiSquaredValues,
                           TreePath xiPath,
-                          double  xiWeight,
-                          boolean xiIsCompletePseudoRollout)
+                          double  xiWeight)
   {
     long lStartTime = System.nanoTime();
     assert(checkFixedSum(xiValues));
-    assert(xiPath.isValid());
 
-    double applicationWeight = xiWeight;
-
+    boolean lastNodeWasComplete = false;
     TreeNode lNextNode;
     for (TreeNode lNode = this; lNode != null; lNode = lNextNode)
     {
@@ -5274,7 +5290,7 @@ public class TreeNode
       TreeEdge lChildEdge = (lElement == null ? null : lElement.getEdgeUnsafe());
       lNextNode = null;
 
-      if ( lNode.heuristicWeight > 0 && !xiIsCompletePseudoRollout )
+      if ( lNode.heuristicWeight > 0 && !lastNodeWasComplete )
       {
         double applicableValue = (lNode.heuristicValue > 50 ? lNode.heuristicValue : 100 - lNode.heuristicValue);
 
@@ -5305,13 +5321,10 @@ public class TreeNode
       //  the necessary expansion of every child resulting in a very misleading value for the immediate
       //  parent after O(branching factor) visits, which can otherwise cause it to sometimes not be
       //  explored further
-      applicationWeight = xiWeight;
-      if ( xiIsCompletePseudoRollout )
+      boolean isAntiDecisiveCompletePropagation = false;
+      if ( lastNodeWasComplete && xiValues[(lNode.decidingRoleIndex+1)%tree.numRoles] == 0 )
       {
-        if ( xiValues[(lNode.decidingRoleIndex+1)%tree.numRoles] == 0 )
-        {
-          applicationWeight = xiWeight/10;
-        }
+        isAntiDecisiveCompletePropagation = true;
       }
 
       // Across a turn end it is possible for queued paths to run into freed nodes due to trimming of the tree at the
@@ -5339,69 +5352,59 @@ public class TreeNode
         {
           xiSquaredValues[lRoleIndex] = xiValues[lRoleIndex]*xiValues[lRoleIndex];
         }
-
-        applicationWeight = 1;
       }
 
-      if ( applicationWeight < xiWeight && lNode.numUpdates > 0 )
+      //  If we're propagating up through a complete node then the only possible valid score to
+      //  propagate is that node's score
+      if ( lNode.complete )
       {
-        xiIsCompletePseudoRollout = lNode.complete;
-        continue;
-      }
-
-      for (int lRoleIndex = 0; lRoleIndex < tree.numRoles; lRoleIndex++)
-      {
-        assert(xiValues[lRoleIndex] < 100+EPSILON);
-        if ((!lNode.complete ||
-             tree.gameCharacteristics.isSimultaneousMove ||
-             tree.gameCharacteristics.numRoles > 2) &&
-            lChildEdge != null)
+        for (int lRoleIndex = 0; lRoleIndex < tree.numRoles; lRoleIndex++)
         {
-          TreeNode lChild = lNode.get(lChildEdge.getChildRef());
-          //  Take the min of the apparent edge selection and the total num visits in the child
-          //  This is necessary because when we re-expand a node that was previously trimmed we
-          //  leave the edge with its old selection count even though the child node will be
-          //  reset.
-          int lNumChildVisits = Math.min(lChildEdge.getNumChildVisits(), lChild.numVisits);
-
-          assert(lNumChildVisits > 0 || xiIsCompletePseudoRollout);
-          //  Propagate a value that is a blend of this rollout value and the current score for the child node
-          //  being propagated from, according to how much of that child's value was accrued through this path
-          if (xiValues != lOverrides && lNumChildVisits > 0)
-          {
-            xiValues[lRoleIndex] = (xiValues[lRoleIndex] * lNumChildVisits + lChild.getAverageScore(lRoleIndex) *
-                                    (lChild.numVisits - lNumChildVisits)) /
-                                   lChild.numVisits;
-            assert(xiValues[lRoleIndex] < 100+EPSILON);
-          }
+          xiValues[lRoleIndex] = lNode.getAverageScore(lRoleIndex);
+          xiSquaredValues[lRoleIndex] = lNode.getAverageSquaredScore(lRoleIndex);
         }
+      }
 
-        if (!lNode.complete)
+      //  Choke off propagation that originated through an anti-decisive (losing) complete
+      //  choice except for the first one through that parent
+      if ( isAntiDecisiveCompletePropagation && lNode.numUpdates > 0 )
+      {
+        return System.nanoTime() - lStartTime;
+      }
+
+      if ( !lNode.complete )
+      {
+        double applicationWeight = (isAntiDecisiveCompletePropagation ? xiWeight/10 : xiWeight);
+
+        for (int lRoleIndex = 0; lRoleIndex < tree.numRoles; lRoleIndex++)
         {
+          assert(xiValues[lRoleIndex] < 100+EPSILON);
+          if (lChildEdge != null)
+          {
+            TreeNode lChild = lNode.get(lChildEdge.getChildRef());
+            //  Take the min of the apparent edge selection and the total num visits in the child
+            //  This is necessary because when we re-expand a node that was previously trimmed we
+            //  leave the edge with its old selection count even though the child node will be
+            //  reset.
+            int lNumChildVisits = Math.min(lChildEdge.getNumChildVisits(), lChild.numVisits);
+
+            assert(lNumChildVisits > 0);
+            //  Propagate a value that is a blend of this rollout value and the current score for the child node
+            //  being propagated from, according to how much of that child's value was accrued through this path
+            if (xiValues != lOverrides && lNumChildVisits > 0)
+            {
+              xiValues[lRoleIndex] = (xiValues[lRoleIndex] * lNumChildVisits + lChild.getAverageScore(lRoleIndex) *
+                                      (lChild.numVisits - lNumChildVisits)) /
+                                     lChild.numVisits;
+              assert(xiValues[lRoleIndex] < 100+EPSILON);
+            }
+          }
+
           lNode.setAverageScore(lRoleIndex,
                                 (lNode.getAverageScore(lRoleIndex) * lNode.numUpdates * scoreTemporalDecayRate + xiValues[lRoleIndex]*applicationWeight) /
                                 (lNode.numUpdates*scoreTemporalDecayRate + applicationWeight));
 
-//          if ( lNode.numUpdates == 0 )
-//          {
-//            lNode.setAverageScore(lRoleIndex,
-//                                  xiValues[lRoleIndex]);
-//          }
-//          else
-//          {
-//            double lambda;
-//
-//            if ( lNode.numUpdates < 500 )
-//            {
-//              lambda = 1/(lNode.numUpdates/applicationWeight+1);
-//            }
-//            else
-//            {
-//              lambda = 0.002*applicationWeight;
-//            }
-//            lNode.setAverageScore(lRoleIndex,
-//                                  (lNode.getAverageScore(lRoleIndex) + lambda*(xiValues[lRoleIndex] - lNode.getAverageScore(lRoleIndex))));
-//          }
+
           lNode.setAverageSquaredScore(lRoleIndex,
                                        (lNode.getAverageSquaredScore(lRoleIndex) *
                                         lNode.numUpdates + xiSquaredValues[lRoleIndex]*applicationWeight) /
@@ -5410,12 +5413,13 @@ public class TreeNode
 
         lNode.leastLikelyWinner = -1;
         lNode.mostLikelyWinner = -1;
+
+        //validateScoreVector(averageScores);
+        lNode.numUpdates += applicationWeight;
       }
 
-      //validateScoreVector(averageScores);
-      lNode.numUpdates += applicationWeight;
       //assert(lNode.numUpdates <= lNode.numVisits);
-      xiIsCompletePseudoRollout = lNode.complete;
+      lastNodeWasComplete = lNode.complete;
 
       assert(checkFixedSum(xiValues));
       assert(checkFixedSum());

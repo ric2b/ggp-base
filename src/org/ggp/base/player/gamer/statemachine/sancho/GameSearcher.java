@@ -987,17 +987,22 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
           if ( lRequest.mComplete )
           {
-//            LocalRegionSearcher localSearcher = new LocalRegionSearcher(lNode.tree.underlyingStateMachine, lNode.tree.underlyingStateMachine.getRoleOrdering(), null, null);
-//            int localRegionScore = localSearcher.completeResultSearchToDepthFromSeed(lNode.state, null, 2);
-//            assert(localRegionScore == lRequest.mAverageScores[0]);
+            //  Propagate the implication sof the completion discovered by the playout
             lNode.markComplete(lRequest.mAverageScores, (short)(lNode.getDepth()+1));
+            lNode.tree.processNodeCompletions();
+            lRequest.mPath.trimToCompleteLeaf();
+            //  Trim down the update path so that we start updating only from the
+            //  first completed node as several trailing elements may be complete
+            lNode = lRequest.mPath.getTailElement().getChildNode();
           }
 
-          lBackPropTime = lNode.updateStats(lRequest.mAverageScores,
-                                            lRequest.mAverageSquaredScores,
-                                            lRequest.mPath,
-                                            lRequest.mWeight,
-                                            lRequest.mComplete);
+          //if ( lRequest.mPath.isValid() )
+          {
+            lBackPropTime = lNode.updateStats(lRequest.mAverageScores,
+                                              lRequest.mAverageSquaredScores,
+                                              lRequest.mPath,
+                                              lRequest.mWeight);
+          }
         }
       }
 
