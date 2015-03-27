@@ -913,6 +913,28 @@ public class MCTSTree
     }
   }
 
+  public boolean validateForcedMoveProps(ForwardDeadReckonInternalMachineState xiState, ForwardDeadReckonLegalMoveInfo[] jointMove)
+  {
+    if ( removeNonDecisionNodes )
+    {
+      for(int i = 0; i < numRoles; i++)
+      {
+        Role role = roleOrdering.roleIndexToRole(i);
+        ForwardDeadReckonLegalMoveSet moves = underlyingStateMachine.getLegalMoveSet(xiState);
+        if (searchFilter.getFilteredMovesSize(xiState, moves, role, true) == 1)
+        {
+          ForwardDeadReckonLegalMoveInfo expectedMove = moves.getContents(role).iterator().next();
+          if ((jointMove[i].inputProposition == null) != (expectedMove.inputProposition == null))
+          {
+            return false;
+          }
+        }
+      }
+    }
+
+    return true;
+  }
+
   private void selectAction(boolean forceSynchronous, Move xiChosenMove)
     throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {

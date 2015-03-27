@@ -664,7 +664,7 @@ public class TreeNode
 
         if ( child != null )
         {
-          assert(child.depth > 115 || child.depth/2 == depth/2 + 1);
+          assert(child.depth/2 > depth/2);
           //assert(depth/2 == state.size()-3);
         }
       }
@@ -2434,6 +2434,9 @@ public class TreeNode
   {
     int roleIndex = (decidingRoleIndex+1)%tree.numRoles;
 
+    //  Uncomment this if paranoid, but at some execution cost when asserts are enabled
+    //assert(tree.validateForcedMoveProps(state, jointPartialMove));
+
     //  Perform hyper-expansion and add in hyper-edges
     //  This involves checking which children still have the same player with control
     //  (so only applies to non-simultaneous move games) and recursively expanding
@@ -2517,6 +2520,16 @@ public class TreeNode
                 if ( edge != children[lMoveIndex] )
                 {
                   assert(primaryChoiceMapping != null && primaryChoiceMapping[lMoveIndex] != lMoveIndex);
+                  continue;
+                }
+
+                //  It can also lead to a state where control has changed hands, so we don;t actually have
+                //  a valid hyper-path
+                if ( expandedChild.decidingRoleIndex != decidingRoleIndex)
+                {
+                  //  Must reset the joint moved forced props, as the expansion will have
+                  //  disturbed them
+                  tree.setForcedMoveProps(state, jointPartialMove);
                   continue;
                 }
               }
@@ -5088,13 +5101,25 @@ public class TreeNode
       //  This can happen if the node has no expanded children
       assert(this != tree.root || complete) : "Root incomplete but has no expanded children";
 
-      //  If nothing is expanded pick the first (arbitrarily)
-      Object firstChoice = children[0];
-      result.bestEdge = null;
-      result.bestMove = (firstChoice instanceof ForwardDeadReckonLegalMoveInfo) ? (ForwardDeadReckonLegalMoveInfo)firstChoice : ((TreeEdge)firstChoice).mPartialMove;
-      //  Complete with no expanded children implies arbitrary child must match parent score
-      result.bestMoveValue = getAverageScore(0);
-      result.resultingState = null;
+      //  If we're being asked for the first decision node we need to give a response even if it's
+      //  essentially arbitrary from equal choices
+      if ( firstDecision )
+      {
+        //  If nothing is expanded pick the first (arbitrarily)
+        Object firstChoice = children[0];
+        result.bestEdge = null;
+        result.bestMove = (firstChoice instanceof ForwardDeadReckonLegalMoveInfo) ? (ForwardDeadReckonLegalMoveInfo)firstChoice : ((TreeEdge)firstChoice).mPartialMove;
+        //  Complete with no expanded children implies arbitrary child must match parent score
+        result.bestMoveValue = getAverageScore(0);
+        result.resultingState = null;
+      }
+      else
+      {
+        //  For a non firstDecision call (i.e. - actually retrieving best move to play)
+        //  we need to ensure that we return null here so that in a factorized game this
+        //  factor will never be picked
+        result.bestMove = null;
+      }
     }
     else
     {
