@@ -279,6 +279,12 @@ public class Sancho extends SampleGamer
 
     underlyingStateMachine.performSemanticAnalysis(lSemanticAnalysisStopTime);
 
+    //  TEMP TEMP TEMP
+//    DependencyDistanceAnalyser distanceAnalyser = new DependencyDistanceAnalyser(underlyingStateMachine);
+//    LOGGER.info("Begin analysing move distances...");
+//    int[][] result = distanceAnalyser.createMoveDistanceMatrix();
+//    LOGGER.info("Completed analysing move distances...");
+
     PayoffMatrixGamePlayer lPayoffMatrixGamePlayer;
     try
     {
@@ -946,8 +952,6 @@ public class Sancho extends SampleGamer
     LOGGER.info("Ready to play");
   }
 
-  private ForwardDeadReckonLegalMoveInfo ourLastMove = null;
-  private ForwardDeadReckonLegalMoveInfo theirLastMove = null;
   private ForwardDeadReckonLegalMoveInfo lastMove = null;
 
   private ForwardDeadReckonLegalMoveInfo findMoveInfo(Role role, GdlTerm moveTerm)
@@ -987,20 +991,14 @@ public class Sancho extends SampleGamer
     {
       LOGGER.info("Moves played for turn " + mTurn + ": " + lastJointMove);
 
-      ForwardDeadReckonLegalMoveInfo lastMoveForUs = findMoveInfo(roleOrdering.roleIndexToRole(0), lastJointMove.get(roleOrdering.roleIndexToRawRoleIndex(0)));
-      ForwardDeadReckonLegalMoveInfo lastMoveForThem = findMoveInfo(roleOrdering.roleIndexToRole(1), lastJointMove.get(roleOrdering.roleIndexToRawRoleIndex(1)));
-
-      LOGGER.info("Our move last turn was: " + (lastMoveForUs == null ? "<NONE>" : lastMoveForUs.move));
-      if ( lastMoveForUs != null )
+      for(int i = 0; i < numRoles; i++)
       {
-        ourLastMove = lastMoveForUs;
-        lastMove = lastMoveForUs;
-      }
-      LOGGER.info("Their move last turn was: " + (lastMoveForThem == null ? "<NONE>" : lastMoveForThem.move));
-      if ( lastMoveForThem != null )
-      {
-        theirLastMove = lastMoveForThem;
-        lastMove = lastMoveForThem;
+        lastMove = findMoveInfo(roleOrdering.roleIndexToRole(i), lastJointMove.get(roleOrdering.roleIndexToRawRoleIndex(i)));
+        if ( lastMove != null )
+        {
+          LOGGER.info("Non-null move last turn was: " + lastMove);
+          break;
+        }
       }
     }
 
