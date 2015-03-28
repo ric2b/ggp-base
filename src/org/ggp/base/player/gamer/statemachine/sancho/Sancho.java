@@ -73,7 +73,9 @@ public class Sancho extends SampleGamer
   private GamePlan                    plan                            = null;
   private int                         transpositionTableSize          = MachineSpecificConfiguration.getCfgVal(CfgItem.NODE_TABLE_SIZE, 2000000);
   private RoleOrdering                roleOrdering                    = null;
+  private ForwardDeadReckonPropositionInfo[] roleControlProps         = null;
   private ForwardDeadReckonPropnetStateMachine underlyingStateMachine = null;
+  private ForwardDeadReckonInternalMachineState previousTurnRootState = null;
   private StateMachineProxy           stateMachineProxy               = null;
   private int                         numRoles                        = 0;
   private int                         MinRawNetScore                  = 0;
@@ -212,6 +214,8 @@ public class Sancho extends SampleGamer
     searchProcessor = new GameSearcher(transpositionTableSize, underlyingStateMachine.getRoles().length, mLogName);
     stateMachineProxy.setController(searchProcessor);
 
+    previousTurnRootState = null; //  No move seen yet
+
     if (!ThreadControl.RUN_SYNCHRONOUSLY)
     {
       Thread lSearchProcessorThread = new Thread(searchProcessor, "Search Processor");
@@ -323,7 +327,7 @@ public class Sancho extends SampleGamer
     //  Create masks of possible control props, which we'll whittle down during simulation
     //  If we wind up with a unique prop for each role e'll note it for future use
     ForwardDeadReckonInternalMachineState[] roleControlMasks = new ForwardDeadReckonInternalMachineState[numRoles];
-    ForwardDeadReckonPropositionInfo[] roleControlProps = new ForwardDeadReckonPropositionInfo[numRoles];
+    roleControlProps = new ForwardDeadReckonPropositionInfo[numRoles];
 
     for(int i = 0; i < numRoles; i++)
     {
@@ -617,8 +621,8 @@ public class Sancho extends SampleGamer
     double averageSquaredNumTurns = 0;
     double averageNumNonDrawTurns = 0;
     int numNonDrawSimulations = 0;
-    int numMaxLengthDraws = 0;
-    int numMaxLengthGames = 0;
+    int numLongDraws = 0;
+    int numLongGames = 0;
 
     while (System.currentTimeMillis() < simulationStopTime)
     {
@@ -674,17 +678,15 @@ public class Sancho extends SampleGamer
       if (rolloutStats[0] > maxNumTurns)
       {
         maxNumTurns = rolloutStats[0];
-
-        numMaxLengthGames = 0;
       }
 
-      if ( rolloutStats[0] == maxNumTurns)
+      if ( rolloutStats[0] >= (maxNumTurns*95)/100 )
       {
-        numMaxLengthGames++;
+        numLongGames++;
 
         if ( netScore == 50 )
         {
-          numMaxLengthDraws++;
+          numLongDraws++;
         }
       }
 
@@ -728,7 +730,7 @@ public class Sancho extends SampleGamer
     mGameCharacteristics.setAverageLength(averageNumTurns);
     mGameCharacteristics.setStdDeviationLength(stdDevNumTurns);
     mGameCharacteristics.setAverageNonDrawLength(averageNumNonDrawTurns);
-    mGameCharacteristics.setMaxGameLengthDrawsProportion(((double)numMaxLengthDraws)/(double)numMaxLengthGames);
+    mGameCharacteristics.setLongDrawsProportion(((double)numLongDraws)/(double)numLongGames);
 
     mGameCharacteristics.setEarliestCompletionDepth(numRoles*minNumTurns);
     if ( maxNumTurns == minNumTurns )
@@ -993,11 +995,23 @@ public class Sancho extends SampleGamer
 
       for(int i = 0; i < numRoles; i++)
       {
-        lastMove = findMoveInfo(roleOrdering.roleIndexToRole(i), lastJointMove.get(roleOrdering.roleIndexToRawRoleIndex(i)));
-        if ( lastMove != null )
+        if ( previousTurnRootState != null && roleControlProps != null )
         {
-          LOGGER.info("Non-null move last turn was: " + lastMove);
-          break;
+          if ( previousTurnRootState.contains(roleControlProps[i]) )
+          {
+            lastMove = findMoveInfo(roleOrdering.roleIndexToRole(i), lastJointMove.get(roleOrdering.roleIndexToRawRoleIndex(i)));
+            LOGGER.info("Non-null move last turn was: " + lastMove);
+            break;
+          }
+        }
+        else
+        {
+          lastMove = findMoveInfo(roleOrdering.roleIndexToRole(i), lastJointMove.get(roleOrdering.roleIndexToRawRoleIndex(i)));
+          if ( lastMove != null && lastMove.inputProposition != null )
+          {
+            LOGGER.info("Non-null move last turn was: " + lastMove);
+            break;
+          }
         }
       }
     }
@@ -1026,6 +1040,8 @@ public class Sancho extends SampleGamer
         LOGGER.warn("Asked to search in terminal state!");
         assert(false);
       }
+
+      previousTurnRootState = currentState;
     }
 
 //    if ( localSearchStateMachine == null )

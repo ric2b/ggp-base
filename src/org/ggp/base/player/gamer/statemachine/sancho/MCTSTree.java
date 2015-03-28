@@ -230,7 +230,7 @@ public class MCTSTree
     if ( xiGameCharacteristics.numRoles > 1 &&
          xiGameCharacteristics.getAverageNonDrawLength() > 0 &&
          (xiGameCharacteristics.getGoalsStability() > GOALS_STABILITY_THRESHOLD ||
-          (xiGameCharacteristics.getMaxGameLengthDrawsProportion() > 0.9 &&
+          (xiGameCharacteristics.getLongDrawsProportion() > 0.8 &&
            xiGameCharacteristics.getAverageNonDrawLength() <= xiGameCharacteristics.getAverageLength() &&
            xiGameCharacteristics.getAverageLength() < (xiGameCharacteristics.getMaxLength()+xiGameCharacteristics.getMinLength())*1.05/2.0)))
     {

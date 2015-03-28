@@ -54,7 +54,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private double              mStdDeviationLength     = 0;
   private double              mAverageNonDrawLength   = 0;
   private double              mGoalsStability         = 0;
-  private double              mMaxGameLengthDrawsProportion  = 0;
+  private double              mLongDrawsProportion  = 0;
   private long                mMaxFactorFailureTime   = 0;
 
   /**
@@ -358,7 +358,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     LOGGER.info("  Std deviation num turns:                        " + getStdDeviationLength());
     LOGGER.info("  Average num turns for non-drawn result:         " + getAverageNonDrawLength());
     LOGGER.info("  Goals stability:                                " + getGoalsStability());
-    LOGGER.info("  Proportion of max length games ending in draws: " + getMaxGameLengthDrawsProportion());
+    LOGGER.info("  Proportion of max length games ending in draws: " + getLongDrawsProportion());
     LOGGER.info("  Num factors:                                    " + getNumFactors());
     LOGGER.info("  Max factor failure time (ms)                    " + getMaxFactorFailureTime());
   }
@@ -380,20 +380,20 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   }
 
   /**
-   * @return proportion of max-length games that were draws
+   * @return proportion of long games that were draws
    */
-  public double getMaxGameLengthDrawsProportion()
+  public double getLongDrawsProportion()
   {
-    return mMaxGameLengthDrawsProportion;
+    return mLongDrawsProportion;
   }
 
   /**
-   * Setter for proportion of max-length games that were draws
-   * @param xiMaxGameDrawProportion
+   * Setter for proportion of long games that were draws
+   * @param xiLongDrawProportion
    */
-  public void setMaxGameLengthDrawsProportion(double xiMaxGameDrawProportion)
+  public void setLongDrawsProportion(double xiLongDrawProportion)
   {
-    mMaxGameLengthDrawsProportion = xiMaxGameDrawProportion;
+    mLongDrawsProportion = xiLongDrawProportion;
   }
 
   /**
