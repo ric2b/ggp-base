@@ -2469,6 +2469,7 @@ public class TreeNode
             if ( child != null && child.state.contains(tree.mRoleControlProps[roleIndex]) )
             {
               hyperExpansionNeeded = true;
+              break;
             }
           }
         }
@@ -2523,9 +2524,9 @@ public class TreeNode
                   continue;
                 }
 
-                //  It can also lead to a state where control has changed hands, so we don;t actually have
+                //  It can also lead to a state where control has changed hands, so we don't actually have
                 //  a valid hyper-path
-                if ( expandedChild.decidingRoleIndex != decidingRoleIndex)
+                if ( !expandedChild.state.contains(tree.mRoleControlProps[roleIndex]))
                 {
                   //  Must reset the joint moved forced props, as the expansion will have
                   //  disturbed them
