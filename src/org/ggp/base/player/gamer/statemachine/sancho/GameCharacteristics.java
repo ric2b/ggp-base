@@ -33,6 +33,11 @@ public class GameCharacteristics
   boolean isPseudoSimultaneousMove       = false;
 
   /**
+   * Whether play strictly alternates between roles, never giving the same role two turns in a row.
+   */
+  boolean isStrictlyAlternatingPlay      = false;
+
+  /**
    * In a factorized game whether it is possible to have non-noop moves available in more than one factor in any given
    * move.
    */

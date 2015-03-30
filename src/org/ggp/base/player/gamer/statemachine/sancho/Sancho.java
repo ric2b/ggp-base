@@ -157,7 +157,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60s");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60t");
   }
 
   @Override
@@ -323,6 +323,7 @@ public class Sancho extends SampleGamer
     mGameCharacteristics.isSimultaneousMove = false;
     mGameCharacteristics.isPseudoSimultaneousMove = false;
     mGameCharacteristics.isPseudoPuzzle = underlyingStateMachine.getIsPseudoPuzzle();
+    mGameCharacteristics.isStrictlyAlternatingPlay = true;
 
     //  Create masks of possible control props, which we'll whittle down during simulation
     //  If we wind up with a unique prop for each role e'll note it for future use
@@ -382,6 +383,7 @@ public class Sancho extends SampleGamer
 
       int numRoleMovesSimulated = 0;
       int numBranchesTaken = 0;
+      int previousChoosingRoleIndex = -1;
 
       heuristic.tuningStartSampleGame();
 
@@ -392,6 +394,7 @@ public class Sancho extends SampleGamer
         Set<Move> allMovesInState = new HashSet<>();
 
         int choosingRoleIndex = -2;
+
         for (int i = 0; i < numRoles; i++)
         {
           //List<Move> legalMoves = underlyingStateMachine.getLegalMovesCopy(sampleState,
@@ -444,6 +447,15 @@ public class Sancho extends SampleGamer
             choosingRoleIndex = i;
             Factor turnFactor = null;
 
+            //  TODO - need to improve the way we determine alternating control - cf - Kalaha
+            //  Can probably use the role control masks, but we'd have to build them on the fly
+            //  and pre-eliminate control props to do that as currently they are not set up in time
+            //  for this sampling loop
+            if ( previousChoosingRoleIndex == choosingRoleIndex )
+            {
+              mGameCharacteristics.isStrictlyAlternatingPlay = false;
+            }
+
             for (ForwardDeadReckonLegalMoveInfo moveInfo : legalMoves)
             {
               if ( factors != null )
@@ -480,7 +492,14 @@ public class Sancho extends SampleGamer
 
             numBranchesTaken += legalMoves.size();
             numRoleMovesSimulated++;
+
+            previousChoosingRoleIndex = choosingRoleIndex;
           }
+          else
+          {
+            previousChoosingRoleIndex = -1;
+          }
+
           jointMove[i] = legalMoves.get(r.nextInt(legalMoves.size()));
         }
 

@@ -2,7 +2,6 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
@@ -151,6 +150,11 @@ public class LocalRegionSearcher
     startingState = xiStartingState;
     choiceFromState = xiChoiceFromState;
 
+//    if ( xiRegionCentre != null && xiRegionCentre.toString().contains("3 4 2 3"))
+//    {
+//      currentDepth=10;
+//      choosingRole = 1;
+//    }
     LOGGER.info("Starting new search with seed move: " + xiRegionCentre + " and first choosing role " + choosingRole);
   }
 
@@ -243,7 +247,7 @@ public class LocalRegionSearcher
 //      }
       if ( !resultFound )
       {
-//        if ( optionalRole == 0 && currentDepth==3 && regionCentre.toString().contains("5 3 4 4"))
+//        if ( optionalRole == 0 && currentDepth==10 && regionCentre.toString().contains("3 4 2 3"))
 //        {
 //          System.out.println("!");
 //        }
@@ -430,7 +434,7 @@ public class LocalRegionSearcher
 
     //  At depth 1 consider the optional tenuki first as a complete result
     //  there will allow cutoff in the MCTS tree (in principal)
-    if ( choosingRole == optionalRole && tenukiPossible && tenukiLossDepth[optionalRole] > currentDepth )
+    if ( choosingRole == optionalRole && (tenukiPossible || depth == 1) && tenukiLossDepth[optionalRole] > currentDepth )
     {
       jointMove[depth][1-choosingRole] = nonChooserMove;
       jointMove[depth][choosingRole] = pseudoNoop;
@@ -452,6 +456,11 @@ public class LocalRegionSearcher
         tenukiLossDepth[optionalRole] = currentDepth;
         tenukiLossSeeds[optionalRole] = jointMove[0][0];
 
+        for(int j = depth+1; j <= maxDepth; j++)
+        {
+          relevantMoves[depth][j].merge(relevantMoves[depth+1][j]);
+        }
+
         if ( resultsConsumer != null )
         {
           LOGGER.info("Tenuki is a loss for " + (optionalRole == 0 ? "us" : "them") + " at depth " + currentDepth);
@@ -464,9 +473,27 @@ public class LocalRegionSearcher
           searchResult.winningMove = null;
           searchResult.startState = startingState;
           searchResult.searchRadius = currentDepth;
-          searchResult.winPath = null;
-          searchResult.choiceFromState = null;
-          searchResult.relevantMovesForWin = null;
+          //searchResult.winPath = null;
+          //searchResult.choiceFromState = null;
+          //searchResult.relevantMovesForWin = null;
+          searchResult.choiceFromState = choiceFromState;
+          if ( choiceFromState != null )
+          {
+            searchResult.winPath = new ForwardDeadReckonLegalMoveInfo[currentDepth+1];
+            searchResult.relevantMovesForWin = new ForwardDeadReckonLegalMoveSet[currentDepth+1];
+            for( int i = 0; i <= currentDepth; i++)
+            {
+              searchResult.winPath[i] = jointMove[i][1-optionalRole];
+              searchResult.relevantMovesForWin[i] = relevantMoves[1][i];
+
+              assert(searchResult.relevantMovesForWin[i] != null);
+            }
+          }
+          else
+          {
+            searchResult.winPath = null;
+            searchResult.relevantMovesForWin = null;
+          }
 
           resultsConsumer.ProcessLocalSearchResult(searchResult);
         }
@@ -655,10 +682,24 @@ public class LocalRegionSearcher
             if ( plyMove != null )
             {
 //              plyMoveFound = true;
-              boolean includeAtThisPly = (moveDistances[plyMove.masterIndex][move.masterIndex] <= maxDistance - i);
+              int distance = moveDistances[plyMove.masterIndex][move.masterIndex];
+              boolean includeAtThisPly = (distance <= maxDistance - i);
               if ( i == 0 && jointSearch )
               {
                 includeAtThisPly |= (moveDistances[jointMove[0][1].masterIndex][move.masterIndex] <= maxDistance - i);
+              }
+              //  If the move is already included and this ply is not an apparent response
+              //  then the inclusion we already have must have been as a response we which are
+              //  about to override (since it's part of an efficient sequence from the last
+              //  chooser move as well).  However, if its right on the fringe of the efficient
+              //  sequence moves (max distance allowed from previous chooser move) do not do this
+              //  but rather keep it flagged as a response.  This addresses cases which occur on the fringe
+              //  where the move is a forced response, but was legitimate as a regular efficient
+              //  sequence also, and the actual desirable sequence follows from the previous move
+              //  but goes out of scope of THIS move a one deeper ply.
+              if ( includeAtThisPly && !plyIsResponse && include )
+              {
+                break;
               }
 
               include |= includeAtThisPly;
@@ -725,221 +766,235 @@ public class LocalRegionSearcher
 
   private int[][] generateMoveDistanceMatrix()
   {
-//  DependencyDistanceAnalyser distanceAnalyser = new DependencyDistanceAnalyser(underlyingStateMachine);
-//  LOGGER.info("Begin analysing move distnaces...");
-//  int[][] moveDistances = distanceAnalyser.createMoveDistanceMatrix();
-//  LOGGER.info("Completed analysing move distnaces...");
-    ForwardDeadReckonLegalMoveInfo[] masterMoveList = underlyingStateMachine.getFullPropNet().getMasterMoveList();
-    int[][] result = new int[masterMoveList.length][masterMoveList.length];
-
-    int sourceX[] = new int[masterMoveList.length];
-    int sourceY[] = new int[masterMoveList.length];
-    int targetX[] = new int[masterMoveList.length];
-    int targetY[] = new int[masterMoveList.length];
-    Pattern pattern = null;
-
-    for(int index = 0; index < masterMoveList.length; index++)
-    {
-      String moveName = masterMoveList[index].move.toString();
-
-      if ( pattern == null )
-      {
-        Matcher lMatcher = C4MoveColumnMatchPattern.matcher(moveName);
-        if (!lMatcher.find() )
-        {
-          lMatcher = BrkthruMoveCellMatchPattern.matcher(moveName);
-          if (!lMatcher.find() )
-          {
-            lMatcher = HexMoveCellMatchPattern.matcher(moveName);
-            if ( lMatcher.find() )
-            {
-              pattern = HexMoveCellMatchPattern;
-            }
-          }
-          else
-          {
-            pattern = BrkthruMoveCellMatchPattern;
-          }
-        }
-        else
-        {
-          pattern = C4MoveColumnMatchPattern;
-        }
-      }
-
-      if ( pattern == null )
-      {
-        sourceX[index] = -1;
-      }
-      else
-      {
-        Matcher lMatcher = pattern.matcher(moveName);
-
-        if ( lMatcher.find() )
-        {
-          if ( pattern == C4MoveColumnMatchPattern )
-          {
-            String locusColumnName = lMatcher.group(1);
-            sourceX[index] = Integer.parseInt(locusColumnName);
-          }
-          else if ( pattern == BrkthruMoveCellMatchPattern )
-          {
-            String moveSourceCellX = lMatcher.group(1);
-            String moveSourceCellY = lMatcher.group(2);
-            String moveTargetCellX = lMatcher.group(3);
-            String moveTargetCellY = lMatcher.group(4);
-            sourceX[index] = Integer.parseInt(moveSourceCellX);
-            sourceY[index] = Integer.parseInt(moveSourceCellY);
-            targetX[index] = Integer.parseInt(moveTargetCellX);
-            targetY[index] = Integer.parseInt(moveTargetCellY);
-          }
-          else if ( pattern == HexMoveCellMatchPattern )
-          {
-            String moveCellX = lMatcher.group(1);
-            String moveCellY = lMatcher.group(2);
-            sourceX[index] = moveCellX.charAt(0) - 'a';
-            sourceY[index] = Integer.parseInt(moveCellY);
-          }
-        }
-        else
-        {
-          sourceX[index] = -1;
-        }
-      }
-    }
-
-    for(int fromIndex = 0; fromIndex < masterMoveList.length; fromIndex++)
-    {
-      for(int toIndex = 0; toIndex < masterMoveList.length; toIndex++)
-      {
-        if ( sourceX[fromIndex] == -1 || sourceX[toIndex] == -1 )
-        {
-          result[fromIndex][toIndex] = 0;
-        }
-        else
-        {
-          int distance = 0;
-
-          if ( pattern == C4MoveColumnMatchPattern )
-          {
-            distance = Math.abs(sourceX[fromIndex]-sourceX[toIndex]) - 1;//2;
-
-            if ( distance < 0 )
-            {
-              distance = 0;
-            }
-          }
-          else if ( pattern == BrkthruMoveCellMatchPattern )
-          {
-            boolean toIncreasingY = (sourceY[toIndex] - targetY[toIndex] < 0);
-            boolean fromIncreasingY = (sourceY[fromIndex] - targetY[fromIndex] < 0);
-            int deltaX = Math.abs(targetX[fromIndex] - sourceX[toIndex]);
-            int deltaY = Math.abs(sourceY[toIndex] - targetY[fromIndex]);
-
-            if ( toIncreasingY == fromIncreasingY )
-            {
-              if ( deltaX <= deltaY )
-              {
-                //  In cone
-                distance = deltaY*2 + 1;
-              }
-              else
-              {
-                //  Off cone
-                int offConeAmount = (deltaX-deltaY+1)/2;
-
-                distance = (deltaY + offConeAmount)*2 + 1;
-              }
-            }
-            else
-            {
-              if ( (toIncreasingY && sourceY[toIndex] <= targetY[fromIndex]) || (!toIncreasingY && sourceY[toIndex] >= targetY[fromIndex]) )
-              {
-                //  Forward
-                if ( deltaX <= deltaY )
-                {
-                  //  Forward cone
-                  distance = deltaY + 1;
-                }
-                else
-                {
-                  //  Forward off-cone
-                  int offConeAmount = (deltaX-deltaY+1)/2;
-
-                  //  If target doesn't move towards the cone then increase the off-cone amount by 1
-                  int targetDeltaX = Math.abs(targetX[fromIndex] - targetX[toIndex]);
-                  if ( targetDeltaX >= deltaX )
-                  {
-                    offConeAmount++;
-                  }
-
-                  distance = 4*offConeAmount - 1 + deltaY;
-
-                  //int offConeAmount = Math.abs(targetX[fromIndex] - sourceX[toIndex]) - (sourceY[toIndex] - targetY[fromIndex]);
-
-                  //distance = sourceY[toIndex] - targetY[fromIndex] + offConeAmount*2 + 1;
-                }
-              }
-              else
-              {
-                //  Backward
-                if ( deltaX <= deltaY )
-                {
-                  //  Backward cone
-                  distance = 2*(deltaY+1) + 1;
-                }
-                else
-                {
-                  //  Backward off-cone
-                  int offConeAmount = (deltaX-deltaY+1)/2;
-
-                  //  If target doesn't move towards the cone then increase the off-cone amount by 1
-                  int targetDeltaX = Math.abs(targetX[fromIndex] - targetX[toIndex]);
-                  if ( targetDeltaX > deltaX )
-                  {
-                    offConeAmount++;
-                  }
-
-                  distance = 4*offConeAmount + 2*(deltaY+1);
-                  //distance = sourceY[toIndex] - targetY[fromIndex] + offConeAmount*2 + 1;
-                }
-              }
-            }
-          }
-          else if ( pattern == HexMoveCellMatchPattern )
-          {
-            distance = Math.max(Math.abs(sourceX[fromIndex]-sourceX[toIndex]), Math.abs(sourceY[fromIndex]-sourceY[toIndex]));
-          }
-
-          assert(distance >= 0);
-
-          result[fromIndex][toIndex] = distance;
-        }
-      }
-    }
-
-    //  Symmetrify
-    for(int fromIndex = 0; fromIndex < masterMoveList.length; fromIndex++)
-    {
-      for(int toIndex = 0; toIndex < masterMoveList.length; toIndex++)
-      {
-        int fromToDistance = result[fromIndex][toIndex];
-        int toFromDistance = result[toIndex][fromIndex];
-        int symmetrifiedDistance = Math.min(toFromDistance, fromToDistance);
-
-//        if ( Math.abs(fromToDistance-toFromDistance) > 1)
-//        {
-//          String moveName1 = masterMoveList[fromIndex].move.toString();
-//          String moveName2 = masterMoveList[toIndex].move.toString();
+    DependencyDistanceAnalyser distanceAnalyser = new DependencyDistanceAnalyser(underlyingStateMachine);
+    LOGGER.info("Begin analysing move distances...");
+    int[][] distanceMatrix = distanceAnalyser.createMoveDistanceMatrix();
+    LOGGER.info("Completed analysing move distances...");
+//    ForwardDeadReckonLegalMoveInfo[] masterMoveList = underlyingStateMachine.getFullPropNet().getMasterMoveList();
+//    int[][] result = new int[masterMoveList.length][masterMoveList.length];
 //
-//          LOGGER.info("Moves " + moveName1 + " and " + moveName2 + " have initial assymetric distnces of " + fromToDistance + " and " + toFromDistance);
+//    int sourceX[] = new int[masterMoveList.length];
+//    int sourceY[] = new int[masterMoveList.length];
+//    int targetX[] = new int[masterMoveList.length];
+//    int targetY[] = new int[masterMoveList.length];
+//    Pattern pattern = null;
+//
+//    for(int index = 0; index < masterMoveList.length; index++)
+//    {
+//      String moveName = masterMoveList[index].move.toString();
+//
+//      if ( pattern == null )
+//      {
+//        Matcher lMatcher = C4MoveColumnMatchPattern.matcher(moveName);
+//        if (!lMatcher.find() )
+//        {
+//          lMatcher = BrkthruMoveCellMatchPattern.matcher(moveName);
+//          if (!lMatcher.find() )
+//          {
+//            lMatcher = HexMoveCellMatchPattern.matcher(moveName);
+//            if ( lMatcher.find() )
+//            {
+//              pattern = HexMoveCellMatchPattern;
+//            }
+//          }
+//          else
+//          {
+//            pattern = BrkthruMoveCellMatchPattern;
+//          }
 //        }
-
-        result[fromIndex][toIndex] = symmetrifiedDistance;
-        result[toIndex][fromIndex] = symmetrifiedDistance;
-      }
-    }
-
-    return result;
+//        else
+//        {
+//          pattern = C4MoveColumnMatchPattern;
+//        }
+//      }
+//
+//      if ( pattern == null )
+//      {
+//        sourceX[index] = -1;
+//      }
+//      else
+//      {
+//        Matcher lMatcher = pattern.matcher(moveName);
+//
+//        if ( lMatcher.find() )
+//        {
+//          if ( pattern == C4MoveColumnMatchPattern )
+//          {
+//            String locusColumnName = lMatcher.group(1);
+//            sourceX[index] = Integer.parseInt(locusColumnName);
+//          }
+//          else if ( pattern == BrkthruMoveCellMatchPattern )
+//          {
+//            String moveSourceCellX = lMatcher.group(1);
+//            String moveSourceCellY = lMatcher.group(2);
+//            String moveTargetCellX = lMatcher.group(3);
+//            String moveTargetCellY = lMatcher.group(4);
+//            sourceX[index] = Integer.parseInt(moveSourceCellX);
+//            sourceY[index] = Integer.parseInt(moveSourceCellY);
+//            targetX[index] = Integer.parseInt(moveTargetCellX);
+//            targetY[index] = Integer.parseInt(moveTargetCellY);
+//          }
+//          else if ( pattern == HexMoveCellMatchPattern )
+//          {
+//            String moveCellX = lMatcher.group(1);
+//            String moveCellY = lMatcher.group(2);
+//            sourceX[index] = moveCellX.charAt(0) - 'a';
+//            sourceY[index] = Integer.parseInt(moveCellY);
+//          }
+//        }
+//        else
+//        {
+//          sourceX[index] = -1;
+//        }
+//      }
+//    }
+//
+//    for(int fromIndex = 0; fromIndex < masterMoveList.length; fromIndex++)
+//    {
+//      for(int toIndex = 0; toIndex < masterMoveList.length; toIndex++)
+//      {
+//        if ( sourceX[fromIndex] == -1 || sourceX[toIndex] == -1 )
+//        {
+//          result[fromIndex][toIndex] = 0;
+//        }
+//        else
+//        {
+//          int distance = 0;
+//
+//          if ( pattern == C4MoveColumnMatchPattern )
+//          {
+//            distance = Math.abs(sourceX[fromIndex]-sourceX[toIndex]) - 1;//2;
+//
+//            if ( distance < 0 )
+//            {
+//              distance = 0;
+//            }
+//          }
+//          else if ( pattern == BrkthruMoveCellMatchPattern )
+//          {
+//            boolean toIncreasingY = (sourceY[toIndex] - targetY[toIndex] < 0);
+//            boolean fromIncreasingY = (sourceY[fromIndex] - targetY[fromIndex] < 0);
+//            int deltaX = Math.abs(targetX[fromIndex] - sourceX[toIndex]);
+//            int deltaY = Math.abs(sourceY[toIndex] - targetY[fromIndex]);
+//
+//            if ( toIncreasingY == fromIncreasingY )
+//            {
+//              if ( deltaX <= deltaY )
+//              {
+//                //  In cone
+//                distance = deltaY*2 + 1;
+//              }
+//              else
+//              {
+//                //  Off cone
+//                int offConeAmount = (deltaX-deltaY+1)/2;
+//
+//                distance = (deltaY + offConeAmount)*2 + 1;
+//              }
+//            }
+//            else
+//            {
+//              if ( (toIncreasingY && sourceY[toIndex] <= targetY[fromIndex]) || (!toIncreasingY && sourceY[toIndex] >= targetY[fromIndex]) )
+//              {
+//                //  Forward
+//                if ( deltaX <= deltaY )
+//                {
+//                  //  Forward cone
+//                  distance = deltaY + 1;
+//                }
+//                else
+//                {
+//                  //  Forward off-cone
+//                  int offConeAmount = (deltaX-deltaY+1)/2;
+//
+//                  //  If target doesn't move towards the cone then increase the off-cone amount by 1
+//                  int targetDeltaX = Math.abs(targetX[fromIndex] - targetX[toIndex]);
+//                  if ( targetDeltaX >= deltaX )
+//                  {
+//                    offConeAmount++;
+//                  }
+//
+//                  distance = 4*offConeAmount - 1 + deltaY;
+//
+//                  //int offConeAmount = Math.abs(targetX[fromIndex] - sourceX[toIndex]) - (sourceY[toIndex] - targetY[fromIndex]);
+//
+//                  //distance = sourceY[toIndex] - targetY[fromIndex] + offConeAmount*2 + 1;
+//                }
+//              }
+//              else
+//              {
+//                //  Backward
+//                if ( deltaX <= deltaY )
+//                {
+//                  //  Backward cone
+//                  distance = 2*(deltaY+1) + 1;
+//                }
+//                else
+//                {
+//                  //  Backward off-cone
+//                  int offConeAmount = (deltaX-deltaY+1)/2;
+//
+//                  //  If target doesn't move towards the cone then increase the off-cone amount by 1
+//                  int targetDeltaX = Math.abs(targetX[fromIndex] - targetX[toIndex]);
+//                  if ( targetDeltaX > deltaX )
+//                  {
+//                    offConeAmount++;
+//                  }
+//
+//                  distance = 4*offConeAmount + 2*(deltaY+1);
+//                  //distance = sourceY[toIndex] - targetY[fromIndex] + offConeAmount*2 + 1;
+//                }
+//              }
+//            }
+//          }
+//          else if ( pattern == HexMoveCellMatchPattern )
+//          {
+//            distance = Math.max(Math.abs(sourceX[fromIndex]-sourceX[toIndex]), Math.abs(sourceY[fromIndex]-sourceY[toIndex]));
+//          }
+//
+//          assert(distance >= 0);
+//
+//          result[fromIndex][toIndex] = distance;
+//        }
+//      }
+//    }
+//
+//    //  Symmetrify
+//    for(int fromIndex = 0; fromIndex < masterMoveList.length; fromIndex++)
+//    {
+//      for(int toIndex = 0; toIndex < masterMoveList.length; toIndex++)
+//      {
+//        int fromToDistance = result[fromIndex][toIndex];
+//        int toFromDistance = result[toIndex][fromIndex];
+//        int symmetrifiedDistance = Math.min(toFromDistance, fromToDistance);
+//
+////        if ( Math.abs(fromToDistance-toFromDistance) > 1)
+////        {
+////          String moveName1 = masterMoveList[fromIndex].move.toString();
+////          String moveName2 = masterMoveList[toIndex].move.toString();
+////
+////          LOGGER.info("Moves " + moveName1 + " and " + moveName2 + " have initial assymetric distnces of " + fromToDistance + " and " + toFromDistance);
+////        }
+//
+//        result[fromIndex][toIndex] = symmetrifiedDistance;
+//        result[toIndex][fromIndex] = symmetrifiedDistance;
+//      }
+//    }
+//
+//    //  Sample a few move pairs and see what we got
+//    Random rand = new Random();
+//    for(int i = 0; i < 10; i++)
+//    {
+//      int move1Index = rand.nextInt(masterMoveList.length);
+//      int move2Index = rand.nextInt(masterMoveList.length);
+//      int distanceNew = distanceMatrix[move1Index][move2Index];
+//      int distanceOld = result[move1Index][move2Index];
+//
+//      LOGGER.info("Distance between " + masterMoveList[move1Index].inputProposition.getName() + " and " + masterMoveList[move2Index].inputProposition.getName() + ":");
+//      LOGGER.info("    Old hacked calculation: " + distanceOld);
+//      LOGGER.info("    New dependency calculation: " + distanceNew);
+//    }
+//    return result;
+    return distanceMatrix;
   }
 }

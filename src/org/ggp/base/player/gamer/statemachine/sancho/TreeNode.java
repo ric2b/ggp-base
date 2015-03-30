@@ -3792,12 +3792,6 @@ public class TreeNode
 
   private double heuristicUCT(TreeEdge moveEdge)
   {
-    //int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
-    //double scoreDelta = (moveEdge.getChildRef() == NULL_REF ? 0.5 : (get(moveEdge.getChildRef()).getAverageScore(roleIndex) - getAverageScore(roleIndex))/100);
-    //return tree.DEPENDENCY_HEURISTIC_STRENGTH*moveEdge.moveWeight/(numVisits+1);
-    //return Math.max(-100, tree.DEPENDENCY_HEURISTIC_STRENGTH*moveEdge.moveWeight*10*scoreDelta/Math.sqrt(moveEdge.getNumChildVisits()+1));
-    //return tree.DEPENDENCY_HEURISTIC_STRENGTH*moveEdge.moveWeight*10*scoreDelta/Math.sqrt(numVisits+1);
-    //return tree.DEPENDENCY_HEURISTIC_STRENGTH*moveEdge.moveWeight*sigma(-moveEdge.getNumChildVisits()/20);
     return 0;
   }
 
@@ -4938,7 +4932,7 @@ public class TreeNode
                                                                   child.scoreForMostLikelyResponse();
 
         assert(-EPSILON <= moveScore && 100 + EPSILON >= moveScore);
-//        if ( firstDecision && edge.mPartialMove.toString().contains("2 4 1 5"))
+//        if ( firstDecision && edge.mPartialMove.toString().contains("2 5 3 6"))
 //        {
 //          LOGGER.info("Force-selecting " + edge.mPartialMove);
 //          bestNode = child;

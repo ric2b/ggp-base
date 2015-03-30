@@ -255,17 +255,21 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
     mNodePool.setNonFreeThreshold(factorTrees.length*MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
 
-//    if ( factorTrees.length == 1 )
-//    {
-//      localSearchRoot = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
-//      moveConsequenceSearcher = new MoveConsequenceSearcher(underlyingStateMachine.createInstance(), roleOrdering, mLogName, this);
-//    }
-//    for (MCTSTree tree : factorTrees)
-//    {
-//      tree.root = tree.allocateNode(initialState, null, false);
-//      tree.root.decidingRoleIndex = underlyingStateMachine.getRoles().length - 1;
-//      tree.root.setDepth((short)0);
-//    }
+    if ( MachineSpecificConfiguration.getCfgVal(CfgItem.USE_LOCAL_SEARCH, false))
+    {
+      if ( factorTrees.length == 1 && gameCharacteristics.numRoles == 2 && !gameCharacteristics.isSimultaneousMove && gameCharacteristics.isStrictlyAlternatingPlay)
+      {
+        localSearchRoot = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+        moveConsequenceSearcher = new MoveConsequenceSearcher(underlyingStateMachine.createInstance(), roleOrdering, mLogName, this);
+      }
+    }
+
+    for (MCTSTree tree : factorTrees)
+    {
+      tree.root = tree.allocateNode(initialState, null, false);
+      tree.root.decidingRoleIndex = gameCharacteristics.numRoles - 1;
+      tree.root.setDepth((short)0);
+    }
   }
 
 
@@ -1166,8 +1170,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       Thread.yield();
     }
 
-    lastQueuedSearchResultSeq++;
     searchResultsBuffer.copyFrom(xiResults);
+    lastQueuedSearchResultSeq++;
   }
 
   private void ProcessQueuedLocalSearchResults()
@@ -1362,7 +1366,12 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
                 ForwardDeadReckonLegalMoveInfo moveInfo = ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice);
 
-                if ( !searchResultsBuffer.isLocal(moveInfo) )
+                boolean canInfluence = searchResultsBuffer.canInfluenceFoundResult(moveInfo);
+                boolean isLocal = searchResultsBuffer.isLocal(moveInfo);
+
+                LOGGER.info("    Move " + moveInfo + ": canInfluence=" + canInfluence + ", isLocal=" + isLocal);
+                if ( !canInfluence)
+                //if ( !isLocal )
                 {
                   TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
                   if (edge != null && edge.getChildRef() != TreeNode.NULL_REF)

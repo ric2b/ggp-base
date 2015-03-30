@@ -1,5 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
@@ -10,6 +12,8 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
  */
 public class LocalSearchResults implements LocalRegionDefiner
 {
+  private static final Logger LOGGER       = LogManager.getLogger();
+
   /**
    * Role for whom a (local) forced win was found or -1 if none
    */
@@ -92,6 +96,7 @@ public class LocalSearchResults implements LocalRegionDefiner
   @Override
   public boolean canInfluenceFoundResult(ForwardDeadReckonLegalMoveInfo xiMove)
   {
+    int winningRole = (winForRole != -1 ? winForRole : (1 - tenukiLossForRole));
     //  TEMP until I can sort out the correct semantics
     //return true;
     if ( relevantMovesForWin == null )
@@ -99,9 +104,14 @@ public class LocalSearchResults implements LocalRegionDefiner
       return true;
     }
 
+
+    //  TODO - a much tighter check than this is possible, since we only care about a move if
+    //  it can prevent a played move, not just if it has a co-influenced base prop.  Hence the
+    //  tighter test is the distance from the move to the legal-influencing base props of the played
+    //  moves in the sequence
     for(int i = 1; i <= searchRadius; i++)
     {
-      for(ForwardDeadReckonLegalMoveInfo relevantMove : relevantMovesForWin[i].getContents(searchProvider.roleOrdering.roleIndexToRawRoleIndex(winForRole)))
+      for(ForwardDeadReckonLegalMoveInfo relevantMove : relevantMovesForWin[i].getContents(searchProvider.roleOrdering.roleIndexToRawRoleIndex(winningRole)))
       {
         //  Could this move have been disturbed by the move being checked?
         //  The check for the very last (winning move) has a tighter bound since
@@ -109,9 +119,10 @@ public class LocalSearchResults implements LocalRegionDefiner
         //  not the optional role's (to counter it after it is played)
         //  TODO - validate this holds in all games and is not an unintended Breakthrough
         //  category property!
-        //if ( searchProvider.getMoveDistance(winPathMove, xiMove) < i + (i == searchRadius ? 1 : 0))
-        if ( searchProvider.getMoveDistance(relevantMove, xiMove) <= i+1)
+        int distance = searchProvider.getMoveDistance(relevantMove, xiMove);
+        if ( distance < i + (i == searchRadius ? 1 : 0))
         {
+          LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at distance " + distance + " and therefore can influence");
           return true;
         }
       }

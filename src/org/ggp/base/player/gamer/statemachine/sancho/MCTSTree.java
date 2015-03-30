@@ -69,11 +69,6 @@ public class MCTSTree
    */
   public final boolean                                 USE_UCB_TUNED;
 
-  /**
-   * Coefficient to apply to dependency distance heuristic
-   */
-  public final double                                  DEPENDENCY_HEURISTIC_STRENGTH;
-
   static final short  MAX_HYPER_RECURSION_DEPTH = 3;
 
   private long maxSelectTime = 0;
@@ -291,8 +286,6 @@ public class MCTSTree
     {
       LOGGER.info("Early cutoff depth: " + mWeightDecayCutoffDepth);
     }
-
-    DEPENDENCY_HEURISTIC_STRENGTH = ((double)MachineSpecificConfiguration.getCfgVal(CfgItem.DEPENDENCY_HEURISTIC_STRENGTH, 0))/10000;
 
     roleOrdering = xiRoleOrdering;
     mOurRole = xiRoleOrdering.roleIndexToRole(0);

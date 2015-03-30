@@ -95,9 +95,9 @@ public class MachineSpecificConfiguration
     USE_UCB_TUNED,
 
     /**
-     * Coefficient applied to the dependency distance heuristic
+     * Whether to use local search
      */
-    DEPENDENCY_HEURISTIC_STRENGTH;
+    USE_LOCAL_SEARCH,
   }
 
   private static final Properties MACHINE_PROPERTIES = new Properties();
