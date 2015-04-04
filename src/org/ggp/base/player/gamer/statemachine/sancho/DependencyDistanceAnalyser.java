@@ -35,6 +35,7 @@ public class DependencyDistanceAnalyser
   private static final Logger LOGGER       = LogManager.getLogger();
 
   private static final int MAX_DISTANCE = 20;
+  private static final int MAX_PLAUSIBLE_TREMINAL_COUPLING_SIZE = 20;
 
   private class SentenceInfo
   {
@@ -98,6 +99,7 @@ public class DependencyDistanceAnalyser
     final BitSet      potentiallyEnabledMoves = new BitSet();
     final BitSet      potentiallyDisabledMoves = new BitSet();
     final BitSet      mutualExclusionSet = new BitSet();
+    final BitSet      terminalityCoupledProps = new BitSet();
     final BitSet[]    movesInfluencingFromDistance = new BitSet[MAX_DISTANCE];
     //final BitSet[]    movesDisabledAtDistance = new BitSet[MAX_DISTANCE];
     //HashSet<MoveInfo> moves = null;
@@ -237,6 +239,12 @@ public class DependencyDistanceAnalyser
 //          }
 //        }
 //      }
+    }
+
+    //  Add goal coupling info the proposition dependency info
+    if ( !addTerminalityCouplingsToPropInfo())
+    {
+      return null;
     }
 
     //  Work out any required and required-absent base props for each move to be legal
@@ -1036,6 +1044,87 @@ public class DependencyDistanceAnalyser
           }
         }
       }
+    }
+  }
+
+  //  Examine the way the base props are coupled through the terminality
+  //  logic.  Returns true if the couplings are supportable with current
+  //  local search capabilities
+  private boolean addTerminalityCouplingsToPropInfo()
+  {
+    //  Walk backwards from the terminal prop.  Each conjunctive term
+    //  is an independent termination condition.  Within each conjuct
+    //  any feeding props are coupled.
+    PolymorphicProposition terminalProp = propNet.getTerminalProposition();
+    PolymorphicComponent feederComponent = terminalProp.getSingleInput();
+
+    return recursiveAddCouplingsForConjuncts(feederComponent);
+  }
+
+  private boolean recursiveAddCouplingsForConjuncts(PolymorphicComponent feederComponent)
+  {
+    if (feederComponent instanceof PolymorphicOr)
+    {
+      for(PolymorphicComponent input : feederComponent.getInputs())
+      {
+        if ( !recursiveAddCouplingsForConjuncts(input) )
+        {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    return addCouplingInfo(feederComponent);
+  }
+
+  private boolean addCouplingInfo(PolymorphicComponent conjunct)
+  {
+    BitSet feedingProps = new BitSet();
+
+    recursiveBuildFeedingInfo(conjunct, feedingProps);
+
+    //  Currently we allow no coupling, which means this conjunctive input
+    //  can have at most one (non-control-logic) base prop feeding it
+    if ( feedingProps.cardinality() > 1 )
+    {
+      LOGGER.info("Base props are coupled through the terminality logic");
+
+      if ( feedingProps.cardinality() > MAX_PLAUSIBLE_TREMINAL_COUPLING_SIZE )
+      {
+        //  This is a hack until we can come up with something more robust.  It is intended to cope
+        //  with 'fall-back' terminality conditions like 'one role has no pieces left', which do not
+        //  actually couple moves.
+        //  TODO - figure out exactly what characterizes real couplings
+        LOGGER.info("Ignoring this coupling as its size suggests a non-move related meta-condition");
+        return true;
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  private void recursiveBuildFeedingInfo(PolymorphicComponent c, BitSet feedingProps)
+  {
+    if ( c instanceof PolymorphicProposition )
+    {
+      int propIndex = ((ForwardDeadReckonProposition)c).getInfo().index;
+
+      //  Iff it's a non-control-logic base prop we'll have an entry for it
+      //  in the basePropInfo array
+      if ( basePropInfo[propIndex] != null )
+      {
+        feedingProps.set(propIndex);
+      }
+
+      return;
+    }
+
+    for(PolymorphicComponent input : c.getInputs())
+    {
+      recursiveBuildFeedingInfo(input, feedingProps);
     }
   }
 }
