@@ -28,4 +28,16 @@ public interface LocalRegionDefiner
    * @return true if the region's seed itself may influence the found result
    */
   boolean seedMayEnableResult();
+
+  /**
+   * @param move
+   * @return minimum possible move count before provided move could cause a win
+   * for the player playing it
+   */
+  int getMinWinDistance(ForwardDeadReckonLegalMoveInfo move);
+
+  /**
+   * @return true if we have lower bounds on win distances from moves for this game
+   */
+  boolean hasKnownWinDistances();
 }

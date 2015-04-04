@@ -13,6 +13,7 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 
+
 public class LocalRegionSearcher
 {
   public interface LocalSearchController
@@ -55,6 +56,7 @@ public class LocalRegionSearcher
   private final LocalSearchResultConsumer resultsConsumer;
   private final LocalSearchResults searchResult = new LocalSearchResults();
   private final boolean[] moveIsResponse;
+  private final boolean[] moveIsEnabledBySequence;
   private final boolean[][] chooserMoveChoiceIsResponse;
 
   private int numNodesSearched;
@@ -88,6 +90,7 @@ public class LocalRegionSearcher
     tenukiLossDepth = new int[xiUnderlyingStateMachine.getRoles().length];
     tenukiLossSeeds = new ForwardDeadReckonLegalMoveInfo[xiUnderlyingStateMachine.getRoles().length];
     moveIsResponse = new boolean[MAX_DEPTH+1];
+    moveIsEnabledBySequence = new boolean[MAX_DEPTH+1];
     chooserMoveChoiceIsResponse = new boolean[MAX_DEPTH+1][];
     relevantMoves = new ForwardDeadReckonLegalMoveSet[MAX_DEPTH+1][];
 
@@ -247,13 +250,14 @@ public class LocalRegionSearcher
 //      }
       if ( !resultFound )
       {
-//        if ( optionalRole == 0 && currentDepth==10 && regionCentre.toString().contains("3 4 2 3"))
+//        if ( optionalRole == 0 && currentDepth==9 && regionCentre.toString().contains("2 4 1 5"))
 //        {
 //          System.out.println("!");
+//          score = 0;
 //        }
         //optionalRole = role;
         jointMove[0][0] = regionCentre;
-        if ( tenukiLossSeeds[1-optionalRole] != null )
+        if ( tenukiLossSeeds[1-optionalRole] != null && tenukiLossSeeds[1-optionalRole] != regionCentre )
         {
           jointMove[0][1] = tenukiLossSeeds[1-optionalRole];
           LOGGER.info("Performing joint search for optional role " + optionalRole + " at depth " + currentDepth + " with secondary seed " + tenukiLossSeeds[1-optionalRole]);
@@ -274,6 +278,10 @@ public class LocalRegionSearcher
         {
           LOGGER.info(Arrays.toString(jointMove[i]));
         }
+//        if ( jointMove[1][0] != null && jointMove[1][0].toString().contains("8 6 7 7"))
+//        {
+//          score = 100;
+//        }
 
         if ( resultsConsumer != null )
         {
@@ -434,11 +442,12 @@ public class LocalRegionSearcher
 
     //  At depth 1 consider the optional tenuki first as a complete result
     //  there will allow cutoff in the MCTS tree (in principal)
-    if ( choosingRole == optionalRole && (tenukiPossible || depth == 1) && tenukiLossDepth[optionalRole] > currentDepth )
+    if ( choosingRole == optionalRole && (tenukiPossible || depth == 1) && (numChoices == 0 || tenukiLossDepth[optionalRole] > currentDepth) )
     {
       jointMove[depth][1-choosingRole] = nonChooserMove;
       jointMove[depth][choosingRole] = pseudoNoop;
       moveIsResponse[depth] = false;
+      moveIsEnabledBySequence[depth] = false;
 
       underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth]);
 
@@ -477,22 +486,14 @@ public class LocalRegionSearcher
           //searchResult.choiceFromState = null;
           //searchResult.relevantMovesForWin = null;
           searchResult.choiceFromState = choiceFromState;
-          if ( choiceFromState != null )
+          searchResult.winPath = new ForwardDeadReckonLegalMoveInfo[currentDepth+1];
+          searchResult.relevantMovesForWin = new ForwardDeadReckonLegalMoveSet[currentDepth+1];
+          for( int i = 0; i <= currentDepth; i++)
           {
-            searchResult.winPath = new ForwardDeadReckonLegalMoveInfo[currentDepth+1];
-            searchResult.relevantMovesForWin = new ForwardDeadReckonLegalMoveSet[currentDepth+1];
-            for( int i = 0; i <= currentDepth; i++)
-            {
-              searchResult.winPath[i] = jointMove[i][1-optionalRole];
-              searchResult.relevantMovesForWin[i] = relevantMoves[1][i];
+            searchResult.winPath[i] = jointMove[i][1-optionalRole];
+            searchResult.relevantMovesForWin[i] = relevantMoves[1][i];
 
-              assert(searchResult.relevantMovesForWin[i] != null);
-            }
-          }
-          else
-          {
-            searchResult.winPath = null;
-            searchResult.relevantMovesForWin = null;
+            assert(searchResult.relevantMovesForWin[i] != null);
           }
 
           resultsConsumer.ProcessLocalSearchResult(searchResult);
@@ -505,6 +506,7 @@ public class LocalRegionSearcher
       jointMove[depth][1-choosingRole] = nonChooserMove;
       jointMove[depth][choosingRole] = chooserMoveChoiceStack[depth][i];
       moveIsResponse[depth] = chooserMoveChoiceIsResponse[depth][i];
+      moveIsEnabledBySequence[depth] = (depth > 1 && getMoveEnablementDistance(jointMove[depth-1][1-choosingRole], jointMove[depth][choosingRole]) == 1);
 
       underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth]);
 
@@ -529,10 +531,11 @@ public class LocalRegionSearcher
         {
           NonOptionalMoveKillerWeight[jointMove[depth][choosingRole].masterIndex] += killerValue;
 
+          //  This is the path we would take from here so it is relevant to the solution
+          relevantMoves[depth][depth].add(jointMove[depth][choosingRole]);
+
           if ( depth < maxDepth )
           {
-            //  This is the path we would take from here so it is relevant to the solution
-            relevantMoves[depth][depth].add(jointMove[depth][choosingRole]);
             //  As are all the descendant relevant moves found in solving this node
             for(int j = depth+1; j <= maxDepth; j++)
             {
@@ -571,13 +574,22 @@ public class LocalRegionSearcher
     return 50;
   }
 
-  public int getMoveDistance(ForwardDeadReckonLegalMoveInfo from, ForwardDeadReckonLegalMoveInfo to)
+  public int getMoveCoInfluenceDistance(ForwardDeadReckonLegalMoveInfo from, ForwardDeadReckonLegalMoveInfo to)
   {
-    return moveDistances[from.masterIndex][to.masterIndex];
+    return moveDistances.moveCoInfluenceDistances[from.masterIndex][to.masterIndex];
+  }
+
+  public int getMoveEnablementDistance(ForwardDeadReckonLegalMoveInfo from, ForwardDeadReckonLegalMoveInfo to)
+  {
+    return moveDistances.moveEnablingDistances[from.masterIndex][to.masterIndex];
   }
 
   private int heuristicValue(ForwardDeadReckonLegalMoveInfo move, int depth, ForwardDeadReckonLegalMoveInfo previousLocalMove, boolean forOptionalRole)
   {
+    if ( move.toString().contains("8 6 7 7"))
+    {
+      return 100000;
+    }
     //  If we're joint searching with a secondary seed and a legal move at depth 1 is exactly the
     //  secondary seed move choose it first
     if ( depth == 1 && jointMove[0][1] != null && jointMove[0][1].masterIndex == move.masterIndex )
@@ -609,9 +621,24 @@ public class LocalRegionSearcher
       if ( !unconstrainedSearch )
       {
         boolean seenNonResponsePly = false;
+        boolean seenEnablingPly = false;
         boolean terminateTrackBack = false;
         boolean jointSearch = (jointMove[0][1] != null);
+        boolean chosenMovesAreForOptionalRole = ((depth%2==1) == optionalRoleHasOddDepthParity);
 
+        //  All non-optional moves played must be in scope of the seed
+        //  if we have a unique seed (else the overall result is not dependent on
+        //  the seed).  Optional moves have to be allowed to go outside this boundary
+        //  or else refutations of non-optional moves played may not be found and a
+        //  false positive can result from the overall search for a win
+        if ( !chosenMovesAreForOptionalRole && !jointSearch && jointMove[0][0] != null && moveDistances.moveCoInfluenceDistances[jointMove[0][0].masterIndex][move.masterIndex] > maxDistance )
+        {
+          continue;
+        }
+//        if ( move.toString().contains("5 6 6 7") || move.toString().contains("8 6 8 7"))
+//        {
+//          continue;
+//        }
         include = false;
         for(int i = depth-1; i >= 0; i--)
         {
@@ -621,38 +648,77 @@ public class LocalRegionSearcher
 //
           boolean isOptionalRolePly = (optionalRoleHasOddDepthParity == (i%2 == 1));
 
-          if ( i == 0 && (!isOptionalRolePly || depth==1) )
+          //  The rules for a joint search are less tightly constrainable than those for a regular search,
+          //  but essentially a joint search is one where a valid non-optional sequence from each role is
+          //  interleaved with optional responses to the other player's sequence.  Because we cannot
+          //  determine unambiguously if any given move is part of an (optional) response sequence or a
+          //  (non-optional) efficient sequence we can only make fairly wide constraints
+          if ( !jointSearch )
           {
-            //  The first non-optional role move is distance gated by the seed, but the first
-            //  optional role move is only gated by the seed if it is the first move of the
-            //  sequence (optional role moves that are within distance of the seed but are
-            //  not dependent on any non-optional role move made need not be searched - they
-            //  may potentially be wins for the optional role, but only if they are independently
-            //  of the non-optional moves played, and thus discoverable when searched with role
-            //  optionality reversed)
-            isDistanceGating = true;
-            plyIsResponse = false;
-            terminateTrackBack = true;
-          }
-          else if ( (depth%2==1) == optionalRoleHasOddDepthParity )
-          {
-            //  Optional role moves are distance gated by any non-optional role
-            //  move [or the last optional role move?]
-            if ( !isOptionalRolePly || jointSearch )//|| i >= depth-2 )
+            if ( i == 0 && (!isOptionalRolePly || depth==1) )
             {
+              //  The first non-optional role move is distance gated by the seed, but the first
+              //  optional role move is only gated by the seed if it is the first move of the
+              //  sequence (optional role moves that are within distance of the seed but are
+              //  not dependent on any non-optional role move made need not be searched - they
+              //  may potentially be wins for the optional role, but only if they are independently
+              //  of the non-optional moves played, and thus discoverable when searched with role
+              //  optionality reversed)
               isDistanceGating = true;
               plyIsResponse = false;
+              terminateTrackBack = true;
+            }
+            else if ( chosenMovesAreForOptionalRole )
+            {
+              //  Optional role moves are distance gated by the last non-optional role
+              //  non-response move or the last enabled optional role move
+              if ( (!isOptionalRolePly && !moveIsResponse[i] && !seenNonResponsePly) || (isOptionalRolePly && !seenEnablingPly && moveIsEnabledBySequence[i]))
+              {
+                isDistanceGating = true;
+                plyIsResponse = isOptionalRolePly;
+                seenNonResponsePly |= !isOptionalRolePly;
+                seenEnablingPly |= isOptionalRolePly;
+
+                //  Can stop if we've moved past the last possible enablers
+                terminateTrackBack = (seenEnablingPly && seenNonResponsePly);
+              }
+            }
+            else
+            {
+              //  Non-optional role moves are gated on the last non-response non-optional
+              //  role move and the last optional enabled move
+              if ( (!isOptionalRolePly && !moveIsResponse[i] && !seenNonResponsePly) || (isOptionalRolePly && !seenEnablingPly && moveIsEnabledBySequence[i]))
+              {
+                isDistanceGating = true;
+                plyIsResponse = isOptionalRolePly;
+                seenNonResponsePly = !isOptionalRolePly;
+                seenEnablingPly |= isOptionalRolePly;
+                terminateTrackBack = (seenEnablingPly && seenNonResponsePly);
+              }
             }
           }
           else
           {
-            //  Non-optional role moves are gated on the last non-response non-optional
-            //  role move and the last optional role move
-            if ( (!isOptionalRolePly && !moveIsResponse[i]) || (i >= depth-2 && isOptionalRolePly) )
+            if ( i == 0 && depth < 2 )
             {
+              //  The first move for either role is gated by the seed(s)
               isDistanceGating = true;
-              plyIsResponse = isOptionalRolePly;
-              terminateTrackBack = (!isOptionalRolePly && i < depth-1);
+              plyIsResponse = false;
+            }
+            else if ( (depth%2) != (i%2) )
+            {
+              //  Any move can be a response to the previous (only) opponent move
+              if ( i == depth-1 )
+              {
+                isDistanceGating = true;
+                plyIsResponse = false;
+              }
+            }
+            else
+            {
+              //  A move can follow on from any previous move of the same role
+              isDistanceGating = true;
+              plyIsResponse = false;
             }
           }
 //          if ( i == 0 || !isOptionalRolePly || jointSearch)
@@ -682,11 +748,11 @@ public class LocalRegionSearcher
             if ( plyMove != null )
             {
 //              plyMoveFound = true;
-              int distance = moveDistances[plyMove.masterIndex][move.masterIndex];
+              int distance = moveDistances.moveCoInfluenceDistances[plyMove.masterIndex][move.masterIndex];
               boolean includeAtThisPly = (distance <= maxDistance - i);
               if ( i == 0 && jointSearch )
               {
-                includeAtThisPly |= (moveDistances[jointMove[0][1].masterIndex][move.masterIndex] <= maxDistance - i);
+                includeAtThisPly |= (moveDistances.moveCoInfluenceDistances[jointMove[0][1].masterIndex][move.masterIndex] <= maxDistance - i);
               }
               //  If the move is already included and this ply is not an apparent response
               //  then the inclusion we already have must have been as a response we which are
@@ -697,10 +763,10 @@ public class LocalRegionSearcher
               //  where the move is a forced response, but was legitimate as a regular efficient
               //  sequence also, and the actual desirable sequence follows from the previous move
               //  but goes out of scope of THIS move a one deeper ply.
-              if ( includeAtThisPly && !plyIsResponse && include )
-              {
-                break;
-              }
+//              if ( includeAtThisPly && !plyIsResponse && include )
+//              {
+//                break;
+//              }
 
               include |= includeAtThisPly;
 
@@ -762,15 +828,15 @@ public class LocalRegionSearcher
   private static Pattern BrkthruMoveCellMatchPattern = Pattern.compile("move (\\d+) (\\d+) (\\d+) (\\d+)");
   private static Pattern HexMoveCellMatchPattern = Pattern.compile("place ([abcdefghi]) (\\d+)");
 
-  private int[][] moveDistances = null;
+  private DependencyDistanceInfo moveDistances = null;
 
-  private int[][] generateMoveDistanceMatrix()
+  private DependencyDistanceInfo generateMoveDistanceMatrix()
   {
     DependencyDistanceAnalyser distanceAnalyser = new DependencyDistanceAnalyser(underlyingStateMachine);
     LOGGER.info("Begin analysing move distances...");
-    int[][] distanceMatrix = distanceAnalyser.createMoveDistanceMatrix();
+    DependencyDistanceInfo distanceInfo = distanceAnalyser.getDistanceInfo();
     LOGGER.info("Completed analysing move distances...");
-//    ForwardDeadReckonLegalMoveInfo[] masterMoveList = underlyingStateMachine.getFullPropNet().getMasterMoveList();
+    ForwardDeadReckonLegalMoveInfo[] masterMoveList = underlyingStateMachine.getFullPropNet().getMasterMoveList();
 //    int[][] result = new int[masterMoveList.length][masterMoveList.length];
 //
 //    int sourceX[] = new int[masterMoveList.length];
@@ -959,9 +1025,14 @@ public class LocalRegionSearcher
 //      }
 //    }
 //
+//    int index7271 = -1;
 //    //  Symmetrify
 //    for(int fromIndex = 0; fromIndex < masterMoveList.length; fromIndex++)
 //    {
+//      if ( masterMoveList[fromIndex].toString().contains("7 2 7 1"))
+//      {
+//        index7271 = fromIndex;
+//      }
 //      for(int toIndex = 0; toIndex < masterMoveList.length; toIndex++)
 //      {
 //        int fromToDistance = result[fromIndex][toIndex];
@@ -981,20 +1052,35 @@ public class LocalRegionSearcher
 //      }
 //    }
 //
-//    //  Sample a few move pairs and see what we got
-//    Random rand = new Random();
-//    for(int i = 0; i < 10; i++)
-//    {
-//      int move1Index = rand.nextInt(masterMoveList.length);
-//      int move2Index = rand.nextInt(masterMoveList.length);
-//      int distanceNew = distanceMatrix[move1Index][move2Index];
-//      int distanceOld = result[move1Index][move2Index];
+//    assert(index7271 != -1);
 //
-//      LOGGER.info("Distance between " + masterMoveList[move1Index].inputProposition.getName() + " and " + masterMoveList[move2Index].inputProposition.getName() + ":");
-//      LOGGER.info("    Old hacked calculation: " + distanceOld);
-//      LOGGER.info("    New dependency calculation: " + distanceNew);
+//    //  Sample a few move pairs and see what we got
+////    Random rand = new Random();
+////    for(int i = 0; i < 10; i++)
+////    {
+////      int move1Index = rand.nextInt(masterMoveList.length);
+////      int move2Index = rand.nextInt(masterMoveList.length);
+////      int distanceNew = distanceMatrix[move1Index][move2Index];
+////      int distanceOld = result[move1Index][move2Index];
+////
+////      LOGGER.info("Distance between " + masterMoveList[move1Index].inputProposition.getName() + " and " + masterMoveList[move2Index].inputProposition.getName() + ":");
+////      LOGGER.info("    Old hacked calculation: " + distanceOld);
+////      LOGGER.info("    New dependency calculation: " + distanceNew);
+////    }
+//
+//    for(int i = 0; i < masterMoveList.length; i++)
+//    {
+//      if ( distanceMatrix[index7271][i] < 19 )
+//      {
+//        int distanceNew = distanceMatrix[index7271][i];
+//        int distanceOld = result[index7271][i];
+//
+//        LOGGER.info("Distance between " + masterMoveList[index7271].inputProposition.getName() + " and " + masterMoveList[i].inputProposition.getName() + ":");
+//        LOGGER.info("    Old hacked calculation: " + distanceOld);
+//        LOGGER.info("    New dependency calculation: " + distanceNew);
+//      }
 //    }
 //    return result;
-    return distanceMatrix;
+    return distanceInfo;
   }
 }

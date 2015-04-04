@@ -9,8 +9,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -127,6 +125,7 @@ public class TreeNode
   boolean                               complete            = false;
   private boolean                       allChildrenComplete = false;
   boolean                               hasBeenLocalSearched = false;
+  boolean                               isLocalLoss         = false;
   Object[]                              children            = null;
   short                                 mNumChildren        = 0;
   short[]                               primaryChoiceMapping = null;
@@ -146,7 +145,7 @@ public class TreeNode
   //  in mind if that usage is expanded.  It is initialized to -1 so that a transposition
   //  to an existing node can be distinguished from a fresh allocation
   private short                         depth               = -1;
-  private short                         completionDepth;
+  short                         completionDepth;
   private double                        heuristicValue;
   private double                        heuristicWeight;
 
@@ -390,6 +389,15 @@ public class TreeNode
     if (!matchesAll && !matchesDecider)
     {
       LOGGER.warn("Inexplicable completion!");
+    }
+  }
+
+  void markAsLocalLoss(short atDepth)
+  {
+    if ( !complete )
+    {
+      isLocalLoss = true;
+      completionDepth = (short)(depth + atDepth);
     }
   }
 
@@ -1568,6 +1576,7 @@ public class TreeNode
     isTerminal = false;
     autoExpand = false;
     hasBeenLocalSearched = false;
+    isLocalLoss = false;
     leastLikelyWinner = -1;
     mostLikelyWinner = -1;
     complete = false;
@@ -4932,7 +4941,7 @@ public class TreeNode
                                                                   child.scoreForMostLikelyResponse();
 
         assert(-EPSILON <= moveScore && 100 + EPSILON >= moveScore);
-//        if ( firstDecision && edge.mPartialMove.toString().contains("2 5 3 6"))
+//        if ( firstDecision && (edge.mPartialMove.toString().contains("5 5 6 4") || edge.mPartialMove.toString().contains("5 5 6 4")))
 //        {
 //          LOGGER.info("Force-selecting " + edge.mPartialMove);
 //          bestNode = child;
@@ -4941,7 +4950,7 @@ public class TreeNode
 //          bestEdge = edge;
 //          break;
 //        }
-//        if ( firstDecision && (edge.mPartialMove.toString().contains("5 7 4 6") || edge.mPartialMove.toString().contains("4 7 4 6")))
+//        if ( firstDecision && (edge.mPartialMove.toString().contains("8 1 7 2") || edge.mPartialMove.toString().contains("8 1 7 2")))
 //        {
 //          LOGGER.info("Force-UNselecting " + edge.mPartialMove);
 //          moveScore = 1;
@@ -4994,16 +5003,39 @@ public class TreeNode
             selectionScore = moveScore *
                 (1 - 20 * Math.log(numVisits) /
                     (20 * Math.log(numVisits) + numChildVisits));
-            //  Also down-weight nodes that have not been subject to local-search
-            //  This helps cope with cases where the MCTS convergence tips over
-            //  to a new node near the end of turn processing where the previous candidate
-            //  had been confirmed to have no local loss, but the new choice turns out
-            //  to actually be a loss.  The slight loss of potentially going for the second best
-            //  MCTS choice when things are very close is more than compensated for by the
-            //  added safety
-            if ( !child.hasBeenLocalSearched )
+
+            //  Whether we're looking for a choice of node to concentrate local search on (firstDecision==true)
+            //  of looking for our final choice to play (firstDecision==false) impacts how we weight
+            //  children relative to one another
+            if ( firstDecision )
             {
-              selectionScore *= 0.95;
+              //  If it's already been local-searched down-weight it to avoid flipping
+              //  back and forth between the same few moves
+              if ( child.hasBeenLocalSearched )
+              {
+                selectionScore *= 0.95;
+              }
+            }
+            else
+            {
+              //  Also down-weight nodes that have not been subject to local-search
+              //  This helps cope with cases where the MCTS convergence tips over
+              //  to a new node near the end of turn processing where the previous candidate
+              //  had been confirmed to have no local loss, but the new choice turns out
+              //  to actually be a loss.  The slight loss of potentially going for the second best
+              //  MCTS choice when things are very close is more than compensated for by the
+              //  added safety
+              if ( !child.hasBeenLocalSearched )
+              {
+                selectionScore *= 0.95;
+              }
+
+              //  If a move was found to be a local loss, but it's still incomplete (so global
+              //  result is unknown) down-weight its selection as our final choice significantly
+              if ( child.isLocalLoss )
+              {
+                selectionScore /= 2;
+              }
             }
           }
         }
@@ -5448,206 +5480,6 @@ public class TreeNode
     return System.nanoTime() - lStartTime;
   }
 
-  private static Pattern C4MoveColumnMatchPattern = Pattern.compile("drop (\\d+)");
-  private static Pattern BrkthruMoveCellMatchPattern = Pattern.compile("move (\\d+) (\\d+) (\\d+) (\\d+)");
-  private static Pattern HexMoveCellMatchPattern = Pattern.compile("place ([abcdefghi]) (\\d+)");
-
-  private static double[][] moveDistances = null;
-
-  private double[][] generateMoveDistanceMatrix()
-  {
-    ForwardDeadReckonLegalMoveInfo[] masterMoveList = tree.underlyingStateMachine.getFullPropNet().getMasterMoveList();
-    double[][] result = new double[masterMoveList.length][masterMoveList.length];
-
-    for(int fromIndex = 0; fromIndex < masterMoveList.length; fromIndex++)
-    {
-      int locusColumn = -1;
-      int locusX = -1;
-      int locusY = -1;
-
-      Pattern pattern = null;
-      String moveName = masterMoveList[fromIndex].move.toString();
-      Matcher lMatcher = C4MoveColumnMatchPattern.matcher(moveName);
-      if (!lMatcher.find() )
-      {
-        lMatcher = BrkthruMoveCellMatchPattern.matcher(moveName);
-        if (!lMatcher.find() )
-        {
-          lMatcher = HexMoveCellMatchPattern.matcher(moveName);
-          if ( lMatcher.find() )
-          {
-            pattern = HexMoveCellMatchPattern;
-
-            String locusCellX = lMatcher.group(1);
-            String locusCellY = lMatcher.group(2);
-            locusX = locusCellX.charAt(0) - 'a';
-            locusY = Integer.parseInt(locusCellY);
-          }
-          else
-          {
-            lMatcher = null;
-          }
-        }
-        else
-        {
-          pattern = BrkthruMoveCellMatchPattern;
-
-          String locusTargetCellX = lMatcher.group(3);
-          String locusTargetCellY = lMatcher.group(4);
-          locusX = Integer.parseInt(locusTargetCellX);
-          locusY = Integer.parseInt(locusTargetCellY);
-        }
-      }
-      else
-      {
-        pattern = C4MoveColumnMatchPattern;
-
-        String locusColumnName = lMatcher.group(1);
-        locusColumn = Integer.parseInt(locusColumnName);
-      }
-
-      for(int toIndex = 0; toIndex < masterMoveList.length; toIndex++)
-      {
-        if (pattern == null )
-        {
-          result[fromIndex][toIndex] = 0;
-        }
-        else
-        {
-          moveName = masterMoveList[toIndex].move.toString();
-          if ( moveName != "noop" )
-          {
-            lMatcher = pattern.matcher(moveName);
-            if (lMatcher.find() )
-            {
-              int distance = -1;
-
-              if ( pattern == C4MoveColumnMatchPattern )
-              {
-                assert(locusColumn != -1);
-                String moveColumnName = lMatcher.group(1);
-                int moveColumn = Integer.parseInt(moveColumnName);
-                distance = Math.abs(moveColumn-locusColumn) - 1;//2;
-
-                if ( distance < 0 )
-                {
-                  distance = 0;
-                }
-              }
-              else if ( pattern == BrkthruMoveCellMatchPattern )
-              {
-                assert(locusX != -1);
-                assert(locusY!= -1);
-
-                String moveSourceCellX = lMatcher.group(1);
-                String moveSourceCellY = lMatcher.group(2);
-                String moveTargetCellX = lMatcher.group(3);
-                String moveTargetCellY = lMatcher.group(4);
-                int sourceX = Integer.parseInt(moveSourceCellX);
-                int sourceY = Integer.parseInt(moveSourceCellY);
-                int sourceDistance = Math.max(Math.abs(sourceX-locusX), Math.abs(sourceY-locusY));
-                int targetX = Integer.parseInt(moveTargetCellX);
-                int targetY = Integer.parseInt(moveTargetCellY);
-                int targetDistance = Math.max(Math.abs(targetX-locusX), Math.abs(targetY-locusY));
-
-                distance = Math.min(sourceDistance, targetDistance);
-              }
-              else if ( pattern == HexMoveCellMatchPattern )
-              {
-                assert(locusX != -1);
-                assert(locusY!= -1);
-
-                String moveCellX = lMatcher.group(1);
-                String moveCellY = lMatcher.group(2);
-                int moveX = moveCellX.charAt(0) - 'a';
-                int moveY = Integer.parseInt(moveCellY);
-
-                distance = Math.max(Math.abs(moveX-locusX), Math.abs(moveY-locusY));
-              }
-
-              assert(distance >= 0);
-
-              //result[fromIndex][toIndex] = 100*Math.exp(-distance);
-              result[fromIndex][toIndex] = 100*sigma(2-distance);
-            }
-          }
-        }
-      }
-    }
-    return result;
-  }
-
-  public void calculatePathMoveWeights(TreePath path)
-  {
-    if ( path != null )
-    {
-      if ( moveDistances == null )
-      {
-        moveDistances = generateMoveDistanceMatrix();
-      }
-
-      int skipCount = 0;
-      int includeCount = 2;
-
-      path.resetCursor();
-      while(path.hasMore() && includeCount > 0)
-      {
-        // Get the edge in the path.  If this returns null, the path has become invalid at this point.
-        path.getNextNode();
-        assert(path.getCurrentElement() != null);
-
-        TreeEdge lEdge = path.getCurrentElement().getEdge();
-        if (lEdge == null)
-        {
-          break;
-        }
-
-        if ( skipCount-- <= 0 )
-        {
-          includeCount--;
-
-          int fromMoveIndex = lEdge.mPartialMove.masterIndex;
-
-          for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
-          {
-            if ((primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) )
-            {
-              Object choice = children[lMoveIndex];
-
-              //  Skip this for pseudo-noops since we don't want to expand them except when they are immediate
-              //  children of the root (and in that case their heuristic value is the same as the root's)
-              if ( ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice).isPseudoNoOp )
-              {
-                continue;
-              }
-
-              TreeEdge edge = null;
-              if ( children[lMoveIndex] instanceof TreeEdge )
-              {
-                edge = (TreeEdge)children[lMoveIndex];
-              }
-              else
-              {
-                edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-                edge.setParent(this, (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex]);
-                children[lMoveIndex] = edge;
-              }
-
-              assert(edge!=null);
-
-              if ( skipCount == -1 )
-              {
-                edge.moveWeight = 1;
-              }
-
-              edge.moveWeight += moveDistances[fromMoveIndex][edge.mPartialMove.masterIndex];
-            }
-          }
-        }
-      }
-      path.resetCursor();
-    }
-  }
 
   /**
    * Get a node by reference, from the specified pool.

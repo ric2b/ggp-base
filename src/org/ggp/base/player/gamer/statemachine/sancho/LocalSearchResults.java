@@ -85,10 +85,10 @@ public class LocalSearchResults implements LocalRegionDefiner
   @Override
   public boolean isLocal(ForwardDeadReckonLegalMoveInfo xiMove)
   {
-    boolean result = (seedMove == null ? null : (searchProvider.getMoveDistance(seedMove, xiMove) <= searchRadius));
+    boolean result = (seedMove == null ? null : (searchProvider.getMoveCoInfluenceDistance(seedMove, xiMove) <= searchRadius));
     if ( jointSearchSecondarySeed != null )
     {
-      result |= (searchProvider.getMoveDistance(jointSearchSecondarySeed, xiMove) <= searchRadius);
+      result |= (searchProvider.getMoveCoInfluenceDistance(jointSearchSecondarySeed, xiMove) <= searchRadius);
     }
     return result;
   }
@@ -119,12 +119,22 @@ public class LocalSearchResults implements LocalRegionDefiner
         //  not the optional role's (to counter it after it is played)
         //  TODO - validate this holds in all games and is not an unintended Breakthrough
         //  category property!
-        int distance = searchProvider.getMoveDistance(relevantMove, xiMove);
-        if ( distance < i + (i == searchRadius ? 1 : 0))
+        int coInfluenceDistance = searchProvider.getMoveCoInfluenceDistance(relevantMove, xiMove);
+        if ( coInfluenceDistance < i + (i == searchRadius ? 1 : 0))
         {
-          LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at distance " + distance + " and therefore can influence");
+          LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at distance " + coInfluenceDistance + " and therefore has comnmon influence");
           return true;
         }
+
+        //  Can also be the case that the queried move enabled legality of a required move in the sequence
+        //  in which case it can influence it even though there are no co-influenced base props
+        int legalityEnablementDistance = searchProvider.getMoveEnablementDistance(xiMove, relevantMove);
+        if ( legalityEnablementDistance <= i )
+        {
+          LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at legality-enablement distance " + legalityEnablementDistance + " and therefore can be influenced");
+          return true;
+        }
+        //LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at distance " + distance + " and therefore cannot influence");
       }
     }
 
@@ -159,5 +169,19 @@ public class LocalSearchResults implements LocalRegionDefiner
 //    }
 //
 //    return false;
+  }
+
+  @Override
+  public int getMinWinDistance(ForwardDeadReckonLegalMoveInfo xiMove)
+  {
+    // TODO  - when we have goal distances
+    return 0;
+  }
+
+  @Override
+  public boolean hasKnownWinDistances()
+  {
+    // TODO  - when we have goal distances
+    return false;
   }
 }

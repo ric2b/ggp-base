@@ -1,12 +1,19 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.util.BitSet;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.ggp.base.util.gdl.grammar.GdlConstant;
+import org.ggp.base.util.gdl.grammar.GdlSentence;
+import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicNot;
+import org.ggp.base.util.propnet.polymorphic.PolymorphicOr;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -29,6 +36,18 @@ public class DependencyDistanceAnalyser
 
   private static final int MAX_DISTANCE = 20;
 
+  private class SentenceInfo
+  {
+    int[] rangeSize;
+
+    SentenceInfo(GdlSentence sentence)
+    {
+      rangeSize = new int[sentence.getBody().size()];
+    }
+  }
+
+  private Map<GdlConstant,SentenceInfo> sentenceInfoDictionary = new HashMap<>();
+
   private class MoveInfo
   {
     public MoveInfo(ForwardDeadReckonLegalMoveInfo xiLegalMoveInfo)
@@ -38,17 +57,23 @@ public class DependencyDistanceAnalyser
       for(int i = 0; i < MAX_DISTANCE; i++)
       {
         //movesAtDistance[i] = new BitSet();
-        basePropsEnabledAtDistance[i] = new BitSet();
-        basePropsDisabledAtDistance[i] = new BitSet();
+        basePropsEnabledAtDistanceBySameRole[i] = new BitSet();
+        basePropsDisabledAtDistanceBySameRole[i] = new BitSet();
+        basePropsEnabledAtDistanceByOppositeRole[i] = new BitSet();
+        basePropsDisabledAtDistanceByOppositeRole[i] = new BitSet();
       }
     }
 
     //final BitSet[]                              movesAtDistance = new BitSet[MAX_DISTANCE];
-    final BitSet[]                              basePropsEnabledAtDistance = new BitSet[MAX_DISTANCE];
-    final BitSet[]                              basePropsDisabledAtDistance = new BitSet[MAX_DISTANCE];
+    final BitSet[]                              basePropsEnabledAtDistanceBySameRole = new BitSet[MAX_DISTANCE];
+    final BitSet[]                              basePropsDisabledAtDistanceBySameRole = new BitSet[MAX_DISTANCE];
+    final BitSet[]                              basePropsEnabledAtDistanceByOppositeRole = new BitSet[MAX_DISTANCE];
+    final BitSet[]                              basePropsDisabledAtDistanceByOppositeRole = new BitSet[MAX_DISTANCE];
     final BitSet                                linkedMoves = new BitSet();
     final BitSet                                enabledBaseProps = new BitSet();
     final BitSet                                disabledBaseProps = new BitSet();
+    final BitSet                                requiredSetBaseProps = new BitSet();
+    final BitSet                                requiredNotSetBaseProps = new BitSet();
     int                                         forRoleIndex = -1;
     //final ForwardDeadReckonLegalMoveInfo        legalMoveInfo;
   }
@@ -62,7 +87,7 @@ public class DependencyDistanceAnalyser
 //        propsAtDistance[distance] = new BitSet();
 //        propsAtDistanceEndingWithRolePlay[0][distance] = new BitSet();
 //        propsAtDistanceEndingWithRolePlay[1][distance] = new BitSet();
-        movesEnabledAtDistance[distance] = new BitSet();
+        movesInfluencingFromDistance[distance] = new BitSet();
         //movesDisabledAtDistance[distance] = new BitSet();
       }
     }
@@ -72,7 +97,8 @@ public class DependencyDistanceAnalyser
 //    final BitSet      linkedProps = new BitSet();
     final BitSet      potentiallyEnabledMoves = new BitSet();
     final BitSet      potentiallyDisabledMoves = new BitSet();
-    final BitSet[]    movesEnabledAtDistance = new BitSet[MAX_DISTANCE];
+    final BitSet      mutualExclusionSet = new BitSet();
+    final BitSet[]    movesInfluencingFromDistance = new BitSet[MAX_DISTANCE];
     //final BitSet[]    movesDisabledAtDistance = new BitSet[MAX_DISTANCE];
     //HashSet<MoveInfo> moves = null;
   }
@@ -95,24 +121,28 @@ public class DependencyDistanceAnalyser
   }
 
   /**
-   * Create a matrix of distances between all pairs of moves
+   * Create distance info for the game
    * The calculated distances are a lower bound, independent of state.
    * The actual distances in any particular state may exceed these values
-   * @return calculated matrix (which will always be symmetrical)
+   * @return instance of DependencyDistanceInfo
    */
-  public int[][] createMoveDistanceMatrix()
+  public DependencyDistanceInfo getDistanceInfo()
   {
     propNet = stateMachine.getFullPropNet();
     moveList = propNet.getMasterMoveList();
     propList = propNet.getBasePropositionsArray();
     basePropInfo = new BasePropInfo[propNet.getBasePropositionsArray().length];
-    int[][] distances = new int[moveList.length][moveList.length];
+    DependencyDistanceInfo result = new DependencyDistanceInfo();
+
+    result.moveCoInfluenceDistances = new int[moveList.length][moveList.length];
+    result.moveEnablingDistances = new int[moveList.length][moveList.length];
 
     for(int i = 0; i < moveList.length; i++)
     {
       for(int j = 0; j < moveList.length; j++)
       {
-        distances[i][j] = MAX_DISTANCE;
+        result.moveCoInfluenceDistances[i][j] = MAX_DISTANCE;
+        result.moveEnablingDistances[i][j] = MAX_DISTANCE;
       }
     }
 
@@ -133,21 +163,6 @@ public class DependencyDistanceAnalyser
       for ( PolymorphicProposition legalProp : propNet.getLegalPropositions().get(role) )
       {
         moveDependencyInfo[((ForwardDeadReckonProposition)legalProp).getInfo().index].forRoleIndex = roleIndex;
-      }
-    }
-
-    //  Walk the propnet to find base props within one transition of each move's input prop
-    for(int i = 0; i < moveList.length; i++)
-    {
-      MoveInfo depInfo = moveDependencyInfo[i];
-      if ( depInfo.forRoleIndex != -1 )
-      {
-        PolymorphicProposition inputProp = moveList[i].inputProposition;
-
-        if ( inputProp != null )
-        {
-          recursiveAddImmediatelyDependentBaseProps(inputProp, depInfo.basePropsEnabledAtDistance[1], depInfo.basePropsDisabledAtDistance[1], true);
-        }
       }
     }
 
@@ -177,6 +192,9 @@ public class DependencyDistanceAnalyser
       {
         basePropInfo[propInfo.index] = new BasePropInfo();
       }
+
+      //  Determine which other base props this one is mutually exclusive with
+      determineMutualExclusivity(propList[propInfo.index], basePropInfo[propInfo.index].mutualExclusionSet);
 
       //  Determine the moves whose legals are influenced directly by this base prop
       recursiveAddImmediatelyDependentMovesViaLegals(propNet.getLegalInputMap().keySet(),
@@ -221,6 +239,80 @@ public class DependencyDistanceAnalyser
 //      }
     }
 
+    //  Work out any required and required-absent base props for each move to be legal
+    for(int i = 0; i < moveList.length; i++)
+    {
+      boolean trace = false;
+      MoveInfo depInfo = moveDependencyInfo[i];
+      if ( depInfo.forRoleIndex != -1 )
+      {
+        PolymorphicProposition inputProp = moveList[i].inputProposition;
+        PolymorphicProposition legalProp = propNet.getLegalInputMap().get(inputProp);
+
+        if ( legalProp != null )
+        {
+          findRequiredBasePropStatesForLegal(legalProp, depInfo.requiredSetBaseProps, depInfo.requiredNotSetBaseProps, true);
+
+          if ( trace )
+          {
+            LOGGER.info("Legality requirements for move " + moveList[i] + ":");
+          }
+
+          int index = 0;
+          while((index = depInfo.requiredSetBaseProps.nextSetBit(index)) != -1)
+          {
+            //  If a required prop has mutual exclusions then those excluded props are required to be clear
+            BasePropInfo requiredPropInfo = basePropInfo[index];
+            if ( requiredPropInfo != null )
+            {
+              int excludedPropIndex = 0;
+              while((excludedPropIndex = requiredPropInfo.mutualExclusionSet.nextSetBit(excludedPropIndex)) != -1)
+              {
+                depInfo.requiredNotSetBaseProps.set(excludedPropIndex);
+                excludedPropIndex++;
+              }
+            }
+
+            if ( trace )
+            {
+              LOGGER.info( "  Required set: " + propList[index].getName());
+            }
+            index++;
+          }
+
+          if ( trace )
+          {
+            index = 0;
+            while((index = depInfo.requiredNotSetBaseProps.nextSetBit(index)) != -1)
+            {
+              LOGGER.info( "  Required clear: " + propList[index].getName());
+              index++;
+            }
+          }
+        }
+      }
+    }
+
+    //  Walk the propnet to find base props within one transition of each move's input prop
+    for(int i = 0; i < moveList.length; i++)
+    {
+      MoveInfo depInfo = moveDependencyInfo[i];
+      if ( depInfo.forRoleIndex != -1 )
+      {
+        PolymorphicProposition inputProp = moveList[i].inputProposition;
+
+        if ( inputProp != null )
+        {
+          recursiveAddImmediatelyDependentBaseProps(inputProp, depInfo.basePropsEnabledAtDistanceBySameRole[1], depInfo.basePropsDisabledAtDistanceBySameRole[1], true);
+
+          //  Mask out any props that are required for the move to be legal and are set by the move (implies unchanged) or are
+          //  required to be clear for the move tom be legal and cleared by making the move (again implies unchanged)
+          depInfo.basePropsEnabledAtDistanceBySameRole[1].andNot(depInfo.requiredSetBaseProps);
+          depInfo.basePropsDisabledAtDistanceBySameRole[1].andNot(depInfo.requiredNotSetBaseProps);
+        }
+      }
+    }
+
     //  Now Calculate the base props influencable at increasing distance for each move
     for(int targetDistance = 1; targetDistance < MAX_DISTANCE-1; targetDistance++)
     {
@@ -229,7 +321,7 @@ public class DependencyDistanceAnalyser
         MoveInfo moveInfo = moveDependencyInfo[i];
         boolean processingOppositeMoveRole = true;
 
-        boolean trace = false;//(moveList[i].toString().contains("2 8 3 7") || moveList[i].toString().contains("2 3 1 2"));
+        boolean trace = false;//(moveList[i].toString().contains("2 4 1 3") || moveList[i].toString().contains("2 4 1 3"));
         if ( trace )
         {
           LOGGER.info("Tracing from props at distance " + targetDistance + " of move " + moveList[i]);
@@ -241,7 +333,30 @@ public class DependencyDistanceAnalyser
           do
           {
             int seedPropIndex = 0;
-            BitSet propSet = (processingEnablement ? moveInfo.basePropsEnabledAtDistance[targetDistance] : moveInfo.basePropsDisabledAtDistance[targetDistance]);
+            BitSet propSet;
+
+            if ( processingEnablement )
+            {
+              if ( processingOppositeMoveRole )
+              {
+                propSet = moveInfo.basePropsEnabledAtDistanceByOppositeRole[targetDistance];
+              }
+              else
+              {
+                propSet = moveInfo.basePropsEnabledAtDistanceBySameRole[targetDistance];
+              }
+            }
+            else
+            {
+              if ( processingOppositeMoveRole )
+              {
+                propSet = moveInfo.basePropsDisabledAtDistanceByOppositeRole[targetDistance];
+              }
+              else
+              {
+                propSet = moveInfo.basePropsDisabledAtDistanceBySameRole[targetDistance];
+              }
+            }
             while((seedPropIndex = propSet.nextSetBit(seedPropIndex)) != -1)
             {
               if ( trace )
@@ -253,6 +368,46 @@ public class DependencyDistanceAnalyser
 
               while((relatedMoveIndex = relatedMoveSet.nextSetBit(relatedMoveIndex)) != -1)
               {
+                //  Effective distance depends on relative roles for the moves, since if same role an
+                //  intervening opponent turn is required.  If we're 'processingOppositeMoveRole' that means
+                //  the prop enablement/disablement occurs as the result of an opposite (relative to the root move)
+                //  role move, so if that is the same role as the move its enabvling/disabling (the 'relatedMove')
+                //  then the intervening turn is required
+                int effectiveDistance = (((moveDependencyInfo[relatedMoveIndex].forRoleIndex != moveInfo.forRoleIndex) == processingOppositeMoveRole) ? targetDistance+2 : targetDistance+1);
+                if ( effectiveDistance < MAX_DISTANCE )
+                {
+                  //  The related move's legality can be impacted at this distance from the root move
+                  if ( result.moveEnablingDistances[i][relatedMoveIndex] > effectiveDistance-1 )
+                  {
+                    if ( trace )
+                    {
+                      LOGGER.info("    Move " + moveList[relatedMoveIndex] + " then potentially has its legality modified at distance " + (effectiveDistance-1));
+                    }
+                    result.moveEnablingDistances[i][relatedMoveIndex] = effectiveDistance-1;
+                  }
+
+                  if ( relatedMoveIndex != i && !moveInfo.linkedMoves.get(relatedMoveIndex) )
+                  {
+                    MoveInfo enabledMoveInfo = moveDependencyInfo[relatedMoveIndex];
+
+                    if ( trace )
+                    {
+                      LOGGER.info("    Move " + moveList[relatedMoveIndex] + " is then potentially enabled");
+                    }
+
+                    addMoveFringeAtDistance(moveInfo, enabledMoveInfo, effectiveDistance, !processingOppositeMoveRole, trace);
+                  }
+                }
+
+                relatedMoveIndex++;
+              }
+
+              //  Conversely a prop that is disabled enables the moves its setting disables
+              relatedMoveIndex = 0;
+              relatedMoveSet = (processingEnablement ? basePropInfo[seedPropIndex].potentiallyDisabledMoves : basePropInfo[seedPropIndex].potentiallyEnabledMoves);
+
+              while((relatedMoveIndex = relatedMoveSet.nextSetBit(relatedMoveIndex)) != -1)
+              {
                 if ( relatedMoveIndex != i && !moveInfo.linkedMoves.get(relatedMoveIndex) )
                 {
                   MoveInfo enabledMoveInfo = moveDependencyInfo[relatedMoveIndex];
@@ -261,19 +416,20 @@ public class DependencyDistanceAnalyser
                   {
                     LOGGER.info("    Move " + moveList[relatedMoveIndex] + " is then potentially enabled");
                   }
-                  if ( enabledMoveInfo.forRoleIndex != moveInfo.forRoleIndex && processingOppositeMoveRole )
+                  if ( processingOppositeMoveRole )
                   {
                     //  Any props THIS move effects are added at distance +1
-                    addMoveFringeAtDistance(moveInfo, enabledMoveInfo, targetDistance+1, trace);
+                    addMoveFringeAtDistance(moveInfo, enabledMoveInfo, targetDistance+1, true, trace);
                   }
-                  else if ( targetDistance < MAX_DISTANCE-2 && !processingOppositeMoveRole )
+                  else if ( targetDistance < MAX_DISTANCE-2 )
                   {
                     //  Any props THIS move effects are added at distance +2
-                    addMoveFringeAtDistance(moveInfo, enabledMoveInfo, targetDistance+2, trace);
+                    addMoveFringeAtDistance(moveInfo, enabledMoveInfo, targetDistance+2, false, trace);
                   }
                 }
                 relatedMoveIndex++;
               }
+
               seedPropIndex++;
             }
 
@@ -289,20 +445,54 @@ public class DependencyDistanceAnalyser
     for(int i = 0; i < moveList.length; i++)
     {
       MoveInfo moveInfo = moveDependencyInfo[i];
-
+      boolean trace = false;//(moveList[i].toString().contains("4 2 4 3") || moveList[i].toString().contains("6 4 7 5"));
+      if ( trace )
+      {
+        LOGGER.info("Influenceable props from move " + moveList[i]);
+      }
       for(int distance = 1; distance < MAX_DISTANCE; distance++)
       {
         int basePropIndex = 0;
-        while((basePropIndex = moveInfo.basePropsEnabledAtDistance[distance].nextSetBit(basePropIndex)) != -1)
+        while((basePropIndex = moveInfo.basePropsEnabledAtDistanceBySameRole[distance].nextSetBit(basePropIndex)) != -1)
         {
-          basePropInfo[basePropIndex].movesEnabledAtDistance[distance].set(i);
+          if ( trace )
+          {
+            LOGGER.info("  Base prop " + propList[basePropIndex].getName() + ": " + distance);
+          }
+          basePropInfo[basePropIndex].movesInfluencingFromDistance[distance].set(i);
           basePropIndex++;
         }
 
         basePropIndex = 0;
-        while((basePropIndex = moveInfo.basePropsDisabledAtDistance[distance].nextSetBit(basePropIndex)) != -1)
+        while((basePropIndex = moveInfo.basePropsDisabledAtDistanceBySameRole[distance].nextSetBit(basePropIndex)) != -1)
         {
-          basePropInfo[basePropIndex].movesEnabledAtDistance[distance].set(i);
+          if ( trace )
+          {
+            LOGGER.info("  Base prop " + propList[basePropIndex].getName() + ": " + distance);
+          }
+          basePropInfo[basePropIndex].movesInfluencingFromDistance[distance].set(i);
+          basePropIndex++;
+        }
+
+        basePropIndex = 0;
+        while((basePropIndex = moveInfo.basePropsEnabledAtDistanceByOppositeRole[distance].nextSetBit(basePropIndex)) != -1)
+        {
+          if ( trace )
+          {
+            LOGGER.info("  Base prop " + propList[basePropIndex].getName() + ": " + distance);
+          }
+          basePropInfo[basePropIndex].movesInfluencingFromDistance[distance].set(i);
+          basePropIndex++;
+        }
+
+        basePropIndex = 0;
+        while((basePropIndex = moveInfo.basePropsDisabledAtDistanceByOppositeRole[distance].nextSetBit(basePropIndex)) != -1)
+        {
+          if ( trace )
+          {
+            LOGGER.info("  Base prop " + propList[basePropIndex].getName() + ": " + distance);
+          }
+          basePropInfo[basePropIndex].movesInfluencingFromDistance[distance].set(i);
           basePropIndex++;
         }
       }
@@ -325,7 +515,7 @@ public class DependencyDistanceAnalyser
     for(int i = 0; i < moveList.length; i++)
     {
       MoveInfo moveInfo = moveDependencyInfo[i];
-      boolean trace = (moveList[i].toString().contains("1 1 2 2") || moveList[i].toString().contains("2 1 3 2"));
+      boolean trace = false;//(moveList[i].toString().contains("4 2 4 3") || moveList[i].toString().contains("6 4 7 5"));
       if ( trace )
       {
         LOGGER.info("Calculating distances from: " + moveList[i]);
@@ -333,7 +523,7 @@ public class DependencyDistanceAnalyser
 
       for(int cumulativeDistance = 2; cumulativeDistance < MAX_DISTANCE; cumulativeDistance++)
       {
-        if ( cumulativeDistance > 4 )
+        if ( cumulativeDistance > 9 )
         {
           trace = false;
         }
@@ -348,20 +538,38 @@ public class DependencyDistanceAnalyser
         {
           //  Find base props at distance1 from the initial move
           int basePropIndex = 0;
-          while((basePropIndex = moveInfo.basePropsEnabledAtDistance[distance1].nextSetBit(basePropIndex)) != -1)
+          while((basePropIndex = moveInfo.basePropsEnabledAtDistanceBySameRole[distance1].nextSetBit(basePropIndex)) != -1)
           {
             int distance2 = cumulativeDistance - distance1;
 
-            LinkMovesAtDistance(i, basePropIndex, distance1, distance2, distances, trace);
+            LinkMovesAtDistance(i, basePropIndex, distance1, distance2, result.moveCoInfluenceDistances, trace);
             basePropIndex++;
           }
 
           basePropIndex = 0;
-          while((basePropIndex = moveInfo.basePropsDisabledAtDistance[distance1].nextSetBit(basePropIndex)) != -1)
+          while((basePropIndex = moveInfo.basePropsDisabledAtDistanceBySameRole[distance1].nextSetBit(basePropIndex)) != -1)
           {
             int distance2 = cumulativeDistance - distance1;
 
-            LinkMovesAtDistance(i, basePropIndex, distance1, distance2, distances, trace);
+            LinkMovesAtDistance(i, basePropIndex, distance1, distance2, result.moveCoInfluenceDistances, trace);
+            basePropIndex++;
+          }
+
+          basePropIndex = 0;
+          while((basePropIndex = moveInfo.basePropsEnabledAtDistanceByOppositeRole[distance1].nextSetBit(basePropIndex)) != -1)
+          {
+            int distance2 = cumulativeDistance - distance1;
+
+            LinkMovesAtDistance(i, basePropIndex, distance1, distance2, result.moveCoInfluenceDistances, trace);
+            basePropIndex++;
+          }
+
+          basePropIndex = 0;
+          while((basePropIndex = moveInfo.basePropsDisabledAtDistanceByOppositeRole[distance1].nextSetBit(basePropIndex)) != -1)
+          {
+            int distance2 = cumulativeDistance - distance1;
+
+            LinkMovesAtDistance(i, basePropIndex, distance1, distance2, result.moveCoInfluenceDistances, trace);
             basePropIndex++;
           }
         }
@@ -373,12 +581,12 @@ public class DependencyDistanceAnalyser
     {
       for(int j = 0; j < i; j++)
       {
-        //assert(distances[i][j] == distances[j][i]);
-        if (distances[i][j] != distances[j][i])
+        if (result.moveCoInfluenceDistances[i][j] != result.moveCoInfluenceDistances[j][i])
         {
-          LOGGER.info(moveList[i].inputProposition.getName().toString() + " -> " + moveList[j].inputProposition.getName().toString() + " = " + distances[i][j]);
-          LOGGER.info(moveList[j].inputProposition.getName().toString() + " -> " + moveList[i].inputProposition.getName().toString() + " = " + distances[j][i]);
+          LOGGER.info(moveList[i].inputProposition.getName().toString() + " -> " + moveList[j].inputProposition.getName().toString() + " = " + result.moveCoInfluenceDistances[i][j]);
+          LOGGER.info(moveList[j].inputProposition.getName().toString() + " -> " + moveList[i].inputProposition.getName().toString() + " = " + result.moveCoInfluenceDistances[j][i]);
         }
+        assert(result.moveCoInfluenceDistances[i][j] == result.moveCoInfluenceDistances[j][i]);
       }
     }
 
@@ -559,7 +767,7 @@ public class DependencyDistanceAnalyser
 //      }
 //    }
 
-    return distances;
+    return result;
   }
 
   private void LinkMovesAtDistance(int rootMoveIndex, int linkingPropIndex, int distance1, int distance2, int[][] distances, boolean trace)
@@ -568,7 +776,7 @@ public class DependencyDistanceAnalyser
     //  All moves at distance2 from this base prop we have not already linked
     //  to this move are no further than this cumulative distance from the original move
     int linkedMoveIndex = 0;
-    while((linkedMoveIndex = basePropInfo[linkingPropIndex].movesEnabledAtDistance[distance2].nextSetBit(linkedMoveIndex)) != -1)
+    while((linkedMoveIndex = basePropInfo[linkingPropIndex].movesInfluencingFromDistance[distance2].nextSetBit(linkedMoveIndex)) != -1)
     {
       //  TODO - can omit half of these by symmetry???
       if ( linkedMoveIndex != rootMoveIndex && !moveInfo.linkedMoves.get(linkedMoveIndex) )
@@ -590,14 +798,14 @@ public class DependencyDistanceAnalyser
     }
   }
 
-  private void addMoveFringeAtDistance(MoveInfo rootMoveInfo, MoveInfo enabledMoveInfo, int targetDistance, boolean trace)
+  private void addMoveFringeAtDistance(MoveInfo rootMoveInfo, MoveInfo enabledMoveInfo, int targetDistance, boolean sameRole, boolean trace)
   {
     boolean processingFringeEnablement = true;
 
     do
     {
       int newlyIncludedPropIndex = 0;
-      BitSet newlyIncludedPropSet = (processingFringeEnablement ? enabledMoveInfo.basePropsEnabledAtDistance[1] : enabledMoveInfo.basePropsDisabledAtDistance[1]);
+      BitSet newlyIncludedPropSet = (processingFringeEnablement ? enabledMoveInfo.basePropsEnabledAtDistanceBySameRole[1] : enabledMoveInfo.basePropsDisabledAtDistanceBySameRole[1]);
 
       while((newlyIncludedPropIndex = newlyIncludedPropSet.nextSetBit(newlyIncludedPropIndex)) != -1)
       {
@@ -606,7 +814,14 @@ public class DependencyDistanceAnalyser
         {
           if ( processingFringeEnablement )
           {
-            rootMoveInfo.basePropsEnabledAtDistance[targetDistance].set(newlyIncludedPropIndex);
+            if ( sameRole )
+            {
+              rootMoveInfo.basePropsEnabledAtDistanceBySameRole[targetDistance].set(newlyIncludedPropIndex);
+            }
+            else
+            {
+              rootMoveInfo.basePropsEnabledAtDistanceByOppositeRole[targetDistance].set(newlyIncludedPropIndex);
+            }
             rootMoveInfo.enabledBaseProps.set(newlyIncludedPropIndex);
 
             if ( trace)
@@ -616,7 +831,15 @@ public class DependencyDistanceAnalyser
           }
           else
           {
-            rootMoveInfo.basePropsDisabledAtDistance[targetDistance].set(newlyIncludedPropIndex);
+            if ( sameRole )
+            {
+              rootMoveInfo.basePropsDisabledAtDistanceBySameRole[targetDistance].set(newlyIncludedPropIndex);
+            }
+            else
+            {
+              rootMoveInfo.basePropsDisabledAtDistanceByOppositeRole[targetDistance].set(newlyIncludedPropIndex);
+            }
+
             rootMoveInfo.disabledBaseProps.set(newlyIncludedPropIndex);
 
             if ( trace)
@@ -692,6 +915,127 @@ public class DependencyDistanceAnalyser
     for(PolymorphicComponent output : c.getOutputs())
     {
       recursiveAddImmediatelyDependentMovesViaLegals(legals, output, enabledSet, disabledSet, sense);
+    }
+  }
+
+  private void findRequiredBasePropStatesForLegal(PolymorphicComponent c, BitSet requiredSet, BitSet requiredNotSet, boolean sense)
+  {
+    if ( c instanceof PolymorphicAnd )
+    {
+      if ( !sense )
+      {
+        return;
+      }
+    }
+    else if ( c instanceof PolymorphicOr )
+    {
+      if ( sense )
+      {
+        return;
+      }
+    }
+    else if ( c instanceof PolymorphicNot )
+    {
+      sense = !sense;
+    }
+    else if ( c instanceof PolymorphicProposition && propNet.getLegalInputMap().get(c) == null )
+    {
+      if ( sense )
+      {
+        requiredSet.set(((ForwardDeadReckonProposition)c).getInfo().index);
+      }
+      else
+      {
+        requiredNotSet.set(((ForwardDeadReckonProposition)c).getInfo().index);
+      }
+
+      return;
+    }
+
+    for(PolymorphicComponent input : c.getInputs())
+    {
+      findRequiredBasePropStatesForLegal(input, requiredSet, requiredNotSet, sense);
+    }
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  private void determineMutualExclusivity(PolymorphicProposition p, BitSet exclusionSet)
+  {
+    boolean trace = false;
+
+    //  For now a hack!  Look for other props with different values in a term with range <= numRoles+1
+    //  TODO - make this a rigorous analysis
+    GdlSentence sentence = p.getName().getBody().get(0).toSentence();
+
+    SentenceInfo info = sentenceInfoDictionary.get(sentence.getName());
+    if ( info == null )
+    {
+      info = new SentenceInfo(sentence);
+      HashSet[] termRanges = new HashSet[sentence.getBody().size()];
+      for(int termIndex = 0; termIndex < sentence.getBody().size(); termIndex++)
+      {
+        termRanges[termIndex] = new HashSet();
+      }
+
+      for(int i = 0; i < propList.length; i++)
+      {
+        GdlSentence propSentence = propList[i].getName().getBody().get(0).toSentence();
+        if ( propSentence.getName() == sentence.getName() )
+        {
+          for(int termIndex = 0; termIndex < sentence.getBody().size(); termIndex++)
+          {
+            termRanges[termIndex].add(propSentence.getBody().get(termIndex).toString());
+          }
+        }
+      }
+
+      for(int termIndex = 0; termIndex < sentence.getBody().size(); termIndex++)
+      {
+        info.rangeSize[termIndex] = termRanges[termIndex].size();
+      }
+
+      sentenceInfoDictionary.put(sentence.getName(), info);
+    }
+
+    if ( trace )
+    {
+      LOGGER.info("base prop " + p.getName() + " is mutally exclusive with:");
+    }
+
+    for(int termIndex = 0; termIndex < sentence.getBody().size(); termIndex++)
+    {
+      if ( info.rangeSize[termIndex] <= propNet.getRoles().length + 1 )
+      {
+        for(int i = 0; i < propList.length; i++)
+        {
+          GdlSentence propSentence = propList[i].getName().getBody().get(0).toSentence();
+
+          if ( propSentence.getName() == sentence.getName() &&
+               propSentence.getBody().get(termIndex).toString() != sentence.getBody().get(termIndex).toString())
+          {
+            boolean matchesOnOtherTerms = true;
+            for(int otherTermIndex = 0; otherTermIndex < sentence.getBody().size(); otherTermIndex++)
+            {
+              if ( otherTermIndex != termIndex &&
+                  propSentence.getBody().get(otherTermIndex).toString() != sentence.getBody().get(otherTermIndex).toString() )
+              {
+                matchesOnOtherTerms = false;
+                break;
+              }
+            }
+
+            if ( matchesOnOtherTerms )
+            {
+              exclusionSet.set(i);
+
+              if ( trace )
+              {
+                LOGGER.info("  " + propSentence);
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

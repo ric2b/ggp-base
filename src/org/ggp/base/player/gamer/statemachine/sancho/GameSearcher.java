@@ -726,6 +726,15 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     lAllTreesCompletelyExplored = true;
     for (MCTSTree tree : factorTrees)
     {
+//      try
+//      {
+//        Thread.sleep(100);
+//      }
+//      catch (InterruptedException e)
+//      {
+//        // TODO Auto-generated catch block
+//        e.printStackTrace();
+//      }
       if (!tree.root.complete)
       {
         if (ThreadControl.ROLLOUT_THREADS > 0 && !forceSynchronous)
@@ -1263,8 +1272,24 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                       TreeNode child = node.get(edge.getChildRef());
                       if (child != null)
                       {
-                        LOGGER.info("Win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove + " with move " + searchResultsBuffer.winningMove);
-                        child.markComplete(completeResultBuffer, (short)(node.getDepth()+searchResultsBuffer.atDepth-1));
+                        if ( child.isLocalLoss )
+                        {
+                          if ( child.completionDepth < child.getDepth() + searchResultsBuffer.atDepth - 1 )
+                          {
+                            LOGGER.info("Local win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove + " with move " + searchResultsBuffer.winningMove + " ignored because it is a known local loss at lower depth");
+                          }
+                          else
+                          {
+                            LOGGER.info("Win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove + " with move " + searchResultsBuffer.winningMove + " overrides previously found deeper local loss");
+                            child.isLocalLoss = false;
+                            child.markComplete(completeResultBuffer, (short)(node.getDepth()+searchResultsBuffer.atDepth-1));
+                          }
+                        }
+                        else
+                        {
+                          LOGGER.info("Win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove + " with move " + searchResultsBuffer.winningMove);
+                          child.markComplete(completeResultBuffer, (short)(node.getDepth()+searchResultsBuffer.atDepth-1));
+                        }
                         break;
                       }
                     }
@@ -1345,6 +1370,9 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                 }
               }
             }
+
+            //  Re-evaluate what we should be searching in light of the tree changes
+            localSearchRefreshTime = System.currentTimeMillis();
           }
           else
           {
@@ -1368,9 +1396,10 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
                 boolean canInfluence = searchResultsBuffer.canInfluenceFoundResult(moveInfo);
                 boolean isLocal = searchResultsBuffer.isLocal(moveInfo);
+                int minWinDistance = searchResultsBuffer.getMinWinDistance(moveInfo);
 
-                LOGGER.info("    Move " + moveInfo + ": canInfluence=" + canInfluence + ", isLocal=" + isLocal);
-                if ( !canInfluence)
+                LOGGER.info("    Move " + moveInfo + ": canInfluence=" + canInfluence + ", isLocal=" + isLocal + ", minWinDistance=" + minWinDistance);
+                if ( !canInfluence && (!searchResultsBuffer.hasKnownWinDistances() || minWinDistance > searchResultsBuffer.atDepth))
                 //if ( !isLocal )
                 {
                   TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
@@ -1379,8 +1408,16 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                     TreeNode child = node.get(edge.getChildRef());
                     if (child != null)
                     {
-                      LOGGER.info(moveInfo.move.toString() + " is a loss for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
-                      child.markComplete(tenukiLossResultBuffer, (short)(node.getDepth()+searchResultsBuffer.atDepth-1));
+                      if ( searchResultsBuffer.hasKnownWinDistances() )
+                      {
+                        LOGGER.info(moveInfo.move.toString() + " is a global loss for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
+                        child.markComplete(tenukiLossResultBuffer, (short)(node.getDepth()+searchResultsBuffer.atDepth-1));
+                      }
+                      else
+                      {
+                        LOGGER.info(moveInfo.move.toString() + " is a local loss for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
+                        child.markAsLocalLoss((short)(searchResultsBuffer.atDepth-1));
+                      }
                     }
                   }
                 }
@@ -1389,11 +1426,11 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
             LOGGER.info("Storing tenuki-loss seed move for next priority search seed");
 
+            //  Push out the next re-evaluation of what we should be searching as this line is looking interesting
+            localSearchRefreshTime = System.currentTimeMillis() + LOCAL_SEARCH_REFRESH_PERIOD;
+
             priorityLocalSearchSeed = searchResultsBuffer.seedMove;
           }
-
-          //  Re-evaluate what we should be searching in light of the tree changes
-          localSearchRefreshTime = System.currentTimeMillis();
 
           factorTrees[0].processNodeCompletions();
         }
