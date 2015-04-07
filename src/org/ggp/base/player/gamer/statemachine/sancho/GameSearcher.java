@@ -728,7 +728,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     {
 //      try
 //      {
-//        Thread.sleep(100);
+//        Thread.sleep(500);
 //      }
 //      catch (InterruptedException e)
 //      {
@@ -1203,6 +1203,13 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       }
       else
       {
+        if ( node == tree.root && node.mNumChildren == 1 && node.children[0] instanceof TreeEdge )
+        {
+          //  Pseudo-root node - real first choice node is one down
+          node = node.get(((TreeEdge)node.children[0]).getChildRef());
+
+          LOGGER.info("Node is pseudo-root, moving down to decision root");
+        }
         if ( node.complete )
         {
           LOGGER.info("Node already complete");
@@ -1220,14 +1227,14 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
             assert(searchResultsBuffer.tenukiLossForRole == -1);
 
             //  If this completes the tree as a win for our opponent just ignore it!
-            //  At this pointy it cannot help find an escape and letting MCTS in on the loss
+            //  At this point it cannot help find an escape and letting MCTS in on the loss
             //  will just result in random moves, making the opponent's job that much easier.
             //  Better to let MCTS labour on in ignorance and try to make life as hard as
             //  possible for the opponent
             if ( searchResultsBuffer.winForRole != 0 &&
-                 (nodeIsRootEquivalent || (nodeIsRootChild && node.decidingRoleIndex!=0)))
+                 (nodeIsRootEquivalent || (nodeIsRootChild && node.decidingRoleIndex == searchResultsBuffer.winForRole)) )
             {
-              LOGGER.info("Result is an unconditonal loss for us - ignoring to allow MCTS to obfuscate!");
+              LOGGER.info("Result is an unconditional loss for us - ignoring to allow MCTS to obfuscate!");
             }
             else
             {
