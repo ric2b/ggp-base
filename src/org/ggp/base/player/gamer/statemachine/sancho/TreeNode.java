@@ -4941,7 +4941,7 @@ public class TreeNode
                                                                   child.scoreForMostLikelyResponse();
 
         assert(-EPSILON <= moveScore && 100 + EPSILON >= moveScore);
-//        if ( firstDecision && (edge.mPartialMove.toString().contains("5 5 6 4") || edge.mPartialMove.toString().contains("5 5 6 4")))
+//        if ( firstDecision && (edge.mPartialMove.toString().contains("1 8 1 7")))
 //        {
 //          LOGGER.info("Force-selecting " + edge.mPartialMove);
 //          bestNode = child;
@@ -5029,13 +5029,13 @@ public class TreeNode
               {
                 selectionScore *= 0.95;
               }
+            }
 
-              //  If a move was found to be a local loss, but it's still incomplete (so global
-              //  result is unknown) down-weight its selection as our final choice significantly
-              if ( child.isLocalLoss )
-              {
-                selectionScore /= 2;
-              }
+            //  If a move was found to be a local loss, but it's still incomplete (so global
+            //  result is unknown) down-weight its selection significantly
+            if ( child.isLocalLoss )
+            {
+              selectionScore /= 2;
             }
           }
         }
