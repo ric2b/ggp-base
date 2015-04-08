@@ -62,6 +62,7 @@ public class DependencyDistanceAnalyser
         basePropsDisabledAtDistanceBySameRole[i] = new BitSet();
         basePropsEnabledAtDistanceByOppositeRole[i] = new BitSet();
         basePropsDisabledAtDistanceByOppositeRole[i] = new BitSet();
+        basePropsModifiableAtDistanceByStrictlySameRole[i] = new BitSet();
       }
     }
 
@@ -70,6 +71,7 @@ public class DependencyDistanceAnalyser
     final BitSet[]                              basePropsDisabledAtDistanceBySameRole = new BitSet[MAX_DISTANCE];
     final BitSet[]                              basePropsEnabledAtDistanceByOppositeRole = new BitSet[MAX_DISTANCE];
     final BitSet[]                              basePropsDisabledAtDistanceByOppositeRole = new BitSet[MAX_DISTANCE];
+    final BitSet[]                              basePropsModifiableAtDistanceByStrictlySameRole = new BitSet[MAX_DISTANCE];
     final BitSet                                linkedMoves = new BitSet();
     final BitSet                                enabledBaseProps = new BitSet();
     final BitSet                                disabledBaseProps = new BitSet();
@@ -317,6 +319,8 @@ public class DependencyDistanceAnalyser
           //  required to be clear for the move tom be legal and cleared by making the move (again implies unchanged)
           depInfo.basePropsEnabledAtDistanceBySameRole[1].andNot(depInfo.requiredSetBaseProps);
           depInfo.basePropsDisabledAtDistanceBySameRole[1].andNot(depInfo.requiredNotSetBaseProps);
+          depInfo.basePropsModifiableAtDistanceByStrictlySameRole[1].or(depInfo.basePropsEnabledAtDistanceBySameRole[1]);
+          depInfo.basePropsModifiableAtDistanceByStrictlySameRole[1].or(depInfo.basePropsDisabledAtDistanceBySameRole[1]);
         }
       }
     }
@@ -329,7 +333,7 @@ public class DependencyDistanceAnalyser
         MoveInfo moveInfo = moveDependencyInfo[i];
         boolean processingOppositeMoveRole = true;
 
-        boolean trace = false;//(moveList[i].toString().contains("2 4 1 3") || moveList[i].toString().contains("2 4 1 3"));
+        boolean trace = (moveList[i].toString().contains("5 2 6 1") || moveList[i].toString().contains("5 2 6 12"));
         if ( trace )
         {
           LOGGER.info("Tracing from props at distance " + targetDistance + " of move " + moveList[i]);
@@ -365,6 +369,52 @@ public class DependencyDistanceAnalyser
                 propSet = moveInfo.basePropsDisabledAtDistanceBySameRole[targetDistance];
               }
             }
+
+            //  Move enablement is strictly based on the same role
+            if ( !processingOppositeMoveRole )
+            {
+              while((seedPropIndex = moveInfo.basePropsModifiableAtDistanceByStrictlySameRole[targetDistance].nextSetBit(seedPropIndex)) != -1)
+              {
+                int relatedMoveIndex = 0;
+                BitSet relatedMoveSet = (processingEnablement ? basePropInfo[seedPropIndex].potentiallyEnabledMoves : basePropInfo[seedPropIndex].potentiallyDisabledMoves);
+
+                while((relatedMoveIndex = relatedMoveSet.nextSetBit(relatedMoveIndex)) != -1)
+                {
+                  MoveInfo relatedMoveInfo = moveDependencyInfo[relatedMoveIndex];
+                  boolean linkingMoveIsSameRole = (relatedMoveInfo.forRoleIndex == moveInfo.forRoleIndex);
+                  int effectiveDistance = (linkingMoveIsSameRole ? targetDistance+2 : targetDistance+1);
+
+                  //  The related move's legality can be impacted at this distance from the root move through a sequence
+                  //  of strictly same-role moves
+                  if ( result.moveEnablingDistances[i][relatedMoveIndex] > effectiveDistance-1 )
+                  {
+                    if ( trace )
+                    {
+                      LOGGER.info("    Move " + moveList[relatedMoveIndex] + " then potentially has its legality modified at distance " + (effectiveDistance-1));
+                    }
+                    result.moveEnablingDistances[i][relatedMoveIndex] = effectiveDistance-1;
+                  }
+
+                  //  Only interested in propagation strictly through enabled same role moves for enablement distances
+                  //  TODO - I think this propagation rule is not quite correct and we actually probably need to track
+                  //  enabled and disabled props separately as we do for co-influence distances - TBD
+                  if ( linkingMoveIsSameRole && processingEnablement && effectiveDistance <= MAX_DISTANCE )
+                  {
+                    int fringePropIndex = 0;
+                    while((fringePropIndex = relatedMoveInfo.basePropsModifiableAtDistanceByStrictlySameRole[1].nextSetBit(fringePropIndex)) != -1)
+                    {
+                      moveInfo.basePropsModifiableAtDistanceByStrictlySameRole[effectiveDistance].set(fringePropIndex);
+                      fringePropIndex++;
+                    }
+                  }
+
+                  relatedMoveIndex++;
+                }
+                seedPropIndex++;
+              }
+            }
+
+            seedPropIndex = 0;
             while((seedPropIndex = propSet.nextSetBit(seedPropIndex)) != -1)
             {
               if ( trace )
@@ -379,20 +429,22 @@ public class DependencyDistanceAnalyser
                 //  Effective distance depends on relative roles for the moves, since if same role an
                 //  intervening opponent turn is required.  If we're 'processingOppositeMoveRole' that means
                 //  the prop enablement/disablement occurs as the result of an opposite (relative to the root move)
-                //  role move, so if that is the same role as the move its enabvling/disabling (the 'relatedMove')
+                //  role move, so if that is the same role as the move its enabling/disabling (the 'relatedMove')
                 //  then the intervening turn is required
-                int effectiveDistance = (((moveDependencyInfo[relatedMoveIndex].forRoleIndex != moveInfo.forRoleIndex) == processingOppositeMoveRole) ? targetDistance+2 : targetDistance+1);
+                boolean linkingMoveIsSameRole = (moveDependencyInfo[relatedMoveIndex].forRoleIndex == moveInfo.forRoleIndex);
+                int effectiveDistance = ((linkingMoveIsSameRole != processingOppositeMoveRole) ? targetDistance+2 : targetDistance+1);
+
                 if ( effectiveDistance < MAX_DISTANCE )
                 {
-                  //  The related move's legality can be impacted at this distance from the root move
-                  if ( result.moveEnablingDistances[i][relatedMoveIndex] > effectiveDistance-1 )
-                  {
-                    if ( trace )
-                    {
-                      LOGGER.info("    Move " + moveList[relatedMoveIndex] + " then potentially has its legality modified at distance " + (effectiveDistance-1));
-                    }
-                    result.moveEnablingDistances[i][relatedMoveIndex] = effectiveDistance-1;
-                  }
+//                  //  The related move's legality can be impacted at this distance from the root move
+//                  if ( result.moveEnablingDistances[i][relatedMoveIndex] > effectiveDistance-1 )
+//                  {
+//                    if ( trace )
+//                    {
+//                      LOGGER.info("    Move " + moveList[relatedMoveIndex] + " then potentially has its legality modified at distance " + (effectiveDistance-1));
+//                    }
+//                    result.moveEnablingDistances[i][relatedMoveIndex] = effectiveDistance-1;
+//                  }
 
                   if ( relatedMoveIndex != i && !moveInfo.linkedMoves.get(relatedMoveIndex) )
                   {
@@ -403,7 +455,7 @@ public class DependencyDistanceAnalyser
                       LOGGER.info("    Move " + moveList[relatedMoveIndex] + " is then potentially enabled");
                     }
 
-                    addMoveFringeAtDistance(moveInfo, enabledMoveInfo, effectiveDistance, !processingOppositeMoveRole, trace);
+                    addMoveFringeAtDistance(moveInfo, enabledMoveInfo, effectiveDistance, linkingMoveIsSameRole, trace, true);
                   }
                 }
 
@@ -416,25 +468,39 @@ public class DependencyDistanceAnalyser
 
               while((relatedMoveIndex = relatedMoveSet.nextSetBit(relatedMoveIndex)) != -1)
               {
-                if ( relatedMoveIndex != i && !moveInfo.linkedMoves.get(relatedMoveIndex) )
-                {
-                  MoveInfo enabledMoveInfo = moveDependencyInfo[relatedMoveIndex];
+                //  Effective distance depends on relative roles for the moves, since if same role an
+                //  intervening opponent turn is required.  If we're 'processingOppositeMoveRole' that means
+                //  the prop enablement/disablement occurs as the result of an opposite (relative to the root move)
+                //  role move, so if that is the same role as the move its enabling/disabling (the 'relatedMove')
+                //  then the intervening turn is required
+                boolean linkingMoveIsSameRole = (moveDependencyInfo[relatedMoveIndex].forRoleIndex == moveInfo.forRoleIndex);
+                int effectiveDistance = ((linkingMoveIsSameRole != processingOppositeMoveRole) ? targetDistance+2 : targetDistance+1);
 
-                  if ( trace )
+                if ( effectiveDistance < MAX_DISTANCE )
+                {
+//                  //  The related move's legality can be impacted at this distance from the root move
+//                  if ( result.moveEnablingDistances[i][relatedMoveIndex] > effectiveDistance-1 )
+//                  {
+//                    if ( trace )
+//                    {
+//                      LOGGER.info("    Move " + moveList[relatedMoveIndex] + " then potentially has its legality modified at distance " + (effectiveDistance-1));
+//                    }
+//                    result.moveEnablingDistances[i][relatedMoveIndex] = effectiveDistance-1;
+//                  }
+
+                  if ( relatedMoveIndex != i && !moveInfo.linkedMoves.get(relatedMoveIndex) )
                   {
-                    LOGGER.info("    Move " + moveList[relatedMoveIndex] + " is then potentially enabled");
-                  }
-                  if ( processingOppositeMoveRole )
-                  {
-                    //  Any props THIS move effects are added at distance +1
-                    addMoveFringeAtDistance(moveInfo, enabledMoveInfo, targetDistance+1, true, trace);
-                  }
-                  else if ( targetDistance < MAX_DISTANCE-2 )
-                  {
-                    //  Any props THIS move effects are added at distance +2
-                    addMoveFringeAtDistance(moveInfo, enabledMoveInfo, targetDistance+2, false, trace);
+                    MoveInfo enabledMoveInfo = moveDependencyInfo[relatedMoveIndex];
+
+                    if ( trace )
+                    {
+                      LOGGER.info("    Move " + moveList[relatedMoveIndex] + " is then potentially disabled");
+                    }
+
+                    addMoveFringeAtDistance(moveInfo, enabledMoveInfo, effectiveDistance, linkingMoveIsSameRole, trace, false);
                   }
                 }
+
                 relatedMoveIndex++;
               }
 
@@ -453,7 +519,7 @@ public class DependencyDistanceAnalyser
     for(int i = 0; i < moveList.length; i++)
     {
       MoveInfo moveInfo = moveDependencyInfo[i];
-      boolean trace = false;//(moveList[i].toString().contains("4 2 4 3") || moveList[i].toString().contains("6 4 7 5"));
+      boolean trace = false;//(moveList[i].toString().contains("2 2 3 3") || moveList[i].toString().contains("3 3 3 2"));
       if ( trace )
       {
         LOGGER.info("Influenceable props from move " + moveList[i]);
@@ -523,7 +589,7 @@ public class DependencyDistanceAnalyser
     for(int i = 0; i < moveList.length; i++)
     {
       MoveInfo moveInfo = moveDependencyInfo[i];
-      boolean trace = false;//(moveList[i].toString().contains("4 2 4 3") || moveList[i].toString().contains("6 4 7 5"));
+      boolean trace = (moveList[i].toString().contains("5 2 6 1") || moveList[i].toString().contains("8 6 8 7"));
       if ( trace )
       {
         LOGGER.info("Calculating distances from: " + moveList[i]);
@@ -806,19 +872,21 @@ public class DependencyDistanceAnalyser
     }
   }
 
-  private void addMoveFringeAtDistance(MoveInfo rootMoveInfo, MoveInfo enabledMoveInfo, int targetDistance, boolean sameRole, boolean trace)
+  private void addMoveFringeAtDistance(MoveInfo rootMoveInfo, MoveInfo enabledMoveInfo, int targetDistance, boolean sameRole, boolean trace, boolean isMoveEnabled)
   {
     boolean processingFringeEnablement = true;
 
     do
     {
+      //  Whether props are enabled by the move's dist-1 enablement depends on if the move itself is being enabled or disabled
+      boolean arePropsEnabled = (processingFringeEnablement ^ !isMoveEnabled);
       int newlyIncludedPropIndex = 0;
-      BitSet newlyIncludedPropSet = (processingFringeEnablement ? enabledMoveInfo.basePropsEnabledAtDistanceBySameRole[1] : enabledMoveInfo.basePropsDisabledAtDistanceBySameRole[1]);
+      BitSet newlyIncludedPropSet = (arePropsEnabled ? enabledMoveInfo.basePropsEnabledAtDistanceBySameRole[1] : enabledMoveInfo.basePropsDisabledAtDistanceBySameRole[1]);
 
       while((newlyIncludedPropIndex = newlyIncludedPropSet.nextSetBit(newlyIncludedPropIndex)) != -1)
       {
-        if ( (processingFringeEnablement && !rootMoveInfo.enabledBaseProps.get(newlyIncludedPropIndex)) ||
-             (!processingFringeEnablement && !rootMoveInfo.disabledBaseProps.get(newlyIncludedPropIndex)) )
+        if ( (arePropsEnabled && !rootMoveInfo.enabledBaseProps.get(newlyIncludedPropIndex)) ||
+             (!arePropsEnabled && !rootMoveInfo.disabledBaseProps.get(newlyIncludedPropIndex)) )
         {
           if ( processingFringeEnablement )
           {
@@ -834,7 +902,7 @@ public class DependencyDistanceAnalyser
 
             if ( trace)
             {
-              LOGGER.info("    Distance to enabling " + propList[newlyIncludedPropIndex].getName() + " is " + targetDistance);
+              LOGGER.info("    Distance to enabling " + propList[newlyIncludedPropIndex].getName() + " by " + (sameRole ? "same" : "opposite") + " role is " + targetDistance);
             }
           }
           else
@@ -852,7 +920,7 @@ public class DependencyDistanceAnalyser
 
             if ( trace)
             {
-              LOGGER.info("    Distance to disabling " + propList[newlyIncludedPropIndex].getName() + " is " + targetDistance);
+              LOGGER.info("    Distance to disabling " + propList[newlyIncludedPropIndex].getName() + " by " + (sameRole ? "same" : "opposite") + " role is " +targetDistance);
             }
           }
         }

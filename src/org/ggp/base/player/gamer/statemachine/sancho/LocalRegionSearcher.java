@@ -195,7 +195,7 @@ public class LocalRegionSearcher
 
       for(int role = 0; role < numRoles; role++)
       {
-        int score = searchToDepth(xiStartingState, depth, maxDepth, role);
+        int score = searchToDepth(xiStartingState, depth, maxDepth, role, null);
         if ( score == (role == 0 ? 0 : 100) )
         {
           return score;
@@ -250,14 +250,14 @@ public class LocalRegionSearcher
 //      }
       if ( !resultFound )
       {
-//        if ( optionalRole == 0 && currentDepth==9 && regionCentre.toString().contains("2 4 1 5"))
+//        if ( optionalRole == 0 && currentDepth==9 && regionCentre.toString().contains("1 8 1 7"))
 //        {
 //          System.out.println("!");
 //          score = 0;
 //        }
         //optionalRole = role;
         jointMove[0][0] = regionCentre;
-        if ( tenukiLossSeeds[1-optionalRole] != null && tenukiLossSeeds[1-optionalRole] != regionCentre )
+        if ( tenukiLossSeeds[1-optionalRole] != null && tenukiLossSeeds[1-optionalRole] != regionCentre && getMoveCoInfluenceDistance(tenukiLossSeeds[1-optionalRole], regionCentre) > currentDepth)
         {
           jointMove[0][1] = tenukiLossSeeds[1-optionalRole];
           LOGGER.info("Performing joint search for optional role " + optionalRole + " at depth " + currentDepth + " with secondary seed " + tenukiLossSeeds[1-optionalRole]);
@@ -267,7 +267,7 @@ public class LocalRegionSearcher
           jointMove[0][1] = null;
           LOGGER.info("Performing regular search for optional role " + optionalRole + " at depth " + currentDepth);
         }
-        score = searchToDepth(startingState, 1, currentDepth, optionalRole);
+        score = searchToDepth(startingState, 1, currentDepth, optionalRole, null);
         resultFound = (score == (optionalRole==0 ? 0 : 100));
       }
       if ( resultFound )
@@ -278,53 +278,69 @@ public class LocalRegionSearcher
         {
           LOGGER.info(Arrays.toString(jointMove[i]));
         }
-//        if ( jointMove[1][0] != null && jointMove[1][0].toString().contains("8 6 7 7"))
+//        if ( jointMove[1][0] != null && jointMove[1][0].toString().contains("7 5 7 6"))
 //        {
 //          score = 100;
 //        }
 
-        if ( resultsConsumer != null )
+        //  One final check is needed.  If we found a tenuki loss for the apparently winning role one ply earlier
+        //  then it is possible that the supposed winning move actually loses to the tenuki-loss already
+        //  identified (in which case a definite win would be found at the NEXT depth if this move were played)
+        //  for the opponent.  In this one case we need to verify the previous depth is not a loss with a fixed first move
+        if ( tenukiLossSeeds[1-optionalRole] == regionCentre && tenukiLossDepth[1-optionalRole] < currentDepth )
         {
-          searchResult.atDepth = currentDepth;
-          searchResult.winForRole = 1-optionalRole;
-          searchResult.tenukiLossForRole = -1;
-          searchResult.seedMove = jointMove[0][0];
-          searchResult.jointSearchSecondarySeed = jointMove[0][1];
-          searchResult.winningMove = jointMove[1][1-optionalRole];
-          searchResult.startState = startingState;
-          searchResult.searchRadius = currentDepth;
-          searchResult.choiceFromState = choiceFromState;
-          if ( choiceFromState != null )
+          if ( searchToDepth(startingState, 1, tenukiLossDepth[1-optionalRole], 1-optionalRole, jointMove[1][1-optionalRole]) == (optionalRole==0 ? 100 : 0))
           {
-            searchResult.winPath = new ForwardDeadReckonLegalMoveInfo[currentDepth+1];
-            searchResult.relevantMovesForWin = new ForwardDeadReckonLegalMoveSet[currentDepth+1];
-            for( int i = 0; i <= currentDepth; i++)
+            LOGGER.info("Apparent win actually is a tenuki-loss at the previous depoth - ignoring!");
+            resultFound = false;
+          }
+        }
+
+        if ( resultFound )
+        {
+          if ( resultsConsumer != null )
+          {
+            searchResult.atDepth = currentDepth;
+            searchResult.winForRole = 1-optionalRole;
+            searchResult.tenukiLossForRole = -1;
+            searchResult.seedMove = jointMove[0][0];
+            searchResult.jointSearchSecondarySeed = jointMove[0][1];
+            searchResult.winningMove = jointMove[1][1-optionalRole];
+            searchResult.startState = startingState;
+            searchResult.searchRadius = currentDepth;
+            searchResult.choiceFromState = choiceFromState;
+            if ( choiceFromState != null )
             {
-              searchResult.winPath[i] = jointMove[i][1-optionalRole];
-              searchResult.relevantMovesForWin[i] = relevantMoves[1][i];
+              searchResult.winPath = new ForwardDeadReckonLegalMoveInfo[currentDepth+1];
+              searchResult.relevantMovesForWin = new ForwardDeadReckonLegalMoveSet[currentDepth+1];
+              for( int i = 0; i <= currentDepth; i++)
+              {
+                searchResult.winPath[i] = jointMove[i][1-optionalRole];
+                searchResult.relevantMovesForWin[i] = relevantMoves[1][i];
+              }
+            }
+            else
+            {
+              searchResult.winPath = null;
+              searchResult.relevantMovesForWin = null;
+            }
+
+            resultsConsumer.ProcessLocalSearchResult(searchResult);
+          }
+
+          //  Treat the winning move the same as a tenuki loss at the previous level to
+          //  force searching relative to it in other alternatives
+          for(int i = 0; i < jointMove[1].length; i++)
+          {
+            if ( jointMove[1][i] != null && jointMove[1][i].inputProposition != null )
+            {
+              tenukiLossSeeds[1-optionalRole] = jointMove[1][i];
+              break;
             }
           }
-          else
-          {
-            searchResult.winPath = null;
-            searchResult.relevantMovesForWin = null;
-          }
 
-          resultsConsumer.ProcessLocalSearchResult(searchResult);
+          return true;
         }
-
-        //  Treat the winning move the same as a tenuki loss at the previous level to
-        //  force searching relative to it in other alternatives
-        for(int i = 0; i < jointMove[1].length; i++)
-        {
-          if ( jointMove[1][i] != null && jointMove[1][i].inputProposition != null )
-          {
-            tenukiLossSeeds[1-optionalRole] = jointMove[1][i];
-            break;
-          }
-        }
-
-        return true;
       }
     }
 
@@ -355,7 +371,7 @@ public class LocalRegionSearcher
    *  100 if role 0 win
    *  else 50
    */
-  private int searchToDepth(ForwardDeadReckonInternalMachineState state, int depth, int maxDepth, int optionalRole)
+  private int searchToDepth(ForwardDeadReckonInternalMachineState state, int depth, int maxDepth, int optionalRole, ForwardDeadReckonLegalMoveInfo forcedMoveChoice)
   {
     numNodesSearched++;
 
@@ -442,7 +458,7 @@ public class LocalRegionSearcher
 
     //  At depth 1 consider the optional tenuki first as a complete result
     //  there will allow cutoff in the MCTS tree (in principal)
-    if ( choosingRole == optionalRole && (tenukiPossible || depth == 1) && (numChoices == 0 || tenukiLossDepth[optionalRole] > currentDepth) )
+    if ( choosingRole == optionalRole && (tenukiPossible || depth == 1) && (numChoices == 0 || tenukiLossDepth[optionalRole] > currentDepth) && forcedMoveChoice == null )
     {
       jointMove[depth][1-choosingRole] = nonChooserMove;
       jointMove[depth][choosingRole] = pseudoNoop;
@@ -451,7 +467,7 @@ public class LocalRegionSearcher
 
       underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth]);
 
-      int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole);
+      int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole, null);
 
       if ( childValue != (optionalRole == 0 ? 0 : 100) )
       {
@@ -503,21 +519,61 @@ public class LocalRegionSearcher
 
     for(int i = 0; i < numChoices; i++)
     {
+      if ( forcedMoveChoice != null && chooserMoveChoiceStack[depth][i] != forcedMoveChoice )
+      {
+        continue;
+      }
+
+      boolean isReponse = chooserMoveChoiceIsResponse[depth][i];
+
+      //  You cannot win with a response, since this was only enabled by opponent moves
+      //  which we have been forced to respond to and is otherwise out of scope at this
+      //  depth of the search.  Allowing responses to also be wins gives false positives
+      //  because the opponent might have been denied a refuting move in the search due
+      //  to it being out of scope of the supposed efficient sequence.
+      //  In fact the non-optional role's last TWO moves must be non-responses because
+      //  if the winning move was possible without the last response move then it could
+      //  have been played in place of that last response move
+      if ( isReponse && choosingRole != optionalRole && depth > maxDepth-4 )
+      {
+        continue;
+      }
+
       jointMove[depth][1-choosingRole] = nonChooserMove;
       jointMove[depth][choosingRole] = chooserMoveChoiceStack[depth][i];
-      moveIsResponse[depth] = chooserMoveChoiceIsResponse[depth][i];
-      moveIsEnabledBySequence[depth] = (depth > 1 && getMoveEnablementDistance(jointMove[depth-1][1-choosingRole], jointMove[depth][choosingRole]) == 1);
+      moveIsResponse[depth] = isReponse;
+
+      moveIsEnabledBySequence[depth] =  false;
+      if ( choosingRole == optionalRole && depth > 1 )
+      {
+        //  TEMP - this loop should go to j > 0 really
+        for(int j = depth-1; j >= depth-1; j -= 2)
+        {
+          if ( getMoveEnablementDistance(jointMove[j][1-choosingRole], jointMove[depth][choosingRole]) == 1 /*||
+               getMoveCoInfluenceDistance(jointMove[j][1-choosingRole], jointMove[depth][choosingRole]) == 1*/ )
+          {
+            moveIsEnabledBySequence[depth] = true;
+            break;
+          }
+        }
+      }
 
       underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth]);
 
-      int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole);
+      int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole, null);
 
       if ( childValue == (choosingRole == 0 ? 100 : 0) || (childValue == 50 && choosingRole == optionalRole) )
       {
-//        if ( depth == 1 )
+//        if ( depth == 1 && choosingRole == optionalRole && maxDepth==10 )
 //        {
-//          System.out.println("!");
+//          LOGGER.info("    depth 1 move " + jointMove[1][choosingRole] + " is not a loss");
+//          LOGGER.info("Last examined move trace:");
+//          for(int j = 1; j <= currentDepth; j++)
+//          {
+//            LOGGER.info(Arrays.toString(jointMove[j]));
+//          }
 //        }
+
         //  Complete result.
         //  Note this includes draws for the optional role since we're only interested in forced wins
         //  for the non-optional role
@@ -586,10 +642,10 @@ public class LocalRegionSearcher
 
   private int heuristicValue(ForwardDeadReckonLegalMoveInfo move, int depth, ForwardDeadReckonLegalMoveInfo previousLocalMove, boolean forOptionalRole)
   {
-    if ( move.toString().contains("8 6 7 7"))
-    {
-      return 100000;
-    }
+//    if ( move.toString().contains("8 6 7 7"))
+//    {
+//      return 100000;
+//    }
     //  If we're joint searching with a secondary seed and a legal move at depth 1 is exactly the
     //  secondary seed move choose it first
     if ( depth == 1 && jointMove[0][1] != null && jointMove[0][1].masterIndex == move.masterIndex )
@@ -655,7 +711,7 @@ public class LocalRegionSearcher
           //  (non-optional) efficient sequence we can only make fairly wide constraints
           if ( !jointSearch )
           {
-            if ( i == 0 && (!isOptionalRolePly || depth==1) )
+            if ( i == 0 && (!chosenMovesAreForOptionalRole || depth==1) )
             {
               //  The first non-optional role move is distance gated by the seed, but the first
               //  optional role move is only gated by the seed if it is the first move of the

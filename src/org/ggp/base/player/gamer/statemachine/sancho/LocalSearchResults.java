@@ -48,6 +48,7 @@ public class LocalSearchResults implements LocalRegionDefiner
   LocalRegionSearcher searchProvider;
   ForwardDeadReckonLegalMoveInfo[] winPath;
   ForwardDeadReckonLegalMoveSet[] relevantMovesForWin;
+  boolean hasTerminalityCoupling = false;
 
   /**
    * Make this object a shallow copy of source
@@ -66,6 +67,7 @@ public class LocalSearchResults implements LocalRegionDefiner
     searchProvider = source.searchProvider;
     winPath = source.winPath;
     choiceFromState = source.choiceFromState;
+    hasTerminalityCoupling = source.hasTerminalityCoupling;
     if ( source.relevantMovesForWin == null )
     {
       relevantMovesForWin = null;
@@ -113,17 +115,18 @@ public class LocalSearchResults implements LocalRegionDefiner
     {
       for(ForwardDeadReckonLegalMoveInfo relevantMove : relevantMovesForWin[i].getContents(searchProvider.roleOrdering.roleIndexToRawRoleIndex(winningRole)))
       {
-        //  Could this move have been disturbed by the move being checked?
-        //  The check for the very last (winning move) has a tighter bound since
-        //  the interaction has to be on the winning role's move (to prevent it)
-        //  not the optional role's (to counter it after it is played)
-        //  TODO - validate this holds in all games and is not an unintended Breakthrough
-        //  category property!
-        int coInfluenceDistance = searchProvider.getMoveCoInfluenceDistance(relevantMove, xiMove);
-        if ( coInfluenceDistance < i + (i == searchRadius ? 1 : 0))
+        //  If there is terminality-coupling then any coinfluence of the two moves matters (or at least
+        //  some do, and further analysis might be able to restrict which).  However, if there is no
+        //  terminality coupling then a played move can only prevent a found win by preventing one of
+        //  the moves, so legality distance is all that matters
+        if ( hasTerminalityCoupling )
         {
-          LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at distance " + coInfluenceDistance + " and therefore has comnmon influence");
-          return true;
+          int coInfluenceDistance = searchProvider.getMoveCoInfluenceDistance(relevantMove, xiMove);
+          if ( coInfluenceDistance < i + (i == searchRadius ? 1 : 0))
+          {
+            LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at distance " + coInfluenceDistance + " and therefore has comnmon influence");
+            return true;
+          }
         }
 
         //  Can also be the case that the queried move enabled legality of a required move in the sequence
