@@ -9,27 +9,26 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
 
-public abstract class SearchTreeNode<TreeType extends SearchTree>
+public abstract class SearchTreeNode
 {
-  private static final double EPSILON = 0.001;
-  private static final Random RAND = new Random();
-
   protected final double EXPLORATION_BIAS = 0.5;
+  protected final double EPSILON = 0.001;
 
-  protected final TreeType tree;
-  protected SearchTreeNode<TreeType>[] children = null;
+  protected final SearchTree tree;
+  protected SearchTreeNode[] children = null;
   private ForwardDeadReckonLegalMoveInfo[] childMoves = null;
   protected double[] scoreVector;
   protected int numVisits = 0;
-  private final ForwardDeadReckonInternalMachineState state;
+  protected final ForwardDeadReckonInternalMachineState state;
   protected final int choosingRole;
+  private static Random rand = new Random();
   boolean complete = false;
 
-  protected abstract void updateScore(SearchTreeNode<TreeType> child, double[] playoutResult);
+  abstract boolean updateScore(SearchTreeNode child, double[] playoutResult);
 
-  abstract SearchTreeNode<TreeType> createNode(ForwardDeadReckonInternalMachineState xiState, int xiChoosingRole);
+  abstract SearchTreeNode createNode(ForwardDeadReckonInternalMachineState state, int choosingRole);
 
-  public SearchTreeNode(TreeType xiTree, ForwardDeadReckonInternalMachineState xiState, int xiChoosingRole)
+  public SearchTreeNode(SearchTree xiTree, ForwardDeadReckonInternalMachineState xiState, int xiChoosingRole)
   {
     tree = xiTree;
     state = xiState;
@@ -53,14 +52,13 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
       if ( children[i].scoreVector[choosingRole] > bestScore || (children[i].scoreVector[choosingRole] == bestScore && children[i].complete) )
       {
         bestScore = children[i].scoreVector[choosingRole];
-          result = childMoves[i].move;
+        result = childMoves[i].move;
       }
     }
 
     return result;
   }
 
-  @SuppressWarnings("unchecked")
   private void expand(ForwardDeadReckonLegalMoveInfo[] jointMove)
   {
     if ( tree.getStateMachine().isTerminal(state))
@@ -104,9 +102,10 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
     }
   }
 
-  public void grow(double[] playoutResult, ForwardDeadReckonLegalMoveInfo[] jointMove)
+  public boolean grow(double[] playoutResult, ForwardDeadReckonLegalMoveInfo[] jointMove)
   {
-    SearchTreeNode<TreeType> selectedChild = null;
+    SearchTreeNode selectedChild = null;
+    boolean result = true;
 
     if ( !complete )
     {
@@ -116,7 +115,7 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
         selectedChild = select(jointMove);
 
         //  Recurse
-        selectedChild.grow(playoutResult, jointMove);
+        result = selectedChild.grow(playoutResult, jointMove);
 
         if ( selectedChild.complete )
         {
@@ -133,27 +132,22 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
           //playout(playoutResult);
 
           selectedChild = select(jointMove);
-
           if ( selectedChild.choosingRole == 0 )
           {
             selectedChild.playout(playoutResult);
-
-            assert(selectedChild != this);
+            if ( !selectedChild.complete )
+            {
+              selectedChild.updateScore(null, playoutResult);
+            }
             assert(selectedChild.numVisits == 0);
-
-            selectedChild.updateScore(null, playoutResult);
             selectedChild.numVisits = 1;
           }
           else
           {
-            //  Recurse down to a complete joint move.  This
-            //  is necessary because we cannot playout from a node
-            //  which has a partial joint move, since this will have the
-            //  same state as its parent, and any playout would be from
-            //  that state and not respect the move choice made from the
-            //  parent to this node
-            selectedChild.grow(playoutResult, jointMove);
+            result = selectedChild.grow(playoutResult, jointMove);
           }
+
+          assert(selectedChild != this);
 
           if ( selectedChild.complete )
           {
@@ -170,16 +164,20 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
         playoutResult[i] = scoreVector[i];
       }
     }
-    else
+    else if ( result )
     {
       assert(selectedChild != null);
 
       //  Update our score with the playout result
-      updateScore(selectedChild, playoutResult);
+      result = updateScore(selectedChild, playoutResult);
     }
+
+    numVisits++;
+
+    return result;
   }
 
-  private void processChildCompletion(SearchTreeNode<TreeType> selectedChild)
+  private void processChildCompletion(SearchTreeNode selectedChild)
   {
     if ( selectedChild.scoreVector[choosingRole] > 100 - EPSILON )
     {
@@ -189,7 +187,7 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
     else
     {
       double bestScore = -Double.MAX_VALUE;
-      SearchTreeNode<TreeType> bestChild = null;
+      SearchTreeNode bestChild = null;
       boolean allComplete = true;
 
       for(int i = 0; i < children.length; i++ )
@@ -215,7 +213,7 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
     }
   }
 
-  protected SearchTreeNode<TreeType> select(ForwardDeadReckonLegalMoveInfo[] jointMove)
+  private SearchTreeNode select(ForwardDeadReckonLegalMoveInfo[] jointMove)
   {
     if ( complete )
     {
@@ -223,12 +221,12 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
     }
 
     double bestSelectionScore = -Double.MAX_VALUE;
-    SearchTreeNode<TreeType> result = null;
+    SearchTreeNode result = null;
     ForwardDeadReckonLegalMoveInfo selectedMove = null;
 
     for(int i = 0; i < children.length; i++)
     {
-      SearchTreeNode<TreeType> child = children[i];
+      SearchTreeNode child = children[i];
       double selectionScore = explorationScore(child) + exploitationScore(child);
 
       if ( selectionScore > bestSelectionScore )
@@ -244,24 +242,37 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
     return result;
   }
 
-  protected double explorationScore(SearchTreeNode<TreeType> child)
+  protected double explorationScore(SearchTreeNode child)
   {
     if ( child.numVisits == 0 )
     {
-      return 1000 + RAND.nextDouble();
+      return 1000 + rand.nextDouble();
     }
 
     assert(numVisits>0);
     return EXPLORATION_BIAS*Math.sqrt(2*Math.log(numVisits) / child.numVisits);
   }
 
-  protected double exploitationScore(SearchTreeNode<TreeType> child)
+  protected double exploitationScore(SearchTreeNode child)
   {
     return child.scoreVector[choosingRole]/100;
   }
 
-  private void playout(double[] playoutResult)
+  private static int count = 0;
+  protected void playout(double[] playoutResult)
   {
+    //if ( count++ < 30 )
+//    if ( rand.nextInt(2) == 0 )
+//    {
+//      playoutResult[0] = 100;
+//      playoutResult[1] = 0;
+//    }
+//    else
+//    {
+//      playoutResult[0] = 0;
+//      playoutResult[1] = 100;
+//    }
+
     RoleOrdering roleOrdering = tree.getStateMachine().getRoleOrdering();
 
     tree.getStateMachine().getDepthChargeResult(state, null, roleOrdering.roleIndexToRole(choosingRole), null, null, null, 1000);

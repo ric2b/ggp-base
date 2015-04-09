@@ -2,6 +2,8 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.Role;
@@ -16,6 +18,8 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
  */
 class RolloutRequest
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   public long                                  mNodeRef;
   public TreePath                              mPath;
   public final ForwardDeadReckonInternalMachineState mState;
@@ -25,6 +29,7 @@ class RolloutRequest
   public final double[]                        mAverageScores;
   public final double[]                        mAverageSquaredScores;
   public double                                mWeight;
+  public boolean                               mComplete;
   public MCTSTree                              mTree;
   public int                                   mMinScore;
   public int                                   mMaxScore;
@@ -59,6 +64,7 @@ class RolloutRequest
   {
     return 1/(1+Math.exp(-x));
   }
+
   /**
    * Process this rollout request.
    *
@@ -82,22 +88,29 @@ class RolloutRequest
     mMinScore = 1000;
     mMaxScore = -100;
     mWeight = 0;
-
-    int numScoringRollouts = 0;
+    mComplete = false;
 
     List<ForwardDeadReckonLegalMoveInfo> playedMoves = mPlayedMovesForWin;
 
+    //LOGGER.info("Move drop " + locusColumn + " chosen as playout locus");
+
+    //playedMoves = new LinkedList<ForwardDeadReckonLegalMoveInfo>();
     // Perform the request number of samples.
-    for (int i = 0; i < mSampleSize; i++)
+    for (int i = 0; i < mSampleSize && !mComplete; i++)
     {
       if ( playedMoves != null )
       {
         playedMoves.clear();
       }
 
-      // Do the rollout.
       int playoutLength = stateMachine.getDepthChargeResult(mState, mFactor, xiOurRole, null, null, playedMoves, mTree.mWeightDecayCutoffDepth);
 
+//      LOGGER.info("****************Rollout trace for locus " + locusColumn + ":");
+//      for(ForwardDeadReckonLegalMoveInfo move : playedMoves)
+//      {
+//        LOGGER.info(move.move);
+//      }
+//      LOGGER.info("*******");
       double weight = (mTree.mWeightDecayKneeDepth == -1 ? 1 : 1 - sigma((playoutLength-mTree.mWeightDecayKneeDepth)/mTree.mWeightDecayScaleFactor));
       assert(!Double.isNaN(weight));
       assert(weight > TreeNode.EPSILON);
@@ -133,6 +146,15 @@ class RolloutRequest
             playedMoves = null;
           }
         }
+      }
+
+      if ( playoutLength < 2 && stateMachine.getIsGreedyRollouts() )
+      {
+        mComplete = true;
+//        int rolloutScore = stateMachine.getGoal(xiRoleOrdering.roleIndexToRole(0));
+//        LocalRegionSearcher localSearcher = new LocalRegionSearcher(stateMachine, stateMachine.getRoleOrdering(), null, null);
+//        int localRegionScore = localSearcher.completeResultSearchToDepthFromSeed(mState, null, 2);
+//        assert(localRegionScore != 50 || rolloutScore == 50);
       }
     }
 

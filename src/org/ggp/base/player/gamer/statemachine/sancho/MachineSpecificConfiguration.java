@@ -92,7 +92,12 @@ public class MachineSpecificConfiguration
     /**
      * Whether to use UCB tuned or just UCB (default is true)
      */
-    USE_UCB_TUNED;
+    USE_UCB_TUNED,
+
+    /**
+     * Whether to use local search
+     */
+    USE_LOCAL_SEARCH,
   }
 
   private static final Properties MACHINE_PROPERTIES = new Properties();

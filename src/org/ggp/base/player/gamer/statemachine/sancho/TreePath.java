@@ -168,7 +168,7 @@ public class TreePath
      */
     public TreeEdge getEdgeUnsafe()
     {
-      assert(getEdge() != null);
+      //assert(getEdge() != null);
       return mEdge;
     }
 
@@ -276,6 +276,30 @@ public class TreePath
       return node;
     }
     return mTree.root;
+  }
+
+  /**
+   * Trim elements from the tail of the path until at most one
+   * leaf element is complete
+   */
+  public void trimToCompleteLeaf()
+  {
+    while(mNumElements > 1)
+    {
+      TreePathElement element = mElements[mNumElements - 2];
+      TreeNode node = element.getChildNode();
+
+      if ( node == null || node.complete )
+      {
+        mNumElements--;
+      }
+      else
+      {
+        break;
+      }
+    }
+
+    resetCursor();
   }
 
   /**

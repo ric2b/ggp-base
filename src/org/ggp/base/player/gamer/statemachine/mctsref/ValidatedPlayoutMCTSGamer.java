@@ -12,7 +12,7 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
-public class MctsRefGamer extends StateMachineGamer
+public class ValidatedPlayoutMCTSGamer extends StateMachineGamer
 {
   private final long                            SAFETY_MARGIN = 2500;
 
@@ -38,7 +38,7 @@ public class MctsRefGamer extends StateMachineGamer
       GoalDefinitionException
   {
     //underlyingStateMachine.disableGreedyRollouts();
-    tree = new BasicMCTSSearchTree(underlyingStateMachine);
+    tree = new ValidatedPlayoutMCTSSearchTree(underlyingStateMachine);
   }
 
   @Override
@@ -89,6 +89,7 @@ public class MctsRefGamer extends StateMachineGamer
   @Override
   public String getName()
   {
-    return "MCTSRefPlayer";
+    return "ValidatedPlayoutTestPlayer";
   }
+
 }

@@ -2,9 +2,11 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -20,6 +22,8 @@ import org.ggp.base.player.gamer.statemachine.sancho.heuristic.GoalsStabilityHeu
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MajorityGoalsHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
+import org.ggp.base.util.gdl.grammar.GdlTerm;
+import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
@@ -69,7 +73,9 @@ public class Sancho extends SampleGamer
   private GamePlan                    plan                            = null;
   private int                         transpositionTableSize          = MachineSpecificConfiguration.getCfgVal(CfgItem.NODE_TABLE_SIZE, 2000000);
   private RoleOrdering                roleOrdering                    = null;
+  private ForwardDeadReckonPropositionInfo[] roleControlProps         = null;
   private ForwardDeadReckonPropnetStateMachine underlyingStateMachine = null;
+  private ForwardDeadReckonInternalMachineState previousTurnRootState = null;
   private StateMachineProxy           stateMachineProxy               = null;
   private int                         numRoles                        = 0;
   private int                         MinRawNetScore                  = 0;
@@ -152,7 +158,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60r");
+    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60t");
   }
 
   @Override
@@ -167,11 +173,10 @@ public class Sancho extends SampleGamer
 
     //GamerLogger.setFileToDisplay("StateMachine");
     //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
-    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
+    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS + 1,
                                                                       getMetaGamingTimeout(),
                                                                       getRole(),
                                                                       mGameCharacteristics);
-
     System.gc();
 
     currentMoveDepth = 0;
@@ -209,6 +214,8 @@ public class Sancho extends SampleGamer
 
     searchProcessor = new GameSearcher(transpositionTableSize, underlyingStateMachine.getRoles().length, mLogName);
     stateMachineProxy.setController(searchProcessor);
+
+    previousTurnRootState = null; //  No move seen yet
 
     if (!ThreadControl.RUN_SYNCHRONOUSLY)
     {
@@ -277,6 +284,12 @@ public class Sancho extends SampleGamer
 
     underlyingStateMachine.performSemanticAnalysis(lSemanticAnalysisStopTime);
 
+    //  TEMP TEMP TEMP
+//    DependencyDistanceAnalyser distanceAnalyser = new DependencyDistanceAnalyser(underlyingStateMachine);
+//    LOGGER.info("Begin analysing move distances...");
+//    int[][] result = distanceAnalyser.createMoveDistanceMatrix();
+//    LOGGER.info("Completed analysing move distances...");
+
     PayoffMatrixGamePlayer lPayoffMatrixGamePlayer;
     try
     {
@@ -311,11 +324,12 @@ public class Sancho extends SampleGamer
     mGameCharacteristics.isSimultaneousMove = false;
     mGameCharacteristics.isPseudoSimultaneousMove = false;
     mGameCharacteristics.isPseudoPuzzle = underlyingStateMachine.getIsPseudoPuzzle();
+    mGameCharacteristics.isStrictlyAlternatingPlay = true;
 
     //  Create masks of possible control props, which we'll whittle down during simulation
     //  If we wind up with a unique prop for each role e'll note it for future use
     ForwardDeadReckonInternalMachineState[] roleControlMasks = new ForwardDeadReckonInternalMachineState[numRoles];
-    ForwardDeadReckonPropositionInfo[] roleControlProps = new ForwardDeadReckonPropositionInfo[numRoles];
+    roleControlProps = new ForwardDeadReckonPropositionInfo[numRoles];
 
     for(int i = 0; i < numRoles; i++)
     {
@@ -361,6 +375,11 @@ public class Sancho extends SampleGamer
 
     //  Buffer for new states
     ForwardDeadReckonInternalMachineState newState = new ForwardDeadReckonInternalMachineState(initialState);
+    int[] playerMoveParity = new int[numRoles];
+    for(int i = 0; i < numRoles; i++)
+    {
+      playerMoveParity[i] = -1;
+    }
 
     //  Slight hack, but for now we don't bother continuing to simulate for a long time after discovering we're in
     //  a simultaneous turn game, because (for now anyway) we disable heuristics in such games anyway
@@ -370,6 +389,7 @@ public class Sancho extends SampleGamer
 
       int numRoleMovesSimulated = 0;
       int numBranchesTaken = 0;
+      int turnNum = 0;
 
       heuristic.tuningStartSampleGame();
 
@@ -380,6 +400,9 @@ public class Sancho extends SampleGamer
         Set<Move> allMovesInState = new HashSet<>();
 
         int choosingRoleIndex = -2;
+
+        turnNum++;
+
         for (int i = 0; i < numRoles; i++)
         {
           //List<Move> legalMoves = underlyingStateMachine.getLegalMovesCopy(sampleState,
@@ -432,6 +455,19 @@ public class Sancho extends SampleGamer
             choosingRoleIndex = i;
             Factor turnFactor = null;
 
+            if ( mGameCharacteristics.isStrictlyAlternatingPlay )
+            {
+              int moveParity = (turnNum%numRoles);
+              if ( playerMoveParity[choosingRoleIndex] == -1 )
+              {
+                playerMoveParity[choosingRoleIndex] = moveParity;
+              }
+              else if ( moveParity != playerMoveParity[choosingRoleIndex] )
+              {
+                mGameCharacteristics.isStrictlyAlternatingPlay = false;
+              }
+            }
+
             for (ForwardDeadReckonLegalMoveInfo moveInfo : legalMoves)
             {
               if ( factors != null )
@@ -469,6 +505,7 @@ public class Sancho extends SampleGamer
             numBranchesTaken += legalMoves.size();
             numRoleMovesSimulated++;
           }
+
           jointMove[i] = legalMoves.get(r.nextInt(legalMoves.size()));
         }
 
@@ -609,8 +646,9 @@ public class Sancho extends SampleGamer
     double averageSquaredNumTurns = 0;
     double averageNumNonDrawTurns = 0;
     int numNonDrawSimulations = 0;
-    int numMaxLengthDraws = 0;
-    int numMaxLengthGames = 0;
+    int numLongDraws = 0;
+    int numLongGames = 0;
+    int minNumNonDrawTurns = Integer.MAX_VALUE;
 
     while (System.currentTimeMillis() < simulationStopTime)
     {
@@ -629,6 +667,10 @@ public class Sancho extends SampleGamer
       {
         numNonDrawSimulations++;
         averageNumNonDrawTurns += rolloutStats[0];
+        if ( minNumNonDrawTurns > rolloutStats[0] )
+        {
+          minNumNonDrawTurns = rolloutStats[0];
+        }
       }
 
       for (int i = 0; i < numRoles; i++)
@@ -666,17 +708,15 @@ public class Sancho extends SampleGamer
       if (rolloutStats[0] > maxNumTurns)
       {
         maxNumTurns = rolloutStats[0];
-
-        numMaxLengthGames = 0;
       }
 
-      if ( rolloutStats[0] == maxNumTurns)
+      if ( rolloutStats[0] >= (maxNumTurns*95)/100 )
       {
-        numMaxLengthGames++;
+        numLongGames++;
 
         if ( netScore == 50 )
         {
-          numMaxLengthDraws++;
+          numLongDraws++;
         }
       }
 
@@ -720,7 +760,8 @@ public class Sancho extends SampleGamer
     mGameCharacteristics.setAverageLength(averageNumTurns);
     mGameCharacteristics.setStdDeviationLength(stdDevNumTurns);
     mGameCharacteristics.setAverageNonDrawLength(averageNumNonDrawTurns);
-    mGameCharacteristics.setMaxGameLengthDrawsProportion(((double)numMaxLengthDraws)/(double)numMaxLengthGames);
+    mGameCharacteristics.setMinNonDrawLength(minNumNonDrawTurns);
+    mGameCharacteristics.setLongDrawsProportion(((double)numLongDraws)/(double)numLongGames);
 
     mGameCharacteristics.setEarliestCompletionDepth(numRoles*minNumTurns);
     if ( maxNumTurns == minNumTurns )
@@ -935,12 +976,37 @@ public class Sancho extends SampleGamer
                             roleControlProps);
       searchProcessor.startSearch(System.currentTimeMillis() + 60000,
                                   new ForwardDeadReckonInternalMachineState(initialState),
-                                  (short)0);
+                                  (short)0,
+                                  null);
 
       searchUntil(timeout - SAFETY_MARGIN);
     }
 
     LOGGER.info("Ready to play");
+  }
+
+  private ForwardDeadReckonLegalMoveInfo lastMove = null;
+
+  private ForwardDeadReckonLegalMoveInfo findMoveInfo(Role role, GdlTerm moveTerm)
+  {
+    Move move = underlyingStateMachine.getMoveFromTerm(moveTerm);
+    HashSet<PolymorphicProposition> legalsForRole = new HashSet<>();
+    legalsForRole.addAll(Arrays.asList(underlyingStateMachine.getFullPropNet().getLegalPropositions().get(role)));
+    Map<PolymorphicProposition,PolymorphicProposition> legalInputMap = underlyingStateMachine.getFullPropNet().getLegalInputMap();
+
+    for(ForwardDeadReckonLegalMoveInfo info : underlyingStateMachine.getFullPropNet().getMasterMoveList())
+    {
+      if ( info.move.equals(move) && info.inputProposition != null )
+      {
+        PolymorphicProposition legalProp = legalInputMap.get(info.inputProposition);
+        if ( legalsForRole.contains(legalProp))
+        {
+          return info;
+        }
+      }
+    }
+
+    return null;
   }
 
   @Override
@@ -952,8 +1018,34 @@ public class Sancho extends SampleGamer
     long finishBy = timeout - SAFETY_MARGIN;
     Move bestMove;
     List<Move> moves;
+    List<GdlTerm> lastJointMove = getMatch().getMostRecentMoves();
 
-    LOGGER.info("Moves played for turn " + mTurn + ": " + getMatch().getMostRecentMoves());
+    if ( lastJointMove != null )
+    {
+      LOGGER.info("Moves played for turn " + mTurn + ": " + lastJointMove);
+
+      for(int i = 0; i < numRoles; i++)
+      {
+        if ( previousTurnRootState != null && roleControlProps != null )
+        {
+          if ( previousTurnRootState.contains(roleControlProps[i]) )
+          {
+            lastMove = findMoveInfo(roleOrdering.roleIndexToRole(i), lastJointMove.get(roleOrdering.roleIndexToRawRoleIndex(i)));
+            LOGGER.info("Non-null move last turn was: " + lastMove);
+            break;
+          }
+        }
+        else
+        {
+          lastMove = findMoveInfo(roleOrdering.roleIndexToRole(i), lastJointMove.get(roleOrdering.roleIndexToRawRoleIndex(i)));
+          if ( lastMove != null && lastMove.inputProposition != null )
+          {
+            LOGGER.info("Non-null move last turn was: " + lastMove);
+            break;
+          }
+        }
+      }
+    }
 
     mTurn++;
     LOGGER.info("Starting turn " + mTurn);
@@ -990,7 +1082,14 @@ public class Sancho extends SampleGamer
         LOGGER.warn("Asked to search in terminal state!");
         assert(false);
       }
+
+      previousTurnRootState = currentState;
     }
+
+//    if ( localSearchStateMachine == null )
+//    {
+//      localSearchStateMachine = underlyingStateMachine.createInstance();
+//    }
 
     if (plan != null && plan.size() > GameSearcher.thinkBelowPlanSize)
     {
@@ -1001,7 +1100,7 @@ public class Sancho extends SampleGamer
       //  We need to keep the search 'up with' the plan to make forced-play
       //  testing work properly, or else the search will not be 'primed'
       //  during forced play when the plan runs out
-      searchProcessor.startSearch(finishBy, currentState, currentMoveDepth);
+      searchProcessor.startSearch(finishBy, currentState, currentMoveDepth, null);
       currentMoveDepth += numRoles;
     }
     else if (mGameCharacteristics.isIteratedGame && numRoles == 2)
@@ -1012,11 +1111,20 @@ public class Sancho extends SampleGamer
     }
     else
     {
+//      LocalRegionSearcher localSearcher = new LocalRegionSearcher(localSearchStateMachine, currentState, roleOrdering, lastMove, (lastMove == ourLastMove ? 1 : 0), mLogName);
+//
+//      //if ( ourLastMove != null )
+//      {
+//        Thread lSearchProcessorThread = new Thread(localSearcher, "Local Searcher");
+//        lSearchProcessorThread.setDaemon(true);
+//        lSearchProcessorThread.start();
+//      }
+
       //emptyTree();
       //root = null;
       //validateAll();
       LOGGER.debug("Setting search root");
-      searchProcessor.startSearch(finishBy, currentState, currentMoveDepth);
+      searchProcessor.startSearch(finishBy, currentState, currentMoveDepth, lastMove);
       currentMoveDepth += numRoles;
 
       searchProcessor.requestYield(false);
@@ -1024,8 +1132,14 @@ public class Sancho extends SampleGamer
       LOGGER.debug("Waiting for processing");
       searchUntil(finishBy);
 
+//      while(System.currentTimeMillis() < finishBy)
+//      {
+//        Thread.yield();
+//      }
       LOGGER.debug("Time to submit order - ask GameSearcher to yield");
       searchProcessor.requestYield(true);
+      //localSearcher.stop();
+      //moveConsequenceSearcher.endSearch();
 
       //validateAll();
       long getBestMoveStartTime = System.currentTimeMillis();
@@ -1091,7 +1205,7 @@ public class Sancho extends SampleGamer
         }
         else
         {
-          Thread.sleep(250);
+          Thread.sleep(Math.min(250, xiFinishBy - System.currentTimeMillis()));
         }
       }
     }

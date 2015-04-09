@@ -29,6 +29,7 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine.MoveWeights;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.StateMachineFilter;
 
 public class MCTSTree
@@ -110,6 +111,7 @@ public class MCTSTree
   long                                                 cousinMovesCachedFor                        = TreeNode.NULL_REF;
   final double[]                                       roleRationality;
   final double[]                                       bonusBuffer;
+  final MoveWeights                                    weightsToUse;
   final int[]                                          latchedScoreRangeBuffer                     = new int[2];
   final int[]                                          roleMaxScoresBuffer;
   long                                                 numCompletionsProcessed                     = 0;
@@ -207,7 +209,7 @@ public class MCTSTree
     //    2) Simultaneous move games, because we must assess the impact of a move in a cousin
     //       to cope with partial information, and a forced choice in one node does not imply
     //       a forced choice in all cousins
-    removeNonDecisionNodes = (numRoles > 1 && !xiGameCharacteristics.isSimultaneousMove);
+    removeNonDecisionNodes = (numRoles > 1 && !xiGameCharacteristics.isSimultaneousMove && (!xiGameCharacteristics.isPseudoSimultaneousMove || xiFactor != null));
 
     //  Apply decay and cutoff if either:
     //    1)  The goals are sufficiently stable (goals in a non-terminal state are a good predictor
@@ -223,7 +225,7 @@ public class MCTSTree
     if ( xiGameCharacteristics.numRoles > 1 &&
          xiGameCharacteristics.getAverageNonDrawLength() > 0 &&
          (xiGameCharacteristics.getGoalsStability() > GOALS_STABILITY_THRESHOLD ||
-          (xiGameCharacteristics.getMaxGameLengthDrawsProportion() > 0.9 &&
+          (xiGameCharacteristics.getLongDrawsProportion() > 0.8 &&
            xiGameCharacteristics.getAverageNonDrawLength() <= xiGameCharacteristics.getAverageLength() &&
            xiGameCharacteristics.getAverageLength() < (xiGameCharacteristics.getMaxLength()+xiGameCharacteristics.getMinLength())*1.05/2.0)))
     {
@@ -324,6 +326,7 @@ public class MCTSTree
     bonusBuffer = new double[numRoles];
     roleRationality = new double[numRoles];
     roleMaxScoresBuffer = new int[numRoles];
+    weightsToUse = xiStateMachine.createMoveWeights();
 
     //  For now assume players in muli-player games are somewhat irrational.
     //  FUTURE - adjust during the game based on correlations with expected
@@ -507,9 +510,12 @@ public class MCTSTree
       //validateAll();
       TreeNode node = completedNodeQueue.remove(0);
 
-      if (!node.freed)
+      //  Rarely we can have a situation where a complete node is queued, but gets freed by a parent completion DIRECTLY
+      //  processed from expand, and then reallocated before it gets processed here.  To address this flaw we really ought
+      //  to queue refs rather than actual nodes, but it is extremely rare, so, for now we just (heuristically) trap it
+      //  by checking this is actually a compete unfreed node
+      if (!node.freed && node.complete)
       {
-        assert(node.complete);
         node.processCompletion();
       }
     }
@@ -641,7 +647,13 @@ public class MCTSTree
 
             if ( existingRootStateNode.complete)
             {
-              root.markComplete(existingRootStateNode, existingRootStateNode.getCompletionDepth());
+              //  There are two possible reasons the old root could have been marked as
+              //  complete - either it was complete because of the state of its children
+              //  in which case we want to re-propagate that, or else it had been marked
+              //  complete but local search without known path (in which case we must re-find
+              //  the completion and so clear the completion)
+              existingRootStateNode.complete = false;
+              existingRootStateNode.checkChildCompletion(false);
             }
           }
 
@@ -741,16 +753,27 @@ public class MCTSTree
     }
     //validateAll();
 
-    if (root.complete && root.mNumChildren == 0)
+    if (root.mNumChildren == 0)
     {
-      LOGGER.info("Encountered complete root with trimmed children - must re-expand");
+      LOGGER.info("Encountered childless root - must re-expand");
+
+      if ( root.complete )
+      {
+        numCompletedBranches--;
+      }
       root.complete = false;
       //  Latched score detection can cause a node that is not strictly terminal (but has totally
       //  fixed scores for all subtrees) to be flagged as terminal - we must reset this to ensure
       //  it get re-expanded one level (from which we'll essentially make a random choice)
       root.isTerminal = false;
-      numCompletedBranches--;
+
+      //  Must expand here as async activity on the local search can mark the root complete again
+      //  before an expansion takes place if we let control flow out of the synchronized section
+      //  before expanding
+      root.expand(null, mJointMoveBuffer, rootDepth-1);
     }
+
+    LOGGER.info("Root has " + root.mNumChildren + " children, and is " + (root.complete ? "complete" : "not complete"));
 
     lowestRolloutScoreSeen = 1000;
     highestRolloutScoreSeen = -100;
@@ -789,31 +812,36 @@ public class MCTSTree
   }
 
   /**
-   * @return the best top-level move from this tree.
+   * @param firstDecision if false choice from the root always else choice from first node that has one
+   * @return the best move from this tree.
    */
-  public FactorMoveChoiceInfo getBestMove()
+  public FactorMoveChoiceInfo getBestMove(boolean firstDecision)
   {
-    FactorMoveChoiceInfo bestMoveInfo = root.getBestMove(true, null);
+    FactorMoveChoiceInfo bestMoveInfo = root.getBestMove(true, null, firstDecision);
 
-    LOGGER.info("Num nodes in use: " + nodePool.getNumItemsInUse());
-    LOGGER.info("Num true rollouts added: " + numNonTerminalRollouts);
-    LOGGER.info("Num terminal nodes revisited: " + numTerminalRollouts);
-    LOGGER.info("Num incomplete nodes: " + numIncompleteNodes);
-    LOGGER.info("Num completely explored branches: " + numCompletedBranches);
-    if (numAutoExpansions + numNormalExpansions > 0)
+    if ( !firstDecision )
     {
-      LOGGER.info("Percentage forced single-choice expansion: " +
-                  ((double)numAutoExpansions / (numAutoExpansions + numNormalExpansions)));
-      LOGGER.info("Average depth of auto-expansion instances: " + averageAutoExpansionDepth);
-      LOGGER.info("Maximum depth of auto-expansion instances: " + maxAutoExpansionDepth);
+      LOGGER.info("Num nodes in use: " + nodePool.getNumItemsInUse());
+      LOGGER.info("Num true rollouts added: " + numNonTerminalRollouts);
+      LOGGER.info("Num terminal nodes revisited: " + numTerminalRollouts);
+      LOGGER.info("Num incomplete nodes: " + numIncompleteNodes);
+      LOGGER.info("Num completely explored branches: " + numCompletedBranches);
+      if (numAutoExpansions + numNormalExpansions > 0)
+      {
+        LOGGER.info("Percentage forced single-choice expansion: " +
+                    ((double)numAutoExpansions / (numAutoExpansions + numNormalExpansions)));
+        LOGGER.info("Average depth of auto-expansion instances: " + averageAutoExpansionDepth);
+        LOGGER.info("Maximum depth of auto-expansion instances: " + maxAutoExpansionDepth);
+      }
+      LOGGER.info("Current observed rollout score range: [" +
+                  lowestRolloutScoreSeen + ", " +
+                  highestRolloutScoreSeen + "]");
+
+      numNonTerminalRollouts = 0;
+      numTerminalRollouts = 0;
     }
-    LOGGER.info("Current observed rollout score range: [" +
-                lowestRolloutScoreSeen + ", " +
-                highestRolloutScoreSeen + "]");
 
-    numNonTerminalRollouts = 0;
-    numTerminalRollouts = 0;
-
+    //root.dumpTree("treeDump.txt");
     return bestMoveInfo;
   }
 
@@ -878,10 +906,32 @@ public class MCTSTree
     }
   }
 
+  public boolean validateForcedMoveProps(ForwardDeadReckonInternalMachineState xiState, ForwardDeadReckonLegalMoveInfo[] jointMove)
+  {
+    if ( removeNonDecisionNodes )
+    {
+      for(int i = 0; i < numRoles; i++)
+      {
+        Role role = roleOrdering.roleIndexToRole(i);
+        ForwardDeadReckonLegalMoveSet moves = underlyingStateMachine.getLegalMoveSet(xiState);
+        if (searchFilter.getFilteredMovesSize(xiState, moves, role, true) == 1)
+        {
+          ForwardDeadReckonLegalMoveInfo expectedMove = moves.getContents(role).iterator().next();
+          if ((jointMove[i].inputProposition == null) != (expectedMove.inputProposition == null))
+          {
+            return false;
+          }
+        }
+      }
+    }
+
+    return true;
+  }
+
   private void selectAction(boolean forceSynchronous, Move xiChosenMove)
     throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
-    completedNodeQueue.clear();
+    //completedNodeQueue.clear();
 
     long lSelectStartTime = System.nanoTime();
     TreePath visited = mPathPool.allocate(mTreePathAllocator);

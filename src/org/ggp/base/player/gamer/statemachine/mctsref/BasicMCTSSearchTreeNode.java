@@ -2,9 +2,9 @@ package org.ggp.base.player.gamer.statemachine.mctsref;
 
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 
-public class BasicMCTSSearchTreeNode extends SearchTreeNode<BasicMCTSSearchTree>
+public class BasicMCTSSearchTreeNode extends SearchTreeNode
 {
-  public BasicMCTSSearchTreeNode(BasicMCTSSearchTree xiTree,
+  public BasicMCTSSearchTreeNode(SearchTree xiTree,
                                  ForwardDeadReckonInternalMachineState xiState,
                                  int xiChoosingRole)
   {
@@ -12,19 +12,22 @@ public class BasicMCTSSearchTreeNode extends SearchTreeNode<BasicMCTSSearchTree>
   }
 
   @Override
-  protected void updateScore(SearchTreeNode<BasicMCTSSearchTree> xiChild, double[] playoutResult)
+  boolean updateScore(SearchTreeNode xiChild, double[] playoutResult)
   {
     for(int i = 0; i < scoreVector.length; i++)
     {
       scoreVector[i] = (scoreVector[i]*numVisits + playoutResult[i])/(numVisits+1);
     }
-    numVisits++;
+
+    return true;
   }
 
   @Override
-  SearchTreeNode<BasicMCTSSearchTree> createNode(ForwardDeadReckonInternalMachineState xiState,
-                                                 int xiChoosingRole)
+  SearchTreeNode createNode(ForwardDeadReckonInternalMachineState xiState,
+                            int xiChoosingRole)
   {
+    // TODO Auto-generated method stub
     return new BasicMCTSSearchTreeNode(tree, xiState, xiChoosingRole);
   }
+
 }

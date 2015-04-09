@@ -70,7 +70,7 @@ public final class SampleSearchLightGamer extends StateMachineGamer
     long start = System.currentTimeMillis();
     long finishBy = timeout - 1000;
 
-    List<Move> moves = theMachine.getLegalMoves(getCurrentState(), getRole());
+    List<Move> moves = new ArrayList<>(theMachine.getLegalMoves(getCurrentState(), getRole()));
     Move selection = (moves.get(new Random().nextInt(moves.size())));
 
     // Shuffle the moves into a random order, so that when we find the first

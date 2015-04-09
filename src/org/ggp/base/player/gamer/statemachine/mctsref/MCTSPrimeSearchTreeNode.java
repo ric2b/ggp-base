@@ -16,10 +16,11 @@ public class MCTSPrimeSearchTreeNode extends SearchTreeNode
   }
 
   @Override
-  protected void updateScore(SearchTreeNode xiChild, double[] xiPlayoutResult)
+  boolean updateScore(SearchTreeNode xiChild, double[] xiPlayoutResult)
   {
     updateScoreNormalDistAllCompare(xiChild, xiPlayoutResult);
-    numVisits++;
+
+    return true;
   }
 
   private double getStdDeviationEstimate()
@@ -148,7 +149,7 @@ public class MCTSPrimeSearchTreeNode extends SearchTreeNode
         }
       }
 
-      System.out.println("weight total = " + weightTotal);
+      System.out.println("weigth total = " + weightTotal);
 
       assert(weightTotal > 0);
       for(int i = 0; i < scoreVector.length; i++)

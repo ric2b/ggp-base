@@ -9,7 +9,7 @@ public abstract class SearchTree
 {
   private final ForwardDeadReckonPropnetStateMachine stateMachine;
   private final int numRoles;
-  private SearchTreeNode<SearchTree> root;
+  private SearchTreeNode root;
   private final double[] playoutScoreBuffer;
   private final ForwardDeadReckonLegalMoveInfo[] jointMoveBuffer;
 
