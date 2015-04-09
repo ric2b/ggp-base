@@ -2,13 +2,13 @@ package org.ggp.base.player.gamer.statemachine.mctsref;
 
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 
-public class MCTSPrimeSearchTreeNode extends SearchTreeNode
+public class MCTSPrimeSearchTreeNode extends SearchTreeNode<MCTSPrimeSearchTree>
 {
   private final double ROOT2 = Math.sqrt(2);
   private final double A = 8*(Math.PI - 3)/(3*Math.PI*(4 - Math.PI));
   private final int THRESHOLD_VISITS = 20;
 
-  public MCTSPrimeSearchTreeNode(SearchTree xiTree,
+  public MCTSPrimeSearchTreeNode(MCTSPrimeSearchTree xiTree,
                                  ForwardDeadReckonInternalMachineState xiState,
                                  int xiChoosingRole)
   {
@@ -16,11 +16,10 @@ public class MCTSPrimeSearchTreeNode extends SearchTreeNode
   }
 
   @Override
-  boolean updateScore(SearchTreeNode xiChild, double[] xiPlayoutResult)
+  protected
+  void updateScore(SearchTreeNode<MCTSPrimeSearchTree> xiChild, double[] xiPlayoutResult)
   {
     updateScoreNormalDistAllCompare(xiChild, xiPlayoutResult);
-
-    return true;
   }
 
   private double getStdDeviationEstimate()
@@ -28,7 +27,7 @@ public class MCTSPrimeSearchTreeNode extends SearchTreeNode
     return complete ? 0 : 141*Math.sqrt(1/((double)numVisits+1));
   }
 
-  private void updateScoreNormalDist(SearchTreeNode xiChild, double[] xiPlayoutResult)
+  private void updateScoreNormalDist(SearchTreeNode<MCTSPrimeSearchTree> xiChild, double[] xiPlayoutResult)
   {
     if ( numVisits < THRESHOLD_VISITS )
     {
@@ -47,7 +46,7 @@ public class MCTSPrimeSearchTreeNode extends SearchTreeNode
       pivot = -Double.MAX_VALUE;
       for(int i = 0; i < children.length; i++)
       {
-        SearchTreeNode child = children[i];
+        SearchTreeNode<MCTSPrimeSearchTree> child = children[i];
         if ( child.numVisits > 0 && child.scoreVector[choosingRole] > pivot )
         {
           pivot = child.scoreVector[choosingRole];
@@ -74,7 +73,7 @@ public class MCTSPrimeSearchTreeNode extends SearchTreeNode
 
       for(int i = 0; i < children.length; i++)
       {
-        SearchTreeNode child = children[i];
+        SearchTreeNode<MCTSPrimeSearchTree> child = children[i];
 
         if ( child.numVisits > 0 )
         {
@@ -102,7 +101,7 @@ public class MCTSPrimeSearchTreeNode extends SearchTreeNode
     }
   }
 
-  private void updateScoreNormalDistAllCompare(SearchTreeNode xiChild, double[] xiPlayoutResult)
+  private void updateScoreNormalDistAllCompare(SearchTreeNode<MCTSPrimeSearchTree> xiChild, double[] xiPlayoutResult)
   {
     if ( numVisits < THRESHOLD_VISITS )
     {
@@ -159,7 +158,7 @@ public class MCTSPrimeSearchTreeNode extends SearchTreeNode
     }
   }
 
-  private void updateScoreNormalizedSelection(SearchTreeNode xiChild, double[] xiPlayoutResult)
+  private void updateScoreNormalizedSelection(SearchTreeNode<MCTSPrimeSearchTree> xiChild, double[] xiPlayoutResult)
   {
     if ( numVisits < THRESHOLD_VISITS )
     {
@@ -179,7 +178,7 @@ public class MCTSPrimeSearchTreeNode extends SearchTreeNode
       pivot = -Double.MAX_VALUE;
       for(int i = 0; i < children.length; i++)
       {
-        SearchTreeNode child = children[i];
+        SearchTreeNode<MCTSPrimeSearchTree> child = children[i];
         if ( child.numVisits > 0 )
         {
           if ( child.scoreVector[choosingRole] > pivot || (child.scoreVector[choosingRole] == pivot && child.complete))
@@ -213,7 +212,7 @@ public class MCTSPrimeSearchTreeNode extends SearchTreeNode
 
       for(int i = 0; i < children.length; i++)
       {
-        SearchTreeNode child = children[i];
+        SearchTreeNode<MCTSPrimeSearchTree> child = children[i];
 
         if ( child.numVisits > 0 && child.scoreVector[choosingRole] > floor )
         {
@@ -245,7 +244,7 @@ public class MCTSPrimeSearchTreeNode extends SearchTreeNode
       double low = Double.MAX_VALUE;
       double high = -Double.MAX_VALUE;
 
-      for(SearchTreeNode child : children)
+      for(SearchTreeNode<MCTSPrimeSearchTree> child : children)
       {
         if ( child.numVisits > 0 )
         {

@@ -3,11 +3,11 @@ package org.ggp.base.player.gamer.statemachine.mctsref;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 
-public class ValidatedPlayoutMCTSSearchTreeNode extends SearchTreeNode
+public class ValidatedPlayoutMCTSSearchTreeNode extends SearchTreeNode<ValidatedPlayoutMCTSSearchTree>
 {
   private static final int PLAYOUT_VALIDATION_DEPTH = 2;
 
-  public ValidatedPlayoutMCTSSearchTreeNode(SearchTree xiTree,
+  public ValidatedPlayoutMCTSSearchTreeNode(ValidatedPlayoutMCTSSearchTree xiTree,
                                  ForwardDeadReckonInternalMachineState xiState,
                                  int xiChoosingRole)
   {
@@ -15,19 +15,20 @@ public class ValidatedPlayoutMCTSSearchTreeNode extends SearchTreeNode
   }
 
   @Override
-  boolean updateScore(SearchTreeNode xiChild, double[] xiPlayoutResult)
+  protected
+  void updateScore(SearchTreeNode xiChild, double[] xiPlayoutResult)
   {
-    if ( xiChild != null && xiChild.complete && xiPlayoutResult[choosingRole] < EPSILON && scoreVector[choosingRole] > EPSILON )
+    if ( (xiChild != null && xiChild.complete && xiPlayoutResult[choosingRole] < EPSILON && scoreVector[choosingRole] > EPSILON) || tree.mSuppressBackProp )
     {
-      return false;
+      tree.mSuppressBackProp = true;
     }
-
-    for(int i = 0; i < scoreVector.length; i++)
+    else
     {
-      scoreVector[i] = (scoreVector[i]*numVisits + xiPlayoutResult[i])/(numVisits+1);
+      for(int i = 0; i < scoreVector.length; i++)
+      {
+        scoreVector[i] = (scoreVector[i]*numVisits + xiPlayoutResult[i])/(numVisits+1);
+      }
     }
-
-    return true;
   }
 
   @Override

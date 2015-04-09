@@ -86,7 +86,6 @@ public class ARRSearchTreeNode extends SearchTreeNode<ARRSearchTree>
     {
       scoreVector[i] = (scoreVector[i]*numVisits + playoutResult[i])/(numVisits+1);
     }
-    numVisits++;
   }
 
   @Override

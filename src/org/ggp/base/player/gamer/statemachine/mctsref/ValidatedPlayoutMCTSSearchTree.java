@@ -7,6 +7,7 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 public class ValidatedPlayoutMCTSSearchTree extends SearchTree
 {
   private final LocalRegionSearcher localSearcher;
+  boolean mSuppressBackProp = false;
 
   public ValidatedPlayoutMCTSSearchTree(ForwardDeadReckonPropnetStateMachine xiStateMachine)
   {
@@ -25,4 +26,10 @@ public class ValidatedPlayoutMCTSSearchTree extends SearchTree
   {
     return localSearcher;
   }
-}
+
+  @Override
+  public void grow()
+  {
+    mSuppressBackProp = false;
+    super.grow();
+  }}

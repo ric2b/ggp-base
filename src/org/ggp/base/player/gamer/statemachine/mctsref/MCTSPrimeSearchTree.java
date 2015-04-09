@@ -12,7 +12,7 @@ public class MCTSPrimeSearchTree extends SearchTree
   }
 
   @Override
-  protected SearchTreeNode createRootTreeNode(ForwardDeadReckonInternalMachineState xiRootState)
+  protected SearchTreeNode<MCTSPrimeSearchTree> createRootTreeNode(ForwardDeadReckonInternalMachineState xiRootState)
   {
     return new MCTSPrimeSearchTreeNode(this, xiRootState, 0);
   }
