@@ -171,6 +171,8 @@ public class DependencyDistanceAnalyser
     }
 
     //  From the move info construct initial prop info detailing which moves link to each base prop
+    int numPropsConsidered = 0;
+    int numMovesDirectlyInfluenced = 0;
 
     //  Create an inverse mapping of moves affecting each base prop, ignoring control props
     //HashMap<PolymorphicProposition,HashSet<MoveInfo>> basePropMoves = new HashMap<>();
@@ -192,6 +194,8 @@ public class DependencyDistanceAnalyser
 //        }
 //      }
 
+      numPropsConsidered++;
+
       if ( basePropInfo[propInfo.index] == null )
       {
         basePropInfo[propInfo.index] = new BasePropInfo();
@@ -207,7 +211,8 @@ public class DependencyDistanceAnalyser
                                                      basePropInfo[propInfo.index].potentiallyDisabledMoves,
                                                      true);
 
-
+      numMovesDirectlyInfluenced += basePropInfo[propInfo.index].potentiallyEnabledMoves.cardinality() +
+                                    basePropInfo[propInfo.index].potentiallyDisabledMoves.cardinality();
 //      basePropInfo[propInfo.index].moves = moveSet;
 //
 //      //  Fill in distance 1 links to the other base props each move influences
@@ -241,6 +246,18 @@ public class DependencyDistanceAnalyser
 //          }
 //        }
 //      }
+    }
+
+    //  Sanity check that we might be able to get meaningful distances
+    if ( numPropsConsidered > 0)
+    {
+      if ( numMovesDirectlyInfluenced/numPropsConsidered > moveList.length/5 )
+      {
+        //  Base props each influence a large proportion of possible moves which means
+        //  couplings will be too strong to yield useful distances
+        LOGGER.info("Couplings too strong to yield useful distances");
+        return null;
+      }
     }
 
     //  Add goal coupling info the proposition dependency info
@@ -333,7 +350,7 @@ public class DependencyDistanceAnalyser
         MoveInfo moveInfo = moveDependencyInfo[i];
         boolean processingOppositeMoveRole = true;
 
-        boolean trace = (moveList[i].toString().contains("5 2 6 1") || moveList[i].toString().contains("5 2 6 12"));
+        boolean trace = false;//(moveList[i].toString().contains("5 2 6 1") || moveList[i].toString().contains("5 2 6 12"));
         if ( trace )
         {
           LOGGER.info("Tracing from props at distance " + targetDistance + " of move " + moveList[i]);

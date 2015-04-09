@@ -53,6 +53,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private double              mAverageLength          = -1;
   private double              mStdDeviationLength     = 0;
   private double              mAverageNonDrawLength   = 0;
+  private int                 mMinNonDrawLength       = 0;
   private double              mGoalsStability         = 0;
   private double              mLongDrawsProportion  = 0;
   private long                mMaxFactorFailureTime   = 0;
@@ -345,6 +346,16 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   public void setAverageNonDrawLength(double xiAverageNonDrawLength)
   {
     mAverageNonDrawLength = xiAverageNonDrawLength;
+  }
+
+  public int getMinNonDrawLength()
+  {
+    return mMinNonDrawLength;
+  }
+
+  public void setMinNonDrawLength(int xiMinNonDrawLength)
+  {
+    mMinNonDrawLength = xiMinNonDrawLength;
   }
 
   @Override

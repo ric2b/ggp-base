@@ -122,6 +122,12 @@ public class MoveConsequenceSearcher implements Runnable, LocalSearchController
     ThreadContext.put("matchID", mLogName);
     ThreadControl.registerSearchThread();
 
+    if ( !regionSearcher.canPerformLocalSearch() )
+    {
+      LOGGER.info("Local search not supported for this game");
+      return;
+    }
+
     while(!mTerminateRequested)
     {
       synchronized(this)

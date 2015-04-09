@@ -374,6 +374,11 @@ public class Sancho extends SampleGamer
 
     //  Buffer for new states
     ForwardDeadReckonInternalMachineState newState = new ForwardDeadReckonInternalMachineState(initialState);
+    int[] playerMoveParity = new int[numRoles];
+    for(int i = 0; i < numRoles; i++)
+    {
+      playerMoveParity[i] = -1;
+    }
 
     //  Slight hack, but for now we don't bother continuing to simulate for a long time after discovering we're in
     //  a simultaneous turn game, because (for now anyway) we disable heuristics in such games anyway
@@ -383,7 +388,7 @@ public class Sancho extends SampleGamer
 
       int numRoleMovesSimulated = 0;
       int numBranchesTaken = 0;
-      int previousChoosingRoleIndex = -1;
+      int turnNum = 0;
 
       heuristic.tuningStartSampleGame();
 
@@ -394,6 +399,8 @@ public class Sancho extends SampleGamer
         Set<Move> allMovesInState = new HashSet<>();
 
         int choosingRoleIndex = -2;
+
+        turnNum++;
 
         for (int i = 0; i < numRoles; i++)
         {
@@ -447,13 +454,17 @@ public class Sancho extends SampleGamer
             choosingRoleIndex = i;
             Factor turnFactor = null;
 
-            //  TODO - need to improve the way we determine alternating control - cf - Kalaha
-            //  Can probably use the role control masks, but we'd have to build them on the fly
-            //  and pre-eliminate control props to do that as currently they are not set up in time
-            //  for this sampling loop
-            if ( previousChoosingRoleIndex == choosingRoleIndex )
+            if ( mGameCharacteristics.isStrictlyAlternatingPlay )
             {
-              mGameCharacteristics.isStrictlyAlternatingPlay = false;
+              int moveParity = (turnNum%numRoles);
+              if ( playerMoveParity[choosingRoleIndex] == -1 )
+              {
+                playerMoveParity[choosingRoleIndex] = moveParity;
+              }
+              else if ( moveParity != playerMoveParity[choosingRoleIndex] )
+              {
+                mGameCharacteristics.isStrictlyAlternatingPlay = false;
+              }
             }
 
             for (ForwardDeadReckonLegalMoveInfo moveInfo : legalMoves)
@@ -492,12 +503,6 @@ public class Sancho extends SampleGamer
 
             numBranchesTaken += legalMoves.size();
             numRoleMovesSimulated++;
-
-            previousChoosingRoleIndex = choosingRoleIndex;
-          }
-          else
-          {
-            previousChoosingRoleIndex = -1;
           }
 
           jointMove[i] = legalMoves.get(r.nextInt(legalMoves.size()));
@@ -642,6 +647,7 @@ public class Sancho extends SampleGamer
     int numNonDrawSimulations = 0;
     int numLongDraws = 0;
     int numLongGames = 0;
+    int minNumNonDrawTurns = Integer.MAX_VALUE;
 
     while (System.currentTimeMillis() < simulationStopTime)
     {
@@ -660,6 +666,10 @@ public class Sancho extends SampleGamer
       {
         numNonDrawSimulations++;
         averageNumNonDrawTurns += rolloutStats[0];
+        if ( minNumNonDrawTurns > rolloutStats[0] )
+        {
+          minNumNonDrawTurns = rolloutStats[0];
+        }
       }
 
       for (int i = 0; i < numRoles; i++)
@@ -749,6 +759,7 @@ public class Sancho extends SampleGamer
     mGameCharacteristics.setAverageLength(averageNumTurns);
     mGameCharacteristics.setStdDeviationLength(stdDevNumTurns);
     mGameCharacteristics.setAverageNonDrawLength(averageNumNonDrawTurns);
+    mGameCharacteristics.setMinNonDrawLength(minNumNonDrawTurns);
     mGameCharacteristics.setLongDrawsProportion(((double)numLongDraws)/(double)numLongGames);
 
     mGameCharacteristics.setEarliestCompletionDepth(numRoles*minNumTurns);

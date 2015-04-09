@@ -255,12 +255,21 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
     mNodePool.setNonFreeThreshold(factorTrees.length*MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
 
-    if ( MachineSpecificConfiguration.getCfgVal(CfgItem.USE_LOCAL_SEARCH, false))
+    if ( MachineSpecificConfiguration.getCfgVal(CfgItem.USE_LOCAL_SEARCH, true))
     {
-      if ( factorTrees.length == 1 && gameCharacteristics.numRoles == 2 && !gameCharacteristics.isSimultaneousMove && gameCharacteristics.isStrictlyAlternatingPlay)
+      if ( factorTrees.length == 1 &&
+          gameCharacteristics.numRoles == 2 &&
+          !gameCharacteristics.isPseudoSimultaneousMove &&
+          gameCharacteristics.isStrictlyAlternatingPlay &&
+          gameCharacteristics.getMinNonDrawLength() < gameCharacteristics.getAverageLength()/2 &&
+          gameCharacteristics.getAverageLength() < (2*(double)gameCharacteristics.getMaxLength())/3)
       {
         localSearchRoot = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
         moveConsequenceSearcher = new MoveConsequenceSearcher(underlyingStateMachine.createInstance(), roleOrdering, mLogName, this);
+      }
+      else
+      {
+        LOGGER.info("This game is not suitable for local search");
       }
     }
 

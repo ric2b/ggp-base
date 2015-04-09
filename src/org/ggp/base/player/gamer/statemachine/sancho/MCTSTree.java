@@ -209,7 +209,7 @@ public class MCTSTree
     //    2) Simultaneous move games, because we must assess the impact of a move in a cousin
     //       to cope with partial information, and a forced choice in one node does not imply
     //       a forced choice in all cousins
-    removeNonDecisionNodes = (numRoles > 1 && !xiGameCharacteristics.isSimultaneousMove);
+    removeNonDecisionNodes = (numRoles > 1 && !xiGameCharacteristics.isSimultaneousMove && (!xiGameCharacteristics.isPseudoSimultaneousMove || xiFactor != null));
 
     //  Apply decay and cutoff if either:
     //    1)  The goals are sufficiently stable (goals in a non-terminal state are a good predictor
