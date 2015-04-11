@@ -36,7 +36,7 @@ import org.xml.sax.InputSource;
  */
 public class GameStateRenderer
 {
-  private static final Dimension defaultSize = new Dimension(1200, 1000);
+  private static final Dimension defaultSize = new Dimension(1000, 800);
 
   public static Dimension getDefaultSize()
   {
@@ -54,7 +54,7 @@ public class GameStateRenderer
 
     xhtml = xhtml
         .replace("<body>",
-                 "<body><table width=\"1160\" height=\"960\"><tr><td>");
+                 "<body><table width=\"960\" height=\"760\"><tr><td>");
     xhtml = xhtml.replace("</body>", "</td></tr></table></body>");
 
     InputSource is = new InputSource(new BufferedReader(new StringReader(xhtml)));
