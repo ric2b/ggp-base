@@ -20,6 +20,7 @@ public class MCTSPrimeSearchTreeNode extends SearchTreeNode<MCTSPrimeSearchTree>
   void updateScore(SearchTreeNode<MCTSPrimeSearchTree> xiChild, double[] xiPlayoutResult)
   {
     updateScoreNormalDistAllCompare(xiChild, xiPlayoutResult);
+    numVisits++;
   }
 
   private double getStdDeviationEstimate()

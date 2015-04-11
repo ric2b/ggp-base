@@ -177,8 +177,6 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
       //  Update our score with the playout result
       updateScore(selectedChild, playoutResult);
     }
-
-    numVisits++;
   }
 
   private void processChildCompletion(SearchTreeNode<TreeType> selectedChild)

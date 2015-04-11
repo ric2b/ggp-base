@@ -37,7 +37,7 @@ public class ARRGamer extends StateMachineGamer
   @Override
   public Move stateMachineSelectMove(long xiTimeout)
   {
-    long finishBy = xiTimeout - SAFETY_MARGIN;// + 100000000;
+    long finishBy = xiTimeout - SAFETY_MARGIN;
     int iterations = 0;
 
    //  Convert to internal rep
@@ -48,18 +48,8 @@ public class ARRGamer extends StateMachineGamer
 
     while(System.currentTimeMillis() < finishBy && !tree.isSolved())
     {
-//      if ( iterations > 0 )
-//      {
-//        System.out.println("After " + iterations + " iterations:");
-//        tree.getBestMove();
-//      }
       iterations++;
       tree.grow();
-
-//      if ( iterations > 100 )
-//      {
-//        System.out.println("!");
-//      }
     }
 
     System.out.println("Processed " + iterations + " iterations");

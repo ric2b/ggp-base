@@ -18,6 +18,7 @@ public class BasicMCTSSearchTreeNode extends SearchTreeNode<BasicMCTSSearchTree>
     {
       scoreVector[i] = (scoreVector[i]*numVisits + playoutResult[i])/(numVisits+1);
     }
+    numVisits++;
   }
 
   @Override

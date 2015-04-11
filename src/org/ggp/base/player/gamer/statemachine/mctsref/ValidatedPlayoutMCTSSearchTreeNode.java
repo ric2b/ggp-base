@@ -29,6 +29,7 @@ public class ValidatedPlayoutMCTSSearchTreeNode extends SearchTreeNode<Validated
         scoreVector[i] = (scoreVector[i]*numVisits + xiPlayoutResult[i])/(numVisits+1);
       }
     }
+    numVisits++;
   }
 
   @Override
