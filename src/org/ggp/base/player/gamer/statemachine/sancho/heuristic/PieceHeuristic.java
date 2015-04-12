@@ -45,6 +45,8 @@ public class PieceHeuristic implements Heuristic
   //  Similarly - we don't want to consider very large choices as possibly being piece types - for now we
   //  cap at what chess needs (6 types of pieces, possibly encoded separately for each of two roles)
   private static final int                                               MAX_NUM_PIECES            = 12;
+  //  Don't consider board sizes less than 4 (X4 in the 2D case)
+  private static final int                                               MIN_BOARD_DIMENSION       = 4;
   //  How much of a material difference do we consider enough to warrant sequence flagging
   private static final double                                            MIN_HEURISTIC_DIFF_FOR_SEQUENCE = 0.01;
 
@@ -325,7 +327,21 @@ public class PieceHeuristic implements Heuristic
             {
               smallestRangeSize = rangeSize;
             }
-            else if ( rangeSize == smallestRangeSize )
+            //  Slight hack - we're trying to avoid accidentally trying to treat a board
+            //  dimension as a piece type or owning role (which can be combined in some games)
+            //  For this reason if the smallest arity is actually a board dimension (if there
+            //  are more types of pieces than that, as in Los Alamos Chess) then we want to
+            //  ignore the smallest arity and try the next size up.  However, only do this
+            //  if the size we're ignoring is a plausible board dimension.  If the actual role/type
+            //  indicator is not of unique range size we cannot reliably find it in this manner
+            //  (which is why it's a slight hack and needs to be replaced with something more
+            //  robust at some point).  Awkward cases arise if the number of piece types are
+            //  equal to a board dimension (too bad!) or if the role and piece type are separated
+            //  but have the same cardinality (English Draughts for example).  In the event of a tie
+            //  we take the first one mentioned in the sentence (because it's a slightly more
+            //  natural way to write the GDL to say 'black king' then 'king black') but obviously
+            //  this is essentially a guess!
+            else if ( rangeSize == smallestRangeSize && rangeSize >= MIN_BOARD_DIMENSION )
             {
               ignoreSize = smallestRangeSize;
             }
@@ -635,7 +651,21 @@ public class PieceHeuristic implements Heuristic
           {
             smallestFit = numValues;
           }
-          else if ( numValues == smallestFit )
+          //  Slight hack - we're trying to avoid accidentally trying to treat a board
+          //  dimension as a piece type or owning role (which can be combined in some games)
+          //  For this reason if the smallest arity is actually a board dimension (if there
+          //  are more types of pieces than that, as in Los Alamos Chess) then we want to
+          //  ignore the smallest arity and try the next size up.  However, only do this
+          //  if the size we're ignoring is a plausible board dimension.  If the actual role/type
+          //  indicator is not of unique range size we cannot reliably find it in this manner
+          //  (which is why it's a slight hack and needs to be replaced with something more
+          //  robust at some point).  Awkward cases arise if the number of piece types are
+          //  equal to a board dimension (too bad!) or if the role and piece type are separated
+          //  but have the same cardinality (English Draughts for example).  In the event of a tie
+          //  we take the first one mentioned in the sentence (because it's a slightly more
+          //  natural way to write the GDL to say 'black king' then 'king black') but obviously
+          //  this is essentially a guess!
+          else if ( numValues == smallestFit && numValues >= MIN_BOARD_DIMENSION )
           {
             ignoreSize = smallestFit;
           }
@@ -645,6 +675,7 @@ public class PieceHeuristic implements Heuristic
       smallestFit = Integer.MAX_VALUE;
 
       //	Look for ranges that have cardinality of a multiple of the number of roles
+
       for (int i = 0; i < fnInfo.paramRanges.size(); i++)
       {
         int numValues = fnInfo.paramRanges.get(i).size();
