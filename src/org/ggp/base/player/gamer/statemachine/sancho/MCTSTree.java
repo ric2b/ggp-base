@@ -163,10 +163,12 @@ public class MCTSTree
   final double[]                                      mNodeAverageSquaredScores;
   final RolloutRequest                                mNodeSynchronousRequest;
   final ForwardDeadReckonLegalMoveInfo[]              mNodeTopMoveCandidates;
+  final ForwardDeadReckonInternalMachineState         mStateScratchBuffer;
   final ForwardDeadReckonInternalMachineState[]       mChildStatesBuffer;
   final ForwardDeadReckonPropositionInfo[]            mRoleControlProps;
   final ForwardDeadReckonInternalMachineState         mNextStateBuffer;
   final ForwardDeadReckonLegalMoveInfo[]              mJointMoveBuffer;
+  final ForwardDeadReckonLegalMoveInfo[]              mFastForwardPartialMoveBuffer;
   final double[]                                      mCorrectedAverageScoresBuffer;
   final double[]                                      mBlendedCompletionScoreBuffer;
 
@@ -351,6 +353,7 @@ public class MCTSTree
     mNodeTopMoveCandidates        = new ForwardDeadReckonLegalMoveInfo[NUM_TOP_MOVE_CANDIDATES];
     mCorrectedAverageScoresBuffer = new double[numRoles];
     mJointMoveBuffer              = new ForwardDeadReckonLegalMoveInfo[numRoles];
+    mFastForwardPartialMoveBuffer = new ForwardDeadReckonLegalMoveInfo[numRoles];
     mBlendedCompletionScoreBuffer = new double[numRoles];
     mNextStateBuffer              = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
     mChildStatesBuffer            = new ForwardDeadReckonInternalMachineState[MAX_SUPPORTED_BRANCHING_FACTOR];
@@ -358,6 +361,7 @@ public class MCTSTree
     {
       mChildStatesBuffer[lii] = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
     }
+    mStateScratchBuffer = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
     mMoveScoreInfoAllocator = new MoveScoreInfoAllocator(numRoles);
     mCachedMoveScorePool = new CappedPool<>(MAX_SUPPORTED_BRANCHING_FACTOR);
   }
@@ -889,11 +893,14 @@ public class MCTSTree
    * are eliminating non-decision nodes
    * @param xiState
    * @param jointMove
+   * @return true if all roles had forced moves
    */
-  public void setForcedMoveProps(ForwardDeadReckonInternalMachineState xiState, ForwardDeadReckonLegalMoveInfo[] jointMove)
+  public boolean setForcedMoveProps(ForwardDeadReckonInternalMachineState xiState, ForwardDeadReckonLegalMoveInfo[] jointMove)
   {
     if ( removeNonDecisionNodes )
     {
+      boolean result = true;
+
       for(int i = 0; i < numRoles; i++)
       {
         Role role = roleOrdering.roleIndexToRole(i);
@@ -902,8 +909,16 @@ public class MCTSTree
         {
           jointMove[i] = moves.getContents(role).iterator().next();
         }
+        else
+        {
+          result = false;
+        }
       }
+
+      return result;
     }
+
+    return false;
   }
 
   public boolean validateForcedMoveProps(ForwardDeadReckonInternalMachineState xiState, ForwardDeadReckonLegalMoveInfo[] jointMove)

@@ -136,6 +136,7 @@ public class CappedPool<ItemType> implements Pool<ItemType>
   @Override
   public void free(ItemType xiItem)
   {
+    assert(mNumItemsInUse > 0);
     mNumItemsInUse--;
     mFreeItems[(mFirstFreeitem + mNumFreeItems++)%mPoolSize] = xiItem;
   }
@@ -152,7 +153,7 @@ public class CappedPool<ItemType> implements Pool<ItemType>
     if (!xiFilter)
     {
       // This is called during meta-gaming when we've finished doing the true meta-gaming tasks and are about to kick
-      // off the regular searched.
+      // off the regular search
 
       // Reset every allocated object and add it to the free list.
       for (int i = 0; i <= mLargestUsedIndex; i++)

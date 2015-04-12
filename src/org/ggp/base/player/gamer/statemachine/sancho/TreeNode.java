@@ -575,9 +575,14 @@ public class TreeNode
 
         for (int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
         {
+          //  Don't take wins by a player other than us in a non fixed-sum >2 player game as auto-propagating
+          //  or else we may search only on a win path that is not the pessimal win-path for us of those that are all
+          //  wins for the opponent concerned (if it's our win just take it and don;t worry if we could possibly
+          //  make them suffer worse-  better to converge quickly)
           tree.underlyingStateMachine.getLatchedScoreRange(parent.state, tree.roleOrdering.roleIndexToRole(roleIndex), tree.latchedScoreRangeBuffer);
           if ( tree.latchedScoreRangeBuffer[1] > tree.latchedScoreRangeBuffer[0] &&
-               getAverageScore(roleIndex) > tree.latchedScoreRangeBuffer[1] - EPSILON)
+               getAverageScore(roleIndex) > tree.latchedScoreRangeBuffer[1] - EPSILON &&
+               (choosingRoleIndex == 0 || (tree.gameCharacteristics.getIsFixedSum() && tree.numRoles < 3)) )
           {
             if (roleIndex == choosingRoleIndex &&
                 (tree.removeNonDecisionNodes || roleIndex == 0 || hasSiblinglessParents()))
@@ -1238,7 +1243,11 @@ public class TreeNode
                 bestValue = deciderScore;
                 bestValueNode = lNode;
 
-                if (bestValue > tree.roleMaxScoresBuffer[roleIndex]-EPSILON)
+                //  Force complete on a known win for us, but NOT for other roles, except in
+                //  2 player fixed-sum games.  This is because in non-fixed-sum games it may be
+                //  that a player has several winning moves, and we want to evaluate the worst one for us
+                //  which may not be the first one to complete
+                if ((roleIndex == 0 || (tree.gameCharacteristics.getIsFixedSum() && tree.numRoles < 3)) && bestValue > tree.roleMaxScoresBuffer[roleIndex]-EPSILON)
                 {
                   //	Win for deciding role which they will choose unless it is also
                   //	a mutual win
@@ -1581,6 +1590,7 @@ public class TreeNode
     mostLikelyWinner = -1;
     complete = false;
     allChildrenComplete = false;
+    assert(freed || (xiTree == null));
     freed = (xiTree == null);
     depth = -1;
     sweepSeq = 0;
@@ -1997,12 +2007,13 @@ public class TreeNode
   private void unexpand()
   {
     assert(mNumChildren != 0);
+    assert(linkageValid());
 
     for (int index = 0; index < mNumChildren; index++)
     {
+      Object choice = children[index];
       if (primaryChoiceMapping == null || primaryChoiceMapping[index] == index)
       {
-        Object choice = children[index];
         if ( choice instanceof TreeEdge )
         {
           TreeEdge edge = (TreeEdge)choice;
@@ -2015,6 +2026,10 @@ public class TreeNode
             child.freeFromAncestor(this, null);
           }
         }
+      }
+      else
+      {
+        assert(choice instanceof ForwardDeadReckonLegalMoveInfo);
       }
     }
 
@@ -2335,7 +2350,20 @@ public class TreeNode
         tree.makeFactorState(newState);
       }
     }
+
+    createChildNodeForEdgeWithAssertedState(edge, newState, 0, isPseudoNullMove);
+  }
+
+  /**
+   * @param edge
+   * @param newState
+   * @param extraDepthIncrement
+   * @param isPseudoNullMove
+   */
+  void createChildNodeForEdgeWithAssertedState(TreeEdge edge, ForwardDeadReckonInternalMachineState newState, int extraDepthIncrement, boolean isPseudoNullMove)
+  {
     TreeNode newChild = tree.allocateNode(newState, this, isPseudoNullMove);
+    int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
 
     assert(!newChild.freed);
     edge.setChild(newChild);
@@ -2358,7 +2386,6 @@ public class TreeNode
       }
     }
 
-
     //  If this was a transposition to an existing node it can be linked at multiple depths.
     //  Give it the lowest depth at which it has been seen, as this is guaranteed to preserve
     //  correct implicit semantics of unexpanded children (assertion of non-terminality if below
@@ -2366,11 +2393,11 @@ public class TreeNode
     int expectedDepth;
     if ( tree.removeNonDecisionNodes && mNumChildren > 1 )
     {
-      expectedDepth = ((depth/tree.numRoles + 1)*tree.numRoles + (newChild.decidingRoleIndex+1)%tree.numRoles);
+      expectedDepth = ((depth/tree.numRoles + 1)*tree.numRoles + (newChild.decidingRoleIndex+1)%tree.numRoles) + extraDepthIncrement;
     }
     else
     {
-      expectedDepth = depth+1;
+      expectedDepth = depth + 1 + extraDepthIncrement;
     }
     if ( newChild.depth < 0 || newChild.depth > expectedDepth )
     {
@@ -2738,7 +2765,7 @@ public class TreeNode
     int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
 
     //  Don't bother evaluating terminality of children above the earliest completion depth
-    boolean evaluateTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation && depth >= tree.gameCharacteristics.getEarliestCompletionDepth());
+    boolean evaluateTerminalOnNodeCreation = (tree.evaluateTerminalOnNodeCreation && (depth >= tree.gameCharacteristics.getEarliestCompletionDepth() || tree.heuristic.isEnabled()));
 
     //  Don't evaluate terminality on the root since it cannot be (and latched score states
     //  might indicate it should be treated as such, but this is never correct for the root)
@@ -2795,6 +2822,7 @@ public class TreeNode
       //LOGGER.debug("Expand our moves from state: " + state);
       ForwardDeadReckonLegalMoveSet moves = tree.underlyingStateMachine.getLegalMoveSet(state);
       mNumChildren = (short)tree.searchFilter.getFilteredMovesSize(state, moves, choosingRole, true);
+      assert(mNumChildren > 0) : "Filtered move list for node was empty";
       Iterator<ForwardDeadReckonLegalMoveInfo> itr;
 
       if ( mNumChildren == 1 && this != tree.root && tree.removeNonDecisionNodes )
@@ -2976,6 +3004,7 @@ public class TreeNode
             if ( !freed )
             {
               assert(this != tree.root);
+              assert(mNumChildren == 1) : "Expansion of non-decision node occuring on apparent decision node!";
               mNumChildren = 0; //  Must reset this so it appears unexpanded for other paths if it doesn't get freed
               assert(parents.size() > 0);
               if ( parents.contains(parent) )
@@ -3050,6 +3079,7 @@ public class TreeNode
         if ( result == this )
         {
           assert(this != tree.root);
+          assert(mNumChildren == 1) : "Expansion of non-decision node occuring on apparent decision node!";
           mNumChildren = 0;
           depth++;
           decidingRoleIndex = (decidingRoleIndex+1)%tree.numRoles;
@@ -3177,7 +3207,7 @@ public class TreeNode
         //  wherein all virtual noops are considered to be the same and thus
         //  transition to the same state.  This is not strictly accurate, but is
         //  likely to be a very good approximation for any reasonable game.  The
-        //  approximation would brak down in games where:
+        //  approximation would break down in games where:
         //  1) There is a pool of virtual no-ops (aka moves that impact only parts of the
         //     base state space that are disconnected for our goals)
         //  2) An elective no-op can be beneficial
@@ -3214,21 +3244,89 @@ public class TreeNode
 
       assert(linkageValid());
 
-      if (evaluateTerminalOnNodeCreation && (tree.removeNonDecisionNodes || roleIndex == tree.numRoles - 1))
+      if (evaluateTerminalOnNodeCreation && ((mNumChildren != 1 && tree.removeNonDecisionNodes) || roleIndex == tree.numRoles - 1))
       {
         for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
         {
           if (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex)
           {
             StateInfo info = calculateTerminalityAndAutoExpansion(tree.mChildStatesBuffer[lMoveIndex]);
+            boolean stateFastForwarded = false;
+            int fastForwardDepthIncrement = 0;
 
-            if (info.isTerminal || info.autoExpand)
+            if ( mNumChildren != 1 && tree.removeNonDecisionNodes )
+            {
+              //  Piggy-back on the fact that we have to run the state anyway to fast-forward
+              //  forced move expansions to their terminus (a choice node or a terminal node)
+              //  In particular note that we always evaluate terminal on creation for games with heuristics
+              //  so this fast-forwarding will always occur in such games
+              while ( !info.isTerminal && tree.setForcedMoveProps(tree.mChildStatesBuffer[lMoveIndex], tree.mFastForwardPartialMoveBuffer) )
+              {
+                fastForwardDepthIncrement += tree.numRoles;
+                stateFastForwarded = true;
+                tree.underlyingStateMachine.getNextState(tree.mChildStatesBuffer[lMoveIndex],
+                                                         tree.factor,
+                                                         tree.mFastForwardPartialMoveBuffer,
+                                                         tree.mStateScratchBuffer);
+
+                //  In a factorized game we need to normalize the generated state
+                //  so as to not fall foul of potential corruption of the non-factor
+                //  element engendered by not making a move in other factors
+                if ( tree.factor != null )
+                {
+                  tree.makeFactorState(tree.mStateScratchBuffer);
+                }
+
+                tree.mChildStatesBuffer[lMoveIndex].copy(tree.mStateScratchBuffer);
+                info = calculateTerminalityAndAutoExpansion(tree.mChildStatesBuffer[lMoveIndex]);
+              }
+
+              if ( stateFastForwarded )
+              {
+                short remappedTo = -1;
+
+                //  Since we have changed the state fixup the primary choice mappings
+                for (short i = 0; i < lMoveIndex; i++)
+                {
+                  if (children[i] != null && tree.mChildStatesBuffer[i].equals(tree.mChildStatesBuffer[lMoveIndex]))
+                  {
+                    if ( primaryChoiceMapping == null )
+                    {
+                      primaryChoiceMapping = new short[mNumChildren];
+                      for(short j = 0; j < mNumChildren; j++)
+                      {
+                        primaryChoiceMapping[j] = j;
+                      }
+                    }
+                    primaryChoiceMapping[lMoveIndex] = i;
+                    remappedTo = i;
+                    break;
+                  }
+                }
+                if ( remappedTo != -1 )
+                {
+                  for(short j = (short)(lMoveIndex+1); j < mNumChildren; j++)
+                  {
+                    if ( primaryChoiceMapping[j] == lMoveIndex )
+                    {
+                      primaryChoiceMapping[j] = remappedTo;
+                    }
+                  }
+                }
+              }
+            }
+
+            //  We need to create the node at once is a fast-forward has taken place since
+            //  the state will not be that reached directly by the move choice and we will
+            //  not have access to the correct state information in other contexts
+            if ( (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) &&
+                 (info.isTerminal || info.autoExpand  || stateFastForwarded) )
             {
               TreeEdge newEdge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
               newEdge.setParent(this, (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex]);
               children[lMoveIndex] = newEdge;
               jointPartialMove[roleIndex] = newEdge.mPartialMove;
-              createChildNodeForEdge(newEdge, jointPartialMove);
+              createChildNodeForEdgeWithAssertedState(newEdge, tree.mChildStatesBuffer[lMoveIndex], fastForwardDepthIncrement, false);
 
               TreeNode newChild = get(newEdge.getChildRef());
               newChild.isTerminal = info.isTerminal;
@@ -3246,6 +3344,8 @@ public class TreeNode
                 }
                 newChild.markComplete(info.terminalScore, (short)(depth + 1));
               }
+
+              assert(newChild.linkageValid());
             }
           }
         }
@@ -3294,7 +3394,7 @@ public class TreeNode
 
       //calculatePathMoveWeights(fullPathTo);
 
-      if ( tree.heuristic.isEnabled() && (tree.removeNonDecisionNodes || roleIndex == tree.numRoles - 1) )
+      if ( tree.heuristic.isEnabled() && ((mNumChildren != 1 && tree.removeNonDecisionNodes) || roleIndex == tree.numRoles - 1) )
       {
         // Determine the appropriate reference node to evaluate children with respect to
         // Evaluate wrt the first ancestor state with a reasonable number of visits which
@@ -3476,7 +3576,7 @@ public class TreeNode
                   newChild.heuristicWeight = heuristicWeightToApply;
 
                   //  If this turns out to be a transition into an already visited child
-                  //  then do not apply the heuristic seeding to the average scors
+                  //  then do not apply the heuristic seeding to the average scores
                   if (newChild.numVisits == 0)
                   {
                     for (int i = 0; i < tree.numRoles; i++)
@@ -4356,7 +4456,7 @@ public class TreeNode
       createChildNodeForEdge(selected, jointPartialMove);
 
       assert(!tree.evaluateTerminalOnNodeCreation ||
-             depth < tree.gameCharacteristics.getEarliestCompletionDepth() ||
+             (depth < tree.gameCharacteristics.getEarliestCompletionDepth() && !tree.heuristic.isEnabled()) ||
              this == tree.root ||
              !calculateTerminalityAndAutoExpansion(get(selected.getChildRef()).state).isTerminal);
     }
