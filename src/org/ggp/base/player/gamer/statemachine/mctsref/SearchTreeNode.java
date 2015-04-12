@@ -169,6 +169,7 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
       {
         playoutResult[i] = scoreVector[i];
       }
+      numVisits++;
     }
     else
     {
