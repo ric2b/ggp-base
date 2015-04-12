@@ -649,6 +649,8 @@ public class Sancho extends SampleGamer
     int numLongDraws = 0;
     int numLongGames = 0;
     int minNumNonDrawTurns = Integer.MAX_VALUE;
+    int scoreSum = -1;
+    boolean isFixedSum = true;
 
     while (System.currentTimeMillis() < simulationStopTime)
     {
@@ -673,10 +675,13 @@ public class Sancho extends SampleGamer
         }
       }
 
+      int thisScoreSum = 0;
+
       for (int i = 0; i < numRoles; i++)
       {
         roleScores[i] = underlyingStateMachine.getGoal(roleOrdering.roleIndexToRole(i));
 
+        thisScoreSum += roleScores[i];
         if (i != 0 && mGameCharacteristics.numRoles > 2)
         {
           //	If there are several enemy players involved extract a measure
@@ -692,6 +697,15 @@ public class Sancho extends SampleGamer
             }
           }
         }
+      }
+
+      if ( scoreSum == -1 )
+      {
+        scoreSum = thisScoreSum;
+      }
+      if ( scoreSum != thisScoreSum )
+      {
+        isFixedSum = false;
       }
 
       averageNumTurns = (averageNumTurns * (simulationsPerformed - 1) + rolloutStats[0]) /
@@ -767,6 +781,10 @@ public class Sancho extends SampleGamer
     if ( maxNumTurns == minNumTurns )
     {
       mGameCharacteristics.setIsFixedMoveCount();
+    }
+    if ( isFixedSum )
+    {
+      mGameCharacteristics.setIsFixedSum();
     }
 
     //  Dump the game characteristics to trace output

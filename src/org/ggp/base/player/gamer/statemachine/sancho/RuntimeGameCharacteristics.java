@@ -44,6 +44,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private int                 mMaxObservedChoices;
   final double                competitivenessBonus    = 2;
   private boolean             isFixedMoveCount        = false;
+  private boolean             isFixedSum              = false;
   private int                 earliestCompletion      = 0;
   final private int           fixedSampleSize         = MachineSpecificConfiguration.getCfgVal(CfgItem.FIXED_SAMPLE_SIZE, -1);
   private String              mPlan                   = null;
@@ -240,6 +241,16 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     return isFixedMoveCount;
   }
 
+  public void setIsFixedSum()
+  {
+    isFixedSum = true;
+  }
+
+  public boolean getIsFixedSum()
+  {
+    return isFixedSum;
+  }
+
   public void setEarliestCompletionDepth(int value)
   {
     earliestCompletion = value;
@@ -372,6 +383,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     LOGGER.info("  Proportion of max length games ending in draws: " + getLongDrawsProportion());
     LOGGER.info("  Num factors:                                    " + getNumFactors());
     LOGGER.info("  Max factor failure time (ms)                    " + getMaxFactorFailureTime());
+    LOGGER.info("  IsFixedSum                                      " + getIsFixedSum());
   }
 
   /**
