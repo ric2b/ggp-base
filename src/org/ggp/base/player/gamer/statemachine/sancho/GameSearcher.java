@@ -705,7 +705,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       }
     }
 
-    if ( moveConsequenceSearcher != null )
+    if ( moveConsequenceSearcher != null && moveConsequenceSearcher.isEnabled() )
     {
       ProcessQueuedLocalSearchResults();
 
@@ -850,7 +850,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       return;
     }
 
-    if ( moveConsequenceSearcher != null )
+    if ( moveConsequenceSearcher != null && moveConsequenceSearcher.isEnabled() )
     {
       int choosingRole  = (getRootDepth()/2)%2;
 

@@ -41,6 +41,11 @@ public class MoveConsequenceSearcher implements Runnable, LocalSearchController
     mThread.start();
   }
 
+  public boolean isEnabled()
+  {
+    return regionSearcher.canPerformLocalSearch();
+  }
+
   public void stop()
   {
     mTerminateRequested = true;

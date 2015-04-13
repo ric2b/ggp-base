@@ -45,6 +45,7 @@ public class LocalRegionSearcher
   private final LocalSearchController controller;
 
   private DependencyDistanceInfo moveDistances = null;
+  private boolean                distancesAnalysed = false;
 
   private boolean                optionalRoleHasOddDepthParity;
 
@@ -121,7 +122,11 @@ public class LocalRegionSearcher
    */
   public boolean canPerformLocalSearch()
   {
-    moveDistances = generateMoveDistanceInformation();
+    if ( !distancesAnalysed )
+    {
+      moveDistances = generateMoveDistanceInformation();
+      distancesAnalysed = true;
+    }
 
     return (moveDistances != null);
   }
