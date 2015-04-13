@@ -194,8 +194,12 @@ public class OptimizingPolymorphicPropNetFactory
 
       if (constantChecker.isConstantForm(form))
       {
-        // We only add sentence in constant form if they are important (i.e. legal, goal or init).
-        if (form.getName().equals(LEGAL) || form.getName().equals(GOAL) || form.getName().equals(INIT))
+        // We only add sentence in constant form if they are important.
+        if (form.getName().equals(LEGAL) ||
+            form.getName().equals(GOAL) ||
+            form.getName().equals(INIT) ||
+            form.getName().equals(NEXT) ||
+            form.getName().equals(TERMINAL))
         {
           for (GdlSentence trueSentence : constantChecker.getTrueSentences(form))
           {

@@ -129,7 +129,6 @@ public class FDRPStateMachineTests extends Assert
     assertEquals(Collections.singletonList(100), mStateMachine.getGoals(state));
   }
 
-  @Ignore("Works for ProverStateMachine but hangs indefinitely during X-sentence rollout for FDRPSM")
   @Test
   public void testCase5B() throws Exception
   {
