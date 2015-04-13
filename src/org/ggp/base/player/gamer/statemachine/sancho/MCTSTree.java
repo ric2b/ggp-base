@@ -558,6 +558,7 @@ public class MCTSTree
     {
       if ( root.state.equals(factorState))
       {
+        assert ( rootDepth == 0 );
         if ( rootDepth == 0 )
         {
           //  This is the start of the first turn, after some searching at the end of meta-gaming
@@ -578,40 +579,49 @@ public class MCTSTree
         TreeNode existingRootStateNode = findTransposition(factorState);
 
         assert(existingRootStateNode != null || root.findNode(factorState, underlyingStateMachine.getRoles().length + 1)==null);
+        //assert(existingRootStateNode == null || existingRootStateNode.getDepth() > root.getDepth());
 
-        if ( existingRootStateNode != null )
+        //  In games with forced moves links will go from states-with-choices to other states-with-choices, so
+        //  intermediate nodes (with no choices) will not exists.  This means that as the actual game path traverses
+        //  such forced steps, and passes through such an intermediary state, it will not be found.  To hook up with
+        //  the existing tree we need to 'fast-forward' from this node to the next (forced) state in order to find
+        //  the point of linkage into the existing tree
+        //  In the case where the state IS found, either it's our turn, in which case the existing choice node for this state
+        //  can be used directly as the new root, or (and this can only happen if we are
+        //  collapsing non-choice nodes) the existing node indexed for the root state is
+        //  another role's choice.  In the latter case we need a 'proxy' node for the root
+        //  so that it has the correct (singular) choice ready for getBestMove().  That
+        //  singular choice will then point to the extant root state node, which is the
+        //  actual decision node.
+        TreeNode oldRoot = root;
+
+        if ( existingRootStateNode != null && existingRootStateNode.decidingRoleIndex == numRoles-1 )
         {
-          TreeNode oldRoot = root;
-
           assert(oldRoot.linkageValid());
 
-          //  Either it's our turn, in which case the existing choice node for this state
-          //  can be used directly as the new root, or (and this can only happen if we are
-          //  collapsing non-choice nodes) the existing node indexed for the root state is
-          //  another role's choice.  In the latter case we need a 'proxy' node for the root
-          //  so that it has the correct (singular) choice ready for getBestMove().  That
-          //  singular choice will then point to the extant root state node, which is the
-          //  actual decision node.
-          if ( existingRootStateNode.decidingRoleIndex == numRoles-1 )
+          assert(existingRootStateNode.linkageValid());
+          root = existingRootStateNode;
+          assert(root.parents.size()>0);
+        }
+        else
+        {
+          assert(removeNonDecisionNodes);
+          assert(existingRootStateNode == null || existingRootStateNode.linkageValid());
+          //assert(existingRootStateNode == null || existingRootStateNode.getDepth() > rootDepth);
+
+          //  Allocate proxy node for the root
+          root = allocateNode(factorState, null, true);
+          root.decidingRoleIndex = numRoles - 1;
+          root.setDepth(rootDepth);
+
+          //  Expand to get the correct (singular) choice
+          root.expand(null, mJointMoveBuffer, rootDepth-1);
+
+          assert(root.mNumChildren == 1 || oldRoot.complete);
+
+          //  In the forced-move case check to see if we can link into the existing search tree
+          if ( root.mNumChildren == 1 )
           {
-            root = existingRootStateNode;
-            assert(root.linkageValid());
-            assert(root.parents.size()>0);
-          }
-          else
-          {
-            assert(removeNonDecisionNodes);
-
-            //  Allocate proxy node for the root
-            root = allocateNode(factorState, null, true);
-            root.decidingRoleIndex = numRoles - 1;
-            root.setDepth(rootDepth);
-
-            //  Expand to get the correct (singular) choice
-            root.expand(null, mJointMoveBuffer, rootDepth-1);
-
-            assert(root.mNumChildren == 1);
-
             TreeEdge selected;
 
             if (root.children[0] instanceof ForwardDeadReckonLegalMoveInfo)
@@ -628,15 +638,41 @@ public class MCTSTree
 
             mJointMoveBuffer[0] = selected.mPartialMove;
 
-            if (selected.getChildRef() == TreeNode.NULL_REF)
+            if ( existingRootStateNode == null )
             {
-              //  Point the edge at the extant decision node for the root state
-              selected.setChild(existingRootStateNode);
-              existingRootStateNode.addParent(root);
+              if (selected.getChildRef() == TreeNode.NULL_REF)
+              {
+                root.createChildNodeForEdge(selected, mJointMoveBuffer);
+              }
+
+              TreeNode createdForcedMoveChild = root.get(selected.getChildRef());
+              if ( createdForcedMoveChild.isUnexpanded())
+              {
+                TreePath visited = mPathPool.allocate(mTreePathAllocator);
+
+                visited.push(root, selected);
+                createdForcedMoveChild = createdForcedMoveChild.expand(visited, mJointMoveBuffer, rootDepth);
+              }
+
+              //  Have now created the first decision node and joined it into the existing tree
+              //  if it existed there.
+              existingRootStateNode = createdForcedMoveChild;
+            }
+            else
+            {
+              if ( selected.getChildRef() == TreeNode.NULL_REF )
+              {
+                selected.setChild(existingRootStateNode);
+                existingRootStateNode.addParent(root);
+              }
+              else
+              {
+                assert(existingRootStateNode == root.get(selected.getChildRef()));
+              }
             }
 
             assert(root.linkageValid());
-            assert(existingRootStateNode.linkageValid());
+            //assert(existingRootStateNode.linkageValid());
 
             //  Set the root's count stats to those of the extant choice node it is effectively
             //  proxying
@@ -654,107 +690,32 @@ public class MCTSTree
               //  There are two possible reasons the old root could have been marked as
               //  complete - either it was complete because of the state of its children
               //  in which case we want to re-propagate that, or else it had been marked
-              //  complete but local search without known path (in which case we must re-find
+              //  complete by local search without known path (in which case we must re-find
               //  the completion and so clear the completion)
-              existingRootStateNode.complete = false;
-              existingRootStateNode.checkChildCompletion(false);
+              if ( existingRootStateNode.isTerminal )
+              {
+                root.markComplete(existingRootStateNode, (short)existingRootStateNode.getDepth());
+              }
+              else
+              {
+                existingRootStateNode.complete = false;
+                if ( !existingRootStateNode.isUnexpanded() )
+                {
+                  existingRootStateNode.checkChildCompletion(false);
+                }
+              }
             }
           }
+        }
 
-          oldRoot.freeAllBut(root);
-          assert(!root.freed) : "Root node has been freed";
-          assert(root.parents.size() == 0);
-          assert(existingRootStateNode == root || existingRootStateNode.parents.size()==1);
-        }
-        else
-        {
-          if (root.complete)
-          {
-            LOGGER.info("New root missing because old root was complete");
-          }
-          else
-          {
-            LOGGER.warn("Unable to find root node in existing tree");
-          }
-          empty();
-          root = allocateNode(factorState, null, false);
-          root.decidingRoleIndex = numRoles - 1;
-          root.setDepth(rootDepth);
-        }
+        oldRoot.freeAllBut(root);
+        assert(existingRootStateNode == root || existingRootStateNode.parents.size()==1);
+        assert(root.parents.size() == 0);
       }
-//      else if ( removeNonDecisionNodes )
-//      {
-//        //  If we are removing non-decision nodes a slightly different process to 'join up' the
-//        //  new root to the existing nodes of the tree is required.  This is because we always
-//        //  keep the root itself as 'our choice' so we can pick moves from it as normal, even if we only
-//        //  have one choice (i.e. - we always want the root to be 'our' choice for the benefit of
-//        //  getBestMove()).  However, an existing node with the root's state may now be another role's
-//        //  choice, so we cannot just use it as the new root.  Instead we create a new root node and
-//        //  let transposition handling 'join up' the tree as the moves are expanded.  Trimming of the
-//        //  unreachable nodes then occurs as part of expansion when all root moves have been expanded.
-//        //  This is triggered by a non-null value for 'oldRoot'
-//        oldRoot = root;
-//        firstChoiceNode = null;
-//
-//        if(findTransposition(factorState) == null)
-//        {
-//          TreeNode oldRootDecisionNode = oldRoot;
-//
-//          while(oldRootDecisionNode.mNumChildren == 1)
-//          {
-//            oldRootDecisionNode = TreeNode.get(nodePool, ((TreeEdge)oldRootDecisionNode.children[0]).mChildRef);
-//          }
-//
-//          for(int i = 0; i < oldRootDecisionNode.mNumChildren; i++)
-//          {
-//            TreeNode child = TreeNode.get(nodePool, ((TreeEdge)oldRootDecisionNode.children[i]).mChildRef);
-//
-//            assert(mPositions.containsKey(child.state));
-//          }
-//        }
-//
-//        root = allocateNode(factorState, null, true);
-//        root.decidingRoleIndex = numRoles - 1;
-//        root.setDepth(rootDepth);
-//        assert(findTransposition(root.state) != null);
-//      }
-//      else
-//      {
-//        oldRoot = null;
-//
-//        TreeNode newRoot = root.findNode(factorState, underlyingStateMachine.getRoles().length + 1);
-//        if (newRoot == null )
-//        {
-//          if (root.complete)
-//          {
-//            LOGGER.info("New root missing because old root was complete");
-//          }
-//          else
-//          {
-//            LOGGER.warn("Unable to find root node in existing tree");
-//          }
-//          empty();
-//          root = allocateNode(factorState, null, false);
-//          root.decidingRoleIndex = numRoles - 1;
-//          root.setDepth(rootDepth);
-//        }
-//        else
-//        {
-//          //  Note - we cannot assert that the root depth matches what we're given.  This
-//          //  is because in some games the same state can occur at different depths (English Draughts
-//          //  exhibits this), which means that transitions to the same node can occur at multiple
-//          //  depths.  The result is that the 'depth' of a node can only be considered indicative
-//          //  rather than absolute.  This is good enough for our current usage, but should be borne
-//          //  in mind if that usage is expanded.
-//          if (newRoot != root)
-//          {
-//            root.freeAllBut(newRoot);
-//            assert(!newRoot.freed) : "Root node has been freed";
-//            root = newRoot;
-//          }
-//        }
-//      }
     }
+
+    assert(!root.freed) : "Root node has been freed";
+    assert(root.parents.size() == 0);
     //validateAll();
 
     if (root.mNumChildren == 0)

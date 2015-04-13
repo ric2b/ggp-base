@@ -217,6 +217,7 @@ public class TreeNode
    */
   public void addParent(TreeNode xiParent)
   {
+    assert(this != tree.root);
     parents.add(xiParent);
 
     // Trim off any excess array slots from the last time this node was used.
@@ -3091,6 +3092,7 @@ public class TreeNode
         }
 
         assert(result.mNumChildren > 1 || result == tree.root || result.complete);
+        assert(parent.linkageValid());
         return result;
       }
 
@@ -3219,7 +3221,7 @@ public class TreeNode
           {
             if (children[i] != null &&
                 ((foundVirtualNoOp && newChoice.isVirtualNoOp) ||
-                 (roleIndex == tree.numRoles - 1 &&
+                 ((tree.removeNonDecisionNodes || roleIndex == tree.numRoles - 1) &&
                   tree.mChildStatesBuffer[i].equals(newState))))
             {
               if ( primaryChoiceMapping == null )
@@ -4459,6 +4461,7 @@ public class TreeNode
              (depth < tree.gameCharacteristics.getEarliestCompletionDepth() && !tree.heuristic.isEnabled()) ||
              this == tree.root ||
              !calculateTerminalityAndAutoExpansion(get(selected.getChildRef()).state).isTerminal);
+      assert(linkageValid());
     }
 
     assert(get(selected.getChildRef()) != null);
