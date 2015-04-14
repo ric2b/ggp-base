@@ -2954,6 +2954,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             RolloutDecisionState poppedState = rolloutDecisionStack[--rolloutStackDepth];
             if (playedMoves != null)
             {
+              //  Need to remove 2 moves since we're not playing the one just tried and popping the previous
+              playedMoves.remove(playedMoves.size() - 1);
               playedMoves.remove(playedMoves.size() - 1);
             }
 
@@ -3005,7 +3007,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         //	branch given that this terminality was not a forced win for the deciding player
         RolloutDecisionState decisionState = rolloutDecisionStack[rolloutStackDepth];
 
-        if (playedMoves != null)
+        if (playedMoves != null )
         {
           playedMoves.remove(playedMoves.size() - 1);
         }
@@ -3032,6 +3034,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
               RolloutDecisionState poppedState = rolloutDecisionStack[--rolloutStackDepth];
               if (playedMoves != null)
               {
+                //  Need to remove 2 moves since we're not playing the one just tried and popping the previous
+                playedMoves.remove(playedMoves.size() - 1);
                 playedMoves.remove(playedMoves.size() - 1);
               }
 
