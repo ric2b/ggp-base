@@ -217,7 +217,6 @@ public class PolymorphicPropNet
       }
     }
 
-    assert(false) : "No INIT proposition";
     return null;
   }
 

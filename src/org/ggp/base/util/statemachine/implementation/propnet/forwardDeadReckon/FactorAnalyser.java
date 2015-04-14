@@ -37,6 +37,13 @@ public class FactorAnalyser
   static final private GdlConstant    DOES  = GdlPool.getConstant("does");
   static final private GdlConstant    BASE  = GdlPool.getConstant("base");
 
+  //  We don't accept more than a reasonable smallish number of factors since
+  //  1) The way we instantiate search trees for each only scales modestly
+  //  2) A very large apparent number of factors is probably an artifact of the fact that we don't currently
+  //     handle goal couplings properly in factor detection, which has been seen to result
+  //     in spurious factorization in 'Guess Two Thirds'
+  static final private int            MAX_FACTORS = 16;
+
   private DependencyCache componentDirectBaseDependencies;
   private Map<PolymorphicComponent, DependencyInfo> basePropositionDependencies = new HashMap<>();
   private int numBaseProps;
@@ -353,7 +360,7 @@ public class FactorAnalyser
     //  game, and we can leave the cross ref info recording null for the factor of every
     //  base prop, but if we have factorized then record the factor each base prop belongs to
     //  (if any - pure control props are not included in any factor)
-    if ( factors.size() > 1 )
+    if ( factors.size() > 1 && factors.size() <= MAX_FACTORS )
     {
       for(Factor factor : factors)
       {
@@ -372,10 +379,12 @@ public class FactorAnalyser
           }
         }
       }
+
+      xiGameCharacteristics.setFactors(factors);
+      return factors;
     }
 
-    xiGameCharacteristics.setFactors(factors);
-    return (factors.size() > 1 ? factors : null);
+    return null;
   }
 
   private void addDisjunctiveInputProps(PolymorphicComponent c, Map<PolymorphicComponent, DependencyInfo> disjunctiveInputs)
