@@ -112,7 +112,7 @@ public class FDRPStateMachineTests extends Assert
     assertEquals(Collections.singletonList(100), mStateMachine.getGoals(state));
   }
 
-  @Ignore("Works for ProverStateMachine but causes stack overflow with FDRPSM")
+  @Ignore("Works for ProverStateMachine but causes stack overflow with FDRPSM.  See #197.")
   @Test
   public void testCase5A() throws Exception
   {
@@ -154,6 +154,38 @@ public class FDRPStateMachineTests extends Assert
     assertEquals(1, mStateMachine.getLegalMoves(state, you).size());
     assertEquals(move("proceed"), mStateMachine.getLegalMoves(state, you).get(0));
     state = mStateMachine.getNextState(state, Collections.singletonList(move("proceed")));
+    assertTrue(mStateMachine.isTerminal(state));
+    assertEquals(100, mStateMachine.getGoal(state, you));
+    assertEquals(Collections.singletonList(100), mStateMachine.getGoals(state));
+  }
+
+  @Ignore("Works for ProverStateMachine but hangs with FDRPSM.  See #212.")
+  @Test
+  public void testCase5D() throws Exception
+  {
+    List<Gdl> desc = new TestGameRepository().getGame("test_case_5d").getRules();
+    mStateMachine.initialize(desc);
+    MachineState state = mStateMachine.getInitialState();
+    Role you = new Role(GdlPool.getConstant("you"));
+    assertFalse(mStateMachine.isTerminal(state));
+    assertEquals(1, mStateMachine.getLegalMoves(state, you).size());
+    assertEquals(move("proceed"), mStateMachine.getLegalMoves(state, you).get(0));
+    state = mStateMachine.getNextState(state, Collections.singletonList(move("proceed")));
+    assertTrue(mStateMachine.isTerminal(state));
+    assertEquals(100, mStateMachine.getGoal(state, you));
+    assertEquals(Collections.singletonList(100), mStateMachine.getGoals(state));
+  }
+
+  @Test
+  public void testDistinctAtBeginningOfRule() throws Exception
+  {
+    List<Gdl> desc = new TestGameRepository().getGame("test_distinct_beginning_rule").getRules();
+    mStateMachine.initialize(desc);
+    MachineState state = mStateMachine.getInitialState();
+    Role you = new Role(GdlPool.getConstant("you"));
+    assertFalse(mStateMachine.isTerminal(state));
+    assertEquals(2, mStateMachine.getLegalMoves(state, you).size());
+    state = mStateMachine.getNextState(state, Collections.singletonList(move("do a b")));
     assertTrue(mStateMachine.isTerminal(state));
     assertEquals(100, mStateMachine.getGoal(state, you));
     assertEquals(Collections.singletonList(100), mStateMachine.getGoals(state));
