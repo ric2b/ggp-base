@@ -46,8 +46,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   private static final boolean DISABLE_NODE_TRIMMING =
                                                      MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_NODE_TRIMMING, false);
 
-  private final long LOCAL_SEARCH_REFRESH_PERIOD = 1000;
-  private final long LOCAL_SEARCH_REVIEW_PLAYED_MOVE_TIME = 3000;
+  private static final long MIN_LOCAL_SEARCH_REFRESH_PERIOD = 1000;
+  private static final long LOCAL_SEARCH_REVIEW_PLAYED_MOVE_TIME = 3000;
 
   /**
    * The update interval for sample size.
@@ -740,8 +740,12 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           rootDepthAtLastLocalSearchStart = getRootDepth();
         }
 
-        //  Recheck periodically that we're still thinking the same move is most interesting
-        localSearchRefreshTime = System.currentTimeMillis() + LOCAL_SEARCH_REFRESH_PERIOD;
+        //  Recheck periodically that we're still thinking the same move is most interesting.
+        //  We don't want to wind up chopping backwards and forwards between a couple of moves
+        //  and having to restart frequently, so give a fixed proportion the remaining time at each rechoice
+        //  (down to a reasonable minimum)
+        long timeRemaining = moveTime - System.currentTimeMillis();
+        localSearchRefreshTime = System.currentTimeMillis() + Math.max(timeRemaining/3, MIN_LOCAL_SEARCH_REFRESH_PERIOD);
       }
     }
 
@@ -1460,7 +1464,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
             LOGGER.info("Storing tenuki-loss seed move for next priority search seed");
 
             //  Push out the next re-evaluation of what we should be searching as this line is looking interesting
-            localSearchRefreshTime = System.currentTimeMillis() + LOCAL_SEARCH_REFRESH_PERIOD;
+            localSearchRefreshTime = System.currentTimeMillis() + MIN_LOCAL_SEARCH_REFRESH_PERIOD;
 
             priorityLocalSearchSeed = searchResultsBuffer.seedMove;
           }
