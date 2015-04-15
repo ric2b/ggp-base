@@ -1301,7 +1301,11 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                       TreeNode child = node.get(edge.getChildRef());
                       if (child != null)
                       {
-                        if ( child.isLocalLoss )
+                        if ( child.complete )
+                        {
+                          LOGGER.info("Move already complete with score for winning role of: " + child.getAverageScore(searchResultsBuffer.winForRole));
+                        }
+                        else if ( child.isLocalLoss )
                         {
                           if ( child.completionDepth < child.getDepth() + searchResultsBuffer.atDepth - 1 )
                           {

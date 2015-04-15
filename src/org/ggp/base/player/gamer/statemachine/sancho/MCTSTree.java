@@ -607,7 +607,6 @@ public class MCTSTree
         {
           assert(removeNonDecisionNodes);
           assert(existingRootStateNode == null || existingRootStateNode.linkageValid());
-          //assert(existingRootStateNode == null || existingRootStateNode.getDepth() > rootDepth);
 
           //  Allocate proxy node for the root
           root = allocateNode(factorState, null, true);
@@ -617,7 +616,7 @@ public class MCTSTree
           //  Expand to get the correct (singular) choice
           root.expand(null, mJointMoveBuffer, rootDepth-1);
 
-          assert(root.mNumChildren == 1 || oldRoot.complete);
+          assert(existingRootStateNode == null || root.mNumChildren == 1 || oldRoot.complete);
 
           //  In the forced-move case check to see if we can link into the existing search tree
           if ( root.mNumChildren == 1 )
@@ -672,7 +671,6 @@ public class MCTSTree
             }
 
             assert(root.linkageValid());
-            //assert(existingRootStateNode.linkageValid());
 
             //  Set the root's count stats to those of the extant choice node it is effectively
             //  proxying
@@ -709,7 +707,7 @@ public class MCTSTree
         }
 
         oldRoot.freeAllBut(root);
-        assert(existingRootStateNode == root || existingRootStateNode.parents.size()==1);
+        assert(existingRootStateNode == null || existingRootStateNode == root || existingRootStateNode.parents.size()==1);
         assert(root.parents.size() == 0);
       }
     }

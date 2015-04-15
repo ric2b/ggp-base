@@ -34,8 +34,19 @@ public class LocalRegionSearcher
 
   private static final Logger LOGGER       = LogManager.getLogger();
 
-  private final int MAX_BRANCHING_FACTOR = 100;
-  private final int MAX_DEPTH            = 20;
+  private static final int MAX_BRANCHING_FACTOR = 100;
+  private static final int MAX_DEPTH            = 20;
+  //  Inn order to cater for situations where one role has a win at a certain depth
+  //  but the other role has a win slightly deeper, but with forcing moves along the
+  //  way that effectively make it shallower, we search force sequences as if they were
+  //  not search-depth-increasing (to find the deeper-but-forced win at its effective
+  //  depth).  This can quickly lead to an explosion in the size of the search space
+  //  and remove the benefits of local search in the vast majority of cases where the
+  //  forces are actually not relevant, and for this reason we restrict ourselves to
+  //  short forced sequences only (currently single force move and its response).  This
+  //  covers most cases in practice without too badly impacting on overall search
+  //  times.
+  private static final int MAX_SEQUENTIAL_FORCES_CONSIDERED = 1;
 
   private final ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
   private ForwardDeadReckonInternalMachineState startingState = null;
@@ -225,7 +236,7 @@ public class LocalRegionSearcher
 
       for(int role = 0; role < numRoles; role++)
       {
-        int score = searchToDepth(xiStartingState, depth, maxDepth, role, null);
+        int score = searchToDepth(xiStartingState, depth, maxDepth, role, null, false);
         if ( score == (role == 0 ? 0 : 100) )
         {
           return score;
@@ -284,7 +295,7 @@ public class LocalRegionSearcher
 //      }
       if ( !resultFound )
       {
-//        if ( optionalRole == 0 && currentDepth==9 && regionCentre.toString().contains("1 8 1 7"))
+//        if ( optionalRole == 0 && currentDepth==4 && regionCentre.toString().contains("7 6 6 4"))
 //        {
 //          System.out.println("!");
 //          score = 0;
@@ -301,7 +312,7 @@ public class LocalRegionSearcher
           jointMove[0][1] = null;
           LOGGER.info("Performing regular search for optional role " + optionalRole + " at depth " + currentDepth);
         }
-        score = searchToDepth(startingState, 1, currentDepth, optionalRole, null);
+        score = searchToDepth(startingState, 1, currentDepth, optionalRole, null, false);
         resultFound = (score == (optionalRole==0 ? 0 : 100));
       }
       if ( resultFound )
@@ -323,7 +334,7 @@ public class LocalRegionSearcher
         //  for the opponent.  In this one case we need to verify the previous depth is not a loss with a fixed first move
         if ( tenukiLossSeeds[1-optionalRole] == regionCentre && tenukiLossDepth[1-optionalRole] < currentDepth )
         {
-          if ( searchToDepth(startingState, 1, tenukiLossDepth[1-optionalRole], 1-optionalRole, jointMove[1][1-optionalRole]) == (optionalRole==0 ? 100 : 0))
+          if ( searchToDepth(startingState, 1, tenukiLossDepth[1-optionalRole], 1-optionalRole, jointMove[1][1-optionalRole], false) == (optionalRole==0 ? 100 : 0))
           {
             LOGGER.info("Apparent win actually is a tenuki-loss at the previous depoth - ignoring!");
             resultFound = false;
@@ -405,7 +416,7 @@ public class LocalRegionSearcher
    *  100 if role 0 win
    *  else 50
    */
-  private int searchToDepth(ForwardDeadReckonInternalMachineState state, int depth, int maxDepth, int optionalRole, ForwardDeadReckonLegalMoveInfo forcedMoveChoice)
+  private int searchToDepth(ForwardDeadReckonInternalMachineState state, int depth, int maxDepth, int optionalRole, ForwardDeadReckonLegalMoveInfo forcedMoveChoice, boolean pathIncludesTenuki)
   {
     numNodesSearched++;
 
@@ -492,7 +503,10 @@ public class LocalRegionSearcher
 
     //  At depth 1 consider the optional tenuki first as a complete result
     //  there will allow cutoff in the MCTS tree (in principal)
-    if ( choosingRole == optionalRole && (tenukiPossible || depth == 1) && (numChoices == 0 || tenukiLossDepth[optionalRole] > currentDepth) && forcedMoveChoice == null )
+    //  We also must consider a tenuki if there has been no tenuki on the path so far
+    //  in order to discover forced response requirements
+    boolean considerForcingProbe = !pathIncludesTenuki && (maxDepth < currentDepth + MAX_SEQUENTIAL_FORCES_CONSIDERED*2);
+    if ( choosingRole == optionalRole && (tenukiPossible || depth == 1 || considerForcingProbe) && (numChoices == 0 || tenukiLossDepth[optionalRole] > currentDepth) && forcedMoveChoice == null )
     {
       jointMove[depth][1-choosingRole] = nonChooserMove;
       jointMove[depth][choosingRole] = pseudoNoop;
@@ -501,7 +515,7 @@ public class LocalRegionSearcher
 
       underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth]);
 
-      int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole, null);
+      int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole, null, true);
 
       if ( childValue != (optionalRole == 0 ? 0 : 100) )
       {
@@ -549,6 +563,17 @@ public class LocalRegionSearcher
           resultsConsumer.ProcessLocalSearchResult(searchResult);
         }
       }
+
+      //  If tenuki is a loss that implies that a response is forced, so increase the max depth of
+      //  the search in this branch, so that forces are considered to be non-depth increasing for
+      //  the purposes of inclusion in a certain search radius.  Doing this is necessary to make
+      //  the strict iterated deepening have a reliable result (else a win can be falsely claimed
+      //  for one role, when the opponent has one which is deeper, but in which the responses are forced
+      //  preventing the shallower first role win from being played)
+      if ( maxDepth < MAX_DEPTH-1 && maxDepth < currentDepth + MAX_SEQUENTIAL_FORCES_CONSIDERED*2 )
+      {
+        maxDepth += 2;
+      }
     }
 
     for(int i = 0; i < numChoices; i++)
@@ -594,7 +619,7 @@ public class LocalRegionSearcher
 
       underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth]);
 
-      int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole, null);
+      int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole, null, pathIncludesTenuki);
 
       if ( childValue == (choosingRole == 0 ? 100 : 0) || (childValue == 50 && choosingRole == optionalRole) )
       {
