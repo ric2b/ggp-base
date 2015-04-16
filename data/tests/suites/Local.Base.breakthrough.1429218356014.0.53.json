@@ -1,0 +1,30 @@
+{
+  "cases" : [
+    {
+      "case" : "Bug #214 Local.Base.breakthrough.1429218356014, player 0, move 53",
+      "repo" : "games.ggp.org/base",
+      "game" : "breakthrough",
+      "start" : "30",
+      "play" : "15",
+      "limit" : 53,
+      "players" : [
+        {
+          "type" : "Sancho",
+          "args" : [
+            "plan=move 4 2 4 3,noop,move 2 2 2 3,noop,move 2 3 2 4,noop,move 7 2 6 3,noop,move 2 4 1 5,noop,move 6 3 6 4,noop,move 6 2 5 3,noop,move 6 1 7 2,noop,move 5 3 4 4,noop,move 5 2 6 3,noop,move 7 2 8 3,noop,move 4 4 3 5,noop,move 1 5 1 6,noop,move 3 5 2 6,noop,move 8 3 7 4,noop,move 6 3 7 4,noop,move 7 1 6 2,noop,move 3 1 2 2,noop,move 4 3 5 4,noop,move 3 2 3 3,noop,move 8 2 8 3,noop,move 1 1 2 2,noop,move 5 1 4 2,noop,move 6 2 5 3,noop,move 5 3 4 4,noop,move 4 4 4 5,noop"
+          ]
+        },
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "noop,move 2 7 2 6,noop,move 3 7 4 6,noop,move 6 7 5 6,noop,move 2 6 3 5,noop,move 5 6 6 5,noop,move 4 6 4 5,noop,move 7 7 6 6,noop,move 3 5 2 4,noop,move 8 7 7 6,noop,move 3 8 3 7,noop,move 8 8 7 7,noop,move 4 5 4 4,noop,move 3 7 2 6,noop,move 1 7 2 6,noop,move 6 5 7 4,noop,move 2 6 2 5,noop,move 2 8 1 7,noop,move 5 7 4 6,noop,move 4 7 5 6,noop,move 4 4 3 3,noop,move 3 3 2 2,noop,move 2 5 3 4,noop,move 4 8 5 7,noop,move 5 8 6 7,noop,move 5 6 5 5,noop,move 3 4 3 3,noop"
+          ]
+        }
+      ],
+      "check" : {
+        "player" : "0",
+        "acceptable" : "move 4 2 3 3"
+      }
+    }
+  ]
+}
