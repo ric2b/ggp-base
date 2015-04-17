@@ -102,6 +102,11 @@ public class Sancho extends SampleGamer
       throw new InvalidParameterException();
     }
     planString = xiParam.substring(5);
+
+    // Start pre-warming he search tree 2 moves before he end of the plan so that we arrive at the turn we need to
+    // search in earnest in with a warmed-up tree.  (This isn't needed in the case of a learned plan, because they
+    // always take us to the end of the game.)
+    GameSearcher.thinkBelowPlanSize = 2;
   }
 
   private int netScore(ForwardDeadReckonPropnetStateMachine stateMachine,
@@ -233,10 +238,6 @@ public class Sancho extends SampleGamer
     if (planString != null)
     {
       plan.considerPlan(convertPlanString(planString));
-
-      //  Start pre-warming he search tree 2 moves before he end of the plan so that we arrive
-      //  at the turn we need to search in earnest in with a warmed-up tree
-      GameSearcher.thinkBelowPlanSize = 2;
     }
 
     ourRole = getRole();

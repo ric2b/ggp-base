@@ -60,9 +60,10 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   private static final boolean            ADJUST_EXPLORATION_BIAS_FROM_TREE_SHAPE = false;
 
   /**
-   * Once the plan is shorter than this start building up the search tree (using normal move time limits)
+   * Once the plan is shorter than this start building up the search tree (using normal move time limits).  Used for
+   * testing only (in which case it is set to 2).
    */
-  public static int                       thinkBelowPlanSize = 2;
+  public static int                       thinkBelowPlanSize = 0;
 
   private volatile long                   moveTime;
   private volatile long                   startTime;
