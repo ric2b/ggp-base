@@ -125,7 +125,7 @@ public class TreeNode
   boolean                               complete            = false;
   private boolean                       allChildrenComplete = false;
   boolean                               hasBeenLocalSearched = false;
-  boolean                               isLocalLoss         = false;
+  ForwardDeadReckonLegalMoveInfo        isLocalLossFrom     = null;
   Object[]                              children            = null;
   short                                 mNumChildren        = 0;
   short[]                               primaryChoiceMapping = null;
@@ -393,11 +393,11 @@ public class TreeNode
     }
   }
 
-  void markAsLocalLoss(short atDepth)
+  void markAsLocalLoss(short atDepth, ForwardDeadReckonLegalMoveInfo withMove)
   {
     if ( !complete )
     {
-      isLocalLoss = true;
+      isLocalLossFrom = withMove;
       completionDepth = (short)(depth + atDepth);
     }
   }
@@ -1586,7 +1586,7 @@ public class TreeNode
     isTerminal = false;
     autoExpand = false;
     hasBeenLocalSearched = false;
-    isLocalLoss = false;
+    isLocalLossFrom = null;
     leastLikelyWinner = -1;
     mostLikelyWinner = -1;
     complete = false;
@@ -5044,7 +5044,7 @@ public class TreeNode
                                                                   child.scoreForMostLikelyResponse();
 
         assert(-EPSILON <= moveScore && 100 + EPSILON >= moveScore);
-//        if ( firstDecision && (edge.mPartialMove.toString().contains("1 8 1 7")))
+//        if ( firstDecision && (edge.mPartialMove.toString().contains("5 6 6 5")))
 //        {
 //          LOGGER.info("Force-selecting " + edge.mPartialMove);
 //          bestNode = child;
@@ -5136,7 +5136,7 @@ public class TreeNode
 
             //  If a move was found to be a local loss, but it's still incomplete (so global
             //  result is unknown) down-weight its selection significantly
-            if ( child.isLocalLoss )
+            if ( child.isLocalLossFrom != null )
             {
               selectionScore /= 2;
             }

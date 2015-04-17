@@ -754,7 +754,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     {
 //      try
 //      {
-//        Thread.sleep(500);
+//        Thread.sleep(50);
 //      }
 //      catch (InterruptedException e)
 //      {
@@ -1286,6 +1286,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
               }
               else
               {
+                boolean winIsValid = true;
+
                 //  Win if the winning move is played
                 for (short index = 0; index < node.mNumChildren; index++)
                 {
@@ -1309,16 +1311,17 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                         {
                           LOGGER.info("Move already complete with score for winning role of: " + child.getAverageScore(searchResultsBuffer.winForRole));
                         }
-                        else if ( child.isLocalLoss )
+                        else if ( child.isLocalLossFrom != null && child.isLocalLossFrom != searchResultsBuffer.seedMove )
                         {
                           if ( child.completionDepth < child.getDepth() + searchResultsBuffer.atDepth - 1 )
                           {
                             LOGGER.info("Local win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove + " with move " + searchResultsBuffer.winningMove + " ignored because it is a known local loss at lower depth");
+                            winIsValid= false;
                           }
                           else
                           {
                             LOGGER.info("Win for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove + " with move " + searchResultsBuffer.winningMove + " overrides previously found deeper local loss");
-                            child.isLocalLoss = false;
+                            child.isLocalLossFrom = null;
                             child.markComplete(completeResultBuffer, (short)(node.getDepth()+searchResultsBuffer.atDepth-1));
                           }
                         }
@@ -1349,7 +1352,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                   }
                 }
 
-                if (searchResultsBuffer.choiceFromState != null && !searchResultsBuffer.seedMayEnableResult())
+                if (winIsValid && searchResultsBuffer.choiceFromState != null && !searchResultsBuffer.seedMayEnableResult())
                 {
                   LOGGER.info("Win is not enabled by this seed, so checking for other non-relevant moves to eliminate");
                   TreeNode choiceFromNode = tree.findTransposition(searchResultsBuffer.choiceFromState);
@@ -1453,7 +1456,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                       else
                       {
                         LOGGER.info(moveInfo.move.toString() + " is a local loss for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
-                        child.markAsLocalLoss((short)(searchResultsBuffer.atDepth-1));
+                        child.markAsLocalLoss((short)(searchResultsBuffer.atDepth-1), searchResultsBuffer.seedMove);
                       }
                     }
                   }
