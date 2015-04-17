@@ -68,19 +68,13 @@ public class LocalSearchResults implements LocalRegionDefiner
     winPath = source.winPath;
     choiceFromState = source.choiceFromState;
     hasTerminalityCoupling = source.hasTerminalityCoupling;
-    if ( source.relevantMovesForWin == null )
-    {
-      relevantMovesForWin = null;
-    }
-    else
-    {
-      relevantMovesForWin = new ForwardDeadReckonLegalMoveSet[source.searchRadius+1];
 
-      for(int i = 0; i <= source.searchRadius; i++)
-      {
-        relevantMovesForWin[i] = new ForwardDeadReckonLegalMoveSet(source.relevantMovesForWin[i]);
-        relevantMovesForWin[i].copy(source.relevantMovesForWin[i]);
-      }
+    relevantMovesForWin = new ForwardDeadReckonLegalMoveSet[source.searchRadius+1];
+
+    for(int i = 0; i <= source.searchRadius; i++)
+    {
+      relevantMovesForWin[i] = new ForwardDeadReckonLegalMoveSet(source.relevantMovesForWin[i]);
+      relevantMovesForWin[i].copy(source.relevantMovesForWin[i]);
     }
   }
 
@@ -137,7 +131,7 @@ public class LocalSearchResults implements LocalRegionDefiner
           LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at legality-enablement distance " + legalityEnablementDistance + " and therefore can be influenced");
           return true;
         }
-        //LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at distance " + distance + " and therefore cannot influence");
+        LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at distance " + legalityEnablementDistance + " and therefore cannot influence");
       }
     }
 

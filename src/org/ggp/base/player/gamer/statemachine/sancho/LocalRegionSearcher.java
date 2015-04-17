@@ -48,6 +48,8 @@ public class LocalRegionSearcher
   //  times.
   private static final int MAX_SEQUENTIAL_FORCES_CONSIDERED = 1;
 
+  private static final int FOCUS_DISTANCE = 4;
+
   private final ForwardDeadReckonPropnetStateMachine underlyingStateMachine;
   private ForwardDeadReckonInternalMachineState startingState = null;
   private ForwardDeadReckonInternalMachineState choiceFromState = null;
@@ -60,6 +62,8 @@ public class LocalRegionSearcher
 
   private boolean                optionalRoleHasOddDepthParity;
 
+  private boolean                trace = false;
+
   private final ForwardDeadReckonLegalMoveInfo[][] jointMove;
   private final ForwardDeadReckonLegalMoveInfo[][] chooserMoveChoiceStack;
   private final ForwardDeadReckonInternalMachineState[] childStateBuffer;
@@ -68,6 +72,7 @@ public class LocalRegionSearcher
   private final LocalSearchResults searchResult = new LocalSearchResults();
   private final boolean[] moveIsResponse;
   private final boolean[] moveIsEnabledBySequence;
+  private final boolean[] moveIsForcedBySequence;
   private final boolean[][] chooserMoveChoiceIsResponse;
 
   private int numNodesSearched;
@@ -102,6 +107,7 @@ public class LocalRegionSearcher
     tenukiLossSeeds = new ForwardDeadReckonLegalMoveInfo[xiUnderlyingStateMachine.getRoles().length];
     moveIsResponse = new boolean[MAX_DEPTH+1];
     moveIsEnabledBySequence = new boolean[MAX_DEPTH+1];
+    moveIsForcedBySequence = new boolean[MAX_DEPTH+1];
     chooserMoveChoiceIsResponse = new boolean[MAX_DEPTH+1][];
     relevantMoves = new ForwardDeadReckonLegalMoveSet[MAX_DEPTH+1][];
 
@@ -112,6 +118,7 @@ public class LocalRegionSearcher
     NonOptionalMoveKillerWeight = new int[underlyingStateMachine.getFullPropNet().getMasterMoveList().length];
 
     searchResult.searchProvider = this;
+    searchResult.relevantMovesForWin = new ForwardDeadReckonLegalMoveSet[MAX_DEPTH+1];
 
     for(int i = 0; i <= MAX_DEPTH; i++ )
     {
@@ -124,6 +131,7 @@ public class LocalRegionSearcher
       {
         relevantMoves[i][j] = new ForwardDeadReckonLegalMoveSet(underlyingStateMachine.getFullPropNet().getActiveLegalProps(0));
       }
+      searchResult.relevantMovesForWin[i] = new ForwardDeadReckonLegalMoveSet(underlyingStateMachine.getFullPropNet().getActiveLegalProps(0));
     }
   }
 
@@ -249,7 +257,7 @@ public class LocalRegionSearcher
 
   /**
    * Iterate the depth of the search by one
-   * @return true if the search found a win
+   * @return true if the search terminated (found a win or exceeded max allowable depth)
    */
   public boolean iterate()
   {
@@ -295,10 +303,14 @@ public class LocalRegionSearcher
 //      }
       if ( !resultFound )
       {
-//        if ( optionalRole == 0 && currentDepth==4 && regionCentre.toString().contains("7 6 6 4"))
+//        if ( optionalRole == 0 && currentDepth==7 && regionCentre.toString().contains("2 1 2 2"))
 //        {
 //          System.out.println("!");
-//          score = 0;
+//          trace = true;
+//        }
+//        else
+//        {
+//          trace = false;
 //        }
         //optionalRole = role;
         jointMove[0][0] = regionCentre;
@@ -323,10 +335,38 @@ public class LocalRegionSearcher
         {
           LOGGER.info(Arrays.toString(jointMove[i]));
         }
-//        if ( jointMove[1][0] != null && jointMove[1][0].toString().contains("7 5 7 6"))
+//        if ( jointMove[1][0] != null && regionCentre.toString().contains("5 6 6 5"))
 //        {
-//          score = 100;
+//          trace = true;
 //        }
+
+        //  Preserve the results now before potentially doing a verificational search against
+        //  a known tenuki loss (as this will overwrite the search information)
+        if ( resultsConsumer != null )
+        {
+          searchResult.atDepth = currentDepth;
+          searchResult.winForRole = 1-optionalRole;
+          searchResult.tenukiLossForRole = -1;
+          searchResult.seedMove = jointMove[0][0];
+          searchResult.jointSearchSecondarySeed = jointMove[0][1];
+          searchResult.winningMove = jointMove[1][1-optionalRole];
+          searchResult.startState = startingState;
+          searchResult.searchRadius = currentDepth;
+          searchResult.choiceFromState = choiceFromState;
+          if ( choiceFromState != null )
+          {
+            searchResult.winPath = new ForwardDeadReckonLegalMoveInfo[currentDepth+1];
+            for( int i = 0; i <= currentDepth; i++)
+            {
+              searchResult.winPath[i] = jointMove[i][1-optionalRole];
+              searchResult.relevantMovesForWin[i].copy(relevantMoves[1][i]);
+            }
+          }
+          else
+          {
+            searchResult.winPath = null;
+          }
+        }
 
         //  One final check is needed.  If we found a tenuki loss for the apparently winning role one ply earlier
         //  then it is possible that the supposed winning move actually loses to the tenuki-loss already
@@ -345,31 +385,6 @@ public class LocalRegionSearcher
         {
           if ( resultsConsumer != null )
           {
-            searchResult.atDepth = currentDepth;
-            searchResult.winForRole = 1-optionalRole;
-            searchResult.tenukiLossForRole = -1;
-            searchResult.seedMove = jointMove[0][0];
-            searchResult.jointSearchSecondarySeed = jointMove[0][1];
-            searchResult.winningMove = jointMove[1][1-optionalRole];
-            searchResult.startState = startingState;
-            searchResult.searchRadius = currentDepth;
-            searchResult.choiceFromState = choiceFromState;
-            if ( choiceFromState != null )
-            {
-              searchResult.winPath = new ForwardDeadReckonLegalMoveInfo[currentDepth+1];
-              searchResult.relevantMovesForWin = new ForwardDeadReckonLegalMoveSet[currentDepth+1];
-              for( int i = 0; i <= currentDepth; i++)
-              {
-                searchResult.winPath[i] = jointMove[i][1-optionalRole];
-                searchResult.relevantMovesForWin[i] = relevantMoves[1][i];
-              }
-            }
-            else
-            {
-              searchResult.winPath = null;
-              searchResult.relevantMovesForWin = null;
-            }
-
             resultsConsumer.ProcessLocalSearchResult(searchResult);
           }
 
@@ -397,6 +412,11 @@ public class LocalRegionSearcher
     {
       LOGGER.info("Local search completed at depth " + currentDepth + " with " + numNodesSearched + " states visited");
       currentDepth++;
+
+      if ( currentDepth > MAX_DEPTH )
+      {
+        return true;
+      }
     }
 
     return false;
@@ -501,6 +521,8 @@ public class LocalRegionSearcher
 
     boolean incomplete = false;
 
+    moveIsForcedBySequence[depth] = false;
+
     //  At depth 1 consider the optional tenuki first as a complete result
     //  there will allow cutoff in the MCTS tree (in principal)
     //  We also must consider a tenuki if there has been no tenuki on the path so far
@@ -551,11 +573,10 @@ public class LocalRegionSearcher
           //searchResult.relevantMovesForWin = null;
           searchResult.choiceFromState = choiceFromState;
           searchResult.winPath = new ForwardDeadReckonLegalMoveInfo[currentDepth+1];
-          searchResult.relevantMovesForWin = new ForwardDeadReckonLegalMoveSet[currentDepth+1];
           for( int i = 0; i <= currentDepth; i++)
           {
             searchResult.winPath[i] = jointMove[i][1-optionalRole];
-            searchResult.relevantMovesForWin[i] = relevantMoves[1][i];
+            searchResult.relevantMovesForWin[i].copy(relevantMoves[1][i]);
 
             assert(searchResult.relevantMovesForWin[i] != null);
           }
@@ -574,6 +595,8 @@ public class LocalRegionSearcher
       {
         maxDepth += 2;
       }
+
+      moveIsForcedBySequence[depth] = true;
     }
 
     for(int i = 0; i < numChoices; i++)
@@ -595,6 +618,11 @@ public class LocalRegionSearcher
       //  have been played in place of that last response move
       if ( isReponse && choosingRole != optionalRole && depth > maxDepth-4 )
       {
+//        if ( trace && depth < 7 )
+//        {
+//          String depthTab = "                     ".substring(0, depth);
+//          LOGGER.info(depthTab + depth + ": " + chooserMoveChoiceStack[depth][i].move + " is a response that cannot support a win");
+//        }
         continue;
       }
 
@@ -602,7 +630,7 @@ public class LocalRegionSearcher
       jointMove[depth][choosingRole] = chooserMoveChoiceStack[depth][i];
       moveIsResponse[depth] = isReponse;
 
-      moveIsEnabledBySequence[depth] =  false;
+      moveIsEnabledBySequence[depth] = false;
       if ( choosingRole == optionalRole && depth > 1 )
       {
         //  TEMP - this loop should go to j > 0 really
@@ -620,6 +648,12 @@ public class LocalRegionSearcher
       underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth]);
 
       int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole, null, pathIncludesTenuki);
+
+//      if ( trace && depth < 7 )
+//      {
+//        String depthTab = "                     ".substring(0, depth);
+//        LOGGER.info(depthTab + depth + ": " + jointMove[depth][choosingRole].move + " scores " + childValue + (isReponse ? "(response)" : "") + (moveIsEnabledBySequence[depth] ? "(enabled)" : "") + (moveIsForcedBySequence[depth] ? "(forced)" : ""));
+//      }
 
       if ( childValue == (choosingRole == 0 ? 100 : 0) || (childValue == 50 && choosingRole == optionalRole) )
       {
@@ -733,7 +767,7 @@ public class LocalRegionSearcher
       if ( !unconstrainedSearch )
       {
         boolean seenNonResponsePly = false;
-        boolean seenEnablingPly = false;
+        boolean seenUnforcedEnablingPly = false;
         boolean terminateTrackBack = false;
         boolean jointSearch = (jointMove[0][1] != null);
         boolean chosenMovesAreForOptionalRole = ((depth%2==1) == optionalRoleHasOddDepthParity);
@@ -783,29 +817,29 @@ public class LocalRegionSearcher
             else if ( chosenMovesAreForOptionalRole )
             {
               //  Optional role moves are distance gated by the last non-optional role
-              //  non-response move or the last enabled optional role move
-              if ( (!isOptionalRolePly && !moveIsResponse[i] && !seenNonResponsePly) || (isOptionalRolePly && !seenEnablingPly && moveIsEnabledBySequence[i]))
+              //  non-response move or the last enabled optional role move that was not forced
+              if ( (!isOptionalRolePly && !moveIsResponse[i] && !seenNonResponsePly) || (isOptionalRolePly && !seenUnforcedEnablingPly && moveIsEnabledBySequence[i]))
               {
                 isDistanceGating = true;
                 plyIsResponse = isOptionalRolePly;
                 seenNonResponsePly |= !isOptionalRolePly;
-                seenEnablingPly |= isOptionalRolePly;
+                seenUnforcedEnablingPly |= isOptionalRolePly && !moveIsForcedBySequence[i];
 
                 //  Can stop if we've moved past the last possible enablers
-                terminateTrackBack = (seenEnablingPly && seenNonResponsePly);
+                terminateTrackBack = (seenUnforcedEnablingPly && seenNonResponsePly);
               }
             }
             else
             {
               //  Non-optional role moves are gated on the last non-response non-optional
               //  role move and the last optional enabled move
-              if ( (!isOptionalRolePly && !moveIsResponse[i] && !seenNonResponsePly) || (isOptionalRolePly && !seenEnablingPly && moveIsEnabledBySequence[i]))
+              if ( (!isOptionalRolePly && !moveIsResponse[i] && !seenNonResponsePly) || (isOptionalRolePly && !seenUnforcedEnablingPly && moveIsEnabledBySequence[i]))
               {
                 isDistanceGating = true;
                 plyIsResponse = isOptionalRolePly;
                 seenNonResponsePly = !isOptionalRolePly;
-                seenEnablingPly |= isOptionalRolePly;
-                terminateTrackBack = (seenEnablingPly && seenNonResponsePly);
+                seenUnforcedEnablingPly |= isOptionalRolePly;
+                terminateTrackBack = (seenUnforcedEnablingPly && seenNonResponsePly);
               }
             }
           }
@@ -859,12 +893,13 @@ public class LocalRegionSearcher
             }
             if ( plyMove != null )
             {
+              int maxAllowableDistance = (chosenMovesAreForOptionalRole ? maxDistance-i : Math.min(maxDistance-i, FOCUS_DISTANCE));
 //              plyMoveFound = true;
               int distance = moveDistances.moveCoInfluenceDistances[plyMove.masterIndex][move.masterIndex];
-              boolean includeAtThisPly = (distance <= maxDistance - i);
+              boolean includeAtThisPly = (distance <= maxAllowableDistance);
               if ( i == 0 && jointSearch )
               {
-                includeAtThisPly |= (moveDistances.moveCoInfluenceDistances[jointMove[0][1].masterIndex][move.masterIndex] <= maxDistance - i);
+                includeAtThisPly |= (moveDistances.moveCoInfluenceDistances[jointMove[0][1].masterIndex][move.masterIndex] <= maxAllowableDistance);
               }
               //  If the move is already included and this ply is not an apparent response
               //  then the inclusion we already have must have been as a response we which are
