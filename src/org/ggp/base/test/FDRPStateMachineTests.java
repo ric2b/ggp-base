@@ -219,8 +219,11 @@ public class FDRPStateMachineTests extends Assert
                                               new PropNetSize("base", "connectFour",    765,   619,   619,   299),
                                               new PropNetSize("base", "breakthrough",  1844,  1203,  1203,   142),
                                               new PropNetSize("base", "sudokuGrade1",  5483,  4446,  4399,  1722),
+                                              new PropNetSize("base", "checkers",      8079,  4462,  4462,  1571),
                                               new PropNetSize("base", "reversi",      17795,  3997,  3997, 15195),
                                               new PropNetSize("base", "speedChess",   35416, 15710, 15710,  9512),
+                                              new PropNetSize("base", "skirmishNew",  35541, 15705, 15705,  9567),
+                                              new PropNetSize("base", "skirmish",     54143, 39649, 39649,  8897),
                                               new PropNetSize("base", "hex",          81507, 61164, 61164,  3250),
                                               new PropNetSize("base", "hexPie",       83023, 82342, 82335,  3300),
                                               };
