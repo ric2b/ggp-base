@@ -701,7 +701,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         //  without doing further expansions
         assert(factorTrees[0].mRoleControlProps != null && factorTrees[0].removeNonDecisionNodes);
 
-        System.out.println("Cannot trim due to hyper-edges");
+        LOGGER.warn("Cannot trim due to hyper-edges");
         return false;
       }
     }
@@ -753,15 +753,6 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     lAllTreesCompletelyExplored = true;
     for (MCTSTree tree : factorTrees)
     {
-//      try
-//      {
-//        Thread.sleep(50);
-//      }
-//      catch (InterruptedException e)
-//      {
-//        // TODO Auto-generated catch block
-//        e.printStackTrace();
-//      }
       if (!tree.root.complete)
       {
         if (ThreadControl.ROLLOUT_THREADS > 0 && !forceSynchronous)
