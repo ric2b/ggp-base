@@ -101,8 +101,8 @@ public class StanfordGameTest extends Assert
     // Extract game information.
     String lRole = stateMachine.getRoles()[0].toString();
     String lRules = mGame.getRulesheet();
-    int lStartClock = 60;
-    int lPlayClock = 15;
+    int lStartClock = 90;
+    int lPlayClock = 60;
 
     // Get Sancho to do meta-gaming.
     String lRequest = "(start " +
