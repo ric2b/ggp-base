@@ -3,8 +3,11 @@ package org.ggp.base.test;
 import java.util.HashMap;
 import java.util.LinkedList;
 
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration;
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.Sancho;
 import org.ggp.base.player.request.factory.RequestFactory;
+import org.ggp.base.player.request.factory.exceptions.RequestFormatException;
 import org.ggp.base.util.game.CloudGameRepository;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.game.GameRepository;
@@ -17,8 +20,11 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
+/**
+ * Test games in the Stanford repository.
+ */
 @RunWith(Parameterized.class)
-public class StandfordGameTest extends Assert
+public class StanfordGameTest extends Assert
 {
   private static HashMap<String, Integer> MAX_SCORES = new HashMap<>();
   static
@@ -27,6 +33,11 @@ public class StandfordGameTest extends Assert
     MAX_SCORES.put("multiplesukoshi", 0);
   }
 
+  /**
+   * Create a list of tests to run (1 per game) from the Stanford repository.
+   *
+   * @return the tests to run.
+   */
   @Parameters(name="{0}")
   public static Iterable<? extends Object> data()
   {
@@ -36,16 +47,7 @@ public class StandfordGameTest extends Assert
 
     for (String lGameName : lRepo.getGameKeys())
     {
-      Game lGame = lRepo.getGame(lGameName);
-
-      // Check if this is a puzzle (which involves parsing the rules).
-      StateMachine stateMachine = new ProverStateMachine();
-      stateMachine.initialize(lGame.getRules());
-
-      // if (stateMachine.getRoles().length == 1)
-      {
-        lTests.add(new Object[] {lGameName, lGame});
-      }
+      lTests.add(new Object[] {lGameName, lRepo.getGame(lGameName)});
     }
 
     return lTests;
@@ -65,7 +67,7 @@ public class StandfordGameTest extends Assert
    * @param xiName - the name of the game.
    * @param xiGame - the game.
    */
-  public StandfordGameTest(String xiName, Game xiGame)
+  public StanfordGameTest(String xiName, Game xiGame)
   {
     mName = xiName;
     mGame = xiGame;
@@ -74,8 +76,17 @@ public class StandfordGameTest extends Assert
     // Create an instance of Sancho.
     mGamer = new Sancho();
     mRequestFactory = new RequestFactory();
+
+    // Prevent Sancho from using learned solutions.  We want to test that we haven't regressed the function for solving
+    // puzzles.
+    MachineSpecificConfiguration.utOverrideCfgVal(CfgItem.DISABLE_LEARNING, true);
   }
 
+  /**
+   * Test that we score full marks on puzzles.
+   *
+   * @throws Exception if there was a problem.
+   */
   @Test
   public void testPuzzle() throws Exception
   {
@@ -134,6 +145,11 @@ public class StandfordGameTest extends Assert
     }
   }
 
+  /**
+   * Abort any running game (which will happen if a test fails).
+   *
+   * @throws Exception
+   */
   @After
   public void abortGame() throws Exception
   {
@@ -144,7 +160,15 @@ public class StandfordGameTest extends Assert
     }
   }
 
-  public String getResponse(String xiRequest) throws Exception
+  /**
+   * Send a request to the player and get the response.
+   *
+   * @param xiRequest - the request to send
+   * @return the response from the player.
+   *
+   * @throws RequestFormatException if the request was malformed.
+   */
+  private String getResponse(String xiRequest) throws RequestFormatException
   {
     return mRequestFactory.create(mGamer, xiRequest).process(System.currentTimeMillis());
   }

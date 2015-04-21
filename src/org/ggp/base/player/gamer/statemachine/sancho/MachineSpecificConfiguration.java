@@ -171,4 +171,16 @@ public class MachineSpecificConfiguration
       LOGGER.info("\t" + e.getKey() + " = " + e.getValue());
     }
   }
+
+
+  /**
+   * UT-only method for overriding configuration.
+   *
+   * @param xiKey - the property to override.
+   * @param xiValue - the new value.
+   */
+  public static void utOverrideCfgVal(CfgItem xiKey, boolean xiValue)
+  {
+    MACHINE_PROPERTIES.setProperty(xiKey.toString(), xiValue ? "true" : "false");
+  }
 }
