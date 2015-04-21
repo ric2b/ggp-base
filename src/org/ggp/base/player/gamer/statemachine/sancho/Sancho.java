@@ -90,6 +90,7 @@ public class Sancho extends SampleGamer
   private SystemStatsLogger           mSysStatsLogger                 = null;
   private Move                        mLastMove                       = null;
   private int                         mFinalScore                     = -1;
+  private boolean                     mSolvedFromStart                = false;
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
@@ -1238,6 +1239,13 @@ public class Sancho extends SampleGamer
     if (searchProcessor.isComplete())
     {
       LOGGER.info("Early search termination because root is complete");
+
+      if (mTurn <= 1)
+      {
+        // We've completed the root, either during meta-gaming or during the first turn.  As a result, this game is
+        // completely solved.
+        mSolvedFromStart = true;
+      }
     }
   }
 
@@ -1255,7 +1263,7 @@ public class Sancho extends SampleGamer
     }
 
     // If we've just solved a puzzle for the first time, save the game history as a plan.
-    if ((mFinalScore == 100) &&
+    if (((mFinalScore == 100) || (mSolvedFromStart)) &&
         (mGameCharacteristics.numRoles == 1) &&
         (mGameCharacteristics.getPlan() == null))
     {
