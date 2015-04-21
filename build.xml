@@ -142,7 +142,7 @@
     </target>
     <target name="AllTests">
         <mkdir dir="${junit.output.dir}"/>
-        <junit fork="yes" printsummary="withOutAndErr" haltonfailure="no" failureproperty="ut.failure">
+        <junit fork="yes" printsummary="on" haltonfailure="no" failureproperty="ut.failure">
             <formatter type="xml"/>
             <test name="org.ggp.base.test.AllTests" todir="${junit.output.dir}"/>
             <classpath refid="GGP.classpath"/>
@@ -150,7 +150,7 @@
     </target>
     <target name="FastTests">
         <mkdir dir="${junit.output.dir}"/>
-        <junit fork="yes" printsummary="withOutAndErr" haltonfailure="no" failureproperty="ut.failure">
+        <junit fork="yes" printsummary="on" haltonfailure="no" failureproperty="ut.failure">
             <formatter type="xml"/>
             <test name="org.ggp.base.test.FastTests" todir="${junit.output.dir}"/>
             <classpath refid="GGP.classpath"/>
