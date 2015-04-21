@@ -11,6 +11,7 @@ import org.junit.runners.Suite;
                      NoTabsInRulesheetsTest.class,
                      ProverStateMachineTests.class,
                      SimpleSentenceFormTest.class,
+                     StandfordGameTest.class,
                      StaticValidationTests.class})
 public class AllTests
 {

@@ -4,6 +4,7 @@ import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -88,6 +89,7 @@ public class Sancho extends SampleGamer
   private String                      mLogName                        = null;
   private SystemStatsLogger           mSysStatsLogger                 = null;
   private Move                        mLastMove                       = null;
+  private int                         mFinalScore                     = -1;
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
@@ -1243,18 +1245,17 @@ public class Sancho extends SampleGamer
   public void stateMachineStop()
   {
     // Log the final score.
-    int lFinalScore;
     synchronized (searchProcessor.getSerializationObject())
     {
       ForwardDeadReckonInternalMachineState lState = underlyingStateMachine.createInternalState(getCurrentState());
-      lFinalScore = underlyingStateMachine.getGoal(lState, ourRole);
-      LOGGER.info("Final score: " + lFinalScore);
-      StatsLogUtils.Series.SCORE.logDataPoint(lFinalScore);
+      mFinalScore = underlyingStateMachine.getGoal(lState, ourRole);
+      LOGGER.info("Final score: " + mFinalScore);
+      StatsLogUtils.Series.SCORE.logDataPoint(mFinalScore);
       StatsLogUtils.Series.SAMPLE_RATE.logDataPoint(mGameCharacteristics.getRolloutSampleSize());
     }
 
     // If we've just solved a puzzle for the first time, save the game history as a plan.
-    if ((lFinalScore == 100) &&
+    if ((mFinalScore == 100) &&
         (mGameCharacteristics.numRoles == 1) &&
         (mGameCharacteristics.getPlan() == null))
     {
@@ -1314,5 +1315,18 @@ public class Sancho extends SampleGamer
     }
 
     LOGGER.info("Tidy-up complete");
+  }
+
+  // Methods for use by UTs only
+  public boolean utWillBeTerminal() throws TransitionDefinitionException
+  {
+    MachineState lState = getStateMachine().getNextState(getCurrentState(),
+                                                         Collections.singletonList(mLastMove));
+    return getStateMachine().isTerminal(lState);
+  }
+
+  public int utGetFinalScore()
+  {
+    return mFinalScore;
   }
 }
