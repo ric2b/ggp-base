@@ -4,6 +4,8 @@ package org.ggp.base.player.gamer;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.apps.player.config.ConfigPanel;
 import org.ggp.base.apps.player.config.EmptyConfigPanel;
 import org.ggp.base.apps.player.detail.DetailPanel;
@@ -32,6 +34,8 @@ import org.ggp.base.util.symbol.grammar.Symbol;
  */
 public abstract class Gamer implements Subject
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private   Match                      match;
   private   GdlConstant                roleName;
   private   int                        port;
@@ -159,6 +163,13 @@ public abstract class Gamer implements Subject
    */
   public void setGDLTranslator(GDLTranslator xiGDLTranslator)
   {
+    // Workaround to prevent us hanging trying to play games that we can't play.
+    if ((xiGDLTranslator != null) && (xiGDLTranslator.getGameDir().toString().contains("base.gt_two_thirds_6p")))
+    {
+      LOGGER.error("Aborting 6-Player Guess Two Thirds");
+      throw new RuntimeException("Aborting 6-Player Guess Two Thirds because otherwise we'd hang");
+    }
+
     mGDLTranslator = xiGDLTranslator;
 
     if ( xiGDLTranslator != null )
