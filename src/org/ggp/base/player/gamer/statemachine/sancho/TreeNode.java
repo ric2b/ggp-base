@@ -2427,12 +2427,14 @@ public class TreeNode
       //  Pick arbitrary path back to the root
       TreeNode current = this;
 
-      while(current != tree.root)
+      while(current.getDepth() != tree.root.getDepth())
       {
+        assert(!current.parents.isEmpty());
         TreeNode parent = current.parents.get(0);
 
         if ( current.decidingRoleIndex == 0 )
         {
+          assert(parent.mNumChildren > 0);
           for(Object choice : parent.children)
           {
             if ( choice instanceof TreeEdge )
@@ -2450,7 +2452,19 @@ public class TreeNode
         current = parent;
       }
 
-      plan.considerPlan(fullPlayoutList);
+      //  It is possible to encounter a terminal node during an expansion while processing
+      //  setting a new root (and reconnecting it to the existing tree).  This happens before
+      //  the tree is trimmed to remove no-longer referenced nodes, and in this processing it is
+      //  possible that parent paths can lead outside the scope of the new root (since we just
+      //  follow one path arbitrarily).  Such paths are not valid as plans, so if we find ourselves
+      //  at/above the root level but not at the root we discard it.  Typically this only happens
+      //  when enacting plans previously discovered (since we'll normally discover the win much
+      //  deeper than immediately in  forced-move sequence from the root), when we anyway won't
+      //  accept a new plan since we are already replaying one.
+      if ( current == tree.root )
+      {
+        plan.considerPlan(fullPlayoutList);
+      }
     }
   }
 

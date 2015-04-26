@@ -605,7 +605,7 @@ public class MCTSTree
         }
         else
         {
-          assert(removeNonDecisionNodes);
+          assert(existingRootStateNode == null || removeNonDecisionNodes);
           assert(existingRootStateNode == null || existingRootStateNode.linkageValid());
 
           //  Allocate proxy node for the root
@@ -645,7 +645,7 @@ public class MCTSTree
               }
 
               TreeNode createdForcedMoveChild = root.get(selected.getChildRef());
-              if ( createdForcedMoveChild.isUnexpanded())
+              if ( !createdForcedMoveChild.complete && createdForcedMoveChild.isUnexpanded())
               {
                 TreePath visited = mPathPool.allocate(mTreePathAllocator);
 

@@ -241,6 +241,14 @@ public class Sancho extends SampleGamer
     if (planString != null)
     {
       plan.considerPlan(convertPlanString(planString));
+
+      //  When given an explicit plan at the start of the game (implies we're in test mode)
+      //  warm up the search tree 2 moves before the plan runs out
+      GameSearcher.thinkBelowPlanSize = 2;
+    }
+    else
+    {
+      GameSearcher.thinkBelowPlanSize = 0;
     }
 
     ourRole = getRole();
