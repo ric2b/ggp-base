@@ -395,7 +395,8 @@ public class Sancho extends SampleGamer
 
     //  Slight hack, but for now we don't bother continuing to simulate for a long time after discovering we're in
     //  a simultaneous turn game, because (for now anyway) we disable heuristics in such games anyway
-    while (System.currentTimeMillis() < lHeuristicStopTime && (numSamples < MIN_PRIMARY_SIMULATION_SAMPLES || !mGameCharacteristics.isSimultaneousMove))
+    while ((System.currentTimeMillis() < lHeuristicStopTime) &&
+           ((numSamples < MIN_PRIMARY_SIMULATION_SAMPLES) || (!mGameCharacteristics.isSimultaneousMove)))
     {
       ForwardDeadReckonInternalMachineState sampleState = new ForwardDeadReckonInternalMachineState(initialState);
 
@@ -549,7 +550,7 @@ public class Sancho extends SampleGamer
 
     //  If we were able to run very few samples only don't make non-default
     //  assumptions about the game based on the inadequate sampling
-    LOGGER.info("Performed " + numSamples + " samples to calculate game characteristics");
+    LOGGER.info("Performed " + numSamples + " simulations to calculate heuristics");
     if ( numSamples < MIN_PRIMARY_SIMULATION_SAMPLES )
     {
       mGameCharacteristics.isIteratedGame = false;
@@ -773,6 +774,7 @@ public class Sancho extends SampleGamer
                 ", averageBranchingFactor = " + averageBranchingFactor +
                 ", choices high water mark = " + mGameCharacteristics.getChoicesHighWaterMark(0));
     //	Assume that a game longer is not really an iterated game unless it's of fixed length
+    LOGGER.info("Did " + simulationsPerformed + " simulations for game characteristics");
     if ((Math.abs(branchingFactorApproximation - averageBranchingFactor) > 0.1) || (maxNumTurns != minNumTurns))
     {
       mGameCharacteristics.isIteratedGame = false;
