@@ -6,6 +6,7 @@ import org.junit.runners.Suite;
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses({FDRPStateMachineTests.class,
+                     PropNetSizeTest.class,
                      GameParsingTests.class,
                      GdlCleanerTests.class,
                      NoTabsInRulesheetsTest.class,

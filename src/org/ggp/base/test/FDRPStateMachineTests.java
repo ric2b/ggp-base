@@ -6,7 +6,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import org.ggp.base.util.game.CloudGameRepository;
 import org.ggp.base.util.game.TestGameRepository;
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
@@ -24,13 +23,7 @@ import org.junit.Test;
 
 public class FDRPStateMachineTests extends Assert
 {
-  protected final StateMachine mStateMachine = new ForwardDeadReckonPropnetStateMachine();
-
-  protected final GdlConstant  C1   = GdlPool.getConstant("1");
-  protected final GdlConstant  C2   = GdlPool.getConstant("2");
-  protected final GdlConstant  C3   = GdlPool.getConstant("3");
-  protected final GdlConstant  C50  = GdlPool.getConstant("50");
-  protected final GdlConstant  C100 = GdlPool.getConstant("100");
+  private final StateMachine mStateMachine = new ForwardDeadReckonPropnetStateMachine();
 
   @Test
   public void testProverOnTicTacToe() throws Exception
@@ -191,58 +184,7 @@ public class FDRPStateMachineTests extends Assert
     assertEquals(Collections.singletonList(100), mStateMachine.getGoals(state));
   }
 
-  private class PropNetSize
-  {
-    public final String mRepo;
-    public final String mGame;
-    public final int mFullSize;
-    public final int mXSize;
-    public final int mOSize;
-    public final int mGoalSize;
-
-    public PropNetSize(String xiRepo, String xiGame,
-                       int xiFullSize, int xiXSize, int xiOSize, int xiGoalSize)
-    {
-      mRepo = xiRepo;
-      mGame = xiGame;
-      mFullSize = xiFullSize;
-      mXSize = xiXSize;
-      mOSize = xiOSize;
-      mGoalSize = xiGoalSize;
-    }
-  }
-
-  @Test
-  public void testPropNetSizes() throws Exception
-  {
-    PropNetSize[] lTests = new PropNetSize[] {new PropNetSize("base", "ticTacToe",      244,   168,   168,    57),
-                                              new PropNetSize("base", "connectFour",    765,   619,   619,   299),
-                                              new PropNetSize("base", "breakthrough",  1844,  1203,  1203,   142),
-                                              new PropNetSize("base", "sudokuGrade1",  5483,  4446,  4399,  1722),
-                                              new PropNetSize("base", "checkers",      8079,  4462,  4462,  1571),
-                                              new PropNetSize("base", "reversi",      17795,  3997,  3997, 15195),
-                                              new PropNetSize("base", "speedChess",   35416, 15710, 15710,  9512),
-                                              new PropNetSize("base", "skirmishNew",  35541, 15705, 15705,  9567),
-                                              new PropNetSize("base", "skirmish",     54143, 39649, 39649,  8897),
-                                              new PropNetSize("base", "hex",          81507, 61164, 61164,  3250),
-                                              new PropNetSize("base", "hexPie",       83023, 82342, 82335,  3300),
-                                              };
-
-    for (PropNetSize lTest : lTests)
-    {
-      List<Gdl> lGDL = new CloudGameRepository("games.ggp.org/" + lTest.mRepo).getGame(lTest.mGame).getRules();
-      ForwardDeadReckonPropnetStateMachine lStateMachine = new ForwardDeadReckonPropnetStateMachine();
-      lStateMachine.initialize(lGDL);
-      assertEquals(lTest.mFullSize, lStateMachine.getFullPropNet().getComponents().size());
-      int lXSize = lStateMachine.getXPropNet().getComponents().size();
-      int lOSize = lStateMachine.getOPropNet().getComponents().size();
-      assertEquals(lTest.mXSize, Math.max(lXSize, lOSize));
-      assertEquals(lTest.mOSize, Math.min(lXSize, lOSize));
-      assertEquals(lTest.mGoalSize, lStateMachine.getGoalPropNet().getComponents().size());
-    }
-  }
-
-  protected Move move(String description)
+  private Move move(String description)
   {
     String[] parts = description.split(" ");
     GdlConstant head = GdlPool.getConstant(parts[0]);

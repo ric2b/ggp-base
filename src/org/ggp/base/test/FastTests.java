@@ -5,7 +5,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 
 @RunWith(Suite.class)
-@Suite.SuiteClasses({GameParsingTests.class,
+@Suite.SuiteClasses({FDRPStateMachineTests.class,
+                     GameParsingTests.class,
                      GdlCleanerTests.class,
                      NoTabsInRulesheetsTest.class,
                      ProverStateMachineTests.class,
