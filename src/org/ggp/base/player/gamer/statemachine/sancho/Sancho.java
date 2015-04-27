@@ -549,6 +549,7 @@ public class Sancho extends SampleGamer
 
     //  If we were able to run very few samples only don't make non-default
     //  assumptions about the game based on the inadequate sampling
+    LOGGER.info("Performed " + numSamples + " samples to calculate game characteristics");
     if ( numSamples < MIN_PRIMARY_SIMULATION_SAMPLES )
     {
       mGameCharacteristics.isIteratedGame = false;
@@ -771,9 +772,8 @@ public class Sancho extends SampleGamer
     LOGGER.info("branchingFactorApproximation = " + branchingFactorApproximation +
                 ", averageBranchingFactor = " + averageBranchingFactor +
                 ", choices high water mark = " + mGameCharacteristics.getChoicesHighWaterMark(0));
-    //	Massive hack - assume that a game longer than 30 turns is not really an iterated game unless it's of fixed length
-    if (mGameCharacteristics.isIteratedGame &&
-        (Math.abs(branchingFactorApproximation - averageBranchingFactor) > 0.1 || (maxNumTurns > 30 && maxNumTurns != minNumTurns)))
+    //	Assume that a game longer is not really an iterated game unless it's of fixed length
+    if ((Math.abs(branchingFactorApproximation - averageBranchingFactor) > 0.1) || (maxNumTurns != minNumTurns))
     {
       mGameCharacteristics.isIteratedGame = false;
     }
