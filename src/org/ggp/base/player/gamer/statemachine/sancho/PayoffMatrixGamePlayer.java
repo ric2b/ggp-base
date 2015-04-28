@@ -276,6 +276,7 @@ public class PayoffMatrixGamePlayer
   {
     // Find any pure-strategy Nash Equilibria in the naive way.  Simply consider each cell and then look to see if any
     // player can do better by deviating.
+    int lNumNEs = 0;
     for (int lP0MoveIndex = 0; lP0MoveIndex < mLegalsForRole[0].size(); lP0MoveIndex++)
     {
       for (int lP1MoveIndex = 0; lP1MoveIndex < mLegalsForRole[1].size(); lP1MoveIndex++)
@@ -307,9 +308,12 @@ public class PayoffMatrixGamePlayer
         {
           LOGGER.info("[" + mLegalsForRole[0].get(lP0MoveIndex) + ", " + mLegalsForRole[1].get(lP1MoveIndex) + "] " +
                       "is an NE");
+          lNumNEs++;
         }
       }
     }
+
+    LOGGER.info("Found " + lNumNEs + " pure strategy Nash equilibria");
   }
 
   private static void timeCheck(long xiTimeout) throws UnsupportedGameException
