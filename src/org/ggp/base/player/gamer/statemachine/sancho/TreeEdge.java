@@ -132,7 +132,7 @@ public class TreeEdge
   }
 
   /**
-   * @return whether this edge traverses a heuristic  deviation
+   * @return whether this edge is a hyper-edge
    */
   public boolean isHyperEdge()
   {
@@ -140,8 +140,8 @@ public class TreeEdge
   }
 
   /**
-   * Set whether this edge traverses a heuristic deviation
-   * @param hasHeuristicDeviation
+   * Set whether this edge is a hyper-edge
+   * @param isHyperEdge
    */
   public void setIsHyperEdge(boolean isHyperEdge)
   {

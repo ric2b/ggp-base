@@ -145,11 +145,11 @@ public class TreeNode
   //  in mind if that usage is expanded.  It is initialized to -1 so that a transposition
   //  to an existing node can be distinguished from a fresh allocation
   private short                         depth               = -1;
-  short                         completionDepth;
+  short                                 completionDepth;
   private double                        heuristicValue;
   private double                        heuristicWeight;
 
-  //  To what depth is the hypr-linkage tree expanded from this node
+  //  To what depth is the hyper-linkage tree expanded from this node
   private short                         hyperExpansionDepth = 0;
 
   /**
@@ -505,7 +505,7 @@ public class TreeNode
               if (edge != null)
               {
                 //  Completion processing happens via the direct link tree only, so ignore hyper-edges
-                if ( edge.hyperSuccessor != null)
+                if ( edge.isHyperEdge() )
                 {
                   break;
                 }
@@ -821,7 +821,7 @@ public class TreeNode
           //  No need to traverse hyper-edges in this process.  Also, since hyper-edges
           //  always follow the full set of direct edges in the array as soon as we see one
           //  we can stop looking
-          if ( edge.hyperSuccessor != null )
+          if ( edge.isHyperEdge() )
           {
             break;
           }
@@ -1169,10 +1169,11 @@ public class TreeNode
       {
         Object choice = children[index];
 
-        //  Check for a freed stale hyper-edge (if we're onto hyper edges we can stop anyway)
+        //  Freed edges can occur when reconnecting complete nodes for a new root,
+        //  of after stale hyper-edges have been freed - just skip
         if ( choice == null )
         {
-          break;
+          continue;
         }
 
         TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
@@ -1191,7 +1192,7 @@ public class TreeNode
         else
         {
           //  No need to process hyper-edges to determine completion
-          if ( edge.hyperSuccessor != null )
+          if ( edge.isHyperEdge() )
           {
             break;
           }
@@ -1666,8 +1667,8 @@ public class TreeNode
 
     if ( edge.getChildRef() == NULL_REF )
     {
-      //  Cannot re-create children of hyper-edges - once hey are gone the hyper-edge is dead
-      if ( edge.hyperSuccessor != null )
+      //  Cannot re-create children of hyper-edges - once they are gone the hyper-edge is dead
+      if ( edge.isHyperEdge() )
       {
         return null;
       }
@@ -1799,7 +1800,7 @@ public class TreeNode
             //  No need to traverse hyper-edges in this sweep.  Also, since hyper-edges
             //  always follow the full set of direct edges in the array as soon as we see one
             //  we can stop looking
-            if ( edge.hyperSuccessor != null )
+            if ( edge.isHyperEdge() )
             {
               break;
             }
@@ -1859,7 +1860,7 @@ public class TreeNode
         {
           //  Note that hyper-edges represent duplicate paths that are not back-linked
           //  by parentage, so node-freeing via hyper-edges is not needed (or correct)
-          TreeNode lNode = (edge.getChildRef() == NULL_REF || edge.hyperSuccessor != null) ? null : get(edge.getChildRef());
+          TreeNode lNode = (edge.getChildRef() == NULL_REF || edge.isHyperEdge()) ? null : get(edge.getChildRef());
 
           // Delete our edge to the child anyway.  (We only set "descendant" when re-rooting the tree.  In that case,
           // we don't need the edge any more.)
@@ -1888,7 +1889,7 @@ public class TreeNode
     TreeEdge lEdge = (TreeEdge)children[xiChildIndex];
 
     // Replace the edge with its move (so that it can be re-expanded later if required).
-    if ( lEdge.hyperSuccessor == null )
+    if ( lEdge.isHyperEdge() )
     {
       children[xiChildIndex] = lEdge.mPartialMove;
     }
@@ -1931,7 +1932,7 @@ public class TreeNode
           }
           else
           {
-            //  Still extant hypr-edge
+            //  Still extant hyper-edge
             return;
           }
         }
@@ -2686,7 +2687,7 @@ public class TreeNode
                         hyperEdge.setParent(this, edge.mPartialMove);
                         hyperEdge.hyperSuccessor = descendantEdge;
                         hyperEdge.setIsHyperEdge(true);
-                        //  Because edges are pooled and can be reallocated aftr being freed by an un-expansion
+                        //  Because edges are pooled and can be reallocated after being freed by an un-expansion
                         //  it is possible that the hyperSuccessor chain can contain stale edges that have been
                         //  reused.  So that we can validate chain integrity we therefore store the ref of the next
                         //  node in the chain, so that at each link the expected next node ref can be validated against
@@ -2926,7 +2927,7 @@ public class TreeNode
               parent.children[thisIndex] = edge.mPartialMove;
               if ( parent.primaryChoiceMapping == null )
               {
-                parent.primaryChoiceMapping = new short[parent.mNumChildren];
+                parent.primaryChoiceMapping = new short[parent.children.length];
 
                 for(short i = 0; i < parent.mNumChildren; i++)
                 {
@@ -3115,6 +3116,8 @@ public class TreeNode
       if (mNumChildren > children.length)
       {
         children = new Object[tree.gameCharacteristics.getChoicesHighWaterMark(mNumChildren)];
+
+        assert ( primaryChoiceMapping == null );
       }
 
       if (MCTSTree.USE_STATE_SIMILARITY_IN_EXPANSION)
@@ -3240,7 +3243,7 @@ public class TreeNode
             {
               if ( primaryChoiceMapping == null )
               {
-                primaryChoiceMapping = new short[mNumChildren];
+                primaryChoiceMapping = new short[children.length];
                 for(short j = 0; j < lMoveIndex; j++)
                 {
                   primaryChoiceMapping[j] = j;
@@ -3308,7 +3311,7 @@ public class TreeNode
                   {
                     if ( primaryChoiceMapping == null )
                     {
-                      primaryChoiceMapping = new short[mNumChildren];
+                      primaryChoiceMapping = new short[children.length];
                       for(short j = 0; j < mNumChildren; j++)
                       {
                         primaryChoiceMapping[j] = j;
@@ -3752,6 +3755,16 @@ public class TreeNode
     double lUcbExploration;
     TreeNode childNode = get(edge.getChildRef());
     int effectiveNumChildVisits = edge.getNumChildVisits() + 1;
+
+    //  It is possible for an un-visited node to still have children that have been visited due
+    //  to transpositions, which means that we will need to apply UCT based on the child visit
+    //  counts even though the parent count is 0.  In such cases the parent count is the same for all
+    //  children so it just amounts to a common normalization factor that will not impact ordering,
+    //  so set it to 1 so we get meaningful values
+    if ( effectiveTotalVisits == 0 )
+    {
+      effectiveTotalVisits = 1;
+    }
 
     //  If we're using weight decay we need to normalize the apparent sample sizes
     //  used to calculate the upper bound on variance for UCB-tuned or else the
