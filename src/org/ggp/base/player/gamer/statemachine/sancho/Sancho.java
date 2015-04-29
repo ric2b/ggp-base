@@ -649,7 +649,7 @@ public class Sancho extends SampleGamer
     long simulationStartTime = System.currentTimeMillis();
     //  Always do this for at least a second even if we technically don't have time to do so, since not running it
     //  at all causes all sorts of problems
-    long simulationStopTime = Math.min(Math.max(timeout - (mGameCharacteristics.numRoles == 1 ? 10000 : 5000), simulationStartTime + 1000),
+    long simulationStopTime = Math.min(Math.max(timeout - (mGameCharacteristics.numRoles == 1 ? 12000 : 7000), simulationStartTime + 1000),
                                        simulationStartTime + 10000);
 
     int[] rolloutStats = new int[2];
@@ -990,6 +990,18 @@ public class Sancho extends SampleGamer
                 1000 /
                 (simulationStopTime - simulationStartTime) +
                 " simulations/second performed - setting rollout sample size to " + mGameCharacteristics.getRolloutSampleSize());
+
+    //  If we have any time left try to optimize the way the state machine processes state changes
+    if ( timeout > System.currentTimeMillis() + (mGameCharacteristics.numRoles == 1 ? 11000 : 6000) )
+    {
+      long tuningEnd = Math.min(System.currentTimeMillis() + 5000,timeout - (mGameCharacteristics.numRoles == 1 ? 10000 : 5000));
+
+      underlyingStateMachine.optimizeStateTransitionMechanism(tuningEnd);
+    }
+    else
+    {
+      LOGGER.info("Insufficient time remaining for transition mechanism tuning");
+    }
 
     if (!mGameCharacteristics.isIteratedGame || numRoles != 2)
     {
