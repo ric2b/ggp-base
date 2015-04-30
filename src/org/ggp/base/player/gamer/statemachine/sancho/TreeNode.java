@@ -1658,8 +1658,14 @@ public class TreeNode
     }
     else
     {
+      ForwardDeadReckonLegalMoveInfo move = (ForwardDeadReckonLegalMoveInfo)children[index];
+      if ( move.isPseudoNoOp && this != tree.root )
+      {
+        return null;
+      }
+
       edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-      edge.setParent(this, (ForwardDeadReckonLegalMoveInfo)children[index]);
+      edge.setParent(this, move);
       children[index] = edge;
 
       assert(edge != null);
@@ -2624,7 +2630,7 @@ public class TreeNode
                       //  the case of a transposition it is possible they will not have been
                       TreeNode descendant = expandedChild.createChildIfNeccessary(index, jointPartialMove, roleIndex);
 
-                      //  In the case of a hyper-edge who terminus no longer exists (because an intermediary step has been completed usually)
+                      //  In the case of a hyper-edge whose terminus no longer exists (because an intermediary step has been completed usually)
                       //  we may have no descendant, which means it's a dead hyper-edge and we should ignore it
                       if ( descendant == null )
                       {
@@ -3335,14 +3341,15 @@ public class TreeNode
               }
             }
 
-            //  We need to create the node at once is a fast-forward has taken place since
+            //  We need to create the node at once if a fast-forward has taken place since
             //  the state will not be that reached directly by the move choice and we will
             //  not have access to the correct state information in other contexts
+            ForwardDeadReckonLegalMoveInfo childMove = (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex];
             if ( (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) &&
-                 (info.isTerminal || info.autoExpand  || stateFastForwarded) )
+                 (info.isTerminal || info.autoExpand  || stateFastForwarded) && !childMove.isPseudoNoOp )
             {
               TreeEdge newEdge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-              newEdge.setParent(this, (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex]);
+              newEdge.setParent(this, childMove);
               children[lMoveIndex] = newEdge;
               jointPartialMove[roleIndex] = newEdge.mPartialMove;
               createChildNodeForEdgeWithAssertedState(newEdge, tree.mChildStatesBuffer[lMoveIndex], fastForwardDepthIncrement, false);
