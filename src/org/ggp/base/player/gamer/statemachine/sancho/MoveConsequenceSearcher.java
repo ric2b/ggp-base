@@ -9,6 +9,12 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
+/**
+ * @author steve
+ *
+ *  This class is responsible for local search to determine whether there are forced win/loss
+ *  consequences of a given seed move from a given state
+ */
 public class MoveConsequenceSearcher implements Runnable, LocalSearchController
 {
   private static final Logger LOGGER       = LogManager.getLogger();
@@ -27,6 +33,13 @@ public class MoveConsequenceSearcher implements Runnable, LocalSearchController
   private final LocalRegionSearcher regionSearcher;
   private final String mLogName;
 
+  /**
+   * @param xiUnderlyingStateMachine - state machine instance the move consequence searcher can use -
+   *                                   this must not be shared with other uses on other threads
+   * @param xiRoleOrdering           - canonical role order mappings
+   * @param logName                  - the name of the log
+   * @param resultConsumer           - interface by which results of the search are communicated
+   */
   public MoveConsequenceSearcher(
                     ForwardDeadReckonPropnetStateMachine xiUnderlyingStateMachine,
                     RoleOrdering xiRoleOrdering,
@@ -36,41 +49,66 @@ public class MoveConsequenceSearcher implements Runnable, LocalSearchController
     regionSearcher = new LocalRegionSearcher(xiUnderlyingStateMachine, xiRoleOrdering, this, resultConsumer);
     mLogName = logName;
 
-    mThread = new Thread(this, "Move Consequence Processor");
-    mThread.setDaemon(true);
-    mThread.start();
+    if ( regionSearcher.canPerformLocalSearch() )
+    {
+      mThread = new Thread(this, "Move Consequence Processor");
+      mThread.setDaemon(true);
+      mThread.start();
+    }
+    else
+    {
+      mThread = null;
+    }
   }
 
+  /**
+   * @return whether local searching is enabled in the current game
+   */
   public boolean isEnabled()
   {
     return regionSearcher.canPerformLocalSearch();
   }
 
+  /**
+   * Terminate the local search thread
+   */
   public void stop()
   {
     mTerminateRequested = true;
 
-    synchronized(this)
+    if ( mThread != null )
     {
-      this.notifyAll();
-    }
-
-    try
-    {
-      mThread.join(2000);
-      if ( mThread.isAlive() )
+      synchronized(this)
       {
-        LOGGER.warn("Local search processor failed to stop cleanly - interrupting");
-        mThread.interrupt();
-        mThread.join(5000);
+        this.notifyAll();
       }
-    }
-    catch (InterruptedException lEx)
-    {
-      LOGGER.warn("Unexpectedly interrupted whilst stopping local search processor");
+
+      try
+      {
+        mThread.join(2000);
+        if ( mThread.isAlive() )
+        {
+          LOGGER.warn("Local search processor failed to stop cleanly - interrupting");
+          mThread.interrupt();
+          mThread.join(5000);
+        }
+      }
+      catch (InterruptedException lEx)
+      {
+        LOGGER.warn("Unexpectedly interrupted whilst stopping local search processor");
+      }
     }
   }
 
+  /**
+   * Start a new local search
+   * @param startState        - root state for the new search
+   * @param xiChoiceFromState - state the start state is a child of
+   * @param seed              - move being used as a locality seed
+   * @param xiChoosingRole    - role for whom we are looking for a forced win
+   * @param isNewTurn         - whether this is a search around the last played move on a new turn
+   * @param forceSearchReset  - if true force starting from a 0 depth even if the search matches the currently executing one
+   */
   public void newSearch(ForwardDeadReckonInternalMachineState startState,
                         ForwardDeadReckonInternalMachineState xiChoiceFromState,
                         ForwardDeadReckonLegalMoveInfo seed,
@@ -112,6 +150,9 @@ public class MoveConsequenceSearcher implements Runnable, LocalSearchController
     }
   }
 
+  /**
+   * Stop the current search
+   */
   public void endSearch()
   {
     synchronized(this)
