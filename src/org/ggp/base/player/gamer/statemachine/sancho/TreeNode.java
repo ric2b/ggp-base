@@ -4362,13 +4362,16 @@ public class TreeNode
                                  heuristicUCT(edge);
                     }
 
-                    //  If the node we most want to select through is complete (or all its
-                    //  children are, in either case of which there is nothing further to
-                    //  learn) we select the best non-compleet choice but record the fact
+                    //  If the node we most want to select through is complete (so there is nothing further to
+                    //  learn) we select the best non-complete choice but record the fact
                     //  so that on propagation of the result we can propagate upwards from this
                     //  node the score of the complete node that in some sense 'should' have
                     //  been selected
-                    if (!c.complete && !c.allChildrenComplete)
+                    //  Note - in simultaneous move games all the node's children can be complete
+                    //  without the node being complete, but we cannot take the same approach there because
+                    //  the UCT scores (which depend on the cousins also) can diverge significantly
+                    //  from the actual node scores, and so we must propagate the selected path normally
+                    if (!c.complete )
                     {
                       if (uctValue > bestValue)
                       {
