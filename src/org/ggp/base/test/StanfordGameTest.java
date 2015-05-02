@@ -33,6 +33,12 @@ public class StanfordGameTest extends Assert
     MAX_SCORES.put("multiplesukoshi", 0);
   }
 
+  private static HashMap<String, Integer> EXTRA_TIME = new HashMap<>();
+  static
+  {
+    EXTRA_TIME.put("multiplehamilton", 60);
+  }
+
   /**
    * Create a list of tests to run (1 per game) from the Stanford repository.
    *
@@ -107,6 +113,15 @@ public class StanfordGameTest extends Assert
     String lRules = mGame.getRulesheet();
     int lStartClock = 60;
     int lPlayClock = 60;
+
+    // Some games need a little extra time (but better to do it this way, because it reduces the running time of the
+    // while suite.
+    if (EXTRA_TIME.containsKey(mName))
+    {
+      int lExtra = EXTRA_TIME.get(mName);
+      lStartClock += lExtra;
+      lPlayClock += lExtra;
+    }
 
     // Get Sancho to do meta-gaming.
     String lRequest = "(start " +
