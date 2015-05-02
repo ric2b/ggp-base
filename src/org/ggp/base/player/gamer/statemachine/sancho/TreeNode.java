@@ -4200,7 +4200,8 @@ public class TreeNode
       {
         //calculatePathMoveWeights(path);
 
-        if ( tree.USE_NODE_SCORE_NORMALIZATION && numVisits > 500 && (numVisits&0xff) == 0xff )
+        if ( tree.USE_NODE_SCORE_NORMALIZATION && numVisits > 500 && (numVisits&0xff) == 0xff &&
+             (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == 0))
         {
           normalizeScores(false);
         }
@@ -4376,9 +4377,8 @@ public class TreeNode
                     //  been selected
                     //  Note - in simultaneous move games all the node's children can be complete
                     //  without the node being complete, but we cannot take the same approach there because
-                    //  the UCT scores (which depend on the cousins also) can diverge significantly
-                    //  from the actual node scores, and so we must propagate the selected path normally
-                    if (!c.complete )
+                    //  we need this node to be on the selection path so that it continues to get updates
+                    if (!c.complete)
                     {
                       if (uctValue > bestValue)
                       {
@@ -5590,6 +5590,8 @@ public class TreeNode
                                      lChild.numVisits;
               assert(xiValues[lRoleIndex] < 100+EPSILON);
             }
+
+            assert ( !lNode.allChildrenComplete || Math.abs(xiValues[lRoleIndex] - lChild.getAverageScore(lRoleIndex)) < EPSILON );
           }
 
           lNode.setAverageScore(lRoleIndex,
