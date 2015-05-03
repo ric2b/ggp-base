@@ -371,6 +371,8 @@ public class Sancho extends SampleGamer
     long lMetaGameStartTime = System.currentTimeMillis();
     long lMetaGameStopTime = timeout - 5000;
     int numSamples = 0;
+    int maxNumTurns = 0;
+    int minNumTurns = Integer.MAX_VALUE;
 
     // Spend half the time determining heuristic weights if there are any heuristics, else spend
     //  a short time just establishing the type of game
@@ -392,6 +394,11 @@ public class Sancho extends SampleGamer
     {
       playerMoveParity[i] = -1;
     }
+
+    //  Start with greedy rollouts disabled for finding basic characteristics.  This is likely to result in more
+    //  simulations, and prevents games with forced greedy paths (like Centipede wherein one choice always leads
+    //  to immediate non-win termination and hence is never chosen by greedy processing) giving misleading results
+    underlyingStateMachine.enableGreedyRollouts(false, false);
 
     //  Slight hack, but for now we don't bother continuing to simulate for a long time after discovering we're in
     //  a simultaneous turn game, because (for now anyway) we disable heuristics in such games anyway
@@ -529,6 +536,15 @@ public class Sancho extends SampleGamer
         sampleState.copy(newState);
       }
 
+      if ( turnNum > maxNumTurns )
+      {
+        maxNumTurns = turnNum;
+      }
+      if ( turnNum < minNumTurns )
+      {
+        minNumTurns = turnNum;
+      }
+
       for (int i = 0; i < numRoles; i++)
       {
         roleScores[i] = underlyingStateMachine.getGoal(roleOrdering.roleIndexToRole(i));
@@ -569,63 +585,77 @@ public class Sancho extends SampleGamer
       heuristic.pruneAll();
     }
 
+    //  If we saw differing game lengths do not treat as an iterated game.  Note that we have to do this
+    //  here, and not after the more discriminatory simulation loop later, because the later loop
+    //  also tests greedy rollout efficacy, and this can force move paths that give a misleading result for
+    //  for the possible range of game lengths
+    if (maxNumTurns != minNumTurns)
+    {
+      mGameCharacteristics.isIteratedGame = false;
+    }
+
+
     mGameCharacteristics.setGoalsStability(goalsStabilityHeuristic.getGoalStability());
 
     if (mGameCharacteristics.isSimultaneousMove || mGameCharacteristics.isPseudoSimultaneousMove)
     {
       roleControlProps = null;
 
-      if (!greedyRolloutsDisabled)
-      {
-        greedyRolloutsDisabled = true;
-        underlyingStateMachine.disableGreedyRollouts();
-      }
-    }
-    else if ( numRoles == 1 )
-    {
-      roleControlProps = null;
+
+      greedyRolloutsDisabled = true;
+      underlyingStateMachine.enableGreedyRollouts(false, true);
     }
     else
     {
-      //  Did we identify unique control props?
-      //  We look for a proposition that is always true when a given role has more than one
-      //  move choice, and is never true if any other player has more than one move choice
-      //  This is slightly ovr-specific, and will not work for games with control denoted by a
-      //  set of props rather than a single one (e.g. - Pentago), but it will suffice for now
-      ForwardDeadReckonInternalMachineState[] inverseMasks = new ForwardDeadReckonInternalMachineState[numRoles];
+      //  Turn greedy rollouts back on for now to measure their effectiveness
+      underlyingStateMachine.enableGreedyRollouts(true, false);
 
-      for(int i = 0; i < numRoles; i++)
+      if ( numRoles == 1 )
       {
-        inverseMasks[i] = new ForwardDeadReckonInternalMachineState(roleControlMasks[i]);
-        inverseMasks[i].invert();
+        roleControlProps = null;
       }
-
-      for(int i = 0; i < numRoles; i++)
+      else
       {
-        //  Eliminate anything common to multiple roles
-        for(int j = 0; j < numRoles; j++)
-        {
-          if ( j != i )
-          {
-            roleControlMasks[i].intersect(inverseMasks[j]);
-          }
-        }
-        if ( roleControlMasks[i].size() != 1 )
-        {
-          LOGGER.info("Non-unique control mask for role " + i + ": " + roleControlMasks[i]);
+        //  Did we identify unique control props?
+        //  We look for a proposition that is always true when a given role has more than one
+        //  move choice, and is never true if any other player has more than one move choice
+        //  This is slightly ovr-specific, and will not work for games with control denoted by a
+        //  set of props rather than a single one (e.g. - Pentago), but it will suffice for now
+        ForwardDeadReckonInternalMachineState[] inverseMasks = new ForwardDeadReckonInternalMachineState[numRoles];
 
-          roleControlProps = null;
-          break;
-        }
-
-        roleControlProps[i] = roleControlMasks[i].resolveIndex(roleControlMasks[i].getContents().nextSetBit(0));
-      }
-
-      if ( roleControlProps != null )
-      {
         for(int i = 0; i < numRoles; i++)
         {
-          LOGGER.info("Role " + i + " has control prop: " + roleControlProps[i].sentence);
+          inverseMasks[i] = new ForwardDeadReckonInternalMachineState(roleControlMasks[i]);
+          inverseMasks[i].invert();
+        }
+
+        for(int i = 0; i < numRoles; i++)
+        {
+          //  Eliminate anything common to multiple roles
+          for(int j = 0; j < numRoles; j++)
+          {
+            if ( j != i )
+            {
+              roleControlMasks[i].intersect(inverseMasks[j]);
+            }
+          }
+          if ( roleControlMasks[i].size() != 1 )
+          {
+            LOGGER.info("Non-unique control mask for role " + i + ": " + roleControlMasks[i]);
+
+            roleControlProps = null;
+            break;
+          }
+
+          roleControlProps[i] = roleControlMasks[i].resolveIndex(roleControlMasks[i].getContents().nextSetBit(0));
+        }
+
+        if ( roleControlProps != null )
+        {
+          for(int i = 0; i < numRoles; i++)
+          {
+            LOGGER.info("Role " + i + " has control prop: " + roleControlProps[i].sentence);
+          }
         }
       }
     }
@@ -653,8 +683,6 @@ public class Sancho extends SampleGamer
                                        simulationStartTime + 10000);
 
     int[] rolloutStats = new int[2];
-    int maxNumTurns = 0;
-    int minNumTurns = Integer.MAX_VALUE;
     double averageBranchingFactor = 0;
     double averageNumTurns = 0;
     double averageSquaredNumTurns = 0;
@@ -865,7 +893,7 @@ public class Sancho extends SampleGamer
       if (!greedyRolloutsDisabled)
       {
         greedyRolloutsDisabled = true;
-        underlyingStateMachine.disableGreedyRollouts();
+        underlyingStateMachine.enableGreedyRollouts(false, true);
 
         //	Scale up the estimate of simulation rate since we'll be running without the overhead
         //	of greedy rollouts (which is proportional to the branching factor)

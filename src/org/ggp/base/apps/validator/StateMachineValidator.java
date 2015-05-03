@@ -96,7 +96,7 @@ public class StateMachineValidator
           try
           {
             theMachine.initialize(description);
-            theMachine.disableGreedyRollouts();
+            theMachine.enableGreedyRollouts(false, true);
 
             result = StateMachineVerifier.checkMachineConsistency(theReference,
                                                                   theMachine,

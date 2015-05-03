@@ -216,7 +216,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     if (disableGreedyRollouts)
     {
       LOGGER.info("Disabling greedy rollouts");
-      underlyingStateMachine.disableGreedyRollouts();
+      underlyingStateMachine.enableGreedyRollouts(false, true);
       rolloutPool.disableGreedyRollouts();
     }
 

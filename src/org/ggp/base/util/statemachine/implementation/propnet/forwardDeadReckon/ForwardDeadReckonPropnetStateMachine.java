@@ -3837,6 +3837,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private int     rolloutDepth;
   private boolean enableGreedyRollouts = true;
+  private boolean greedyRolloutsDisabledPersistently = false;
 
   /**
    * @return whehehr greedy rollouts are enabled
@@ -3846,65 +3847,82 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return enableGreedyRollouts;
   }
 
-  public void disableGreedyRollouts()
+  /**
+   * Whether to en/disable use of greedy rollouts (defaults to enabled for a newly constructed
+   * state machine)
+   * @param enabled       New state
+   * @param persistently  Disablement may be persistent after which no further changes are allowed
+   *                      This will perform irrevocable propnet optimizations for disabled greedy rollouts
+   */
+  public void enableGreedyRollouts(boolean enabled, boolean persistently)
   {
-    if (!enableGreedyRollouts)
+    //  Legal transitions check
+    assert( !enabled || !greedyRolloutsDisabledPersistently );
+
+    if ( enabled )
     {
-      return;
+      enableGreedyRollouts = true;
     }
-
-    enableGreedyRollouts = false;
-
-    if (instanceId == 0)
+    else
     {
-      //	Fixup the cross-reference of the base propositions of the two networks
-      for (Entry<GdlSentence, PolymorphicProposition> e : propNetX.getBasePropositions().entrySet())
+      enableGreedyRollouts = false;
+
+      if ( !persistently || greedyRolloutsDisabledPersistently )
       {
-        ForwardDeadReckonProposition oProp =
-                               (ForwardDeadReckonProposition)propNetOWithoutGoals.getBasePropositions().get(e.getKey());
-        ForwardDeadReckonProposition xProp =
-                               (ForwardDeadReckonProposition)propNetXWithoutGoals.getBasePropositions().get(e.getKey());
-        ForwardDeadReckonPropositionCrossReferenceInfo info =
-                 (ForwardDeadReckonPropositionCrossReferenceInfo)((ForwardDeadReckonProposition)e.getValue()).getInfo();
-
-        info.xNetProp = xProp;
-        info.oNetProp = oProp;
-
-        xProp.setInfo(info);
-        oProp.setInfo(info);
+        return;
       }
 
-      propNetXWithoutGoals.crystalize(masterInfoSet, masterLegalMoveSet, maxInstances);
-      propNetOWithoutGoals.crystalize(masterInfoSet, masterLegalMoveSet, maxInstances);
-
-      for(ForwardDeadReckonPropositionInfo info : masterInfoSet)
+      if (instanceId == 0)
       {
-        ForwardDeadReckonPropositionCrossReferenceInfo crInfo = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
+        //  Fixup the cross-reference of the base propositions of the two networks
+        for (Entry<GdlSentence, PolymorphicProposition> e : propNetX.getBasePropositions().entrySet())
+        {
+          ForwardDeadReckonProposition oProp =
+                                 (ForwardDeadReckonProposition)propNetOWithoutGoals.getBasePropositions().get(e.getKey());
+          ForwardDeadReckonProposition xProp =
+                                 (ForwardDeadReckonProposition)propNetXWithoutGoals.getBasePropositions().get(e.getKey());
+          ForwardDeadReckonPropositionCrossReferenceInfo info =
+                   (ForwardDeadReckonPropositionCrossReferenceInfo)((ForwardDeadReckonProposition)e.getValue()).getInfo();
 
-        crInfo.xNetPropId = crInfo.xNetProp.id;
-        crInfo.oNetPropId = crInfo.oNetProp.id;
+          info.xNetProp = xProp;
+          info.oNetProp = oProp;
+
+          xProp.setInfo(info);
+          oProp.setInfo(info);
+        }
+
+        propNetXWithoutGoals.crystalize(masterInfoSet, masterLegalMoveSet, maxInstances);
+        propNetOWithoutGoals.crystalize(masterInfoSet, masterLegalMoveSet, maxInstances);
+
+        for(ForwardDeadReckonPropositionInfo info : masterInfoSet)
+        {
+          ForwardDeadReckonPropositionCrossReferenceInfo crInfo = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
+
+          crInfo.xNetPropId = crInfo.xNetProp.id;
+          crInfo.oNetPropId = crInfo.oNetProp.id;
+        }
+
+        propNetXWithoutGoals.reset(true);
+        propNetOWithoutGoals.reset(true);
+
+        //  Set move factor info and virtual-noop info
+        setMoveInfoForPropnet(propNetXWithoutGoals);
+        setMoveInfoForPropnet(propNetOWithoutGoals);
       }
 
-      propNetXWithoutGoals.reset(true);
-      propNetOWithoutGoals.reset(true);
+      propNetO = propNetOWithoutGoals;
+      propNetX = propNetXWithoutGoals;
 
-      //  Set move factor info and virtual-noop info
-      setMoveInfoForPropnet(propNetXWithoutGoals);
-      setMoveInfoForPropnet(propNetOWithoutGoals);
-    }
+      propNet = propNetX;
+      lastInternalSetState = null;
+      lastInternalSetStateX = null;
+      lastInternalSetStateO = null;
 
-    propNetO = propNetOWithoutGoals;
-    propNetX = propNetXWithoutGoals;
-
-    propNet = propNetX;
-    lastInternalSetState = null;
-    lastInternalSetStateX = null;
-    lastInternalSetStateO = null;
-
-    for(int i = 0; i < numRoles; i++)
-    {
-      previousMovePropsX[i] = null;
-      previousMovePropsO[i] = null;
+      for(int i = 0; i < numRoles; i++)
+      {
+        previousMovePropsX[i] = null;
+        previousMovePropsO[i] = null;
+      }
     }
   }
 
