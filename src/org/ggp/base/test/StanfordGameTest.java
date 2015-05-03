@@ -36,7 +36,7 @@ public class StanfordGameTest extends Assert
   private static HashMap<String, Integer> EXTRA_TIME = new HashMap<>();
   static
   {
-    EXTRA_TIME.put("multiplehamilton", 60);
+    // EXTRA_TIME.put("multiplehamilton", 60);
   }
 
   /**
