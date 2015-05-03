@@ -222,6 +222,8 @@ public abstract class ForwardDeadReckonComponent implements
   @Override
   public void addInput(PolymorphicComponent input)
   {
+    assert(input != null);
+
     if (inputsArray == null)
     {
       inputsList.add((ForwardDeadReckonComponent)input);

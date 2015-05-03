@@ -1616,7 +1616,7 @@ public class OptimizingPolymorphicPropNetFactory
     //  Any bases and inputs that cannot be reached by tracing back from either the terminal
     //  or a goal proposition are irrelevant (transiting through a virtual does->legal back-link)
     Set<PolymorphicComponent> reachableComponents = new HashSet<>();
-    recursiveFindReachable(pn, pn.getTerminalProposition(), reachableComponents);
+    recursiveFindReachable(pn, pn.getTerminalProposition(), reachableComponents, null, true);
 
     //  Initially just mark the components on which OUR goals depend if we have been given our role
     //  Don't try this if we only have a single goal value anyway - this is some stupid test game not
@@ -1637,7 +1637,7 @@ public class OptimizingPolymorphicPropNetFactory
 
       for( PolymorphicProposition c : pn.getGoalPropositions().get(ourRole))
       {
-        recursiveFindReachable(pn, c, reachableComponents);
+        recursiveFindReachable(pn, c, reachableComponents, null, true);
       }
 
       //  The core reachable components are those relevant directly to our goals
@@ -1668,9 +1668,9 @@ public class OptimizingPolymorphicPropNetFactory
         //  for at least our role
         for( PolymorphicProposition c : pn.getLegalPropositions().get(ourRole))
         {
-          recursiveFindReachable(pn, c, reachableComponents);
+          recursiveFindReachable(pn, c, reachableComponents, null, true);
 
-          //  If a legal is no within the core reachable set it has no impact on anything
+          //  If a legal is not within the core reachable set it has no impact on anything
           //  that influences our goals and is therefore only relevant as a possible source of
           //  what amounts to a noop (in the subset of relevant components)
           if ( !coreReachableComponents.contains(c) )
@@ -1715,11 +1715,11 @@ public class OptimizingPolymorphicPropNetFactory
             //  Add in this role's goals and legals
             for( PolymorphicProposition c : pn.getGoalPropositions().get(role))
             {
-              recursiveFindReachable(pn, c, reachableComponents);
+              recursiveFindReachable(pn, c, reachableComponents, null, true);
             }
             for( PolymorphicProposition c : pn.getLegalPropositions().get(role))
             {
-              recursiveFindReachable(pn, c, reachableComponents);
+              recursiveFindReachable(pn, c, reachableComponents, null, true);
 
               //  If a legal is no within the core reachable set it has no impact on anything
               //  that influences our goals and is therefore only relevant as a possible source of
@@ -1787,7 +1787,7 @@ public class OptimizingPolymorphicPropNetFactory
       {
         for(PolymorphicProposition c : goals)
         {
-          recursiveFindReachable(pn, c, reachableComponents);
+          recursiveFindReachable(pn, c, reachableComponents, null, true);
         }
       }
 
@@ -1795,54 +1795,95 @@ public class OptimizingPolymorphicPropNetFactory
       {
         for(PolymorphicProposition c : legals)
         {
-          recursiveFindReachable(pn, c, reachableComponents);
+          recursiveFindReachable(pn, c, reachableComponents, null, true);
         }
       }
     }
 
-    //  What can we eliminate?
-    Set<PolymorphicComponent> unreachable = new HashSet<>();
-    int removalCount = 0;
-    for(PolymorphicProposition c : pn.getBasePropositions().values())
+    //  Anything potentially removable?
+    boolean anyGoalsPotentiallyDiscardable = false;
+
+    for(Role role : pn.getRoles())
     {
-      if ( !reachableComponents.contains(c))
+      for(PolymorphicProposition goalProp : pn.getGoalPropositions().get(role))
       {
-        unreachable.add(c);
-      }
-    }
-    for(PolymorphicProposition c : pn.getInputPropositions().values())
-    {
-      //  Don't lop no-ops off the network
-      if ( c.getOutputs().isEmpty() )
-      {
-        //  Or its corresponding legal
-        PolymorphicComponent noopLegal = pn.getLegalInputMap().get(c);
-        if ( noopLegal != null )
+        if ( !reachableComponents.contains(goalProp))
         {
-          reachableComponents.add(noopLegal);
+          anyGoalsPotentiallyDiscardable = true;
+          break;
         }
       }
-      else if ( !reachableComponents.contains(c) )
-      {
-        unreachable.add(c);
-      }
     }
-    for(PolymorphicProposition[] goals : pn.getGoalPropositions().values())
+    if ( !reachableComponents.containsAll(pn.getBasePropositions().values()) ||
+         !reachableComponents.containsAll(pn.getInputPropositions().values()) ||
+         anyGoalsPotentiallyDiscardable)
     {
-      for(PolymorphicProposition c : goals)
+      //  Include the proposition-preservation logic for the base props we still need
+      Set<PolymorphicComponent> definatelyReachableBaseProps = new HashSet<>();
+      for(PolymorphicComponent c : reachableComponents)
+      {
+        if (pn.getBasePropositions().values().contains(c))
+        {
+          definatelyReachableBaseProps.add(c);
+        }
+      }
+      for(PolymorphicComponent c : definatelyReachableBaseProps)
+      {
+        recursiveFindReachable(pn, c, reachableComponents, null, false);
+      }
+
+      //  Add in also any base props implied by definitely included does props
+      //  which can impact included legals or other included base props
+      Set<PolymorphicComponent> definatelyReachableDoesProps = new HashSet<>();
+      for(PolymorphicComponent c : reachableComponents)
+      {
+        if (pn.getInputPropositions().values().contains(c))
+        {
+          definatelyReachableDoesProps.add(c);
+        }
+      }
+      boolean anythingAdded;
+
+      do
+      {
+        anythingAdded = false;
+
+        for(PolymorphicComponent c : definatelyReachableDoesProps)
+        {
+          anythingAdded |= addImpliedRequiredBaseProps(pn, c, reachableComponents);
+        }
+      } while(anythingAdded);
+
+      //  What can we eliminate?
+      Set<PolymorphicComponent> unreachable = new HashSet<>();
+      int removalCount = 0;
+      for(PolymorphicProposition c : pn.getBasePropositions().values())
       {
         if ( !reachableComponents.contains(c))
         {
           unreachable.add(c);
         }
       }
-    }
-
-    if ( pn.getRoles().length > 1 )
-    {
-      for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
+      for(PolymorphicProposition c : pn.getInputPropositions().values())
       {
-        for( PolymorphicProposition c : legals)
+        //  Don't lop no-ops off the network
+        if ( c.getOutputs().isEmpty() )
+        {
+          //  Or its corresponding legal
+          PolymorphicComponent noopLegal = pn.getLegalInputMap().get(c);
+          if ( noopLegal != null )
+          {
+            reachableComponents.add(noopLegal);
+          }
+        }
+        else if ( !reachableComponents.contains(c) )
+        {
+          unreachable.add(c);
+        }
+      }
+      for(PolymorphicProposition[] goals : pn.getGoalPropositions().values())
+      {
+        for(PolymorphicProposition c : goals)
         {
           if ( !reachableComponents.contains(c))
           {
@@ -1850,36 +1891,135 @@ public class OptimizingPolymorphicPropNetFactory
           }
         }
       }
-    }
 
-    for(PolymorphicComponent c : unreachable)
-    {
-      pn.removeComponent(c);
-      removalCount++;
-    }
+      if ( pn.getRoles().length > 1 )
+      {
+        for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
+        {
+          for( PolymorphicProposition c : legals)
+          {
+            if ( !reachableComponents.contains(c))
+            {
+              unreachable.add(c);
+            }
+          }
+        }
+      }
 
-    LOGGER.debug("Removed " + removalCount + " irrelevant propositions");
+      if ( !unreachable.isEmpty() )
+      {
+        PolymorphicConstant falseConst = pn.getComponentFactory().createConstant(-1, false);
+        pn.addComponent(falseConst);
+
+        for(PolymorphicComponent c : unreachable)
+        {
+          assert(c instanceof PolymorphicProposition);
+
+          //  Replace with FALSE
+          for(PolymorphicComponent output : c.getOutputs())
+          {
+            output.addInput(falseConst);
+            falseConst.addOutput(output);
+          }
+          pn.removeComponent(c);
+          removalCount++;
+        }
+      }
+
+      LOGGER.debug("Removed " + removalCount + " irrelevant propositions");
+    }
 
     return isPseudoPuzzle;
   }
 
-  private static void recursiveFindReachable(PolymorphicPropNet pn, PolymorphicComponent from, Set<PolymorphicComponent> reachableComponents)
+  private static boolean addImpliedRequiredBaseProps(PolymorphicPropNet pn, PolymorphicComponent c, Set<PolymorphicComponent> reachableComponents)
   {
-    if ( reachableComponents.contains(from))
+    boolean result = false;
+
+    if ( pn.getBasePropositions().values().contains(c) )
+    {
+      if ( !reachableComponents.contains(c))
+      {
+        if ( supportsRequiredComponent(c, reachableComponents) )
+        {
+          reachableComponents.add(c);
+          result = true;
+        }
+      }
+    }
+    else
+    {
+      for(PolymorphicComponent output : c.getOutputs())
+      {
+        result |= addImpliedRequiredBaseProps(pn, output, reachableComponents);
+      }
+    }
+
+    return result;
+  }
+
+  private static boolean supportsRequiredComponent(PolymorphicComponent c, Set<PolymorphicComponent> reachableComponents)
+  {
+    for(PolymorphicComponent output : c.getOutputs())
+    {
+      if ( supportsRequiredComponentInternal(output, reachableComponents))
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private static boolean supportsRequiredComponentInternal(PolymorphicComponent c, Set<PolymorphicComponent> reachableComponents)
+  {
+    if ( c instanceof PolymorphicProposition )
+    {
+      //  Legal or base - if already included return true else false
+      return reachableComponents.contains(c);
+    }
+
+    for(PolymorphicComponent output : c.getOutputs())
+    {
+      if ( supportsRequiredComponentInternal(output, reachableComponents))
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private static void recursiveFindReachable(PolymorphicPropNet pn, PolymorphicComponent from, Set<PolymorphicComponent> reachableComponents, PolymorphicProposition viaBaseProp, boolean omitPreservationLogic)
+  {
+    if ( reachableComponents.contains(from) || (!omitPreservationLogic && pn.getBasePropositions().values().contains(from)))
     {
       return;
     }
 
     reachableComponents.add(from);
 
-    if ( pn.getLegalInputMap().containsKey(from) )
+    if ( pn.getBasePropositions().values().contains(from))
     {
-      recursiveFindReachable(pn, pn.getLegalInputMap().get(from), reachableComponents );
+      viaBaseProp = (PolymorphicProposition)from;
+    }
+    else if ( pn.getLegalInputMap().containsKey(from) )
+    {
+      recursiveFindReachable(pn, pn.getLegalInputMap().get(from), reachableComponents, null, omitPreservationLogic );
+    }
+    else if ( omitPreservationLogic && viaBaseProp != null && (from instanceof PolymorphicAnd) )
+    {
+      //  Don't traverse conditions that just preserve an already set base prop, since
+      //  such a path cannot CAUSE it to become set
+      if (from.getInputs().contains(viaBaseProp))
+      {
+        return;
+      }
     }
 
     for(PolymorphicComponent c : from.getInputs())
     {
-      recursiveFindReachable(pn, c, reachableComponents );
+      recursiveFindReachable(pn, c, reachableComponents, viaBaseProp, omitPreservationLogic );
     }
   }
 
@@ -2437,59 +2577,82 @@ public class OptimizingPolymorphicPropNetFactory
     Set<PolymorphicComponent> redundantComponents = new HashSet<>();
     int removedRedundantComponentCount = 0;
 
-    PolymorphicComponent trueConst = null;
-    PolymorphicComponent falseConst = null;
+    PolymorphicComponent trueConst = pn.getComponentFactory().createConstant(-1, true);
+    PolymorphicComponent falseConst = pn.getComponentFactory().createConstant(-1, false);
+
+    assert(trueConst != null);
+    assert(falseConst != null);
+
+    pn.addComponent(trueConst);
+    pn.addComponent(falseConst);
 
     do
     {
       redundantComponents.clear();
 
+      //  First eliminate logic hard-gated by constant inputs
       for (PolymorphicComponent c : pn.getComponents())
       {
-        if (c instanceof PolymorphicConstant && c != trueConst &&
-            c != falseConst)
+        if ( c instanceof PolymorphicConstant )
         {
-          if (trueConst == null && c.getValue())
+          boolean isTrue = c.getValue();
+
+          for(PolymorphicComponent output : c.getOutputs())
           {
-            trueConst = c;
+            if ( (!isTrue && (output instanceof PolymorphicAnd)) ||
+                 (isTrue && (output instanceof PolymorphicOr)) )
+            {
+              //  Remove all input to the following component apart from the constant
+              //  the next stage will then remove it as redundant
+              for(PolymorphicComponent input : output.getInputs())
+              {
+                if ( input != c )
+                {
+                  input.removeOutput(output);
+                }
+              }
+
+              output.removeAllInputs();output.addInput(c);
+            }
           }
-          else if (falseConst == null && !c.getValue())
-          {
-            falseConst = c;
-          }
-          else
+        }
+      }
+
+      for (PolymorphicComponent c : pn.getComponents())
+      {
+        if (c instanceof PolymorphicConstant)
+        {
+          if (c != trueConst &&
+              c != falseConst)
           {
             redundantComponents.add(c);
           }
         }
-        else
+        else if (c instanceof PolymorphicAnd)
         {
-          if (c instanceof PolymorphicAnd)
+          if (c.getInputs().size() < 2 ||
+              c.getOutputs().isEmpty() ||
+              (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicAnd))
           {
-            if (c.getInputs().isEmpty() ||
-                c.getOutputs().isEmpty() ||
-                (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicAnd))
-            {
-              redundantComponents.add(c);
-            }
+            redundantComponents.add(c);
           }
-          else if (c instanceof PolymorphicOr)
+        }
+        else if (c instanceof PolymorphicOr)
+        {
+          if (c.getInputs().size() < 2 ||
+              c.getOutputs().isEmpty() ||
+              (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicOr))
           {
-            if (c.getInputs().isEmpty() ||
-                c.getOutputs().isEmpty() ||
-                (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicOr))
-            {
-              redundantComponents.add(c);
-            }
+            redundantComponents.add(c);
           }
-          else if (c instanceof PolymorphicNot)
+        }
+        else if (c instanceof PolymorphicNot)
+        {
+          if (c.getInputs().isEmpty() ||
+              c.getOutputs().isEmpty() ||
+              (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicNot))
           {
-            if (c.getInputs().isEmpty() ||
-                c.getOutputs().isEmpty() ||
-                (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicNot))
-            {
-              redundantComponents.add(c);
-            }
+            redundantComponents.add(c);
           }
         }
       }
@@ -2520,15 +2683,31 @@ public class OptimizingPolymorphicPropNetFactory
         }
         else if ((c instanceof PolymorphicAnd) || (c instanceof PolymorphicOr))
         {
-          PolymorphicComponent output = c.getSingleOutput();
-
-          output.removeInput(c);
-
-          for (PolymorphicComponent input : c.getInputs())
+          if ( c.getInputs().size() == 1 )
           {
+            PolymorphicComponent input = c.getSingleInput();
+
             input.removeOutput(c);
-            input.addOutput(output);
-            output.addInput(input);
+
+            for (PolymorphicComponent output : c.getOutputs())
+            {
+              output.removeInput(c);
+              input.addOutput(output);
+              output.addInput(input);
+            }
+          }
+          else
+          {
+            PolymorphicComponent output = c.getSingleOutput();
+
+            output.removeInput(c);
+
+            for (PolymorphicComponent input : c.getInputs())
+            {
+              input.removeOutput(c);
+              input.addOutput(output);
+              output.addInput(input);
+            }
           }
         }
         else if (c instanceof PolymorphicNot)
@@ -2562,13 +2741,13 @@ public class OptimizingPolymorphicPropNetFactory
     {
       eliminations.clear();
 
-      if (trueConst != null)
+      if (!trueConst.getOutputs().isEmpty())
       {
         List<PolymorphicComponent> disconnected = new LinkedList<>();
 
         for (PolymorphicComponent c : trueConst.getOutputs())
         {
-          if (c instanceof PolymorphicAnd)
+          if (c instanceof PolymorphicAnd && c.getInputs().size() > 1)
           {
             c.removeInput(trueConst);
             disconnected.add(c);
@@ -2580,13 +2759,13 @@ public class OptimizingPolymorphicPropNetFactory
         }
       }
 
-      if (falseConst != null)
+      if (!falseConst.getOutputs().isEmpty())
       {
         List<PolymorphicComponent> disconnected = new LinkedList<>();
 
         for (PolymorphicComponent c : falseConst.getOutputs())
         {
-          if (c instanceof PolymorphicOr)
+          if (c instanceof PolymorphicOr && c.getInputs().size() > 1)
           {
             c.removeInput(falseConst);
             disconnected.add(c);
