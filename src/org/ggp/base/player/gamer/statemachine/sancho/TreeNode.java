@@ -5266,7 +5266,7 @@ public class TreeNode
     if (bestEdge == null)
     {
       //  This can happen if the node has no expanded children
-      assert(this != tree.root || complete) : "Root incomplete but has no expanded children";
+      assert(this != tree.root || complete || (mNumChildren == 1 && (children[0] instanceof TreeEdge) && ((TreeEdge)children[0]).mPartialMove.isPseudoNoOp)) : "Root incomplete but has no expanded children";
 
       //  If we're being asked for the first decision node we need to give a response even if it's
       //  essentially arbitrary from equal choices
