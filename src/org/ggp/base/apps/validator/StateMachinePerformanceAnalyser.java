@@ -149,6 +149,8 @@ public class StateMachinePerformanceAnalyser
         theMachine.initialize(description);
         theMachine.disableGreedyRollouts();
 
+        theMachine.optimizeStateTransitionMechanism(System.currentTimeMillis()+2000);
+
         ForwardDeadReckonInternalMachineState initialState = theMachine.createInternalState(theMachine.getInitialState());
         Role ourRole = theMachine.getRoles()[0];
 
