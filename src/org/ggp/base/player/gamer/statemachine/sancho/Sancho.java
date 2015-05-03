@@ -773,7 +773,7 @@ public class Sancho extends SampleGamer
     LOGGER.info("branchingFactorApproximation = " + branchingFactorApproximation +
                 ", averageBranchingFactor = " + averageBranchingFactor +
                 ", choices high water mark = " + mGameCharacteristics.getChoicesHighWaterMark(0));
-    //	Assume that a game longer is not really an iterated game unless it's of fixed length
+    //	Assume that a game is not really an iterated game unless it's of fixed length
     LOGGER.info("Did " + simulationsPerformed + " simulations for game characteristics");
     if ((Math.abs(branchingFactorApproximation - averageBranchingFactor) > 0.1) || (maxNumTurns != minNumTurns))
     {
