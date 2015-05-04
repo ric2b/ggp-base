@@ -535,7 +535,7 @@ public class LocalRegionSearcher
       moveIsResponse[depth] = false;
       moveIsEnabledBySequence[depth] = false;
 
-      underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth], false);
+      underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth]);
 
       int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole, null, true);
 
@@ -645,7 +645,7 @@ public class LocalRegionSearcher
         }
       }
 
-      underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth], false);
+      underlyingStateMachine.getNextState(state, null, jointMove[depth], childStateBuffer[depth]);
 
       int childValue = searchToDepth(childStateBuffer[depth], depth+1, maxDepth, optionalRole, null, pathIncludesTenuki);
 

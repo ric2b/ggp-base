@@ -736,12 +736,15 @@ public class PolymorphicPropNet
   }
 
   /**
-   * Cut the network down to the minimum needed to JUST calculate goals
+   * Remove things we do not need to support goal and terminality determination
+   * Also may remove components needed to determine legals unless it appears beneficial
+   * to use the reduced network in preference for that purpose
+   * @return true if legal determination is supported on the resulting network
    */
-  public void RemoveAllButGoals()
+  public boolean RemoveAllButGoals()
   {
     RemoveInits();
-    OptimizingPolymorphicPropNetFactory.removeAllButGoalPropositions(this);
+    return OptimizingPolymorphicPropNetFactory.removeAllButGoalPropositions(this);
   }
 
   /**

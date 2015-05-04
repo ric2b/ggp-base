@@ -217,7 +217,7 @@ public class IteratedGamePlayer
           }
         }
 
-        underlyingStateMachine.getNextState(state, null, jointMove, newState, false);
+        underlyingStateMachine.getNextState(state, null, jointMove, newState);
 
         state.copy(newState);
       }

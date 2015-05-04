@@ -531,7 +531,7 @@ public class Sancho extends SampleGamer
 
         heuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
 
-        underlyingStateMachine.getNextState(sampleState, null, jointMove, newState, false);
+        underlyingStateMachine.getNextState(sampleState, null, jointMove, newState);
 
         sampleState.copy(newState);
       }

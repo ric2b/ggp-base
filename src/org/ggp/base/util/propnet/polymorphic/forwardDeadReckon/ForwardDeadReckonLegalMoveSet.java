@@ -215,13 +215,11 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     masterListAsArray = master.masterListAsArray;
     roles = master.roles;
     contents = new OpenBitSet[roles.length];
-    checkPointContents = new OpenBitSet[roles.length];
     preAllocatedCollections = new ForwardDeadReckonLegalMoveSetCollection[roles.length];
 
     for (int i = 0; i < roles.length; i++)
     {
       contents[i] = new OpenBitSet();
-      checkPointContents[i] = new OpenBitSet();
       preAllocatedCollections[i] = new ForwardDeadReckonLegalMoveSetCollection(this, i);
     }
   }
@@ -524,25 +522,5 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   public boolean isLegalMove(int roleIndex, ForwardDeadReckonLegalMoveInfo move)
   {
     return contents[roleIndex].get(move.masterIndex);
-  }
-
-  @Override
-  public void saveCheckpoint()
-  {
-    for(int i = 0; i < contents.length; i++)
-    {
-      checkPointContents[i].clear(0,masterListAsArray.length);
-      checkPointContents[i].or(contents[i]);
-    }
-  }
-
-  @Override
-  public void revertToCheckpoint()
-  {
-    for(int i = 0; i < contents.length; i++)
-    {
-      contents[i].clear(0,masterListAsArray.length);
-      contents[i].or(checkPointContents[i]);
-    }
   }
 }

@@ -180,7 +180,7 @@ public class TargetedSolutionStatePlayer
       {
         jointMove[0] = moveInfo;
 
-        mUnderlyingStateMachine.getNextState(node.getState(), null, jointMove, stateBuffer, false);
+        mUnderlyingStateMachine.getNextState(node.getState(), null, jointMove, stateBuffer);
 
         steplessStateBuffer.copy(stateBuffer);
         steplessStateBuffer.intersect(steplessStateMask);

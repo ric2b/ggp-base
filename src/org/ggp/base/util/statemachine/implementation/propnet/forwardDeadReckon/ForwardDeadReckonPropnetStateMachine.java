@@ -1764,8 +1764,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       propNetX.RemoveInits();
       propNetO.RemoveInits();
 
-      useGoalNetForTerminalAndLegal = true;
-
       if (XSentence != null)
       {
         LOGGER.info("Reducing with respect to XSentence: " + XSentence);
@@ -1898,7 +1896,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       propNetXWithoutGoals.renderToFile("propnet_070_XWithoutGoals.dot");
       propNetOWithoutGoals.renderToFile("propnet_080_OWithoutGoals.dot");
 
-      goalsNet.RemoveAllButGoals();
+      useGoalNetForTerminalAndLegal = goalsNet.RemoveAllButGoals();
       goalsNet.renderToFile("propnet_090_GoalsReduced.dot");
 
       LOGGER.info("Num components in goal-less X-net: " + propNetXWithoutGoals.getComponents().size());
@@ -2663,7 +2661,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       moveRawIndex++;
     }
 
-    getNextState(internalState, null, internalMoves, internalResult, false);
+    getNextState(internalState, null, internalMoves, internalResult);
 
     MachineState result = getInternalStateFromBase(null).getMachineState();
 
@@ -2682,8 +2680,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public void getNextState(ForwardDeadReckonInternalMachineState state,
                            Factor factor,
                            ForwardDeadReckonLegalMoveInfo[] moves,
-                           ForwardDeadReckonInternalMachineState xbNewState,
-                           boolean useCheckpoint)
+                           ForwardDeadReckonInternalMachineState xbNewState)
   {
     assert(xbNewState != null);
     xbNewState.clear();
@@ -2695,58 +2692,19 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     for (ForwardDeadReckonLegalMoveInfo move : moves)
     {
-      ForwardDeadReckonProposition moveProp = move.isPseudoNoOp ? null : propNet.getActiveLegalProps(instanceId).getMasterList()[move.masterIndex].inputProposition;
+      ForwardDeadReckonProposition moveProp = move.isPseudoNoOp ? null : (useGoalNetForTerminalAndLegal ? propNet.getActiveLegalProps(instanceId).getMasterList()[move.masterIndex].inputProposition : move.inputProposition);
       moveProps[movesCount++] = moveProp;
       if ( moveProp != null )
       {
         nonNullMovesCount++;
       }
     }
-
-    if ( useCheckpoint )
-    {
-      boolean needCheckpointSetup = false;
-
-      if ( checkpointState == null )
-      {
-        checkpointState = state;//new ForwardDeadReckonInternalMachineState(state);
-        needCheckpointSetup = true;
-      }
-      else if ( checkpointState != state )//!checkpointState.equals(state) )
-      {
-        needCheckpointSetup = true;
-      }
-
-      if ( needCheckpointSetup )
-      {
-        setBasePropositionsFromState(state, true);
-
-        for (int i = 0; i < movesCount; i++)
-        {
-          ForwardDeadReckonProposition previousMoveProp = (propNet == propNetX ? previousMovePropsX[i] : previousMovePropsO[i]);
-
-          if ( previousMoveProp != null )
-          {
-            propNet.setProposition(instanceId, previousMoveProp, false);
-          }
-        }
-
-        propNet.animator.getInstanceInfo(instanceId).saveCheckpoint();
-      }
-      else
-      {
-        propNet.animator.getInstanceInfo(instanceId).revertToCheckpoint();
-      }
-    }
-    else
-    {
-      setBasePropositionsFromState(state, true);
-    }
+    setBasePropositionsFromState(state, true);
 
     for (int i = 0; i < movesCount; i++)
     {
       ForwardDeadReckonProposition moveProp =  moveProps[i];
-      ForwardDeadReckonProposition previousMoveProp = (useCheckpoint ? null : (propNet == propNetX ? previousMovePropsX[i] : previousMovePropsO[i]));
+      ForwardDeadReckonProposition previousMoveProp = (propNet == propNetX ? previousMovePropsX[i] : previousMovePropsO[i]);
 
       if ( previousMoveProp != moveProp )
       {

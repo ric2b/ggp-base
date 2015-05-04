@@ -3614,11 +3614,19 @@ public class OptimizingPolymorphicPropNetFactory
     return false;
   }
 
-  public static void removeAllButGoalPropositions(PolymorphicPropNet propNet)
+  /**
+   * Remove things we do not need to support goal and terminality determination
+   * Also may remove components needed to determine legals unless it appears beneficial
+   * to use the reduced network in preference for that purpose
+   * @param propNet
+   * @return true if legal determination is supported on the resulting network
+   */
+  public static boolean removeAllButGoalPropositions(PolymorphicPropNet propNet)
   {
+    int fullPropnetSize = propNet.getComponents().size();
     List<PolymorphicComponent> removedComponents = new LinkedList<>();
 
-    boolean goalsRequireLegals = true;//false;
+    boolean goalsRequireLegals = false;
     for (PolymorphicComponent c : propNet.getComponents())
     {
       if (c instanceof PolymorphicProposition)
@@ -3644,8 +3652,7 @@ public class OptimizingPolymorphicPropNetFactory
       {
         GdlConstant name = ((PolymorphicProposition)c).getName().getName();
 
-        if (name != TRUE && name != BASE && name != GOAL && name != TERMINAL &&
-            (name != LEGAL || !goalsRequireLegals))
+        if (name != TRUE && name != BASE && name != GOAL && name != TERMINAL && name != LEGAL)
         {
           remove = true;
         }
@@ -3714,13 +3721,62 @@ public class OptimizingPolymorphicPropNetFactory
     {
       numStartComponents = propNet.getComponents().size();
 
-      //OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(propNet, true);
       OptimizingPolymorphicPropNetFactory
           .removeRedundantConstantsAndGates(propNet);
 
       numEndComponents = propNet.getComponents().size();
     }
     while (numEndComponents != numStartComponents);
+
+    //  If the result is significantly smaller than the full net then we'll use it to
+    //  evaluate terminality and legals also, else remove the legals too (if we can)
+    if ( numEndComponents < fullPropnetSize/ 5 )
+    {
+      return true;
+    }
+
+    if ( !goalsRequireLegals )
+    {
+      for (PolymorphicComponent c : propNet.getComponents())
+      {
+        if (c instanceof PolymorphicProposition)
+        {
+          GdlConstant name = ((PolymorphicProposition)c).getName().getName();
+
+          if (name == LEGAL)
+          {
+            if (c.getInputs().size() > 0)
+            {
+              c.getSingleInput().removeOutput(c);
+            }
+            for (PolymorphicComponent output : c.getOutputs())
+            {
+              output.removeInput(c);
+            }
+
+            removedComponents.add(c);
+          }
+        }
+      }
+
+      for (PolymorphicComponent c : removedComponents)
+      {
+        propNet.removeComponent(c);
+      }
+
+      do
+      {
+        numStartComponents = propNet.getComponents().size();
+
+        OptimizingPolymorphicPropNetFactory
+            .removeRedundantConstantsAndGates(propNet);
+
+        numEndComponents = propNet.getComponents().size();
+      }
+      while (numEndComponents != numStartComponents);
+    }
+
+    return false;
   }
 
 

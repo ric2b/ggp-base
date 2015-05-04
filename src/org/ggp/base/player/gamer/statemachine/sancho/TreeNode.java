@@ -2348,7 +2348,7 @@ public class TreeNode
     if (roleIndex == tree.numRoles - 1 || (tree.removeNonDecisionNodes && mNumChildren > 1))
     {
       newState = tree.mNextStateBuffer;
-      tree.underlyingStateMachine.getNextState(state, tree.factor, jointPartialMove, newState, false);
+      tree.underlyingStateMachine.getNextState(state, tree.factor, jointPartialMove, newState);
 
       //  In a factorized game we need to normalize the generated state
       //  so as to not fall foul of potential corruption of the non-factor
@@ -2876,8 +2876,7 @@ public class TreeNode
           tree.underlyingStateMachine.getNextState(state,
                                                    tree.factor,
                                                    jointPartialMove,
-                                                   newState,
-                                                   false);
+                                                   newState);
 
           assert(!newState.equals(parent.state));
           //  In a factorized game we need to normalize the generated state
@@ -3208,8 +3207,7 @@ public class TreeNode
           tree.underlyingStateMachine.getNextState(state,
                                                    tree.factor,
                                                    jointPartialMove,
-                                                   newState,
-                                                   false);
+                                                   newState);
 
           //  In a factorized game we need to normalize the generated state
           //  so as to not fall foul of potential corruption of the non-factor
@@ -3294,8 +3292,7 @@ public class TreeNode
                 tree.underlyingStateMachine.getNextState(tree.mChildStatesBuffer[lMoveIndex],
                                                          tree.factor,
                                                          tree.mFastForwardPartialMoveBuffer,
-                                                         tree.mStateScratchBuffer,
-                                                         false);
+                                                         tree.mStateScratchBuffer);
 
                 //  In a factorized game we need to normalize the generated state
                 //  so as to not fall foul of potential corruption of the non-factor

@@ -64,8 +64,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   private HashMap<Heuristic, Object>               heuristicData = null;
 
   // BitSet of which propositions are true in the state
-  final OpenBitSet                         contents;
-  private final OpenBitSet                         checkpointContents;
+  final OpenBitSet                                 contents;
 
   /**
    * Whether the state is one handled by the X-split of the state machine (else the O split)
@@ -80,7 +79,6 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   {
     infoSet = masterInfoSet;
     contents = new OpenBitSet(infoSet.length);
-    checkpointContents = new OpenBitSet(infoSet.length);
   }
 
   /**
@@ -358,19 +356,5 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   public boolean contains(ForwardDeadReckonInternalMachineState other)
   {
     return (OpenBitSet.intersectionCount(contents, other.contents) == other.contents.cardinality());
-  }
-
-  @Override
-  public void saveCheckpoint()
-  {
-    checkpointContents.clear(0,infoSet.length);
-    checkpointContents.or(contents);
-  }
-
-  @Override
-  public void revertToCheckpoint()
-  {
-    contents.clear(0,infoSet.length);
-    contents.or(checkpointContents);
   }
 }
