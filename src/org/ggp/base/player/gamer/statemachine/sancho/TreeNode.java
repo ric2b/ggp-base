@@ -2294,36 +2294,36 @@ public class TreeNode
                 tree.gameCharacteristics.getCompetitivenessBonus());
       }
     }
-    else
-    {
-      int nonNoopCount = 0;
-
-      for (int i = 0; i < tree.numRoles && nonNoopCount < 2; i++ )
-      {
-        Role role = tree.roleOrdering.roleIndexToRole(i);
-        ForwardDeadReckonLegalMoveSet moves = tree.underlyingStateMachine.getLegalMoveSet(theState);
-        int numMoves = tree.searchFilter.getFilteredMovesSize(theState, moves, role, false);
-        Iterator<ForwardDeadReckonLegalMoveInfo> itr = moves.getContents(role).iterator();
-        for (int iMove = 0; iMove < numMoves; iMove++)
-        {
-          // Get next move for this factor
-          ForwardDeadReckonLegalMoveInfo info = tree.searchFilter.nextFilteredMove(itr);
-
-          if (info.inputProposition != null)
-          {
-            if (nonNoopCount++ > 0)
-            {
-              break;
-            }
-          }
-        }
-      }
-
-      if (nonNoopCount == 1)
-      {
-        result.autoExpand = true;
-      }
-    }
+//    else
+//    {
+//      int nonNoopCount = 0;
+//
+//      for (int i = 0; i < tree.numRoles && nonNoopCount < 2; i++ )
+//      {
+//        Role role = tree.roleOrdering.roleIndexToRole(i);
+//        ForwardDeadReckonLegalMoveSet moves = tree.underlyingStateMachine.getLegalMoveSet(theState);
+//        int numMoves = tree.searchFilter.getFilteredMovesSize(theState, moves, role, false);
+//        Iterator<ForwardDeadReckonLegalMoveInfo> itr = moves.getContents(role).iterator();
+//        for (int iMove = 0; iMove < numMoves; iMove++)
+//        {
+//          // Get next move for this factor
+//          ForwardDeadReckonLegalMoveInfo info = tree.searchFilter.nextFilteredMove(itr);
+//
+//          if (info.inputProposition != null)
+//          {
+//            if (nonNoopCount++ > 0)
+//            {
+//              break;
+//            }
+//          }
+//        }
+//      }
+//
+//      if (nonNoopCount == 1)
+//      {
+//        result.autoExpand = true;
+//      }
+//    }
 
     return result;
   }
@@ -2348,7 +2348,7 @@ public class TreeNode
     if (roleIndex == tree.numRoles - 1 || (tree.removeNonDecisionNodes && mNumChildren > 1))
     {
       newState = tree.mNextStateBuffer;
-      tree.underlyingStateMachine.getNextState(state, tree.factor, jointPartialMove, newState);
+      tree.underlyingStateMachine.getNextState(state, tree.factor, jointPartialMove, newState, false);
 
       //  In a factorized game we need to normalize the generated state
       //  so as to not fall foul of potential corruption of the non-factor
@@ -2876,7 +2876,8 @@ public class TreeNode
           tree.underlyingStateMachine.getNextState(state,
                                                    tree.factor,
                                                    jointPartialMove,
-                                                   newState);
+                                                   newState,
+                                                   false);
 
           assert(!newState.equals(parent.state));
           //  In a factorized game we need to normalize the generated state
@@ -3207,7 +3208,8 @@ public class TreeNode
           tree.underlyingStateMachine.getNextState(state,
                                                    tree.factor,
                                                    jointPartialMove,
-                                                   newState);
+                                                   newState,
+                                                   false);
 
           //  In a factorized game we need to normalize the generated state
           //  so as to not fall foul of potential corruption of the non-factor
@@ -3292,7 +3294,8 @@ public class TreeNode
                 tree.underlyingStateMachine.getNextState(tree.mChildStatesBuffer[lMoveIndex],
                                                          tree.factor,
                                                          tree.mFastForwardPartialMoveBuffer,
-                                                         tree.mStateScratchBuffer);
+                                                         tree.mStateScratchBuffer,
+                                                         false);
 
                 //  In a factorized game we need to normalize the generated state
                 //  so as to not fall foul of potential corruption of the non-factor

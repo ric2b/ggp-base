@@ -3,11 +3,11 @@ package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.lucene.util.OpenBitSet;
 import org.ggp.base.util.statemachine.Role;
 
 /**
@@ -27,7 +27,8 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   /**
    * Contents (as a BitSet) of the legal move collections for each role
    */
-  BitSet[]                                     contents;
+  OpenBitSet[]                                 contents;
+  OpenBitSet[]                                 checkPointContents;
   /** The set of roles whose legal moves are being tracked */
   private Role[]                               roles;
   private ForwardDeadReckonLegalMoveSetCollection[] preAllocatedCollections;
@@ -37,7 +38,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
                                                      Iterator<ForwardDeadReckonLegalMoveInfo>
   {
     private ForwardDeadReckonLegalMoveSet parent;
-    private BitSet                        parentsContentsForRole;
+    private OpenBitSet                    parentsContentsForRole;
     int                                   index;
 
     public ForwardDeadReckonLegalMoveSetIterator(ForwardDeadReckonLegalMoveSet parentSet,
@@ -178,7 +179,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     @Override
     public int size()
     {
-      return parent.contents[roleIndex].cardinality();
+      return (int)parent.contents[roleIndex].cardinality();
     }
 
     @Override
@@ -213,12 +214,14 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     masterList = master.masterList;
     masterListAsArray = master.masterListAsArray;
     roles = master.roles;
-    contents = new BitSet[roles.length];
+    contents = new OpenBitSet[roles.length];
+    checkPointContents = new OpenBitSet[roles.length];
     preAllocatedCollections = new ForwardDeadReckonLegalMoveSetCollection[roles.length];
 
     for (int i = 0; i < roles.length; i++)
     {
-      contents[i] = new BitSet();
+      contents[i] = new OpenBitSet();
+      checkPointContents[i] = new OpenBitSet();
       preAllocatedCollections[i] = new ForwardDeadReckonLegalMoveSetCollection(this, i);
     }
   }
@@ -231,14 +234,14 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   {
     masterList = new ArrayList<>();
     masterListAsArray = null;
-    contents = new BitSet[theRoles.length];
+    contents = new OpenBitSet[theRoles.length];
     roles = new Role[theRoles.length];
     preAllocatedCollections = new ForwardDeadReckonLegalMoveSetCollection[roles.length];
 
     int i = 0;
     for (Role role : theRoles)
     {
-      contents[i] = new BitSet();
+      contents[i] = new OpenBitSet();
       preAllocatedCollections[i] = new ForwardDeadReckonLegalMoveSetCollection(this, i);
       this.roles[i++] = role;
     }
@@ -329,7 +332,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   {
     for (int i = 0; i < contents.length; i++)
     {
-      contents[i].clear();
+      contents[i].clear(0,masterListAsArray.length);
     }
   }
 
@@ -341,7 +344,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   {
     for (int i = 0; i < contents.length; i++)
     {
-      contents[i].clear();
+      contents[i].clear(0,masterListAsArray.length);
       contents[i].or(source.contents[i]);
     }
   }
@@ -490,7 +493,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public int getNumChoices(int roleIndex)
   {
-    return contents[roleIndex].cardinality();
+    return (int)contents[roleIndex].cardinality();
   }
 
   /**
@@ -521,5 +524,25 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   public boolean isLegalMove(int roleIndex, ForwardDeadReckonLegalMoveInfo move)
   {
     return contents[roleIndex].get(move.masterIndex);
+  }
+
+  @Override
+  public void saveCheckpoint()
+  {
+    for(int i = 0; i < contents.length; i++)
+    {
+      checkPointContents[i].clear(0,masterListAsArray.length);
+      checkPointContents[i].or(contents[i]);
+    }
+  }
+
+  @Override
+  public void revertToCheckpoint()
+  {
+    for(int i = 0; i < contents.length; i++)
+    {
+      contents[i].clear(0,masterListAsArray.length);
+      contents[i].or(checkPointContents[i]);
+    }
   }
 }

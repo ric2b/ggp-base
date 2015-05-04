@@ -15,5 +15,4 @@ public class ForwardDeadReckonPropositionCrossReferenceInfo extends ForwardDeadR
   //  For now it is just slightly more efficient
   public int                          xNetPropId;
   public int                          oNetPropId;
-  public int                          goalsNetPropId;
 }

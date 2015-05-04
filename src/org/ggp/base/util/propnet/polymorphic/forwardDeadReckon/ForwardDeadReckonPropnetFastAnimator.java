@@ -38,11 +38,28 @@ public class ForwardDeadReckonPropnetFastAnimator
     InstanceInfo(int numComponents)
     {
       state = new int[numComponents];
+      checkpointState = new int[numComponents];
     }
+
+    public void saveCheckpoint()
+    {
+      System.arraycopy(state, 0, checkpointState, 0, state.length);
+      legalMoveNotifier.saveCheckpoint();
+      propositionTransitionNotifier.saveCheckpoint();
+    }
+
+    public void revertToCheckpoint()
+    {
+      System.arraycopy(checkpointState, 0, state, 0, state.length);
+      legalMoveNotifier.revertToCheckpoint();
+      propositionTransitionNotifier.revertToCheckpoint();
+    }
+
     /**
      * Vector of state values for each component indexed by component id
      */
     final int[]                                   state;
+    final int[]                                   checkpointState;
     /**
      * Interface to call for changes to the output state of legal move props
      */

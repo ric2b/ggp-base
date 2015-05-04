@@ -3618,7 +3618,7 @@ public class OptimizingPolymorphicPropNetFactory
   {
     List<PolymorphicComponent> removedComponents = new LinkedList<>();
 
-    boolean goalsRequireLegals = false;
+    boolean goalsRequireLegals = true;//false;
     for (PolymorphicComponent c : propNet.getComponents())
     {
       if (c instanceof PolymorphicProposition)

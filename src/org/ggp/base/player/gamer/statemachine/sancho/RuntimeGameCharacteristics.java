@@ -39,7 +39,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private final XMLPropertiesConfiguration mConfigFile;
   private boolean             mLoadedConfig;
   private double              explorationBias         = 1.0;
-  private double              mExactRolloutSampleSize = 4;
+  private double              mExactRolloutSampleSize = 1;
   private volatile int        mRolloutSampleSize;
   private int                 mMaxObservedChoices;
   final double                competitivenessBonus    = 2;
@@ -56,7 +56,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private double              mAverageNonDrawLength   = 0;
   private int                 mMinNonDrawLength       = 0;
   private double              mGoalsStability         = 0;
-  private double              mLongDrawsProportion  = 0;
+  private double              mLongDrawsProportion    = 0;
   private long                mMaxFactorFailureTime   = 0;
 
   /**
@@ -67,7 +67,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   public RuntimeGameCharacteristics(File xiGameDirectory)
   {
     super();
-    setRolloutSampleSize(4);
+    setRolloutSampleSize(1);
 
     if ( xiGameDirectory != null )
     {

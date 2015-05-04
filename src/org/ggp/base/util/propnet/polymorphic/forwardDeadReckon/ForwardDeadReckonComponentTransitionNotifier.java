@@ -18,4 +18,8 @@ public interface ForwardDeadReckonComponentTransitionNotifier
    * @param index - index to signal as becoming false
    */
   void remove(int index);
+
+  void saveCheckpoint();
+
+  void revertToCheckpoint();
 }
