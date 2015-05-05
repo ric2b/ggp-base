@@ -2249,7 +2249,7 @@ public class TreeNode
 
       for (int i = 0; i < tree.numRoles; i++)
       {
-        result.terminalScore[i] = tree.underlyingStateMachine.getGoal(tree.roleOrdering.roleIndexToRole(i));
+        result.terminalScore[i] = tree.underlyingStateMachine.getGoal(theState, tree.roleOrdering.roleIndexToRole(i));
       }
     }
 
