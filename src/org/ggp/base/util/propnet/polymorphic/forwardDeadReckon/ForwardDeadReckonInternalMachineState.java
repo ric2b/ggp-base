@@ -66,6 +66,10 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   // BitSet of which propositions are true in the state
   final OpenBitSet                                 contents;
 
+  //  We cache the hash code to speed up equals, invalidating the cache on mutation operations
+  private boolean                                  hashCached = false;
+  private int                                      cachedHashCode;
+
   /**
    * Whether the state is one handled by the X-split of the state machine (else the O split)
    */
@@ -92,6 +96,12 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   {
     this(copyFrom.infoSet);
     copy(copyFrom);
+
+    if ( copyFrom.hashCached )
+    {
+      cachedHashCode = copyFrom.cachedHashCode;
+      hashCached = true;
+    }
   }
 
   /**
@@ -120,12 +130,17 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   public void add(ForwardDeadReckonPropositionInfo info)
   {
     contents.set(info.index);
+
+    hashCached = false;
   }
 
   @Override
   public void add(int index)
   {
+    assert(index < infoSet.length);
     contents.set(index);
+
+    hashCached = false;
   }
 
   /**
@@ -153,6 +168,8 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   public void xor(ForwardDeadReckonInternalMachineState other)
   {
     contents.xor(other.contents);
+
+    hashCached = false;
   }
 
   /**
@@ -161,6 +178,8 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   public void invert()
   {
     contents.flip(0, infoSet.length);
+
+    hashCached = false;
   }
 
   /**
@@ -170,6 +189,8 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   public void merge(ForwardDeadReckonInternalMachineState other)
   {
     contents.or(other.contents);
+
+    hashCached = false;
   }
 
   /**
@@ -179,6 +200,8 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   public void intersect(ForwardDeadReckonInternalMachineState other)
   {
     contents.and(other.contents);
+
+    hashCached = false;
   }
 
   /**
@@ -210,8 +233,9 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    */
   public void copy(ForwardDeadReckonInternalMachineState other)
   {
-    contents.xor(contents);
-    contents.or(other.contents);
+    System.arraycopy(other.contents.getBits(), 0, contents.getBits(), 0, contents.getNumWords());
+    //clear();
+    //contents.or(other.contents);
 
     isXState = other.isXState;
 
@@ -223,6 +247,9 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
       }
       heuristicData.putAll(other.heuristicData);
     }
+
+    hashCached = other.hashCached;
+    cachedHashCode = other.cachedHashCode;
   }
 
   /**
@@ -237,13 +264,41 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
     return (double)diff / jointSize;
   }
 
+  private static final long[] nullPage = new long[256];
+  static
+  {
+    for(int i = 0; i < nullPage.length; i++)
+    {
+      nullPage[i] = 0;
+    }
+  }
+
   /**
    * Clear all propositions leaving an empty state
    */
   public void clear()
   {
-    contents.xor(contents);
+    int index = 0;
+    long[] Bits = contents.getBits();
+    int wordCount = (infoSet.length+63)>>6;
+
+    while(index < wordCount)
+    {
+      if ( index + nullPage.length > wordCount )
+      {
+        System.arraycopy(nullPage, 0, Bits, index, wordCount - index);
+      }
+      else
+      {
+        System.arraycopy(nullPage, 0, Bits, index, nullPage.length);
+      }
+      index += nullPage.length;
+    }
+
+    //contents.clear(0,infoSet.length);
     isXState = false;
+
+    hashCached = false;
   }
 
   /**
@@ -253,12 +308,16 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   public void remove(ForwardDeadReckonPropositionInfo info)
   {
     contents.clear(info.index);
+
+    hashCached = false;
   }
 
   @Override
   public void remove(int index)
   {
     contents.clear(index);
+
+    hashCached = false;
   }
 
   /**
@@ -307,7 +366,13 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   @Override
   public int hashCode()
   {
-    return contents.hashCode();
+    if ( !hashCached )
+    {
+      cachedHashCode = contents.hashCode();
+      hashCached = true;
+    }
+
+    return cachedHashCode;
   }
 
   @Override
@@ -318,10 +383,32 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
       return true;
     }
 
-    if (o instanceof ForwardDeadReckonInternalMachineState)
+    if (o instanceof ForwardDeadReckonInternalMachineState && hashCode() == o.hashCode() )
     {
       ForwardDeadReckonInternalMachineState state = (ForwardDeadReckonInternalMachineState)o;
+
       return state.contents.equals(contents);
+    }
+
+    return false;
+  }
+
+  /**
+   * Known-type version of equals (slightly higher performance due to
+   * lack of need to cast from unknown type)
+   * @param other
+   * @return true if equal
+   */
+  public boolean equals(ForwardDeadReckonInternalMachineState other)
+  {
+    if (this == other)
+    {
+      return true;
+    }
+
+    if (hashCode() == other.hashCode())
+    {
+      return other.contents.equals(contents);
     }
 
     return false;
