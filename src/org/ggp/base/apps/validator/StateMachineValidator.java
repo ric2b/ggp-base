@@ -50,6 +50,7 @@ public class StateMachineValidator
     exceptedGames.add("wallmaze");
     exceptedGames.add("slidingpieces");
     exceptedGames.add("ad_game_2x2");
+    exceptedGames.add("gt_two_thirds_6p");
     exceptedGames.add("ticTacHeavenFC");//  Allows both players to noop at once which we don't currently handle
 
     String startGame = "hex"; // Game to begin with if desired
