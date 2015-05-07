@@ -428,7 +428,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
       return true;
     }
 
-    if (hashCode() == other.hashCode())
+    if (other !=null && hashCode() == other.hashCode())
     {
       return other.contents.equals(contents);
     }

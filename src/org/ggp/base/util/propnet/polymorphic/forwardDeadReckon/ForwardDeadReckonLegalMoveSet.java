@@ -219,7 +219,14 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
 
     for (int i = 0; i < roles.length; i++)
     {
-      contents[i] = new OpenBitSet();
+      if ( masterListAsArray != null )
+      {
+        contents[i] = new OpenBitSet(masterListAsArray.length);
+      }
+      else
+      {
+        contents[i] = new OpenBitSet();
+      }
       preAllocatedCollections[i] = new ForwardDeadReckonLegalMoveSetCollection(this, i);
     }
   }
