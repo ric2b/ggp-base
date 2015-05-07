@@ -24,6 +24,8 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   {
     private ForwardDeadReckonInternalMachineState mState;
     int                                           mIndex;
+    int                                           mFirstIndex = -1;
+    int                                           mLastIndex = -1;
 
     /**
      * Reset the iterator for the specified state.
@@ -33,7 +35,14 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
     public void reset(ForwardDeadReckonInternalMachineState xiState)
     {
       this.mState = xiState;
-      mIndex = xiState.contents.nextSetBit(0);
+      mFirstIndex = xiState.contents.nextSetBit(0);
+      mIndex = mFirstIndex;
+      mLastIndex = -1;
+    }
+
+    public void reset()
+    {
+      mIndex = mFirstIndex;
     }
 
     @Override
@@ -45,8 +54,21 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
     @Override
     public ForwardDeadReckonPropositionInfo next()
     {
+      int index = mIndex;
       ForwardDeadReckonPropositionInfo result = mState.infoSet[mIndex];
-      mIndex = mState.contents.nextSetBit(mIndex + 1);
+
+      if ( index == mLastIndex )
+      {
+        mIndex = -1;
+      }
+      else
+      {
+        mIndex = mState.contents.nextSetBit(mIndex + 1);
+        if ( mIndex == -1 )
+        {
+          mLastIndex = index;
+        }
+      }
       return result;
     }
 
@@ -129,7 +151,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    */
   public void add(ForwardDeadReckonPropositionInfo info)
   {
-    contents.set(info.index);
+    contents.fastSet(info.index);
 
     hashCached = false;
   }
@@ -138,7 +160,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   public void add(int index)
   {
     assert(index < infoSet.length);
-    contents.set(index);
+    contents.fastSet(index);
 
     hashCached = false;
   }
@@ -150,7 +172,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    */
   public boolean contains(ForwardDeadReckonPropositionInfo info)
   {
-    return contents.get(info.index);
+    return contents.fastGet(info.index);
   }
 
   /**

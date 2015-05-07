@@ -2239,7 +2239,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                   propNet.animator.changeComponentValueTo(instanceInfo, infoCr.xNetProp.id, false);
                 }
               }
-              lIterator.reset(lastInternalSetState);
+              lIterator.reset();
               while (lIterator.hasNext())
               {
                 ForwardDeadReckonPropositionInfo info = lIterator.next();
@@ -2262,7 +2262,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                   propNet.animator.changeComponentValueTo(instanceInfo, infoCr.xNetProp.id, true);
                 }
               }
-              lIterator.reset(lastInternalSetState);
+              lIterator.reset();
               while (lIterator.hasNext())
               {
                 ForwardDeadReckonPropositionInfo info = lIterator.next();
@@ -2288,7 +2288,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                   propNet.animator.changeComponentValueTo(instanceInfo, infoCr.oNetProp.id, false);
                 }
               }
-              lIterator.reset(lastInternalSetState);
+              lIterator.reset();
               while (lIterator.hasNext())
               {
                 ForwardDeadReckonPropositionInfo info = lIterator.next();
@@ -2311,7 +2311,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                   propNet.animator.changeComponentValueTo(instanceInfo, infoCr.oNetProp.id, true);
                 }
               }
-              lIterator.reset(lastInternalSetState);
+              lIterator.reset();
               while (lIterator.hasNext())
               {
                 ForwardDeadReckonPropositionInfo info = lIterator.next();

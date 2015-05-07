@@ -247,13 +247,18 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
 
   /**
    * Crystalize the legal move set to an optimal runtime form.  After
-   * this has been called no further chnages may be made to the master list
+   * this has been called no further changes may be made to the master list
    */
   public void crystalize()
   {
     masterListAsArray = new ForwardDeadReckonLegalMoveInfo[masterList.size()];
     masterList.toArray(masterListAsArray);
     masterList = null;
+
+    for(int i = 0; i < contents.length; i++)
+    {
+      contents[i].ensureCapacity(masterListAsArray.length);
+    }
   }
 
   /**
@@ -381,18 +386,30 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    * been called with the same parameter at some time prior to this call)
    * @param info Legal move to add
    */
-  public void add(ForwardDeadReckonLegalMoveInfo info)
+  public void addSafe(ForwardDeadReckonLegalMoveInfo info)
   {
     assert(info.masterIndex != -1);
     contents[info.roleIndex].set(info.masterIndex);
   }
 
+  /**
+   * Add a specified legal move.  The collection must already have been crystalized
+   * @param info
+   */
+  public void add(ForwardDeadReckonLegalMoveInfo info)
+  {
+    assert(info.masterIndex != -1);
+    contents[info.roleIndex].fastSet(info.masterIndex);
+  }
+
+
   @Override
   public void add(int index)
   {
     ForwardDeadReckonLegalMoveInfo info = masterListAsArray[index];
-    contents[info.roleIndex].set(index);
+    contents[info.roleIndex].fastSet(index);
   }
+
 
   /**
    * Remove a specified legal move to the collection.  This move should be one
@@ -403,14 +420,14 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   public void remove(ForwardDeadReckonLegalMoveInfo info)
   {
     assert(info.masterIndex != -1);
-    contents[info.roleIndex].clear(info.masterIndex);
+    contents[info.roleIndex].fastClear(info.masterIndex);
   }
 
   @Override
   public void remove(int index)
   {
     ForwardDeadReckonLegalMoveInfo info = masterListAsArray[index];
-    contents[info.roleIndex].clear(index);
+    contents[info.roleIndex].fastClear(index);
   }
 
   /**

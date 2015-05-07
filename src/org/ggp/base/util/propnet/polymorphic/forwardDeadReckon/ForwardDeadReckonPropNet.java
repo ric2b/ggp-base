@@ -128,7 +128,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
         {
           if (((PolymorphicConstant)propInput).getValue())
           {
-            alwaysTrueLegalMoves.add(info);
+            alwaysTrueLegalMoves.addSafe(info);
           }
         }
         else
