@@ -2,10 +2,10 @@
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Random;
 
 import org.apache.lucene.util.OpenBitSet;
 import org.ggp.base.util.statemachine.Role;
@@ -27,31 +27,37 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   /**
    * Contents (as a BitSet) of the legal move collections for each role
    */
-  OpenBitSet[]                                 contents;
-  OpenBitSet[]                                 checkPointContents;
+  OpenBitSet                                   contents;
   /** The set of roles whose legal moves are being tracked */
   private Role[]                               roles;
   private ForwardDeadReckonLegalMoveSetCollection[] preAllocatedCollections;
+  private final int[]                          cachedSizes;
+  private boolean                              hasCached = false;
+  private final Random                         rand = new Random();
 
   private class ForwardDeadReckonLegalMoveSetIterator
                                                      implements
                                                      Iterator<ForwardDeadReckonLegalMoveInfo>
   {
-    private ForwardDeadReckonLegalMoveSet parent;
-    private OpenBitSet                    parentsContentsForRole;
-    int                                   index;
+    private final ForwardDeadReckonLegalMoveSet parent;
+    int                                         index;
+    private final int                           roleIndex;
 
     public ForwardDeadReckonLegalMoveSetIterator(ForwardDeadReckonLegalMoveSet parentSet,
                                                  int theRoleIndex)
     {
       parent = parentSet;
-      parentsContentsForRole = parentSet.contents[theRoleIndex];
+      roleIndex = theRoleIndex;
       reset();
     }
 
     void reset()
     {
-      index = parentsContentsForRole.nextSetBit(0);
+      index = -1;
+      do
+      {
+        index = parent.contents.nextSetBit(index+1);
+      } while(index != -1 && parent.masterListAsArray[index].roleIndex != roleIndex);
     }
 
     @Override
@@ -64,7 +70,10 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     public ForwardDeadReckonLegalMoveInfo next()
     {
       ForwardDeadReckonLegalMoveInfo result = parent.masterListAsArray[index];
-      index = parentsContentsForRole.nextSetBit(index + 1);
+      do
+      {
+        index = parent.contents.nextSetBit(index+1);
+      } while(index != -1 && parent.masterListAsArray[index].roleIndex != roleIndex);
       return result;
     }
 
@@ -132,7 +141,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     public boolean contains(Object xiO)
     {
       ForwardDeadReckonLegalMoveInfo move = (ForwardDeadReckonLegalMoveInfo)xiO;
-      return (move != null && parent.contents[roleIndex].get(move.masterIndex));
+      return (move != null && parent.contents.fastGet(move.masterIndex));
     }
 
     @Override
@@ -151,8 +160,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     @Override
     public boolean isEmpty()
     {
-      // TODO Auto-generated method stub
-      return (parent.contents[roleIndex].cardinality() == 0);
+      return parent.getNumChoices(roleIndex) == 0;
     }
 
     @Override
@@ -179,7 +187,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     @Override
     public int size()
     {
-      return (int)parent.contents[roleIndex].cardinality();
+      return parent.getNumChoices(roleIndex);
     }
 
     @Override
@@ -214,19 +222,12 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     masterList = master.masterList;
     masterListAsArray = master.masterListAsArray;
     roles = master.roles;
-    contents = new OpenBitSet[roles.length];
+    contents = new OpenBitSet(masterListAsArray != null ? masterListAsArray.length : 64);
     preAllocatedCollections = new ForwardDeadReckonLegalMoveSetCollection[roles.length];
+    cachedSizes = new int[roles.length];
 
     for (int i = 0; i < roles.length; i++)
     {
-      if ( masterListAsArray != null )
-      {
-        contents[i] = new OpenBitSet(masterListAsArray.length);
-      }
-      else
-      {
-        contents[i] = new OpenBitSet();
-      }
       preAllocatedCollections[i] = new ForwardDeadReckonLegalMoveSetCollection(this, i);
     }
   }
@@ -239,14 +240,14 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   {
     masterList = new ArrayList<>();
     masterListAsArray = null;
-    contents = new OpenBitSet[theRoles.length];
+    contents = new OpenBitSet();
     roles = new Role[theRoles.length];
     preAllocatedCollections = new ForwardDeadReckonLegalMoveSetCollection[roles.length];
+    cachedSizes = new int[roles.length];
 
     int i = 0;
     for (Role role : theRoles)
     {
-      contents[i] = new OpenBitSet();
       preAllocatedCollections[i] = new ForwardDeadReckonLegalMoveSetCollection(this, i);
       this.roles[i++] = role;
     }
@@ -261,11 +262,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     masterListAsArray = new ForwardDeadReckonLegalMoveInfo[masterList.size()];
     masterList.toArray(masterListAsArray);
     masterList = null;
-
-    for(int i = 0; i < contents.length; i++)
-    {
-      contents[i].ensureCapacity(masterListAsArray.length);
-    }
+    contents.ensureCapacity(masterListAsArray.length);
   }
 
   /**
@@ -281,7 +278,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   @Override
   public int hashCode()
   {
-    return Arrays.hashCode(contents);
+    return contents.hashCode();
   }
 
   @Override
@@ -295,7 +292,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     if (o instanceof ForwardDeadReckonLegalMoveSet)
     {
       ForwardDeadReckonLegalMoveSet moveSet = (ForwardDeadReckonLegalMoveSet)o;
-      return Arrays.equals(moveSet.contents, contents);
+      return contents.equals(moveSet.contents);
     }
 
     return false;
@@ -305,29 +302,32 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   public String toString()
   {
     StringBuilder sb = new StringBuilder();
-    boolean first = true;
     boolean firstRole = true;
 
     sb.append("[ ");
-    for (int roleIndex = 0; roleIndex < contents.length; roleIndex++)
+    for (int roleIndex = 0; roleIndex < roles.length; roleIndex++)
     {
+      boolean first = true;
       int moveIndex = 1;
 
+      sb.append("( ");
+      for (int i = contents.nextSetBit(0); i >= 0; i = contents.nextSetBit(i + 1))
+      {
+        if ( masterListAsArray[i].roleIndex == roleIndex )
+        {
+          if (!first)
+          {
+            sb.append(", ");
+          }
+          sb.append(moveIndex++ + ": " + masterListAsArray[i].move);
+          first = false;
+        }
+      }
+      sb.append(" )");
       if (!firstRole)
       {
         sb.append("; ");
       }
-      sb.append("( ");
-      for (int i = contents[roleIndex].nextSetBit(0); i >= 0; i = contents[roleIndex].nextSetBit(i + 1))
-      {
-        if (!first)
-        {
-          sb.append(", ");
-        }
-        sb.append(moveIndex++ + ": " + masterListAsArray[i].move);
-        first = false;
-      }
-      sb.append(" )");
       firstRole = false;
     }
     sb.append(" ]");
@@ -340,10 +340,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public void clear()
   {
-    for (int i = 0; i < contents.length; i++)
-    {
-      contents[i].clear(0,masterListAsArray.length);
-    }
+    contents.clear(0,masterListAsArray.length);
   }
 
   /**
@@ -352,11 +349,8 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public void copy(ForwardDeadReckonLegalMoveSet source)
   {
-    for (int i = 0; i < contents.length; i++)
-    {
-      contents[i].clear(0,masterListAsArray.length);
-      contents[i].or(source.contents[i]);
-    }
+    contents.clear(0,masterListAsArray.length);
+    contents.or(source.contents);
   }
 
   /**
@@ -396,7 +390,9 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   public void addSafe(ForwardDeadReckonLegalMoveInfo info)
   {
     assert(info.masterIndex != -1);
-    contents[info.roleIndex].set(info.masterIndex);
+    contents.set(info.masterIndex);
+
+    hasCached = false;
   }
 
   /**
@@ -406,7 +402,9 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   public void add(ForwardDeadReckonLegalMoveInfo info)
   {
     assert(info.masterIndex != -1);
-    contents[info.roleIndex].fastSet(info.masterIndex);
+    contents.fastSet(info.masterIndex);
+
+    hasCached = false;
   }
 
 
@@ -414,7 +412,12 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   public void add(int index)
   {
     ForwardDeadReckonLegalMoveInfo info = masterListAsArray[index];
-    contents[info.roleIndex].fastSet(index);
+    contents.fastSet(index);
+  }
+
+  public void markDirty()
+  {
+    hasCached = false;
   }
 
 
@@ -427,14 +430,16 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   public void remove(ForwardDeadReckonLegalMoveInfo info)
   {
     assert(info.masterIndex != -1);
-    contents[info.roleIndex].fastClear(info.masterIndex);
+    contents.fastClear(info.masterIndex);
+
+    hasCached = false;
   }
 
   @Override
   public void remove(int index)
   {
     ForwardDeadReckonLegalMoveInfo info = masterListAsArray[index];
-    contents[info.roleIndex].fastClear(index);
+    contents.fastClear(index);
   }
 
   /**
@@ -443,10 +448,9 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public void merge(ForwardDeadReckonLegalMoveSet other)
   {
-    for (int i = 0; i < contents.length; i++)
-    {
-      contents[i].or(other.contents[i]);
-    }
+    contents.or(other.contents);
+
+    hasCached = false;
   }
 
   /**
@@ -455,10 +459,9 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public void intersect(ForwardDeadReckonLegalMoveSet other)
   {
-    for (int i = 0; i < contents.length; i++)
-    {
-      contents[i].and(other.contents[i]);
-    }
+    contents.and(other.contents);
+
+    hasCached = false;
   }
 
   /**
@@ -469,7 +472,6 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   public Collection<ForwardDeadReckonLegalMoveInfo> getContents(int roleIndex)
   {
     return preAllocatedCollections[roleIndex];
-    //return new ForwardDeadReckonLegalMoveSetCollection(this, roleIndex);
   }
 
   /**
@@ -515,7 +517,24 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public int getNumChoices(int roleIndex)
   {
-    return (int)contents[roleIndex].cardinality();
+    if ( !hasCached )
+    {
+      for(int i = 0; i < roles.length; i++)
+      {
+        cachedSizes[i] = 0;
+      }
+
+      int index = contents.nextSetBit(0);
+      while(index != -1)
+      {
+        cachedSizes[masterListAsArray[index].roleIndex]++;
+        index = contents.nextSetBit(index+1);
+      }
+
+      hasCached = true;
+    }
+
+    return cachedSizes[roleIndex];
   }
 
   /**
@@ -545,6 +564,22 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public boolean isLegalMove(int roleIndex, ForwardDeadReckonLegalMoveInfo move)
   {
-    return contents[roleIndex].get(move.masterIndex);
+    return (masterListAsArray[move.masterIndex].roleIndex == roleIndex && contents.get(move.masterIndex));
+  }
+
+  public ForwardDeadReckonLegalMoveInfo getRandomMove(int roleIndex)
+  {
+    int index = rand.nextInt(masterListAsArray.length);
+
+    do
+    {
+      index = contents.nextSetBit(index+1);
+      if ( index == -1 )
+      {
+        index = contents.nextSetBit(0);
+      }
+    } while(masterListAsArray[index].roleIndex != roleIndex);
+
+    return masterListAsArray[index];
   }
 }

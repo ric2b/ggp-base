@@ -1,9 +1,12 @@
 package org.ggp.base.apps.validator;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Random;
 
 import org.ggp.base.player.gamer.statemachine.sancho.GameSearcher;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
@@ -22,6 +25,8 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
+import sun.misc.Unsafe;
+
 /**
  * @author steve
  * Simple test app for testing aspects of Sancho (subsystem) performance
@@ -29,6 +34,50 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
  */
 public class StateMachinePerformanceAnalyser
 {
+  public class UnsafeArray
+  {
+    private final static long INT_SIZE_IN_BYTES = 4;
+
+    private final Unsafe unsafe;
+    private final long base;
+
+    public UnsafeArray(int size)
+    {
+      Constructor<Unsafe> unsafeConstructor;
+      Unsafe _unsafe = null;
+      try
+      {
+        unsafeConstructor = Unsafe.class.getDeclaredConstructor();
+        unsafeConstructor.setAccessible(true);
+        _unsafe = unsafeConstructor.newInstance();
+      }
+      catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e)
+      {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+
+      unsafe = _unsafe;
+      base = unsafe.allocateMemory(size * INT_SIZE_IN_BYTES);
+    }
+
+    public void setValue(long index, int value) {
+      unsafe.putInt(index(index), value);
+    }
+
+    public int getValue(long index) {
+      return unsafe.getInt(index(index));
+    }
+
+    private long index(long offset) {
+      return base + offset * INT_SIZE_IN_BYTES;
+    }
+
+    public void destroy() {
+      unsafe.freeMemory(base);
+    }
+  }
+
   /**
    * Number of seconds to run each test
    */
@@ -120,6 +169,14 @@ public class StateMachinePerformanceAnalyser
           System.out.println("  GameSearcher average pipeline latency(micro seconds): " + e.getValue().averageLatency/1000);
         }
       }
+
+      if ( gamesList.isEmpty())
+      {
+        miscTest1();
+        miscTest2();
+        miscTest3();
+        miscTest4(new StateMachinePerformanceAnalyser());
+      }
     }
     finally
     {
@@ -131,6 +188,154 @@ public class StateMachinePerformanceAnalyser
         ((LocalGameRepository)theRepository).cleanUp();
       }
     }
+  }
+
+  private static final int maskMiddle = 0x00020000;
+  private static final int maskSign = 0x80000000;
+
+  private static void miscTest1()
+  {
+    int a = 48756;
+    int b = 1234567893;
+    int c = 0;
+
+    long startTime = System.nanoTime();
+    for(int i = 0; i < 100000000; i++)
+    {
+      a += b;
+      if ( (a & maskMiddle) != 0 )
+      {
+        c++;
+      }
+    }
+    long durationMiddle = System.nanoTime() - startTime;
+
+    startTime = System.nanoTime();
+    for(int i = 0; i < 100000000; i++)
+    {
+      a += b;
+      if ( (a & maskSign) != 0 )
+      {
+        c++;
+      }
+    }
+    long durationSignBit = System.nanoTime() - startTime;
+
+    startTime = System.nanoTime();
+    for(int i = 0; i < 100000000; i++)
+    {
+      a += b;
+      if ( a < 0 )
+      {
+        c++;
+      }
+    }
+    long durationTestSign = System.nanoTime() - startTime;
+
+    System.out.println("Time for middle bit mask: " + durationMiddle);
+    System.out.println("Time for sign bit mask: " + durationSignBit);
+    System.out.println("Time for sign test: " + durationTestSign);
+    System.out.println("Dummy: " + c);
+  }
+
+  private static void miscTest2()
+  {
+    int a = 48756;
+    int b = 1234567893;
+    int c = 0;
+    int d = 0;
+
+    long startTime = System.nanoTime();
+    for(int i = 0; i < 100000000; i++)
+    {
+      a += b;
+      if ( (a & 0x7FFFFFFF) != 0 )
+      {
+        c++;
+      }
+    }
+    long durationMask = System.nanoTime() - startTime;
+
+    startTime = System.nanoTime();
+    for(int i = 0; i < 100000000; i++)
+    {
+      a += b;
+      if ( a<<1 != 0 )
+      {
+        d++;
+      }
+    }
+    long durationShiftAndTest = System.nanoTime() - startTime;
+
+    System.out.println("Time for 0x7FFFFFFF mask: " + durationMask);
+    System.out.println("Time for shift and test: " + durationShiftAndTest);
+    System.out.println("Sigs: " + c + " and " + d);
+  }
+
+  private static void miscTest3()
+  {
+    int a = 48756;
+    int b = 1234567893;
+    int c = 0;
+
+    long startTime = System.nanoTime();
+    for(int i = 0; i < 100000000; i++)
+    {
+      a += b;
+      if ( (a & 0x7FFFFFFF) == 0x7FFFFFFF )
+      {
+        c++;
+      }
+    }
+    long durationMask = System.nanoTime() - startTime;
+
+    startTime = System.nanoTime();
+    for(int i = 0; i < 100000000; i++)
+    {
+      a += b;
+      if ( (a+1)<<1 != 0 )
+      {
+        c++;
+      }
+    }
+    long durationShiftAndTest = System.nanoTime() - startTime;
+
+    System.out.println("Time for 0x7FFFFFFF mask: " + durationMask);
+    System.out.println("Time for shift and test: " + durationShiftAndTest);
+    System.out.println("Dummy: " + c);
+  }
+
+  private static void miscTest4(StateMachinePerformanceAnalyser parent)
+  {
+    int[] array = new int[10000];
+    UnsafeArray unsafeArray = parent.new UnsafeArray(10000);
+    Random rand = new Random();
+
+    for(int i = 0; i < 10000; i++)
+    {
+      array[i] = rand.nextInt(10000);
+      unsafeArray.setValue(i, array[i]);
+    }
+
+    int a = 0;
+
+    long startTime = System.nanoTime();
+    for(int i = 0; i < 2000000000; i++)
+    {
+      a = array[a];
+    }
+    long durationMask = System.nanoTime() - startTime;
+
+    int b = 0;
+    startTime = System.nanoTime();
+    for(int i = 0; i < 2000000000; i++)
+    {
+      b = unsafeArray.getValue(b);
+    }
+    long durationShiftAndTest = System.nanoTime() - startTime;
+
+    System.out.println("Time for regular array: " + durationMask + " (final value " + a + ")");
+    System.out.println("Time for unsafe array: " + durationShiftAndTest + " (final value " + b + ")");
   }
 
   private void testDirectStateMachine(GameRepository theRepository, Map<String,PerformanceInfo> gamesList)
@@ -208,6 +413,8 @@ public class StateMachinePerformanceAnalyser
         theMachine.initialize(description);
         theMachine.enableGreedyRollouts(false, true);
         gameCharacteristics.setRolloutSampleSize(1);
+
+        theMachine.optimizeStateTransitionMechanism(System.currentTimeMillis()+2000);
 
         GameSearcher gameSearcher = new GameSearcher(1000000, theMachine.getRoles().length, "PerfTest");
 

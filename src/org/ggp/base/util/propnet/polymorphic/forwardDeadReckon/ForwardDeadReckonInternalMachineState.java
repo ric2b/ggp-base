@@ -9,6 +9,7 @@ import org.apache.lucene.util.OpenBitSet;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.statemachine.MachineState;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropositionCrossReferenceInfo;
 
 /**
  * Internal representation of a machine state, intended for efficient runtime usage
@@ -52,10 +53,10 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
     }
 
     @Override
-    public ForwardDeadReckonPropositionInfo next()
+    public ForwardDeadReckonPropositionCrossReferenceInfo next()
     {
       int index = mIndex;
-      ForwardDeadReckonPropositionInfo result = mState.infoSet[mIndex];
+      ForwardDeadReckonPropositionCrossReferenceInfo result = mState.infoSet[mIndex];
 
       if ( index == mLastIndex )
       {
@@ -80,13 +81,13 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   }
 
   // Master list of propositions which may be included or not in the state.
-  final ForwardDeadReckonPropositionInfo[] infoSet;
+  final ForwardDeadReckonPropositionCrossReferenceInfo[] infoSet;
 
   // Optional heuristic data associated with the state.
   private HashMap<Heuristic, Object>               heuristicData = null;
 
   // BitSet of which propositions are true in the state
-  final OpenBitSet                                 contents;
+  public final OpenBitSet                                 contents;
 
   //  We cache the hash code to speed up equals, invalidating the cache on mutation operations
   private boolean                                  hashCached = false;
@@ -101,7 +102,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    * Construct a new empty state for the given set of possible base propositions
    * @param masterInfoSet list of the possible base propositions that may occur
    */
-  public ForwardDeadReckonInternalMachineState(ForwardDeadReckonPropositionInfo[] masterInfoSet)
+  public ForwardDeadReckonInternalMachineState(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet)
   {
     infoSet = masterInfoSet;
     contents = new OpenBitSet(infoSet.length);
@@ -162,7 +163,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
     assert(index < infoSet.length);
     contents.fastSet(index);
 
-    hashCached = false;
+    //hashCached = false;
   }
 
   /**
@@ -339,7 +340,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   {
     contents.clear(index);
 
-    hashCached = false;
+    //hashCached = false;
   }
 
   /**
@@ -413,6 +414,11 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
     }
 
     return false;
+  }
+
+  public void markDirty()
+  {
+    hashCached = false;
   }
 
   /**

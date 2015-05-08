@@ -15,6 +15,7 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropositionCrossReferenceInfo;
 
 /**
  * @author steve
@@ -73,7 +74,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
   }
 
   @SuppressWarnings("unchecked")
-  private void setUpActivePropositionSets(ForwardDeadReckonPropositionInfo[] masterInfoSet,
+  private void setUpActivePropositionSets(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet,
                                           ForwardDeadReckonLegalMoveInfo[]   masterMoveList)
   {
     activeLegalMoves = new ForwardDeadReckonLegalMoveSet[numInstances];
@@ -198,7 +199,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
    * @param masterInfoSet set of base propositions in some defined order
    * @param masterMoveList master list of moves - may be null to generate
    */
-  private void crystalize(ForwardDeadReckonPropositionInfo[] masterInfoSet,
+  private void crystalize(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet,
                           ForwardDeadReckonLegalMoveInfo[]   masterMoveList)
   {
     for (PolymorphicComponent c : getComponents())
@@ -235,7 +236,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
    * @param masterMoveList master list of moves - may be null to generate
    * @param theNumInstances Number of independent instances to support
    */
-  public void crystalize(ForwardDeadReckonPropositionInfo[] masterInfoSet,
+  public void crystalize(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet,
                          ForwardDeadReckonLegalMoveInfo[]   masterMoveList,
                          int theNumInstances)
   {
