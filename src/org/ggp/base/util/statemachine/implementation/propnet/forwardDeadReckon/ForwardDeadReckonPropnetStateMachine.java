@@ -1714,7 +1714,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         fullPropNet.setProposition(0, (ForwardDeadReckonProposition)fullPropNet.getInitProposition(), true);
       }
       propNet = fullPropNet;
-      initialState = getInternalStateFromBase(null).getMachineState();
+      initialState = getInternalStateFromBase(new ForwardDeadReckonInternalMachineState(masterInfoSet)).getMachineState();
       fullPropNet.reset(true);
 
       measuringBasePropChanges = true;
@@ -2680,7 +2680,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     getNextState(internalState, null, internalMoves, internalResult);
 
-    MachineState result = getInternalStateFromBase(null).getMachineState();
+    MachineState result = getInternalStateFromBase(new ForwardDeadReckonInternalMachineState(masterInfoSet)).getMachineState();
 
     return result;
   }
@@ -2722,7 +2722,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                            ForwardDeadReckonInternalMachineState xbNewState)
   {
     assert(xbNewState != null);
-    xbNewState.clear();
+    //xbNewState.clear();
 
     setPropNetUsage(state);
 
@@ -2956,24 +2956,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private ForwardDeadReckonInternalMachineState getInternalStateFromBase(ForwardDeadReckonInternalMachineState xbState)
   {
-    // Allocate a new state if we haven't been supplied with one to override.
-    if (xbState == null)
+    xbState.copy(propNet.getActiveBaseProps(instanceId));
+    if ( XSentenceInfo != null && xbState.contains(XSentenceInfo))
     {
-      xbState = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+      xbState.isXState = true;
     }
 
-    InternalMachineStateIterator lIterator = mStateIterator;
-    lIterator.reset(propNet.getActiveBaseProps(instanceId));
-    while (lIterator.hasNext())
-    {
-      ForwardDeadReckonPropositionInfo info = lIterator.next();
-      xbState.add(info);
-
-      if (info.sentence == XSentence)
-      {
-        xbState.isXState = true;
-      }
-    }
 
     return xbState;
   }
