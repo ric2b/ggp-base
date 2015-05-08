@@ -63,18 +63,26 @@ public class ForwardDeadReckonPropnetFastAnimator
           int outputFullId = componentDataTable[outputIndex++];
 
           int stateVal = ++state[(outputFullId & 0xFFFFFF)>>2];
-          //if ( (stateVal & 0x7FFFFFFF) == 0 )
-          if ( stateVal<<1 == 0 )
+          if ( stateVal == 0 )
           {
-            if (stateVal != 0)
-            {
-              propagateComponentTrue(outputFullId);
-            }
-            else
-            {
-              propagateComponentFalse(outputFullId);
-            }
+            propagateComponentFalse(outputFullId);
           }
+          else if ( stateVal == 0x80000000 )
+          {
+            propagateComponentTrue(outputFullId);
+          }
+//          //if ( (stateVal & 0x7FFFFFFF) == 0 )
+//          if ( stateVal<<1 == 0 )
+//          {
+//            if (stateVal != 0)
+//            {
+//              propagateComponentTrue(outputFullId);
+//            }
+//            else
+//            {
+//              propagateComponentFalse(outputFullId);
+//            }
+//          }
         }
       }
     }
@@ -83,9 +91,7 @@ public class ForwardDeadReckonPropnetFastAnimator
     {
       int   outputIndex = (componentIdFull & 0xFFFFFF)+1;
       int   numOutputs = componentDataTable[outputIndex++];
-      //PolymorphicComponent c = debugComponentMap[(componentIdFull & 0xFFFFFF)/4];
 
-      //if ((componentIdFull & componentIdOutputUniversalLogicBits) == 0)
       if (componentIdFull >= 0)
       {
         do
@@ -102,18 +108,26 @@ public class ForwardDeadReckonPropnetFastAnimator
           int outputFullId = componentDataTable[outputIndex++];
 
           int stateVal = state[(outputFullId & 0xFFFFFF)>>2]--;
-          //if ( (stateVal & 0x7FFFFFFF) == 0x7FFFFFFF )
-          if ( (stateVal)<<1 == 0 )
+          if ( stateVal == 0 )
           {
-            if ( stateVal != 0 )
-            {
-              propagateComponentFalse(outputFullId);
-            }
-            else
-            {
-              propagateComponentTrue(outputFullId);
-            }
+            propagateComponentTrue(outputFullId);
           }
+          else if ( stateVal == 0x80000000 )
+          {
+            propagateComponentFalse(outputFullId);
+          }
+          //if ( (stateVal & 0x7FFFFFFF) == 0x7FFFFFFF )
+//          if ( (stateVal)<<1 == 0 )
+//          {
+//            if ( stateVal != 0 )
+//            {
+//              propagateComponentFalse(outputFullId);
+//            }
+//            else
+//            {
+//              propagateComponentTrue(outputFullId);
+//            }
+//          }
         }
       }
     }
@@ -943,432 +957,6 @@ public class ForwardDeadReckonPropnetFastAnimator
     else
     {
       instanceInfo.resetWatermark = nextComponentBaseId;
-    }
-  }
-
-  private void propagateComponentTrue(InstanceInfo instanceInfo, int componentIdFull)
-  {
-    int   outputIndex = (componentIdFull & 0xFFFFFF)+1;
-    int   numOutputs = componentDataTable[outputIndex++];
-
-    //if ((componentIdFull & componentIdOutputUniversalLogicBits) == 0)
-    if (componentIdFull >= 0)
-    {
-      do
-      {
-        int triggerIndex = componentDataTable[outputIndex++];
-
-        instanceInfo.notifiers[triggerIndex & 1].fastSet(triggerIndex>>1);
-      } while(--numOutputs > 0);
-    }
-    else
-    {
-      int[] state = instanceInfo.state;
-
-      while(numOutputs-- > 0)
-      {
-        int outputFullId = componentDataTable[outputIndex++];
-
-        int stateVal = ++state[(outputFullId & 0xFFFFFF)>>2];
-        if ( (stateVal & 0x7FFFFFFF) == 0 )
-        //if ( stateVal<<1 == 0 )
-        {
-          if (stateVal != 0)
-          {
-            propagateComponentTrue(instanceInfo, outputFullId);
-          }
-          else
-          {
-            propagateComponentFalse(instanceInfo, outputFullId);
-          }
-        }
-      }
-    }
-  }
-
-  private void propagateComponentFalse(InstanceInfo instanceInfo, int componentIdFull)
-  {
-    int   outputIndex = (componentIdFull & 0xFFFFFF)+1;
-    int   numOutputs = componentDataTable[outputIndex++];
-    //PolymorphicComponent c = debugComponentMap[(componentIdFull & 0xFFFFFF)/4];
-
-    //if ((componentIdFull & componentIdOutputUniversalLogicBits) == 0)
-    if (componentIdFull >= 0)
-    {
-      do
-      {
-        int triggerIndex = componentDataTable[outputIndex++];
-
-        instanceInfo.notifiers[triggerIndex & 1].fastClear(triggerIndex>>1);
-      } while(--numOutputs > 0);
-    }
-    else
-    {
-      int[] state = instanceInfo.state;
-
-      while(numOutputs-- > 0)
-      {
-        int outputFullId = componentDataTable[outputIndex++];
-
-        int stateVal = state[(outputFullId & 0xFFFFFF)>>2]--;
-        if ( (stateVal & 0x7FFFFFFF) == 0 )
-        //if ( (stateVal)<<1 == 0 )
-        {
-          if ( stateVal != 0 )
-          {
-            propagateComponentFalse(instanceInfo, outputFullId);
-          }
-          else
-          {
-            propagateComponentTrue(instanceInfo, outputFullId);
-          }
-        }
-      }
-    }
-  }
-
-  private void propagateComponentTrueOrFalse(InstanceInfo instanceInfo, int componentIdFull, int propInc)
-  {
-    int   outputIndex = (componentIdFull & 0xFFFFFF)+1;
-    int   numOutputs = componentDataTable[outputIndex++];
-
-    if ((componentIdFull & componentIdOutputUniversalLogicBits) == 0)
-    {
-      assert(numOutputs > 0);
-      do
-      {
-//        int outputId = (componentDataTable[outputIndex++] & 0xFFFFFF)>>2;
-//        int triggerIndex = componentAssociatedTriggerIndexes[outputId];
-        int triggerIndex = componentDataTable[outputIndex++];
-
-        if ( propInc > 0 )
-        {
-          //state[outputId] |= componentStateCachedValMask;
-
-          instanceInfo.notifiers[triggerIndex & 1].fastSet(triggerIndex>>1);
-        }
-        else
-        {
-          //state[outputId] &= ~componentStateCachedValMask;
-
-          instanceInfo.notifiers[triggerIndex & 1].fastClear(triggerIndex>>1);
-        }
-      } while(--numOutputs > 0);
-//      while(numOutputs-- > 0)
-//      {
-//        int outputId = (componentDataTable[outputIndex++] & 0xFFFFFF)>>2;
-//        int triggerIndex = componentAssociatedTriggerIndexes[outputId];
-//
-//        if ( propInc > 0 )
-//        {
-//          state[outputId] |= componentStateCachedValMask;
-//
-//          instanceInfo.notifiers[triggerIndex & 1].add(triggerIndex>>1);
-//        }
-//        else
-//        {
-//          state[outputId] &= ~componentStateCachedValMask;
-//
-//          instanceInfo.notifiers[triggerIndex & 1].remove(triggerIndex>>1);
-//        }
-//      }
-    }
-    else
-    {
-      int[] state = instanceInfo.state;
-
-      while(numOutputs-- > 0)
-      {
-        int outputFullId = componentDataTable[outputIndex++];
-
-        int stateIndex = (outputFullId & 0xFFFFFF)>>2;
-        int stateVal = (state[stateIndex] = state[stateIndex] + propInc);
-        //state[(outputFullId & 0xFFFFFF)>>2] = stateVal;
-
-        if ( (stateVal & 0x7FFFFFFF) == ((propInc >> 1) & 0x7FFFFFFF) )
-        {
-          propagateComponentTrueOrFalse(instanceInfo, outputFullId, ((stateVal >> 30) & 2) - 1);
-//          if ( (outputFullId & componentIdOutputUniversalLogicBits) == 0 )
-//          {
-//            if ( (outputFullId & componentIdOutSingleTrigger) == 0 )
-//            {
-//              doTriggers(instanceInfo, outputFullId, ((stateVal >> 30) & 2) - 1);
-//            }
-//            else
-//            {
-//              doTrigger(instanceInfo, outputFullId, ((stateVal >> 30) & 2) - 1);
-//            }
-//          }
-//          else
-//          {
-//            propagateComponentTrueOrFalse(instanceInfo, outputFullId, ((stateVal >> 30) & 2) - 1);
-//          }
-//          if ( stateVal >= 0 )
-//          {
-//            propagateComponentTrueOrFalse(instanceInfo, outputFullId, -1);
-//          }
-//          else
-//          {
-//            propagateComponentTrueOrFalse(instanceInfo, outputFullId, 1);
-//          }
-        }
-
-// FALSE case - propInc == -1 (0xFFFFFFFF)
-//        int stateVal = --state[(outputFullId & 0xFFFFFF)>>2];
-//        if ( (stateVal & 0x7FFFFFFF) == 0x7FFFFFFF )
-//        {
-//          if ( stateVal >= 0 )
-//          {
-//            propagateComponentFalse(instanceInfo, outputFullId);
-//          }
-//          else
-//          {
-//            propagateComponentTrue(instanceInfo, outputFullId);
-//          }
-//        }
-// TRUE case - propInc == 1
-//        int stateVal = ++state[(outputFullId & 0xFFFFFF)>>2];
-//        if ( (stateVal & 0x7FFFFFFF) == 0 )
-//        {
-//          if (stateVal != 0)
-//          {
-//            propagateComponentTrue(instanceInfo, outputFullId);
-//          }
-//          else
-//          {
-//            propagateComponentFalse(instanceInfo, outputFullId);
-//          }
-//        }
-      }
-    }
-  }
-
-  private void propagateComponentOld(InstanceInfo instanceInfo, int componentId, boolean value)
-  {
-    assert((componentId & 0xFFFFFF)%4 == 0);
-
-    if ( instanceInfo.resetWatermark >= (componentId & 0xFFFFFF) )
-    {
-      int[] state = instanceInfo.state;
-      int   outputIndex = (componentId & 0xFFFFFF)+1;
-      int   numOutputs = componentDataTable[outputIndex++];
-      int outputIdBits;
-
-      while(numOutputs-- > 0)
-      {
-        int outputFullId = componentDataTable[outputIndex+numOutputs];
-        int outputId = (outputFullId & 0xFFFFFF)/4;
-        outputIdBits = outputFullId & componentIdTypeMask;
-
-        switch(outputIdBits)
-        {
-          case componentIdPropositionBits:
-            if ( value )
-            {
-              state[outputId] |= componentStateCachedValMask;
-            }
-            else
-            {
-              state[outputId] &= ~componentStateCachedValMask;
-            }
-
-            int moveIndex = componentAssociatedTriggerIndexes[outputId];
-
-            if ( moveIndex != -1 )
-            {
-              if ( value )
-              {
-                instanceInfo.legalMoveNotifier.fastSet(moveIndex/2);
-              }
-              else
-              {
-                instanceInfo.legalMoveNotifier.fastClear(moveIndex/2);
-              }
-            }
-
-            propagateComponent(instanceInfo, outputFullId, value);
-            break;
-          case componentIdTransitionBits:
-            if ( value )
-            {
-              state[outputId] |= componentStateCachedValMask;
-            }
-            else
-            {
-              state[outputId] &= ~componentStateCachedValMask;
-            }
-
-            int propIndex = componentAssociatedTriggerIndexes[outputId];
-
-            if ( value )
-            {
-              instanceInfo.propositionTransitionNotifier.fastSet(propIndex/2);
-            }
-            else
-            {
-              instanceInfo.propositionTransitionNotifier.fastClear(propIndex/2);
-            }
-            break;
-          case componentIdUniversalLogicBits:
-             int stateVal;
-            if ( value )
-            {
-              stateVal = ++state[outputId];
-              if ( stateVal == 0x80000000 )
-              {
-                propagateComponent(instanceInfo, outputFullId, true);
-              }
-              else if ( stateVal == 0 )
-              {
-                propagateComponent(instanceInfo, outputFullId, false);
-              }
-            }
-            else
-            {
-              stateVal = --state[outputId];
-              if ( stateVal == 0x7FFFFFFF )
-              {
-                propagateComponent(instanceInfo, outputFullId, false);
-              }
-              else if ( stateVal == 0xFFFFFFFF )
-              {
-                propagateComponent(instanceInfo, outputFullId, true);
-              }
-            }
-            break;
-          default:
-            //  Should not happen
-            throw new UnsupportedOperationException("Unexpected component type");
-        }
-      }
-    }
-  }
-
-  private void propagateComponent(InstanceInfo instanceInfo, int componentId, boolean value)
-  {
-    assert((componentId & 0xFFFFFF)%4 == 0);
-
-    if ( instanceInfo.resetWatermark >= (componentId & 0xFFFFFF) )
-    {
-      int[] state = instanceInfo.state;
-      int   outputIndex = (componentId & 0xFFFFFF)+1;
-      int   numOutputs = componentDataTable[outputIndex++];
-      int outputIdBits;
-      boolean isTrigger = (componentId >= 0);//(componentId & componentIdOutputUniversalLogicBits) == 0;
-
-      while(numOutputs-- > 0)
-      {
-        int outputFullId = componentDataTable[outputIndex+numOutputs];
-
-        if ( !isTrigger )
-        {
-          int outputId = (outputFullId & 0xFFFFFF)/4;
-          outputIdBits = outputFullId & componentIdTypeMask;
-
-          switch(outputIdBits)
-          {
-            case componentIdPropositionBits:
-              if ( value )
-              {
-                state[outputId] |= componentStateCachedValMask;
-              }
-              else
-              {
-                state[outputId] &= ~componentStateCachedValMask;
-              }
-
-              int moveIndex = componentAssociatedTriggerIndexes[outputId];
-
-              assert ( moveIndex == -1 );
-
-              propagateComponent(instanceInfo, outputFullId, value);
-              break;
-            case componentIdTransitionBits:
-              assert(false);
-              break;
-            case componentIdUniversalLogicBits:
-              int stateVal;
-              if ( value )
-              {
-                stateVal = ++state[outputId];
-                if ( stateVal == 0x80000000 )
-                {
-                  propagateComponent(instanceInfo, outputFullId, true);
-                }
-                else if ( stateVal == 0 )
-                {
-                  propagateComponent(instanceInfo, outputFullId, false);
-                }
-              }
-              else
-              {
-                stateVal = --state[outputId];
-                if ( stateVal == 0x7FFFFFFF )
-                {
-                  propagateComponent(instanceInfo, outputFullId, false);
-                }
-                else if ( stateVal == 0xFFFFFFFF )
-                {
-                  propagateComponent(instanceInfo, outputFullId, true);
-                }
-              }
-              break;
-            default:
-              //  Should not happen
-              throw new UnsupportedOperationException("Unexpected component type");
-          }
-        }
-        else
-        {
-          int moveIndex = outputFullId;
-          //int moveIndex = outputId;
-
-          assert ( moveIndex != -1 );
-          {
-            if ( value )
-            {
-              instanceInfo.notifiers[moveIndex & 1].fastSet(moveIndex>>1);
-            }
-            else
-            {
-              instanceInfo.notifiers[moveIndex & 1].fastClear(moveIndex>>1);
-            }
-//            if ( value )
-//            {
-//              state[outputId] |= componentStateCachedValMask;
-//            }
-//            else
-//            {
-//              state[outputId] &= ~componentStateCachedValMask;
-//            }
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * Change the value of an input proposition, asserting that the new value IS a change
-   * @param instanceInfo  instance to operate on
-   * @param propId        component whose value is being changed
-   * @param value         new value - this MUST be !<old value> but this is NOT checked
-   */
-  public void changeComponentValueTo(InstanceInfo instanceInfo, int propId, boolean value)
-  {
-    int[] state = instanceInfo.state;
-    int compId = (propId & 0xFFFFFF)>>2;
-
-    if ( value )
-    {
-      state[compId] |= componentStateCachedValMask;
-      //propagateComponentTrueOrFalse(instanceInfo, propId, 1);
-      propagateComponentTrue(instanceInfo, propId);
-    }
-    else
-    {
-      state[compId] &= ~componentStateCachedValMask;
-      //propagateComponentTrueOrFalse(instanceInfo, propId, -1);
-      propagateComponentFalse(instanceInfo, propId);
     }
   }
 
