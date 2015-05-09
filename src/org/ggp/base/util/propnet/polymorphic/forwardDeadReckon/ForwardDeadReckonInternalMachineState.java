@@ -35,7 +35,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
      */
     public void reset(ForwardDeadReckonInternalMachineState xiState)
     {
-      this.mState = xiState;
+      mState = xiState;
       mFirstIndex = xiState.contents.nextSetBit(0);
       mIndex = mFirstIndex;
       mLastIndex = -1;
@@ -256,9 +256,10 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    */
   public void copy(ForwardDeadReckonInternalMachineState other)
   {
+    assert(this != other);
+    assert(other.contents.getNumWords() == contents.getNumWords());
     System.arraycopy(other.contents.getBits(), 0, contents.getBits(), 0, contents.getNumWords());
-    //clear();
-    //contents.or(other.contents);
+
 
     isXState = other.isXState;
 
@@ -267,6 +268,10 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
       if (heuristicData == null)
       {
         heuristicData = new HashMap<>();
+      }
+      else
+      {
+        heuristicData.clear();
       }
       heuristicData.putAll(other.heuristicData);
     }

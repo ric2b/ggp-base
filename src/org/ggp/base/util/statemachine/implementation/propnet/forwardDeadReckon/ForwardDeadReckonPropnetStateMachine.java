@@ -2390,6 +2390,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           nextInternalSetState = (lastInternalSetState == stateBufferO1 ? stateBufferO2 : stateBufferO1);
         }
+        assert(nextInternalSetState != state);
         nextInternalSetState.copy(state);
 
         if (!measuringBasePropChanges)
@@ -2767,7 +2768,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
     }
 
-    //lastInternalSetState.markDirty();
+    propNet.getActiveBaseProps(instanceId).markDirty();
     getInternalStateFromBase(xbNewState);
 
     if ( nonNullMovesCount == 0 )
@@ -2956,15 +2957,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private ForwardDeadReckonInternalMachineState getInternalStateFromBase(ForwardDeadReckonInternalMachineState xbState)
   {
-    xbState.copy(propNet.getActiveBaseProps(instanceId));
-    if ( XSentenceInfo != null && xbState.contains(XSentenceInfo))
-    {
-      xbState.isXState = true;
-    }
+    assert(xbState != propNet.getActiveBaseProps(instanceId));
 
+    xbState.copy(propNet.getActiveBaseProps(instanceId));
+    xbState.isXState = (XSentenceInfo != null && xbState.contains(XSentenceInfo));
 
     return xbState;
   }
+
 
   private Map<Role, List<Move>> recentLegalMoveSetsList = new HashMap<>();
 
