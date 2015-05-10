@@ -196,39 +196,28 @@ public class ForwardDeadReckonPropnetFastAnimator
           else
           {
             int moveIndex = outputFullId;
-            //int moveIndex = outputId;
 
+            if ( value )
             {
-              if ( value )
+              if ( moveIndex < 0 )
               {
-                if ( moveIndex < 0 )
-                {
-                  legalMoveNotifier.add(moveIndex & 0x7FFFFFFF);
-                }
-                else
-                {
-                  propositionTransitionNotifier.add(moveIndex);
-                }
+                legalMoveNotifier.add(moveIndex & 0x7FFFFFFF);
               }
               else
               {
-                if ( moveIndex < 0 )
-                {
-                  legalMoveNotifier.remove(moveIndex & 0x7FFFFFFF);
-                }
-                else
-                {
-                  propositionTransitionNotifier.remove(moveIndex);
-                }
+                propositionTransitionNotifier.add(moveIndex);
               }
-//              if ( value )
-//              {
-//                state[outputId] |= componentStateCachedValMask;
-//              }
-//              else
-//              {
-//                state[outputId] &= ~componentStateCachedValMask;
-//              }
+            }
+            else
+            {
+              if ( moveIndex < 0 )
+              {
+                legalMoveNotifier.remove(moveIndex & 0x7FFFFFFF);
+              }
+              else
+              {
+                propositionTransitionNotifier.remove(moveIndex);
+              }
             }
           }
         }
