@@ -2367,7 +2367,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
 
         lastInternalSetState = nextInternalSetState;
-        propNet.getActiveLegalProps(instanceId).markDirty();
       }
     }
     else
@@ -2375,7 +2374,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       lastInternalSetState = new ForwardDeadReckonInternalMachineState(state);
 
       makeBasePropChangesWithReset();
-      propNet.getActiveLegalProps(instanceId).markDirty();
     }
   }
 
@@ -4138,20 +4136,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
 
         lastGoalState.copy(state);
-        goalsNet.getActiveLegalProps(instanceId).markDirty();
       }
     }
     else
     {
-//      for (PolymorphicProposition p : goalsNet.getBasePropositionsArray())
-//      {
-//        int compId = ((ForwardDeadReckonProposition)p).id;
-//        if ( compId != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
-//        {
-//          instanceInfo.setComponentValue(compId, false);
-//        }
-//      }
-
       lIterator.reset(state);
       while (lIterator.hasNext())
       {
@@ -4171,7 +4159,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
 
       lastGoalState = new ForwardDeadReckonInternalMachineState(state);
-      goalsNet.getActiveLegalProps(instanceId).markDirty();
     }
   }
 
