@@ -129,7 +129,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
         {
           if (((PolymorphicConstant)propInput).getValue())
           {
-            alwaysTrueLegalMoves.addSafe(info);
+            alwaysTrueLegalMoves.addAlwaysLegal(info);
           }
         }
         else
@@ -274,16 +274,6 @@ public ForwardDeadReckonPropNet(Role[] roles,
     return alwaysTrueLegalMoves.getMasterList();
   }
 
-  /**
-   * Set a specified proposition to a specified value
-   * @param instanceId Instance within which to set the proposition
-   * @param p Proposition to set
-   * @param value New value to set
-   */
-  public void setProposition(int instanceId, ForwardDeadReckonProposition p, boolean value)
-  {
-    animator.setComponentValue(instanceId, p.id, value);
-  }
 
   /**
    * Retrieve the current state of a specified component.  Should only

@@ -6,7 +6,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.lucene.util.OpenBitSet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
@@ -46,14 +45,22 @@ public class ForwardDeadReckonPropnetFastAnimator
       int   outputIndex = (componentIdFull & 0xFFFFFF)+1;
       int   numOutputs = componentDataTable[outputIndex++];
 
-      //if ((componentIdFull & componentIdOutputUniversalLogicBits) == 0)
+      //  Test componentIdOutputUniversalLogicBits - this is the sign bit (specifically)
+      //  which is faster to test with a direct sign test
       if (componentIdFull >= 0)
       {
         do
         {
           int triggerIndex = componentDataTable[outputIndex++];
 
-          notifiers[triggerIndex & 1].fastSet(triggerIndex>>1);
+          if ( triggerIndex < 0 )
+          {
+            legalMoveNotifier.add(triggerIndex & 0x7FFFFFFF);
+          }
+          else
+          {
+            propositionTransitionNotifier.add(triggerIndex);
+          }
         } while(--numOutputs > 0);
       }
       else
@@ -71,18 +78,6 @@ public class ForwardDeadReckonPropnetFastAnimator
           {
             propagateComponentTrue(outputFullId);
           }
-//          //if ( (stateVal & 0x7FFFFFFF) == 0 )
-//          if ( stateVal<<1 == 0 )
-//          {
-//            if (stateVal != 0)
-//            {
-//              propagateComponentTrue(outputFullId);
-//            }
-//            else
-//            {
-//              propagateComponentFalse(outputFullId);
-//            }
-//          }
         }
       }
     }
@@ -92,13 +87,22 @@ public class ForwardDeadReckonPropnetFastAnimator
       int   outputIndex = (componentIdFull & 0xFFFFFF)+1;
       int   numOutputs = componentDataTable[outputIndex++];
 
+      //  Test componentIdOutputUniversalLogicBits - this is the sign bit (specifically)
+      //  which is faster to test with a direct sign test
       if (componentIdFull >= 0)
       {
         do
         {
           int triggerIndex = componentDataTable[outputIndex++];
 
-          notifiers[triggerIndex & 1].fastClear(triggerIndex>>1);
+          if ( triggerIndex < 0 )
+          {
+            legalMoveNotifier.remove(triggerIndex & 0x7FFFFFFF);
+          }
+          else
+          {
+            propositionTransitionNotifier.remove(triggerIndex);
+          }
         } while(--numOutputs > 0);
       }
       else
@@ -116,18 +120,6 @@ public class ForwardDeadReckonPropnetFastAnimator
           {
             propagateComponentFalse(outputFullId);
           }
-          //if ( (stateVal & 0x7FFFFFFF) == 0x7FFFFFFF )
-//          if ( (stateVal)<<1 == 0 )
-//          {
-//            if ( stateVal != 0 )
-//            {
-//              propagateComponentFalse(outputFullId);
-//            }
-//            else
-//            {
-//              propagateComponentTrue(outputFullId);
-//            }
-//          }
         }
       }
     }
@@ -206,15 +198,28 @@ public class ForwardDeadReckonPropnetFastAnimator
             int moveIndex = outputFullId;
             //int moveIndex = outputId;
 
-            assert ( moveIndex != -1 );
             {
               if ( value )
               {
-                notifiers[moveIndex & 1].fastSet(moveIndex>>1);
+                if ( moveIndex < 0 )
+                {
+                  legalMoveNotifier.add(moveIndex & 0x7FFFFFFF);
+                }
+                else
+                {
+                  propositionTransitionNotifier.add(moveIndex);
+                }
               }
               else
               {
-                notifiers[moveIndex & 1].fastClear(moveIndex>>1);
+                if ( moveIndex < 0 )
+                {
+                  legalMoveNotifier.remove(moveIndex & 0x7FFFFFFF);
+                }
+                else
+                {
+                  propositionTransitionNotifier.remove(moveIndex);
+                }
               }
 //              if ( value )
 //              {
@@ -254,18 +259,43 @@ public class ForwardDeadReckonPropnetFastAnimator
     }
 
     /**
+     * Set the value of an input proposition
+     * @param instanceId    instance to operate on
+     * @param propId        component whose value is being changed
+     * @param value         new value
+     */
+    public void setComponentValue(int propId, boolean value)
+    {
+      int compId = (propId & 0xFFFFFF)>>2;
+      boolean currentValue = ((state[compId] & componentStateCachedValMask) != 0);
+
+      if ( value != currentValue )
+      {
+        if ( value )
+        {
+          state[compId] |= componentStateCachedValMask;
+          propagateComponentTrue(propId);
+        }
+        else
+        {
+          state[compId] &= ~componentStateCachedValMask;
+          propagateComponentFalse(propId);
+        }
+      }
+    }
+    /**
      * Vector of state values for each component indexed by component id
      */
     final int[]                                   state;
     /**
      * Interface to call for changes to the output state of legal move props
      */
-    OpenBitSet                                    legalMoveNotifier;
+    ForwardDeadReckonLegalMoveSet                 legalMoveNotifier;
     /**
      * Interface to call for changes to the output state of transitions
      */
-    OpenBitSet                                    propositionTransitionNotifier;
-    final OpenBitSet[]                            notifiers = new OpenBitSet[2];
+    ForwardDeadReckonInternalMachineState         propositionTransitionNotifier;
+    //final ForwardDeadReckonComponentTransitionNotifier[] notifiers = new ForwardDeadReckonComponentTransitionNotifier[2];
     /**
      * Holds the current component id up to which an in-progress reset() has processed
      */
@@ -289,12 +319,6 @@ public class ForwardDeadReckonPropnetFastAnimator
   private static final int                componentMetaDataOutputInverted = 0x08000000; //  Flag to indicate output is inverted (only applies to AND/OR)
   private static final int                componentMetaDataOutputUniversalLogic = 0x10000000; //  Flag to indicate output is more logic (not trigger)
   private static final int                componentMetaDataInputCountMask = 0xFFFF; // Num inputs mask (16 bits)
-
-  //  Array indexed by component id containing the index to call either the legal move
-  //  or proposition transition trigger handler with.  In either case the value stored is the
-  //  desired index shifted left 1 bit, and with 1 ORd in to flag the legal move case
-  private final int[]                     componentAssociatedTriggerIndexes;
-  //private final PolymorphicComponent[] debugComponentMap;
 
   //  Component types
   private static final int                componentTypeNonTriggeringProposition = 7;
@@ -423,7 +447,6 @@ public class ForwardDeadReckonPropnetFastAnimator
       }
     }
 
-    componentAssociatedTriggerIndexes = new int[nextComponentBaseId/4];
     componentDataTable = new int[nextComponentBaseId];
     //debugComponentMap = new PolymorphicComponent[nextComponentBaseId/4];
 
@@ -440,8 +463,6 @@ public class ForwardDeadReckonPropnetFastAnimator
       int id = fdrc.id & 0xFFFFFF;
       boolean outputInverted = ((fdrc.id & componentIdOutputInvertedFlag) != 0);
 
-      //debugComponentMap[id/4] = c;
-
       Collection<? extends PolymorphicComponent> outputs = c.getOutputs();
       Collection<? extends PolymorphicComponent> inputs = c.getInputs();
       if ( c instanceof PolymorphicProposition )
@@ -450,7 +471,6 @@ public class ForwardDeadReckonPropnetFastAnimator
         if( moveIndex >= 0 )
         {
           componentType = componentTypeProposition;
-          componentAssociatedTriggerIndexes[id/4] = (moveIndex<<1) | 1;
         }
         else
         {
@@ -460,7 +480,6 @@ public class ForwardDeadReckonPropnetFastAnimator
       else if ( c instanceof PolymorphicTransition )
       {
         componentType = componentTypeTransition;
-        componentAssociatedTriggerIndexes[id/4] = ((ForwardDeadReckonTransition)c).getAssociatedPropositionIndex()<<1;
       }
       else if ( c instanceof PolymorphicOr )
       {
@@ -609,14 +628,14 @@ public class ForwardDeadReckonPropnetFastAnimator
       int moveIndex = ((ForwardDeadReckonProposition)c).getAssociatedTriggerIndex();
       if( moveIndex >= 0 )
       {
-        return (moveIndex<<1) | 1;
+        return moveIndex | 0x80000000;
       }
 
       assert(false) : "Attempt to retrieve trigger id of non-triggering proposition";
     }
     else if ( c instanceof PolymorphicTransition )
     {
-      return ((ForwardDeadReckonTransition)c).getAssociatedPropositionIndex()<<1;
+      return ((ForwardDeadReckonTransition)c).getAssociatedPropositionIndex();
     }
     else
     {
@@ -835,10 +854,10 @@ public class ForwardDeadReckonPropnetFastAnimator
     for(int i = 0; i < numInstances; i++)
     {
       instances[i] = new InstanceInfo(nextComponentBaseId/4);
-      instances[i].legalMoveNotifier = propNet.getActiveLegalProps(i).contents;
-      instances[i].propositionTransitionNotifier = propNet.getActiveBaseProps(i).contents;
-      instances[i].notifiers[0] = instances[i].propositionTransitionNotifier;
-      instances[i].notifiers[1] = instances[i].legalMoveNotifier;
+      instances[i].legalMoveNotifier = propNet.getActiveLegalProps(i);
+      instances[i].propositionTransitionNotifier = propNet.getActiveBaseProps(i);
+      //instances[i].notifiers[0] = instances[i].propositionTransitionNotifier;
+      //instances[i].notifiers[1] = instances[i].legalMoveNotifier;
     }
   }
 
@@ -960,35 +979,6 @@ public class ForwardDeadReckonPropnetFastAnimator
     }
   }
 
-  /**
-   * Set the value of an input proposition
-   * @param instanceId    instance to operate on
-   * @param propId        component whose value is being changed
-   * @param value         new value
-   */
-  public void setComponentValue(int instanceId, int propId, boolean value)
-  {
-    InstanceInfo instanceInfo = instances[instanceId];
-    int[] state = instanceInfo.state;
-    int compId = (propId & 0xFFFFFF)>>2;
-    boolean currentValue = ((state[compId] & componentStateCachedValMask) != 0);
-
-    if ( value != currentValue )
-    {
-      if ( value )
-      {
-        state[compId] |= componentStateCachedValMask;
-        instanceInfo.propagateComponentTrue(propId);
-        //propagateComponentTrueOrFalse(instanceInfo, propId, 1);
-      }
-      else
-      {
-        state[compId] &= ~componentStateCachedValMask;
-        instanceInfo.propagateComponentFalse(propId);
-        //propagateComponentTrueOrFalse(instanceInfo, propId, -1);
-      }
-    }
-  }
 
   /**
    * Retrieve the current state of a proposition
