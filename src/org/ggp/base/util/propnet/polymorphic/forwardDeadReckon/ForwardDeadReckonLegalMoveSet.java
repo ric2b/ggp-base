@@ -7,7 +7,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
-import org.apache.lucene.util.OpenBitSet;
 import org.ggp.base.util.statemachine.Role;
 
 /**
@@ -22,17 +21,31 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    * collection's contents are indexes
    */
   private List<ForwardDeadReckonLegalMoveInfo> masterList;
+  private List<ForwardDeadReckonLegalMoveInfo> alwaysLegalMoves;
   /** Master list crystalized into an array for fast access */
   ForwardDeadReckonLegalMoveInfo[]             masterListAsArray;
   /**
    * Contents (as a BitSet) of the legal move collections for each role
    */
-  OpenBitSet                                   contents;
+  //OpenBitSet                                   contents;
   /** The set of roles whose legal moves are being tracked */
   private Role[]                               roles;
   private ForwardDeadReckonLegalMoveSetCollection[] preAllocatedCollections;
-  private final int[]                          cachedSizes;
-  private boolean                              hasCached = false;
+  //private final int[]                          cachedSizes;
+  //private boolean                              hasCached = false;
+
+  private final int[][]                        nextActive;
+  private final int[][]                        prevActive;
+  private final int[]                          firstActive;
+  private final int[]                          lastImmutableActive;
+  private final int[]                          lastActive;
+  //private final int[]                          firstMutableActive;
+  private final int[]                          numAlwaysActive;
+  private final int[]                          numActive;
+
+  private static final int                     INVALID_INDEX = -1;
+  private static final int                     SENTINEL_INDEX = -2;
+
   private final Random                         rand = new Random();
 
   private class ForwardDeadReckonLegalMoveSetIterator
@@ -53,11 +66,12 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
 
     void reset()
     {
-      index = -1;
-      do
-      {
-        index = parent.contents.nextSetBit(index+1);
-      } while(index != -1 && parent.masterListAsArray[index].roleIndex != roleIndex);
+//      index = -1;
+//      do
+//      {
+//        index = parent.contents.nextSetBit(index+1);
+//      } while(index != -1 && parent.masterListAsArray[index].roleIndex != roleIndex);
+      index = parent.firstActive[roleIndex];
     }
 
     @Override
@@ -70,10 +84,11 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     public ForwardDeadReckonLegalMoveInfo next()
     {
       ForwardDeadReckonLegalMoveInfo result = parent.masterListAsArray[index];
-      do
-      {
-        index = parent.contents.nextSetBit(index+1);
-      } while(index != -1 && parent.masterListAsArray[index].roleIndex != roleIndex);
+//      do
+//      {
+//        index = parent.contents.nextSetBit(index+1);
+//      } while(index != -1 && parent.masterListAsArray[index].roleIndex != roleIndex);
+      index = parent.nextActive[roleIndex][index];
       return result;
     }
 
@@ -141,7 +156,8 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     public boolean contains(Object xiO)
     {
       ForwardDeadReckonLegalMoveInfo move = (ForwardDeadReckonLegalMoveInfo)xiO;
-      return (move != null && parent.contents.fastGet(move.masterIndex));
+      //return (move != null && parent.contents.fastGet(move.masterIndex));
+      return (move != null && parent.isLegalMove(move.roleIndex, move.masterIndex));
     }
 
     @Override
@@ -220,16 +236,65 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   public ForwardDeadReckonLegalMoveSet(ForwardDeadReckonLegalMoveSet master)
   {
     masterList = master.masterList;
+    alwaysLegalMoves = master.alwaysLegalMoves;
     masterListAsArray = master.masterListAsArray;
     roles = master.roles;
-    contents = new OpenBitSet(masterListAsArray != null ? masterListAsArray.length : 64);
+    //contents = new OpenBitSet(masterListAsArray != null ? masterListAsArray.length : 64);
     preAllocatedCollections = new ForwardDeadReckonLegalMoveSetCollection[roles.length];
-    cachedSizes = new int[roles.length];
+    //cachedSizes = new int[roles.length];
+    numActive = new int[roles.length];
+    numAlwaysActive = new int[roles.length];
+    prevActive = new int[roles.length][];
+    nextActive = new int[roles.length][];
+    firstActive = new int[roles.length];
+    lastImmutableActive = new int[roles.length];
+    lastActive = new int[roles.length];
+    //firstMutableActive = new int[roles.length];
 
     for (int i = 0; i < roles.length; i++)
     {
       preAllocatedCollections[i] = new ForwardDeadReckonLegalMoveSetCollection(this, i);
+      if ( masterListAsArray != null )
+      {
+        nextActive[i] = new int[masterListAsArray.length];
+        prevActive[i] = new int[masterListAsArray.length];
+
+        for(int j = 0; j < masterListAsArray.length; j++)
+        {
+          prevActive[i][j] = INVALID_INDEX;
+        }
+      }
+      if ( master.lastImmutableActive[i] >= 0 )
+      {
+        firstActive[i] = master.firstActive[i];
+        lastActive[i] = master.lastImmutableActive[i];
+
+        for(int index = master.firstActive[i]; index >= 0; index = master.nextActive[i][index])
+        {
+          nextActive[i][index] = master.nextActive[i][index];
+          prevActive[i][index] = master.prevActive[i][index];
+          if ( index == lastImmutableActive[i] )
+          {
+            break;
+          }
+        }
+      }
+      else
+      {
+        firstActive[i] = INVALID_INDEX;
+        lastActive[i] = INVALID_INDEX;
+      }
+      //firstMutableActive[i] = master.firstMutableActive[i];
+      lastImmutableActive[i] = master.lastImmutableActive[i];
+      numActive[i] = master.numAlwaysActive[i];
+      numAlwaysActive[i] = master.numAlwaysActive[i];
     }
+
+//    if ( masterListAsArray != null )
+//    {
+//      master.validate();
+//      validate();
+//    }
   }
 
   /**
@@ -239,16 +304,29 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   public ForwardDeadReckonLegalMoveSet(Role[] theRoles)
   {
     masterList = new ArrayList<>();
+    alwaysLegalMoves = new ArrayList<>();
     masterListAsArray = null;
-    contents = new OpenBitSet();
+    //contents = new OpenBitSet();
     roles = new Role[theRoles.length];
     preAllocatedCollections = new ForwardDeadReckonLegalMoveSetCollection[roles.length];
-    cachedSizes = new int[roles.length];
+    //cachedSizes = new int[roles.length];
+    numActive = new int[roles.length];
+    numAlwaysActive = new int[roles.length];
+    prevActive = new int[roles.length][];
+    nextActive = new int[roles.length][];
+    firstActive = new int[roles.length];
+    lastImmutableActive = new int[roles.length];
+    lastActive = new int[roles.length];
+    //firstMutableActive = new int[roles.length];
 
     int i = 0;
     for (Role role : theRoles)
     {
       preAllocatedCollections[i] = new ForwardDeadReckonLegalMoveSetCollection(this, i);
+      firstActive[i] = -1;
+      lastActive[i] = -1;
+      lastImmutableActive[i] = -1;
+      //firstMutableActive[i] = -1;
       this.roles[i++] = role;
     }
   }
@@ -262,7 +340,33 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     masterListAsArray = new ForwardDeadReckonLegalMoveInfo[masterList.size()];
     masterList.toArray(masterListAsArray);
     masterList = null;
-    contents.ensureCapacity(masterListAsArray.length);
+    //contents.ensureCapacity(masterListAsArray.length);
+
+    for (int i = 0; i < roles.length; i++)
+    {
+      nextActive[i] = new int[masterListAsArray.length];
+      prevActive[i] = new int[masterListAsArray.length];
+
+      for(int j = 0; j < masterListAsArray.length; j++)
+      {
+        prevActive[i][j] = INVALID_INDEX;
+      }
+
+      for(ForwardDeadReckonLegalMoveInfo info : alwaysLegalMoves)
+      {
+        if ( info.roleIndex == i )
+        {
+          add(info.masterIndex);
+        }
+      }
+
+      lastImmutableActive[i] = lastActive[i];
+      numAlwaysActive[i] = numActive[i];
+    }
+
+    alwaysLegalMoves = null;
+
+    //validate();
   }
 
   /**
@@ -278,7 +382,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   @Override
   public int hashCode()
   {
-    return contents.hashCode();
+    return super.hashCode();//contents.hashCode();
   }
 
   @Override
@@ -289,11 +393,11 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
       return true;
     }
 
-    if (o instanceof ForwardDeadReckonLegalMoveSet)
-    {
-      ForwardDeadReckonLegalMoveSet moveSet = (ForwardDeadReckonLegalMoveSet)o;
-      return contents.equals(moveSet.contents);
-    }
+//    if (o instanceof ForwardDeadReckonLegalMoveSet)
+//    {
+//      ForwardDeadReckonLegalMoveSet moveSet = (ForwardDeadReckonLegalMoveSet)o;
+//      return contents.equals(moveSet.contents);
+//    }
 
     return false;
   }
@@ -311,18 +415,31 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
       int moveIndex = 1;
 
       sb.append("( ");
-      for (int i = contents.nextSetBit(0); i >= 0; i = contents.nextSetBit(i + 1))
+
+      for(int index = firstActive[roleIndex]; index != -1; index = nextActive[roleIndex][index])
       {
-        if ( masterListAsArray[i].roleIndex == roleIndex )
+        ForwardDeadReckonLegalMoveInfo info = masterListAsArray[index];
+
+        assert(info.roleIndex == roleIndex);
+        if (!first)
         {
-          if (!first)
-          {
-            sb.append(", ");
-          }
-          sb.append(moveIndex++ + ": " + masterListAsArray[i].move);
-          first = false;
+          sb.append(", ");
         }
+        sb.append(moveIndex++ + ": " + masterListAsArray[index].move);
+        first = false;
       }
+//      for (int i = contents.nextSetBit(0); i >= 0; i = contents.nextSetBit(i + 1))
+//      {
+//        if ( masterListAsArray[i].roleIndex == roleIndex )
+//        {
+//          if (!first)
+//          {
+//            sb.append(", ");
+//          }
+//          sb.append(moveIndex++ + ": " + masterListAsArray[i].move);
+//          first = false;
+//        }
+//      }
       sb.append(" )");
       if (!firstRole)
       {
@@ -340,7 +457,29 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public void clear()
   {
-    contents.clear(0,masterListAsArray.length);
+    //contents.clear(0,masterListAsArray.length);
+    for(int i = 0; i < roles.length; i++)
+    {
+      lastActive[i] = lastImmutableActive[i];
+      numActive[i] = numAlwaysActive[i];
+
+      if ( lastActive[i] >= 0 )
+      {
+        int index = nextActive[i][lastActive[i]];
+        while(index >= 0)
+        {
+          prevActive[i][index] = INVALID_INDEX;
+          index = nextActive[i][index];
+        }
+      }
+
+      if ( lastActive[i] == INVALID_INDEX )
+      {
+        firstActive[i] = INVALID_INDEX;
+      }
+    }
+
+    //validate();
   }
 
   /**
@@ -349,8 +488,29 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public void copy(ForwardDeadReckonLegalMoveSet source)
   {
-    contents.clear(0,masterListAsArray.length);
-    contents.or(source.contents);
+    //source.validate();
+
+    clear();
+
+    for(int i = 0; i < roles.length; i++)
+    {
+      assert(numAlwaysActive[i] == source.numAlwaysActive[i]);
+      assert(lastImmutableActive[i] == source.lastImmutableActive[i]);
+
+      numActive[i] = source.numActive[i];
+      firstActive[i] = source.firstActive[i];
+      lastActive[i] = source.lastActive[i];
+
+      for(int index = source.firstActive[i]; index != -1; index = source.nextActive[i][index])
+      {
+        nextActive[i][index] = source.nextActive[i][index];
+        prevActive[i][index] = source.prevActive[i][index];
+      }
+    }
+
+    //validate();
+//    contents.clear(0,masterListAsArray.length);
+//    contents.or(source.contents);
   }
 
   /**
@@ -382,17 +542,19 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   }
 
   /**
-   * Add a specified legal move to the collection.  This move must be one
+   * Add a specified always legal move to the collection.  This move must be one
    * that is already known in the master list (i.e. - resolveId() must have
    * been called with the same parameter at some time prior to this call)
    * @param info Legal move to add
    */
-  public void addSafe(ForwardDeadReckonLegalMoveInfo info)
+  public void addAlwaysLegal(ForwardDeadReckonLegalMoveInfo info)
   {
     assert(info.masterIndex != -1);
-    contents.set(info.masterIndex);
+    //contents.set(info.masterIndex);
 
-    hasCached = false;
+    //hasCached = false;
+
+    alwaysLegalMoves.add(info);
   }
 
   /**
@@ -402,9 +564,59 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   public void add(ForwardDeadReckonLegalMoveInfo info)
   {
     assert(info.masterIndex != -1);
-    contents.fastSet(info.masterIndex);
+    //contents.fastSet(info.masterIndex);
 
-    hasCached = false;
+    //hasCached = false;
+    //validate();
+
+    int roleIndex = info.roleIndex;
+    int index = info.masterIndex;
+
+    if ( prevActive[roleIndex][index] == INVALID_INDEX )
+    {
+      int lastActiveIndex = lastActive[roleIndex];
+
+      if ( lastActiveIndex >= 0 )
+      {
+        prevActive[roleIndex][index] = lastActiveIndex;
+        nextActive[roleIndex][lastActiveIndex] = index;
+      }
+      else
+      {
+        //  Set a negative prev distinguished from INVALID_INDEX so we can use
+        //  a non-INVALID_INDEX value for prev as a O(1) contains check
+        prevActive[roleIndex][index] = SENTINEL_INDEX;
+      }
+
+      nextActive[roleIndex][index] = INVALID_INDEX;
+
+      if ( firstActive[roleIndex] < 0 )
+      {
+        firstActive[roleIndex] = index;
+      }
+      lastActive[roleIndex] = index;
+
+      numActive[roleIndex]++;
+    }
+
+    //validate();
+  }
+
+  private void validate()
+  {
+    for(int i = 0; i < roles.length; i++)
+    {
+      int count = 0;
+
+      for(int index = firstActive[i]; index >= 0; index = nextActive[i][index])
+      {
+        assert(prevActive[i][index] != INVALID_INDEX);
+        assert(index != nextActive[i][index]);
+        count++;
+      }
+
+      assert(count == numActive[i]);
+    }
   }
 
 
@@ -412,12 +624,14 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   public void add(int index)
   {
     ForwardDeadReckonLegalMoveInfo info = masterListAsArray[index];
-    contents.fastSet(index);
+    //contents.fastSet(index);
+
+    add(info);
   }
 
   public void markDirty()
   {
-    hasCached = false;
+    //hasCached = false;
   }
 
 
@@ -430,16 +644,55 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   public void remove(ForwardDeadReckonLegalMoveInfo info)
   {
     assert(info.masterIndex != -1);
-    contents.fastClear(info.masterIndex);
+    //contents.fastClear(info.masterIndex);
 
-    hasCached = false;
+    //hasCached = false;
+
+    remove(info.roleIndex, info.masterIndex);
+  }
+
+  private void remove(int roleIndex, int index)
+  {
+    //validate();
+
+    int[] prevActiveForRole = prevActive[roleIndex];
+    int[] nextActiveForRole = nextActive[roleIndex];
+
+    int prevIndex = prevActiveForRole[index];
+    int nextIndex = nextActiveForRole[index];
+
+    assert(prevIndex != INVALID_INDEX);
+
+    if ( prevIndex >= 0 )
+    {
+      nextActiveForRole[prevIndex] = nextIndex;
+    }
+    else
+    {
+      firstActive[roleIndex] = nextIndex;
+    }
+
+    if ( nextIndex >= 0 )
+    {
+      prevActiveForRole[nextIndex] = prevIndex;
+    }
+    else
+    {
+      lastActive[roleIndex] = prevIndex;
+    }
+
+    prevActiveForRole[index] = INVALID_INDEX;
+    numActive[roleIndex]--;
+
+    //validate();
   }
 
   @Override
   public void remove(int index)
   {
     ForwardDeadReckonLegalMoveInfo info = masterListAsArray[index];
-    contents.fastClear(index);
+    //contents.fastClear(index);
+    remove(info);
   }
 
   /**
@@ -448,9 +701,22 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public void merge(ForwardDeadReckonLegalMoveSet other)
   {
-    contents.or(other.contents);
+    //contents.or(other.contents);
 
-    hasCached = false;
+    //validate();
+    //other.validate();
+    //hasCached = false;
+    for(int i = 0; i < roles.length; i++)
+    {
+      assert(numAlwaysActive[i] == other.numAlwaysActive[i]);
+      assert(lastImmutableActive[i] == other.lastImmutableActive[i]);
+
+      for(int index = other.firstActive[i]; index != -1; index = other.nextActive[i][index])
+      {
+        add(index);
+      }
+    }
+    //validate();
   }
 
   /**
@@ -459,9 +725,29 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public void intersect(ForwardDeadReckonLegalMoveSet other)
   {
-    contents.and(other.contents);
+    //validate();
+    //other.validate();
+    //contents.and(other.contents);
 
-    hasCached = false;
+    //hasCached = false;
+    for(int i = 0; i < roles.length; i++)
+    {
+      assert(numAlwaysActive[i] == other.numAlwaysActive[i]);
+      assert(lastImmutableActive[i] == other.lastImmutableActive[i]);
+
+      int nextIndex;
+
+      for(int index = firstActive[i]; index != -1; index = nextIndex)
+      {
+        nextIndex = nextActive[i][index];
+
+        if ( !other.isLegalMove(i, index) )
+        {
+          remove(i, index);
+        }
+      }
+    }
+    //validate();
   }
 
   /**
@@ -517,24 +803,25 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public int getNumChoices(int roleIndex)
   {
-    if ( !hasCached )
-    {
-      for(int i = 0; i < roles.length; i++)
-      {
-        cachedSizes[i] = 0;
-      }
-
-      int index = contents.nextSetBit(0);
-      while(index != -1)
-      {
-        cachedSizes[masterListAsArray[index].roleIndex]++;
-        index = contents.nextSetBit(index+1);
-      }
-
-      hasCached = true;
-    }
-
-    return cachedSizes[roleIndex];
+//    if ( !hasCached )
+//    {
+//      for(int i = 0; i < roles.length; i++)
+//      {
+//        cachedSizes[i] = 0;
+//      }
+//
+//      int index = contents.nextSetBit(0);
+//      while(index != -1)
+//      {
+//        cachedSizes[masterListAsArray[index].roleIndex]++;
+//        index = contents.nextSetBit(index+1);
+//      }
+//
+//      hasCached = true;
+//    }
+//
+//    return cachedSizes[roleIndex];
+    return numActive[roleIndex];
   }
 
   /**
@@ -564,21 +851,25 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public boolean isLegalMove(int roleIndex, ForwardDeadReckonLegalMoveInfo move)
   {
-    return (masterListAsArray[move.masterIndex].roleIndex == roleIndex && contents.get(move.masterIndex));
+    //return (masterListAsArray[move.masterIndex].roleIndex == roleIndex && contents.get(move.masterIndex));
+    return isLegalMove(roleIndex, move.masterIndex);
+  }
+
+  private boolean isLegalMove(int roleIndex, int index)
+  {
+    return (prevActive[roleIndex][index] != INVALID_INDEX);
   }
 
   public ForwardDeadReckonLegalMoveInfo getRandomMove(int roleIndex)
   {
-    int index = rand.nextInt(masterListAsArray.length);
+    assert(numActive[roleIndex] > 0);
+    int count = rand.nextInt(numActive[roleIndex]);
+    int index = firstActive[roleIndex];
 
-    do
+    while(count-- > 0)
     {
-      index = contents.nextSetBit(index+1);
-      if ( index == -1 )
-      {
-        index = contents.nextSetBit(0);
-      }
-    } while(masterListAsArray[index].roleIndex != roleIndex);
+      index = nextActive[roleIndex][index];
+    }
 
     return masterListAsArray[index];
   }
