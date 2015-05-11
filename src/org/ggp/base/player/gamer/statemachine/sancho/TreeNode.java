@@ -1152,6 +1152,7 @@ public class TreeNode
     short determiningChildCompletionDepth = Short.MAX_VALUE;
     boolean siblingCheckNeeded = false;
     double selectedNonDeciderScore = Double.MAX_VALUE;
+    boolean inhibitDecidingWinPropagation = false;
 
     for (int i = 0; i < tree.numRoles; i++)
     {
@@ -1245,11 +1246,7 @@ public class TreeNode
                 bestValue = deciderScore;
                 bestValueNode = lNode;
 
-                //  Force complete on a known win for us, but NOT for other roles, except in
-                //  2 player fixed-sum games.  This is because in non-fixed-sum games it may be
-                //  that a player has several winning moves, and we want to evaluate the worst one for us
-                //  which may not be the first one to complete
-                if ((roleIndex == 0 || (tree.gameCharacteristics.getIsFixedSum() && tree.numRoles < 3)) && bestValue > tree.roleMaxScoresBuffer[roleIndex]-EPSILON)
+                if (bestValue > tree.roleMaxScoresBuffer[roleIndex]-EPSILON)
                 {
                   //	Win for deciding role which they will choose unless it is also
                   //	a mutual win
@@ -1316,6 +1313,14 @@ public class TreeNode
                         }
                       }
                     }
+                  }
+                  else if ( !mutualWin && roleIndex != 0 && (!tree.gameCharacteristics.getIsFixedSum() || tree.numRoles >= 3) )
+                  {
+                    //  If there are more than one choices that are decider wins for someone other than us and the game
+                    //  is non-fixed-sum with 3+ roles then inhibit completion propagation.  This is because in non-fixed-sum games it may be
+                    //  that a player has several winning moves, and we want to evaluate the worst one for us
+                    //  which may not be the first one to complete
+                    inhibitDecidingWinPropagation = true;
                   }
                 }
               }
@@ -1434,7 +1439,7 @@ public class TreeNode
       }
     }
 
-    if (allImmediateChildrenComplete || decidingRoleWin)
+    if (allImmediateChildrenComplete || (decidingRoleWin && !inhibitDecidingWinPropagation))
     {
       if (determiningChildCompletionDepth == Short.MAX_VALUE)
       {
