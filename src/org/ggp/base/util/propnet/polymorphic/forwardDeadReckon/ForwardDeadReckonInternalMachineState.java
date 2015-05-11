@@ -24,9 +24,9 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   public static class InternalMachineStateIterator implements Iterator<ForwardDeadReckonPropositionInfo>
   {
     private ForwardDeadReckonInternalMachineState mState;
-    int                                           mIndex;
-    int                                           mFirstIndex = -1;
-    int                                           mLastIndex = -1;
+    private int                                   mIndex;
+    private int                                   mFirstIndex = -1;
+    private int                                   mLastIndex = -1;
 
     /**
      * Reset the iterator for the specified state.
@@ -41,6 +41,9 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
       mLastIndex = -1;
     }
 
+    /**
+     * Reset for re-enumeration with the same state
+     */
     public void reset()
     {
       mIndex = mFirstIndex;
@@ -80,13 +83,17 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
     }
   }
 
-  // Master list of propositions which may be included or not in the state.
+  /**
+   * Master list of propositions which may be included or not in the state.
+   */
   final ForwardDeadReckonPropositionCrossReferenceInfo[] infoSet;
 
   // Optional heuristic data associated with the state.
   private HashMap<Heuristic, Object>               heuristicData = null;
 
-  // BitSet of which propositions are true in the state
+  /**
+   * BitSet of which propositions are true in the state
+   */
   public final OpenBitSet                                 contents;
 
   //  We cache the hash code to speed up equals, invalidating the cache on mutation operations
@@ -323,7 +330,6 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
       index += nullPage.length;
     }
 
-    //contents.clear(0,infoSet.length);
     isXState = false;
 
     hashCached = false;
@@ -335,7 +341,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    */
   public void remove(ForwardDeadReckonPropositionInfo info)
   {
-    contents.clear(info.index);
+    contents.fastClear(info.index);
 
     hashCached = false;
   }
@@ -343,9 +349,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   @Override
   public void remove(int index)
   {
-    contents.clear(index);
-
-    //hashCached = false;
+    contents.fastClear(index);
   }
 
   /**
@@ -421,6 +425,10 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
     return false;
   }
 
+  /**
+   * Explicitly mark as dirty (used during state propagation so as to avoid the
+   * overhead of having to set the dirty flag on each instance of a trigger)
+   */
   public void markDirty()
   {
     hashCached = false;

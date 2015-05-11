@@ -2218,6 +2218,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   {
     InternalMachineStateIterator lIterator = mStateIterator;
 
+    //  The following code is a bit baroque, in the interests of extracting the last possible bit of performance, as
+    //  this routine is a significant hotspot in games with large state.  The gist is:
+    //  1) Iteration uses low level methods for more direct access
+    //  2) Set are done before resets, or visa-versa (depending on statistical checks made during metagaming)
+    //  3) Two minimize the overhead of state bitmap enumeration the first pass notes the range ends for the second
+    //     pass
+    //  4) The first pass is split into two sections to minimize the execution of logic specific to identifying the
+    //     second pass range endpoints
     if ( propNet == propNetX)
     {
       assert(propNetInstanceInfo == propNetX.animator.getInstanceInfo(instanceId));
@@ -2228,40 +2236,77 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       while(index != -1)
       {
-        if ( removeOldBasePropsBeforeAddingNew != nextInternalSetState.contents.fastGet(index) )
+        boolean needsSetting = nextInternalSetState.contents.fastGet(index);
+        if ( removeOldBasePropsBeforeAddingNew != needsSetting )
         {
           ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[index];
           if ( infoCr.xNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
           {
-            propNetInstanceInfo.changeComponentValueTo(infoCr.xNetProp.id, !removeOldBasePropsBeforeAddingNew);
+            propNetInstanceInfo.changeComponentValueTo(infoCr.xNetProp.id, needsSetting);
           }
         }
         else
         {
-          if ( firstIndex == -1 )
+          firstIndex = index;
+          lastIndex = index;
+          index = lastInternalSetState.contents.nextSetBit(index+1);
+          break;
+        }
+
+        index = lastInternalSetState.contents.nextSetBit(index+1);
+      }
+      while(index != -1)
+      {
+        boolean needsSetting = nextInternalSetState.contents.fastGet(index);
+        if ( removeOldBasePropsBeforeAddingNew != needsSetting )
+        {
+          ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[index];
+          if ( infoCr.xNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
           {
-            firstIndex = index;
+            propNetInstanceInfo.changeComponentValueTo(infoCr.xNetProp.id, needsSetting);
           }
+        }
+        else
+        {
           lastIndex = index;
         }
 
         index = lastInternalSetState.contents.nextSetBit(index+1);
       }
 
-      while(firstIndex != -1 && firstIndex <= lastIndex)
+      if ( firstIndex != -1 )
       {
-        if ( removeOldBasePropsBeforeAddingNew == nextInternalSetState.contents.fastGet(firstIndex) )
+        do
         {
-          ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[firstIndex];
-          if ( infoCr.xNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
+          if ( removeOldBasePropsBeforeAddingNew == nextInternalSetState.contents.fastGet(firstIndex) )
           {
-            propNetInstanceInfo.changeComponentValueTo(infoCr.xNetProp.id, removeOldBasePropsBeforeAddingNew);
+            ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[firstIndex];
+            if ( infoCr.xNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
+            {
+              propNetInstanceInfo.changeComponentValueTo(infoCr.xNetProp.id, removeOldBasePropsBeforeAddingNew);
+            }
           }
-        }
 
-        firstIndex = lastInternalSetState.contents.nextSetBit(firstIndex+1);
+          if ( firstIndex == lastIndex )
+          {
+            break;
+          }
+          firstIndex = lastInternalSetState.contents.nextSetBit(firstIndex+1);
+        } while(true);
       }
-
+//      while(firstIndex != -1 && firstIndex <= lastIndex)
+//      {
+//        if ( removeOldBasePropsBeforeAddingNew == nextInternalSetState.contents.fastGet(firstIndex) )
+//        {
+//          ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[firstIndex];
+//          if ( infoCr.xNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
+//          {
+//            propNetInstanceInfo.changeComponentValueTo(infoCr.xNetProp.id, removeOldBasePropsBeforeAddingNew);
+//          }
+//        }
+//
+//        firstIndex = lastInternalSetState.contents.nextSetBit(firstIndex+1);
+//      }
     }
     else
     {
@@ -2273,39 +2318,77 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       while(index != -1)
       {
+        boolean needsSetting = nextInternalSetState.contents.fastGet(index);
+        if ( removeOldBasePropsBeforeAddingNew != needsSetting )
+        {
+          ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[index];
+          if ( infoCr.oNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
+          {
+            propNetInstanceInfo.changeComponentValueTo(infoCr.oNetProp.id, needsSetting);
+          }
+        }
+        else
+        {
+          firstIndex = index;
+          lastIndex = index;
+          index = lastInternalSetState.contents.nextSetBit(index+1);
+          break;
+        }
+
+        index = lastInternalSetState.contents.nextSetBit(index+1);
+      }
+      while(index != -1)
+      {
+        boolean needsSetting = nextInternalSetState.contents.fastGet(index);
         if ( removeOldBasePropsBeforeAddingNew != nextInternalSetState.contents.fastGet(index) )
         {
           ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[index];
           if ( infoCr.oNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
           {
-            propNetInstanceInfo.changeComponentValueTo(infoCr.oNetProp.id, !removeOldBasePropsBeforeAddingNew);
+            propNetInstanceInfo.changeComponentValueTo(infoCr.oNetProp.id, needsSetting);
           }
         }
         else
         {
-          if ( firstIndex == -1 )
-          {
-            firstIndex = index;
-          }
           lastIndex = index;
         }
 
         index = lastInternalSetState.contents.nextSetBit(index+1);
       }
 
-      while(firstIndex != -1 && firstIndex <= lastIndex)
+      if ( firstIndex != -1 )
       {
-        if ( removeOldBasePropsBeforeAddingNew == nextInternalSetState.contents.fastGet(firstIndex) )
+        do
         {
-          ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[firstIndex];
-          if ( infoCr.oNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
+          if ( removeOldBasePropsBeforeAddingNew == nextInternalSetState.contents.fastGet(firstIndex) )
           {
-            propNetInstanceInfo.changeComponentValueTo(infoCr.oNetProp.id, removeOldBasePropsBeforeAddingNew);
+            ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[firstIndex];
+            if ( infoCr.oNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
+            {
+              propNetInstanceInfo.changeComponentValueTo(infoCr.oNetProp.id, removeOldBasePropsBeforeAddingNew);
+            }
           }
-        }
 
-        firstIndex = lastInternalSetState.contents.nextSetBit(firstIndex+1);
+          if ( firstIndex == lastIndex )
+          {
+            break;
+          }
+          firstIndex = lastInternalSetState.contents.nextSetBit(firstIndex+1);
+        } while(true);
       }
+//      while(firstIndex != -1 && firstIndex <= lastIndex)
+//      {
+//        if ( removeOldBasePropsBeforeAddingNew == nextInternalSetState.contents.fastGet(firstIndex) )
+//        {
+//          ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[firstIndex];
+//          if ( infoCr.oNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
+//          {
+//            propNetInstanceInfo.changeComponentValueTo(infoCr.oNetProp.id, removeOldBasePropsBeforeAddingNew);
+//          }
+//        }
+//
+//        firstIndex = lastInternalSetState.contents.nextSetBit(firstIndex+1);
+//      }
     }
   }
 
@@ -4326,7 +4409,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //ForwardDeadReckonComponent goalInput = (ForwardDeadReckonComponent)p.getSingleInput();
       //if (goalInput != null && goalInput.getValue(instanceId))
       //if (goalInput != null && net.getTransition(instanceId, goalInput))
-      if (net.getComponentValue(instanceId, (ForwardDeadReckonComponent)p))
+      if (((ForwardDeadReckonComponent)p).id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId &&
+          net.getComponentValue(instanceId, (ForwardDeadReckonComponent)p))
       {
         result = Integer.parseInt(p.getName().getBody().get(1).toString());
         break;
