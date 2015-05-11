@@ -402,22 +402,23 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public void clear()
   {
+    assert(valid());
+
     for(int i = 0; i < roles.length; i++)
     {
-      lastActive[i] = lastImmutableActive[i];
-      numActive[i] = numAlwaysActive[i];
-
-      if ( lastActive[i] >= 0 )
+      if ( lastActive[i] >= 0 && lastActive[i] != lastImmutableActive[i] )
       {
-
-        int index = linkage[i][lastActive[i]] & LINKAGE_MASK_NEXT;
-        while((index & LINKAGE_MASK_NEXT) != 0xFFFF)
+        int index = (lastImmutableActive[i] >= 0 ? (linkage[i][lastImmutableActive[i]] & LINKAGE_MASK_NEXT) : firstActive[i]);
+        do
         {
           int nextIndex = linkage[i][index] & LINKAGE_MASK_NEXT;
           linkage[i][index] = INVALID_PREV;
           index = nextIndex;
-        }
+        } while((index & LINKAGE_MASK_NEXT) != 0xFFFF);
       }
+
+      lastActive[i] = lastImmutableActive[i];
+      numActive[i] = numAlwaysActive[i];
 
       if ( lastActive[i] == INVALID_INDEX )
       {
@@ -543,8 +544,12 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
 
   private boolean valid()
   {
+    //  Commented out sections are for a really full check, butn it makes it super-expensive
+    //  so not included in regular debug build assertion checking
+    //BitSet mirror = new BitSet();
     for(int i = 0; i < roles.length; i++)
     {
+      //mirror.clear();
       int count = 0;
 
       for(int index = firstActive[i]; (index & LINKAGE_MASK_NEXT) != 0xFFFF; index = linkage[i][index] & LINKAGE_MASK_NEXT)
@@ -552,9 +557,17 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
         assert((linkage[i][index] & LINKAGE_MASK_PREV) != INVALID_PREV);
         assert(index != (linkage[i][index] & LINKAGE_MASK_NEXT));
         count++;
+        //mirror.set(index);
       }
 
       assert(count == numActive[i]);
+//      for(int j = 0; j < masterListAsArray.length; j++)
+//      {
+//        if ( !mirror.get(j))
+//        {
+//          assert(linkage[i][j] == INVALID_PREV);
+//        }
+//      }
     }
 
     return true;
