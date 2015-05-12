@@ -4899,13 +4899,30 @@ public class TreeNode
     }
   }
 
-  void dumpTree(String filename)
+  /**
+   * Dump the tree to the specified file.
+   *
+   * @param xiFilename - filename (in temp. directory) or path from working directory.
+   */
+  void dumpTree(String xiFilename)
   {
     tree.sweepInstance++;
 
     try
     {
-      File f = new File(TEMP_DIR, filename);
+      // If a directory has been specified, assume it's relative to the working directory.  Otherwise, store in the
+      // temporary directory.
+      File f;
+      if (xiFilename.contains("/"))
+      {
+        // A path has been specified.  It's relative to our current directory.
+        f = new File(xiFilename);
+      }
+      else
+      {
+        // No path specified - put the output in the temporary directory.
+        f = new File(TEMP_DIR, xiFilename);
+      }
       PrintWriter writer = new PrintWriter(f);
       dumpTree(writer, 0, null, 0);
       writer.close();
