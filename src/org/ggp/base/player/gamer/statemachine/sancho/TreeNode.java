@@ -457,9 +457,13 @@ public class TreeNode
       // Get more information when puzzles fail overnight.
       if (tree.gameCharacteristics.numRoles == 1)
       {
-        LOGGER.debug("Score at root: " + getAverageScore(0));
-        LOGGER.debug("State at root: " + state);
-        getBestMove(true, null, true); // Don't care about the result, but want to see the logs
+        double lAvgScore = getAverageScore(0);
+        if (lAvgScore < EPSILON)
+        {
+          LOGGER.debug("Score at root: " + lAvgScore);
+          LOGGER.debug("State at root: " + state);
+          dumpTree("logs/puzzlefail." + System.currentTimeMillis() + ".txt");
+        }
       }
     }
     else
