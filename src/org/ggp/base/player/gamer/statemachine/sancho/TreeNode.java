@@ -458,10 +458,10 @@ public class TreeNode
       if (tree.gameCharacteristics.numRoles == 1)
       {
         double lAvgScore = getAverageScore(0);
-        if (lAvgScore < EPSILON)
+        LOGGER.debug("Score at root: " + lAvgScore);
+        LOGGER.debug("State at root: " + state);
+        if (lAvgScore < (100 - EPSILON))
         {
-          LOGGER.debug("Score at root: " + lAvgScore);
-          LOGGER.debug("State at root: " + state);
           dumpTree("logs/puzzlefail." + System.currentTimeMillis() + ".txt");
         }
       }
