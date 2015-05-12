@@ -2506,8 +2506,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private boolean isTerminalUnfactored()
   {
-    PolymorphicProposition terminalProp = propNet.getTerminalProposition();
-    boolean result = propNet.getComponentValue(instanceId, (ForwardDeadReckonComponent)terminalProp);
+    ForwardDeadReckonComponent terminalProp = (ForwardDeadReckonComponent)propNet.getTerminalProposition();
+    boolean result = (terminalProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId &&
+                      propNet.getComponentValue(instanceId, terminalProp));
 
     if (validationMachine != null)
     {
