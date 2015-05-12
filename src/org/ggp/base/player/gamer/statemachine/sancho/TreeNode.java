@@ -113,30 +113,30 @@ public class TreeNode
   // The index is in the low 32 bits.  The sequence number is in the high 32 bits.
   //
   // For performance we also keep the instance ID in its own field.  Having been set on allocation, this never changes.
-  private long                          mRef                = 0;
+  private long                          mRef                 = 0;
   private final int                     mInstanceID;
 
-  public int                            numVisits           = 0;
-  double                                numUpdates          = 0;
+  public int                            numVisits            = 0;
+  double                                numUpdates           = 0;
   final ForwardDeadReckonInternalMachineState state;
   int                                   decidingRoleIndex;
-  boolean                               isTerminal          = false;
-  boolean                               autoExpand          = false;
-  boolean                               complete            = false;
-  private boolean                       allChildrenComplete = false;
+  boolean                               isTerminal           = false;
+  boolean                               autoExpand           = false;
+  boolean                               complete             = false;
+  private boolean                       allChildrenComplete  = false;
   boolean                               hasBeenLocalSearched = false;
-  ForwardDeadReckonLegalMoveInfo        isLocalLossFrom     = null;
-  Object[]                              children            = null;
-  short                                 mNumChildren        = 0;
+  ForwardDeadReckonLegalMoveInfo        isLocalLossFrom      = null;
+  Object[]                              children             = null;
+  short                                 mNumChildren         = 0;
   short[]                               primaryChoiceMapping = null;
-  final ArrayList<TreeNode>     parents             = new ArrayList<>(1);
+  final ArrayList<TreeNode>             parents              = new ArrayList<>(1);
   private int                           sweepSeq;
   //private TreeNode sweepParent = null;
-  boolean                               freed               = false;
+  boolean                               freed                = false;
   private double                        leastLikelyRunnerUpValue;
   private double                        mostLikelyRunnerUpValue;
-  private short                         leastLikelyWinner   = -1;
-  private short                         mostLikelyWinner    = -1;
+  private short                         leastLikelyWinner    = -1;
+  private short                         mostLikelyWinner     = -1;
   //  Note - the 'depth' of a node is an indicative measure of its distance from the
   //  initial state.  However, it is not an absolute count of the path length.  This
   //  is because in some games the same state can occur at different depths (English Draughts
@@ -144,13 +144,13 @@ public class TreeNode
   //  depths.  This approximate nature good enough for our current usage, but should be borne
   //  in mind if that usage is expanded.  It is initialized to -1 so that a transposition
   //  to an existing node can be distinguished from a fresh allocation
-  private short                         depth               = -1;
+  private short                         depth                = -1;
   short                                 completionDepth;
   private double                        heuristicValue;
   private double                        heuristicWeight;
 
   //  To what depth is the hyper-linkage tree expanded from this node
-  private short                         hyperExpansionDepth = 0;
+  private short                         hyperExpansionDepth  = 0;
 
   /**
    * Create a tree node.
@@ -442,9 +442,7 @@ public class TreeNode
 
     if (numUpdates > 0 && tree.gameCharacteristics.isSimultaneousMove)
     {
-      //validateScoreVector(averageScores);
       correctParentsForCompletion();
-      //validateScoreVector(averageScores);
     }
 
     tree.numCompletedBranches++;
@@ -455,6 +453,13 @@ public class TreeNode
     if (this == tree.root)
     {
       LOGGER.info("Mark root complete");
+
+      // Get more information when puzzles fail overnight.
+      if (tree.gameCharacteristics.numRoles == 1)
+      {
+        LOGGER.debug("Score at root: " + getAverageScore(0));
+        LOGGER.debug("State at root: " + state);
+      }
     }
     else
     {
