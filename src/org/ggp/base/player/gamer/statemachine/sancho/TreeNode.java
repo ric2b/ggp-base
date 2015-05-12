@@ -459,6 +459,7 @@ public class TreeNode
       {
         LOGGER.debug("Score at root: " + getAverageScore(0));
         LOGGER.debug("State at root: " + state);
+        getBestMove(true, null, true); // Don't care about the result, but want to see the logs
       }
     }
     else
