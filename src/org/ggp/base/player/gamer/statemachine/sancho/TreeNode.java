@@ -4691,6 +4691,10 @@ public class TreeNode
       sb.append(FORMAT_2DP.format(getAverageScore(i)));
     }
     sb.append("]");
+    if (isTerminal)
+    {
+      sb.append('T');
+    }
     if (complete)
     {
       sb.append(" (complete");
