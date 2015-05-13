@@ -99,9 +99,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private ForwardDeadReckonInternalMachineState                        checkpointState                 = null;
   private final boolean                                                useSampleOfKnownLegals          = false;
   private GdlSentence                                                  XSentence                       = null;
-  private GdlSentence                                                  OSentence                       = null;
   private ForwardDeadReckonPropositionCrossReferenceInfo               XSentenceInfo                   = null;
-  private ForwardDeadReckonPropositionCrossReferenceInfo               OSentenceInfo                   = null;
   private MachineState                                                 initialState                    = null;
   private ForwardDeadReckonProposition[]                               moveProps                       = null;
   private ForwardDeadReckonProposition[]                               previousMovePropsX              = null;
@@ -1448,9 +1446,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     goalsNet = master.goalsNet;
     useGoalNetForTerminalAndLegal = false;  //  Only ever on instance 0
     XSentence = master.XSentence;
-    OSentence = master.OSentence;
     XSentenceInfo = master.XSentenceInfo;
-    OSentenceInfo = master.OSentenceInfo;
     legalPropositionMovesX = master.legalPropositionMovesX;
     legalPropositionMovesO = master.legalPropositionMovesO;
     legalPropositionsX = master.legalPropositionsX;
@@ -1768,6 +1764,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       if (XSentence != null)
       {
+        GdlSentence OSentence = null;
+
         LOGGER.info("Reducing with respect to XSentence: " + XSentence);
         OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, XSentence, true);
 
@@ -1940,10 +1938,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         if (e.getKey().equals(XSentence))
         {
           XSentenceInfo = info;
-        }
-        else if (e.getKey().equals(OSentence))
-        {
-          OSentenceInfo = info;
         }
       }
 
@@ -4142,16 +4136,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public Set<GdlSentence> getBasePropositions()
   {
     return fullPropNet.getBasePropositions().keySet();
-  }
-
-  public GdlSentence getXSentence()
-  {
-    return XSentence;
-  }
-
-  public GdlSentence getOSentence()
-  {
-    return OSentence;
   }
 
   private ForwardDeadReckonInternalMachineState lastGoalState = null;
