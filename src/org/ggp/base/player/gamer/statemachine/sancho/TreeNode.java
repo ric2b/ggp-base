@@ -4693,7 +4693,10 @@ public class TreeNode
     sb.append("]");
     if (complete)
     {
-      sb.append(" (complete)");
+      sb.append(" (complete");
+      sb.append('@');
+      sb.append(completionDepth);
+      sb.append(')');
     }
 
     return sb.toString();
