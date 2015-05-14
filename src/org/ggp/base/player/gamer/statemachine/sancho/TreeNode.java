@@ -462,7 +462,9 @@ public class TreeNode
         LOGGER.debug("State at root: " + state);
         if (lAvgScore < (100 - EPSILON))
         {
-          dumpTree("logs/puzzlefail." + System.currentTimeMillis() + ".txt");
+          String lDumpName = "logs/puzzlefail." + System.currentTimeMillis() + ".txt";
+          LOGGER.debug("Dumping losing tree to: " + lDumpName);
+          dumpTree(lDumpName);
         }
       }
     }
