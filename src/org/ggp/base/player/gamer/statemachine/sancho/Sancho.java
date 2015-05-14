@@ -1360,6 +1360,7 @@ public class Sancho extends SampleGamer
     roleOrdering                 = null;
     underlyingStateMachine       = null;
     mLastMove                    = null;
+    lastMove                     = null;
 
     // Get our parent to tidy up too.
     cleanupAfterMatch();
