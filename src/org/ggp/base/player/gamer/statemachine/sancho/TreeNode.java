@@ -5465,7 +5465,7 @@ public class TreeNode
 
       if ( lRequest.mComplete )
       {
-        //  Propagate the implication sof the completion discovered by the playout
+        //  Propagate the implications of the completion discovered by the playout.
         markComplete(lRequest.mAverageScores, (short)(getDepth()+1));
         tree.processNodeCompletions();
         lRequest.mPath.trimToCompleteLeaf();

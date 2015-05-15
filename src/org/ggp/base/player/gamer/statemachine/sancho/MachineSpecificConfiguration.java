@@ -69,6 +69,11 @@ public class MachineSpecificConfiguration
     DISABLE_GREEDY_ROLLOUTS,
 
     /**
+     * Whether to disable A* for puzzles.
+     */
+    DISABLE_A_STAR,
+
+    /**
      * Player name to report
      */
     PLAYER_NAME,

@@ -903,8 +903,11 @@ public class Sancho extends SampleGamer
 
     //	Special case handling for puzzles with hard-to-find wins
     //	WEAKEN THIS WHEN WE HAVE TRIAL A*
-    if (mGameCharacteristics.numRoles == 1 && observedMinNetScore == observedMaxNetScore &&
-        observedMaxNetScore < 100 && factors == null )
+    if ((!MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_A_STAR, false)) &&
+        mGameCharacteristics.numRoles == 1 &&
+        observedMinNetScore == observedMaxNetScore &&
+        observedMaxNetScore < 100 &&
+        factors == null )
     {
       //	8-puzzle type stuff
       LOGGER.info("Puzzle with no observed solution");
