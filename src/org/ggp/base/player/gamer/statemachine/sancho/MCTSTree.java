@@ -724,6 +724,34 @@ public class MCTSTree
     assert(root.parents.size() == 0);
     //validateAll();
 
+    //  Special case - because we can mark nodes complete before they are terminal if greedy rollouts are
+    //  in use, it is possible for a complete root to not have a known child path as the root hits
+    //  the penultimate move.  In such circumstances we must force re-expansion to identify the correct last
+    //  move
+    if ( root.complete && underlyingStateMachine.getIsGreedyRollouts() )
+    {
+      boolean foundChildPath = false;
+
+      for(int i = 0; i < root.mNumChildren; i++ )
+      {
+        if ( root.children[i] instanceof TreeEdge &&
+             ((TreeEdge)root.children[i]).getChildRef() != TreeNode.NULL_REF )
+        {
+          TreeNode child = root.get(((TreeEdge)root.children[i]).getChildRef());
+          if ( child != null && child.complete && child.getAverageScore(0) == root.getAverageScore(0))
+          {
+            foundChildPath = true;
+            break;
+          }
+        }
+      }
+
+      if ( !foundChildPath )
+      {
+        LOGGER.info("Complete root has no known child path - marking incomplete to force re-expansion");
+        root.complete = false;
+      }
+    }
     if (root.mNumChildren == 0)
     {
       LOGGER.info("Encountered childless root - must re-expand");
