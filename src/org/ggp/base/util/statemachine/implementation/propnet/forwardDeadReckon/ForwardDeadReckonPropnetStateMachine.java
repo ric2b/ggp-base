@@ -3219,14 +3219,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         setPropNetUsage(decisionState.state);
         setBasePropositionsFromState(decisionState.state);
       }
-      else if ( rolloutDecisionStack[rolloutStackDepth].chooserIndex == -1 )
+      else if ( rolloutStackDepth > 0 &&
+                (rolloutDecisionStack[rolloutStackDepth].chooserIndex == -1 ||
+                 rolloutDecisionStack[rolloutStackDepth].chooserIndex == rolloutDecisionStack[rolloutStackDepth-1].chooserIndex) )
       {
-        //  No choice lead to terminality.  If there was a choice at the previous level and the
+        //  No choice lead to a win.  If there was a choice at the previous level and the
         //  result is bad for that player should pop and retry
-        if (rolloutStackDepth > 0 &&
-            rolloutDecisionStack[rolloutStackDepth - 1].nextChoiceIndex != rolloutDecisionStack[rolloutStackDepth - 1].baseChoiceIndex)
+        if ( rolloutDecisionStack[rolloutStackDepth - 1].nextChoiceIndex != rolloutDecisionStack[rolloutStackDepth - 1].baseChoiceIndex)
         {
-          if (rolloutDecisionStack[rolloutStackDepth].chooserIndex != rolloutDecisionStack[rolloutStackDepth - 1].chooserIndex)
+          if (rolloutDecisionStack[rolloutStackDepth - 1].chooserIndex != -1)
           {
             int lScoreForChoosingRole = getGoal(roles[rolloutDecisionStack[rolloutStackDepth - 1].chooserIndex]);
 
