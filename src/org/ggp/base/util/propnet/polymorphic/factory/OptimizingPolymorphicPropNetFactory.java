@@ -2597,6 +2597,7 @@ public class OptimizingPolymorphicPropNetFactory
         {
           boolean isTrue = c.getValue();
 
+          Set<PolymorphicComponent> newOutputs = new HashSet<>();
           for(PolymorphicComponent output : c.getOutputs())
           {
             if ( (!isTrue && (output instanceof PolymorphicAnd)) ||
@@ -2614,6 +2615,24 @@ public class OptimizingPolymorphicPropNetFactory
 
               output.removeAllInputs();output.addInput(c);
             }
+            else if ( output instanceof PolymorphicProposition )
+            {
+              //  Fixed value proposition - needed, but its outputs can be connected
+              //  directly to the source constant rather than the prop, and hence may be eliminatable
+              newOutputs.addAll(output.getOutputs());
+              for(PolymorphicComponent downstream : output.getOutputs())
+              {
+                downstream.removeInput(output);
+                newOutputs.add(downstream);
+              }
+              output.removeAllOutputs();
+            }
+          }
+
+          for(PolymorphicComponent downstream : newOutputs)
+          {
+            c.addOutput(downstream);
+            downstream.addInput(c);
           }
         }
       }
