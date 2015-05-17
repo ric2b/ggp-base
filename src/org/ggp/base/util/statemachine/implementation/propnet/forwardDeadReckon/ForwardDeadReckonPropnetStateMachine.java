@@ -1745,7 +1745,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       fullPropNet.reset(false);
       if (fullPropNet.getInitProposition() != null)
       {
-        fullPropNet.animator.getInstanceInfo(0).setComponentValue(((ForwardDeadReckonProposition)fullPropNet.getInitProposition()).id, true);
+        fullPropNet.animator.getInstanceInfo(0).changeComponentValueTo(((ForwardDeadReckonProposition)fullPropNet.getInitProposition()).id, true);
       }
       propNet = fullPropNet;
       propNetInstanceInfo = propNet.animator.getInstanceInfo(0);
@@ -2300,11 +2300,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         if (nextInternalSetState.contains(info))
         {
-          propNetInstanceInfo.setComponentValue(propId, true);
+          propNetInstanceInfo.changeComponentValueTo(propId, true);
         }
         else
         {
-          propNetInstanceInfo.setComponentValue(propId, false);
+          propNetInstanceInfo.changeComponentValueTo(propId, false);
         }
       }
 
@@ -2511,7 +2511,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       if ( compId != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
       {
-        propNetInstanceInfo.setComponentValue(compId, false);
+        assert(!propNet.animator.getComponentValue(instanceId, compId));
+        //propNetInstanceInfo.setComponentValue(compId, false);
       }
     }
 
@@ -2837,28 +2838,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return result;
   }
 
-  private void clearSetDoesProps()
-  {
-    for (int i = 0; i < previousMovePropsX.length; i++)
-    {
-      ForwardDeadReckonProposition previousMoveProp = (propNet == propNetX ? previousMovePropsX[i] : previousMovePropsO[i]);
-
-      if ( previousMoveProp != null )
-      {
-        if ( propNet == propNetX )
-        {
-          previousMovePropsX[i] = null;
-        }
-        else
-        {
-          previousMovePropsO[i] = null;
-        }
-
-        propNetInstanceInfo.setComponentValue(previousMoveProp.id, false);
-      }
-    }
-  }
-
   /**
    * Get the next state given the current state and a set of moves.  Write the resulting state directly into the
    * supplied new state buffer.
@@ -2909,11 +2888,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
         if ( moveProp != null )
         {
-          propNetInstanceInfo.setComponentValue(moveProp.id, true);
+          propNetInstanceInfo.changeComponentValueTo(moveProp.id, true);
         }
         if ( previousMoveProp != null  )
         {
-          propNetInstanceInfo.setComponentValue(previousMoveProp.id, false);
+          propNetInstanceInfo.changeComponentValueTo(previousMoveProp.id, false);
         }
       }
     }
@@ -2975,7 +2954,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     int index = 0;
     for (ForwardDeadReckonProposition moveProp : chosenJointMoveProps)
     {
-      ForwardDeadReckonProposition previousChosenMove;
       int previousChosenMoveId;
 
       if (propNet == propNetX)
@@ -2991,12 +2969,18 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       if (moveProp != null)
       {
         movePropId = moveProp.id;
-        propNetInstanceInfo.setComponentValue(movePropId, true);
       }
 
-      if (previousChosenMoveId != -1 && previousChosenMoveId != movePropId)
+      if (previousChosenMoveId != movePropId)
       {
-        propNetInstanceInfo.setComponentValue(previousChosenMoveId, false);
+        if ( movePropId != -1 )
+        {
+          propNetInstanceInfo.changeComponentValueTo(movePropId, true);
+        }
+        if ( previousChosenMoveId != -1 )
+        {
+          propNetInstanceInfo.changeComponentValueTo(previousChosenMoveId, false);
+        }
       }
       if (propNet == propNetX)
       {
@@ -4122,12 +4106,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       if ( xProp != null )
       {
         previousMovePropsX[i] = null;
-        propNetX.animator.getInstanceInfo(instanceId).setComponentValue(xProp.id, false);
+        propNetX.animator.getInstanceInfo(instanceId).changeComponentValueTo(xProp.id, false);
       }
       if ( oProp != null )
       {
         previousMovePropsO[i] = null;
-        propNetO.animator.getInstanceInfo(instanceId).setComponentValue(oProp.id, false);
+        propNetO.animator.getInstanceInfo(instanceId).changeComponentValueTo(oProp.id, false);
       }
     }
 
@@ -4207,11 +4191,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       if ( xId != -1)
       {
-        propNetX.animator.getInstanceInfo(instanceId).setComponentValue(xId, false);
+        propNetX.animator.getInstanceInfo(instanceId).changeComponentValueTo(xId, false);
       }
       if ( oId != -1)
       {
-        propNetO.animator.getInstanceInfo(instanceId).setComponentValue(oId, false);
+        propNetO.animator.getInstanceInfo(instanceId).changeComponentValueTo(oId, false);
       }
     }
 
@@ -4307,11 +4291,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           if (state.contains(sCr))
           {
-            instanceInfo.setComponentValue(sCr.goalsNetProp.id, true);
+            instanceInfo.changeComponentValueTo(sCr.goalsNetProp.id, true);
           }
           else
           {
-            instanceInfo.setComponentValue(sCr.goalsNetProp.id, false);
+            assert(!goalsNet.animator.getComponentValue(instanceId, sCr.goalsNetProp.id));
+            //instanceInfo.setComponentValue(sCr.goalsNetProp.id, false);
           }
         }
       }

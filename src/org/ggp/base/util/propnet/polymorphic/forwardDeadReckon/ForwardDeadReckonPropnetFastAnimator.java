@@ -250,45 +250,19 @@ public class ForwardDeadReckonPropnetFastAnimator
      */
     public void changeComponentValueTo(int propId, boolean value)
     {
-      int compId = (propId & 0xFFFFFF);
-
+      assert(((state[propId & 0xFFFFFF] & componentStateCachedValMask) != 0) != value);
       if ( value )
       {
-        state[compId] |= componentStateCachedValMask;
+        assert((state[propId & 0xFFFFFF] |= componentStateCachedValMask) != 0);
         propagateComponentTrue(propId);
       }
       else
       {
-        state[compId] &= ~componentStateCachedValMask;
+        assert((state[propId & 0xFFFFFF] &= ~componentStateCachedValMask) >= 0);
         propagateComponentFalse(propId);
       }
     }
 
-    /**
-     * Set the value of an input proposition
-     * @param instanceId    instance to operate on
-     * @param propId        component whose value is being changed
-     * @param value         new value
-     */
-    public void setComponentValue(int propId, boolean value)
-    {
-      int compId = (propId & 0xFFFFFF);
-      boolean currentValue = ((state[compId] & componentStateCachedValMask) != 0);
-
-      if ( value != currentValue )
-      {
-        if ( value )
-        {
-          state[compId] |= componentStateCachedValMask;
-          propagateComponentTrue(propId);
-        }
-        else
-        {
-          state[compId] &= ~componentStateCachedValMask;
-          propagateComponentFalse(propId);
-        }
-      }
-    }
     /**
      * Vector of state values for each component indexed by component id
      */
@@ -692,6 +666,31 @@ public class ForwardDeadReckonPropnetFastAnimator
         componentDataTable[index++] = dummyOrId | (componentTypeUniversalLogic << 24);
       }
     }
+
+    assert(noConstantBasePropsPropagatable());
+  }
+
+  //  Purely debugging routine to assert some conditions that the factory optimizer should have
+  //  eliminated
+  private boolean noConstantBasePropsPropagatable()
+  {
+    for(PolymorphicProposition c : propNet.getBasePropositionsArray())
+    {
+      //  Base props whose state can never change should have their ids set to unused so
+      //  that external changes to them are not attempted.  We have to do this here (after
+      //  processing the component) because animator resets still need to propagate their
+      //  (fixed) value through the network, so they must have been allocated slots in the
+      //  connectivity tables
+      if ( c.getInputs().size() == 1 && c.getSingleInput() instanceof PolymorphicConstant )
+      {
+        if (((ForwardDeadReckonProposition)c).id != notNeededComponentId)
+        {
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   private int getTriggerId(PolymorphicComponent c)
