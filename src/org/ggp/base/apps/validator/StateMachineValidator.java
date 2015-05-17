@@ -53,7 +53,7 @@ public class StateMachineValidator
     exceptedGames.add("gt_two_thirds_6p");
     exceptedGames.add("ticTacHeavenFC");//  Allows both players to noop at once which we don't currently handle
 
-    String startGame = "gt_coordination"; // Game to begin with if desired
+    String startGame = "ttcc4_2player"; // Game to begin with if desired
     boolean foundStartGame = false; // Set to true to just start at the beginning
     boolean stopOnError = true; // Whether to stop on first failing game or continue
     final int REPS_PER_GAME = 1;  //  Set to repeat each game multiple times
@@ -101,7 +101,7 @@ public class StateMachineValidator
 
             result = StateMachineVerifier.checkMachineConsistency(theReference,
                                                                   theMachine,
-                                                                  30000);
+                                                                  10000);
           }
           catch (Exception e)
           {

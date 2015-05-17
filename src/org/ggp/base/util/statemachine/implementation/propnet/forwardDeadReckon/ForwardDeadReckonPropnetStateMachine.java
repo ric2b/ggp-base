@@ -354,10 +354,13 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       for (GdlSentence s : state.getContents())
       {
         ForwardDeadReckonProposition p = (ForwardDeadReckonProposition)propNet.getBasePropositions().get(s);
-        ForwardDeadReckonPropositionInfo info = p.getInfo();
-        result.add(info);
+        if ( p != null )
+        {
+          ForwardDeadReckonPropositionInfo info = p.getInfo();
+          result.add(info);
 
-        result.isXState |= (info.sentence == XSentence);
+          result.isXState |= (info.sentence == XSentence);
+        }
       }
 
       LOGGER.trace("Created internal state: " + result + " with hash " + result.hashCode());
@@ -1472,6 +1475,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     mControlMask = master.mControlMask;
     mNonControlMask = master.mNonControlMask;
     removeOldBasePropsBeforeAddingNew = master.removeOldBasePropsBeforeAddingNew;
+    use2passBasePropSet = master.use2passBasePropSet;
 
     stateBufferX1 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
     stateBufferX2 = new ForwardDeadReckonInternalMachineState(masterInfoSet);
@@ -1622,7 +1626,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                                            numMultiInputComponents) +
                    " inputs.");
 
-      masterInfoSet = new ForwardDeadReckonPropositionCrossReferenceInfo[fullPropNet.getBasePropositions().size()];
+      int numGoals = 0;
+      for(PolymorphicProposition[] goals : fullPropNet.getGoalPropositions().values())
+      {
+        numGoals += goals.length;
+      }
+      masterInfoSet = new ForwardDeadReckonPropositionCrossReferenceInfo[fullPropNet.getBasePropositions().size() + numGoals + 1];
       int index = 0;
       for (Entry<GdlSentence, PolymorphicProposition> e : fullPropNet.getBasePropositions().entrySet())
       {
@@ -1639,6 +1648,39 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
         prop.setInfo(info);
         basePropChangeCounts.put(info, 0);
+      }
+
+      for(PolymorphicProposition[] goals : fullPropNet.getGoalPropositions().values())
+      {
+        for(PolymorphicProposition prop : goals)
+        {
+          ForwardDeadReckonPropositionCrossReferenceInfo info = new ForwardDeadReckonPropositionCrossReferenceInfo();
+
+          info.sentence = prop.getName();
+          info.xNetProp = (ForwardDeadReckonProposition)prop;
+          info.oNetProp = (ForwardDeadReckonProposition)prop;
+          info.goalsNetProp = (ForwardDeadReckonProposition)prop;
+          info.index = index;
+
+          masterInfoSet[index++] = info;
+
+          ((ForwardDeadReckonProposition)prop).setInfo(info);
+        }
+      }
+
+      {
+        ForwardDeadReckonProposition prop = (ForwardDeadReckonProposition)fullPropNet.getTerminalProposition();
+        ForwardDeadReckonPropositionCrossReferenceInfo info = new ForwardDeadReckonPropositionCrossReferenceInfo();
+
+        info.sentence = prop.getName();
+        info.xNetProp = prop;
+        info.oNetProp = prop;
+        info.goalsNetProp = prop;
+        info.index = index;
+
+        masterInfoSet[index++] = info;
+
+        prop.setInfo(info);
       }
 
       fullPropNet.crystalize(masterInfoSet, null, maxInstances);
@@ -1907,39 +1949,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //masterInfoSet = new ForwardDeadReckonPropositionCrossReferenceInfo[fullPropNet
       //    .getBasePropositions().size()];
       //index = 0;
-      //	Cross-reference the base propositions of the two networks
-      for (Entry<GdlSentence, PolymorphicProposition> e : fullPropNet.getBasePropositions().entrySet())
-      {
-        ForwardDeadReckonProposition oProp = (ForwardDeadReckonProposition)propNetO
-            .getBasePropositions().get(e.getKey());
-        ForwardDeadReckonProposition xProp = (ForwardDeadReckonProposition)propNetX
-            .getBasePropositions().get(e.getKey());
-        ForwardDeadReckonProposition goalsProp = (ForwardDeadReckonProposition)goalsNet
-            .getBasePropositions().get(e.getKey());
-        ForwardDeadReckonProposition fullNetPropFdr = (ForwardDeadReckonProposition)e.getValue();
-        ForwardDeadReckonPropositionCrossReferenceInfo info = (ForwardDeadReckonPropositionCrossReferenceInfo)fullNetPropFdr.getInfo();
-        //ForwardDeadReckonPropositionCrossReferenceInfo info = new ForwardDeadReckonPropositionCrossReferenceInfo();
-
-        //info.sentence = e.getKey();
-        info.xNetProp = xProp;
-        info.oNetProp = oProp;
-        info.goalsNetProp = goalsProp;
-        //info.index = index;
-
-        //masterInfoSet[index++] = info;
-
-        xProp.setInfo(info);
-        oProp.setInfo(info);
-        if (goalsProp != null)
-        {
-          goalsProp.setInfo(info);
-        }
-
-        if (e.getKey().equals(XSentence))
-        {
-          XSentenceInfo = info;
-        }
-      }
+      finalizePropositionCrossReferenceInfo();
 
       propNetX.crystalize(masterInfoSet, masterLegalMoveSet, maxInstances);
       propNetO.crystalize(masterInfoSet, masterLegalMoveSet, maxInstances);
@@ -1990,6 +2000,103 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
+  private void finalizePropositionCrossReferenceInfo()
+  {
+    //  Cross-reference the base propositions of the various networks
+    for (Entry<GdlSentence, PolymorphicProposition> e : fullPropNet.getBasePropositions().entrySet())
+    {
+      ForwardDeadReckonProposition oProp = (ForwardDeadReckonProposition)propNetO
+          .getBasePropositions().get(e.getKey());
+      ForwardDeadReckonProposition xProp = (ForwardDeadReckonProposition)propNetX
+          .getBasePropositions().get(e.getKey());
+      ForwardDeadReckonProposition goalsProp = (ForwardDeadReckonProposition)goalsNet
+          .getBasePropositions().get(e.getKey());
+      ForwardDeadReckonProposition fullNetPropFdr = (ForwardDeadReckonProposition)e.getValue();
+      ForwardDeadReckonPropositionCrossReferenceInfo info = (ForwardDeadReckonPropositionCrossReferenceInfo)fullNetPropFdr.getInfo();
+      //ForwardDeadReckonPropositionCrossReferenceInfo info = new ForwardDeadReckonPropositionCrossReferenceInfo();
+
+      //info.sentence = e.getKey();
+      info.xNetProp = xProp;
+      info.oNetProp = oProp;
+      info.goalsNetProp = goalsProp;
+      //info.index = index;
+
+      //masterInfoSet[index++] = info;
+
+      xProp.setInfo(info);
+      oProp.setInfo(info);
+      if (goalsProp != null)
+      {
+        goalsProp.setInfo(info);
+      }
+
+      if (e.getKey().equals(XSentence))
+      {
+        XSentenceInfo = info;
+      }
+    }
+
+    //  Cross-reference the goal propositions of the various networks
+    for(Entry<Role, PolymorphicProposition[]> e : fullPropNet.getGoalPropositions().entrySet())
+    {
+      for(PolymorphicProposition prop : e.getValue())
+      {
+        ForwardDeadReckonPropositionInfo info = ((ForwardDeadReckonProposition)prop).getInfo();
+        if ( info != null )
+        {
+          for(PolymorphicProposition p : propNetO.getGoalPropositions().get(e.getKey()))
+          {
+            if ( p.getName() == prop.getName() )
+            {
+              ((ForwardDeadReckonPropositionCrossReferenceInfo)info).oNetProp = (ForwardDeadReckonProposition)p;
+              ((ForwardDeadReckonProposition)p).setInfo(info);
+              break;
+            }
+          }
+
+          for(PolymorphicProposition p : propNetX.getGoalPropositions().get(e.getKey()))
+          {
+            if ( p.getName() == prop.getName() )
+            {
+              ((ForwardDeadReckonPropositionCrossReferenceInfo)info).xNetProp = (ForwardDeadReckonProposition)p;
+              ((ForwardDeadReckonProposition)p).setInfo(info);
+              break;
+            }
+          }
+
+          for(PolymorphicProposition p : goalsNet.getGoalPropositions().get(e.getKey()))
+          {
+            if ( p.getName() == prop.getName() )
+            {
+              ((ForwardDeadReckonPropositionCrossReferenceInfo)info).goalsNetProp = (ForwardDeadReckonProposition)p;
+              ((ForwardDeadReckonProposition)p).setInfo(info);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    //  Cross-reference the terminal propositions of the various networks
+    {
+      ForwardDeadReckonProposition prop = (ForwardDeadReckonProposition)fullPropNet.getTerminalProposition();
+      ForwardDeadReckonProposition oProp = (ForwardDeadReckonProposition)propNetO.getTerminalProposition();
+      ForwardDeadReckonProposition xProp = (ForwardDeadReckonProposition)propNetX.getTerminalProposition();
+      ForwardDeadReckonProposition goalsProp = (ForwardDeadReckonProposition)goalsNet.getTerminalProposition();
+      ForwardDeadReckonPropositionCrossReferenceInfo info = (ForwardDeadReckonPropositionCrossReferenceInfo)prop.getInfo();
+
+      assert(info != null);
+
+      info.oNetProp = oProp;
+      info.xNetProp = xProp;
+      info.goalsNetProp = goalsProp;
+
+      oProp.setInfo(info);
+      xProp.setInfo(info);
+      goalsProp.setInfo(info);
+    }
+  }
+
   public void optimizeStateTransitionMechanism(long timeout)
   {
     ForwardDeadReckonInternalMachineState initialInternalState = createInternalState(initialState);
@@ -2037,14 +2144,23 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
 
     LOGGER.info("Iterations in " + totalTime/2 + " ms with/without removal before adding: " + withTrueCount + "/" + withFalseCount);
-    if ( withFalseCount > withTrueCount )
+    if ( (Math.abs(withTrueCount-withFalseCount)*100)/Math.max(withTrueCount, withFalseCount) < 4 )
     {
-      removeOldBasePropsBeforeAddingNew = false;
-      LOGGER.info("Speed improvement of " + (100*(withFalseCount-withTrueCount))/withFalseCount + "% adding new base props before removing old");
+      use2passBasePropSet = false;
+      LOGGER.info("Speed improvement insufficient to justify 2-pass prop setting");
     }
     else
     {
-      LOGGER.info("Speed improvement of " + (100*(withTrueCount-withFalseCount))/withTrueCount + "% removing old base props before adding new");
+      use2passBasePropSet = true;
+      if ( withFalseCount > withTrueCount )
+      {
+        removeOldBasePropsBeforeAddingNew = false;
+        LOGGER.info("Speed improvement of " + (100*(withFalseCount-withTrueCount))/withFalseCount + "% adding new base props before removing old");
+      }
+      else
+      {
+        LOGGER.info("Speed improvement of " + (100*(withTrueCount-withFalseCount))/withTrueCount + "% removing old base props before adding new");
+      }
     }
   }
 
@@ -2179,6 +2295,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private ForwardDeadReckonInternalMachineState stateBufferO1 = null;
   private ForwardDeadReckonInternalMachineState stateBufferO2 = null;
 
+  private boolean use2passBasePropSet               = true;
   private boolean removeOldBasePropsBeforeAddingNew = true;
 
   private void makeBasePropChangesMeasured(ForwardDeadReckonInternalMachineState nextInternalSetState)
@@ -2224,165 +2341,175 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     {
       assert(propNetInstanceInfo == propNetX.animator.getInstanceInfo(instanceId));
 
-      int index = lastInternalSetState.contents.nextSetBit(0);
-      int firstIndex = -1;
-      int lastIndex = -1;
-
-      while(index != -1)
+      if ( !use2passBasePropSet )
       {
-        boolean needsSetting = nextInternalSetState.contents.fastGet(index);
-        if ( removeOldBasePropsBeforeAddingNew != needsSetting )
+        int index = lastInternalSetState.contents.nextSetBit(0);
+
+        while(index != -1)
         {
           ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[index];
           if ( infoCr.xNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
           {
-            propNetInstanceInfo.changeComponentValueTo(infoCr.xNetProp.id, needsSetting);
+            propNetInstanceInfo.changeComponentValueTo(infoCr.xNetProp.id, nextInternalSetState.contents.fastGet(index));
           }
-        }
-        else
-        {
-          firstIndex = index;
-          lastIndex = index;
+
           index = lastInternalSetState.contents.nextSetBit(index+1);
-          break;
         }
-
-        index = lastInternalSetState.contents.nextSetBit(index+1);
       }
-      while(index != -1)
+      else
       {
-        boolean needsSetting = nextInternalSetState.contents.fastGet(index);
-        if ( removeOldBasePropsBeforeAddingNew != needsSetting )
-        {
-          ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[index];
-          if ( infoCr.xNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
-          {
-            propNetInstanceInfo.changeComponentValueTo(infoCr.xNetProp.id, needsSetting);
-          }
-        }
-        else
-        {
-          lastIndex = index;
-        }
+        int index = lastInternalSetState.contents.nextSetBit(0);
+        int firstIndex = -1;
+        int lastIndex = -1;
 
-        index = lastInternalSetState.contents.nextSetBit(index+1);
-      }
-
-      if ( firstIndex != -1 )
-      {
-        do
+        while(index != -1)
         {
-          if ( removeOldBasePropsBeforeAddingNew == nextInternalSetState.contents.fastGet(firstIndex) )
+          boolean needsSetting = nextInternalSetState.contents.fastGet(index);
+          if ( removeOldBasePropsBeforeAddingNew != needsSetting )
           {
-            ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[firstIndex];
+            ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[index];
             if ( infoCr.xNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
             {
-              propNetInstanceInfo.changeComponentValueTo(infoCr.xNetProp.id, removeOldBasePropsBeforeAddingNew);
+              propNetInstanceInfo.changeComponentValueTo(infoCr.xNetProp.id, needsSetting);
             }
           }
-
-          if ( firstIndex == lastIndex )
+          else
           {
+            firstIndex = index;
+            lastIndex = index;
+            index = lastInternalSetState.contents.nextSetBit(index+1);
             break;
           }
-          firstIndex = lastInternalSetState.contents.nextSetBit(firstIndex+1);
-        } while(true);
+
+          index = lastInternalSetState.contents.nextSetBit(index+1);
+        }
+        while(index != -1)
+        {
+          boolean needsSetting = nextInternalSetState.contents.fastGet(index);
+          if ( removeOldBasePropsBeforeAddingNew != needsSetting )
+          {
+            ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[index];
+            if ( infoCr.xNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
+            {
+              propNetInstanceInfo.changeComponentValueTo(infoCr.xNetProp.id, needsSetting);
+            }
+          }
+          else
+          {
+            lastIndex = index;
+          }
+
+          index = lastInternalSetState.contents.nextSetBit(index+1);
+        }
+
+        if ( firstIndex != -1 )
+        {
+          do
+          {
+            if ( removeOldBasePropsBeforeAddingNew == nextInternalSetState.contents.fastGet(firstIndex) )
+            {
+              ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[firstIndex];
+              if ( infoCr.xNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
+              {
+                propNetInstanceInfo.changeComponentValueTo(infoCr.xNetProp.id, removeOldBasePropsBeforeAddingNew);
+              }
+            }
+
+            if ( firstIndex == lastIndex )
+            {
+              break;
+            }
+            firstIndex = lastInternalSetState.contents.nextSetBit(firstIndex+1);
+          } while(true);
+        }
       }
-//      while(firstIndex != -1 && firstIndex <= lastIndex)
-//      {
-//        if ( removeOldBasePropsBeforeAddingNew == nextInternalSetState.contents.fastGet(firstIndex) )
-//        {
-//          ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[firstIndex];
-//          if ( infoCr.xNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
-//          {
-//            propNetInstanceInfo.changeComponentValueTo(infoCr.xNetProp.id, removeOldBasePropsBeforeAddingNew);
-//          }
-//        }
-//
-//        firstIndex = lastInternalSetState.contents.nextSetBit(firstIndex+1);
-//      }
     }
     else
     {
       assert(propNetInstanceInfo == propNetO.animator.getInstanceInfo(instanceId));
 
-      int index = lastInternalSetState.contents.nextSetBit(0);
-      int firstIndex = -1;
-      int lastIndex = -1;
-
-      while(index != -1)
+      if ( !use2passBasePropSet )
       {
-        boolean needsSetting = nextInternalSetState.contents.fastGet(index);
-        if ( removeOldBasePropsBeforeAddingNew != needsSetting )
+        int index = lastInternalSetState.contents.nextSetBit(0);
+
+        while(index != -1)
         {
           ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[index];
           if ( infoCr.oNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
           {
-            propNetInstanceInfo.changeComponentValueTo(infoCr.oNetProp.id, needsSetting);
+            propNetInstanceInfo.changeComponentValueTo(infoCr.oNetProp.id, nextInternalSetState.contents.fastGet(index));
           }
-        }
-        else
-        {
-          firstIndex = index;
-          lastIndex = index;
+
           index = lastInternalSetState.contents.nextSetBit(index+1);
-          break;
         }
-
-        index = lastInternalSetState.contents.nextSetBit(index+1);
       }
-      while(index != -1)
+      else
       {
-        boolean needsSetting = nextInternalSetState.contents.fastGet(index);
-        if ( removeOldBasePropsBeforeAddingNew != nextInternalSetState.contents.fastGet(index) )
-        {
-          ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[index];
-          if ( infoCr.oNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
-          {
-            propNetInstanceInfo.changeComponentValueTo(infoCr.oNetProp.id, needsSetting);
-          }
-        }
-        else
-        {
-          lastIndex = index;
-        }
+        int index = lastInternalSetState.contents.nextSetBit(0);
+        int firstIndex = -1;
+        int lastIndex = -1;
 
-        index = lastInternalSetState.contents.nextSetBit(index+1);
-      }
-
-      if ( firstIndex != -1 )
-      {
-        do
+        while(index != -1)
         {
-          if ( removeOldBasePropsBeforeAddingNew == nextInternalSetState.contents.fastGet(firstIndex) )
+          boolean needsSetting = nextInternalSetState.contents.fastGet(index);
+          if ( removeOldBasePropsBeforeAddingNew != needsSetting )
           {
-            ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[firstIndex];
+            ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[index];
             if ( infoCr.oNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
             {
-              propNetInstanceInfo.changeComponentValueTo(infoCr.oNetProp.id, removeOldBasePropsBeforeAddingNew);
+              propNetInstanceInfo.changeComponentValueTo(infoCr.oNetProp.id, needsSetting);
             }
           }
-
-          if ( firstIndex == lastIndex )
+          else
           {
+            firstIndex = index;
+            lastIndex = index;
+            index = lastInternalSetState.contents.nextSetBit(index+1);
             break;
           }
-          firstIndex = lastInternalSetState.contents.nextSetBit(firstIndex+1);
-        } while(true);
+
+          index = lastInternalSetState.contents.nextSetBit(index+1);
+        }
+        while(index != -1)
+        {
+          boolean needsSetting = nextInternalSetState.contents.fastGet(index);
+          if ( removeOldBasePropsBeforeAddingNew != nextInternalSetState.contents.fastGet(index) )
+          {
+            ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[index];
+            if ( infoCr.oNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
+            {
+              propNetInstanceInfo.changeComponentValueTo(infoCr.oNetProp.id, needsSetting);
+            }
+          }
+          else
+          {
+            lastIndex = index;
+          }
+
+          index = lastInternalSetState.contents.nextSetBit(index+1);
+        }
+
+        if ( firstIndex != -1 )
+        {
+          do
+          {
+            if ( removeOldBasePropsBeforeAddingNew == nextInternalSetState.contents.fastGet(firstIndex) )
+            {
+              ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[firstIndex];
+              if ( infoCr.oNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
+              {
+                propNetInstanceInfo.changeComponentValueTo(infoCr.oNetProp.id, removeOldBasePropsBeforeAddingNew);
+              }
+            }
+
+            if ( firstIndex == lastIndex )
+            {
+              break;
+            }
+            firstIndex = lastInternalSetState.contents.nextSetBit(firstIndex+1);
+          } while(true);
+        }
       }
-//      while(firstIndex != -1 && firstIndex <= lastIndex)
-//      {
-//        if ( removeOldBasePropsBeforeAddingNew == nextInternalSetState.contents.fastGet(firstIndex) )
-//        {
-//          ForwardDeadReckonPropositionCrossReferenceInfo infoCr = masterInfoSet[firstIndex];
-//          if ( infoCr.oNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
-//          {
-//            propNetInstanceInfo.changeComponentValueTo(infoCr.oNetProp.id, removeOldBasePropsBeforeAddingNew);
-//          }
-//        }
-//
-//        firstIndex = lastInternalSetState.contents.nextSetBit(firstIndex+1);
-//      }
     }
   }
 
@@ -2478,8 +2605,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         return true;
       }
 
-      PolymorphicProposition terminalProp = goalsNet.getTerminalProposition();
-      return goalsNet.getComponentValue(instanceId, (ForwardDeadReckonComponent)terminalProp);
+      return goalsNet.getActiveBaseProps(instanceId).contains(((ForwardDeadReckonProposition)fullPropNet.getTerminalProposition()).getInfo());
     }
 
     setPropNetUsage(state);
@@ -2500,9 +2626,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private boolean isTerminalUnfactored()
   {
-    ForwardDeadReckonComponent terminalProp = (ForwardDeadReckonComponent)propNet.getTerminalProposition();
-    boolean result = (terminalProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId &&
-                      propNet.getComponentValue(instanceId, terminalProp));
+//    ForwardDeadReckonProposition terminalProp = (ForwardDeadReckonProposition)propNet.getTerminalProposition();
+//    boolean result = (terminalProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId &&
+//                      propNet.getComponentValue(instanceId, terminalProp));
+    boolean result = propNet.getActiveBaseProps(instanceId).contains(((ForwardDeadReckonProposition)fullPropNet.getTerminalProposition()).getInfo());
 
     if (validationMachine != null)
     {
@@ -3126,9 +3253,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                         List<ForwardDeadReckonLegalMoveInfo> playedMoves,
                                         int cutoffDepth)
   {
-    //		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.doRecursiveGreedyRoleout");
-    //		try
-    //		{
     ForwardDeadReckonProposition hintMoveProp = null;
     int hintMoveDepth = -1;
 
@@ -3259,11 +3383,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
     }
     while (cutoffDepth > rolloutStackDepth);
-    //		}
-    //		finally
-    //		{
-    //			methodSection.exitScope();
-    //		}
   }
 
   private double recursiveGreedyRollout(TerminalResultSet results,
@@ -3947,24 +4066,13 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         return;
       }
 
+      //  Switch to goalless networks
+      propNetO = propNetOWithoutGoals;
+      propNetX = propNetXWithoutGoals;
+
       if (instanceId == 0)
       {
-        //  Fixup the cross-reference of the base propositions of the two networks
-        for (Entry<GdlSentence, PolymorphicProposition> e : propNetX.getBasePropositions().entrySet())
-        {
-          ForwardDeadReckonProposition oProp =
-                                 (ForwardDeadReckonProposition)propNetOWithoutGoals.getBasePropositions().get(e.getKey());
-          ForwardDeadReckonProposition xProp =
-                                 (ForwardDeadReckonProposition)propNetXWithoutGoals.getBasePropositions().get(e.getKey());
-          ForwardDeadReckonPropositionCrossReferenceInfo info =
-                   (ForwardDeadReckonPropositionCrossReferenceInfo)((ForwardDeadReckonProposition)e.getValue()).getInfo();
-
-          info.xNetProp = xProp;
-          info.oNetProp = oProp;
-
-          xProp.setInfo(info);
-          oProp.setInfo(info);
-        }
+        finalizePropositionCrossReferenceInfo();  //  Onto the goalless variants now
 
         propNetXWithoutGoals.crystalize(masterInfoSet, masterLegalMoveSet, maxInstances);
         propNetOWithoutGoals.crystalize(masterInfoSet, masterLegalMoveSet, maxInstances);
@@ -3984,9 +4092,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         setMoveInfoForPropnet(propNetXWithoutGoals);
         setMoveInfoForPropnet(propNetOWithoutGoals);
       }
-
-      propNetO = propNetOWithoutGoals;
-      propNetX = propNetXWithoutGoals;
 
       propNet = propNetX;
       propNetInstanceInfo = propNet.animator.getInstanceInfo(instanceId);
@@ -4387,16 +4492,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private int extractRoleGoal(ForwardDeadReckonPropNet net, Role role)
   {
+    //PolymorphicProposition[] goalProps = net.getGoalPropositions().get(role);
     PolymorphicProposition[] goalProps = net.getGoalPropositions().get(role);
     int result = 0;
 
     for (PolymorphicProposition p : goalProps)
     {
-      //ForwardDeadReckonComponent goalInput = (ForwardDeadReckonComponent)p.getSingleInput();
-      //if (goalInput != null && goalInput.getValue(instanceId))
-      //if (goalInput != null && net.getTransition(instanceId, goalInput))
-      if (((ForwardDeadReckonComponent)p).id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId &&
-          net.getComponentValue(instanceId, (ForwardDeadReckonComponent)p))
+//      if (((ForwardDeadReckonComponent)p).id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId &&
+//          net.getComponentValue(instanceId, (ForwardDeadReckonComponent)p))
+      if ( net.getActiveBaseProps(instanceId).contains(((ForwardDeadReckonProposition)p).getInfo()) )
       {
         result = Integer.parseInt(p.getName().getBody().get(1).toString());
         break;

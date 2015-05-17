@@ -6,6 +6,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.ggp.base.util.gdl.grammar.GdlConstant;
+import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
@@ -47,7 +49,9 @@ public class ForwardDeadReckonPropnetFastAnimator
     void propagateComponentTrue(int componentIdFull)
     {
       int   outputIndex = ((componentIdFull & 0xFFFFFF)<<2)+1;
-      int   numOutputs = componentDataTable[outputIndex++];
+      int   numOutputs = componentDataTable[outputIndex];
+
+      outputIndex += numOutputs;
 
       //  Test componentIdOutputUniversalLogicBits - this is the sign bit (specifically)
       //  which is faster to test with a direct sign test
@@ -55,7 +59,7 @@ public class ForwardDeadReckonPropnetFastAnimator
       {
         do
         {
-          int triggerIndex = componentDataTable[outputIndex++];
+          int triggerIndex = componentDataTable[outputIndex--];
 
           if ( triggerIndex < 0 )
           {
@@ -69,9 +73,10 @@ public class ForwardDeadReckonPropnetFastAnimator
       }
       else
       {
-        while(numOutputs-- > 0)
+        assert(numOutputs>0);
+        do
         {
-          int outputFullId = componentDataTable[outputIndex++];
+          int outputFullId = componentDataTable[outputIndex--];
 
           int stateVal = ++state[(outputFullId & 0xFFFFFF)];
           if ( stateVal == 0 )
@@ -82,17 +87,20 @@ public class ForwardDeadReckonPropnetFastAnimator
           {
             propagateComponentTrue(outputFullId);
           }
-        }
+        } while(--numOutputs > 0);
       }
     }
 
     /**
      * Process toggling a component (output) to false
      * @param componentIdFull
-     */    void propagateComponentFalse(int componentIdFull)
+     */
+    void propagateComponentFalse(int componentIdFull)
     {
       int   outputIndex = ((componentIdFull & 0xFFFFFF)<<2)+1;
-      int   numOutputs = componentDataTable[outputIndex++];
+      int   numOutputs = componentDataTable[outputIndex];
+
+      outputIndex += numOutputs;
 
       //  Test componentIdOutputUniversalLogicBits - this is the sign bit (specifically)
       //  which is faster to test with a direct sign test
@@ -100,7 +108,7 @@ public class ForwardDeadReckonPropnetFastAnimator
       {
         do
         {
-          int triggerIndex = componentDataTable[outputIndex++];
+          int triggerIndex = componentDataTable[outputIndex--];
 
           if ( triggerIndex < 0 )
           {
@@ -114,9 +122,10 @@ public class ForwardDeadReckonPropnetFastAnimator
       }
       else
       {
-        while(numOutputs-- > 0)
+        assert(numOutputs>0);
+        do
         {
-          int outputFullId = componentDataTable[outputIndex++];
+          int outputFullId = componentDataTable[outputIndex--];
 
           int stateVal = state[(outputFullId & 0xFFFFFF)]--;
           if ( stateVal == 0 )
@@ -127,7 +136,7 @@ public class ForwardDeadReckonPropnetFastAnimator
           {
             propagateComponentFalse(outputFullId);
           }
-        }
+        } while(--numOutputs > 0);
       }
     }
 
@@ -371,6 +380,13 @@ public class ForwardDeadReckonPropnetFastAnimator
   // of that instance's propNet
   private InstanceInfo[]           instances;
 
+  static final private GdlConstant    LEGAL     = GdlPool.getConstant("legal");
+  static final private GdlConstant    BASE      = GdlPool.getConstant("base");
+  static final private GdlConstant    TERMINAL  = GdlPool.getConstant("terminal");
+  static final private GdlConstant    GOAL      = GdlPool.getConstant("goal");
+  static final private GdlConstant    INIT      = GdlPool.getConstant("init");
+  static final private GdlConstant    TRUE      = GdlPool.getConstant("true");
+
   /**
    * Constructs a new fast animator for the given network.  The network must not be changed
    * after this call is made or the generated fast animator will no longer be valid
@@ -379,6 +395,7 @@ public class ForwardDeadReckonPropnetFastAnimator
    */
   public ForwardDeadReckonPropnetFastAnimator(ForwardDeadReckonPropNet thePropNet)
   {
+
     propNet = thePropNet;
 
     int componentType = 0;
@@ -386,7 +403,29 @@ public class ForwardDeadReckonPropnetFastAnimator
     //  Initialize component values to a distinguished 'not set' value
     for(PolymorphicComponent c : thePropNet.getComponents())
     {
-      if ( c.getOutputs().isEmpty() && c.getInputs().isEmpty() )//thePropNet.getBasePropositions().values().contains(c) )
+      boolean isBaseProp = false;
+      boolean isLegalProp = false;
+      boolean isTerminalProp = false;
+      boolean isGoalProp = false;
+      boolean isInitProp = false;
+
+      if ( c instanceof PolymorphicProposition )
+      {
+        GdlConstant propTypeName = ((PolymorphicProposition)c).getName().getName();
+        isBaseProp = propTypeName.equals(TRUE);
+        isLegalProp = propTypeName.equals(LEGAL);
+        isTerminalProp = propTypeName.equals(TERMINAL);
+        isGoalProp = propTypeName.equals(GOAL);
+        isInitProp = propTypeName.equals(INIT);
+      }
+      if ( (c instanceof PolymorphicTransition) ||
+           isLegalProp ||
+           isTerminalProp ||
+           isGoalProp ||
+           (c.getOutputs().isEmpty() && (c.getInputs().isEmpty() ||
+                                         //(isLegalProp && c.getInputs().size() == 1 && c.getSingleInput() instanceof PolymorphicConstant)) ||
+                                         isBaseProp ||
+                                         isInitProp)) )
       {
         ((ForwardDeadReckonComponent)c).id = notNeededComponentId;
       }
@@ -466,13 +505,24 @@ public class ForwardDeadReckonPropnetFastAnimator
       if ( c instanceof PolymorphicProposition )
       {
         int moveIndex = ((ForwardDeadReckonProposition)c).getAssociatedTriggerIndex();
-        if( moveIndex >= 0 )
+        if ( moveIndex < 0 )
         {
-          componentType = componentTypeProposition;
+          ForwardDeadReckonPropositionInfo info = ((ForwardDeadReckonProposition)c).getInfo();
+          if ( info != null && info.index >= thePropNet.getBasePropositionsArray().length )
+          {
+            componentType = componentTypeProposition;
+          }
+          else
+          {
+            componentType = componentTypeNonTriggeringProposition;
+            assert(c.getInputs().isEmpty() ||
+                   thePropNet.getBasePropositions().values().contains(c) ||
+                   (c.getInputs().size()==1 && c.getSingleInput() instanceof PolymorphicConstant));
+          }
         }
         else
         {
-          componentType = componentTypeNonTriggeringProposition;
+          componentType = componentTypeProposition;
         }
       }
       else if ( c instanceof PolymorphicTransition )
@@ -519,16 +569,38 @@ public class ForwardDeadReckonPropnetFastAnimator
         if ( !outTypeSet )
         {
           outTypeSet = true;
-          if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot) ||
-              (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() == -1) )
+          if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot) )
           {
             outputTypeBits = componentIdOutputUniversalLogicBits;
+          }
+          else if ( output instanceof PolymorphicProposition )
+          {
+            ForwardDeadReckonProposition fdrp = (ForwardDeadReckonProposition)output;
+
+            if ( fdrp.getAssociatedTriggerIndex() == -1 && (fdrp.getInfo() == null || fdrp.getInfo().index < propNet.getBasePropositionsArray().length))
+            {
+              outputTypeBits = componentIdOutputUniversalLogicBits;
+            }
           }
         }
         else
         {
-          if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot) ||
-              (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() == -1) )
+          int thisOutputTypeBits = 0;
+          if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot) )
+          {
+            thisOutputTypeBits = componentIdOutputUniversalLogicBits;
+          }
+          else if ( output instanceof PolymorphicProposition )
+          {
+            ForwardDeadReckonProposition fdrp = (ForwardDeadReckonProposition)output;
+
+            if ( fdrp.getAssociatedTriggerIndex() == -1 && (fdrp.getInfo() == null || fdrp.getInfo().index < propNet.getBasePropositionsArray().length))
+            {
+              thisOutputTypeBits = componentIdOutputUniversalLogicBits;
+            }
+          }
+
+          if ( thisOutputTypeBits == componentIdOutputUniversalLogicBits )
           {
             if ( outputTypeBits != componentIdOutputUniversalLogicBits)
             {
@@ -589,23 +661,30 @@ public class ForwardDeadReckonPropnetFastAnimator
                                  (outputInverted ? componentMetaDataOutputInverted : 0) |
                                  (((outputTypeBits & componentIdOutputUniversalLogicBits) != 0) ? componentMetaDataOutputUniversalLogic : 0) |
                                  inputs.size();
+      int numOutputsIndex = index;
       componentDataTable[index++] = numOutputs;
+      assert(numOutputs>0);
 
       for(PolymorphicComponent output : outputs)
       {
+        int triggerId = getTriggerId(output);
         if ( !outTypeClash ||
-             (output instanceof PolymorphicOr) ||
-             (output instanceof PolymorphicAnd) ||
-             (output instanceof PolymorphicNot) ||
-             (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() == -1))
+            triggerId == -1 )
         {
-          if ( (outputTypeBits & componentIdOutputUniversalLogicBits) == 0 )
+          if ( triggerId != -1 )
           {
-            componentDataTable[index++] = getTriggerId(output);
+            assert((outputTypeBits & componentIdOutputUniversalLogicBits) == 0);
+            componentDataTable[index++] = triggerId;
           }
           else
           {
-            assert(((ForwardDeadReckonComponent)output).id != notNeededComponentId);
+            if ( ((ForwardDeadReckonComponent)output).id == notNeededComponentId )
+            {
+              componentDataTable[numOutputsIndex]--;
+              assert(componentDataTable[numOutputsIndex]>0 || c instanceof PolymorphicConstant);
+              continue;
+            }
+            assert((outputTypeBits & componentIdOutputUniversalLogicBits) != 0);
             assert(((ForwardDeadReckonComponent)output).id != notSetComponentId);
             componentDataTable[index++] = ((ForwardDeadReckonComponent)output).id;
           }
@@ -619,25 +698,34 @@ public class ForwardDeadReckonPropnetFastAnimator
     }
   }
 
-  private static int getTriggerId(PolymorphicComponent c)
+  private int getTriggerId(PolymorphicComponent c)
   {
     if ( c instanceof PolymorphicProposition )
     {
-      int moveIndex = ((ForwardDeadReckonProposition)c).getAssociatedTriggerIndex();
-      if( moveIndex >= 0 )
+      if ( ((ForwardDeadReckonProposition)c).getName().getName().equals(LEGAL))
       {
-        return moveIndex | 0x80000000;
+        int moveIndex = ((ForwardDeadReckonProposition)c).getAssociatedTriggerIndex();
+        if( moveIndex >= 0 )
+        {
+          return moveIndex | 0x80000000;
+        }
       }
-
-      assert(false) : "Attempt to retrieve trigger id of non-triggering proposition";
+      else
+      {
+        ForwardDeadReckonPropositionInfo info = ((ForwardDeadReckonProposition)c).getInfo();
+        if ( info != null && info.index >= propNet.getBasePropositionsArray().length )
+        {
+          assert(info.index < propNet.getActiveBaseProps(0).contents.capacity());
+          return info.index;
+        }
+      }
     }
     else if ( c instanceof PolymorphicTransition )
     {
-      return ((ForwardDeadReckonTransition)c).getAssociatedPropositionIndex();
-    }
-    else
-    {
-      assert(false) : "Unexpected attempt to retrieve trigger id on non-trigger component";
+      int result = ((ForwardDeadReckonTransition)c).getAssociatedPropositionIndex();
+
+      assert(result < propNet.getBasePropositionsArray().length);
+      return result;
     }
 
     return -1;
@@ -684,16 +772,14 @@ public class ForwardDeadReckonPropnetFastAnimator
   {
     ForwardDeadReckonComponent fdrc = (ForwardDeadReckonComponent)c;
     Collection<? extends PolymorphicComponent> outputs = fdrc.getOutputs();
-    boolean hasPropagatableOutputs = !outputs.isEmpty();
     boolean hasTrigger = false;
     boolean outputsInverted = false;
     int componentType = 0;
 
     if ( c instanceof PolymorphicProposition )
     {
-      hasTrigger = (((ForwardDeadReckonProposition)c).getAssociatedTriggerIndex() != -1);
-      //  We don't expect legal moves to have outputs!
-      assert(!hasTrigger || !hasPropagatableOutputs);
+      ForwardDeadReckonPropositionInfo info = ((ForwardDeadReckonProposition)c).getInfo();
+      hasTrigger = (getTriggerId(c) != -1);
 
       if ( hasTrigger )
       {
@@ -701,17 +787,17 @@ public class ForwardDeadReckonPropnetFastAnimator
       }
       else
       {
-        //  Represent non-triggering propositions (goals and terminal essentially)
-        //  as 1-input ORs just to hold the necessary state.  This allows us to divide
-        //  the network into strictly logic or triggering components and eliminates the
-        //  need to check that a trigger is present on a supposedly triggering type
+        //  Remaining props should be either does props or base props, both of which
+        //  are not reachable via propnet propagation and act only as inputs, or init
+        //  props that (currently - we should trim there really) just have constant inputs
+        assert(c.getInputs().isEmpty() || (c.getInputs().size() == 1 && c.getSingleInput() instanceof PolymorphicConstant) || propNet.getBasePropositions().values().contains(c));
+
         componentType = componentTypeUniversalLogic;
       }
     }
     else if ( c instanceof PolymorphicTransition )
     {
       componentType = componentTypeTransition;
-      hasPropagatableOutputs = false;
       hasTrigger = (((ForwardDeadReckonTransition)c).getAssociatedPropositionIndex() != -1);
       //  Transitions should always have triggers (else what are they doing?)
       assert(hasTrigger);
@@ -769,16 +855,38 @@ public class ForwardDeadReckonPropnetFastAnimator
       if ( !outTypeSet )
       {
         outTypeSet = true;
-        if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot) ||
-             (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() == -1))
+        if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot))
         {
           outputTypeBits = componentIdOutputUniversalLogicBits;
+        }
+        else if ( output instanceof PolymorphicProposition )
+        {
+          ForwardDeadReckonProposition fdrp = (ForwardDeadReckonProposition)output;
+
+          if ( fdrp.getAssociatedTriggerIndex() == -1 && (fdrp.getInfo() == null || fdrp.getInfo().index < propNet.getBasePropositionsArray().length))
+          {
+            outputTypeBits = componentIdOutputUniversalLogicBits;
+          }
         }
       }
       else
       {
-        if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot) ||
-            (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() == -1))
+        int thisOutputBits = 0;
+
+        if ( (output instanceof PolymorphicOr) || (output instanceof PolymorphicAnd) || (output instanceof PolymorphicNot))
+        {
+          thisOutputBits = componentIdOutputUniversalLogicBits;
+        }
+        else if ( output instanceof PolymorphicProposition )
+        {
+          ForwardDeadReckonProposition fdrp = (ForwardDeadReckonProposition)output;
+
+          if ( fdrp.getAssociatedTriggerIndex() == -1 && (fdrp.getInfo() == null || fdrp.getInfo().index < propNet.getBasePropositionsArray().length))
+          {
+            thisOutputBits = componentIdOutputUniversalLogicBits;
+          }
+        }
+        if ( thisOutputBits == componentIdOutputUniversalLogicBits )
         {
           if ( outputTypeBits != componentIdOutputUniversalLogicBits)
           {
@@ -811,7 +919,7 @@ public class ForwardDeadReckonPropnetFastAnimator
 
       for(PolymorphicComponent output : outputs)
       {
-        if ( (output instanceof PolymorphicProposition && ((ForwardDeadReckonProposition)output).getAssociatedTriggerIndex() != -1) || (output instanceof PolymorphicTransition) )
+        if ( getTriggerId(output) != -1 )
         {
           movedTriggers.add(output);
         }

@@ -354,7 +354,7 @@ public class StateMachinePerformanceAnalyser
         theMachine.initialize(description);
         theMachine.enableGreedyRollouts(false, true);
 
-        theMachine.optimizeStateTransitionMechanism(System.currentTimeMillis()+2000);
+        theMachine.optimizeStateTransitionMechanism(System.currentTimeMillis()+5000);
 
         ForwardDeadReckonInternalMachineState initialState = theMachine.createInternalState(theMachine.getInitialState());
         Role ourRole = theMachine.getRoles()[0];
@@ -414,7 +414,7 @@ public class StateMachinePerformanceAnalyser
         theMachine.enableGreedyRollouts(false, true);
         gameCharacteristics.setRolloutSampleSize(1);
 
-        theMachine.optimizeStateTransitionMechanism(System.currentTimeMillis()+2000);
+        theMachine.optimizeStateTransitionMechanism(System.currentTimeMillis()+5000);
 
         GameSearcher gameSearcher = new GameSearcher(1000000, theMachine.getRoles().length, "PerfTest");
 
