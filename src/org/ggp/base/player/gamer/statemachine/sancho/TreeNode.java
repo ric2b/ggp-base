@@ -163,7 +163,7 @@ public class TreeNode
     tree = xiTree;
     mRef = xiPoolIndex;
     mInstanceID = xiPoolIndex;
-    state = new ForwardDeadReckonInternalMachineState(tree.underlyingStateMachine.getInfoSet());
+    state = tree.underlyingStateMachine.createEmptyInternalState();
     children = new Object[tree.gameCharacteristics.getChoicesHighWaterMark(0)];
   }
 

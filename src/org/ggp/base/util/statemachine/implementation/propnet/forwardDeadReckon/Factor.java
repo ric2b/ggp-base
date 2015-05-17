@@ -121,7 +121,7 @@ public class Factor implements StateMachineFilter
 
   private void setUpStateMasks()
   {
-    factorSpecificStateMask = new ForwardDeadReckonInternalMachineState(stateMachine.getInfoSet());
+    factorSpecificStateMask = stateMachine.createEmptyInternalState();
     for(PolymorphicProposition p : stateMachine.getFullPropNet().getBasePropositions().values())
     {
       ForwardDeadReckonProposition fdrp = (ForwardDeadReckonProposition)p;
@@ -132,7 +132,7 @@ public class Factor implements StateMachineFilter
         factorSpecificStateMask.add(info);
       }
     }
-    stateMask = new ForwardDeadReckonInternalMachineState(stateMachine.getInfoSet());
+    stateMask = stateMachine.createEmptyInternalState();
     for(PolymorphicProposition p : stateMachine.getFullPropNet().getBasePropositions().values())
     {
       ForwardDeadReckonProposition fdrp = (ForwardDeadReckonProposition)p;

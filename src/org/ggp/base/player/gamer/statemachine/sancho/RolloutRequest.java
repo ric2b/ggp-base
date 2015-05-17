@@ -57,7 +57,7 @@ class RolloutRequest
   {
     mAverageScores = new double[xiNumRoles];
     mAverageSquaredScores = new double[xiNumRoles];
-    mState = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+    mState = underlyingStateMachine.createEmptyInternalState();
   }
 
   private static double sigma(double x)

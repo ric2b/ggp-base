@@ -36,7 +36,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
     public void reset(ForwardDeadReckonInternalMachineState xiState)
     {
       mState = xiState;
-      mFirstIndex = xiState.contents.nextSetBit(0);
+      mFirstIndex = xiState.contents.nextSetBit(xiState.firstBasePropIndex);
       mIndex = mFirstIndex;
       mLastIndex = -1;
     }
@@ -87,6 +87,11 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    * Master list of propositions which may be included or not in the state.
    */
   final ForwardDeadReckonPropositionCrossReferenceInfo[] infoSet;
+  /**
+   * Index of first base prop - preceding elements are pseudo-elements representing goals
+   * and terminal
+   */
+  public final int                                       firstBasePropIndex;
 
   // Optional heuristic data associated with the state.
   private HashMap<Heuristic, Object>               heuristicData = null;
@@ -108,10 +113,12 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   /**
    * Construct a new empty state for the given set of possible base propositions
    * @param masterInfoSet list of the possible base propositions that may occur
+   * @param xiFirstBasePropIndex index of first base poorp (previous are pseudo-triggers for goals/terminal)
    */
-  public ForwardDeadReckonInternalMachineState(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet)
+  public ForwardDeadReckonInternalMachineState(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet, int xiFirstBasePropIndex)
   {
     infoSet = masterInfoSet;
+    firstBasePropIndex = xiFirstBasePropIndex;
     contents = new OpenBitSet(infoSet.length);
   }
 
@@ -124,7 +131,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    */
   public ForwardDeadReckonInternalMachineState(ForwardDeadReckonInternalMachineState copyFrom)
   {
-    this(copyFrom.infoSet);
+    this(copyFrom.infoSet, copyFrom.firstBasePropIndex);
     copy(copyFrom);
 
     if ( copyFrom.hashCached )

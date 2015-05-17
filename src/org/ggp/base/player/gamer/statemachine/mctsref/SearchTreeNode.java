@@ -90,7 +90,7 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
 
         if ( choosingRole == tree.getNumRoles()-1 )
         {
-          childState = new ForwardDeadReckonInternalMachineState(tree.getStateMachine().getInfoSet());
+          childState = tree.getStateMachine().createEmptyInternalState();
           tree.getStateMachine().getNextState(state, null, jointMove, childState);
         }
         else

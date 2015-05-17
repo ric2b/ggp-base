@@ -217,7 +217,7 @@ public class MajorityGoalsHeuristic implements Heuristic
 
       for(Role role : xiStateMachine.getRoles())
       {
-        ForwardDeadReckonInternalMachineState roleMask = new ForwardDeadReckonInternalMachineState(xiStateMachine.getInfoSet());
+        ForwardDeadReckonInternalMachineState roleMask = xiStateMachine.createEmptyInternalState();
 
         for(PolymorphicProposition p : roleSets.get(role))
         {

@@ -271,7 +271,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           gameCharacteristics.getMinNonDrawLength() < gameCharacteristics.getAverageLength()/2 &&
           gameCharacteristics.getAverageLength() < (2*(double)gameCharacteristics.getMaxLength())/3)
       {
-        localSearchRoot = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+        localSearchRoot = underlyingStateMachine.createEmptyInternalState();
         moveConsequenceSearcher = new MoveConsequenceSearcher(underlyingStateMachine.createInstance(), roleOrdering, mLogName, this);
       }
       else

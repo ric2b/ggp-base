@@ -355,13 +355,13 @@ public class MCTSTree
     mJointMoveBuffer              = new ForwardDeadReckonLegalMoveInfo[numRoles];
     mFastForwardPartialMoveBuffer = new ForwardDeadReckonLegalMoveInfo[numRoles];
     mBlendedCompletionScoreBuffer = new double[numRoles];
-    mNextStateBuffer              = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+    mNextStateBuffer              = underlyingStateMachine.createEmptyInternalState();
     mChildStatesBuffer            = new ForwardDeadReckonInternalMachineState[MAX_SUPPORTED_BRANCHING_FACTOR];
     for (int lii = 0; lii < MAX_SUPPORTED_BRANCHING_FACTOR; lii++)
     {
-      mChildStatesBuffer[lii] = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+      mChildStatesBuffer[lii] = underlyingStateMachine.createEmptyInternalState();
     }
-    mStateScratchBuffer = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+    mStateScratchBuffer = underlyingStateMachine.createEmptyInternalState();
     mMoveScoreInfoAllocator = new MoveScoreInfoAllocator(numRoles);
     mCachedMoveScorePool = new CappedPool<>(MAX_SUPPORTED_BRANCHING_FACTOR);
   }

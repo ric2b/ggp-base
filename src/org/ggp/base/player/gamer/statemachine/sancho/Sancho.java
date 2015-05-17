@@ -345,7 +345,7 @@ public class Sancho extends SampleGamer
 
     for(int i = 0; i < numRoles; i++)
     {
-      roleControlMasks[i] = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+      roleControlMasks[i] = underlyingStateMachine.createEmptyInternalState();
       roleControlMasks[i].clear();
       roleControlMasks[i].invert();
     }

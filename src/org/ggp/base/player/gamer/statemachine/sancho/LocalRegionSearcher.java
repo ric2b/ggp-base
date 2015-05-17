@@ -124,7 +124,7 @@ public class LocalRegionSearcher
     {
       chooserMoveChoiceStack[i] = new ForwardDeadReckonLegalMoveInfo[MAX_BRANCHING_FACTOR];
       jointMove[i] = new ForwardDeadReckonLegalMoveInfo[numRoles];
-      childStateBuffer[i] = new ForwardDeadReckonInternalMachineState(underlyingStateMachine.getInfoSet());
+      childStateBuffer[i] = underlyingStateMachine.createEmptyInternalState();
       chooserMoveChoiceIsResponse[i] = new boolean[MAX_BRANCHING_FACTOR];
       relevantMoves[i] = new ForwardDeadReckonLegalMoveSet[MAX_DEPTH+1];
       for(int j = 0; j <= MAX_DEPTH; j++)

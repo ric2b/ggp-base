@@ -75,6 +75,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
 
   @SuppressWarnings("unchecked")
   private void setUpActivePropositionSets(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet,
+                                          int firstBasePropIndex,
                                           ForwardDeadReckonLegalMoveInfo[]   masterMoveList)
   {
     activeLegalMoves = new ForwardDeadReckonLegalMoveSet[numInstances];
@@ -162,11 +163,11 @@ public ForwardDeadReckonPropNet(Role[] roles,
     }
 
     activeBasePropositions = new ForwardDeadReckonInternalMachineState[numInstances];
-    alwaysTrueBasePropositions = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+    alwaysTrueBasePropositions = new ForwardDeadReckonInternalMachineState(masterInfoSet, firstBasePropIndex);
 
     for (int instanceId = 0; instanceId < numInstances; instanceId++)
     {
-      activeBasePropositions[instanceId] = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+      activeBasePropositions[instanceId] = new ForwardDeadReckonInternalMachineState(masterInfoSet, firstBasePropIndex);
 
       for (PolymorphicProposition p : getBasePropositions().values())
       {
@@ -200,6 +201,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
    * @param masterMoveList master list of moves - may be null to generate
    */
   private void crystalize(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet,
+                          int firstBasePropIndex,
                           ForwardDeadReckonLegalMoveInfo[]   masterMoveList)
   {
     for (PolymorphicComponent c : getComponents())
@@ -210,7 +212,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
       fdrc.setPropnet(this);
     }
 
-    setUpActivePropositionSets(masterInfoSet, masterMoveList);
+    setUpActivePropositionSets(masterInfoSet, firstBasePropIndex, masterMoveList);
 
     // Calculate useful goal information.
     for (Role lRole : getRoles())
@@ -237,12 +239,13 @@ public ForwardDeadReckonPropNet(Role[] roles,
    * @param theNumInstances Number of independent instances to support
    */
   public void crystalize(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet,
+                         int firstBasePropIndex,
                          ForwardDeadReckonLegalMoveInfo[]   masterMoveList,
                          int theNumInstances)
   {
     numInstances = theNumInstances;
 
-    crystalize(masterInfoSet, masterMoveList);
+    crystalize(masterInfoSet, firstBasePropIndex, masterMoveList);
   }
 
   /**
