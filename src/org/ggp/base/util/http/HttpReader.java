@@ -15,13 +15,15 @@ import org.apache.logging.log4j.Logger;
 
 public final class HttpReader
 {
-
   private static final Logger LOGGER = LogManager.getLogger();
 
+  /**
+   * A GGP request.
+   */
   public static class GGPRequest
   {
     /**
-     * The GGP request.
+     * The GGP request itself.
      */
     public String mRequest;
 
@@ -33,7 +35,7 @@ public final class HttpReader
     /**
      * Log the headers for this message.
      *
-     * Only call this method once the context has been established.
+     * Only call this method once the log context has been established.
      */
     public void logHeaders()
     {
@@ -96,10 +98,10 @@ public final class HttpReader
   {
     GGPRequest lRequest = new GGPRequest();
 
-    BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+    BufferedReader lReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
     // The first line of the HTTP request is the request line.
-    String requestLine = br.readLine();
+    String requestLine = lReader.readLine();
     if (requestLine.toUpperCase().startsWith("GET "))
     {
       String lMessage = requestLine.substring(5, requestLine.lastIndexOf(' '));
@@ -107,11 +109,11 @@ public final class HttpReader
       lMessage = lMessage.replace((char)13, ' ');
       lRequest.mRequest = lMessage;
 
-      // !! ARR Go on to read the headers.
+      parseHeaders(lReader, lRequest);
     }
     else if (requestLine.toUpperCase().startsWith("POST "))
     {
-      lRequest = readContentFromPOST(br);
+      lRequest = readContentFromPOST(lReader);
     }
     else if (requestLine.toUpperCase().startsWith("OPTIONS "))
     {
@@ -150,8 +152,7 @@ public final class HttpReader
         }
         catch (NumberFormatException e)
         {
-          throw new IOException("Content-Length header can't be parsed: \"" +
-                                line + "\"");
+          throw new IOException("Content-Length header can't be parsed: \"" + line + "\"");
         }
       }
       else if (line.length() == 0)
@@ -172,7 +173,59 @@ public final class HttpReader
         }
         throw new IOException("Could not find Content-Length header.");
       }
+      else
+      {
+        parseHeader(line, lRequest);
+      }
     }
     throw new IOException("Could not find content in POST request.");
+  }
+
+  /**
+   * Parse the HTTP headers, storing any GGP-related ones in the request object.
+   *
+   * @param xiReader - an input reader.
+   * @param xiRequest - the request object in which to store the headers.
+   *
+   * @throws IOException if there was a problem reading the headers.
+   */
+  private static void parseHeaders(BufferedReader xiReader, GGPRequest xiRequest) throws IOException
+  {
+
+    String lLine;
+    while ((lLine = xiReader.readLine()) != null)
+    {
+      if (lLine.length() == 0)
+      {
+        // A blank line signifies the end of the headers.  We're all done.
+        break;
+      }
+
+      // Attempt to parse the line as a header.
+      parseHeader(lLine, xiRequest);
+    }
+  }
+
+  /**
+   * Attempt to parse a line as an HTTP header.  If successful, and it's a GGP header, add the details to the request
+   * object.
+   *
+   * @param xiLine - the line to parse.
+   * @param xiRequest - the request object in which to store the header if parsing is successful.
+   */
+  private static void parseHeader(String xiLine, GGPRequest xiRequest)
+  {
+    // If the header contains GGP, store it for logging.
+    int lColonIndex = xiLine.indexOf(':');
+    if ((lColonIndex != -1) && (lColonIndex < xiLine.length() - 1))
+    {
+      String lHeader = xiLine.substring(0, lColonIndex).trim();
+      String lValue = xiLine.substring(lColonIndex + 1).trim();
+
+      if (lHeader.toLowerCase().contains("ggp"))
+      {
+        xiRequest.mHeaders.put(lHeader, lValue);
+      }
+    }
   }
 }
