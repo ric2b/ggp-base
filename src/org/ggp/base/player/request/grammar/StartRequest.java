@@ -66,8 +66,7 @@ public final class StartRequest extends Request
     // Finally, have the gamer begin metagaming.
     try
     {
-      gamer.notifyObservers(new PlayerTimeEvent(gamer.getMatch()
-          .getStartClock() * 1000));
+      gamer.notifyObservers(new PlayerTimeEvent(gamer.getMatch().getStartClock() * 1000));
       gamer.metaGame(gamer.getMatch().getStartClock() * 1000 + receptionTime);
     }
     catch (MetaGamingException e)

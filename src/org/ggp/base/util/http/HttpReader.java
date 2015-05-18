@@ -86,8 +86,7 @@ public final class HttpReader
       {
         try
         {
-          theContentLength = Integer.parseInt(line.toLowerCase()
-              .replace("content-length:", "").trim());
+          theContentLength = Integer.parseInt(line.toLowerCase().replace("content-length:", "").trim());
         }
         catch (NumberFormatException e)
         {

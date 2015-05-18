@@ -48,7 +48,6 @@ public final class RequestFactory
       }
       else if (type.equals("preview"))
       {
-        // !! ARR "preview" no longer used?  Can be removed?
         return createPreview(gamer, list);
       }
       else if (type.equals("start"))
