@@ -6,6 +6,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
@@ -24,6 +26,8 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
  */
 public class ForwardDeadReckonPropnetFastAnimator
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   /**
    * @author steve
    * Opaque class that is not interpreted externally but must be retrieved and passed back
@@ -250,15 +254,12 @@ public class ForwardDeadReckonPropnetFastAnimator
      */
     public void changeComponentValueTo(int propId, boolean value)
     {
-      assert(((state[propId & 0xFFFFFF] & componentStateCachedValMask) != 0) != value);
       if ( value )
       {
-        assert((state[propId & 0xFFFFFF] |= componentStateCachedValMask) != 0);
         propagateComponentTrue(propId);
       }
       else
       {
-        assert((state[propId & 0xFFFFFF] &= ~componentStateCachedValMask) >= 0);
         propagateComponentFalse(propId);
       }
     }
@@ -283,6 +284,7 @@ public class ForwardDeadReckonPropnetFastAnimator
 
   private final ForwardDeadReckonPropNet  propNet;
   private int                             nextComponentBaseId = 0;
+  private final int                       numStatefulComponents;
   /**
    * The data for each component is stored in a contiguous set of integers in
    * the following form:
@@ -332,6 +334,7 @@ public class ForwardDeadReckonPropnetFastAnimator
   private static final int                componentIdOutputInvertedFlag = (1<<29);
   private static final int                componentIdOutSingleTrigger = (1<<30);
   private static final int                componentIdOutputUniversalLogicBits = (1 << 31);
+  private static final int                componentIdDeferredAsignmentBits = (1 << 28);
 
   // states will be represented by per-thread int arrays, with each int packed as follows
   private static final int                componentStateCachedValMask = 1<<31; // Current state
@@ -350,6 +353,8 @@ public class ForwardDeadReckonPropnetFastAnimator
    */
   public static final int notNeededComponentId = -1;
 
+  private int             nextDeferredComponentId = 0;
+
   // Each instance (which typically maps to a thread) has its own InstanceInfo to hold the complete state
   // of that instance's propNet
   private InstanceInfo[]           instances;
@@ -360,6 +365,16 @@ public class ForwardDeadReckonPropnetFastAnimator
   static final private GdlConstant    GOAL      = GdlPool.getConstant("goal");
   static final private GdlConstant    INIT      = GdlPool.getConstant("init");
   static final private GdlConstant    TRUE      = GdlPool.getConstant("true");
+
+  private class PassThroughComponentInfo
+  {
+    public PassThroughComponentInfo()
+    {
+      // TODO Auto-generated constructor stub
+    }
+    int                       addedOrId;
+    Set<PolymorphicComponent> components;
+  }
 
   /**
    * Constructs a new fast animator for the given network.  The network must not be changed
@@ -416,7 +431,7 @@ public class ForwardDeadReckonPropnetFastAnimator
     //  Where the original (PolymorphicComponent) network has a component with outputs of
     //  mixed type, we add a dummy 1-input OR buffer to separate the triggers from the
     //  logic
-    Map<Integer, Set<PolymorphicComponent>> addedPassThroughComponents = new HashMap<>();
+    Map<PolymorphicComponent, PassThroughComponentInfo> addedPassThroughComponents = new HashMap<>();
 
     //  Number components and set up metadata flags stored in their high id bits
     //  In order to make some attempt to improve CPU predictability of stride
@@ -431,7 +446,7 @@ public class ForwardDeadReckonPropnetFastAnimator
 
       if ( fdrc.id == notSetComponentId )
       {
-        setComponentId(c, addedPassThroughComponents);
+        setComponentId(c, addedPassThroughComponents, true);
         recursivelySetComponentOutputIds(c, addedPassThroughComponents);
       }
     }
@@ -443,23 +458,29 @@ public class ForwardDeadReckonPropnetFastAnimator
 
       if ( fdrc.id == notSetComponentId )
       {
-        setComponentId(c, addedPassThroughComponents);
+        setComponentId(c, addedPassThroughComponents, true);
         recursivelySetComponentOutputIds(c, addedPassThroughComponents);
       }
     }
 
-    //  Any remaining components
+    //  Any remaining non-deferred components
     for(PolymorphicComponent c : thePropNet.getComponents())
     {
       ForwardDeadReckonComponent fdrc = (ForwardDeadReckonComponent)c;
 
       if ( fdrc.id == notSetComponentId )
       {
-        setComponentId(c, addedPassThroughComponents);
+        setComponentId(c, addedPassThroughComponents, false);
       }
     }
 
-    componentDataTable = new int[nextComponentBaseId*4];
+    //  Remaining components (whose id allocation we have deferred) do not need to retain state in the instance
+    //  state table.  These are the does props and the base props, which are all inputs to the network rather
+    //  than really part of its state
+    numStatefulComponents = nextComponentBaseId;
+    LOGGER.info("Animator instance state vector size: " + numStatefulComponents);
+
+    componentDataTable = new int[(nextComponentBaseId+nextDeferredComponentId)*4];
 
     for(PolymorphicComponent c : thePropNet.getComponents())
     {
@@ -471,7 +492,16 @@ public class ForwardDeadReckonPropnetFastAnimator
         continue;
       }
 
-      int id = fdrc.id & 0xFFFFFF;
+      int id;
+      if ( (fdrc.id & componentIdDeferredAsignmentBits) != 0 )
+      {
+        //  Allocate now
+        id = nextComponentBaseId;
+      }
+      else
+      {
+        id = fdrc.id & 0xFFFFFF;
+      }
       boolean outputInverted = ((fdrc.id & componentIdOutputInvertedFlag) != 0);
 
       Collection<? extends PolymorphicComponent> outputs = c.getOutputs();
@@ -593,21 +623,21 @@ public class ForwardDeadReckonPropnetFastAnimator
       if ( outTypeClash )
       {
         //  Insert pass-through 1-input OR
-        Set<PolymorphicComponent> movedTriggers = addedPassThroughComponents.get(id);
+        PassThroughComponentInfo movedTriggers = addedPassThroughComponents.get(c);
 
-        dummyOrId = id - ((5 + movedTriggers.size())/4);
+        dummyOrId = movedTriggers.addedOrId;
 
         int dummyComponentIndex = dummyOrId*4;
 
         int typeInfo = (1 | componentTypeOrBits);  // 1-input OR;
-        if ( movedTriggers.size() == 1 )
+        if ( movedTriggers.components.size() == 1 )
         {
           typeInfo |= componentIdOutSingleTrigger;
         }
         componentDataTable[dummyComponentIndex++] = typeInfo;
-        componentDataTable[dummyComponentIndex++] = movedTriggers.size();       // Number of outputs
+        componentDataTable[dummyComponentIndex++] = movedTriggers.components.size();       // Number of outputs
 
-        for(PolymorphicComponent output : movedTriggers)
+        for(PolymorphicComponent output : movedTriggers.components)
         {
           int triggerId = getTriggerId(output);
 
@@ -618,7 +648,7 @@ public class ForwardDeadReckonPropnetFastAnimator
 
         //  Original component now outputs to the remaining subset of its original
         //  outputs plus the dummy OR
-        numOutputs -= (movedTriggers.size()-1);
+        numOutputs -= (movedTriggers.components.size()-1);
       }
 
       if (numOutputs == 0 )
@@ -651,6 +681,7 @@ public class ForwardDeadReckonPropnetFastAnimator
             if ( ((ForwardDeadReckonComponent)output).id == notNeededComponentId )
             {
               componentDataTable[numOutputsIndex]--;
+              numOutputs--;
               assert(componentDataTable[numOutputsIndex]>0 || c instanceof PolymorphicConstant);
               continue;
             }
@@ -664,6 +695,15 @@ public class ForwardDeadReckonPropnetFastAnimator
       {
         //  Add the dummy OR to the original's output list
         componentDataTable[index++] = dummyOrId | (componentTypeUniversalLogic << 24);
+      }
+
+      if ( (fdrc.id & componentIdDeferredAsignmentBits) != 0 )
+      {
+        assert(c instanceof PolymorphicProposition);
+        assert((fdrc.id & 0xFFFFFF) < nextDeferredComponentId);
+        fdrc.id = (fdrc.id & ~0xFFFFFF) | ((id & 0xFFFFFF));
+
+        nextComponentBaseId += (5+numOutputs)/4;
       }
     }
 
@@ -733,7 +773,7 @@ public class ForwardDeadReckonPropnetFastAnimator
    * @param c root component to start from (must already have had its id set)
    * @param addedPassThroughComponents set of any pseudo-components added during numbering
     */
-  private void recursivelySetComponentOutputIds(PolymorphicComponent c, Map<Integer, Set<PolymorphicComponent>> addedPassThroughComponents)
+  private void recursivelySetComponentOutputIds(PolymorphicComponent c, Map<PolymorphicComponent, PassThroughComponentInfo> addedPassThroughComponents)
   {
     assert(((ForwardDeadReckonComponent)c).id != notSetComponentId);
 
@@ -744,7 +784,7 @@ public class ForwardDeadReckonPropnetFastAnimator
       ForwardDeadReckonComponent fdrc = (ForwardDeadReckonComponent)output;
       if ( fdrc.id == notSetComponentId )
       {
-        setComponentId(output, addedPassThroughComponents);
+        setComponentId(output, addedPassThroughComponents, false);
         processedOutputs.add(output);
       }
     }
@@ -763,7 +803,7 @@ public class ForwardDeadReckonPropnetFastAnimator
    * @param c  component to set the id of
    * @param addedPassThroughComponents set of any pseudo-components added during numbering
    */
-  private void setComponentId(PolymorphicComponent c, Map<Integer, Set<PolymorphicComponent>> addedPassThroughComponents)
+  private void setComponentId(PolymorphicComponent c, Map<PolymorphicComponent, PassThroughComponentInfo> addedPassThroughComponents, boolean deferFinalIdChoice)
   {
     ForwardDeadReckonComponent fdrc = (ForwardDeadReckonComponent)c;
     Collection<? extends PolymorphicComponent> outputs = fdrc.getOutputs();
@@ -904,6 +944,8 @@ public class ForwardDeadReckonPropnetFastAnimator
 
     if ( outTypeClash )
     {
+      PassThroughComponentInfo passThroughInfo = new PassThroughComponentInfo();
+
       //  Insert a dummy pass-through (1-input OR) component to restore
       //  strict layering
       Set<PolymorphicComponent> movedTriggers = new HashSet<>();
@@ -916,25 +958,43 @@ public class ForwardDeadReckonPropnetFastAnimator
         }
       }
 
+      passThroughInfo.addedOrId = nextComponentBaseId;
+      passThroughInfo.components = movedTriggers;
+
       numOutputs -= (movedTriggers.size()-1);
 
       outputTypeBits = componentIdOutputUniversalLogicBits;
 
       nextComponentBaseId += ((movedTriggers.size()+5)/4);
 
-      addedPassThroughComponents.put(nextComponentBaseId, movedTriggers);
+      addedPassThroughComponents.put(c, passThroughInfo);
     }
     else if ( outputTypeBits == 0 && numOutputs == 1 )
     {
       outputTypeBits = componentIdOutSingleTrigger;
     }
 
-    fdrc.id = (nextComponentBaseId) |
-              (componentType << 24) |
-               outputTypeBits |
-              (outputsInverted ? componentIdOutputInvertedFlag : 0);
+    if ( deferFinalIdChoice )
+    {
+      assert(c instanceof PolymorphicProposition);
+      fdrc.id = (nextDeferredComponentId) |
+                (componentType << 24) |
+                 outputTypeBits |
+                (outputsInverted ? componentIdOutputInvertedFlag : 0) |
+                componentIdDeferredAsignmentBits;
 
-    nextComponentBaseId += ((numOutputs+5)/4);
+      nextDeferredComponentId += ((numOutputs+5)/4);
+    }
+    else
+    {
+      fdrc.id = (nextComponentBaseId) |
+                (componentType << 24) |
+                 outputTypeBits |
+                (outputsInverted ? componentIdOutputInvertedFlag : 0);
+
+      nextComponentBaseId += ((numOutputs+5)/4);
+    }
+
     assert(nextComponentBaseId < 0x01000000);
   }
 
@@ -950,7 +1010,7 @@ public class ForwardDeadReckonPropnetFastAnimator
 
     for(int i = 0; i < numInstances; i++)
     {
-      instances[i] = new InstanceInfo(nextComponentBaseId);
+      instances[i] = new InstanceInfo(numStatefulComponents);
       instances[i].legalMoveNotifier = propNet.getActiveLegalProps(i);
       instances[i].propositionTransitionNotifier = propNet.getActiveBaseProps(i);
     }
@@ -980,7 +1040,7 @@ public class ForwardDeadReckonPropnetFastAnimator
     int[] state = instanceInfo.state;
     int i = 0;
 
-    while(i < nextComponentBaseId)
+    while(i < numStatefulComponents)
     {
       int componentIndex = i*4;
       int stateEntryIndex = i;
@@ -1038,7 +1098,7 @@ public class ForwardDeadReckonPropnetFastAnimator
     {
       i = 0;
 
-      while(i < nextComponentBaseId)
+      while(i < numStatefulComponents)
       {
         instanceInfo.resetWatermark = i;
 
@@ -1076,16 +1136,4 @@ public class ForwardDeadReckonPropnetFastAnimator
     }
   }
 
-
-  /**
-   * Retrieve the current state of a proposition
-   * @param instanceId id of the instance to retrieve from
-   * @param propId id of the proposition to retrieve the value of
-   * @return the proposition's current value
-   */
-  public boolean getComponentValue(int instanceId, int propId)
-  {
-    int[] state = instances[instanceId].state;
-    return ((state[(propId & 0xFFFFFF)] & componentStateCachedValMask) != 0);
-  }
 }

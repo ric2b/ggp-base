@@ -1743,9 +1743,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
 
       fullPropNet.reset(false);
-      if (fullPropNet.getInitProposition() != null)
+      ForwardDeadReckonProposition initProp = (ForwardDeadReckonProposition)fullPropNet.getInitProposition();
+      if ( initProp != null && initProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
       {
-        fullPropNet.animator.getInstanceInfo(0).changeComponentValueTo(((ForwardDeadReckonProposition)fullPropNet.getInitProposition()).id, true);
+        fullPropNet.animator.getInstanceInfo(0).changeComponentValueTo(initProp.id, true);
       }
       propNet = fullPropNet;
       propNetInstanceInfo = propNet.animator.getInstanceInfo(0);
@@ -2505,17 +2506,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   {
     InternalMachineStateIterator lIterator = mStateIterator;
 
-    for (PolymorphicProposition p : propNet.getBasePropositionsArray())
-    {
-      int compId = ((ForwardDeadReckonProposition)p).id;
-
-      if ( compId != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId )
-      {
-        assert(!propNet.animator.getComponentValue(instanceId, compId));
-        //propNetInstanceInfo.setComponentValue(compId, false);
-      }
-    }
-
     lIterator.reset(lastInternalSetState);
     while (lIterator.hasNext())
     {
@@ -2613,9 +2603,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private boolean isTerminalUnfactored()
   {
-//    ForwardDeadReckonProposition terminalProp = (ForwardDeadReckonProposition)propNet.getTerminalProposition();
-//    boolean result = (terminalProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId &&
-//                      propNet.getComponentValue(instanceId, terminalProp));
     boolean result = propNet.getActiveBaseProps(instanceId).contains(((ForwardDeadReckonProposition)fullPropNet.getTerminalProposition()).getInfo());
 
     if (validationMachine != null)
@@ -4293,11 +4280,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           {
             instanceInfo.changeComponentValueTo(sCr.goalsNetProp.id, true);
           }
-          else
-          {
-            assert(!goalsNet.animator.getComponentValue(instanceId, sCr.goalsNetProp.id));
-            //instanceInfo.setComponentValue(sCr.goalsNetProp.id, false);
-          }
         }
       }
 
@@ -4461,14 +4443,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private int extractRoleGoal(ForwardDeadReckonPropNet net, Role role)
   {
-    //PolymorphicProposition[] goalProps = net.getGoalPropositions().get(role);
     PolymorphicProposition[] goalProps = net.getGoalPropositions().get(role);
     int result = 0;
 
     for (PolymorphicProposition p : goalProps)
     {
-//      if (((ForwardDeadReckonComponent)p).id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId &&
-//          net.getComponentValue(instanceId, (ForwardDeadReckonComponent)p))
       if ( net.getActiveBaseProps(instanceId).contains(((ForwardDeadReckonProposition)p).getInfo()) )
       {
         result = Integer.parseInt(p.getName().getBody().get(1).toString());

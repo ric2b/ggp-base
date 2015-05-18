@@ -12,7 +12,6 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicComponentFactory;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropositionCrossReferenceInfo;
@@ -275,20 +274,6 @@ public ForwardDeadReckonPropNet(Role[] roles,
   public ForwardDeadReckonLegalMoveInfo[] getMasterMoveList()
   {
     return alwaysTrueLegalMoves.getMasterList();
-  }
-
-
-  /**
-   * Retrieve the current state of a specified component.  Should only
-   * be called on transitions or propositions
-   * @param instanceId Instance from which to retrieve the component state
-   * @param component Components to retrieve the state of
-   * @return the current state of the specified component
-   */
-  public boolean getComponentValue(int instanceId, ForwardDeadReckonComponent component)
-  {
-    assert( (component instanceof PolymorphicProposition) || (component instanceof PolymorphicTransition) );
-    return animator.getComponentValue(instanceId, component.id);
   }
 
   /**
