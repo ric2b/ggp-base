@@ -19,6 +19,7 @@ import org.ggp.base.player.request.grammar.StopRequest;
 import org.ggp.base.server.event.ServerAbortedMatchEvent;
 import org.ggp.base.server.event.ServerCompletedMatchEvent;
 import org.ggp.base.util.http.HttpReader;
+import org.ggp.base.util.http.HttpReader.GGPRequest;
 import org.ggp.base.util.http.HttpWriter;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.observer.Event;
@@ -94,19 +95,19 @@ public final class GamePlayer extends Thread implements Subject
       try
       {
         Socket connection = listener.accept();
-        String in = HttpReader.readAsServer(connection);
-        if (in.length() == 0)
+        GGPRequest lHTTPRequest = HttpReader.readAsServer(connection);
+        if (lHTTPRequest.mRequest.length() == 0)
         {
           throw new IOException("Empty message received.");
         }
 
-        notifyObservers(new PlayerReceivedMessageEvent(in));
+        notifyObservers(new PlayerReceivedMessageEvent(lHTTPRequest.mRequest));
         GamerLogger.log("GamePlayer",
                         "[Received at " + System.currentTimeMillis() + "] " +
-                            in,
+                            lHTTPRequest,
                         GamerLogger.LOG_LEVEL_DATA_DUMP);
 
-        Request request = new RequestFactory().create(gamer, in);
+        Request request = new RequestFactory().create(gamer, lHTTPRequest);
         String out = request.process(System.currentTimeMillis());
 
         HttpWriter.writeAsServer(connection, out);
