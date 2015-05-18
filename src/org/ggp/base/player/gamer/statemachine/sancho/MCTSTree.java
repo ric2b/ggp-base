@@ -558,7 +558,7 @@ public class MCTSTree
     {
       if ( root.state.equals(factorState))
       {
-        assert ( rootDepth == 0 );
+        assert ( rootDepth == 0 || factor != null );
         if ( rootDepth == 0 )
         {
           //  This is the start of the first turn, after some searching at the end of meta-gaming
