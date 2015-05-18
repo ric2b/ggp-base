@@ -70,8 +70,8 @@ public class Sancho extends SampleGamer
    */
   private Role                        ourRole;
   private int                         mTurn                           = 0;
-  private String                      planString                      = null;
-  private GamePlan                    plan                            = null;
+  private String                      mPlanString                     = null;
+  private GamePlan                    mPlan                           = null;
   private int                         transpositionTableSize          = MachineSpecificConfiguration.getCfgVal(CfgItem.NODE_TABLE_SIZE, 2000000);
   private RoleOrdering                roleOrdering                    = null;
   private ForwardDeadReckonPropositionInfo[] roleControlProps         = null;
@@ -104,7 +104,7 @@ public class Sancho extends SampleGamer
     {
       throw new InvalidParameterException();
     }
-    planString = xiParam.substring(5);
+    mPlanString = xiParam.substring(5);
 
     // Start pre-warming he search tree 2 moves before he end of the plan so that we arrive at the turn we need to
     // search in earnest in with a warmed-up tree.  (This isn't needed in the case of a learned plan, because they
@@ -237,10 +237,10 @@ public class Sancho extends SampleGamer
     // If have been configured with a plan (for test purposes), load it now.
     // We'll still do everything else as normal, but whilst there are moves in
     // the plan, when it comes to play, we'll just play the specified move.
-    plan = new GamePlan();
-    if (planString != null)
+    mPlan = new GamePlan();
+    if (mPlanString != null)
     {
-      plan.considerPlan(convertPlanString(planString));
+      mPlan.considerPlan(convertPlanString(mPlanString));
 
       //  When given an explicit plan at the start of the game (implies we're in test mode)
       //  warm up the search tree 2 moves before the plan runs out
@@ -284,7 +284,7 @@ public class Sancho extends SampleGamer
     {
       // We've played this game before and know how to solve it.
       LOGGER.info("Considering saved plan: " + lSavedPlan);
-      plan.considerPlan(convertPlanString(mGameCharacteristics.getPlan()));
+      mPlan.considerPlan(convertPlanString(mGameCharacteristics.getPlan()));
       LOGGER.info("Ready to play");
       return;
     }
@@ -901,77 +901,14 @@ public class Sancho extends SampleGamer
       }
     }
 
-    //	Special case handling for puzzles with hard-to-find wins
-    //	WEAKEN THIS WHEN WE HAVE TRIAL A*
+    // Attempt to solve puzzles with A* unless we've already found a solution.
+    // !! Do we already know whether the game is a pseudo-puzzle at this point and could we apply A* to such a game?
     if ((!MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_A_STAR, false)) &&
-        mGameCharacteristics.numRoles == 1 &&
-        observedMinNetScore == observedMaxNetScore &&
-        observedMaxNetScore < 100 &&
-        factors == null )
+        (mGameCharacteristics.numRoles == 1) &&
+        (observedMaxNetScore < 100) &&
+        (factors == null))
     {
-      //	8-puzzle type stuff
-      LOGGER.info("Puzzle with no observed solution");
-
-      MachineState terminalState;
-      Set<MachineState> goalStates = underlyingStateMachine.findGoalStates(getRole(), 90, 500, 20);
-      //Set<MachineState> goalStates = underlyingStateMachine.findTerminalStates(100,20);
-      Set<MachineState> cleanedStates = new HashSet<>();
-
-      for (MachineState state : goalStates)
-      {
-        Set<GdlSentence> eliminatedSentences = new HashSet<>();
-
-        for (GdlSentence s : state.getContents())
-        {
-          int count = 0;
-
-          for (MachineState secondState : goalStates)
-          {
-            if (state != secondState &&
-                unNormalizedStateDistance(state, secondState) == 1 &&
-                !secondState.getContents().contains(s))
-            {
-              count++;
-            }
-          }
-
-          if (count > 1)
-          {
-            eliminatedSentences.add(s);
-          }
-        }
-
-        MachineState cleaned = new MachineState(new HashSet<>(state.getContents()));
-        cleaned.getContents().removeAll(eliminatedSentences);
-
-        cleanedStates.add(cleaned);
-      }
-
-      if (!cleanedStates.isEmpty())
-      {
-        terminalState = cleanedStates.iterator().next();
-
-        LOGGER.info("Found target state: " + terminalState);
-
-        int targetStateSize = terminalState.getContents().size();
-
-        if (targetStateSize < Math.max(2, initialState.size() / 2))
-        {
-          LOGGER.info("Unsuitable target state based on state elimination - ignoring");
-        }
-        else
-        {
-          Collection<Move> solution = new TargetedSolutionStatePlayer(underlyingStateMachine,
-                                                                      terminalState,
-                                                                      this).attemptAStarSolve(99,
-                                                                                              timeout - SAFETY_MARGIN);
-          if (solution != null)
-          {
-            plan.considerPlan(solution);
-            LOGGER.info("Solved by A*");
-          }
-        }
-      }
+      tryAStar(initialState, timeout);
     }
 
     LOGGER.info("Min raw score = " + observedMinNetScore + ", max = " + observedMaxNetScore);
@@ -1047,7 +984,7 @@ public class Sancho extends SampleGamer
                             mGameCharacteristics,
                             greedyRolloutsDisabled,
                             heuristic,
-                            plan,
+                            mPlan,
                             roleControlProps);
       searchProcessor.startSearch(System.currentTimeMillis() + 60000,
                                   new ForwardDeadReckonInternalMachineState(initialState),
@@ -1058,6 +995,72 @@ public class Sancho extends SampleGamer
     }
 
     LOGGER.info("Ready to play");
+  }
+
+  private void tryAStar(ForwardDeadReckonInternalMachineState xiInitialState, long xiTimeout)
+  {
+    // 8-puzzle type stuff.
+    LOGGER.info("Puzzle with no observed solution");
+
+    MachineState lTerminalState;
+    Set<MachineState> lGoalStates = underlyingStateMachine.findGoalStates(getRole(), 90, 500, 20);
+    Set<MachineState> lCleanedStates = new HashSet<>();
+
+    for (MachineState lState : lGoalStates)
+    {
+      Set<GdlSentence> lEliminatedSentences = new HashSet<>();
+
+      for (GdlSentence lSentence : lState.getContents())
+      {
+        int lCount = 0;
+
+        for (MachineState lSecondState : lGoalStates)
+        {
+          if (lState != lSecondState &&
+              unNormalizedStateDistance(lState, lSecondState) == 1 &&
+              !lSecondState.getContents().contains(lSentence))
+          {
+            lCount++;
+          }
+        }
+
+        if (lCount > 1)
+        {
+          lEliminatedSentences.add(lSentence);
+        }
+      }
+
+      MachineState lCleaned = new MachineState(new HashSet<>(lState.getContents()));
+      lCleaned.getContents().removeAll(lEliminatedSentences);
+
+      lCleanedStates.add(lCleaned);
+    }
+
+    if (!lCleanedStates.isEmpty())
+    {
+      lTerminalState = lCleanedStates.iterator().next();
+
+      LOGGER.info("Found target state: " + lTerminalState);
+
+      int lTargetStateSize = lTerminalState.getContents().size();
+
+      if (lTargetStateSize < Math.max(2, xiInitialState.size() / 2))
+      {
+        LOGGER.info("Unsuitable target state based on state elimination - ignoring");
+      }
+      else
+      {
+        Collection<Move> lSolution = new TargetedSolutionStatePlayer(underlyingStateMachine,
+                                                                     lTerminalState,
+                                                                     this).attemptAStarSolve(99,
+                                                                                             xiTimeout - SAFETY_MARGIN);
+        if (lSolution != null)
+        {
+          mPlan.considerPlan(lSolution);
+          LOGGER.info("Solved by A*");
+        }
+      }
+    }
   }
 
   private ForwardDeadReckonLegalMoveInfo lastMove = null;
@@ -1166,10 +1169,10 @@ public class Sancho extends SampleGamer
 //      localSearchStateMachine = underlyingStateMachine.createInstance();
 //    }
 
-    if (plan != null && plan.size() > GameSearcher.thinkBelowPlanSize)
+    if (mPlan != null && mPlan.size() > GameSearcher.thinkBelowPlanSize)
     {
       // We have a pre-prepared plan.  Simply play the next move.
-      bestMove = plan.nextMove();
+      bestMove = mPlan.nextMove();
       LOGGER.info("Playing pre-planned move: " + bestMove);
 
       //  We need to keep the search 'up with' the plan to make forced-play
@@ -1358,8 +1361,8 @@ public class Sancho extends SampleGamer
 
     // Free off all our references.
     ourRole                      = null;
-    planString                   = null;
-    plan                         = null;
+    mPlanString                   = null;
+    mPlan                         = null;
     roleOrdering                 = null;
     underlyingStateMachine       = null;
     mLastMove                    = null;
