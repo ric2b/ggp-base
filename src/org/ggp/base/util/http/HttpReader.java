@@ -7,9 +7,42 @@ import java.io.InputStreamReader;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.URLDecoder;
+import java.util.HashMap;
+import java.util.Map.Entry;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public final class HttpReader
 {
+
+  private static final Logger LOGGER = LogManager.getLogger();
+
+  public static class GGPRequest
+  {
+    /**
+     * The GGP request.
+     */
+    public String mRequest;
+
+    /**
+     * The GGP-related HTTP headers sent with the request.
+     */
+    public final HashMap<String, String> mHeaders = new HashMap<>();
+
+    /**
+     * Log the headers for this message.
+     *
+     * Only call this method once the context has been established.
+     */
+    public void logHeaders()
+    {
+      for (Entry<String, String> lEntry : mHeaders.entrySet())
+      {
+        LOGGER.debug(lEntry.getKey() + ": " + lEntry.getValue());
+      }
+    }
+  }
   // Wrapper methods to support socket timeouts for reading requests/responses.
 
   public static String readAsClient(Socket socket, int timeout)
@@ -19,7 +52,7 @@ public final class HttpReader
     return readAsClient(socket);
   }
 
-  public static String readAsServer(Socket socket, int timeout)
+  public static GGPRequest readAsServer(Socket socket, int timeout)
       throws IOException, SocketTimeoutException
   {
     socket.setSoTimeout(timeout);
@@ -33,25 +66,52 @@ public final class HttpReader
   public static String readAsClient(Socket socket) throws IOException
   {
     BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-    return readContentFromPOST(br);
+    return readContentFromPOST(br).mRequest;
   }
 
-  public static String readAsServer(Socket socket) throws IOException
+  /**
+   * Read a request from the socket.
+   *
+   * @param xiSocket - the socket.
+   *
+   * @return the GGP request (without headers).
+   *
+   * @throws IOException if there was a problem reading the request.
+   */
+  public static String readRequestAsServer(Socket xiSocket) throws IOException
   {
+    return readAsServer(xiSocket).mRequest;
+  }
+
+  /**
+   * Read a request from the socket.
+   *
+   * @param xiSocket - the socket.
+   *
+   * @return the GGP request along with any GGP header..
+   *
+   * @throws IOException if there was a problem reading the request.
+   */
+  public static GGPRequest readAsServer(Socket socket) throws IOException
+  {
+    GGPRequest lRequest = new GGPRequest();
+
     BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
     // The first line of the HTTP request is the request line.
     String requestLine = br.readLine();
-    String message;
     if (requestLine.toUpperCase().startsWith("GET "))
     {
-      message = requestLine.substring(5, requestLine.lastIndexOf(' '));
-      message = URLDecoder.decode(message, "UTF-8");
-      message = message.replace((char)13, ' ');
+      String lMessage = requestLine.substring(5, requestLine.lastIndexOf(' '));
+      lMessage = URLDecoder.decode(lMessage, "UTF-8");
+      lMessage = lMessage.replace((char)13, ' ');
+      lRequest.mRequest = lMessage;
+
+      // !! ARR Go on to read the headers.
     }
     else if (requestLine.toUpperCase().startsWith("POST "))
     {
-      message = readContentFromPOST(br);
+      lRequest = readContentFromPOST(br);
     }
     else if (requestLine.toUpperCase().startsWith("OPTIONS "))
     {
@@ -71,12 +131,12 @@ public final class HttpReader
       throw new IOException("Unexpected request type: " + requestLine);
     }
 
-    return message;
+    return lRequest;
   }
 
-  private static String readContentFromPOST(BufferedReader br)
-      throws IOException
+  private static GGPRequest readContentFromPOST(BufferedReader br) throws IOException
   {
+    GGPRequest lRequest = new GGPRequest();
     String line;
     int theContentLength = -1;
     StringBuilder theContent = new StringBuilder();
@@ -107,7 +167,8 @@ public final class HttpReader
           {
             theContent.append((char)br.read());
           }
-          return theContent.toString().trim();
+          lRequest.mRequest = theContent.toString().trim();
+          return lRequest;
         }
         throw new IOException("Could not find Content-Length header.");
       }

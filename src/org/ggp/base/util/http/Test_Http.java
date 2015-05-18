@@ -15,7 +15,7 @@ import junit.framework.TestCase;
  * Unit tests for the HttpReader/HttpWriter pair, which are the way that game
  * players and game servers communicate. Please update these tests as needed
  * when bugs are discovered, to prevent regressions.
- * 
+ *
  * @author Sam
  */
 public class Test_Http extends TestCase
@@ -76,7 +76,7 @@ public class Test_Http extends TestCase
       throws IOException
   {
     HttpWriter.writeAsClient(p.client, "", data, playerName);
-    String readData = HttpReader.readAsServer(p.server);
+    String readData = HttpReader.readRequestAsServer(p.server);
     assertEquals(readData.toUpperCase(), data.toUpperCase());
 
     HttpWriter.writeAsServer(p.server, data);
@@ -89,7 +89,7 @@ public class Test_Http extends TestCase
                                          String headers) throws IOException
   {
     writeClientPostHTTP(p.client, headers, data);
-    String readData = HttpReader.readAsServer(p.server);
+    String readData = HttpReader.readRequestAsServer(p.server);
     assertEquals(readData.toUpperCase(), data.toUpperCase());
   }
 
@@ -98,7 +98,7 @@ public class Test_Http extends TestCase
                                         String headers) throws IOException
   {
     writeClientGetHTTP(p.client, headers, data);
-    String readData = HttpReader.readAsServer(p.server);
+    String readData = HttpReader.readRequestAsServer(p.server);
     assertEquals(readData.toUpperCase(), data.toUpperCase());
   }
 

@@ -11,6 +11,7 @@ import org.ggp.base.player.request.factory.exceptions.RequestFormatException;
 import org.ggp.base.util.game.CloudGameRepository;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.game.GameRepository;
+import org.ggp.base.util.http.HttpReader.GGPRequest;
 import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 import org.junit.After;
@@ -185,6 +186,8 @@ public class StanfordGameTest extends Assert
    */
   private String getResponse(String xiRequest) throws RequestFormatException
   {
-    return mRequestFactory.create(mGamer, xiRequest).process(System.currentTimeMillis());
+    GGPRequest lRequest = new GGPRequest();
+    lRequest.mRequest = xiRequest;
+    return mRequestFactory.create(mGamer, lRequest).process(System.currentTimeMillis());
   }
 }

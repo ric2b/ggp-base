@@ -5,11 +5,11 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Random;
 
-import org.ggp.base.util.loader.RemoteResourceLoader;
+import junit.framework.TestCase;
+
 import org.ggp.base.util.http.HttpReader;
 import org.ggp.base.util.http.HttpWriter;
-
-import junit.framework.TestCase;
+import org.ggp.base.util.loader.RemoteResourceLoader;
 
 import external.JSON.JSONObject;
 
@@ -58,7 +58,7 @@ public class TiltyardRequestFarm_Test extends TestCase
     {
       try
       {
-        String line = HttpReader.readAsServer(conn);
+        String line = HttpReader.readRequestAsServer(conn);
         Thread.sleep(sleepTime);
         HttpWriter.writeAsServer(conn, "" + doMath(Long.parseLong(line)));
         conn.close();
@@ -89,7 +89,7 @@ public class TiltyardRequestFarm_Test extends TestCase
     {
       try
       {
-        String line = HttpReader.readAsServer(conn);
+        String line = HttpReader.readRequestAsServer(conn);
         HttpWriter.writeAsServer(conn, "cool");
         conn.close();
         JSONObject responseJSON = new JSONObject(line);

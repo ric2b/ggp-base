@@ -52,7 +52,7 @@ public class LogSummarizer
     {
       try
       {
-        String lRequest = HttpReader.readAsServer(mConnection);
+        String lRequest = HttpReader.readRequestAsServer(mConnection);
         String lResponse;
         String lContentType;
 

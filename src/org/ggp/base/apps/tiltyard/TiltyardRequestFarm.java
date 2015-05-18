@@ -99,7 +99,7 @@ public final class TiltyardRequestFarm
     public RunRequestThread(Socket connection, Set<String> activeRequests)
         throws IOException, JSONException
     {
-      String line = HttpReader.readAsServer(connection);
+      String line = HttpReader.readRequestAsServer(connection);
       System.out.println("On " + new Date() + ", client has requested: " +
                          line);
 

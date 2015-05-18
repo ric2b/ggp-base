@@ -23,6 +23,7 @@ import org.ggp.base.util.game.Game;
 import org.ggp.base.util.gdl.factory.GdlFactory;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
+import org.ggp.base.util.http.HttpReader.GGPRequest;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.symbol.factory.SymbolFactory;
 import org.ggp.base.util.symbol.grammar.Symbol;
@@ -33,12 +34,12 @@ public final class RequestFactory
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  public Request create(Gamer gamer, String source)
+  public Request create(Gamer gamer, GGPRequest xiSource)
       throws RequestFormatException
   {
     try
     {
-      SymbolList list = (SymbolList)SymbolFactory.create(source);
+      SymbolList list = (SymbolList)SymbolFactory.create(xiSource.mRequest);
       SymbolAtom head = (SymbolAtom)list.get(0);
 
       String type = head.getValue().toLowerCase();
@@ -72,6 +73,8 @@ public final class RequestFactory
           LOGGER.info("Logs available at:  http://localhost:9199/localview/" + lMatchID);
         }
 
+        xiSource.logHeaders();
+
         // This is the first we've seen of the GDL.  Create a translator between the network and internal formats.
         gamer.setGDLTranslator(new GDLTranslator((SymbolList)list.get(3)));
 
@@ -79,6 +82,7 @@ public final class RequestFactory
       }
       else if ( type.equals("play") || type.equals("stop") || type.equals("abort") )
       {
+        xiSource.logHeaders();
         if ( gamer.getMatch() == null )
         {
           String matchId = ((SymbolAtom)list.get(1)).getValue();
@@ -93,14 +97,17 @@ public final class RequestFactory
 
         if (type.equals("play"))
         {
+          xiSource.logHeaders();
           return createPlay(gamer, list);
         }
         else if (type.equals("stop"))
         {
+          xiSource.logHeaders();
           return createStop(gamer, list);
         }
         else if (type.equals("abort"))
         {
+          xiSource.logHeaders();
           return createAbort(gamer, list);
         }
 
@@ -114,7 +121,7 @@ public final class RequestFactory
     }
     catch (Exception e)
     {
-      throw new RequestFormatException(source, e);
+      throw new RequestFormatException(xiSource.mRequest, e);
     }
   }
 
