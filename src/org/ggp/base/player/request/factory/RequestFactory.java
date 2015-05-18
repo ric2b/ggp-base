@@ -97,17 +97,14 @@ public final class RequestFactory
 
         if (type.equals("play"))
         {
-          xiSource.logHeaders();
           return createPlay(gamer, list);
         }
         else if (type.equals("stop"))
         {
-          xiSource.logHeaders();
           return createStop(gamer, list);
         }
         else if (type.equals("abort"))
         {
-          xiSource.logHeaders();
           return createAbort(gamer, list);
         }
 
@@ -116,6 +113,7 @@ public final class RequestFactory
       }
       else
       {
+        xiSource.logHeaders();
         throw new IllegalArgumentException("Unrecognized request type!");
       }
     }
