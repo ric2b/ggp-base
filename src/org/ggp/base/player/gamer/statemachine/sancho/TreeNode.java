@@ -5147,17 +5147,26 @@ public class TreeNode
             //assert(moveScore >= -500);
           }
 
-          //  A complete score is certain, but we're comparing within a set that has only
-          //  has numVisits TOTAL visits so still down-weight by the same visit count the most
-          //  selected child has.  This avoids a tendency to throw a marginal win away for a
-          //  definite draw.  Especially in games with low signal to noise ratio (everything looks
-          //  close to 50%) this can be important
-          //  We add EPSILON to break ties with the most-selected (but incomplete) node in favour of
-          //  the complete one.  If we don't do this rounding errors can lead to an indeterminate
-          //  choice (between this and the most selected node)
-          selectionScore = moveScore *
-              (1 - 20 * Math.log(numVisits) /
-                  (20 * Math.log(numVisits) + maxChildVisitCount)) + EPSILON;
+          //  If the root has no visits (can happen if a node was completed in expansion by a shallow greedy rollout)
+          //  then its selection value is its move value if complete
+          if ( numVisits == 0)
+          {
+            selectionScore = moveScore;
+          }
+          else
+          {
+            //  A complete score is certain, but we're comparing within a set that has only
+            //  has numVisits TOTAL visits so still down-weight by the same visit count the most
+            //  selected child has.  This avoids a tendency to throw a marginal win away for a
+            //  definite draw.  Especially in games with low signal to noise ratio (everything looks
+            //  close to 50%) this can be important
+            //  We add EPSILON to break ties with the most-selected (but incomplete) node in favour of
+            //  the complete one.  If we don't do this rounding errors can lead to an indeterminate
+            //  choice (between this and the most selected node)
+            selectionScore = moveScore *
+                (1 - 20 * Math.log(numVisits) /
+                    (20 * Math.log(numVisits) + maxChildVisitCount)) + EPSILON;
+          }
         }
         else
         {
@@ -5165,7 +5174,7 @@ public class TreeNode
 
           //  Cope with the case where root expansion immediately found a complete node and never
           //  even explored the others (which should not be selected)
-          if (numChildVisits == 0)
+          if (numChildVisits == 0 || numVisits == 0)
           {
             selectionScore = -1000;
           }
