@@ -9,6 +9,7 @@ import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
+import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
@@ -24,6 +25,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropositionCrossReferenceInfo;
 
 /**
  * @author steve
@@ -36,6 +38,8 @@ public class DependencyDistanceAnalyser
 
   private static final int MAX_DISTANCE = 20;
   private static final int MAX_PLAUSIBLE_TREMINAL_COUPLING_SIZE = 20;
+
+  static final private GdlConstant    TRUE      = GdlPool.getConstant("true");
 
   private class SentenceInfo
   {
@@ -110,7 +114,7 @@ public class DependencyDistanceAnalyser
   private final ForwardDeadReckonPropnetStateMachine stateMachine;
   private ForwardDeadReckonPropNet propNet;
   private ForwardDeadReckonLegalMoveInfo[] moveList;
-  private PolymorphicProposition[] propList;
+  private ForwardDeadReckonPropositionCrossReferenceInfo[] propInfoList;
   private BasePropInfo[] basePropInfo;
   private MoveInfo[] moveDependencyInfo;
 
@@ -134,8 +138,8 @@ public class DependencyDistanceAnalyser
   {
     propNet = stateMachine.getFullPropNet();
     moveList = propNet.getMasterMoveList();
-    propList = propNet.getBasePropositionsArray();
-    basePropInfo = new BasePropInfo[propNet.getBasePropositionsArray().length];
+    propInfoList = stateMachine.getInfoSet();
+    basePropInfo = new BasePropInfo[stateMachine.getInfoSet().length];
     DependencyDistanceInfo result = new DependencyDistanceInfo();
 
     result.moveCoInfluenceDistances = new int[moveList.length][moveList.length];
@@ -202,11 +206,11 @@ public class DependencyDistanceAnalyser
       }
 
       //  Determine which other base props this one is mutually exclusive with
-      determineMutualExclusivity(propList[propInfo.index], basePropInfo[propInfo.index].mutualExclusionSet);
+      determineMutualExclusivity(propInfoList[propInfo.index], basePropInfo[propInfo.index].mutualExclusionSet);
 
       //  Determine the moves whose legals are influenced directly by this base prop
       recursiveAddImmediatelyDependentMovesViaLegals(propNet.getLegalInputMap().keySet(),
-                                                     propList[propInfo.index],
+                                                     propInfoList[propInfo.index].fullNetProp,
                                                      basePropInfo[propInfo.index].potentiallyEnabledMoves,
                                                      basePropInfo[propInfo.index].potentiallyDisabledMoves,
                                                      true);
@@ -302,7 +306,7 @@ public class DependencyDistanceAnalyser
 
             if ( trace )
             {
-              LOGGER.info( "  Required set: " + propList[index].getName());
+              LOGGER.info( "  Required set: " + propInfoList[index].sentence);
             }
             index++;
           }
@@ -312,7 +316,7 @@ public class DependencyDistanceAnalyser
             index = 0;
             while((index = depInfo.requiredNotSetBaseProps.nextSetBit(index)) != -1)
             {
-              LOGGER.info( "  Required clear: " + propList[index].getName());
+              LOGGER.info( "  Required clear: " + propInfoList[index].sentence);
               index++;
             }
           }
@@ -436,7 +440,7 @@ public class DependencyDistanceAnalyser
             {
               if ( trace )
               {
-                LOGGER.info("  Prop " + propList[seedPropIndex].getName() + " is " + (processingEnablement ? "enabled" : "disabled"));
+                LOGGER.info("  Prop " + propInfoList[seedPropIndex].sentence + " is " + (processingEnablement ? "enabled" : "disabled"));
               }
               int relatedMoveIndex = 0;
               BitSet relatedMoveSet = (processingEnablement ? basePropInfo[seedPropIndex].potentiallyEnabledMoves : basePropInfo[seedPropIndex].potentiallyDisabledMoves);
@@ -548,7 +552,7 @@ public class DependencyDistanceAnalyser
         {
           if ( trace )
           {
-            LOGGER.info("  Base prop " + propList[basePropIndex].getName() + ": " + distance);
+            LOGGER.info("  Base prop " + propInfoList[basePropIndex].sentence + ": " + distance);
           }
           basePropInfo[basePropIndex].movesInfluencingFromDistance[distance].set(i);
           basePropIndex++;
@@ -559,7 +563,7 @@ public class DependencyDistanceAnalyser
         {
           if ( trace )
           {
-            LOGGER.info("  Base prop " + propList[basePropIndex].getName() + ": " + distance);
+            LOGGER.info("  Base prop " + propInfoList[basePropIndex].sentence + ": " + distance);
           }
           basePropInfo[basePropIndex].movesInfluencingFromDistance[distance].set(i);
           basePropIndex++;
@@ -570,7 +574,7 @@ public class DependencyDistanceAnalyser
         {
           if ( trace )
           {
-            LOGGER.info("  Base prop " + propList[basePropIndex].getName() + ": " + distance);
+            LOGGER.info("  Base prop " + propInfoList[basePropIndex].sentence + ": " + distance);
           }
           basePropInfo[basePropIndex].movesInfluencingFromDistance[distance].set(i);
           basePropIndex++;
@@ -581,7 +585,7 @@ public class DependencyDistanceAnalyser
         {
           if ( trace )
           {
-            LOGGER.info("  Base prop " + propList[basePropIndex].getName() + ": " + distance);
+            LOGGER.info("  Base prop " + propInfoList[basePropIndex].sentence + ": " + distance);
           }
           basePropInfo[basePropIndex].movesInfluencingFromDistance[distance].set(i);
           basePropIndex++;
@@ -882,7 +886,7 @@ public class DependencyDistanceAnalyser
 
         if ( trace )
         {
-          LOGGER.info("    links to " + moveList[linkedMoveIndex] + " at distance " + moveDistance + " via " + propList[linkingPropIndex].getName() + " with split (" + distance1 + ", " + distance2 + ")");
+          LOGGER.info("    links to " + moveList[linkedMoveIndex] + " at distance " + moveDistance + " via " + propInfoList[linkingPropIndex].sentence + " with split (" + distance1 + ", " + distance2 + ")");
         }
       }
       linkedMoveIndex++;
@@ -919,7 +923,7 @@ public class DependencyDistanceAnalyser
 
             if ( trace)
             {
-              LOGGER.info("    Distance to enabling " + propList[newlyIncludedPropIndex].getName() + " by " + (sameRole ? "same" : "opposite") + " role is " + targetDistance);
+              LOGGER.info("    Distance to enabling " + propInfoList[newlyIncludedPropIndex].sentence + " by " + (sameRole ? "same" : "opposite") + " role is " + targetDistance);
             }
           }
           else
@@ -937,7 +941,7 @@ public class DependencyDistanceAnalyser
 
             if ( trace)
             {
-              LOGGER.info("    Distance to disabling " + propList[newlyIncludedPropIndex].getName() + " by " + (sameRole ? "same" : "opposite") + " role is " +targetDistance);
+              LOGGER.info("    Distance to disabling " + propInfoList[newlyIncludedPropIndex].sentence + " by " + (sameRole ? "same" : "opposite") + " role is " +targetDistance);
             }
           }
         }
@@ -1052,13 +1056,13 @@ public class DependencyDistanceAnalyser
   }
 
   @SuppressWarnings({"rawtypes", "unchecked"})
-  private void determineMutualExclusivity(PolymorphicProposition p, BitSet exclusionSet)
+  private void determineMutualExclusivity(ForwardDeadReckonPropositionInfo propInfo, BitSet exclusionSet)
   {
     boolean trace = false;
 
     //  For now a hack!  Look for other props with different values in a term with range <= numRoles+1
     //  TODO - make this a rigorous analysis
-    GdlSentence sentence = p.getName().getBody().get(0).toSentence();
+    GdlSentence sentence = propInfo.sentence.getBody().get(0).toSentence();
 
     SentenceInfo info = sentenceInfoDictionary.get(sentence.getName());
     if ( info == null )
@@ -1070,14 +1074,18 @@ public class DependencyDistanceAnalyser
         termRanges[termIndex] = new HashSet();
       }
 
-      for(int i = 0; i < propList.length; i++)
+      for(int i = 0; i < propInfoList.length; i++)
       {
-        GdlSentence propSentence = propList[i].getName().getBody().get(0).toSentence();
-        if ( propSentence.getName() == sentence.getName() )
+        GdlSentence propSentence = propInfoList[i].sentence;
+        if ( propSentence.getName() == TRUE )
         {
-          for(int termIndex = 0; termIndex < sentence.getBody().size(); termIndex++)
+          GdlSentence basePropBodySentence = propSentence.getBody().get(0).toSentence();
+          if ( basePropBodySentence.getName() == sentence.getName() )
           {
-            termRanges[termIndex].add(propSentence.getBody().get(termIndex).toString());
+            for(int termIndex = 0; termIndex < sentence.getBody().size(); termIndex++)
+            {
+              termRanges[termIndex].add(basePropBodySentence.getBody().get(termIndex).toString());
+            }
           }
         }
       }
@@ -1092,38 +1100,42 @@ public class DependencyDistanceAnalyser
 
     if ( trace )
     {
-      LOGGER.info("base prop " + p.getName() + " is mutally exclusive with:");
+      LOGGER.info("base prop " + propInfo.sentence + " is mutally exclusive with:");
     }
 
     for(int termIndex = 0; termIndex < sentence.getBody().size(); termIndex++)
     {
       if ( info.rangeSize[termIndex] <= propNet.getRoles().length + 1 )
       {
-        for(int i = 0; i < propList.length; i++)
+        for(int i = 0; i < propInfoList.length; i++)
         {
-          GdlSentence propSentence = propList[i].getName().getBody().get(0).toSentence();
-
-          if ( propSentence.getName() == sentence.getName() &&
-               propSentence.getBody().get(termIndex).toString() != sentence.getBody().get(termIndex).toString())
+          GdlSentence propSentence = propInfoList[i].sentence;
+          if ( propSentence.getName() == TRUE )
           {
-            boolean matchesOnOtherTerms = true;
-            for(int otherTermIndex = 0; otherTermIndex < sentence.getBody().size(); otherTermIndex++)
+            GdlSentence basePropBodySentence = propInfoList[i].sentence.getBody().get(0).toSentence();
+
+            if ( basePropBodySentence.getName() == sentence.getName() &&
+                 basePropBodySentence.getBody().get(termIndex).toString() != sentence.getBody().get(termIndex).toString())
             {
-              if ( otherTermIndex != termIndex &&
-                  propSentence.getBody().get(otherTermIndex).toString() != sentence.getBody().get(otherTermIndex).toString() )
+              boolean matchesOnOtherTerms = true;
+              for(int otherTermIndex = 0; otherTermIndex < sentence.getBody().size(); otherTermIndex++)
               {
-                matchesOnOtherTerms = false;
-                break;
+                if ( otherTermIndex != termIndex &&
+                    basePropBodySentence.getBody().get(otherTermIndex).toString() != sentence.getBody().get(otherTermIndex).toString() )
+                {
+                  matchesOnOtherTerms = false;
+                  break;
+                }
               }
-            }
 
-            if ( matchesOnOtherTerms )
-            {
-              exclusionSet.set(i);
-
-              if ( trace )
+              if ( matchesOnOtherTerms )
               {
-                LOGGER.info("  " + propSentence);
+                exclusionSet.set(i);
+
+                if ( trace )
+                {
+                  LOGGER.info("  " + basePropBodySentence);
+                }
               }
             }
           }

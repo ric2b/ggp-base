@@ -5,6 +5,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 
 public class ForwardDeadReckonPropositionCrossReferenceInfo extends ForwardDeadReckonPropositionInfo
 {
+  public ForwardDeadReckonProposition fullNetProp;
   public ForwardDeadReckonProposition xNetProp;
   public ForwardDeadReckonProposition oNetProp;
   public ForwardDeadReckonProposition goalsNetProp;

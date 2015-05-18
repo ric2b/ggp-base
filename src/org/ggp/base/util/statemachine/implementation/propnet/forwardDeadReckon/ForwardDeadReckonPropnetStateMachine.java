@@ -1633,6 +1633,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           ForwardDeadReckonPropositionCrossReferenceInfo info = new ForwardDeadReckonPropositionCrossReferenceInfo();
 
           info.sentence = prop.getName();
+          info.fullNetProp = (ForwardDeadReckonProposition)prop;
           info.xNetProp = (ForwardDeadReckonProposition)prop;
           info.oNetProp = (ForwardDeadReckonProposition)prop;
           info.goalsNetProp = (ForwardDeadReckonProposition)prop;
@@ -1649,6 +1650,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         ForwardDeadReckonPropositionCrossReferenceInfo info = new ForwardDeadReckonPropositionCrossReferenceInfo();
 
         info.sentence = prop.getName();
+        info.fullNetProp = prop;
         info.xNetProp = prop;
         info.oNetProp = prop;
         info.goalsNetProp = prop;
@@ -1667,6 +1669,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         ForwardDeadReckonPropositionCrossReferenceInfo info = new ForwardDeadReckonPropositionCrossReferenceInfo();
 
         info.sentence = e.getKey();
+        info.fullNetProp = prop;
         info.xNetProp = prop;
         info.oNetProp = prop;
         info.goalsNetProp = prop;
