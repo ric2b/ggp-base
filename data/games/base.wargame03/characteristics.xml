@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+  <entry key="num_roles">1</entry>
+  <entry key="simultaneous">false</entry>
+  <entry key="pseudo_simultaneous">false</entry>
+  <entry key="iterated">false</entry>
+  <entry key="max_factor_failure_time">0</entry>
+  <entry key="num_factors">0</entry>
+  <entry key="moves_in_multiple_factors">false</entry>
+  <entry key="max_branching_factor">20</entry>
+  <entry key="fixed_length">false</entry>
+  <entry key="plan">step N,noop,step E,step W,step S,shoot S,step E,step W,noop,noop,noop,step N,noop,step N,step N,step E,step W,step N,step N,throw S 2,step N,noop,step S,step E,step N,step W,step E,step S,step S,step N,step S,step S,step W,step W,step N,step W,step N,noop,step W,step N,step W,step W,step W</entry>
+</properties>
