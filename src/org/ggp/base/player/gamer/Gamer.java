@@ -1,6 +1,7 @@
 
 package org.ggp.base.player.gamer;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -163,17 +164,17 @@ public abstract class Gamer implements Subject
    */
   public void setGDLTranslator(GDLTranslator xiGDLTranslator)
   {
-    // Workaround to prevent us hanging trying to play games that we can't play.
-    if ((xiGDLTranslator != null) && (xiGDLTranslator.getGameDir().toString().contains("base.gt_two_thirds_6p")))
-    {
-      LOGGER.error("Aborting 6-Player Guess Two Thirds");
-      throw new RuntimeException("Aborting 6-Player Guess Two Thirds because otherwise we'd hang");
-    }
-
     mGDLTranslator = xiGDLTranslator;
 
-    if ( xiGDLTranslator != null )
+    if (xiGDLTranslator != null)
     {
+      // Abort games that would cause us to hang.
+      File lPoison = new File(mGDLTranslator.getGameDir(), "poison");
+      if (lPoison.exists())
+      {
+        LOGGER.error("Aborting poisoned game: " + lPoison.getPath());
+        throw new RuntimeException("Aborting poisoned game: " + lPoison.getPath());
+      }
       mGameCharacteristics = new RuntimeGameCharacteristics(mGDLTranslator.getGameDir());
     }
     else
