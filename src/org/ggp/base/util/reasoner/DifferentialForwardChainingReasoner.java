@@ -2,7 +2,6 @@
 package org.ggp.base.util.reasoner;
 
 import org.ggp.base.util.gdl.model.SentenceDomainModel;
-import org.ggp.base.util.gdl.transforms.VariableConstrainer;
 
 /**
  * An extension of the ForwardChainingReasoner that allows for finding just the

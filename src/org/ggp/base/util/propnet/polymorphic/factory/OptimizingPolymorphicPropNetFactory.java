@@ -3574,10 +3574,7 @@ public class OptimizingPolymorphicPropNetFactory
 
   public static void removeGoalPropositions(PolymorphicPropNet propNet)
   {
-    List<PolymorphicComponent> removedComponents = new LinkedList<>();
-
-    for (PolymorphicProposition[] roleGoals : propNet.getGoalPropositions()
-        .values())
+    for (PolymorphicProposition[] roleGoals : propNet.getGoalPropositions().values())
     {
       for (PolymorphicProposition c : roleGoals)
       {
@@ -4120,8 +4117,8 @@ public class OptimizingPolymorphicPropNetFactory
     //	Now we know that at least one input prop must be activated by each role each turn
     //	so search for large conjuncts or disjuncts of input props and consider replacing
     //	them by their complements
-    int possibleSavings = 0;
-
+//    int possibleSavings = 0;
+//
 //    for (PolymorphicComponent c : pn.getComponents())
 //    {
 //      if ((c instanceof PolymorphicAnd || c instanceof PolymorphicOr) &&

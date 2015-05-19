@@ -22,20 +22,13 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 
 /**
- * @author steve
- * class responsible for analysing a game's propnet to determine its factors
+ * Class responsible for analysing a game's propnet to determine its factors.
  */
 public class FactorAnalyser
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
   private ForwardDeadReckonPropnetStateMachine stateMachine;
-  static final private GdlConstant    GOAL      = GdlPool.getConstant("goal");
-  static final private GdlConstant    INIT      = GdlPool.getConstant("init");
-  static final private GdlConstant    TERMINAL  = GdlPool.getConstant("terminal");
-  static final private GdlConstant    LEGAL  = GdlPool.getConstant("legal");
-  static final private GdlConstant    DOES  = GdlPool.getConstant("does");
-  static final private GdlConstant    BASE  = GdlPool.getConstant("base");
 
   //  We don't accept more than a reasonable smallish number of factors since
   //  1) The way we instantiate search trees for each only scales modestly
@@ -452,12 +445,12 @@ public class FactorAnalyser
         }
       }
 
-      if (name.equals(INIT) )
+      if (name.equals(GdlPool.INIT) )
       {
         return;
       }
 
-      if ( name.equals(DOES))
+      if ( name.equals(GdlPool.DOES))
       {
         if ( root != null )
         {

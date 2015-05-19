@@ -5,8 +5,6 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 
 public class ValidatedPlayoutMCTSSearchTreeNode extends SearchTreeNode<ValidatedPlayoutMCTSSearchTree>
 {
-  private static final int PLAYOUT_VALIDATION_DEPTH = 2;
-
   public ValidatedPlayoutMCTSSearchTreeNode(ValidatedPlayoutMCTSSearchTree xiTree,
                                  ForwardDeadReckonInternalMachineState xiState,
                                  int xiChoosingRole)

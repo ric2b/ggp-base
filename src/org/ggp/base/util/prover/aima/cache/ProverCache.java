@@ -45,19 +45,19 @@ public final class ProverCache
 		if (cacheContents == null) {
 			return null;
 		}
-		Set<Substitution> results = new HashSet<Substitution>();
+		Set<Substitution> results = new HashSet<>();
 		for (GdlSentence answer : cacheContents)
 		{
 			results.add(Unifier.unify(sentence, answer));
 		}
 
-		return new ArrayList<Substitution>(results);
+		return new ArrayList<>(results);
 	}
 
 	public void put(GdlSentence sentence, GdlSentence renamedSentence,
 			Set<Substitution> answers)
 	{
-		Set<GdlSentence> results = new HashSet<GdlSentence>();
+		Set<GdlSentence> results = new HashSet<>();
 		for (Substitution answer : answers)
 		{
 			results.add(Substituter.substitute(sentence, answer));

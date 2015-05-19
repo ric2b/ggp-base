@@ -2,8 +2,6 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.util.List;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.Role;
@@ -18,8 +16,6 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
  */
 class RolloutRequest
 {
-  private static final Logger LOGGER = LogManager.getLogger();
-
   public long                                  mNodeRef;
   public TreePath                              mPath;
   public final ForwardDeadReckonInternalMachineState mState;

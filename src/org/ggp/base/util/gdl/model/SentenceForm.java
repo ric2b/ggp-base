@@ -3,7 +3,6 @@ package org.ggp.base.util.gdl.model;
 
 import java.util.List;
 
-import org.ggp.base.util.gdl.GdlUtils;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.gdl.grammar.GdlTerm;

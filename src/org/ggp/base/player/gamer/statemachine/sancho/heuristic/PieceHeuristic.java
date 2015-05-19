@@ -57,7 +57,6 @@ public class PieceHeuristic implements Heuristic
   private PieceMaskSpecifier[]                                           pieceSets                 = null;
   private int                                                            totalSimulatedTurns       = 0;
   //  The following track runtime usage state and are dependent on the current game-state
-  private TreeNode                                                       rootNode                  = null;
   private int                                                            heuristicSampleWeight     = 10;
   private double[]                                                       rootPieceValues           = null;
   private boolean                                                        mTuningComplete           = false;
@@ -1011,8 +1010,6 @@ public class PieceHeuristic implements Heuristic
   @Override
   public void newTurn(ForwardDeadReckonInternalMachineState xiState, TreeNode xiNode)
   {
-    rootNode = xiNode;
-
     if (pieceSets != null)
     {
       double total = 0;

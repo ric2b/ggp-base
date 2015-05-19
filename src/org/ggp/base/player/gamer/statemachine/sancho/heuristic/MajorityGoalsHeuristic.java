@@ -35,7 +35,6 @@ public class MajorityGoalsHeuristic implements Heuristic
 
   private ForwardDeadReckonPropnetStateMachine stateMachine = null;
   private boolean                              tuningComplete = true;
-  private boolean                              foundDerivedHeuristic = false;
   private MajorityCalculator                   goalsCalculator = null;
   private RoleOrdering                         roleOrdering = null;
   private boolean                              reverseRoles = false;

@@ -2,7 +2,6 @@
 package org.ggp.base.util.propnet.polymorphic.learning;
 
 import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
-import org.ggp.base.util.propnet.polymorphic.runtimeOptimized.RuntimeOptimizedComponentFactory;
 
 /**
  * The Constant class is designed to represent nodes with fixed logical values.

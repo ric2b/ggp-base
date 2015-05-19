@@ -1,9 +1,7 @@
 
 package org.ggp.base.util.propnet.polymorphic.runtimeOptimized;
 
-import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicNot;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
 /**

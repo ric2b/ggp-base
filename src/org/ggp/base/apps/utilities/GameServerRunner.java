@@ -14,8 +14,6 @@ import org.ggp.base.util.match.Match;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 
-import clojure.main;
-
 /**
  * GameServerRunner is a utility program that lets you start up a match
  * directly from the command line.

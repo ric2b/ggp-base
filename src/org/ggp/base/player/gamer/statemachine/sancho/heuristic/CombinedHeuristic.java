@@ -190,7 +190,6 @@ public class CombinedHeuristic implements Heuristic
   {
     double lTotalWeight = 0;
     double lMaxWeight = 0;
-    double maxBias = 0;
 
     resultInfo.treatAsSequenceStep = false;
     resultInfo.heuristicWeight = 0;

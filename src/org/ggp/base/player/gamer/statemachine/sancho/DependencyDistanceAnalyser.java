@@ -105,7 +105,7 @@ public class DependencyDistanceAnalyser
     final BitSet      potentiallyEnabledMoves = new BitSet();
     final BitSet      potentiallyDisabledMoves = new BitSet();
     final BitSet      mutualExclusionSet = new BitSet();
-    final BitSet      terminalityCoupledProps = new BitSet();
+//    final BitSet      terminalityCoupledProps = new BitSet();
     final BitSet[]    movesInfluencingFromDistance = new BitSet[MAX_DISTANCE];
     //final BitSet[]    movesDisabledAtDistance = new BitSet[MAX_DISTANCE];
     //HashSet<MoveInfo> moves = null;

@@ -7,8 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.concurrency.ConcurrencyUtils;
 import org.ggp.base.util.gdl.GdlUtils;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
@@ -26,8 +24,6 @@ import com.google.common.collect.Maps;
 // Represents information about a sentence form that is constant.
 public class FunctionInfoImpl implements FunctionInfo
 {
-  private static final Logger LOGGER = LogManager.getLogger();
-
   private SentenceForm                                       form;
 
   //True iff the slot has at most one value given the other slots' values

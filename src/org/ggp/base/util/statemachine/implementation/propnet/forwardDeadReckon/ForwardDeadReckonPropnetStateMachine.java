@@ -96,7 +96,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private ForwardDeadReckonInternalMachineState                        lastInternalSetStateX           = null;
   private ForwardDeadReckonInternalMachineState                        lastInternalSetStateO           = null;
   private ForwardDeadReckonInternalMachineState                        lastInternalSetState            = null;
-  private ForwardDeadReckonInternalMachineState                        checkpointState                 = null;
   private final boolean                                                useSampleOfKnownLegals          = false;
   private GdlSentence                                                  XSentence                       = null;
   private ForwardDeadReckonPropositionCrossReferenceInfo               XSentenceInfo                   = null;
@@ -108,8 +107,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private Map<ForwardDeadReckonPropositionCrossReferenceInfo, Integer> basePropChangeCounts            = new HashMap<>();
   private ForwardDeadReckonProposition[]                               chosenJointMoveProps            = null;
   private Move[]                                                       chosenMoves                     = null;
-  private ForwardDeadReckonProposition[]                               previouslyChosenJointMovePropsX = null;
-  private ForwardDeadReckonProposition[]                               previouslyChosenJointMovePropsO = null;
   private int[]                                                        previouslyChosenJointMovePropIdsX = null;
   private int[]                                                        previouslyChosenJointMovePropIdsO = null;
   private int[]                                                        latchedScoreRangeBuffer         = new int[2];
@@ -1484,8 +1481,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     previousMovePropsO = new ForwardDeadReckonProposition[numRoles];
     chosenJointMoveProps = new ForwardDeadReckonProposition[numRoles];
     chosenMoves = new Move[numRoles];
-    previouslyChosenJointMovePropsX = new ForwardDeadReckonProposition[numRoles];
-    previouslyChosenJointMovePropsO = new ForwardDeadReckonProposition[numRoles];
     previouslyChosenJointMovePropIdsX = new int[numRoles];
     previouslyChosenJointMovePropIdsO = new int[numRoles];
 
@@ -1584,8 +1579,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       previousMovePropsO = new ForwardDeadReckonProposition[numRoles];
       chosenJointMoveProps = new ForwardDeadReckonProposition[numRoles];
       chosenMoves = new Move[numRoles];
-      previouslyChosenJointMovePropsX = new ForwardDeadReckonProposition[numRoles];
-      previouslyChosenJointMovePropsO = new ForwardDeadReckonProposition[numRoles];
       previouslyChosenJointMovePropIdsX = new int[numRoles];
       previouslyChosenJointMovePropIdsO = new int[numRoles];
       stats = new TestPropnetStateMachineStats(fullPropNet.getBasePropositions().size(),
@@ -2319,8 +2312,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private void makeBasePropChangesUnmeasured(ForwardDeadReckonInternalMachineState nextInternalSetState)
   {
-    InternalMachineStateIterator lIterator = mStateIterator;
-
     //  The following code is a bit baroque, in the interests of extracting the last possible bit of performance, as
     //  this routine is a significant hotspot in games with large state.  The gist is:
     //  1) Iteration uses low level methods for more direct access
@@ -4296,8 +4287,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     {
       return mGoalsCalculator.getGoalValue(state == null ? lastInternalSetState : state, role);
     }
-
-    InternalMachineStateIterator lIterator = mStateIterator;
 
     ForwardDeadReckonPropNet net;
 

@@ -62,8 +62,6 @@ public class LocalRegionSearcher
 
   private boolean                optionalRoleHasOddDepthParity;
 
-  private boolean                trace = false;
-
   private final ForwardDeadReckonLegalMoveInfo[][] jointMove;
   private final ForwardDeadReckonLegalMoveInfo[][] chooserMoveChoiceStack;
   private final ForwardDeadReckonInternalMachineState[] childStateBuffer;

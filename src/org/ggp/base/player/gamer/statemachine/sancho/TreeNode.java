@@ -2064,7 +2064,6 @@ public class TreeNode
     mostLikelyWinner = -1;
   }
 
-  private static int leastLikelyDisposalCount = 0;
   public TreeEdge selectLeastLikelyExpandedNode(TreeEdge from)
   {
     int selectedIndex = -1;
@@ -2393,14 +2392,10 @@ public class TreeNode
     assert(!newChild.freed);
     edge.setChild(newChild);
 
-    boolean isTransition = (newChild.depth != -1);
-    boolean isUnexpanded = false;
-
     //  Don't overwrite the deciding role index if the child we got was actually a transposition into an already
     //  expanded node, as it could be some way down a forced response sequence
     if ( newChild.depth == -1 )
     {
-      isUnexpanded = true;
       newChild.decidingRoleIndex = ((tree.removeNonDecisionNodes && mNumChildren > 1) ? tree.numRoles-1 : roleIndex);
 
       if (roleIndex != tree.numRoles - 1 && (!tree.removeNonDecisionNodes || mNumChildren == 1))
@@ -4054,7 +4049,6 @@ public class TreeNode
     //  We have insufficient information to fully correct for this, so we approximate
     //  by assuming that the visits to the complete nodes have also been redistributed
     //  in proportion to the visit counts of the other nodes
-    int numCompleteVisits = 0;
     double highestScore = -Double.MAX_VALUE;
     double highestScoreWeight = 0;
 
@@ -4072,11 +4066,6 @@ public class TreeNode
 
           if ( child != null )
           {
-            if ( child.complete )
-            {
-              numCompleteVisits += edge.getNumChildVisits();
-            }
-
             double score = child.getAverageScore(choosingRoleIndex);
             if ( score > highestScore )
             {
@@ -4087,8 +4076,6 @@ public class TreeNode
         }
       }
     }
-
-    double incompleteVisitProportion = ((double)numVisits - (double)numCompleteVisits)/numVisits;
 
     for(int i = 0; i < mNumChildren; i++)
     {
@@ -5399,7 +5386,7 @@ public class TreeNode
                                        tree.mNodeAverageSquaredScores,
                                        path,
                                        1);
-      tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, 0, 0, lBackPropTime);
+      tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, lBackPropTime);
       tree.mPathPool.free(path);
 
       return;
@@ -5499,7 +5486,7 @@ public class TreeNode
 //      {
 //        lBackPropTime = 0;
 //      }
-      tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, lRolloutTime, 0, lBackPropTime);
+      tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, lRolloutTime, lBackPropTime);
       tree.mPathPool.free(lRequest.mPath);
       lRequest.mPath = null;
     }

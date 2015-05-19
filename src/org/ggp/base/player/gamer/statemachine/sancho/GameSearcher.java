@@ -139,9 +139,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   private long mSelectTime;
   private long mExpandTime;
   private long mGetSlotTime;
-  private long mQueueTime;
   private long mRolloutTime;
-  private long mQueue2Time;
   private long mBackPropTime;
 
   /**
@@ -433,9 +431,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     long lTotalTime = mSelectTime +
                       mExpandTime +
                       mGetSlotTime +
-                      //mQueueTime +
                       mRolloutTime +
-                      //mQueue2Time +
                       mBackPropTime;
     if (lTotalTime != 0)
     {
@@ -448,14 +444,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       lRunning += mGetSlotTime;
       Series.STACKED_GET_SLOT.logDataPoint(lLogBuf, xiTime, lRunning * 100 / lTotalTime);
 
-      //lRunning += mQueueTime;
-      //Series.STACKED_QUEUE.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
-
       lRunning += mRolloutTime;
       Series.STACKED_ROLLOUT.logDataPoint(lLogBuf, xiTime, lRunning * 100 / lTotalTime);
-
-      //lRunning += mQueue2Time;
-      //Series.STACKED_QUEUE2.logDataPoint(lLogBuf, time, lRunning * 100 / lTotalTime);
 
       lRunning += mBackPropTime;
       Series.STACKED_BACKPROP.logDataPoint(lLogBuf, xiTime, lRunning * 100 / lTotalTime);
@@ -466,9 +456,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     mSelectTime   = 0;
     mExpandTime   = 0;
     mGetSlotTime  = 0;
-    mQueueTime    = 0;
     mRolloutTime  = 0;
-    mQueue2Time   = 0;
     mBackPropTime = 0;
 
     //Future intent will be to add these to the stats logger when it is stable
@@ -1040,9 +1028,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       recordIterationTimings(lRequest.mSelectElapsedTime,
                              lRequest.mExpandElapsedTime,
                              lRequest.mGetSlotElapsedTime,
-                             lRequest.mQueueLatency,
                              lRequest.mEnqueue2Time - lRequest.mRolloutStartTime,
-                             lDequeue2Time - lRequest.mEnqueue2Time,
                              lBackPropTime);
 
       mPathPool.free(lRequest.mPath);
@@ -1060,25 +1046,19 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
    * @param xiSelectTime
    * @param xiExpandTime
    * @param xiGetSlotTime
-   * @param xiQueueTime
    * @param xiRolloutTime
-   * @param xiQueue2Time
    * @param xiBackPropTime
    */
   void recordIterationTimings(long xiSelectTime,
                               long xiExpandTime,
                               long xiGetSlotTime,
-                              long xiQueueTime,
                               long xiRolloutTime,
-                              long xiQueue2Time,
                               long xiBackPropTime)
   {
     mSelectTime   += xiSelectTime;
     mExpandTime   += xiExpandTime;
     mGetSlotTime  += xiGetSlotTime;
-    mQueueTime    += xiQueueTime;
     mRolloutTime  += xiRolloutTime;
-    mQueue2Time   += xiQueue2Time;
     mBackPropTime += xiBackPropTime;
 
     mNumIterations++;

@@ -359,13 +359,6 @@ public class ForwardDeadReckonPropnetFastAnimator
   // of that instance's propNet
   private InstanceInfo[]           instances;
 
-  static final private GdlConstant    LEGAL     = GdlPool.getConstant("legal");
-  static final private GdlConstant    BASE      = GdlPool.getConstant("base");
-  static final private GdlConstant    TERMINAL  = GdlPool.getConstant("terminal");
-  static final private GdlConstant    GOAL      = GdlPool.getConstant("goal");
-  static final private GdlConstant    INIT      = GdlPool.getConstant("init");
-  static final private GdlConstant    TRUE      = GdlPool.getConstant("true");
-
   private class PassThroughComponentInfo
   {
     public PassThroughComponentInfo()
@@ -401,11 +394,11 @@ public class ForwardDeadReckonPropnetFastAnimator
       if ( c instanceof PolymorphicProposition )
       {
         GdlConstant propTypeName = ((PolymorphicProposition)c).getName().getName();
-        isBaseProp = propTypeName.equals(TRUE);
-        isLegalProp = propTypeName.equals(LEGAL);
-        isTerminalProp = propTypeName.equals(TERMINAL);
-        isGoalProp = propTypeName.equals(GOAL);
-        isInitProp = propTypeName.equals(INIT);
+        isBaseProp = propTypeName.equals(GdlPool.TRUE);
+        isLegalProp = propTypeName.equals(GdlPool.LEGAL);
+        isTerminalProp = propTypeName.equals(GdlPool.TERMINAL);
+        isGoalProp = propTypeName.equals(GdlPool.GOAL);
+        isInitProp = propTypeName.equals(GdlPool.INIT);
       }
       if ( (c instanceof PolymorphicTransition) ||
            isLegalProp ||
@@ -737,7 +730,7 @@ public class ForwardDeadReckonPropnetFastAnimator
   {
     if ( c instanceof PolymorphicProposition )
     {
-      if ( ((ForwardDeadReckonProposition)c).getName().getName().equals(LEGAL))
+      if ( ((ForwardDeadReckonProposition)c).getName().getName().equals(GdlPool.LEGAL))
       {
         int moveIndex = ((ForwardDeadReckonProposition)c).getAssociatedTriggerIndex();
         if( moveIndex >= 0 )
@@ -813,7 +806,6 @@ public class ForwardDeadReckonPropnetFastAnimator
 
     if ( c instanceof PolymorphicProposition )
     {
-      ForwardDeadReckonPropositionInfo info = ((ForwardDeadReckonProposition)c).getInfo();
       hasTrigger = (getTriggerId(c) != -1);
 
       if ( hasTrigger )

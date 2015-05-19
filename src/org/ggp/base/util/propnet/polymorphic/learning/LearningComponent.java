@@ -1,8 +1,6 @@
 
 package org.ggp.base.util.propnet.polymorphic.learning;
 
-import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashSet;
@@ -10,7 +8,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;

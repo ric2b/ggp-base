@@ -48,14 +48,14 @@ public final class AimaProver implements Prover
 
 	private Set<GdlSentence> ask(GdlSentence query, Set<GdlSentence> context, boolean askOne)
 	{
-		LinkedList<GdlLiteral> goals = new LinkedList<GdlLiteral>();
+		LinkedList<GdlLiteral> goals = new LinkedList<>();
 		goals.add(query);
 
-		Set<Substitution> answers = new HashSet<Substitution>();
+		Set<Substitution> answers = new HashSet<>();
 		ask(goals, new KnowledgeBase(context), new Substitution(), ProverCache.createSingleThreadedCache(),
 				new VariableRenamer(), askOne, answers, new RecursionHandler(), new IsConstant());
 
-		Set<GdlSentence> results = new HashSet<GdlSentence>();
+		Set<GdlSentence> results = new HashSet<>();
 		for (Substitution theta : answers)
 		{
 			results.add(Substituter.substitute(query, theta));
@@ -118,10 +118,10 @@ public final class AimaProver implements Prover
 
 	private void askNot(GdlNot not, LinkedList<GdlLiteral> goals, KnowledgeBase context, Substitution theta, ProverCache cache, VariableRenamer renamer, boolean askOne, Set<Substitution> results, RecursionHandler recursionHandler, IsConstant isConstantRet)
 	{
-		LinkedList<GdlLiteral> notGoals = new LinkedList<GdlLiteral>();
+		LinkedList<GdlLiteral> notGoals = new LinkedList<>();
 		notGoals.add(not.getBody());
 
-		Set<Substitution> notResults = new HashSet<Substitution>();
+		Set<Substitution> notResults = new HashSet<>();
 		boolean isConstant = true;
 		ask(notGoals, context, theta, cache, renamer, true, notResults, recursionHandler, isConstantRet);
 		isConstant &= isConstantRet.value;
@@ -196,12 +196,12 @@ public final class AimaProver implements Prover
 				return results;
 			}
 			recursionHandler.alreadyAsking.add(varRenamedSentence);
-			List<GdlRule> candidates = new ArrayList<GdlRule>();
+			List<GdlRule> candidates = new ArrayList<>();
 			candidates.addAll(knowledgeBase.fetch(sentence));
 			candidates.addAll(context.fetch(sentence));
 			boolean isConstant = !isTrueOrDoesSentence(sentence);
 
-			Set<Substitution> sentenceResults = new HashSet<Substitution>();
+			Set<Substitution> sentenceResults = new HashSet<>();
 			for (GdlRule rule : candidates)
 			{
 				GdlRule r = renamer.rename(rule);
@@ -209,7 +209,7 @@ public final class AimaProver implements Prover
 
 				if (thetaPrime != null)
 				{
-					LinkedList<GdlLiteral> sentenceGoals = new LinkedList<GdlLiteral>();
+					LinkedList<GdlLiteral> sentenceGoals = new LinkedList<>();
 					for (int i = 0; i < r.arity(); i++)
 					{
 						sentenceGoals.add(r.get(i));
@@ -235,7 +235,7 @@ public final class AimaProver implements Prover
 						Substitution thetaPrime = Unifier.unify(r.getHead(), sentence);
 
 						if (thetaPrime != null) {
-							LinkedList<GdlLiteral> sentenceGoals = new LinkedList<GdlLiteral>();
+							LinkedList<GdlLiteral> sentenceGoals = new LinkedList<>();
 							for (int i = 0; i < r.arity(); i++) {
 								sentenceGoals.add(r.get(i));
 							}

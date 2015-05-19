@@ -202,9 +202,6 @@ public class TreePath
   // A cursor to an item in the path.  Used for iteration.
   private int mCursor = 0;
 
-  // The node at which to stop back-propagation.
-  private TreeNode mBackPropLimitNode;
-
   /**
    * Construct a new selection path.
    *
@@ -386,10 +383,5 @@ public class TreePath
     }
     resetCursor();
     return true;
-  }
-
-  public void setBackPropLimit(TreeNode xiLimitNode)
-  {
-    mBackPropLimitNode = xiLimitNode;
   }
 }
