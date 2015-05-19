@@ -72,9 +72,10 @@ public class StateSimilarityHashGenerator
    */
   public int getHash(ForwardDeadReckonInternalMachineState state)
   {
-    int nextSetPropIndex = -1;
     OpenBitSet activeBaseProps = state.getContents();
     int result = 0;
+    int firstBasePropIndex = state.firstBasePropIndex;
+    int nextSetPropIndex = firstBasePropIndex-1;
 
     for(int i = 0; i < numPartitions; i++)
     {
@@ -83,7 +84,7 @@ public class StateSimilarityHashGenerator
 
     while((nextSetPropIndex = activeBaseProps.nextSetBit(nextSetPropIndex+1)) != -1)
     {
-      partitionPopulationBuffer[partitionMembership[nextSetPropIndex]]++;
+      partitionPopulationBuffer[partitionMembership[nextSetPropIndex-firstBasePropIndex]]++;
     }
 
     for(int i = 0; i < numPartitions; i++)
