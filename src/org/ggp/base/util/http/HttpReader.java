@@ -8,15 +8,9 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.URLDecoder;
 import java.util.HashMap;
-import java.util.Map.Entry;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public final class HttpReader
 {
-  private static final Logger LOGGER = LogManager.getLogger();
-
   /**
    * A GGP request.
    */
@@ -31,20 +25,8 @@ public final class HttpReader
      * The GGP-related HTTP headers sent with the request.
      */
     public final HashMap<String, String> mHeaders = new HashMap<>();
-
-    /**
-     * Log the headers for this message.
-     *
-     * Only call this method once the log context has been established.
-     */
-    public void logHeaders()
-    {
-      for (Entry<String, String> lEntry : mHeaders.entrySet())
-      {
-        LOGGER.debug(lEntry.getKey() + ": " + lEntry.getValue());
-      }
-    }
   }
+
   // Wrapper methods to support socket timeouts for reading requests/responses.
 
   public static String readAsClient(Socket socket, int timeout)
