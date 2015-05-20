@@ -272,7 +272,23 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   {
     assert(this != other);
     assert(other.contents.getNumWords() == contents.getNumWords());
-    System.arraycopy(other.contents.getBits(), 0, contents.getBits(), 0, contents.getNumWords());
+
+    int firstIndex = (firstBasePropIndex >> 6);
+    int modulo = (firstBasePropIndex & 0x3F);
+    long h;
+    long[] bits = contents.getBits();
+    long[] otherBits = other.contents.getBits();
+    // Start with a zero hash and use a mix that results in zero if the input is zero.
+    // This effectively truncates trailing zeros without an explicit check.
+    if ( modulo != 0 )
+    {
+      h = (1 << modulo)-1;
+      h = ~h;
+      bits[firstIndex] = (h & otherBits[firstIndex]);
+
+      firstIndex++;
+    }
+    System.arraycopy(otherBits, firstIndex, bits, firstIndex, contents.getNumWords()-firstIndex);
 
 
     isXState = other.isXState;
@@ -290,7 +306,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
       heuristicData.putAll(other.heuristicData);
     }
 
-    hashCached = other.hashCached;
+    hashCached = false;
     cachedHashCode = other.cachedHashCode;
   }
 
@@ -407,76 +423,11 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   {
     if ( !hashCached )
     {
-      cachedHashCode = basePropsHash();
+      cachedHashCode = contents.hashCode();
       hashCached = true;
     }
 
     return cachedHashCode;
-  }
-
-  //  Only want to hash the bits that correspond to the base props - use OpenBitSet
-  //  code slightly modified to handle this
-  private int basePropsHash()
-  {
-    int firstIndex = (firstBasePropIndex >> 6);
-    int modulo = (firstBasePropIndex & 0x3F);
-    long h;
-    long[] bits = contents.getBits();
-    // Start with a zero hash and use a mix that results in zero if the input is zero.
-    // This effectively truncates trailing zeros without an explicit check.
-    if ( modulo != 0 )
-    {
-      h = 1 << (modulo-1);
-      h |= (h-1);
-      h = ~h;
-      h &= bits[firstIndex++];
-      h = (h << 1) | (h >>> 63); // rotate left
-    }
-    else
-    {
-      h = 0;
-    }
-    for (int i = firstIndex; i<bits.length;i++) {
-      h ^= bits[i];
-      h = (h << 1) | (h >>> 63); // rotate left
-    }
-    // fold leftmost bits into right and add a constant to prevent
-    // empty sets from returning 0, which is too common.
-    return (int)((h>>32) ^ h) + 0x98761234;
-  }
-
-  //  Check for equality in the base props
-  private boolean basePropsEquals(ForwardDeadReckonInternalMachineState other)
-  {
-    int firstIndex = (firstBasePropIndex >> 6);
-    int modulo = (firstBasePropIndex & 0x3F);
-    long h;
-    long[] bits = contents.getBits();
-    long[] otherBits = other.contents.getBits();
-    // Start with a zero hash and use a mix that results in zero if the input is zero.
-    // This effectively truncates trailing zeros without an explicit check.
-    if ( modulo != 0 )
-    {
-      h = 1 << (modulo-1);
-      h |= (h-1);
-      h = ~h;
-      if ( (h & bits[firstIndex]) != (h & otherBits[firstIndex]) )
-      {
-        return false;
-      }
-
-      firstIndex++;
-    }
-
-    for (int i = firstIndex; i<bits.length;i++)
-    {
-      if ( bits[i] != otherBits[i] )
-      {
-        return false;
-      }
-    }
-
-    return true;
   }
 
   @Override
@@ -489,9 +440,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
 
     if (o instanceof ForwardDeadReckonInternalMachineState && hashCode() == o.hashCode() )
     {
-      ForwardDeadReckonInternalMachineState state = (ForwardDeadReckonInternalMachineState)o;
-
-      return basePropsEquals((ForwardDeadReckonInternalMachineState)o);
+      return contents.equals(((ForwardDeadReckonInternalMachineState)o).contents);
     }
 
     return false;
@@ -521,7 +470,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
 
     if (other !=null && hashCode() == other.hashCode())
     {
-      return basePropsEquals(other);
+      return contents.equals(other.contents);//basePropsEquals(other);
     }
 
     return false;
