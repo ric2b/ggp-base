@@ -1165,6 +1165,7 @@ public class TreeNode
     boolean siblingCheckNeeded = false;
     double selectedNonDeciderScore = Double.MAX_VALUE;
     boolean inhibitDecidingWinPropagation = false;
+    boolean multupleBestChoices = false;
 
     for (int i = 0; i < tree.numRoles; i++)
     {
@@ -1231,29 +1232,30 @@ public class TreeNode
               }
 
               //  In the event of several choices having the same score for the deciding role
-              //  assume that the one with the worst score for us will be chosen.  If we are the decider
-              //  assume that which minimizes the sum of opponents is chosen
+              //  assume that the one with the lowest sum of opponent scores will be chosen.
+              //  If several turn out equal we will construct a blended value later that is somewhat
+              //  pessimistic for us (but not completely so)
               double deciderScore = lNode.getAverageScore(roleIndex);
-              double nonDeciderScore;
+              double nonDeciderScore = 0;
 
-              if ( roleIndex == 0 )
+              for(int opponentRoleIndex = 0; opponentRoleIndex < tree.numRoles; opponentRoleIndex++)
               {
-                nonDeciderScore = 0;
-
-                for(int opponentRoleIndex = 0; opponentRoleIndex < tree.numRoles; opponentRoleIndex++)
+                if ( opponentRoleIndex != roleIndex )
                 {
-                  if ( opponentRoleIndex != roleIndex )
-                  {
-                    nonDeciderScore += lNode.getAverageScore(opponentRoleIndex);
-                  }
+                  nonDeciderScore += lNode.getAverageScore(opponentRoleIndex);
                 }
               }
-              else
+
+              if ( deciderScore > bestValue || (deciderScore == bestValue && nonDeciderScore <= selectedNonDeciderScore))
               {
-                nonDeciderScore = lNode.getAverageScore(0);
-              }
-              if ( deciderScore > bestValue || (deciderScore == bestValue && nonDeciderScore < selectedNonDeciderScore))
-              {
+                if ( deciderScore == bestValue && nonDeciderScore == selectedNonDeciderScore )
+                {
+                  multupleBestChoices = true;
+                }
+                else
+                {
+                  multupleBestChoices = false;
+                }
                 selectedNonDeciderScore = nonDeciderScore;
                 bestValue = deciderScore;
                 bestValueNode = lNode;
@@ -1567,6 +1569,55 @@ public class TreeNode
             tree.mBlendedCompletionScoreBuffer[i] = bestValueNode.getAverageScore(i);
           }
         }
+        markComplete(tree.mBlendedCompletionScoreBuffer, determiningChildCompletionDepth);
+      }
+      else if ( multupleBestChoices )
+      {
+        //  Weight the values by 200-ourScore (i.e. - assume the chooser will prefer
+        //  to make us lose, but not to the point where it totally discounts the other lines)
+        //  This works better than assuming worst case, which amounts to assuming everyone else
+        //  will cooperate against us, and makes giving up look as attractive as trying for
+        //  a possible win that is not completely forced
+        double totalWeight = 0;
+        for (int i = 0; i < tree.numRoles; i++)
+        {
+          tree.mBlendedCompletionScoreBuffer[i] = 0;
+        }
+
+        for (short index = 0; index < mNumChildren; index++)
+        {
+          if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+          {
+            Object choice = children[index];
+
+            //  Pseudo-noops in factored games can still be unexpanded at this point
+            if ( choice instanceof TreeEdge )
+            {
+              TreeEdge edge = (TreeEdge)choice;
+
+              assert(edge.getChildRef() != NULL_REF);
+
+              TreeNode lNode = get(edge.getChildRef());
+              assert(lNode != null);
+              assert(lNode.complete);
+
+              if ( lNode.getAverageScore(roleIndex) == bestValue )
+              {
+                double weight = (200 - lNode.getAverageScore(0));
+                for (int i = 0; i < tree.numRoles; i++)
+                {
+                  tree.mBlendedCompletionScoreBuffer[i] += weight*lNode.getAverageScore(i);
+                }
+                totalWeight += weight;
+              }
+            }
+          }
+        }
+        for (int i = 0; i < tree.numRoles; i++)
+        {
+          tree.mBlendedCompletionScoreBuffer[i] /= totalWeight;
+        }
+
         markComplete(tree.mBlendedCompletionScoreBuffer, determiningChildCompletionDepth);
       }
       else
