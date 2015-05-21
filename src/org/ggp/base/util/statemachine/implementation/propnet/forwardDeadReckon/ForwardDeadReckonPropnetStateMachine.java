@@ -3202,20 +3202,20 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                         List<ForwardDeadReckonLegalMoveInfo> playedMoves,
                                         int cutoffDepth)
   {
-    ForwardDeadReckonProposition hintMoveProp = null;
+    Move hintMove = null;
     int hintMoveDepth = -1;
 
     do
     {
       assert(playedMoves == null || playedMoves.size() == rolloutStackDepth);
-      ForwardDeadReckonProposition winningMoveProp = transitionToNextStateInGreedyRollout(results,
-                                                                                          factor,
-                                                                                          hintMoveProp,
-                                                                                          moveWeights,
-                                                                                          playedMoves);
-      if (winningMoveProp != null)
+      Move winningMove = transitionToNextStateInGreedyRollout(results,
+                                                              factor,
+                                                              hintMove,
+                                                              moveWeights,
+                                                              playedMoves);
+      if (winningMove != null)
       {
-        hintMoveProp = winningMoveProp;
+        hintMove = winningMove;
         hintMoveDepth = rolloutStackDepth;
 
         //	Next player had a 1 move forced win.  Pop the stack and choose again at this level unless deciding player was
@@ -3245,7 +3245,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             {
               if (rolloutStackDepth++ >= hintMoveDepth)
               {
-                hintMoveProp = null;
+                hintMove = null;
               }
             }
             else
@@ -3261,7 +3261,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           {
             if (rolloutStackDepth++ >= hintMoveDepth)
             {
-              hintMoveProp = null;
+              hintMove = null;
             }
           }
           else
@@ -3275,7 +3275,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         if (rolloutStackDepth++ >= hintMoveDepth)
         {
-          hintMoveProp = null;
+          hintMove = null;
         }
       }
       else if (rolloutDecisionStack[rolloutStackDepth].nextChoiceIndex != rolloutDecisionStack[rolloutStackDepth].baseChoiceIndex)
@@ -3374,11 +3374,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     terminalCheckHorizon = horizon;
   }
 
-  private ForwardDeadReckonProposition transitionToNextStateInGreedyRollout(TerminalResultSet results,
-                                                                            Factor factor,
-                                                                            ForwardDeadReckonProposition hintMoveProp,
-                                                                            MoveWeights moveWeights,
-                                                                            List<ForwardDeadReckonLegalMoveInfo> playedMoves)
+  private Move transitionToNextStateInGreedyRollout(TerminalResultSet results,
+                                                    Factor factor,
+                                                    Move hintMove,
+                                                    MoveWeights moveWeights,
+                                                    List<ForwardDeadReckonLegalMoveInfo> playedMoves)
   {
     //		ProfileSection methodSection = new ProfileSection("TestPropnetStateMachine.transitionToNextStateInGreedyRollout");
     //		try
@@ -3594,13 +3594,13 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       //	If we're given a hint move to check for a win do that first
       //	the first time we look at this node
-      if (hintMoveProp != null && decisionState.numChoices > 1)
+      if (hintMove != null && decisionState.numChoices > 1)
       {
         if (decisionState.baseChoiceIndex == choiceIndex)
         {
           for (int i = 0; i < decisionState.numChoices; i++)
           {
-            if (decisionState.chooserMoves[i].inputProposition == hintMoveProp)
+            if (decisionState.chooserMoves[i].move == hintMove)
             {
               chosenJointMoveProps[decisionState.chooserIndex] = decisionState.chooserMoves[i].inputProposition;
 
@@ -3618,7 +3618,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                   }
                   greedyRolloutEffectiveness++;
                   //	If we have a choosable win stop searching
-                  return hintMoveProp;
+                  return hintMove;
                 }
 
                 results.considerResult(decisionState.choosingRole);
@@ -3645,7 +3645,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                     decisionState.nextChoiceIndex = decisionState.baseChoiceIndex;
                     if ( getRandom(100) < latchWorseningAvoidanceWeight )
                     {
-                      return hintMoveProp;
+                      return hintMove;
                     }
                     return null;
                   }
@@ -3660,7 +3660,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         else
         {
           //	Not the first time we've looked at this node
-          hintMoveProp = null;
+          hintMove = null;
         }
       }
 
@@ -3681,7 +3681,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         if ( i > 0 )
         {
           if (decisionState.propProcessed[choice] ||
-              hintMoveProp == decisionState.chooserMoves[choice].inputProposition ||
+              hintMove == decisionState.chooserMoves[choice].move ||
               (preEnumerate && !terminatingMoveProps.contains(decisionState.chooserMoves[choice].inputProposition)))
           {
             continue;
@@ -3723,7 +3723,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             }
 
             //	If we have a choosable win stop searching
-            return decisionState.chooserMoves[choice].inputProposition;
+            return decisionState.chooserMoves[choice].move;
           }
 
           results.considerResult(decisionState.choosingRole);
@@ -3749,7 +3749,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
               decisionState.nextChoiceIndex = (choiceIndex+1)%decisionState.numChoices;
               if ( getRandom(100) < latchWorseningAvoidanceWeight )
               {
-                return decisionState.chooserMoves[choice].inputProposition;
+                return decisionState.chooserMoves[choice].move;
               }
               return null;
             }
