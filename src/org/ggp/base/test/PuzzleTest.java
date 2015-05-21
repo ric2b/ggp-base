@@ -1,6 +1,7 @@
 package org.ggp.base.test;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration;
@@ -22,22 +23,49 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 /**
- * Test games in the Stanford repository.
+ * Test puzzles.
  */
 @RunWith(Parameterized.class)
-public class StanfordGameTest extends Assert
+public class PuzzleTest extends Assert
 {
   private static HashMap<String, Integer> MAX_SCORES = new HashMap<>();
   static
   {
-    MAX_SCORES.put("hunter", 87);
-    MAX_SCORES.put("multiplesukoshi", 0);
+    MAX_SCORES.put("stanford.hunter", 87);
+    MAX_SCORES.put("stanford.multiplesukoshi", 0);
   }
 
   private static HashMap<String, Integer> EXTRA_TIME = new HashMap<>();
   static
   {
-    // EXTRA_TIME.put("multiplehamilton", 60);
+    // EXTRA_TIME.put("stanford.multiplehamilton", 60);
+  }
+
+  private static HashSet<String> SKIP = new HashSet<>();
+  static
+  {
+    SKIP.add("base.asteroidsParallel");
+    SKIP.add("base.blocksWorldParallel");
+    SKIP.add("base.brain_teaser_extended");
+    SKIP.add("base.factoringGeorgeForman");
+    SKIP.add("base.factoringImpossibleTurtleBrain");
+    SKIP.add("base.factoringMediumTurtleBrain");
+    SKIP.add("base.factoringMutuallyAssuredDestruction");
+    SKIP.add("base.firefighter");
+    SKIP.add("base.god");
+    SKIP.add("base.incredible");
+    SKIP.add("base.lightsOut");
+    SKIP.add("base.mummymaze1p");
+    SKIP.add("base.pancakes6");
+    SKIP.add("base.pancakes88");
+    SKIP.add("base.pearls");
+    SKIP.add("base.queens");
+    SKIP.add("base.ruleDepthExponential");
+    SKIP.add("base.slidingpieces");
+    SKIP.add("base.stateSpaceLarge");
+    SKIP.add("base.sudoku");
+    SKIP.add("base.twisty-passages");
+    SKIP.add("base.wargame01");
   }
 
   /**
@@ -50,11 +78,21 @@ public class StanfordGameTest extends Assert
   {
     LinkedList<Object[]> lTests = new LinkedList<>();
 
-    GameRepository lRepo = new CloudGameRepository("games.ggp.org/stanford");
+    // Get all the games from the Base repo.
+    GameRepository lRepo = new CloudGameRepository("games.ggp.org/base");
 
     for (String lGameName : lRepo.getGameKeys())
     {
-      lTests.add(new Object[] {lGameName, lRepo.getGame(lGameName)});
+      // !! ARR Good chance this test will time out on snap-ci.  Disable base puzzles until I can deal with that (#258).
+      // lTests.add(new Object[] {"base." + lGameName, lRepo.getGame(lGameName)});
+    }
+
+    // Get all the games from the Stanford repo.
+    lRepo = new CloudGameRepository("games.ggp.org/stanford");
+
+    for (String lGameName : lRepo.getGameKeys())
+    {
+      lTests.add(new Object[] {"stanford." + lGameName, lRepo.getGame(lGameName)});
     }
 
     return lTests;
@@ -74,7 +112,7 @@ public class StanfordGameTest extends Assert
    * @param xiName - the name of the game.
    * @param xiGame - the game.
    */
-  public StanfordGameTest(String xiName, Game xiGame)
+  public PuzzleTest(String xiName, Game xiGame)
   {
     mName = xiName;
     mGame = xiGame;
@@ -101,6 +139,9 @@ public class StanfordGameTest extends Assert
     StateMachine stateMachine = new ProverStateMachine();
     stateMachine.initialize(mGame.getRules());
     org.junit.Assume.assumeTrue(mName + " is not a puzzle", stateMachine.getRoles().length == 1);
+
+    // Skip puzzles that we know we can't solve (and have an issue to cover).
+    org.junit.Assume.assumeFalse("We can't solve " + mName, SKIP.contains(mName));
 
     // Ensure we clean up.
     mStarted = true;

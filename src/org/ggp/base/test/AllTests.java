@@ -12,7 +12,7 @@ import org.junit.runners.Suite;
                      NoTabsInRulesheetsTest.class,
                      ProverStateMachineTests.class,
                      SimpleSentenceFormTest.class,
-                     StanfordGameTest.class,
+                     PuzzleTest.class,
                      StaticValidationTests.class})
 public class AllTests
 {
