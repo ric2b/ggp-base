@@ -8,6 +8,7 @@
   <entry key="max_factor_failure_time">0</entry>
   <entry key="num_factors">0</entry>
   <entry key="moves_in_multiple_factors">false</entry>
-  <entry key="max_branching_factor">7</entry>
+  <entry key="max_branching_factor">16</entry>
   <entry key="fixed_length">false</entry>
+  <entry key="plan">write 4 3 5 b,write 5 2 5 b,write 5 5 4 b,write 1 2 5 b,write 3 1 3 b,write 1 4 2 b,write 3 4 3 b</entry>
 </properties>

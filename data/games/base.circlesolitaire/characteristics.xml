@@ -8,6 +8,7 @@
   <entry key="max_factor_failure_time">0</entry>
   <entry key="num_factors">0</entry>
   <entry key="moves_in_multiple_factors">false</entry>
-  <entry key="max_branching_factor">7</entry>
+  <entry key="max_branching_factor">6</entry>
   <entry key="fixed_length">false</entry>
+  <entry key="plan">remove p7,remove p6,remove p2,remove p8,remove p3,remove p4,remove p5,remove p1</entry>
 </properties>

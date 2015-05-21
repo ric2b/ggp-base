@@ -10,4 +10,5 @@
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">6</entry>
   <entry key="fixed_length">true</entry>
+  <entry key="plan">flip p4,flip p2,flip p6,flip p4,flip p3,flip p2,flip p5</entry>
 </properties>

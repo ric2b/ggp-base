@@ -8,6 +8,7 @@
   <entry key="max_factor_failure_time">0</entry>
   <entry key="num_factors">0</entry>
   <entry key="moves_in_multiple_factors">false</entry>
-  <entry key="max_branching_factor">7</entry>
+  <entry key="max_branching_factor">4</entry>
   <entry key="fixed_length">false</entry>
+  <entry key="plan">press 1 1,press 2 1,press 1 1,press 2 2,press 1 2</entry>
 </properties>

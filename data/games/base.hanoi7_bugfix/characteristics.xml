@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+  <entry key="num_roles">1</entry>
+  <entry key="simultaneous">false</entry>
+  <entry key="pseudo_simultaneous">false</entry>
+  <entry key="iterated">false</entry>
+  <entry key="max_factor_failure_time">0</entry>
+  <entry key="num_factors">0</entry>
+  <entry key="moves_in_multiple_factors">false</entry>
+  <entry key="max_branching_factor">3</entry>
+  <entry key="fixed_length">false</entry>
+  <entry key="plan">puton disc1 pillar3,puton disc2 pillar2,puton disc1 disc2,puton disc3 pillar3,puton disc1 disc4,puton disc2 disc3,puton disc1 disc2,puton disc4 pillar2,puton disc1 disc4,puton disc2 disc5,puton disc1 disc2,puton disc3 disc4,puton disc1 pillar3,puton disc2 disc3,puton disc1 disc2,puton disc5 pillar3,puton disc1 disc6,puton disc2 disc5,puton disc1 disc2,puton disc3 disc6,puton disc1 disc4,puton disc2 disc3,puton disc1 disc2,puton disc4 disc5,puton disc1 disc4,puton disc2 pillar2,puton disc1 disc2,puton disc3 disc4,puton disc1 disc6,puton disc2 disc3,puton disc1 disc2,puton disc6 pillar2,puton disc1 disc6,puton disc2 disc7,puton disc1 disc2,puton disc3 disc6,puton disc1 disc4,puton disc2 disc3,puton disc1 disc2,puton disc4 disc7,puton disc1 disc4,puton disc2 disc5,puton disc1 disc2,puton disc3 disc4,puton disc1 disc6,puton disc2 disc3,puton disc1 disc2,puton disc5 disc6,puton disc1 pillar3,puton disc2 disc5,puton disc1 disc2,puton disc3 pillar3,puton disc1 disc4,puton disc2 disc3,puton disc1 disc2,puton disc4 disc5,puton disc1 disc4,puton disc2 disc7,puton disc1 disc2,puton disc3 disc4,puton disc1 pillar3,puton disc2 disc3,puton disc1 disc2,puton disc7 pillar3,puton disc1 pillar1,puton disc2 disc7,puton disc1 disc2,puton disc3 pillar1,puton disc1 disc4,puton disc2 disc3,puton disc1 disc2,puton disc4 disc7,puton disc1 disc4,puton disc2 disc5,puton disc1 disc2,puton disc3 disc4,puton disc1 pillar1,puton disc2 disc3,puton disc1 disc2,puton disc5 pillar1,puton disc1 disc6,puton disc2 disc5,puton disc1 disc2,puton disc3 disc6,puton disc1 disc4,puton disc2 disc3,puton disc1 disc2,puton disc4 disc5,puton disc1 disc4,puton disc2 disc7,puton disc1 disc2,puton disc3 disc4,puton disc1 disc6,puton disc2 disc3,puton disc1 disc2,puton disc6 disc7,puton disc1 disc6,puton disc2 pillar2,puton disc1 disc2,puton disc3 disc6,puton disc1 disc4,puton disc2 disc3,puton disc1 disc2,puton disc4 pillar2,puton disc1 disc4,puton disc2 disc5,puton disc1 disc2,puton disc3 disc4,puton disc1 disc6,puton disc2 disc3,puton disc1 disc2,puton disc5 disc6,puton disc1 pillar1,puton disc2 disc5,puton disc1 disc2,puton disc3 pillar1,puton disc1 disc4,puton disc2 disc3,puton disc1 disc2,puton disc4 disc5,puton disc1 disc4,puton disc2 pillar2,puton disc1 disc2,puton disc3 disc4,puton disc1 pillar1,puton disc2 disc3,puton disc1 disc2</entry>
+</properties>

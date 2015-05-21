@@ -8,6 +8,7 @@
   <entry key="max_factor_failure_time">0</entry>
   <entry key="num_factors">0</entry>
   <entry key="moves_in_multiple_factors">false</entry>
-  <entry key="max_branching_factor">7</entry>
+  <entry key="max_branching_factor">48</entry>
   <entry key="fixed_length">false</entry>
+  <entry key="plan">contemplate x y,s b c,contemplate y x,move,u f e,contemplate y x,move,grab,move,u b c,move,u e d,s d f,s b d,contemplate y x,u c a,s a e,s c a,drop</entry>
 </properties>
