@@ -51,7 +51,6 @@ public class PuzzleTest extends Assert
     SKIP.add("base.factoringImpossibleTurtleBrain");
     SKIP.add("base.factoringMediumTurtleBrain");
     SKIP.add("base.factoringMutuallyAssuredDestruction");
-    SKIP.add("base.firefighter");
     SKIP.add("base.god");
     SKIP.add("base.incredible");
     SKIP.add("base.lightsOut");
