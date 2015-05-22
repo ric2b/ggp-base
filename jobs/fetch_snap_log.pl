@@ -21,13 +21,14 @@ if (not exists $ENV{$API_KEY_VAR})
 }
 my $lPassword = $ENV{$API_KEY_VAR};
 
-if (scalar(@ARGV) != 2)
+if (scalar(@ARGV) != 3)
 {
-  print "Syntax: fetch_snap_log.pl <BuildNum> <Artifact>\n";
+  print "Syntax: fetch_snap_log.pl <BuildNum> <Stage> <Artifact>\n";
   exit 1;
 }
 my $lBuild = $ARGV[0];
-my $lArtifact = $ARGV[1];
+my $lStage = $ARGV[1];
+my $lArtifact = $ARGV[2];
 
 # Create an HTTP user agent.  Don't allow redirections because we need to
 # remove authorization credentials before sending the redirected request.
@@ -40,7 +41,7 @@ $lAgent->max_redirect(0);
 
 # Set up the request.  Supply authorization by default because the server
 # doesn't ask for it correctly.
-my $lURL = "https://api.snap-ci.com/project/SanchoGGP/ggp-base/branch/develop/artifacts/tracking-pipeline/$lBuild/All/1/$lArtifact";
+my $lURL = "https://api.snap-ci.com/project/SanchoGGP/ggp-base/branch/develop/artifacts/tracking-pipeline/$lBuild/$lStage/1/$lArtifact";
 my $lRequest = HTTP::Request->new(GET => $lURL);
 $lRequest->authorization_basic($lUsername, $lPassword);
 
