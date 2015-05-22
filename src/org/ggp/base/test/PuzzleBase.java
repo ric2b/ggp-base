@@ -18,16 +18,17 @@ import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
 
 /**
  * Test puzzles.
  */
-@RunWith(Parameterized.class)
-public class PuzzleTest extends Assert
+public abstract class PuzzleBase extends Assert
 {
+  protected interface GameFilter
+  {
+    public boolean allow(String xiRepoName, String xiGameName);
+  }
+
   private static HashMap<String, Integer> MAX_SCORES = new HashMap<>();
   static
   {
@@ -72,26 +73,24 @@ public class PuzzleTest extends Assert
    *
    * @return the tests to run.
    */
-  @Parameters(name="{0}")
-  public static Iterable<? extends Object> data()
+  public static Iterable<? extends Object> getTests(GameFilter xiFilter)
   {
     LinkedList<Object[]> lTests = new LinkedList<>();
 
-    // Get all the games from the Base repo.
-    GameRepository lRepo = new CloudGameRepository("games.ggp.org/base");
-
-    for (String lGameName : lRepo.getGameKeys())
+    for (String lRepoName : new String[] {"base", "stanford"})
     {
-      // !! ARR Good chance this test will time out on snap-ci.  Disable base puzzles until I can deal with that (#258).
-      // lTests.add(new Object[] {"base." + lGameName, lRepo.getGame(lGameName)});
-    }
+      // Get all the games in the repository.
+      GameRepository lRepo = new CloudGameRepository("games.ggp.org/" + lRepoName);
 
-    // Get all the games from the Stanford repo.
-    lRepo = new CloudGameRepository("games.ggp.org/stanford");
+      // Filter them.
+      for (String lGameName : lRepo.getGameKeys())
+      {
+        if (xiFilter.allow(lRepoName, lGameName))
+        {
+          lTests.add(new Object[] {lRepoName + "." + lGameName, lRepo.getGame(lGameName)});
+        }
+      }
 
-    for (String lGameName : lRepo.getGameKeys())
-    {
-      lTests.add(new Object[] {"stanford." + lGameName, lRepo.getGame(lGameName)});
     }
 
     return lTests;
@@ -111,7 +110,7 @@ public class PuzzleTest extends Assert
    * @param xiName - the name of the game.
    * @param xiGame - the game.
    */
-  public PuzzleTest(String xiName, Game xiGame)
+  public PuzzleBase(String xiName, Game xiGame)
   {
     mName = xiName;
     mGame = xiGame;

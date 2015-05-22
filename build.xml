@@ -156,6 +156,30 @@
             <classpath refid="GGP.classpath"/>
         </junit>
     </target>
+    <target name="StanfordPuzzleTest">
+        <mkdir dir="${junit.output.dir}"/>
+        <junit fork="yes" printsummary="on" haltonfailure="no" failureproperty="ut.failure">
+            <formatter type="xml"/>
+            <test name="org.ggp.base.test.StanfordPuzzleTest" todir="${junit.output.dir}"/>
+            <classpath refid="GGP.classpath"/>
+        </junit>
+    </target>
+    <target name="BasePuzzleTest1">
+        <mkdir dir="${junit.output.dir}"/>
+        <junit fork="yes" printsummary="on" haltonfailure="no" failureproperty="ut.failure">
+            <formatter type="xml"/>
+            <test name="org.ggp.base.test.BasePuzzleTest1" todir="${junit.output.dir}"/>
+            <classpath refid="GGP.classpath"/>
+        </junit>
+    </target>
+    <target name="BasePuzzleTest2">
+        <mkdir dir="${junit.output.dir}"/>
+        <junit fork="yes" printsummary="on" haltonfailure="no" failureproperty="ut.failure">
+            <formatter type="xml"/>
+            <test name="org.ggp.base.test.BasePuzzleTest2" todir="${junit.output.dir}"/>
+            <classpath refid="GGP.classpath"/>
+        </junit>
+    </target>
     <target name="junitreport">
         <junitreport todir="${junit.output.dir}">
             <fileset dir="${junit.output.dir}">
