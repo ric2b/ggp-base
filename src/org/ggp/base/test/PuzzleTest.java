@@ -82,8 +82,7 @@ public class PuzzleTest extends Assert
 
     for (String lGameName : lRepo.getGameKeys())
     {
-      // !! ARR Good chance this test will time out on snap-ci.  Disable base puzzles until I can deal with that (#258).
-      // lTests.add(new Object[] {"base." + lGameName, lRepo.getGame(lGameName)});
+      lTests.add(new Object[] {"base." + lGameName, lRepo.getGame(lGameName)});
     }
 
     // Get all the games from the Stanford repo.
