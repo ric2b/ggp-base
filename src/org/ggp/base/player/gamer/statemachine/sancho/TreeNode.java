@@ -33,6 +33,47 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
  */
 public class TreeNode
 {
+  /**
+   * @author steve
+   *  Known status from local search for this node.  Note that these statuses are
+   *  (strongly) advisory rather than 100% certain
+   */
+  public enum LocalSearchStatus
+  {
+    LOCAL_SEARCH_UNSEARCHED,
+    LOCAL_SEARCH_NO_RESULT,
+    LOCAL_SEARCH_LOSS,
+    LOCAL_SEARCH_WIN;
+
+    /**
+     * @return Whether the value represents a definite local search result
+     */
+    boolean HasResult()
+    {
+      return (this == LOCAL_SEARCH_LOSS || this == LOCAL_SEARCH_WIN);
+    }
+
+    @Override
+    public String toString()
+    {
+      switch(this)
+      {
+        case LOCAL_SEARCH_UNSEARCHED:
+          return "Not local searched";
+        case LOCAL_SEARCH_LOSS:
+          return "Local search loss";
+        case LOCAL_SEARCH_NO_RESULT:
+          return "No local search result";
+        case LOCAL_SEARCH_WIN:
+          return "Local search win";
+        default:
+          break;
+      }
+
+      return super.toString();
+    }
+  }
+
   private static final Logger LOGGER = LogManager.getLogger();
 
   private static final String TEMP_DIR = System.getProperty("java.io.tmpdir");
@@ -124,8 +165,7 @@ public class TreeNode
   boolean                               autoExpand           = false;
   boolean                               complete             = false;
   private boolean                       allChildrenComplete  = false;
-  boolean                               hasBeenLocalSearched = false;
-  ForwardDeadReckonLegalMoveInfo        isLocalLossFrom      = null;
+  LocalSearchStatus                     localSearchStatus    = LocalSearchStatus.LOCAL_SEARCH_UNSEARCHED;
   Object[]                              children             = null;
   short                                 mNumChildren         = 0;
   short[]                               primaryChoiceMapping = null;
@@ -397,7 +437,7 @@ public class TreeNode
   {
     if ( !complete )
     {
-      isLocalLossFrom = withMove;
+      localSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
       completionDepth = (short)(depth + atDepth);
     }
   }
@@ -1654,8 +1694,7 @@ public class TreeNode
     numUpdates = 0;
     isTerminal = false;
     autoExpand = false;
-    hasBeenLocalSearched = false;
-    isLocalLossFrom = null;
+    localSearchStatus = LocalSearchStatus.LOCAL_SEARCH_UNSEARCHED;
     leastLikelyWinner = -1;
     mostLikelyWinner = -1;
     complete = false;
@@ -4324,6 +4363,23 @@ public class TreeNode
                   uctValue = explorationUCT(numVisits, edge, roleIndex) +
                              exploitationUCT(edge, roleIndex) +
                              heuristicUCT(edge);
+
+                  //  A local known search status strongly impacts the choice.  Basically this establishes a hierarchy
+                  //  to all intents and purposes that means local search wins will essentially always be selected
+                  //  over anything but complete wins, and local search losses will almost never be selected
+                  //  However, crucially if ALL choices are local search losses normal selection ordering will result
+                  switch(c.localSearchStatus)
+                  {
+                    case LOCAL_SEARCH_LOSS:
+                      uctValue /= 10;
+                      break;
+                    case LOCAL_SEARCH_WIN:
+                      uctValue *= 10;
+                      break;
+                      //$CASES-OMITTED$
+                    default:
+                      break;
+                  }
                 }
 
                 if (uctValue >= mostLikelyRunnerUpValue)
@@ -4423,6 +4479,23 @@ public class TreeNode
                                                               roleIndex)) +
                                  exploitationUCT(edge, roleIndex) +
                                  heuristicUCT(edge);
+
+                      //  A local known search status strongly impacts the choice.  Basically this establishes a hierarchy
+                      //  to all intents and purposes that means local search wins will essentially always be selected
+                      //  over anything but complete wins, and local search losses will almost never be selected
+                      //  However, crucially if ALL choices are local search losses normal selection ordering will result
+                      switch(c.localSearchStatus)
+                      {
+                        case LOCAL_SEARCH_LOSS:
+                          uctValue /= 10;
+                          break;
+                        case LOCAL_SEARCH_WIN:
+                          uctValue *= 10;
+                          break;
+                          //$CASES-OMITTED$
+                        default:
+                          break;
+                      }
                     }
 
                     //  If the node we most want to select through is complete (so there is nothing further to
@@ -4782,7 +4855,8 @@ public class TreeNode
                               " scores " + lNode2.stringizeScoreVector() +
                               ", visits " + lNode2.numVisits +
                               ", ref : " + lNode2.mRef +
-                              (lNode2.complete ? " (complete)" : "");
+                              (lNode2.complete ? " (complete)" : "") +
+                              (lNode2.localSearchStatus.HasResult() ? ("(" + lNode2.localSearchStatus + ")") : "");
 
                 if (xiResponsesTraced < 400)
                 {
@@ -5239,7 +5313,7 @@ public class TreeNode
             {
               //  If it's already been local-searched down-weight it to avoid flipping
               //  back and forth between the same few moves
-              if ( child.hasBeenLocalSearched )
+              if ( child.localSearchStatus == LocalSearchStatus.LOCAL_SEARCH_NO_RESULT )
               {
                 selectionScore *= 0.95;
               }
@@ -5253,17 +5327,26 @@ public class TreeNode
               //  to actually be a loss.  The slight loss of potentially going for the second best
               //  MCTS choice when things are very close is more than compensated for by the
               //  added safety
-              if ( !child.hasBeenLocalSearched )
+              if ( child.localSearchStatus == LocalSearchStatus.LOCAL_SEARCH_UNSEARCHED )
               {
                 selectionScore *= 0.95;
               }
             }
 
-            //  If a move was found to be a local loss, but it's still incomplete (so global
-            //  result is unknown) down-weight its selection significantly
-            if ( child.isLocalLossFrom != null )
+            //  A local known search status strongly impacts the choice.  Basically this establishes a hierarchy
+            //  to all intents and purposes that means local serach wins will easentially always be selected
+            //  over anything but complete wins, and local serach losses will almost never be selected
+            switch(child.localSearchStatus)
             {
-              selectionScore /= 2;
+              case LOCAL_SEARCH_LOSS:
+                selectionScore /= 10;
+                break;
+              case LOCAL_SEARCH_WIN:
+                selectionScore = 100 - (100-selectionScore)/10;
+                break;
+                //$CASES-OMITTED$
+              default:
+                break;
             }
           }
         }
@@ -5273,7 +5356,9 @@ public class TreeNode
                       " scores " + FORMAT_2DP.format(moveScore) + " (selectionScore score " +
                       FORMAT_2DP.format(selectionScore) + ", selection count " +
                       child.numVisits + ", ref " + child.mRef +
-                      (child.complete ? (", complete [" + ((child.completionDepth - tree.root.depth)/tree.numRoles) + "]") : "") + ")");
+                      (child.complete ? (", complete [" + ((child.completionDepth - tree.root.depth)/tree.numRoles) + "]") : "") +
+                      (child.localSearchStatus.HasResult() ? (", " + child.localSearchStatus + " [" + ((child.completionDepth - tree.root.depth)/tree.numRoles) + "]") : "") +
+                      ")");
         }
 
         if (child.mNumChildren != 0 && !child.complete && traceResponses && !firstDecision)

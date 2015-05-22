@@ -50,6 +50,8 @@ public class LocalSearchResults implements LocalRegionDefiner
   ForwardDeadReckonLegalMoveSet[] relevantMovesForWin;
   boolean hasTerminalityCoupling = false;
 
+  static boolean detailedTrace = false;
+
   /**
    * Make this object a shallow copy of source
    * @param source
@@ -118,7 +120,10 @@ public class LocalSearchResults implements LocalRegionDefiner
           int coInfluenceDistance = searchProvider.getMoveCoInfluenceDistance(relevantMove, xiMove);
           if ( coInfluenceDistance < i + (i == searchRadius ? 1 : 0))
           {
-            LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at distance " + coInfluenceDistance + " and therefore has comnmon influence");
+            if ( detailedTrace )
+            {
+              LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at distance " + coInfluenceDistance + " and therefore has comnmon influence");
+            }
             return true;
           }
         }
@@ -128,10 +133,16 @@ public class LocalSearchResults implements LocalRegionDefiner
         int legalityEnablementDistance = searchProvider.getMoveEnablementDistance(xiMove, relevantMove);
         if ( legalityEnablementDistance <= i )
         {
-          LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at legality-enablement distance " + legalityEnablementDistance + " and therefore can be influenced");
+          if ( detailedTrace )
+          {
+            LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at legality-enablement distance " + legalityEnablementDistance + " and therefore can be influenced");
+          }
           return true;
         }
-        LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at distance " + legalityEnablementDistance + " and therefore cannot influence");
+        if ( detailedTrace )
+        {
+          LOGGER.info("  Relevant move " + i + ": " + relevantMove + " is at distance " + legalityEnablementDistance + " and therefore cannot influence");
+        }
       }
     }
 
