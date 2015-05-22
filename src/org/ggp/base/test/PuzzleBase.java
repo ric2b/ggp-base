@@ -47,6 +47,7 @@ public abstract class PuzzleBase extends Assert
   {
     SKIP.add("base.asteroidsParallel");
     SKIP.add("base.blocksWorldParallel");
+    SKIP.add("base.blocksWorldSerial");
     SKIP.add("base.brain_teaser_extended");
     SKIP.add("base.factoringGeorgeForman");
     SKIP.add("base.factoringImpossibleTurtleBrain");
