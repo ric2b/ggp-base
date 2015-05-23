@@ -1,7 +1,9 @@
 
 package org.ggp.base.util.propnet.polymorphic.learning;
 
+import java.io.IOException;
 import java.io.Serializable;
+import java.io.Writer;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -13,10 +15,7 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
-public abstract class LearningComponent extends
-                                       BidirectionalPropagationComponent
-                                                                        implements
-                                                                        Serializable
+public abstract class LearningComponent extends BidirectionalPropagationComponent implements Serializable
 {
   private static final long              serialVersionUID = 352527824700221111L;
   /** The inputs to the component. */
@@ -45,7 +44,7 @@ public abstract class LearningComponent extends
 
   /**
    * Adds a new input.
-   * 
+   *
    * @param input
    *          A new input.
    */
@@ -60,7 +59,7 @@ public abstract class LearningComponent extends
 
   /**
    * Adds a new output.
-   * 
+   *
    * @param output
    *          A new output.
    */
@@ -72,7 +71,7 @@ public abstract class LearningComponent extends
 
   /**
    * Getter method.
-   * 
+   *
    * @return The inputs to the component.
    */
   @Override
@@ -113,7 +112,7 @@ public abstract class LearningComponent extends
   /**
    * A convenience method, to get a single input. To be used only when the
    * component is known to have exactly one input.
-   * 
+   *
    * @return The single input to the component.
    */
   @Override
@@ -125,7 +124,7 @@ public abstract class LearningComponent extends
 
   /**
    * Getter method.
-   * 
+   *
    * @return The outputs of the component.
    */
   @Override
@@ -137,7 +136,7 @@ public abstract class LearningComponent extends
   /**
    * A convenience method, to get a single output. To be used only when the
    * component is known to have exactly one output.
-   * 
+   *
    * @return The single output to the component.
    */
   @Override
@@ -149,7 +148,7 @@ public abstract class LearningComponent extends
 
   /**
    * Gets the value of the Component.
-   * 
+   *
    * @return The value of the Component.
    */
   @Override
@@ -232,7 +231,7 @@ public abstract class LearningComponent extends
 
   /**
    * Calculates the value of the Component.
-   * 
+   *
    * @return The value of the Component.
    */
   @Override
@@ -243,30 +242,38 @@ public abstract class LearningComponent extends
   }
 
   /**
-   * Returns a configurable representation of the Component in .dot format.
-   * 
+   * Write a representation of the Component in .dot format.
+   *
+   * @param xiOutput - the output stream.
    * @param shape
    *          The value to use as the <tt>shape</tt> attribute.
    * @param fillcolor
    *          The value to use as the <tt>fillcolor</tt> attribute.
    * @param label
    *          The value to use as the <tt>label</tt> attribute.
-   * @return A representation of the Component in .dot format.
+   *
+   * @throws IOException if there was a problem.
    */
-  protected String toDot(String shape, String fillcolor, String label)
+  protected void renderAsDot(Writer xiOutput, String shape, String fillcolor, String label) throws IOException
   {
-    StringBuilder sb = new StringBuilder();
+    xiOutput.write("\"@");
+    xiOutput.write(Integer.toHexString(hashCode()));
+    xiOutput.write("\"[shape=");
+    xiOutput.write(shape);
+    xiOutput.write(", style= filled, fillcolor=");
+    xiOutput.write(fillcolor);
+    xiOutput.write(", label=\"");
+    xiOutput.write(label);
+    xiOutput.write("\"]; ");
 
-    sb.append("\"@" + Integer.toHexString(hashCode()) + "\"[shape=" + shape +
-              ", style= filled, fillcolor=" + fillcolor + ", label=\"" +
-              label + "\"]; ");
     for (PolymorphicComponent component : getOutputs())
     {
-      sb.append("\"@" + Integer.toHexString(hashCode()) + "\"->" + "\"@" +
-                Integer.toHexString(component.hashCode()) + "\"; ");
+      xiOutput.write("\"@");
+      xiOutput.write(Integer.toHexString(hashCode()));
+      xiOutput.write("\"->\"@");
+      xiOutput.write(Integer.toHexString(component.hashCode()));
+      xiOutput.write("\"; ");
     }
-
-    return sb.toString();
   }
 
   @Override

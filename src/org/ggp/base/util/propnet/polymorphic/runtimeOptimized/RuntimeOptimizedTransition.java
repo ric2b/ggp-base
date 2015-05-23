@@ -1,6 +1,9 @@
 
 package org.ggp.base.util.propnet.polymorphic.runtimeOptimized;
 
+import java.io.IOException;
+import java.io.Writer;
+
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
@@ -20,7 +23,7 @@ public final class RuntimeOptimizedTransition extends
 
   /**
    * Returns the value of the input to the transition.
-   * 
+   *
    * @see org.ggp.base.util.propnet.architecture.Component#getValueInternal()
    */
   @Override
@@ -43,12 +46,15 @@ public final class RuntimeOptimizedTransition extends
     cachedValue = newState;
   }
 
-  /**
-   * @see org.ggp.base.util.propnet.architecture.Component#toString()
-   */
   @Override
   public String toString()
   {
-    return toDot("box", "grey", "TRANSITION");
+    return "TRANSITION";
+  }
+
+  @Override
+  public void renderAsDot(Writer xiOutput) throws IOException
+  {
+    renderAsDot(xiOutput, "box", "grey", "TRANSITION");
   }
 }

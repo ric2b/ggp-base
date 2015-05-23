@@ -1,6 +1,9 @@
 
 package org.ggp.base.util.propnet.polymorphic.runtimeOptimized;
 
+import java.io.IOException;
+import java.io.Writer;
+
 import org.ggp.base.util.propnet.polymorphic.PolymorphicNot;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
@@ -19,7 +22,7 @@ public final class RuntimeOptimizedNot extends RuntimeOptimizedComponent
 
   /**
    * Returns the inverse of the input to the not.
-   * 
+   *
    * @see org.ggp.base.util.propnet.architecture.Component#getValueInternal()
    */
   @Override
@@ -55,12 +58,15 @@ public final class RuntimeOptimizedNot extends RuntimeOptimizedComponent
     }
   }
 
-  /**
-   * @see org.ggp.base.util.propnet.architecture.Component#toString()
-   */
   @Override
   public String toString()
   {
-    return toDot("invtriangle", "grey", "NOT");
+    return "NOT";
+  }
+
+  @Override
+  public void renderAsDot(Writer xiOutput) throws IOException
+  {
+    renderAsDot(xiOutput, "invtriangle", "grey", "NOT");
   }
 }

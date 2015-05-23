@@ -1,16 +1,16 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
+import java.io.IOException;
+import java.io.Writer;
+
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 
 /**
  * The Transition class is designed to represent pass-through gates.
  */
 @SuppressWarnings("serial")
-public final class ForwardDeadReckonTransition extends
-                                              ForwardDeadReckonComponent
-                                                                        implements
-                                                                        PolymorphicTransition
+public final class ForwardDeadReckonTransition extends ForwardDeadReckonComponent implements PolymorphicTransition
 {
   private ForwardDeadReckonComponentTransitionNotifier[]        owningTransitionInfoSet = null;
   private int                                                   associatedPropositionIndex          = -1;
@@ -93,12 +93,15 @@ public final class ForwardDeadReckonTransition extends
     owningTransitionInfoSet = new ForwardDeadReckonInternalMachineState[numInstances];
   }
 
-  /**
-   * @see org.ggp.base.util.propnet.architecture.Component#toString()
-   */
   @Override
   public String toString()
   {
-    return toDot("box", "grey", "TRANSITION");
+    return "TRANSITION";
+  }
+
+  @Override
+  public void renderAsDot(Writer xiOutput) throws IOException
+  {
+    renderAsDot(xiOutput, "box", "grey", "TRANSITION");
   }
 }

@@ -1,6 +1,9 @@
 
 package org.ggp.base.util.propnet.polymorphic.learning;
 
+import java.io.IOException;
+import java.io.Writer;
+
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
@@ -129,12 +132,15 @@ public final class LearningProposition extends LearningComponent implements
     }
   }
 
-  /**
-   * @see org.ggp.base.util.propnet.architecture.Component#toString()
-   */
   @Override
   public String toString()
   {
-    return toDot("circle", value ? "red" : "white", name.toString());
+    return name.toString() + "(" + value + ")";
+  }
+
+  @Override
+  public void renderAsDot(Writer xiOutput) throws IOException
+  {
+    renderAsDot(xiOutput, "circle", value ? "red" : "white", name.toString());
   }
 }
