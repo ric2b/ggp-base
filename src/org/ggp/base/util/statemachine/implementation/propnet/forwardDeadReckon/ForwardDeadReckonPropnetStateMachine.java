@@ -1220,6 +1220,17 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                        maxDepth,
                                        depth + 1);
     }
+    else if (p instanceof PolymorphicConstant)
+    {
+      if ( p.getValue() == cursor.isPositive )
+      {
+        Set<AntecedantCursor> result = new HashSet<>();
+        result.add(cursor);
+        return result;
+      }
+
+      return null;
+    }
     else if (p instanceof PolymorphicNot)
     {
       cursor.isPositive = !cursor.isPositive;
