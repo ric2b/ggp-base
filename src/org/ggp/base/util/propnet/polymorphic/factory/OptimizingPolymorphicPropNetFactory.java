@@ -1598,7 +1598,7 @@ public class OptimizingPolymorphicPropNetFactory
   }
 
   /**
-   * Remove bases and inputs that are not relevant to our play.  May also reduce
+   * Remove bases that are not relevant to our play.  May also reduce
    * opponent roles to effective null roles (single psuedo-noop each turn) in
    * games which our result depends only on our play unconditionally on any choices
    * such an opponent might make
@@ -1613,10 +1613,14 @@ public class OptimizingPolymorphicPropNetFactory
   {
     boolean isPseudoPuzzle = false;
 
-    //  Any bases and inputs that cannot be reached by tracing back from either the terminal
+    //  Any bases that cannot be reached by tracing back from either the terminal
     //  or a goal proposition are irrelevant (transiting through a virtual does->legal back-link)
+    //  Note - this may leave some does props essentially unconnected, so this routine indirectly
+    //  removes them also via subsequent trimming of then unconnected components, but this is
+    //  not necessary explicitly here (and attempting to do so explicitly is actually somewhat
+    //  tricky due to fairly common constructs involving distincts of move props)
     Set<PolymorphicComponent> reachableComponents = new HashSet<>();
-    recursiveFindReachable(pn, pn.getTerminalProposition(), reachableComponents, null, true);
+    recursiveFindReachable(pn, pn.getTerminalProposition(), reachableComponents, null );
 
     //  Initially just mark the components on which OUR goals depend if we have been given our role
     //  Don't try this if we only have a single goal value anyway - this is some stupid test game not
@@ -1637,7 +1641,7 @@ public class OptimizingPolymorphicPropNetFactory
 
       for( PolymorphicProposition c : pn.getGoalPropositions().get(ourRole))
       {
-        recursiveFindReachable(pn, c, reachableComponents, null, true);
+        recursiveFindReachable(pn, c, reachableComponents, null );
       }
 
       //  The core reachable components are those relevant directly to our goals
@@ -1668,7 +1672,7 @@ public class OptimizingPolymorphicPropNetFactory
         //  for at least our role
         for( PolymorphicProposition c : pn.getLegalPropositions().get(ourRole))
         {
-          recursiveFindReachable(pn, c, reachableComponents, null, true);
+          recursiveFindReachable(pn, c, reachableComponents, null );
 
           //  If a legal is not within the core reachable set it has no impact on anything
           //  that influences our goals and is therefore only relevant as a possible source of
@@ -1715,11 +1719,11 @@ public class OptimizingPolymorphicPropNetFactory
             //  Add in this role's goals and legals
             for( PolymorphicProposition c : pn.getGoalPropositions().get(role))
             {
-              recursiveFindReachable(pn, c, reachableComponents, null, true);
+              recursiveFindReachable(pn, c, reachableComponents, null );
             }
             for( PolymorphicProposition c : pn.getLegalPropositions().get(role))
             {
-              recursiveFindReachable(pn, c, reachableComponents, null, true);
+              recursiveFindReachable(pn, c, reachableComponents, null );
 
               //  If a legal is no within the core reachable set it has no impact on anything
               //  that influences our goals and is therefore only relevant as a possible source of
@@ -1787,7 +1791,7 @@ public class OptimizingPolymorphicPropNetFactory
       {
         for(PolymorphicProposition c : goals)
         {
-          recursiveFindReachable(pn, c, reachableComponents, null, true);
+          recursiveFindReachable(pn, c, reachableComponents, null );
         }
       }
 
@@ -1795,7 +1799,7 @@ public class OptimizingPolymorphicPropNetFactory
       {
         for(PolymorphicProposition c : legals)
         {
-          recursiveFindReachable(pn, c, reachableComponents, null, true);
+          recursiveFindReachable(pn, c, reachableComponents, null );
         }
       }
     }
@@ -1818,20 +1822,6 @@ public class OptimizingPolymorphicPropNetFactory
          !reachableComponents.containsAll(pn.getInputPropositions().values()) ||
          anyGoalsPotentiallyDiscardable)
     {
-      //  Include the proposition-preservation logic for the base props we still need
-      Set<PolymorphicComponent> definatelyReachableBaseProps = new HashSet<>();
-      for(PolymorphicComponent c : reachableComponents)
-      {
-        if (pn.getBasePropositions().values().contains(c))
-        {
-          definatelyReachableBaseProps.add(c);
-        }
-      }
-      for(PolymorphicComponent c : definatelyReachableBaseProps)
-      {
-        recursiveFindReachable(pn, c, reachableComponents, null, false);
-      }
-
       //  Add in also any base props implied by definitely included does props
       //  which can impact included legals or other included base props
       Set<PolymorphicComponent> definatelyReachableDoesProps = new HashSet<>();
@@ -1864,23 +1854,7 @@ public class OptimizingPolymorphicPropNetFactory
           unreachable.add(c);
         }
       }
-      for(PolymorphicProposition c : pn.getInputPropositions().values())
-      {
-        //  Don't lop no-ops off the network
-        if ( c.getOutputs().isEmpty() )
-        {
-          //  Or its corresponding legal
-          PolymorphicComponent noopLegal = pn.getLegalInputMap().get(c);
-          if ( noopLegal != null )
-          {
-            reachableComponents.add(noopLegal);
-          }
-        }
-        else if ( !reachableComponents.contains(c) )
-        {
-          unreachable.add(c);
-        }
-      }
+
       for(PolymorphicProposition[] goals : pn.getGoalPropositions().values())
       {
         for(PolymorphicProposition c : goals)
@@ -1990,9 +1964,9 @@ public class OptimizingPolymorphicPropNetFactory
     return false;
   }
 
-  private static void recursiveFindReachable(PolymorphicPropNet pn, PolymorphicComponent from, Set<PolymorphicComponent> reachableComponents, PolymorphicProposition viaBaseProp, boolean omitPreservationLogic)
+  private static void recursiveFindReachable(PolymorphicPropNet pn, PolymorphicComponent from, Set<PolymorphicComponent> reachableComponents, PolymorphicProposition viaBaseProp)
   {
-    if ( reachableComponents.contains(from) || (!omitPreservationLogic && pn.getBasePropositions().values().contains(from)))
+    if ( reachableComponents.contains(from) )
     {
       return;
     }
@@ -2005,9 +1979,9 @@ public class OptimizingPolymorphicPropNetFactory
     }
     else if ( pn.getLegalInputMap().containsKey(from) )
     {
-      recursiveFindReachable(pn, pn.getLegalInputMap().get(from), reachableComponents, null, omitPreservationLogic );
+      recursiveFindReachable(pn, pn.getLegalInputMap().get(from), reachableComponents, null );
     }
-    else if ( omitPreservationLogic && viaBaseProp != null && (from instanceof PolymorphicAnd) )
+    else if ( viaBaseProp != null && (from instanceof PolymorphicAnd) )
     {
       //  Don't traverse conditions that just preserve an already set base prop, since
       //  such a path cannot CAUSE it to become set
@@ -2019,7 +1993,7 @@ public class OptimizingPolymorphicPropNetFactory
 
     for(PolymorphicComponent c : from.getInputs())
     {
-      recursiveFindReachable(pn, c, reachableComponents, viaBaseProp, omitPreservationLogic );
+      recursiveFindReachable(pn, c, reachableComponents, viaBaseProp );
     }
   }
 

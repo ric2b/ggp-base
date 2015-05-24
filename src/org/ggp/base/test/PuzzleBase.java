@@ -65,7 +65,6 @@ public abstract class PuzzleBase extends Assert
     SKIP.add("base.slidingpieces");
     SKIP.add("base.stateSpaceLarge");
     SKIP.add("base.sudoku");
-    SKIP.add("base.twisty-passages");
     SKIP.add("base.wargame01");
   }
 
