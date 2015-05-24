@@ -909,6 +909,12 @@ public class Sancho extends SampleGamer
         (factors == null))
     {
       tryAStar(initialState, timeout);
+
+      if ( mPlan != null && !mPlan.isEmpty())
+      {
+        LOGGER.info("Successfully cached plan from A* so marking as ready to play");
+        return;
+      }
     }
 
     LOGGER.info("Min raw score = " + observedMinNetScore + ", max = " + observedMaxNetScore);
