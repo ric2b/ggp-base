@@ -588,8 +588,9 @@ public class Sancho extends SampleGamer
     //  If we saw differing game lengths do not treat as an iterated game.  Note that we have to do this
     //  here, and not after the more discriminatory simulation loop later, because the later loop
     //  also tests greedy rollout efficacy, and this can force move paths that give a misleading result for
-    //  for the possible range of game lengths
-    if (maxNumTurns != minNumTurns)
+    //  for the possible range of game lengths.
+    //  Similarly we do not consider anything with 4 or less turns as a candidate for iterated analysis
+    if (maxNumTurns != minNumTurns || maxNumTurns < 5)
     {
       mGameCharacteristics.isIteratedGame = false;
     }
