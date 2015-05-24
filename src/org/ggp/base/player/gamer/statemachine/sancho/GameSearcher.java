@@ -1010,7 +1010,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
           if ( lRequest.mComplete )
           {
-            //  Propagate the implication sof the completion discovered by the playout
+            //  Propagate the implications of the completion discovered by the playout
             lNode.markComplete(lRequest.mAverageScores, (short)(lNode.getDepth()+1));
             lNode.tree.processNodeCompletions();
             lRequest.mPath.trimToCompleteLeaf();
