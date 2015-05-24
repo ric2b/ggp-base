@@ -144,13 +144,11 @@ class RolloutRequest
         }
       }
 
-      if ( playoutLength < 2 && stateMachine.getIsGreedyRollouts() )
+      //  For fixed sum games, if greedy rollouts are being employed, the last 2 movbes on the played path
+      //  are guaranteed to be optimal, so a depth lower than this implies a complete node immediately
+      if ( playoutLength < 2 && stateMachine.getIsGreedyRollouts() && mTree.gameCharacteristics.getIsFixedSum() )
       {
         mComplete = true;
-//        int rolloutScore = stateMachine.getGoal(xiRoleOrdering.roleIndexToRole(0));
-//        LocalRegionSearcher localSearcher = new LocalRegionSearcher(stateMachine, stateMachine.getRoleOrdering(), null, null);
-//        int localRegionScore = localSearcher.completeResultSearchToDepthFromSeed(mState, null, 2);
-//        assert(localRegionScore != 50 || rolloutScore == 50);
       }
     }
 
