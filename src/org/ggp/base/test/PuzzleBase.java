@@ -46,15 +46,12 @@ public abstract class PuzzleBase extends Assert
   static
   {
     SKIP.add("base.asteroidsParallel");
-    SKIP.add("base.blocksWorldParallel");
-    SKIP.add("base.blocksWorldSerial");
     SKIP.add("base.brain_teaser_extended");
     SKIP.add("base.factoringGeorgeForman");
     SKIP.add("base.factoringImpossibleTurtleBrain");
     SKIP.add("base.factoringMediumTurtleBrain");
     SKIP.add("base.factoringMutuallyAssuredDestruction");
     SKIP.add("base.god");
-    SKIP.add("base.incredible");
     SKIP.add("base.lightsOut");
     SKIP.add("base.mummymaze1p");
     SKIP.add("base.pancakes6");
@@ -66,6 +63,9 @@ public abstract class PuzzleBase extends Assert
     SKIP.add("base.stateSpaceLarge");
     SKIP.add("base.sudoku");
     SKIP.add("base.wargame01");
+    SKIP.add("base.wargame02");
+    SKIP.add("base.wargame03");
+    SKIP.add("base.knightmove");
   }
 
   /**
