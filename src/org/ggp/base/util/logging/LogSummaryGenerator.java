@@ -29,16 +29,16 @@ public class LogSummaryGenerator
    *
    * @param xiMatchID - the match.
    */
-  public synchronized String getLogSummary(String xiMatchID)
+  public synchronized String getLogSummary(final String xiMatchID)
   {
     System.out.println("Generating logs for " + xiMatchID + " at " + System.currentTimeMillis());
-    final String lFilePrefix = xiMatchID + "-9147";
     FilenameFilter lFilter = new FilenameFilter()
     {
       @Override
       public boolean accept(File xiDir, String xiName)
       {
-        return xiName.startsWith(lFilePrefix);
+        return xiName.startsWith(xiMatchID + "-9147") ||
+               xiName.startsWith(xiMatchID + "-0");
       }
     };
     String[] lLogFiles = LOGS_DIRECTORY.list(lFilter);

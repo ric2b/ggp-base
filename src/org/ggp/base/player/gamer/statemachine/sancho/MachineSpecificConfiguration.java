@@ -115,6 +115,12 @@ public class MachineSpecificConfiguration
       lComputerName = System.getenv("HOSTNAME");
     }
 
+    // Special-case for snap-ci, which uses a variety of hosts, but all starting "ct-".
+    if ((lComputerName != null) && (lComputerName.startsWith("ct-")))
+    {
+      lComputerName = "snap-ci";
+    }
+
     if (lComputerName != null)
     {
       try (InputStream lPropStream = new FileInputStream("data/cfg/" + lComputerName + ".properties"))
