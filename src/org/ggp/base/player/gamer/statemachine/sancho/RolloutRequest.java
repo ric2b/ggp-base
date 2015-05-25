@@ -1,5 +1,6 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -19,7 +20,9 @@ class RolloutRequest
   public long                                  mNodeRef;
   public TreePath                              mPath;
   public final ForwardDeadReckonInternalMachineState mState;
-  public List<ForwardDeadReckonLegalMoveInfo>  mPlayedMovesForWin;
+  public boolean                               mRecordWinningMoves;
+  public boolean                               mIsWin;
+  public final List<ForwardDeadReckonLegalMoveInfo>  mPlayedMovesForWin;
   public Factor                                mFactor = null;
   public int                                   mSampleSize;
   public final double[]                        mAverageScores;
@@ -54,6 +57,7 @@ class RolloutRequest
     mAverageScores = new double[xiNumRoles];
     mAverageSquaredScores = new double[xiNumRoles];
     mState = underlyingStateMachine.createEmptyInternalState();
+    mPlayedMovesForWin = new ArrayList<>(TreePath.MAX_PATH_LEN);
   }
 
   private static double sigma(double x)
@@ -86,27 +90,22 @@ class RolloutRequest
     mWeight = 0;
     mComplete = false;
 
-    List<ForwardDeadReckonLegalMoveInfo> playedMoves = mPlayedMovesForWin;
-
-    //LOGGER.info("Move drop " + locusColumn + " chosen as playout locus");
-
-    //playedMoves = new LinkedList<ForwardDeadReckonLegalMoveInfo>();
-    // Perform the request number of samples.
+    // Perform the requested number of samples.
     for (int i = 0; i < mSampleSize && !mComplete; i++)
     {
-      if ( playedMoves != null )
+      if (mRecordWinningMoves)
       {
-        playedMoves.clear();
+        mPlayedMovesForWin.clear();
       }
 
-      int playoutLength = stateMachine.getDepthChargeResult(mState, mFactor, xiOurRole, null, null, playedMoves, mTree.mWeightDecayCutoffDepth);
+      int playoutLength = stateMachine.getDepthChargeResult(mState,
+                                                            mFactor,
+                                                            xiOurRole,
+                                                            null,
+                                                            null,
+                                                            mRecordWinningMoves ? mPlayedMovesForWin : null,
+                                                            mTree.mWeightDecayCutoffDepth);
 
-//      LOGGER.info("****************Rollout trace for locus " + locusColumn + ":");
-//      for(ForwardDeadReckonLegalMoveInfo move : playedMoves)
-//      {
-//        LOGGER.info(move.move);
-//      }
-//      LOGGER.info("*******");
       double weight = (mTree.mWeightDecayKneeDepth == -1 ? 1 : 1 - sigma((playoutLength-mTree.mWeightDecayKneeDepth)/mTree.mWeightDecayScaleFactor));
       assert(!Double.isNaN(weight));
       assert(weight > TreeNode.EPSILON);
@@ -132,14 +131,16 @@ class RolloutRequest
             mMinScore = lScore;
           }
 
-          if ( playedMoves != null )
+          if (mRecordWinningMoves)
           {
             stateMachine.getLatchedScoreRange(mState, xiRoleOrdering.roleIndexToRole(0), latchedScoreRangeBuffer);
 
             if ( lScore == latchedScoreRangeBuffer[1] && latchedScoreRangeBuffer[1] > latchedScoreRangeBuffer[0] )
-
-            //  Stop updating the played moves list since we have now found a win
-            playedMoves = null;
+            {
+              // Found a win.  Record the fact, and preserve the winning moves.
+              mIsWin = true;
+              mRecordWinningMoves = false;
+            }
           }
         }
       }
@@ -150,12 +151,6 @@ class RolloutRequest
       {
         mComplete = true;
       }
-    }
-
-    if ( playedMoves != null )
-    {
-      //  No win was found so don't report a win sequence
-      mPlayedMovesForWin = null;
     }
 
     assert(!Double.isNaN(mAverageScores[0]));

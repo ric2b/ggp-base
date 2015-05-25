@@ -45,7 +45,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
    * Whether to disable dynamic node trimming on full node pool (else just stall search until re-rooting)
    */
   private static final boolean DISABLE_NODE_TRIMMING =
-                                                     MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_NODE_TRIMMING, false);
+                                           MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_NODE_TRIMMING, false);
 
   private static final long MIN_LOCAL_SEARCH_REFRESH_PERIOD = 1000;
   private static final long LOCAL_SEARCH_REVIEW_PLAYED_MOVE_TIME = 3000;
@@ -981,7 +981,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           mRMSFringeDepth.addSample(lNode.getDepth() - getRootDepth());
           lRequest.mPath.resetCursor();
 
-          if (lRequest.mPlayedMovesForWin != null)
+          if (lRequest.mIsWin)
           {
             //  First build up the move path to the node that was rolled out from
             List<ForwardDeadReckonLegalMoveInfo> fullPlayoutList = new LinkedList<>();

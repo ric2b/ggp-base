@@ -5573,7 +5573,8 @@ public class TreeNode
     lRequest.mSampleSize = tree.gameCharacteristics.getRolloutSampleSize();
     lRequest.mPath = path;
     lRequest.mFactor = tree.factor;
-    lRequest.mPlayedMovesForWin = ((tree.gameCharacteristics.isPseudoPuzzle && tree.factor == null) ? new LinkedList<ForwardDeadReckonLegalMoveInfo>() : null);
+    lRequest.mRecordWinningMoves = tree.gameCharacteristics.isPseudoPuzzle && tree.factor == null;
+    lRequest.mIsWin = false;
     lRequest.mTree = tree;
 
     //request.moveWeights = masterMoveWeights.copy();
