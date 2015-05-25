@@ -1,6 +1,8 @@
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -282,6 +284,15 @@ public class ForwardDeadReckonPropnetFastAnimator
     int                                           resetWatermark;
   }
 
+  private class ComponentIdComparator implements Comparator<Integer>{
+
+    @Override
+    public int compare(Integer o1, Integer o2) {
+      return (o1 & 0xFFFFFF) - (o2 & 0xFFFFFF);
+    }
+  }
+  private final ComponentIdComparator     componentIdComparator = new ComponentIdComparator();
+  private static Integer[]                sortingBuffer = new Integer[65536];
   private final ForwardDeadReckonPropNet  propNet;
   private int                             nextComponentBaseId = 0;
   private final int                       numStatefulComponents;
@@ -628,6 +639,8 @@ public class ForwardDeadReckonPropnetFastAnimator
           typeInfo |= componentIdOutSingleTrigger;
         }
         componentDataTable[dummyComponentIndex++] = typeInfo;
+
+        int numOutputsIndex = dummyComponentIndex;
         componentDataTable[dummyComponentIndex++] = movedTriggers.components.size();       // Number of outputs
 
         for(PolymorphicComponent output : movedTriggers.components)
@@ -638,6 +651,8 @@ public class ForwardDeadReckonPropnetFastAnimator
 
           componentDataTable[dummyComponentIndex++] = triggerId;
         }
+
+        sortOutputs(numOutputsIndex);
 
         //  Original component now outputs to the remaining subset of its original
         //  outputs plus the dummy OR
@@ -690,6 +705,8 @@ public class ForwardDeadReckonPropnetFastAnimator
         componentDataTable[index++] = dummyOrId | (componentTypeUniversalLogic << 24);
       }
 
+      sortOutputs(numOutputsIndex);
+
       if ( (fdrc.id & componentIdDeferredAsignmentBits) != 0 )
       {
         assert(c instanceof PolymorphicProposition);
@@ -701,6 +718,24 @@ public class ForwardDeadReckonPropnetFastAnimator
     }
 
     assert(noConstantBasePropsPropagatable());
+  }
+
+  //  Sort outputs of a component into component index order to improve cache
+  //  access patterns when propagating
+  private void sortOutputs(int numOutputsIndex)
+  {
+    if ( componentDataTable[numOutputsIndex] > 1 )
+    {
+      for(int i = 0; i < componentDataTable[numOutputsIndex]; i++)
+      {
+        sortingBuffer[i] = componentDataTable[numOutputsIndex+i+1];
+      }
+      Arrays.sort(sortingBuffer,0,componentDataTable[numOutputsIndex], componentIdComparator);
+      for(int i = 0; i < componentDataTable[numOutputsIndex]; i++)
+      {
+        componentDataTable[numOutputsIndex+i+1] = sortingBuffer[i];
+      }
+    }
   }
 
   //  Purely debugging routine to assert some conditions that the factory optimizer should have
