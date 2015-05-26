@@ -45,7 +45,7 @@ public class Sancho extends SampleGamer
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private static final long SAFETY_MARGIN = MachineSpecificConfiguration.getCfgVal(CfgItem.SAFETY_MARGIN, 2500);
+  private static final long SAFETY_MARGIN = MachineSpecificConfiguration.getCfgInt(CfgItem.SAFETY_MARGIN);
 
   private static final int MIN_PRIMARY_SIMULATION_SAMPLES = 100;
 
@@ -72,7 +72,7 @@ public class Sancho extends SampleGamer
   private int                         mTurn                           = 0;
   private String                      mPlanString                     = null;
   private GamePlan                    mPlan                           = null;
-  private int                         transpositionTableSize          = MachineSpecificConfiguration.getCfgVal(CfgItem.NODE_TABLE_SIZE, 2000000);
+  private int                         transpositionTableSize          = MachineSpecificConfiguration.getCfgInt(CfgItem.NODE_TABLE_SIZE);
   private RoleOrdering                roleOrdering                    = null;
   private ForwardDeadReckonPropositionInfo[] roleControlProps         = null;
   private ForwardDeadReckonPropnetStateMachine underlyingStateMachine = null;
@@ -166,7 +166,7 @@ public class Sancho extends SampleGamer
   @Override
   public String getName()
   {
-    return MachineSpecificConfiguration.getCfgVal(CfgItem.PLAYER_NAME, "Sancho 1.60t");
+    return MachineSpecificConfiguration.getCfgStr(CfgItem.PLAYER_NAME);
   }
 
   @Override
@@ -176,7 +176,7 @@ public class Sancho extends SampleGamer
     mLogName = lMatchID + "-" + getPort();
     ThreadContext.put("matchID", mLogName);
 
-    ThreadControl.CPUIdParity = (getPort()%2 == 0);
+    ThreadControl.sCPUIdParity = (getPort()%2 == 0);
     ThreadControl.reset();
 
     //GamerLogger.setFileToDisplay("StateMachine");
@@ -271,7 +271,7 @@ public class Sancho extends SampleGamer
     int observedMaxNetScore = Integer.MIN_VALUE;
     long simulationsPerformed = 0;
     int multiRoleSamples = 0;
-    boolean greedyRolloutsDisabled = MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_GREEDY_ROLLOUTS, false);
+    boolean greedyRolloutsDisabled = MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_GREEDY_ROLLOUTS);
 
     multiRoleAverageScoreDiff = 0;
 
@@ -315,7 +315,7 @@ public class Sancho extends SampleGamer
     MajorityGoalsHeuristic goalsPredictionHeuristic = new MajorityGoalsHeuristic();
     GoalsStabilityHeuristic goalsStabilityHeuristic = new GoalsStabilityHeuristic();
 
-    if (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_PIECE_HEURISTIC, false))
+    if (MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_PIECE_HEURISTIC))
     {
       heuristic = new CombinedHeuristic(goalsPredictionHeuristic, goalsStabilityHeuristic);
     }
@@ -904,7 +904,7 @@ public class Sancho extends SampleGamer
 
     // Attempt to solve puzzles with A* unless we've already found a solution.
     // !! Do we already know whether the game is a pseudo-puzzle at this point and could we apply A* to such a game?
-    if ((!MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_A_STAR, false)) &&
+    if ((!MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_A_STAR)) &&
         (mGameCharacteristics.numRoles == 1) &&
         (observedMaxNetScore < 100) &&
         (factors == null))

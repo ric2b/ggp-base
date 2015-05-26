@@ -45,7 +45,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
    * Whether to disable dynamic node trimming on full node pool (else just stall search until re-rooting)
    */
   private static final boolean DISABLE_NODE_TRIMMING =
-                                           MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_NODE_TRIMMING, false);
+                                           MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_NODE_TRIMMING);
 
   private static final long MIN_LOCAL_SEARCH_REFRESH_PERIOD = 1000;
   private static final long LOCAL_SEARCH_REVIEW_PLAYED_MOVE_TIME = 3000;
@@ -261,7 +261,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
     mNodePool.setNonFreeThreshold(factorTrees.length*MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
 
-    if ( MachineSpecificConfiguration.getCfgVal(CfgItem.USE_LOCAL_SEARCH, true))
+    if (MachineSpecificConfiguration.getCfgBool(CfgItem.USE_LOCAL_SEARCH))
     {
       if ( factorTrees.length == 1 &&
           gameCharacteristics.numRoles == 2 &&

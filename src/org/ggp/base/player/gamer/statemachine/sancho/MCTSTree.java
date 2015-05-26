@@ -58,12 +58,13 @@ public class MCTSTree
   /**
    * Whether to use state-similarity measures to heuristically weight move selection
    */
-  public static final boolean                          USE_STATE_SIMILARITY_IN_EXPANSION = !MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false);
+  public static final boolean                          USE_STATE_SIMILARITY_IN_EXPANSION =
+                         !MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING);
 
   /**
    * Whether to use periodic normalization on node scors
    */
-  public final boolean                                 USE_NODE_SCORE_NORMALIZATION = MachineSpecificConfiguration.getCfgVal(CfgItem.USE_NODE_SCORE_NORMALIZATION, true);
+  public final boolean                                 USE_NODE_SCORE_NORMALIZATION = MachineSpecificConfiguration.getCfgBool(CfgItem.USE_NODE_SCORE_NORMALIZATION);
   /**
    * Whether to use UCB tuned as opposed to simple UCB
    */
@@ -187,7 +188,7 @@ public class MCTSTree
   {
     underlyingStateMachine = xiStateMachine;
     numRoles = xiStateMachine.getRoles().length;
-    mStateSimilarityMap = (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING, false) ? null : new StateSimilarityMap(xiStateMachine.getFullPropNet(), xiNodePool));
+    mStateSimilarityMap = (MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING) ? null : new StateSimilarityMap(xiStateMachine.getFullPropNet(), xiNodePool));
     mRoleControlProps = roleControlProps;
     nodePool = xiNodePool;
     scoreVectorPool = xiScorePool;
@@ -270,7 +271,7 @@ public class MCTSTree
       LOGGER.info("Not using periodic node score normalization");
     }
 
-    USE_UCB_TUNED = MachineSpecificConfiguration.getCfgVal(CfgItem.USE_UCB_TUNED, true);
+    USE_UCB_TUNED = MachineSpecificConfiguration.getCfgBool(CfgItem.USE_UCB_TUNED);
     if (USE_UCB_TUNED)
     {
       LOGGER.info("Using UCB-tuned");
@@ -299,7 +300,7 @@ public class MCTSTree
     //  For now we only automatically enable use of estimated values for unplayed nodes (in select)
     //  in games with negative goal latches, which amounts to ELB.  Further testing is needed, so for
     //  now wider enablement requires an explicit config setting.
-    useEstimatedValueForUnplayedNodes = MachineSpecificConfiguration.getCfgVal(CfgItem.ENABLE_INITIAL_NODE_ESTIMATION, false) |
+    useEstimatedValueForUnplayedNodes = MachineSpecificConfiguration.getCfgBool(CfgItem.ENABLE_INITIAL_NODE_ESTIMATION) |
                                         underlyingStateMachine.hasNegativelyLatchedGoals();
 
     if ( useEstimatedValueForUnplayedNodes )

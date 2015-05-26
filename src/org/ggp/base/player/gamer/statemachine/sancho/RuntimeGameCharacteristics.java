@@ -46,7 +46,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private boolean             isFixedMoveCount        = false;
   private boolean             isFixedSum              = false;
   private int                 earliestCompletion      = 0;
-  final private int           fixedSampleSize         = MachineSpecificConfiguration.getCfgVal(CfgItem.FIXED_SAMPLE_SIZE, -1);
+  final private int           fixedSampleSize         = MachineSpecificConfiguration.getCfgInt(CfgItem.FIXED_SAMPLE_SIZE);
   private String              mPlan                   = null;
   private int                 mNumFactors             = 0;
   private int                 mMinLength              = 0;
@@ -88,7 +88,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
    */
   private XMLPropertiesConfiguration loadConfig(File xiGameDirectory)
   {
-    if (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_LEARNING, false))
+    if (MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_LEARNING))
     {
       LOGGER.debug("Learning disabled - not loading configuration");
       return null;
@@ -144,7 +144,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
    */
   public void saveConfig()
   {
-    if (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_LEARNING, false))
+    if (MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_LEARNING))
     {
       LOGGER.debug("Learning disabled - not saving configuration");
       return;

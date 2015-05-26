@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -22,87 +23,114 @@ public class MachineSpecificConfiguration
   public static enum CfgItem
   {
     /**
-     * The number of CPU-intensive threads to use.
+     * Player name to report.
      */
-    CPU_INTENSIVE_THREADS,
+    PLAYER_NAME("Sancho 1.60t"),
+
+    /**
+     * The number of CPU-intensive threads to use.  By default, we calculate based on the number of available CPUs.
+     */
+    CPU_INTENSIVE_THREADS(-1),
 
     /**
      * Whether to bind CPU-intensive threads to vCPUs.
      */
-    USE_AFFINITY,
+    USE_AFFINITY(true),
 
     /**
-     * Safety margin for submitting moves.
+     * Safety margin for submitting moves, in milliseconds.
      */
-    SAFETY_MARGIN,
+    SAFETY_MARGIN(2500),
 
     /**
      * Whether to disable the use of piece heuristics
      */
-    DISABLE_PIECE_HEURISTIC,
+    DISABLE_PIECE_HEURISTIC(false),
 
     /**
-     * Whether to disable the use of state-similarity detection
-     * for node expansion weighting
+     * Whether to disable the use of state-similarity detection for node expansion weighting.
      */
-    DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING,
+    DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING(false),
 
     /**
-     * Whether to periodically normalize tre node scores
+     * Whether to periodically normalize tree node scores.
      */
-    USE_NODE_SCORE_NORMALIZATION,
+    USE_NODE_SCORE_NORMALIZATION(true),
 
     /**
      * Whether to disable the use of learning (both using stuff already learned and also learning new stuff).
      */
-    DISABLE_LEARNING,
+    DISABLE_LEARNING(false),
 
     /**
      * Whether to disable node trimming on pool full (if disabled search stalls until the next move
      * reroots the tree).
      */
-    DISABLE_NODE_TRIMMING,
+    DISABLE_NODE_TRIMMING(false),
 
     /**
      * Whether to disable greedy rollouts.
      */
-    DISABLE_GREEDY_ROLLOUTS,
+    DISABLE_GREEDY_ROLLOUTS(false),
 
     /**
      * Whether to disable A* for puzzles.
      */
-    DISABLE_A_STAR,
+    DISABLE_A_STAR(false),
 
     /**
-     * Player name to report
+     * If positive, used as the rollout sample size, without any dynamic tuning.  Otherwise, dynamically determine the
+     * best number of samples per rollout request.
      */
-    PLAYER_NAME,
-
-    /**
-     * If specified and strictly positive used as the rollout sample
-     * size, without any dynamic tuning
-     */
-    FIXED_SAMPLE_SIZE,
+    FIXED_SAMPLE_SIZE(-1),
 
     /**
      * Explicit transposition table size to use (aka max node count)
      */
-    NODE_TABLE_SIZE,
+    NODE_TABLE_SIZE(2000000),
 
     /**
-     * Whether to enable initial node estimation in all games
+     * Whether to enable initial node estimation in all games or just those with negatively latched goals.
      */
-    ENABLE_INITIAL_NODE_ESTIMATION,
+    ENABLE_INITIAL_NODE_ESTIMATION(false),
 
     /**
-     * Whether to use UCB tuned or just UCB (default is true)
+     * Whether to use UCB tuned (default) or just UCB.
      */
-    USE_UCB_TUNED,
+    USE_UCB_TUNED(true),
 
     /**
-     * Whether to use local search
+     * Whether to use local search.
      */
-    USE_LOCAL_SEARCH,
+    USE_LOCAL_SEARCH(true),
+
+    /**
+     * Time, in milliseconds, after which we assume that we aren't going to here from the server again - in which case
+     * we abort the match.
+     */
+    DEAD_MATCH_INTERVAL((int)TimeUnit.MINUTES.toMillis(10));
+
+
+    /**
+     * Default value, as a string.
+     */
+    public final String mDefault;
+
+    private CfgItem(String xiDefault)
+    {
+      mDefault = xiDefault;
+    }
+
+    private CfgItem(int xiDefault)
+    {
+      mDefault = "" + xiDefault;
+    }
+
+    private CfgItem(boolean xiDefault)
+    {
+      mDefault = xiDefault ? "true" : "false";
+    }
+
   }
 
   private static final Properties MACHINE_PROPERTIES = new Properties();
@@ -144,9 +172,9 @@ public class MachineSpecificConfiguration
    * @param xiKey
    * @param xiDefault
    */
-  public static String getCfgVal(CfgItem xiKey, String xiDefault)
+  public static String getCfgStr(CfgItem xiKey)
   {
-    return (MACHINE_PROPERTIES.getProperty(xiKey.toString(), xiDefault));
+    return (MACHINE_PROPERTIES.getProperty(xiKey.toString(), xiKey.mDefault));
   }
 
   /**
@@ -155,9 +183,9 @@ public class MachineSpecificConfiguration
    * @param xiKey
    * @param xiDefault
    */
-  public static int getCfgVal(CfgItem xiKey, int xiDefault)
+  public static int getCfgInt(CfgItem xiKey)
   {
-    return Integer.parseInt(getCfgVal(xiKey, "" + xiDefault));
+    return Integer.parseInt(getCfgStr(xiKey));
   }
 
   /**
@@ -166,9 +194,9 @@ public class MachineSpecificConfiguration
    * @param xiKey
    * @param xiDefault
    */
-  public static boolean getCfgVal(CfgItem xiKey, boolean xiDefault)
+  public static boolean getCfgBool(CfgItem xiKey)
   {
-    return Boolean.parseBoolean(getCfgVal(xiKey, xiDefault ? "true" : "false"));
+    return Boolean.parseBoolean(getCfgStr(xiKey));
   }
 
   /**
@@ -179,7 +207,19 @@ public class MachineSpecificConfiguration
     LOGGER.info("Running with machine-specific properties:");
     for (Entry<Object, Object> e : MACHINE_PROPERTIES.entrySet())
     {
-      LOGGER.info("\t" + e.getKey() + " = " + e.getValue());
+      // Get the key.
+      String lKey = (String)e.getKey();
+
+      // Check that this is a known configuration parameter (and not a typo in the config file).
+      try
+      {
+        CfgItem lItem = CfgItem.valueOf(lKey);
+        LOGGER.info("\t" + lKey + " = " + e.getValue() + " (default: " + lItem.mDefault + ")");
+      }
+      catch (IllegalArgumentException lEx)
+      {
+        LOGGER.warn("Unknown configuration parameter: '" + lKey + "'");
+      }
     }
   }
 
