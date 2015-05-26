@@ -18,6 +18,7 @@ import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.player.gamer.statemachine.sample.SampleGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.PayoffMatrixGamePlayer.UnsupportedGameException;
+import org.ggp.base.player.gamer.statemachine.sancho.Watchdog.Reapable;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.GoalsStabilityHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MajorityGoalsHeuristic;
@@ -41,7 +42,7 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 /**
  * The Sancho General Game Player.
  */
-public class Sancho extends SampleGamer
+public class Sancho extends SampleGamer implements Reapable
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
@@ -91,6 +92,7 @@ public class Sancho extends SampleGamer
   private Move                        mLastMove                       = null;
   private int                         mFinalScore                     = -1;
   private boolean                     mSolvedFromStart                = false;
+  private Watchdog                    mWatchdog                       = null;
   /**
    * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
    */
@@ -219,6 +221,7 @@ public class Sancho extends SampleGamer
     }
 
     mSysStatsLogger = new SystemStatsLogger(mLogName);
+    mWatchdog = new Watchdog(MachineSpecificConfiguration.getCfgInt(CfgItem.DEAD_MATCH_INTERVAL), this);
 
     searchProcessor = new GameSearcher(transpositionTableSize, underlyingStateMachine.getRoles().length, mLogName);
     stateMachineProxy.setController(searchProcessor);
@@ -1351,6 +1354,12 @@ public class Sancho extends SampleGamer
     StatsLogUtils.Series.TURN.logDataPoint(System.currentTimeMillis(), 999);
 
     // Terminate all other threads.
+    if (mWatchdog != null)
+    {
+      mWatchdog.stop();
+      mWatchdog = null;
+    }
+
     if (searchProcessor != null)
     {
       searchProcessor.terminate();
@@ -1388,6 +1397,12 @@ public class Sancho extends SampleGamer
     }
 
     LOGGER.info("Tidy-up complete");
+  }
+
+  @Override
+  public void reap()
+  {
+    LOGGER.error("Not Yet Implemented - reap the current match");
   }
 
   // Methods for use by UTs only
