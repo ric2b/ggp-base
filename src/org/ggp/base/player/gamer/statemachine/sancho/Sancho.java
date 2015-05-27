@@ -18,7 +18,7 @@ import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.player.gamer.statemachine.sample.SampleGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.PayoffMatrixGamePlayer.UnsupportedGameException;
-import org.ggp.base.player.gamer.statemachine.sancho.Watchdog.Reapable;
+import org.ggp.base.player.gamer.statemachine.sancho.Watchdog.WatchdogExpiryHandler;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.GoalsStabilityHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MajorityGoalsHeuristic;
@@ -42,7 +42,7 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 /**
  * The Sancho General Game Player.
  */
-public class Sancho extends SampleGamer implements Reapable
+public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
@@ -1101,6 +1101,9 @@ public class Sancho extends SampleGamer implements Reapable
   public Move stateMachineSelectMove(long timeout)
     throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException
   {
+    // Kick the watchdog
+    mWatchdog.alive();
+
     // We get the current start time
     long start = System.currentTimeMillis();
     long finishBy = timeout - SAFETY_MARGIN;
@@ -1346,8 +1349,17 @@ public class Sancho extends SampleGamer implements Reapable
     tidyUp();
   }
 
+  @Override
+  public void expired()
+  {
+    LOGGER.warn("Game aborted on watchdog expiry");
+    tidyUp();
+  }
+
   /**
    * Tidy up game state at the end of the game.
+   *
+   * @param xiWatchdogExpired - whether we're tidying up due to watchdog expiry/
    */
   private void tidyUp()
   {
@@ -1377,8 +1389,8 @@ public class Sancho extends SampleGamer implements Reapable
 
     // Free off all our references.
     ourRole                      = null;
-    mPlanString                   = null;
-    mPlan                         = null;
+    mPlanString                  = null;
+    mPlan                        = null;
     roleOrdering                 = null;
     underlyingStateMachine       = null;
     mLastMove                    = null;
@@ -1397,12 +1409,6 @@ public class Sancho extends SampleGamer implements Reapable
     }
 
     LOGGER.info("Tidy-up complete");
-  }
-
-  @Override
-  public void reap()
-  {
-    LOGGER.error("Not Yet Implemented - reap the current match");
   }
 
   // Methods for use by UTs only

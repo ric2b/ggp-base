@@ -4,46 +4,48 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * Watchdog will reap the provided object if it hasn't shown signs of life.
+ * Watchdog class that will notify an expiry handler if it stops receiving liveness kicks.
  */
 public class Watchdog implements Runnable
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
   /**
-   * Interface implemented by objects which can be reaped by the watchdog.
+   * Interface implemented by objects which can handle watchdog expiration.
    */
-  public interface Reapable
+  public interface WatchdogExpiryHandler
   {
     /**
-     * Reap the object.
+     * Callback made when the watchdog expires.
      */
-    public void reap();
+    public void expired();
   }
 
-  private final Reapable mVictim;
+  private WatchdogExpiryHandler mExpiryHandler;
   private final long mInterval;
 
-  private volatile long mReapTime;
+  private volatile long mExpiryTime;
 
-  private final Thread mThread;
+  private Thread mThread;
 
   private volatile boolean mContinue;
+  private volatile boolean mExpired;
 
   /**
    * Create a watchdog.
    *
-   * @param xiInterval - the interval after which to reap a dead victim.
-   * @param xiVictim - the victim.
+   * @param xiInterval - the interval after which the watchdog expires.
+   * @param xiExpiryHandler - the victim.
    */
-  public Watchdog(long xiInterval, Reapable xiVictim)
+  public Watchdog(long xiInterval, WatchdogExpiryHandler xiExpiryHandler)
   {
     // Save off the provided values.
     mInterval = xiInterval;
-    mVictim = xiVictim;
+    mExpiryHandler = xiExpiryHandler;
 
     // Get everything ready to start the watchdog.
     mContinue = true;
+    mExpired = false;
     alive();
 
     // Spawn the watchdog thread.
@@ -57,9 +59,9 @@ public class Watchdog implements Runnable
    */
   public void alive()
   {
-    long lReapInterval = System.currentTimeMillis() + mInterval;
-    mReapTime = lReapInterval;
-    LOGGER.debug("Watchdog won't fire until: " + mReapTime);
+    long lExpireTime = System.currentTimeMillis() + mInterval;
+    mExpiryTime = lExpireTime;
+    LOGGER.debug("Watchdog won't fire until: " + mExpiryTime);
   }
 
   /**
@@ -68,6 +70,13 @@ public class Watchdog implements Runnable
   public void stop()
   {
     LOGGER.info("Stop the watchdog");
+
+    // If the watchdog has expired then this routine is (probably) being called on the watchdog thread.  In that case,
+    // we know the watchdog is thread is going to quit and don't want to interrupt it by the processing below.
+    if (mExpired)
+    {
+      return;
+    }
 
     mContinue = false;
     mThread.interrupt();
@@ -95,32 +104,42 @@ public class Watchdog implements Runnable
   {
     LOGGER.info("Starting watchdog with interval " + mInterval + "ms");
 
-    while (mContinue)
+    try
     {
-      long lTimeRemaining = mReapTime - System.currentTimeMillis();
+      while (mContinue)
+      {
+        long lTimeRemaining = mExpiryTime - System.currentTimeMillis();
 
-      if (lTimeRemaining > 0)
-      {
-        // Not time to reap yet.  Just wait.
-        try
+        if (lTimeRemaining > 0)
         {
-          Thread.sleep(lTimeRemaining);
+          // Not time to expire yet.  Just wait.
+          try
+          {
+            Thread.sleep(lTimeRemaining);
+          }
+          catch (InterruptedException lEx)
+          {
+            // We'll be interrupted when the game ends - to tidy up.  If this is a spurious wake-up, we'll notice and
+            // go back to sleep.
+          }
         }
-        catch (InterruptedException lEx)
+        else
         {
-          // We'll be interrupted when the game ends - to tidy up.  If this is a spurious wake-up, we'll notice and
-          // go back to sleep.
+          // Watchdog has expired.  Notify the handler.
+          LOGGER.warn("Watchdog liveness timer expired");
+          mExpired = true;
+          mExpiryHandler.expired();
+          break;
         }
-      }
-      else
-      {
-        // The victim must be dead.  Reap it.
-        LOGGER.warn("Watchdog liveness timer expired");
-        mVictim.reap();
-        return;
       }
     }
+    catch (Exception lEx)
+    {
+      LOGGER.error("Watchdog died unexpectedly", lEx);
+    }
 
-    LOGGER.info("Watchdog terminating by request");
+    // Ensure that we aren't keeping any state alive.
+    mExpiryHandler = null;
+    mThread = null;
   }
 }
