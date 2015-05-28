@@ -1153,6 +1153,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         moveConsequenceSearcher = null;
       }
 
+      StateInfo.destroyBuffer();
       mTerminateRequested = true;
       notifyAll();
     }

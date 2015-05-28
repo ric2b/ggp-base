@@ -23,6 +23,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.GoalsStabilityHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MajorityGoalsHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristic;
+import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
@@ -38,6 +39,7 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.symbol.grammar.SymbolPool;
 
 /**
  * The Sancho General Game Player.
@@ -1404,6 +1406,10 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     // Get our parent to tidy up too.
     cleanupAfterMatch();
+
+    // Free off the static pools.
+    GdlPool.drainPool();
+    SymbolPool.drainPool();
 
     // Prompt the JVM to do garbage collection, because we've hopefully just freed a lot of stuff.
     long endGCTime = System.currentTimeMillis() + 3000;
