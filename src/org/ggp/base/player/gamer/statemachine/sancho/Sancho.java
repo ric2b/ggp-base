@@ -67,7 +67,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
   }
 
   /**
-   * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
+   * When adding additional state, you MUST null out references in {@link #tidyUp()}.
    */
   private Role                        ourRole;
   private int                         mTurn                           = 0;
@@ -90,11 +90,12 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
   private String                      mLogName                        = null;
   private SystemStatsLogger           mSysStatsLogger                 = null;
   private Move                        mLastMove                       = null;
+  private ForwardDeadReckonLegalMoveInfo lastMove                     = null;
   private int                         mFinalScore                     = -1;
   private boolean                     mSolvedFromStart                = false;
   private Watchdog                    mWatchdog                       = null;
   /**
-   * When adding additional state, consider any necessary additions to {@link #tidyUp()}.
+   * When adding additional state, you MUST null out references in {@link #tidyUp()}.
    */
 
   @Override
@@ -1073,8 +1074,6 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
   }
 
-  private ForwardDeadReckonLegalMoveInfo lastMove = null;
-
   private ForwardDeadReckonLegalMoveInfo findMoveInfo(Role role, GdlTerm moveTerm)
   {
     Move move = underlyingStateMachine.getMoveFromTerm(moveTerm);
@@ -1387,15 +1386,21 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     // Save anything that we've learned about this game.
     mGameCharacteristics.saveConfig();
 
+    // Tidy up the proxy.
+    stateMachineProxy.setController(null);
+
     // Free off all our references.
     ourRole                      = null;
     mPlanString                  = null;
     mPlan                        = null;
     roleOrdering                 = null;
+    roleControlProps             = null;
     underlyingStateMachine       = null;
+    previousTurnRootState        = null;
+    stateMachineProxy            = null;
+    mLogName                     = null;
     mLastMove                    = null;
     lastMove                     = null;
-    roleControlProps             = null;
 
     // Get our parent to tidy up too.
     cleanupAfterMatch();
