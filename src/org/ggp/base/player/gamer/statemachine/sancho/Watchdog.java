@@ -78,18 +78,20 @@ public class Watchdog implements Runnable
       return;
     }
 
+    Thread lThread = mThread;
+
     mContinue = false;
-    mThread.interrupt();
+    lThread.interrupt();
     try
     {
-      mThread.join(5000);
+      lThread.join(5000);
     }
     catch (InterruptedException lEx)
     {
       LOGGER.warn("Interrupted whilst waiting for watchdog to stop");
     }
 
-    if (mThread.isAlive())
+    if (lThread.isAlive())
     {
       LOGGER.error("Failed to stop watchdog");
     }
