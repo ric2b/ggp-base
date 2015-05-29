@@ -181,11 +181,19 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     mLogName = lMatchID + "-" + getPort();
     ThreadContext.put("matchID", mLogName);
 
+    // If we still have a watchdog from a previous game, it must be running as a zombie.  (The framework prevents us
+    // from playing a new game if it thinks we're still running an old one.)  Immediately tidy-up the old match.
+    if (mWatchdog != null)
+    {
+      LOGGER.error("Watchdog exists at start of new match");
+      tidyUp(false);
+    }
+
+    mWatchdog = new Watchdog(MachineSpecificConfiguration.getCfgInt(CfgItem.DEAD_MATCH_INTERVAL), this);
+
     ThreadControl.sCPUIdParity = (getPort()%2 == 0);
     ThreadControl.reset();
 
-    //GamerLogger.setFileToDisplay("StateMachine");
-    //ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
     underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS + 1,
                                                                       getMetaGamingTimeout(),
                                                                       getRole(),
@@ -223,16 +231,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       LOGGER.warn("WARNING: Assertions are enabled - this will impact performance");
     }
 
-    // If we still have a watchdog from a previous game, it must be running as a zombie.  (The framework prevents us
-    // from playing a new game if it thinks we're still running an old one.)  Immediately tidy-up the old match.
-    if (mWatchdog != null)
-    {
-      LOGGER.error("Watchdog exists at start of new match");
-      tidyUp(false);
-    }
-
     mSysStatsLogger = new SystemStatsLogger(mLogName);
-    mWatchdog = new Watchdog(MachineSpecificConfiguration.getCfgInt(CfgItem.DEAD_MATCH_INTERVAL), this);
 
     searchProcessor = new GameSearcher(transpositionTableSize, underlyingStateMachine.getRoles().length, mLogName);
     stateMachineProxy.setController(searchProcessor);
@@ -1369,8 +1368,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
   /**
    * Tidy up game state at the end of the game.
    *
-   * @param xiRegularTermination - whether this is a regular termination, on stop() or abort().  Tidy-up due to watchdog
-   *                               problems is more risky, so we do less.
+   * @param xiRegularTermination - whether the termination is regular (stop/abort) or irregular (watchdog).
    */
   private void tidyUp(boolean xiRegularTermination)
   {
@@ -1396,7 +1394,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
 
     // Save anything that we've learned about this game.
-    if (mGameCharacteristics != null)
+    if (xiRegularTermination)
     {
       mGameCharacteristics.saveConfig();
     }
@@ -1405,6 +1403,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     if (stateMachineProxy != null)
     {
       stateMachineProxy.setController(null);
+      stateMachineProxy = null;
     }
 
     // Free off all our references.
@@ -1415,7 +1414,6 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     roleControlProps             = null;
     underlyingStateMachine       = null;
     previousTurnRootState        = null;
-    stateMachineProxy            = null;
     mLogName                     = null;
     mLastMove                    = null;
     lastMove                     = null;
