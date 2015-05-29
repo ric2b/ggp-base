@@ -1333,10 +1333,12 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                   }
                 }
 
-                assert(moveFound) : "Unable to find winning move in tree";
+                //assert(moveFound) : "Unable to find winning move in tree";
 
                 if ( winIsValid )
                 {
+                  assert(node.localSearchStatus != LocalSearchStatus.LOCAL_SEARCH_WIN);
+
                   node.localSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
                   node.completionDepth = (short)(node.getDepth() + searchResultsBuffer.atDepth);
 
@@ -1424,31 +1426,29 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
                 ForwardDeadReckonLegalMoveInfo moveInfo = ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice);
 
-                boolean canInfluence = searchResultsBuffer.canInfluenceFoundResult(moveInfo);
-                boolean isLocal = searchResultsBuffer.isLocal(moveInfo);
-                int minWinDistance = searchResultsBuffer.getMinWinDistance(moveInfo);
-
-                LOGGER.info("    Move " + moveInfo + ": canInfluence=" + canInfluence + ", isLocal=" + isLocal + ", minWinDistance=" + minWinDistance);
-                if ( !canInfluence && (!searchResultsBuffer.hasKnownWinDistances() || minWinDistance > searchResultsBuffer.atDepth))
-                //if ( !isLocal )
+                TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+                if (edge != null && edge.getChildRef() != TreeNode.NULL_REF)
                 {
-                  TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-                  if (edge != null && edge.getChildRef() != TreeNode.NULL_REF)
+                  TreeNode child = node.get(edge.getChildRef());
+                  if (child != null && !child.complete)
                   {
-                    TreeNode child = node.get(edge.getChildRef());
-                    if (child != null && !child.complete)
+                    for(int i = 0; i < searchResultsBuffer.numTenukiLossMoves; i++)
                     {
-                      if ( searchResultsBuffer.hasKnownWinDistances() )
+                      if ( searchResultsBuffer.tenukiLossMoves[i] == moveInfo )
                       {
-                        LOGGER.info(moveInfo.move.toString() + " is a global loss for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
-                        child.completionDepth = (short)(node.getDepth()+searchResultsBuffer.atDepth-1);
-                        child.localSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
-                      }
-                      else
-                      {
-                        LOGGER.info(moveInfo.move.toString() + " is a local loss for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
-                        child.completionDepth = (short)(node.getDepth()+searchResultsBuffer.atDepth-1);
-                        child.localSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
+                        if ( searchResultsBuffer.hasKnownWinDistances() )
+                        {
+                          LOGGER.info(moveInfo.move.toString() + " is a global loss for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
+                          child.completionDepth = (short)(node.getDepth()+searchResultsBuffer.atDepth-1);
+                          child.localSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
+                        }
+                        else
+                        {
+                          LOGGER.info(moveInfo.move.toString() + " is a local loss for " + tree.roleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
+                          child.completionDepth = (short)(node.getDepth()+searchResultsBuffer.atDepth-1);
+                          child.localSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
+                        }
+                        break;
                       }
                     }
                   }

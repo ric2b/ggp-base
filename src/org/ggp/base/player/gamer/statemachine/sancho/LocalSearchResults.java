@@ -23,6 +23,16 @@ public class LocalSearchResults implements LocalRegionDefiner
    */
   public int tenukiLossForRole;
   /**
+   * If the result is a tenuki-loss (implied by tenukiLossForRole != -1) then how many moves are
+   * definite losses
+   */
+  public int  numTenukiLossMoves;
+  /**
+   * If the result is a tenuki-loss (implied by tenukiLossForRole != -1) then which moves are
+   * definite losses
+   */
+  public final ForwardDeadReckonLegalMoveInfo[] tenukiLossMoves = new ForwardDeadReckonLegalMoveInfo[MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR];
+  /**
    * Seeding move for the local space
    */
   public ForwardDeadReckonLegalMoveInfo seedMove;
@@ -77,6 +87,15 @@ public class LocalSearchResults implements LocalRegionDefiner
     {
       relevantMovesForWin[i] = new ForwardDeadReckonLegalMoveSet(source.relevantMovesForWin[i]);
       relevantMovesForWin[i].copy(source.relevantMovesForWin[i]);
+    }
+
+    if ( tenukiLossForRole != -1 )
+    {
+      numTenukiLossMoves = source.numTenukiLossMoves;
+      for(int i = 0; i < numTenukiLossMoves; i++)
+      {
+        tenukiLossMoves[i] = source.tenukiLossMoves[i];
+      }
     }
   }
 
