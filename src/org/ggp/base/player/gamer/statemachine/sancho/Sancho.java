@@ -1359,8 +1359,6 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
   /**
    * Tidy up game state at the end of the game.
-   *
-   * @param xiWatchdogExpired - whether we're tidying up due to watchdog expiry/
    */
   private void tidyUp()
   {
@@ -1386,7 +1384,10 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
 
     // Save anything that we've learned about this game.
-    mGameCharacteristics.saveConfig();
+    if (mGameCharacteristics != null)
+    {
+      mGameCharacteristics.saveConfig();
+    }
 
     // Tidy up the proxy.
     stateMachineProxy.setController(null);
