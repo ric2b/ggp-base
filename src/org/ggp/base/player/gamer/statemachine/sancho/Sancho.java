@@ -1366,12 +1366,6 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     StatsLogUtils.Series.TURN.logDataPoint(System.currentTimeMillis(), 999);
 
     // Terminate all other threads.
-    if (mWatchdog != null)
-    {
-      mWatchdog.stop();
-      mWatchdog = null;
-    }
-
     if (searchProcessor != null)
     {
       searchProcessor.terminate();
@@ -1384,6 +1378,12 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       mSysStatsLogger = null;
     }
 
+    if (mWatchdog != null)
+    {
+      mWatchdog.stop();
+      mWatchdog = null;
+    }
+
     // Save anything that we've learned about this game.
     if (mGameCharacteristics != null)
     {
@@ -1391,7 +1391,10 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
 
     // Tidy up the proxy.
-    stateMachineProxy.setController(null);
+    if (stateMachineProxy != null)
+    {
+      stateMachineProxy.setController(null);
+    }
 
     // Free off all our references.
     ourRole                      = null;

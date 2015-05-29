@@ -207,15 +207,15 @@ public abstract class StateMachineGamer extends Gamer
 
       stateMachineMetaGame(timeout);
     }
-    catch (Exception e)
+    catch (Exception lEx)
     {
-      LOGGER.error("Exception in player", e);
-      GamerLogger.logStackTrace("GamePlayer", e);
-      throw new MetaGamingException(e);
+      LOGGER.error("Exception in player during meta-gaming", lEx);
+      GamerLogger.logStackTrace("GamePlayer", lEx);
+      throw new MetaGamingException(lEx);
     }
     catch (AssertionError lEx)
     {
-      LOGGER.error("AssertionError: " + lEx);
+      LOGGER.error("AssertionError during meta-gaming", lEx);
       throw new AssertionError("Rethrown AssertionError", lEx);
     }
   }
@@ -247,15 +247,15 @@ public abstract class StateMachineGamer extends Gamer
 
       return stateMachineSelectMove(timeout).getContents();
     }
-    catch (Exception e)
+    catch (Exception lEx)
     {
-      LOGGER.error("Exception in player", e);
-      GamerLogger.logStackTrace("GamePlayer", e);
-      throw new MoveSelectionException(e);
+      LOGGER.error("Exception in player during move selection", lEx);
+      GamerLogger.logStackTrace("GamePlayer", lEx);
+      throw new MoveSelectionException(lEx);
     }
     catch (AssertionError lEx)
     {
-      LOGGER.error("AssertionError: " + lEx);
+      LOGGER.error("AssertionError during move selection", lEx);
       throw new AssertionError("Rethrown AssertionError", lEx);
     }
   }
@@ -283,15 +283,15 @@ public abstract class StateMachineGamer extends Gamer
 
       stateMachineStop();
     }
-    catch (Exception e)
+    catch (Exception lEx)
     {
-      LOGGER.error("Exception in player", e);
-      GamerLogger.logStackTrace("GamePlayer", e);
-      throw new StoppingException(e);
+      LOGGER.error("Exception in player whilst stopping", lEx);
+      GamerLogger.logStackTrace("GamePlayer", lEx);
+      throw new StoppingException(lEx);
     }
     catch (AssertionError lEx)
     {
-      LOGGER.error("AssertionError: " + lEx);
+      LOGGER.error("AssertionError whilst stopping", lEx);
       throw new AssertionError("Rethrown AssertionError", lEx);
     }
   }
@@ -303,15 +303,15 @@ public abstract class StateMachineGamer extends Gamer
     {
       stateMachineAbort();
     }
-    catch (Exception e)
+    catch (Exception lEx)
     {
-      LOGGER.error("Exception in player", e);
-      GamerLogger.logStackTrace("GamePlayer", e);
-      throw new AbortingException(e);
+      LOGGER.error("Exception in player whilst aborting", lEx);
+      GamerLogger.logStackTrace("GamePlayer", lEx);
+      throw new AbortingException(lEx);
     }
     catch (AssertionError lEx)
     {
-      LOGGER.error("AssertionError: " + lEx);
+      LOGGER.error("AssertionError whilst aborting", lEx);
       throw new AssertionError("Rethrown AssertionError", lEx);
     }
   }
