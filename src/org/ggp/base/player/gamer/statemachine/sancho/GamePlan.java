@@ -100,4 +100,10 @@ public class GamePlan
     enacting = true;
     return plan.remove();
   }
+
+  @Override
+  public String toString()
+  {
+    return plan.toString();
+  }
 }
