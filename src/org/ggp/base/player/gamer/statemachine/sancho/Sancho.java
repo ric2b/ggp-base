@@ -223,6 +223,14 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       LOGGER.warn("WARNING: Assertions are enabled - this will impact performance");
     }
 
+    // If we still have a watchdog from a previous game, it must be running as a zombie.  (The framework prevents us
+    // from playing a new game if it thinks we're still running an old one.)  Immediately tidy-up the old match.
+    if (mWatchdog != null)
+    {
+      LOGGER.error("Watchdog exists at start of new match");
+      tidyUp(false);
+    }
+
     mSysStatsLogger = new SystemStatsLogger(mLogName);
     mWatchdog = new Watchdog(MachineSpecificConfiguration.getCfgInt(CfgItem.DEAD_MATCH_INTERVAL), this);
 
@@ -1341,27 +1349,30 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       mGameCharacteristics.setPlan(convertHistoryToPlan());
     }
 
-    tidyUp();
+    tidyUp(true);
   }
 
   @Override
   public void stateMachineAbort()
   {
     LOGGER.warn("Game aborted by server");
-    tidyUp();
+    tidyUp(true);
   }
 
   @Override
   public void expired()
   {
     LOGGER.warn("Game aborted on watchdog expiry");
-    tidyUp();
+    tidyUp(false);
   }
 
   /**
    * Tidy up game state at the end of the game.
+   *
+   * @param xiRegularTermination - whether this is a regular termination, on stop() or abort().  Tidy-up due to watchdog
+   *                               problems is more risky, so we do less.
    */
-  private void tidyUp()
+  private void tidyUp(boolean xiRegularTermination)
   {
     StatsLogUtils.Series.TURN.logDataPoint(System.currentTimeMillis(), 999);
 
@@ -1409,19 +1420,22 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     mLastMove                    = null;
     lastMove                     = null;
 
-    // Get our parent to tidy up too.
-    cleanupAfterMatch();
-
-    // Free off the static pools.
-    GdlPool.drainPool();
-    SymbolPool.drainPool();
-
-    // Prompt the JVM to do garbage collection, because we've hopefully just freed a lot of stuff.
-    long endGCTime = System.currentTimeMillis() + 3000;
-    for (int ii = 0; ii < 1000 && System.currentTimeMillis() < endGCTime; ii++)
+    if (xiRegularTermination)
     {
-      System.gc();
-      try {Thread.sleep(1);} catch (InterruptedException lEx) {/* Whatever */}
+      // Get our parent to tidy up too.
+      cleanupAfterMatch();
+
+      // Free off the static pools.
+      GdlPool.drainPool();
+      SymbolPool.drainPool();
+
+      // Prompt the JVM to do garbage collection, because we've hopefully just freed a lot of stuff.
+      long endGCTime = System.currentTimeMillis() + 3000;
+      for (int ii = 0; ii < 1000 && System.currentTimeMillis() < endGCTime; ii++)
+      {
+        System.gc();
+        try {Thread.sleep(1);} catch (InterruptedException lEx) {/* Whatever */}
+      }
     }
 
     LOGGER.info("Tidy-up complete");
