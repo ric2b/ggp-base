@@ -582,6 +582,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
     else
     {
+      mGameCharacteristics.hasAdequateSampling = true;
       branchingFactorApproximation /= numSamples;
     }
 

@@ -27,6 +27,11 @@ public class GameCharacteristics
   boolean isIteratedGame                 = false;
 
   /**
+   * Whether these characteristics are based on adequate sampling, or should be considered unreliable
+   */
+  boolean hasAdequateSampling            = false;
+
+  /**
    * Whether it is ever legal for multiple roles to have non-noop moves in the same turn.  Note that this does not
    * imply that this will be the case in every turn necessarily.
    */
