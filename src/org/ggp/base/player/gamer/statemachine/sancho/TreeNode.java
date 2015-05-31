@@ -4167,6 +4167,9 @@ public class TreeNode
       }
     }
 
+    double highestVisitFactor = Math.log(numVisits)/highestScoreWeight;
+    double c = highestScore/100 + Math.sqrt(highestVisitFactor);
+
     for(int i = 0; i < mNumChildren; i++)
     {
       Object choice = children[i];
@@ -4181,9 +4184,23 @@ public class TreeNode
 
           if ( child != null  )
           {
-            //double effectiveVisits = (child.complete ? edge.getNumChildVisits() : incompleteVisitProportion*edge.getNumChildVisits());
-            //double weight = effectiveVisits*Math.sqrt(effectiveVisits);
-            double weight = highestScoreWeight/(1 + highestScoreWeight*(highestScore - child.getAverageScore(choosingRoleIndex))/(30*Math.log(numVisits)));
+            //  Normalize by assuming that the highest scoring child has a 'correct' visit count and
+            //  producing normalized visit counts for the other children based on their scores and the
+            //  standard UCT distribution given the parent visit count.  Note that if the score
+            //  distribution of the children is static (does not change with increasing samples) then
+            //  this will precisely reproduce the visit count of continued UCT sampling.  If the distributions
+            //  are changing (as is typically the case) then this will re-calculate the parent score estimates
+            //  as if the current child scores WERE from a static distribution.  For example, suppose one
+            //  child starts out looking good, but eventually converges to a lower score.  In such a case
+            //  un-normalized MCTS will weight that child's score more highly than the renormalized version,
+            //  and result in slower parent convergence.  Normalization should increase convergence rates in
+            //  such cases, especially if child convergence is non-monotonic
+            double chooserScore = child.getAverageScore(choosingRoleIndex)/100;
+            double weight = Math.log(numVisits)/((c-chooserScore)*(c-chooserScore));
+            if ( chooserScore == highestScore/100 )
+            {
+              assert(Math.abs(weight-edge.getNumChildVisits()) < EPSILON);
+            }
 
             if ( bTrace )
             {
@@ -4195,7 +4212,7 @@ public class TreeNode
               double squaredScore = child.getAverageSquaredScore(role);
 
               //  Normalize for any heuristic bias that would normally have been
-              //  applied for propagations form this child to this parent
+              //  applied for propagations from this child to this parent
               if ( heuristicWeight > 0 )
               {
                 double applicableValue = (heuristicValue > 50 ? heuristicValue : 100 - heuristicValue);
