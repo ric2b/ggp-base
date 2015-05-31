@@ -95,6 +95,14 @@ public class LogSummarizer
         e.printStackTrace();
         throw new RuntimeException(e);
       }
+
+      // Prompt the JVM to do garbage collection.
+      long lEndGCTime = System.currentTimeMillis() + 3000;
+      for (int ii = 0; ii < 1000 && System.currentTimeMillis() < lEndGCTime; ii++)
+      {
+        System.gc();
+        try {Thread.sleep(1);} catch (InterruptedException lEx) {/* Whatever */}
+      }
     }
   }
 

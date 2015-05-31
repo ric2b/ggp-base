@@ -377,6 +377,8 @@ public class StatsLogUtils
     {
       mXValues.clear();
       mYValues.clear();
+      mXValues.trimToSize();
+      mYValues.trimToSize();
       mLastXValue = 0;
       mLastYValue = 0;
 
