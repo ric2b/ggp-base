@@ -21,8 +21,7 @@ public class LogSummaryGenerator
 {
   private static final File LOGS_DIRECTORY = new File("logs");
 
-  // Dumping of logs is disabled because they're too big for Tiltyard.
-  private static final boolean DUMP_LOGS = true;
+  private static final long MAX_LOG_SIZE = 980 * 1024;
 
   /**
    * @return the logs for the specified match.
@@ -50,7 +49,7 @@ public class LogSummaryGenerator
     }
 
     String lSummary = getSummaryFromLogsDirectory(lLogFiles, true);
-    if (lSummary.length() > (980 * 1024))
+    if (lSummary.length() > MAX_LOG_SIZE)
     {
       // Likely to exceed the Tiltyard archive limit.  Try again, omitting the logs and just including the graphs.
       System.out.println("Omitting logs because they're too large");
