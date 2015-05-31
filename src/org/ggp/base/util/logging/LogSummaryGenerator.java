@@ -49,12 +49,17 @@ public class LogSummaryGenerator
       return "No logs for match: " + xiMatchID;
     }
 
-    String lSummary = getSummaryFromLogsDirectory(lLogFiles);
-    System.out.println("Finished generating " + lSummary.length() + " bytes of logs for " + xiMatchID + " at " + System.currentTimeMillis());
+    String lSummary = getSummaryFromLogsDirectory(lLogFiles, true);
+    if (lSummary.length() > (980 * 1024))
+    {
+      // Likely to exceed the Tiltyard archive limit.  Try again, omitting the logs and just including the graphs.
+      System.out.println("Omitting logs because they're too large");
+      lSummary = getSummaryFromLogsDirectory(lLogFiles, false);
+    }
     return lSummary;
   }
 
-  private static String getSummaryFromLogsDirectory(String[] xiLogFiles)
+  private static String getSummaryFromLogsDirectory(String[] xiLogFiles, boolean xiIncludeLogs)
   {
     StringBuffer lBuffer = new StringBuffer(1024 * 1024);
 
@@ -73,7 +78,7 @@ public class LogSummaryGenerator
         // This is the regular log file
         lBuffer.append("\"compressed_logs\":\"");
 
-        if (DUMP_LOGS)
+        if (xiIncludeLogs)
         {
           try (ByteArrayOutputStream lBOS = new ByteArrayOutputStream();
                Base64OutputStream lB64OS = new Base64OutputStream(lBOS);

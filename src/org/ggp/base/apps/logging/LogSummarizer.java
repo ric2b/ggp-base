@@ -50,14 +50,14 @@ public class LogSummarizer
     @Override
     public void run()
     {
+      long lStartTime = System.currentTimeMillis();
       try
       {
         String lRequest = HttpReader.readRequestAsServer(mConnection);
         String lResponse;
         String lContentType;
 
-        if (lRequest.equals("viz.html") ||
-            lRequest.endsWith(".js"))
+        if (lRequest.equals("viz.html") || lRequest.endsWith(".js"))
         {
           lContentType = "text/html";
           StringBuffer lBuffer = new StringBuffer();
@@ -81,10 +81,18 @@ public class LogSummarizer
           }
           lResponse = lBuffer.toString();
         }
+        else if (lRequest.equals("favicon.ico"))
+        {
+          // Ignore requests for favicon.
+          lContentType = "text/html";
+          lResponse = "";
+        }
         else
         {
           lContentType = "text/acl";
           lResponse = SUMMARY_GENERATOR.getLogSummary(lRequest);
+          long lDuration = System.currentTimeMillis() - lStartTime;
+          System.out.println("Took " + lDuration + "ms to generate " + lResponse.length() + " bytes of logs for " + lRequest);
         }
 
         HttpWriter.writeAsServer(mConnection, lResponse, lContentType);
