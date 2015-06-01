@@ -1,5 +1,9 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,6 +45,8 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.symbol.grammar.SymbolPool;
 
+import com.google.common.io.CharStreams;
+
 /**
  * The Sancho General Game Player.
  */
@@ -51,6 +57,8 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
   private static final long SAFETY_MARGIN = MachineSpecificConfiguration.getCfgInt(CfgItem.SAFETY_MARGIN);
 
   private static final int MIN_PRIMARY_SIMULATION_SAMPLES = 100;
+
+  private static final String LAST_COMMIT = getWorkingCopyRevision();
 
   // Determine whether assertions are enabled for the JVM.
   private static final boolean ASSERTIONS_ENABLED;
@@ -221,10 +229,37 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     return targetState.getContents().size() - matchCount;
   }
 
+  /**
+   * @return the commit ID of the latest revision in the working copy.
+   */
+  private static String getWorkingCopyRevision()
+  {
+    String lLastCommit = "<Unknown>";
+
+    String lWCPath = MachineSpecificConfiguration.getCfgStr(CfgItem.WC_LOCATION);
+    if (lWCPath != null)
+    {
+      try
+      {
+        File lWCRoot = new File(lWCPath);
+        InputStream lInput = Runtime.getRuntime().exec("git rev-parse HEAD", null, lWCRoot).getInputStream();
+        lLastCommit = CharStreams.toString(new InputStreamReader(lInput));
+        lLastCommit = lLastCommit.replace("\r", "").replace("\n", "");
+      }
+      catch (IOException lEx)
+      {
+        LOGGER.warn("Failed to get git version", lEx);
+      }
+    }
+
+    return lLastCommit;
+  }
+
   @Override
   public void stateMachineMetaGame(long timeout)
      throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
+    LOGGER.info("This is " + getName() + " with last commit " + LAST_COMMIT);
     MachineSpecificConfiguration.logConfig();
     if (ASSERTIONS_ENABLED)
     {

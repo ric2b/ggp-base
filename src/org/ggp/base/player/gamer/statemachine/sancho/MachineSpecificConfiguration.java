@@ -28,6 +28,11 @@ public class MachineSpecificConfiguration
     PLAYER_NAME("Sancho 1.60t"),
 
     /**
+     * Location of the working copy - used for fine-grained version logging.
+     */
+    WC_LOCATION(null),
+
+    /**
      * The number of CPU-intensive threads to use.  By default, we calculate based on the number of available CPUs.
      */
     CPU_INTENSIVE_THREADS(-1),
