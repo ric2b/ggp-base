@@ -53,28 +53,16 @@ import com.google.common.io.CharStreams;
 public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 {
   private static final Logger LOGGER = LogManager.getLogger();
-
   private static final long SAFETY_MARGIN = MachineSpecificConfiguration.getCfgInt(CfgItem.SAFETY_MARGIN);
-
   private static final int MIN_PRIMARY_SIMULATION_SAMPLES = 100;
 
-  private static final String LAST_COMMIT = getWorkingCopyRevision();
-
-  // Determine whether assertions are enabled for the JVM.
-  private static final boolean ASSERTIONS_ENABLED;
+  // Do one-off start-of-day processing.
   static
   {
-    boolean lAssertionsEnabled = false;
-    assert ((lAssertionsEnabled = true) == true);
-    ASSERTIONS_ENABLED = lAssertionsEnabled;
-
-    if (ASSERTIONS_ENABLED)
-    {
-      System.err.println("WARNING: Assertions are enabled - this will impact performance");
-    }
-
     StdOutErrLog.tieSystemOutAndErrToLog();
   }
+  private static final String LAST_COMMIT = getWorkingCopyRevision();
+  private static final boolean ASSERTIONS_ENABLED = areAssertionsEnabled();
 
   /**
    * When adding additional state, you MUST null out references in {@link #tidyUp()}.
@@ -253,6 +241,19 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
 
     return lLastCommit;
+  }
+
+  private static boolean areAssertionsEnabled()
+  {
+    boolean lAssertionsEnabled = false;
+    assert ((lAssertionsEnabled = true) == true);
+
+    if (lAssertionsEnabled)
+    {
+      System.err.println("WARNING: Assertions are enabled - this will impact performance");
+    }
+
+    return lAssertionsEnabled;
   }
 
   @Override
