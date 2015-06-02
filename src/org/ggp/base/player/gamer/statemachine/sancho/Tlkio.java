@@ -6,7 +6,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
-import java.net.URLDecoder;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -18,61 +19,72 @@ import org.apache.logging.log4j.Logger;
 /**
  * Class for logging to tlk.io.
  */
-public class Tlkio
+public class Tlkio implements Runnable
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
   private static final Pattern TOKEN_PATTERN = Pattern.compile("content=\"([^\"]+)\" name=\"csrf-token\"");
   private static final Pattern CHANNEL_PATTERN = Pattern.compile(".chat_id = '(\\d+)'");
 
+  private final String mNickname;
+  private final String mChannelName;
+
   private String mChannelID;
   private String mCookie;
   private String mToken;
 
+  private final BlockingQueue<String> mMessageQueue = new ArrayBlockingQueue<>(5);
+
+  private final Thread mThread;
+
   /**
-   * Login to tlk.io.
+   * Create a new connection to tlk.io.
    *
+   * @param xiNickname - the nickname to use.
    * @param xiChannel - the chat channel to connect to.
-   *
-   * @return whether the conncection succeeded.
    */
-  public boolean login(String xiChannel)
+  public Tlkio(String xiNickname, String xiChannel)
   {
-    try
-    {
-      // Get the parameters we need for logging to this channel.
-      getChannelParams(xiChannel);
+    mNickname = xiNickname;
+    mChannelName = xiChannel;
 
-      // Set our name.
-      sendPost("https://tlk.io/api/participant", "{\"nickname\":\"Sancho\"}");
-
-      return true;
-    }
-    catch (IOException lEx)
-    {
-      LOGGER.warn("Failed to login to tlk.io");
-    }
-
-    return false;
+    mThread = new Thread(this, "Tlkio");
+    mThread.setDaemon(true);
+    mThread.start();
   }
 
   /**
-   * Broadcast a message.
+   * Broadcast a message.  (You must login first.)
    *
    * @param xiMessage - the message
    */
   public void broadcast(String xiMessage)
   {
+    // Add the message to the queue of messages.  If full, we'll just drop it.
+    mMessageQueue.offer(xiMessage);
+  }
+
+  /**
+   * Close the connection to tlk.io and tidy up.
+   */
+  public void stop()
+  {
+    mThread.interrupt();
     try
     {
-      String lURL = "https://tlk.io/api/chats/" + mChannelID + "/messages";
-      String lBody = "{\"body\":\"" + xiMessage + "\",\"expired\":false}";
-      sendPost(lURL, lBody);
+      mThread.join(5000);
     }
-    catch (IOException lEx)
+    catch (InterruptedException lEx)
     {
-      LOGGER.warn("IOException whilst broadcasting to tlk.io", lEx);
+      LOGGER.warn("Interrupted whilst waiting for Tlkio to stop");
     }
+
+    if (mThread.isAlive())
+    {
+      LOGGER.error("Failed to stop Tlkio thread");
+    }
+
+    mMessageQueue.clear();
   }
 
   private void getChannelParams(String xiChannel) throws IOException
@@ -93,7 +105,6 @@ public class Tlkio
     Matcher lMatcher = TOKEN_PATTERN.matcher(lBody);
     lMatcher.find();
     mToken = lMatcher.group(1);
-    // mToken = "Am7DG7Fil2sisUCYUz2qugiQaRMs4bgt8Sv71zqb2x8=";
 
     // Extract the channel ID from the body.
     lMatcher = CHANNEL_PATTERN.matcher(lBody);
@@ -110,54 +121,29 @@ public class Tlkio
       return;
     }
     lCookie = lCookie.substring(0, lCookie.indexOf(';'));
-    System.out.println(lCookie);
-    lCookie = URLDecoder.decode(lCookie, "UTF-8");
-    System.out.println(lCookie);
-    lCookie = lCookie.replace("==", "");
-    System.out.println(lCookie);
     mCookie = lCookie;
-
-    // mCookie = "_tlkio_session=L0F3d0J2a1M5TnB5Q2E4ejRSRnArNTRVS2d1VnhwdGZVUUJOdW1OalpzTjdpcDFHM3lJWDBNWGtzWUhUUGhlM0YvRC8rZHU4bnZQMUI2QnhCdkhtZEhGQWE0VU52R2x0eXVhdHVUSjV0ZjlTSlU2b0FuSDlFdXNxNXZuTFJTQUFlZEdQVENGMUNsMEF5dEc5Tm52aTVTYytUeVdGeG1FbkJCWHRJRUJMMXpyTnBqTDJlTWNwUkczYzUwdGZnY1dYbDdQT25JaytaOHhCc01vblhxVmtMT3NnQmNoZmhabDh6WURpY0ttN1VEc0pvdCs0ZDVQRHZldjh6Q0UxM01lT29VZEdreEpuem0wNUtwOVdLc2o5TFE9PS0tUmFZMHNNcWN6UUROWFNxZGw2dy94Zz09--5cb35c2543e89dba4c78eb33298aa8aaddbdeb57";
   }
 
-  private void sendPost(String xiURL, String xiBody) throws IOException
+  /**
+   * Login to tlk.io.
+   *
+   * @return whether login was successful.
+   */
+  private boolean login()
   {
-    // Create a connection.
-    URL lURL = new URL(xiURL);
-    HttpsURLConnection lConnection = (HttpsURLConnection)lURL.openConnection();
-
-    // Use POST for new messages.
-    lConnection.setRequestMethod("POST");
-
-    // Add request headers.
-    lConnection.setRequestProperty("Content-Type", "application/json");
-    lConnection.setRequestProperty("Cookie", mCookie);
-    lConnection.setRequestProperty("X-CSRF-Token", mToken);
-
-    LOGGER.info("Sending " + xiBody + " to " + xiURL + " with token " + mToken + " and cookie " + mCookie);
-
-    // Send post request
-    lConnection.setDoOutput(true);
-    DataOutputStream lBodyWriter = new DataOutputStream(lConnection.getOutputStream());
-    lBodyWriter.writeBytes(xiBody);
-    lBodyWriter.flush();
-    lBodyWriter.close();
-
-    LOGGER.info("Fetching: " + lConnection.getURL());
-    int lResponseCode = lConnection.getResponseCode();
-    if (lResponseCode != 200)
+    try
     {
-      // Locally log details of failure to send to tlk.io.
-      LOGGER.warn("tlk.io returned " + lResponseCode);
-      String lBody = readBody(lConnection.getErrorStream());
-      LOGGER.warn("Error body: " + lBody);
+      // Get the parameters we need for logging to this channel and set our name.
+      getChannelParams(mChannelName);
+      sendPost("https://tlk.io/api/participant", "{\"nickname\":\"" + mNickname + "\"}");
+      return true;
     }
-    else
+    catch (IOException lEx)
     {
-      extractCookie(lConnection);
-      String lBody = readBody(lConnection.getInputStream());
-      LOGGER.info("Success body: " + lBody);
+      LOGGER.warn("Failed to login to tlk.io");
     }
+
+    return false;
   }
 
   private String readBody(InputStream xiInputStream) throws IOException
@@ -176,10 +162,77 @@ public class Tlkio
     return lBody;
   }
 
-  public static void main(String[] args) throws IOException
+  private void sendPost(String xiURL, String xiBody) throws IOException
   {
-    Tlkio lTlkio = new Tlkio();
-    lTlkio.login("test");
-    lTlkio.broadcast("testing");
+    // Create a connection.
+    URL lURL = new URL(xiURL);
+    HttpsURLConnection lConnection = (HttpsURLConnection)lURL.openConnection();
+
+    // Use POST for new messages.
+    lConnection.setRequestMethod("POST");
+
+    // Add request headers.
+    lConnection.setRequestProperty("Content-Type", "application/json");
+    lConnection.setRequestProperty("Cookie", mCookie);
+    lConnection.setRequestProperty("X-CSRF-Token", mToken);
+
+    LOGGER.debug("Sending " + xiBody + " to " + xiURL + " with token " + mToken + " and cookie " + mCookie);
+
+    // Send post request
+    lConnection.setDoOutput(true);
+    DataOutputStream lBodyWriter = new DataOutputStream(lConnection.getOutputStream());
+    lBodyWriter.writeBytes(xiBody);
+    lBodyWriter.flush();
+    lBodyWriter.close();
+
+    LOGGER.debug("Fetching: " + lConnection.getURL());
+    int lResponseCode = lConnection.getResponseCode();
+    if (lResponseCode != 200)
+    {
+      // Locally log details of failure to send to tlk.io.
+      LOGGER.warn("tlk.io returned " + lResponseCode);
+      String lBody = readBody(lConnection.getErrorStream());
+      LOGGER.warn("Error body: " + lBody);
+    }
+    else
+    {
+      extractCookie(lConnection);
+      String lBody = readBody(lConnection.getInputStream());
+      LOGGER.debug("Success body: " + lBody);
+    }
+  }
+
+  @Override
+  public void run()
+  {
+    if (!login())
+    {
+      LOGGER.warn("Failed to login to tlk.io.  No messages will be broadcast for this match.");
+      return;
+    }
+
+    try
+    {
+      // Until interrupted, keep taking messages off the queue and broadcasting them.
+      String lURL = "https://tlk.io/api/chats/" + mChannelID + "/messages";
+      while (true)
+      {
+        String lMessage = mMessageQueue.take();
+
+        try
+        {
+          String lBody = "{\"body\":\"" + lMessage + "\",\"expired\":false}";
+          sendPost(lURL, lBody);
+        }
+        catch (IOException lEx)
+        {
+          LOGGER.warn("IOException whilst broadcasting to tlk.io", lEx);
+        }
+      }
+    }
+    catch (InterruptedException lEx)
+    {
+      // We've been interrupted.  Terminate.
+    }
   }
 }

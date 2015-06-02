@@ -113,7 +113,12 @@ public class MachineSpecificConfiguration
      * Time, in milliseconds, after which we assume that we aren't going to here from the server again - in which case
      * we abort the match.
      */
-    DEAD_MATCH_INTERVAL((int)TimeUnit.MINUTES.toMillis(10));
+    DEAD_MATCH_INTERVAL((int)TimeUnit.MINUTES.toMillis(10)),
+
+    /**
+     * The tlk.io channel to log to.
+     */
+    TLKIO_CHANNEL("sancho");
 
 
     /**

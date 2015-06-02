@@ -91,6 +91,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
   private ForwardDeadReckonLegalMoveInfo lastMove                     = null;
   private int                         mFinalScore                     = -1;
   private boolean                     mSolvedFromStart                = false;
+  private Tlkio                       mBroadcaster                    = null;
   private Watchdog                    mWatchdog                       = null;
   /**
    * When adding additional state, you MUST null out references in {@link #tidyUp()}.
@@ -283,6 +284,8 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     Random r = new Random();
 
+    mBroadcaster = new Tlkio(getName(), MachineSpecificConfiguration.getCfgStr(CfgItem.TLKIO_CHANNEL));
+
     // If have been configured with a plan (for test purposes), load it now.
     // We'll still do everything else as normal, but whilst there are moves in
     // the plan, when it comes to play, we'll just play the specified move.
@@ -329,6 +332,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     // Check if we already know how to solve this game.
     String lSavedPlan = mGameCharacteristics.getPlan();
+    makePreMatchAnnouncement(lSavedPlan);
     if (lSavedPlan != null)
     {
       // We've played this game before and know how to solve it.
@@ -1054,6 +1058,27 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     LOGGER.info("Ready to play");
   }
 
+  private void makePreMatchAnnouncement(String xiSavedPlan)
+  {
+    String lGameName = getGameName();
+    String lAnnouncement;
+    if (xiSavedPlan != null)
+    {
+      lAnnouncement = "Yawn - we are playing " + lGameName;
+    }
+    else if (lGameName.charAt(0) >= '0' && lGameName.charAt(0) <= '9')
+    {
+      lAnnouncement = "Ooh - we are playing an exciting new game";
+    }
+    else
+    {
+      lAnnouncement = "We are playing " + getGameName();
+    }
+
+    lAnnouncement += " as " + ourRole + " (Match ID " + getMatch().getMatchId() + ")";
+    mBroadcaster.broadcast(lAnnouncement);
+  }
+
   private void tryAStar(ForwardDeadReckonInternalMachineState xiInitialState, long xiTimeout)
   {
     // 8-puzzle type stuff.
@@ -1421,6 +1446,12 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     {
       mSysStatsLogger.stop();
       mSysStatsLogger = null;
+    }
+
+    if (mBroadcaster != null)
+    {
+      mBroadcaster.stop();
+      mBroadcaster = null;
     }
 
     if (mWatchdog != null)

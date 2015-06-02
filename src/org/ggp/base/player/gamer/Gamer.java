@@ -193,6 +193,11 @@ public abstract class Gamer implements Subject
     return mGDLTranslator.internalToNetwork(xiInternalSymbol);
   }
 
+  public String getGameName()
+  {
+    return mGDLTranslator.getGameDir().getName();
+  }
+
   // ==== Observer Stuff ====
   private final List<Observer> observers;
 
