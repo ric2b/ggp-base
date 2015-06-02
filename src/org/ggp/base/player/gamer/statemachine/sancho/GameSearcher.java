@@ -344,6 +344,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
             {
               synchronized(getSerializationObject())
               {
+                assert(ThreadControl.takeTreeOwnership());
+
                 //  Must re-test for a termination request having obtained the lock
                 if (!mTerminateRequested)
                 {
@@ -355,6 +357,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                   // Grow the search tree - this is the heart of the GameSearcher function.
                   complete = expandSearch(false);
                 }
+
+                assert(ThreadControl.releaseTreeOwnership());
               }
             }
           }
@@ -857,6 +861,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     LOGGER.debug("Start move search...");
     synchronized (this)
     {
+      assert(ThreadControl.takeTreeOwnership());
+
       //  Devote the first few seconds to searching the last move played in case it wasn't what
       //  was previously expected and so had not been subject to local search
       localSearchRefreshTime = System.currentTimeMillis() + LOCAL_SEARCH_REVIEW_PLAYED_MOVE_TIME;
@@ -876,6 +882,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       mRMSFringeDepth.clear();
       mAverageBranchingFactor.clear();
 
+      assert(ThreadControl.releaseTreeOwnership());
       this.notify();
     }
   }
@@ -925,6 +932,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
    */
   long processCompletedRollouts(boolean xiNeedToDoOne) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
+    assert(ThreadControl.checkTreeOwnership());
+
     long lStallTime = 0;
     boolean canBackPropagate;
 

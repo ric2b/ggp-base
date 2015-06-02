@@ -104,6 +104,8 @@ public class TreeEdge
    */
   public void setChildRef(long ref)
   {
+    assert(ThreadControl.checkTreeOwnership());
+
     mChildRef = ref;
   }
 
@@ -121,6 +123,8 @@ public class TreeEdge
    */
   public void setHasHeuristicDeviation(boolean hasHeuristicDeviation)
   {
+    assert(ThreadControl.checkTreeOwnership());
+
     if ( hasHeuristicDeviation )
     {
       mFlags |= EDGE_FLAG_HAS_HEURISTIC_DEVIATION;
@@ -145,6 +149,8 @@ public class TreeEdge
    */
   public void setIsHyperEdge(boolean isHyperEdge)
   {
+    assert(ThreadControl.checkTreeOwnership());
+
     if ( isHyperEdge )
     {
       mFlags |= EDGE_FLAG_IS_HYPEREDGE;
@@ -169,6 +175,8 @@ public class TreeEdge
    */
   public void setIsSelectable(boolean isSelectable)
   {
+    assert(ThreadControl.checkTreeOwnership());
+
     if ( isSelectable )
     {
       mFlags &= ~EDGE_FLAG_IS_UNSELECTABLE;
@@ -232,6 +240,8 @@ public class TreeEdge
    */
   public void incrementNumVisits()
   {
+    assert(ThreadControl.checkTreeOwnership());
+
     numChildVisits++;
   }
 
@@ -240,6 +250,8 @@ public class TreeEdge
    */
   public void setNumVisits(int count)
   {
+    assert(ThreadControl.checkTreeOwnership());
+
     numChildVisits = (numChildVisits & HAS_BEEN_TRIMMED_MASK) | count;
   }
 
@@ -248,6 +260,8 @@ public class TreeEdge
    */
   public void setHasBeenTrimmed()
   {
+    assert(ThreadControl.checkTreeOwnership());
+
     numChildVisits |= HAS_BEEN_TRIMMED_MASK;
   }
 
@@ -259,6 +273,8 @@ public class TreeEdge
    */
   public void setParent(TreeNode xiParent, ForwardDeadReckonLegalMoveInfo xiPartialMove)
   {
+    assert(ThreadControl.checkTreeOwnership());
+
     mParentRef = xiParent.getRef();
     mPartialMove = xiPartialMove;
 
@@ -276,6 +292,8 @@ public class TreeEdge
    */
   public void setChild(TreeNode xiChild)
   {
+    assert(ThreadControl.checkTreeOwnership());
+
     mChildRef = xiChild.getRef();
 
     assert(mChildRef != TreeNode.NULL_REF);
@@ -313,6 +331,8 @@ public class TreeEdge
    */
   public void reset()
   {
+    assert(ThreadControl.checkTreeOwnership());
+
     mParentRef = TreeNode.NULL_REF;
     mChildRef = TreeNode.NULL_REF;
     numChildVisits = 0;

@@ -1460,6 +1460,8 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       mWatchdog = null;
     }
 
+    ThreadControl.tidyUp();
+
     // Save anything that we've learned about this game.
     if (xiRegularTermination)
     {

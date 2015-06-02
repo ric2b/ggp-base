@@ -99,6 +99,8 @@ public class ThreadControl
    */
   private static int sNextRolloutThreadCPUIndex = CPU_STRIPE_STRIDE;
 
+  private static volatile Thread sTreeOwner;
+
   private ThreadControl()
   {
     // Private default constructor.
@@ -106,12 +108,20 @@ public class ThreadControl
 
   /**
    * Reset the allocation cursors for CPU id to original values - should be used
-   * when destroying the current consuming threads
+   * when destroying the current consuming threads.
    */
   public static void reset()
   {
     sNextSearchThreadCPUIndex = (sCPUIdParity ? 1 : 0);
     sNextRolloutThreadCPUIndex = (CPU_STRIPE_STRIDE + (sCPUIdParity ? 1 : 0)) % NUM_CPUS;
+  }
+
+  /**
+   * Free resources at the end of a game to make them eligible for GC.
+   */
+  public static void tidyUp()
+  {
+    sTreeOwner = null;
   }
 
   /**
@@ -142,6 +152,44 @@ public class ThreadControl
         sNextSearchThreadCPUIndex = sNextSearchThreadCPUIndex % NUM_CPUS;
       }
     }
+  }
+
+  /**
+   * Take ownership of the tree.  Only permitted when no other thread(s) own the tree.
+   *
+   * @return true, always.
+   */
+  public static boolean takeTreeOwnership()
+  {
+    assert(sTreeOwner == null) :
+          Thread.currentThread().getName() + " can't take tree ownership because it's owned by " + sTreeOwner.getName();
+    sTreeOwner = Thread.currentThread();
+    return true;
+  }
+
+  /**
+   * Release tree ownership.  Can only be called by the current tree owner.
+   *
+   * @return true, always.
+   */
+  public static boolean releaseTreeOwnership()
+  {
+    assert(sTreeOwner == Thread.currentThread()) :
+       Thread.currentThread().getName() + " can't release tree ownership because it's owned by " + sTreeOwner.getName();
+    sTreeOwner = null;
+    return true;
+  }
+
+  /**
+   * Check that the calling thread is the tree owner.
+   *
+   * @return true, always.
+   */
+  public static boolean checkTreeOwnership()
+  {
+    assert(sTreeOwner == Thread.currentThread()) :
+                  Thread.currentThread().getName() + " can't modify tree because it's owned by " + sTreeOwner.getName();
+    return true;
   }
 
   /**

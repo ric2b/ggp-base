@@ -2592,6 +2592,8 @@ public class TreeNode
 
   public void hyperExpand(TreePath fullPathTo, ForwardDeadReckonLegalMoveInfo[] jointPartialMove, short hyperDepth)
   {
+    assert(ThreadControl.checkTreeOwnership());
+
     int roleIndex = (decidingRoleIndex+1)%tree.numRoles;
 
     //  Uncomment this if paranoid, but at some execution cost when asserts are enabled
@@ -2879,6 +2881,8 @@ public class TreeNode
 
   private TreeNode expandInternal(TreePath fullPathTo, ForwardDeadReckonLegalMoveInfo[] jointPartialMove, int parentDepth, boolean isRecursiveExpansion, boolean stateChangedInForcedExpansion)
   {
+    assert(ThreadControl.checkTreeOwnership());
+
     TreePathElement pathTo = (fullPathTo == null ? null : fullPathTo.getTailElement());
 
     assert(this == tree.root || parents.size() > 0);
@@ -4265,6 +4269,8 @@ public class TreeNode
    */
   TreePathElement select(TreePath path, ForwardDeadReckonLegalMoveInfo[] jointPartialMove, Move xiForceMove)
   {
+    assert(ThreadControl.checkTreeOwnership());
+
     TreeEdge selected = null;
     int selectedIndex = -1;
     int bestSelectedIndex = -1;
