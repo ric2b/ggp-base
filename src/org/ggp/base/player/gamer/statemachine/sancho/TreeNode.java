@@ -174,9 +174,9 @@ public class TreeNode
   //private TreeNode sweepParent = null;
   boolean                               freed                = false;
   private double                        leastLikelyRunnerUpValue;
-  private double                        mostLikelyRunnerUpValue;
   private short                         leastLikelyWinner    = -1;
-  private short                         mostLikelyWinner     = -1;
+  private short                         lastSelectionMade     = -1;
+
   //  Note - the 'depth' of a node is an indicative measure of its distance from the
   //  initial state.  However, it is not an absolute count of the path length.  This
   //  is because in some games the same state can occur at different depths (English Draughts
@@ -1671,7 +1671,7 @@ public class TreeNode
       }
     }
 
-    mostLikelyWinner = -1;
+    lastSelectionMade = -1;
   }
 
   /**
@@ -1696,7 +1696,7 @@ public class TreeNode
     autoExpand = false;
     localSearchStatus = LocalSearchStatus.LOCAL_SEARCH_UNSEARCHED;
     leastLikelyWinner = -1;
-    mostLikelyWinner = -1;
+    lastSelectionMade = -1;
     complete = false;
     allChildrenComplete = false;
     assert(freed || (xiTree == null));
@@ -2151,7 +2151,7 @@ public class TreeNode
     freeChildren();
 
     leastLikelyWinner = -1;
-    mostLikelyWinner = -1;
+    lastSelectionMade = -1;
   }
 
   public TreeEdge selectLeastLikelyExpandedNode(TreeEdge from)
@@ -4258,6 +4258,65 @@ public class TreeNode
     }
   }
 
+  private double getSelectionValue(TreeEdge edge, TreeNode c, int roleIndex)
+  {
+    double uctValue;
+
+    if ( c.complete )
+    {
+      edge.explorationAmplifier = 0;
+    }
+
+    if (c.numVisits == 0)
+    {
+      uctValue = unexpandedChildUCTValue(roleIndex, edge);
+    }
+    else
+    {
+      assert(edge.getNumChildVisits() <= c.numVisits || (edge.hyperSuccessor != null && c.complete));
+
+      //  Various experiments have been done to try to find the best selection
+      //  weighting, and it seems that using the number of times we've visited the
+      //  child FROM THIS PARENT coupled with the num visits here in standard UCT
+      //  manner works best.  In particular using the visit count on the child node
+      //  (rather than through the child edge to it, which can be radically different
+      //  in highly transpositional games) does not seem to work as well (even with a
+      //  'corrected' parent visit count obtained by summing the number of visits to all
+      //  the child's parents)
+      //  Empirically the half value for the exploration term applied to complete
+      //  children seems to give decent results.  Both applying it in full and not
+      //  applying it (both of which can be rationalized!) seem to fare worse in at
+      //  least some games
+      uctValue = (c.complete ? explorationUCT(numVisits,
+                                              edge,
+                                              roleIndex)/2
+                             : explorationUCT(numVisits,
+                                              edge,
+                                              roleIndex)) +
+                 exploitationUCT(edge, roleIndex) +
+                 heuristicUCT(edge);
+
+      //  A local known search status strongly impacts the choice.  Basically this establishes a hierarchy
+      //  to all intents and purposes that means local search wins will essentially always be selected
+      //  over anything but complete wins, and local search losses will almost never be selected
+      //  However, crucially if ALL choices are local search losses normal selection ordering will result
+      switch(c.localSearchStatus)
+      {
+        case LOCAL_SEARCH_LOSS:
+          uctValue /= 10;
+          break;
+        case LOCAL_SEARCH_WIN:
+          uctValue *= 10;
+          break;
+          //$CASES-OMITTED$
+        default:
+          break;
+      }
+    }
+
+    return uctValue;
+  }
+
   /**
    * Select the child node to descend through during MCTS node selection.
    *
@@ -4322,92 +4381,46 @@ public class TreeNode
         {
           normalizeScores(false);
         }
-        //  It is clearly a bug to reset mostLikelyRunnerUpValue here, but empirically it is significantly
-        //  useful in some games (D&B, D&B suicide notably).  The only games where a clear negative impact
-        //  has been observed is the Breakthrough family.  Hypothetically this is probably because the
-        //  repeated selection it results in amplifies heuristic-induced distortions.
-        //  FOR NOW (and it is a priority to understand this better and replace with a more
-        //  controlled mechanism) we perform the 'buggy' reset for non-heuristic games
-        if ( !tree.heuristic.isEnabled() )
-        {
-          mostLikelyRunnerUpValue = Double.MIN_VALUE;
-        }
-        //  We cache the best and second best selections so that on future selects through
-        //  the node we only have to check that the best has not fallen in value below the
-        //  second best, and do a full rescan only if it has (a few operations also clear the cached
-        //  value, such as completion processing)
-        if (mostLikelyWinner != -1 && (tree.factor == null || this != tree.root))
-        {
-          Object choice = children[mostLikelyWinner];
-          TreeEdge edge;
 
+        //  We just re-use the last selected child if it's still a valid choice until the cache of its index
+        //  is cleared, at which point we use UCT to make the best new choice.  This flag is cleared on:
+        //  A child completing
+        //  Unexpansion of the node
+        //  Back-propagation of a playout result through this node
+        //  The reason we do this is historical and not fully understood.  The asynchronous nature of back-propagation
+        //  processing means that there is a delayed clearing of this cached selection choice dependent on the
+        //  pipeline latency, with the result that a node which has not recently been selected through will make a choice of
+        //  child and then stick with it for a while.  It is unclear why this is beneficial (but empirically it certainly is)
+        //  It would be highly desirable to find a more direct means to obtain the benefit, since the 'accident' of pipeline
+        //  latency is both necessarily coincidental and cannot possible be optimally tuned (if nothing else it will depend
+        //  on things like thread counts and relative performance of playouts to MCTS expansions, which will vary by game!)
+        //  Several days sepnt trying to find such a mechanism have so far failed, so for now we're stuck with this 'by-product'
+        //  mechanism
+        if (lastSelectionMade != -1 && (tree.factor == null || this != tree.root) && !tree.heuristic.isEnabled() )
+        {
+          Object choice = children[lastSelectionMade];
           if ( choice instanceof TreeEdge )
           {
+            TreeEdge edge;
+
             edge = (TreeEdge)choice;
-          }
-          else
-          {
-            edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-            edge.setParent(this, (ForwardDeadReckonLegalMoveInfo)choice);
-            children[mostLikelyWinner] = edge;
-          }
 
-          //  Hyper-edges may become stale due to down-stream links being freed - ignore
-          //  hyper paths with stale linkage
-          if(edge.hyperSuccessor != null && edge.hyperLinkageStale())
-          {
-            deleteHyperEdge(mostLikelyWinner);
-          }
-          else
-          {
-            long cr = edge.getChildRef();
-
-            if(cr != NULL_REF)
+            //  Hyper-edges may become stale due to down-stream links being freed - ignore
+            //  hyper paths with stale linkage
+            if(edge.hyperSuccessor != null && edge.hyperLinkageStale())
             {
-              TreeNode c = get(cr);
-              if (c != null && (!c.complete) && !c.allChildrenComplete)
+              deleteHyperEdge(lastSelectionMade);
+            }
+            else
+            {
+              long cr = edge.getChildRef();
+
+              if(cr != NULL_REF)
               {
-                double uctValue;
-
-                if (c.numVisits == 0 && !c.complete)
+                TreeNode c = get(cr);
+                if (c != null && (!c.complete) && !c.allChildrenComplete)
                 {
-                  uctValue = unexpandedChildUCTValue(roleIndex, edge);
-                }
-                else
-                {
-                  //  Various experiments have been done to try to find the best selection
-                  //  weighting, and it seems that using the number of times we've visited the
-                  //  child FROM THIS PARENT coupled with the num visits here in standard UCT
-                  //  manner works best.  In particular using the visit count on the child node
-                  //  (rather than through the child edge to it, which can be radically different
-                  //  in highly transpositional games) does not seem to work as well (even with a
-                  //  'corrected' parent visit count obtained by summing the number of visits to all
-                  //  the child's parents)
-                  uctValue = explorationUCT(numVisits, edge, roleIndex) +
-                             exploitationUCT(edge, roleIndex) +
-                             heuristicUCT(edge);
-
-                  //  A local known search status strongly impacts the choice.  Basically this establishes a hierarchy
-                  //  to all intents and purposes that means local search wins will essentially always be selected
-                  //  over anything but complete wins, and local search losses will almost never be selected
-                  //  However, crucially if ALL choices are local search losses normal selection ordering will result
-                  switch(c.localSearchStatus)
-                  {
-                    case LOCAL_SEARCH_LOSS:
-                      uctValue /= 10;
-                      break;
-                    case LOCAL_SEARCH_WIN:
-                      uctValue *= 10;
-                      break;
-                      //$CASES-OMITTED$
-                    default:
-                      break;
-                  }
-                }
-
-                if (uctValue >= mostLikelyRunnerUpValue)
-                {
-                  selectedIndex = mostLikelyWinner;
+                  selectedIndex = lastSelectionMade;
                 }
               }
             }
@@ -4416,10 +4429,6 @@ public class TreeNode
 
         if (selectedIndex == -1)
         {
-          //  Previous second best now preferred over previous best so we need
-          //  to recalculate
-          mostLikelyRunnerUpValue = Double.MIN_VALUE;
-
           boolean hyperLinksRemoved;
 
           do
@@ -4469,57 +4478,7 @@ public class TreeNode
                            (tree.root == this || !edge.mPartialMove.isPseudoNoOp))
                   {
                     //  Don't preferentially explore paths once they are known to have complete results
-                    if ( c.complete )
-                    {
-                      edge.explorationAmplifier = 0;
-                    }
-
-                    if (c.numVisits == 0)
-                    {
-                      uctValue = unexpandedChildUCTValue(roleIndex, edge);
-                    }
-                    else
-                    {
-                      assert(edge.getNumChildVisits() <= c.numVisits || (edge.hyperSuccessor != null && c.complete));
-
-                      //  Various experiments have been done to try to find the best selection
-                      //  weighting, and it seems that using the number of times we've visited the
-                      //  child FROM THIS PARENT coupled with the num visits here in standard UCT
-                      //  manner works best.  In particular using the visit count on the child node
-                      //  (rather than through the child edge to it, which can be radically different
-                      //  in highly transpositional games) does not seem to work as well (even with a
-                      //  'corrected' parent visit count obtained by summing the number of visits to all
-                      //  the child's parents)
-                      //  Empirically the half value for the exploration term applied to complete
-                      //  children seems to give decent results.  Both applying it in full and not
-                      //  applying it (both of which can be rationalized!) seem to fare worse in at
-                      //  least some games
-                      uctValue = (c.complete ? explorationUCT(numVisits,
-                                                              edge,
-                                                              roleIndex)/2
-                                             : explorationUCT(numVisits,
-                                                              edge,
-                                                              roleIndex)) +
-                                 exploitationUCT(edge, roleIndex) +
-                                 heuristicUCT(edge);
-
-                      //  A local known search status strongly impacts the choice.  Basically this establishes a hierarchy
-                      //  to all intents and purposes that means local search wins will essentially always be selected
-                      //  over anything but complete wins, and local search losses will almost never be selected
-                      //  However, crucially if ALL choices are local search losses normal selection ordering will result
-                      switch(c.localSearchStatus)
-                      {
-                        case LOCAL_SEARCH_LOSS:
-                          uctValue /= 10;
-                          break;
-                        case LOCAL_SEARCH_WIN:
-                          uctValue *= 10;
-                          break;
-                          //$CASES-OMITTED$
-                        default:
-                          break;
-                      }
-                    }
+                    uctValue = getSelectionValue(edge, c, roleIndex);
 
                     //  If the node we most want to select through is complete (so there is nothing further to
                     //  learn) we select the best non-complete choice but record the fact
@@ -4534,10 +4493,6 @@ public class TreeNode
                       if (uctValue > bestValue)
                       {
                         selectedIndex = i;
-                        if (bestValue != Double.MIN_VALUE)
-                        {
-                          mostLikelyRunnerUpValue = bestValue;
-                        }
                         bestValue = uctValue;
                       }
                     }
@@ -4567,10 +4522,6 @@ public class TreeNode
                   if (uctValue > bestValue)
                   {
                     selectedIndex = i;
-                    if (bestValue != Double.MIN_VALUE)
-                    {
-                      mostLikelyRunnerUpValue = bestValue;
-                    }
                     bestValue = uctValue;
                   }
                 }
@@ -4615,7 +4566,7 @@ public class TreeNode
     }
     assert(selectedIndex != -1);
 
-    mostLikelyWinner = (short)selectedIndex;
+    lastSelectionMade = (short)selectedIndex;
 
     //  Expand the edge if necessary
     Object choice = children[selectedIndex];
@@ -4748,7 +4699,7 @@ public class TreeNode
       result.setScoreOverrides(bestCompleteNode);
       bestCompleteNode.numVisits++;
       bestSelectedEdge.incrementNumVisits();
-      mostLikelyWinner = -1;
+      lastSelectionMade = -1;
     }
 
     //  Update the visit counts on the selection pass.  The update counts
@@ -5803,7 +5754,7 @@ public class TreeNode
         }
 
         lNode.leastLikelyWinner = -1;
-        lNode.mostLikelyWinner = -1;
+        lNode.lastSelectionMade = -1;
 
         //validateScoreVector(averageScores);
         lNode.numUpdates += applicationWeight;
