@@ -1064,18 +1064,64 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     String lAnnouncement;
     if (xiSavedPlan != null)
     {
-      lAnnouncement = "Yawn - we are playing " + lGameName;
+      lAnnouncement = "Yawn - I am playing " + lGameName;
     }
     else if (lGameName.charAt(0) >= '0' && lGameName.charAt(0) <= '9')
     {
-      lAnnouncement = "Ooh - we are playing an exciting new game";
+      lAnnouncement = "Ooh - I am playing an exciting new game";
     }
     else
     {
-      lAnnouncement = "We are playing " + getGameName();
+      lAnnouncement = "I am playing " + getGameName();
     }
 
     lAnnouncement += " as " + ourRole + " (Match ID " + getMatch().getMatchId() + ")";
+    mBroadcaster.broadcast(lAnnouncement);
+  }
+
+  private void makePostMatchAnnouncement(boolean xiAborted)
+  {
+    String lAnnouncement;
+
+    if (xiAborted)
+    {
+      lAnnouncement = "Match aborted.  And I was having so much fun.";
+    }
+    else
+    {
+      if (mFinalScore == 100)
+      {
+        if ((mGameCharacteristics.isPseudoPuzzle) || (mGameCharacteristics.getPlan() != null))
+        {
+          lAnnouncement = "I score 100.  That wasn't so puzzling, was it?";
+        }
+        else
+        {
+          lAnnouncement = "Perfect 100.  You'll need to try harder than that.";
+        }
+      }
+      else if (mSolvedFromStart)
+      {
+        lAnnouncement = "I scored " + mFinalScore +
+                                           ".  You might think that's poor, but it's the best available in this game.";
+      }
+      else if (mFinalScore == 0)
+      {
+        lAnnouncement = "Hmm, that didn't work so well.  ";
+        if (mGameCharacteristics.isPseudoPuzzle)
+        {
+          lAnnouncement += "Looks like a need some practice.";
+        }
+        else
+        {
+          lAnnouncement += "I'll beat you next time though.";
+        }
+      }
+      else
+      {
+        lAnnouncement = "I scored " + mFinalScore + ".  I don't really know what to make of that.";
+      }
+    }
     mBroadcaster.broadcast(lAnnouncement);
   }
 
@@ -1409,6 +1455,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       mGameCharacteristics.setPlan(convertHistoryToPlan());
     }
 
+    makePostMatchAnnouncement(false);
     tidyUp(true);
   }
 
@@ -1416,6 +1463,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
   public void stateMachineAbort()
   {
     LOGGER.warn("Game aborted by server");
+    makePostMatchAnnouncement(true);
     tidyUp(true);
   }
 
@@ -1423,6 +1471,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
   public void expired()
   {
     LOGGER.warn("Game aborted on watchdog expiry");
+    makePostMatchAnnouncement(true);
     tidyUp(false);
   }
 

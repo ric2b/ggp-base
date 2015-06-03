@@ -37,6 +37,8 @@ public class Tlkio implements Runnable
 
   private final Thread mThread;
 
+  private volatile boolean mStopWhenDone = false;
+
   /**
    * Create a new connection to tlk.io.
    *
@@ -69,6 +71,19 @@ public class Tlkio implements Runnable
    */
   public void stop()
   {
+    // Give a chance for any termination broadcasts to go out.
+    mStopWhenDone = true;
+    try
+    {
+      mThread.join(5000);
+    }
+    catch (InterruptedException lEx)
+    {
+      LOGGER.debug("Interrupted waiting for normal termination of Tlkio");
+    }
+
+    // Now tidy up.  (It doesn't matter if the thread already stopped above.  We're permitted to interrupt it and join
+    // it again.)
     mThread.interrupt();
     try
     {
@@ -215,7 +230,7 @@ public class Tlkio implements Runnable
     {
       // Until interrupted, keep taking messages off the queue and broadcasting them.
       String lURL = "https://tlk.io/api/chats/" + mChannelID + "/messages";
-      while (true)
+      while (!(mStopWhenDone && mMessageQueue.isEmpty()))
       {
         String lMessage = mMessageQueue.take();
 
@@ -234,5 +249,7 @@ public class Tlkio implements Runnable
     {
       // We've been interrupted.  Terminate.
     }
+
+    LOGGER.info("Tlkio thread terminated");
   }
 }
