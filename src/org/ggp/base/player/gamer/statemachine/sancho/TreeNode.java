@@ -4145,6 +4145,7 @@ public class TreeNode
     //  in proportion to the visit counts of the other nodes
     double highestScore = -Double.MAX_VALUE;
     double highestScoreWeight = 0;
+    int highestScoreIndex = -1;
 
     for(int i = 0; i < mNumChildren; i++)
     {
@@ -4165,6 +4166,7 @@ public class TreeNode
             {
               highestScore = score;
               highestScoreWeight = edge.getNumChildVisits();
+              highestScoreIndex = i;
             }
           }
         }
@@ -4201,10 +4203,8 @@ public class TreeNode
             //  such cases, especially if child convergence is non-monotonic
             double chooserScore = child.getAverageScore(choosingRoleIndex)/100;
             double weight = Math.log(numVisits)/((c-chooserScore)*(c-chooserScore));
-            if ( chooserScore == highestScore/100 )
-            {
-              assert(Math.abs(weight-edge.getNumChildVisits()) < EPSILON);
-            }
+
+            assert(i != highestScoreIndex || Math.abs(weight-edge.getNumChildVisits()) < EPSILON);
 
             if ( bTrace )
             {
