@@ -18,6 +18,7 @@ public class MctsRefGamer extends StateMachineGamer
 
   private ForwardDeadReckonPropnetStateMachine  underlyingStateMachine = null;
   private SearchTree                            tree = null;
+  private                                       int turnCount = 0;
 
   @Override
   public StateMachine getInitialStateMachine()
@@ -37,8 +38,9 @@ public class MctsRefGamer extends StateMachineGamer
       throws TransitionDefinitionException, MoveDefinitionException,
       GoalDefinitionException
   {
-    //underlyingStateMachine.disableGreedyRollouts();
+    underlyingStateMachine.enableGreedyRollouts(false, true);
     tree = new BasicMCTSSearchTree(underlyingStateMachine);
+    turnCount = 1;
   }
 
   @Override
@@ -49,7 +51,9 @@ public class MctsRefGamer extends StateMachineGamer
     long finishBy = xiTimeout - SAFETY_MARGIN;// + 100000000;
     int iterations = 0;
 
-   //  Convert to internal rep
+    System.out.println("Starting turn " + turnCount++);
+
+    //  Convert to internal rep
     ForwardDeadReckonInternalMachineState currentState = underlyingStateMachine.createInternalState(getCurrentState());
 
     //  For now reset the tree every turn
@@ -61,8 +65,9 @@ public class MctsRefGamer extends StateMachineGamer
       tree.grow();
     }
 
-    System.out.println("Processed " + iterations + " iterations");
-    return tree.getBestMove();
+    Move bestMove = tree.getBestMove();
+    System.out.println("Processed " + iterations + " iterations, and playing: " + bestMove);
+    return bestMove;
   }
 
   @Override

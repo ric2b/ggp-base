@@ -18,7 +18,7 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
 
   protected final TreeType tree;
   protected SearchTreeNode<TreeType>[] children = null;
-  private ForwardDeadReckonLegalMoveInfo[] childMoves = null;
+  protected ForwardDeadReckonLegalMoveInfo[] childMoves = null;
   protected double[] scoreVector;
   protected int numVisits = 0;
   protected final ForwardDeadReckonInternalMachineState state;
@@ -217,7 +217,7 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
     }
   }
 
-  protected SearchTreeNode<TreeType> select(ForwardDeadReckonLegalMoveInfo[] jointMove)
+  protected  SearchTreeNode<TreeType> select(ForwardDeadReckonLegalMoveInfo[] jointMove)
   {
     if ( complete )
     {
@@ -254,7 +254,7 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
     }
 
     assert(numVisits>0);
-    return EXPLORATION_BIAS*Math.sqrt(2*Math.log(numVisits) / child.numVisits);
+    return EXPLORATION_BIAS*Math.sqrt(2*Math.log(numVisits) / (child.numVisits));
   }
 
   protected double exploitationScore(SearchTreeNode<TreeType> child)
@@ -266,7 +266,8 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
   {
     RoleOrdering roleOrdering = tree.getStateMachine().getRoleOrdering();
 
-    tree.getStateMachine().getDepthChargeResult(state, null, roleOrdering.roleIndexToRole(choosingRole), null, null, null, 1000);
+    tree.playoutList.clear();
+    tree.getStateMachine().getDepthChargeResult(state, null, roleOrdering.roleIndexToRole(choosingRole), null, null, tree.playoutList, 1000);
 
     for(int i = 0; i < playoutResult.length; i++)
     {
