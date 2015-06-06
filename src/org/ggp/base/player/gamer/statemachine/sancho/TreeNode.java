@@ -5547,7 +5547,7 @@ public class TreeNode
     lRequest.mSampleSize = tree.gameCharacteristics.getRolloutSampleSize();
     lRequest.mPath = path;
     lRequest.mFactor = tree.factor;
-    lRequest.mRecordWinningMoves = tree.gameCharacteristics.isPseudoPuzzle && tree.factor == null;
+    lRequest.mRecordWinningMoves = tree.gameCharacteristics.isPseudoPuzzle;
     lRequest.mIsWin = false;
     lRequest.mTree = tree;
 

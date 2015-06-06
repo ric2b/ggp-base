@@ -28,7 +28,7 @@ class RolloutRequest
   public final double[]                        mAverageScores;
   public final double[]                        mAverageSquaredScores;
   public double                                mWeight;
-  public boolean                               mComplete;
+  public boolean                               mComplete;  //  Result is known to complete even though the node is not terminal
   public MCTSTree                              mTree;
   public int                                   mMinScore;
   public int                                   mMaxScore;
@@ -89,6 +89,7 @@ class RolloutRequest
     mMaxScore = -100;
     mWeight = 0;
     mComplete = false;
+    mIsWin = false;
 
     // Perform the requested number of samples.
     for (int i = 0; i < mSampleSize && !mComplete; i++)
