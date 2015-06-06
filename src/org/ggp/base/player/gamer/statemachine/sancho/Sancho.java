@@ -1122,7 +1122,12 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
         lAnnouncement = "I scored " + mFinalScore + ".  I don't really know what to make of that.";
       }
     }
-    mBroadcaster.broadcast(lAnnouncement);
+
+    // If we're tidying after watchdog pop, we may not have a broadcaster.
+    if (mBroadcaster != null)
+    {
+      mBroadcaster.broadcast(lAnnouncement);
+    }
   }
 
   private void tryAStar(ForwardDeadReckonInternalMachineState xiInitialState, long xiTimeout)
@@ -1304,11 +1309,13 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       bestMove = mPlan.nextMove();
       LOGGER.info("Playing pre-planned move: " + bestMove);
 
-      //  We need to keep the search 'up with' the plan to make forced-play
-      //  testing work properly, or else the search will not be 'primed'
-      //  during forced play when the plan runs out
-      searchProcessor.startSearch(finishBy, currentState, currentMoveDepth, null);
-      currentMoveDepth += numRoles;
+      if (GameSearcher.thinkBelowPlanSize > 0)
+      {
+        // We need to keep the search 'up with' the plan to make forced-play testing work properly, or else the search
+        // will not be 'primed' during forced play when the plan runs out.
+        searchProcessor.startSearch(finishBy, currentState, currentMoveDepth, null);
+        currentMoveDepth += numRoles;
+      }
     }
     else if (mGameCharacteristics.isIteratedGame && numRoles == 2)
     {
@@ -1318,18 +1325,6 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
     else
     {
-//      LocalRegionSearcher localSearcher = new LocalRegionSearcher(localSearchStateMachine, currentState, roleOrdering, lastMove, (lastMove == ourLastMove ? 1 : 0), mLogName);
-//
-//      //if ( ourLastMove != null )
-//      {
-//        Thread lSearchProcessorThread = new Thread(localSearcher, "Local Searcher");
-//        lSearchProcessorThread.setDaemon(true);
-//        lSearchProcessorThread.start();
-//      }
-
-      //emptyTree();
-      //root = null;
-      //validateAll();
       LOGGER.debug("Setting search root");
       searchProcessor.startSearch(finishBy, currentState, currentMoveDepth, lastMove);
       currentMoveDepth += numRoles;
@@ -1339,16 +1334,9 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       LOGGER.debug("Waiting for processing");
       searchUntil(finishBy);
 
-//      while(System.currentTimeMillis() < finishBy)
-//      {
-//        Thread.yield();
-//      }
       LOGGER.debug("Time to submit order - ask GameSearcher to yield");
       searchProcessor.requestYield(true);
-      //localSearcher.stop();
-      //moveConsequenceSearcher.endSearch();
 
-      //validateAll();
       long getBestMoveStartTime = System.currentTimeMillis();
       bestMove = searchProcessor.getBestMove();
       if ( System.currentTimeMillis() - getBestMoveStartTime > 250 )
@@ -1369,8 +1357,6 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       searchProcessor.chooseMove(bestMove);
 
       searchProcessor.requestYield(false);
-
-      //validateAll();
     }
 
     // We get the end time

@@ -988,12 +988,12 @@ public class MCTSTree
     if ( selectTime > maxSelectTime )
     {
       maxSelectTime = selectTime;
-      LOGGER.info("Max select time seen (ms): " + (selectTime/1000000));
+      LOGGER.debug("Max select time seen (ms): " + (selectTime/1000000));
     }
     if ( expandTime > maxExpandTime )
     {
       maxExpandTime = expandTime;
-      LOGGER.info("Max expand time seen (ms): " + (expandTime/1000000));
+      LOGGER.debug("Max expand time seen (ms): " + (expandTime/1000000));
     }
 
     // Perform the rollout request.
