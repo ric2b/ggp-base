@@ -7,6 +7,7 @@ import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
+import org.apache.lucene.util.OpenBitSet;
 import org.ggp.base.player.gamer.statemachine.sancho.LocalRegionSearcher.LocalSearchResultConsumer;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.StatsLogUtils.Series;
@@ -91,6 +92,13 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
    * Whether this searcher uses RAVE
    */
   public boolean                          mUseRAVE = MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_RAVE);
+  /**
+   * Trace of moves played below the current node being updated by back propagation
+   * (including the playout itself).  Enabled only if RAVE is in use.  BitSet indexes
+   * are onto the master move list
+   */
+  private OpenBitSet                      mPlayoutTrace = null;
+
   private final String                    mLogName;
 
   private final SampleAverageMean         mAverageFringeDepth = new SampleAverageMean();
@@ -288,6 +296,15 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       tree.root = tree.allocateNode(initialState, null, false);
       tree.root.decidingRoleIndex = gameCharacteristics.numRoles - 1;
       tree.root.setDepth((short)0);
+    }
+
+    if ( mUseRAVE )
+    {
+      mPlayoutTrace = new OpenBitSet(underlyingStateMachine.getFullPropNet().getMasterMoveList().length);
+    }
+    else
+    {
+      mPlayoutTrace = null;
     }
   }
 
@@ -951,7 +968,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         mRMSFringeDepth.addSample(lNode.getDepth() - getRootDepth());
         lRequest.mPath.resetCursor();
 
-        if (lRequest.mIsWin)
+        if (lRequest.mIsWin && mGameCharacteristics.isPseudoPuzzle)
         {
           //  First build up the move path to the node that was rolled out from
           List<ForwardDeadReckonLegalMoveInfo> fullPlayoutList = new LinkedList<>();
@@ -992,10 +1009,23 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           lNode = lRequest.mPath.getTailElement().getChildNode();
         }
 
+        if ( mUseRAVE )
+        {
+          //  Decant played moves into a bitset for O(1) existance queries
+          mPlayoutTrace.clear(0, mPlayoutTrace.capacity());
+
+          assert(lRequest.mRecordPlayoutTrace);
+          for(int i = 0; i < lRequest.mPlayoutLength; i++)
+          {
+            mPlayoutTrace.set(lRequest.mPlayoutTrace[i].masterIndex);
+          }
+        }
+
         lBackPropTime = lNode.updateStats(lRequest.mAverageScores,
                                           lRequest.mAverageSquaredScores,
                                           lRequest.mPath,
-                                          lRequest.mWeight);
+                                          lRequest.mWeight,
+                                          mPlayoutTrace);
       }
     }
 

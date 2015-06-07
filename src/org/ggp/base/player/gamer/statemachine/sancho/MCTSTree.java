@@ -8,7 +8,6 @@ import java.util.Random;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.lucene.util.OpenBitSet;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.MoveScoreInfo.MoveScoreInfoAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeEdge.TreeEdgeAllocator;
@@ -174,12 +173,6 @@ public class MCTSTree
   final ForwardDeadReckonLegalMoveInfo[]              mFastForwardPartialMoveBuffer;
   final double[]                                      mCorrectedAverageScoresBuffer;
   final double[]                                      mBlendedCompletionScoreBuffer;
-  /**
-   * Trace of moves played below the current node being updated by back propagation
-   * (including the playout itself).  Enabled only if RAVE is in use.  BitSet indexes
-   * are onto the master move list
-   */
-  final OpenBitSet                                    mPlayoutTrace;
 
   public MCTSTree(ForwardDeadReckonPropnetStateMachine xiStateMachine,
                   Factor xiFactor,
@@ -373,15 +366,6 @@ public class MCTSTree
     mStateScratchBuffer = underlyingStateMachine.createEmptyInternalState();
     mMoveScoreInfoAllocator = new MoveScoreInfoAllocator(numRoles);
     mCachedMoveScorePool = new CappedPool<>(MAX_SUPPORTED_BRANCHING_FACTOR);
-
-    if ( xiGameSearcher.mUseRAVE )
-    {
-      mPlayoutTrace = new OpenBitSet(underlyingStateMachine.getFullPropNet().getMasterMoveList().length);
-    }
-    else
-    {
-      mPlayoutTrace = null;
-    }
   }
 
   public void empty()

@@ -904,6 +904,10 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       //	exploration bias - not entirely sure why!
       explorationBias = explorationBias * 0.7;
     }
+    else if ( MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_RAVE) )
+    {
+      explorationBias *= 0.7;
+    }
 
     mGameCharacteristics.setExplorationBias(explorationBias);
     searchProcessor.setExplorationBiasRange(explorationBias * 0.8, explorationBias * 1.2);

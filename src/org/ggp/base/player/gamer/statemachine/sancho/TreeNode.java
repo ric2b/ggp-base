@@ -12,6 +12,7 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.lucene.util.OpenBitSet;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool.ObjectAllocator;
@@ -4258,7 +4259,7 @@ public class TreeNode
     }
   }
 
-  private double getSelectionValue(TreeEdge edge, TreeNode c, int roleIndex)
+  private double getUCTSelectionValue(TreeEdge edge, TreeNode c, int roleIndex)
   {
     double uctValue;
 
@@ -4295,26 +4296,66 @@ public class TreeNode
                                               roleIndex)) +
                  exploitationUCT(edge, roleIndex) +
                  heuristicUCT(edge);
-
-      //  A local known search status strongly impacts the choice.  Basically this establishes a hierarchy
-      //  to all intents and purposes that means local search wins will essentially always be selected
-      //  over anything but complete wins, and local search losses will almost never be selected
-      //  However, crucially if ALL choices are local search losses normal selection ordering will result
-      switch(c.localSearchStatus)
-      {
-        case LOCAL_SEARCH_LOSS:
-          uctValue /= 10;
-          break;
-        case LOCAL_SEARCH_WIN:
-          uctValue *= 10;
-          break;
-          //$CASES-OMITTED$
-        default:
-          break;
-      }
     }
 
     return uctValue;
+  }
+
+  private static double RAVE_EXPLORATION_REDUCTION_FACTOR = 7.0;
+
+  private double getRAVEExplorationValue(TreeEdge edge)
+  {
+    if ( edge.getNumChildVisits() == 0 )
+    {
+      return 0.5;
+    }
+
+    return getExplorationBias(edge)*Math.sqrt(2*Math.log(numVisits) / edge.getNumChildVisits())/RAVE_EXPLORATION_REDUCTION_FACTOR;
+  }
+
+  private double getRAVESelectionValue(TreeEdge edge)
+  {
+    return getRAVEExplorationValue(edge) + edge.mRAVEScore/100;
+  }
+
+  //  Rave bias
+  private static final double b = 0.05;
+
+  private double getSelectionValue(TreeEdge edge, TreeNode c, int roleIndex)
+  {
+    double UCTValue = getUCTSelectionValue(edge, c, roleIndex);
+    double result;
+
+    if ( tree.mGameSearcher.mUseRAVE && !c.complete )
+    {
+      double RAVEValue = getRAVESelectionValue(edge);
+      double RAVEWeight = (edge.mRAVECount)/(edge.mRAVECount + edge.getNumChildVisits() + b*edge.getNumChildVisits()*edge.mRAVECount + 1);
+
+      result = (1-RAVEWeight)*UCTValue + RAVEWeight*RAVEValue;
+    }
+    else
+    {
+      result = UCTValue;
+    }
+
+    //  A local known search status strongly impacts the choice.  Basically this establishes a hierarchy
+    //  to all intents and purposes that means local search wins will essentially always be selected
+    //  over anything but complete wins, and local search losses will almost never be selected
+    //  However, crucially if ALL choices are local search losses normal selection ordering will result
+    switch(c.localSearchStatus)
+    {
+      case LOCAL_SEARCH_LOSS:
+        result /= 10;
+        break;
+      case LOCAL_SEARCH_WIN:
+        result *= 10;
+        break;
+        //$CASES-OMITTED$
+      default:
+        break;
+    }
+
+    return result;
   }
 
   /**
@@ -5495,7 +5536,8 @@ public class TreeNode
       long lBackPropTime = updateStats(tree.mNodeAverageScores,
                                        tree.mNodeAverageSquaredScores,
                                        path,
-                                       1);
+                                       1,
+                                       null);
       tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, lBackPropTime);
       tree.mPathPool.free(path);
 
@@ -5547,7 +5589,7 @@ public class TreeNode
     lRequest.mSampleSize = tree.gameCharacteristics.getRolloutSampleSize();
     lRequest.mPath = path;
     lRequest.mFactor = tree.factor;
-    lRequest.mRecordPlayoutTrace = tree.gameCharacteristics.isPseudoPuzzle;
+    lRequest.mRecordPlayoutTrace = tree.gameCharacteristics.isPseudoPuzzle || tree.mGameSearcher.mUseRAVE;
     lRequest.mIsWin = false;
     lRequest.mTree = tree;
 
@@ -5584,13 +5626,15 @@ public class TreeNode
    * @param xiSquaredValues           - The per-role squared values (for computing variance).
    * @param xiPath                    - The path taken through the tree for the rollout.
    * @param xiWeight                  - Weight to apply this update with
+   * @param playedMoves               - Moves played below the current node, or null is RAVE not being used
    *
    * @return the time taken to do the update, in nanoseconds
    */
   public long updateStats(double[] xiValues,
                           double[] xiSquaredValues,
                           TreePath xiPath,
-                          double  xiWeight)
+                          double  xiWeight,
+                          OpenBitSet playedMoves)
   {
     long lStartTime = System.nanoTime();
     assert(checkFixedSum(xiValues));
@@ -5731,10 +5775,39 @@ public class TreeNode
 
         //validateScoreVector(averageScores);
         lNode.numUpdates += applicationWeight;
+
+        //  RAVE stats update
+        if ( playedMoves != null )
+        {
+          for(int i = 0; i < lNode.mNumChildren; i++)
+          {
+            if ( lNode.primaryChoiceMapping == null || lNode.primaryChoiceMapping[i] == i )
+            {
+              Object choice = lNode.children[i];
+              if ( (choice instanceof TreeEdge) )
+              {
+                TreeEdge edge = (TreeEdge)choice;
+                if ( playedMoves.get(edge.mPartialMove.masterIndex) )
+                {
+                  //  This move was played so update the RAVE sdtats for it
+                  edge.mRAVEScore = (edge.mRAVEScore*edge.mRAVECount + xiValues[(lNode.decidingRoleIndex+1)%tree.numRoles])/(edge.mRAVECount+1);
+                  edge.mRAVECount++;
+                }
+              }
+            }
+          }
+        }
       }
 
       //assert(lNode.numUpdates <= lNode.numVisits);
       lastNodeWasComplete = lNode.complete;
+
+      if ( playedMoves != null && lChildEdge != null )
+      {
+        //  Add this edge's move into the played move record so that the ancestors will
+        //  process it as well as what was prrocessed here
+        playedMoves.set(lChildEdge.mPartialMove.masterIndex);
+      }
 
       assert(checkFixedSum(xiValues));
       assert(checkFixedSum());

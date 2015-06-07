@@ -25,7 +25,7 @@ public class MachineSpecificConfiguration
     /**
      * Player name to report.
      */
-    PLAYER_NAME("Sancho 1.60v"),
+    PLAYER_NAME("Sancho 1.60w"),
 
     /**
      * Location of the working copy - used for fine-grained version logging.
@@ -112,7 +112,7 @@ public class MachineSpecificConfiguration
     /**
      * Whether RAVE may be used.
      */
-    ALLOW_RAVE(true),
+    ALLOW_RAVE(false),
 
     /**
      * Time, in milliseconds, after which we assume that we aren't going to here from the server again - in which case
