@@ -5551,7 +5551,6 @@ public class TreeNode
     lRequest.mIsWin = false;
     lRequest.mTree = tree;
 
-    //request.moveWeights = masterMoveWeights.copy();
     tree.numNonTerminalRollouts += lRequest.mSampleSize;
 
     if (lRequest != tree.mNodeSynchronousRequest)
@@ -5568,35 +5567,8 @@ public class TreeNode
       long lRolloutTime = System.nanoTime() - lRequest.mRolloutStartTime;
       assert(!Double.isNaN(lRequest.mAverageScores[0]));
 
-      TreeNode updateFromNode;
+      long lBackPropTime = tree.mGameSearcher.processCompletedRollout(lRequest);
 
-      if ( lRequest.mComplete )
-      {
-        //  Propagate the implications of the completion discovered by the playout.
-        markComplete(lRequest.mAverageScores, (short)(getDepth()+1));
-        tree.processNodeCompletions();
-        lRequest.mPath.trimToCompleteLeaf();
-        //  Trim down the update path so that we start updating only from the
-        //  first completed node as several trailing elements may be complete
-        updateFromNode = lRequest.mPath.getTailElement().getChildNode();
-      }
-      else
-      {
-        updateFromNode = this;
-      }
-
-      long lBackPropTime;
-      //if ( lRequest.mPath.isValid() )
-      {
-        lBackPropTime = updateFromNode.updateStats(lRequest.mAverageScores,
-                                         lRequest.mAverageSquaredScores,
-                                         lRequest.mPath,
-                                         lRequest.mWeight);
-      }
-//      else
-//      {
-//        lBackPropTime = 0;
-//      }
       tree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, lRolloutTime, lBackPropTime);
       tree.mPathPool.free(lRequest.mPath);
       lRequest.mPath = null;
@@ -5611,6 +5583,7 @@ public class TreeNode
    * @param xiValues                  - The per-role rollout values.
    * @param xiSquaredValues           - The per-role squared values (for computing variance).
    * @param xiPath                    - The path taken through the tree for the rollout.
+   * @param xiWeight                  - Weight to apply this update with
    *
    * @return the time taken to do the update, in nanoseconds
    */

@@ -923,6 +923,86 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   }
 
   /**
+   * Process one completed rollout request
+   * @param lRequest
+   * @return back-prop time
+   */
+  public long processCompletedRollout(RolloutRequest lRequest)
+  {
+    long lBackPropTime = 0;
+
+    if (!lRequest.mPath.isFreed())
+    {
+      TreeNode lNode = TreeNode.get(mNodePool, lRequest.mNodeRef);
+      if (lNode != null && !lNode.complete)
+      {
+        // Update min/max scores.
+        if (lRequest.mMaxScore > lNode.tree.highestRolloutScoreSeen)
+        {
+          lNode.tree.highestRolloutScoreSeen = lRequest.mMaxScore;
+        }
+
+        if (lRequest.mMinScore < lNode.tree.lowestRolloutScoreSeen)
+        {
+          lNode.tree.lowestRolloutScoreSeen = lRequest.mMinScore;
+        }
+
+        mAverageFringeDepth.addSample(lNode.getDepth() - getRootDepth());
+        mRMSFringeDepth.addSample(lNode.getDepth() - getRootDepth());
+        lRequest.mPath.resetCursor();
+
+        if (lRequest.mIsWin)
+        {
+          //  First build up the move path to the node that was rolled out from
+          List<ForwardDeadReckonLegalMoveInfo> fullPlayoutList = new LinkedList<>();
+
+          while(lRequest.mPath.hasMore())
+          {
+            lRequest.mPath.getNextNode();
+            assert(lRequest.mPath.getCurrentElement() != null);
+
+            TreeEdge edge = lRequest.mPath.getCurrentElement().getEdgeUnsafe();
+
+            if ( lRequest.mPath.getCurrentElement().getChildNode().decidingRoleIndex == 0 )
+            {
+              fullPlayoutList.add(0, edge.mPartialMove);
+            }
+          }
+
+          lRequest.mPath.resetCursor();
+
+          //  Now append the rollout path
+          for(int moveIndex = 0; moveIndex < lRequest.mPlayoutLength; moveIndex++)
+          {
+            fullPlayoutList.add(lRequest.mPlayoutTrace[moveIndex]);
+          }
+
+          //  Provide this winning path for consideration as our new plan
+          mPlan.considerPlan(fullPlayoutList);
+        }
+
+        if ( lRequest.mComplete )
+        {
+          //  Propagate the implications of the completion discovered by the playout
+          lNode.markComplete(lRequest.mAverageScores, (short)(lNode.getDepth()+1));
+          lNode.tree.processNodeCompletions();
+          lRequest.mPath.trimToCompleteLeaf();
+          //  Trim down the update path so that we start updating only from the
+          //  first completed node as several trailing elements may be complete
+          lNode = lRequest.mPath.getTailElement().getChildNode();
+        }
+
+        lBackPropTime = lNode.updateStats(lRequest.mAverageScores,
+                                          lRequest.mAverageSquaredScores,
+                                          lRequest.mPath,
+                                          lRequest.mWeight);
+      }
+    }
+
+    return lBackPropTime;
+  }
+
+  /**
    * Process all completed rollouts in the pipeline.
    *
    * @param xiNeedToDoOne - whether this method should block until at least 1 rollout has been performed.
@@ -971,79 +1051,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       averageLatency = (averageLatency*numCompletedRollouts + lRequest.mQueueLatency)/(numCompletedRollouts+1);
       numCompletedRollouts++;
 
-      //masterMoveWeights.accumulate(request.playedMoveWeights);
-
-      long lBackPropTime = 0;
-      if (!lRequest.mPath.isFreed())
-      {
-        TreeNode lNode = TreeNode.get(mNodePool, lRequest.mNodeRef);
-        if (lNode != null && !lNode.complete)
-        {
-          // Update min/max scores.
-          if (lRequest.mMaxScore > lNode.tree.highestRolloutScoreSeen)
-          {
-            lNode.tree.highestRolloutScoreSeen = lRequest.mMaxScore;
-          }
-
-          if (lRequest.mMinScore < lNode.tree.lowestRolloutScoreSeen)
-          {
-            lNode.tree.lowestRolloutScoreSeen = lRequest.mMinScore;
-          }
-
-          mAverageFringeDepth.addSample(lNode.getDepth() - getRootDepth());
-          mRMSFringeDepth.addSample(lNode.getDepth() - getRootDepth());
-          lRequest.mPath.resetCursor();
-
-          if (lRequest.mIsWin)
-          {
-            //  First build up the move path to the node that was rolled out from
-            List<ForwardDeadReckonLegalMoveInfo> fullPlayoutList = new LinkedList<>();
-
-            while(lRequest.mPath.hasMore())
-            {
-              lRequest.mPath.getNextNode();
-              assert(lRequest.mPath.getCurrentElement() != null);
-
-              TreeEdge edge = lRequest.mPath.getCurrentElement().getEdgeUnsafe();
-
-              if ( lRequest.mPath.getCurrentElement().getChildNode().decidingRoleIndex == 0 )
-              {
-                fullPlayoutList.add(0, edge.mPartialMove);
-              }
-            }
-
-            lRequest.mPath.resetCursor();
-
-            //  Now append the rollout path
-            for(int moveIndex = 0; moveIndex < lRequest.mPlayoutLength; moveIndex++)
-            {
-              fullPlayoutList.add(lRequest.mPlayoutTrace[moveIndex]);
-            }
-
-            //  Provide this winning path for consideration as our new plan
-            mPlan.considerPlan(fullPlayoutList);
-          }
-
-          if ( lRequest.mComplete )
-          {
-            //  Propagate the implications of the completion discovered by the playout
-            lNode.markComplete(lRequest.mAverageScores, (short)(lNode.getDepth()+1));
-            lNode.tree.processNodeCompletions();
-            lRequest.mPath.trimToCompleteLeaf();
-            //  Trim down the update path so that we start updating only from the
-            //  first completed node as several trailing elements may be complete
-            lNode = lRequest.mPath.getTailElement().getChildNode();
-          }
-
-          //if ( lRequest.mPath.isValid() )
-          {
-            lBackPropTime = lNode.updateStats(lRequest.mAverageScores,
-                                              lRequest.mAverageSquaredScores,
-                                              lRequest.mPath,
-                                              lRequest.mWeight);
-          }
-        }
-      }
+      long lBackPropTime = processCompletedRollout(lRequest);
 
       recordIterationTimings(lRequest.mSelectElapsedTime,
                              lRequest.mExpandElapsedTime,
