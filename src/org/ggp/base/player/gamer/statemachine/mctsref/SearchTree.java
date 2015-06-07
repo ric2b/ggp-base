@@ -1,8 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.mctsref;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.Move;
@@ -15,7 +12,8 @@ public abstract class SearchTree
   private SearchTreeNode<SearchTree> root;
   private final double[] playoutScoreBuffer;
   private final ForwardDeadReckonLegalMoveInfo[] jointMoveBuffer;
-  final List<ForwardDeadReckonLegalMoveInfo>  playoutList = new ArrayList<>();
+  final ForwardDeadReckonLegalMoveInfo[]  playoutList;
+  final ForwardDeadReckonPropnetStateMachine.PlayoutInfo playoutInfo;
 
   protected abstract SearchTreeNode createRootTreeNode(ForwardDeadReckonInternalMachineState rootState);
 
@@ -27,6 +25,10 @@ public abstract class SearchTree
     numRoles = stateMachine.getRoles().length;
     playoutScoreBuffer = new double[numRoles];
     jointMoveBuffer = new ForwardDeadReckonLegalMoveInfo[numRoles];
+    playoutList = new ForwardDeadReckonLegalMoveInfo[500];
+    playoutInfo = stateMachine.new PlayoutInfo();
+    playoutInfo.cutoffDepth = 500;
+    playoutInfo.playoutTrace = playoutList;
   }
 
   public ForwardDeadReckonPropnetStateMachine getStateMachine()

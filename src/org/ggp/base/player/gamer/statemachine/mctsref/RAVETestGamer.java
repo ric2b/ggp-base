@@ -67,6 +67,11 @@ public class RAVETestGamer extends StateMachineGamer
       tree.updatedMovePath.clear();
 
       tree.grow();
+
+//      if (iterations == 40)
+//      {
+//        System.out.println("!");
+//      }
     }
 
     Move bestMove = tree.getBestMove();

@@ -1,8 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.Role;
@@ -20,9 +17,8 @@ class RolloutRequest
   public long                                  mNodeRef;
   public TreePath                              mPath;
   public final ForwardDeadReckonInternalMachineState mState;
-  public boolean                               mRecordWinningMoves;
+  public boolean                               mRecordPlayoutTrace;
   public boolean                               mIsWin;
-  public final List<ForwardDeadReckonLegalMoveInfo>  mPlayedMovesForWin;
   public Factor                                mFactor = null;
   public int                                   mSampleSize;
   public final double[]                        mAverageScores;
@@ -34,6 +30,8 @@ class RolloutRequest
   public int                                   mMaxScore;
   public int                                   mThreadId;
   private final int[]                          latchedScoreRangeBuffer = new int[2];
+  public final ForwardDeadReckonLegalMoveInfo[] mPlayoutTrace;
+  public int                                   mPlayoutLength;
 
   public long                                  mSelectElapsedTime;
   public long                                  mExpandElapsedTime;
@@ -46,6 +44,8 @@ class RolloutRequest
 
   public long                                  mQueueLatency;
 
+  private final ForwardDeadReckonPropnetStateMachine.PlayoutInfo mPlayoutInfo;
+
   /**
    * Create a rollout request.
    *
@@ -57,7 +57,8 @@ class RolloutRequest
     mAverageScores = new double[xiNumRoles];
     mAverageSquaredScores = new double[xiNumRoles];
     mState = underlyingStateMachine.createEmptyInternalState();
-    mPlayedMovesForWin = new ArrayList<>(TreePath.MAX_PATH_LEN);
+    mPlayoutTrace = new ForwardDeadReckonLegalMoveInfo[MCTSTree.MAX_SUPPORTED_TREE_DEPTH];
+    mPlayoutInfo = underlyingStateMachine.new PlayoutInfo();
   }
 
   private static double sigma(double x)
@@ -91,23 +92,17 @@ class RolloutRequest
     mComplete = false;
     mIsWin = false;
 
+    mPlayoutInfo.factor = mFactor;
+    mPlayoutInfo.cutoffDepth = mTree.mWeightDecayCutoffDepth;
+    mPlayoutInfo.playoutTrace = (mRecordPlayoutTrace ? mPlayoutTrace : null);
     // Perform the requested number of samples.
     for (int i = 0; i < mSampleSize && !mComplete; i++)
     {
-      if (mRecordWinningMoves)
-      {
-        mPlayedMovesForWin.clear();
-      }
+      stateMachine.getDepthChargeResult(mState, mPlayoutInfo);
 
-      int playoutLength = stateMachine.getDepthChargeResult(mState,
-                                                            mFactor,
-                                                            xiOurRole,
-                                                            null,
-                                                            null,
-                                                            mRecordWinningMoves ? mPlayedMovesForWin : null,
-                                                            mTree.mWeightDecayCutoffDepth);
+      mPlayoutLength = mPlayoutInfo.playoutLength;
 
-      double weight = (mTree.mWeightDecayKneeDepth == -1 ? 1 : 1 - sigma((playoutLength-mTree.mWeightDecayKneeDepth)/mTree.mWeightDecayScaleFactor));
+      double weight = (mTree.mWeightDecayKneeDepth == -1 ? 1 : 1 - sigma((mPlayoutInfo.playoutLength-mTree.mWeightDecayKneeDepth)/mTree.mWeightDecayScaleFactor));
       assert(!Double.isNaN(weight));
       assert(weight > TreeNode.EPSILON);
 
@@ -132,7 +127,7 @@ class RolloutRequest
             mMinScore = lScore;
           }
 
-          if (mRecordWinningMoves)
+          if (mRecordPlayoutTrace)
           {
             stateMachine.getLatchedScoreRange(mState, xiRoleOrdering.roleIndexToRole(0), latchedScoreRangeBuffer);
 
@@ -140,7 +135,7 @@ class RolloutRequest
             {
               // Found a win.  Record the fact, and preserve the winning moves.
               mIsWin = true;
-              mRecordWinningMoves = false;
+              mRecordPlayoutTrace = false;
             }
           }
         }
@@ -148,7 +143,7 @@ class RolloutRequest
 
       //  For fixed sum games, if greedy rollouts are being employed, the last 2 movbes on the played path
       //  are guaranteed to be optimal, so a depth lower than this implies a complete node immediately
-      if ( playoutLength < 2 && stateMachine.getIsGreedyRollouts() && mTree.gameCharacteristics.getIsFixedSum() )
+      if ( mPlayoutLength < 2 && stateMachine.getIsGreedyRollouts() && mTree.gameCharacteristics.getIsFixedSum() )
       {
         mComplete = true;
       }

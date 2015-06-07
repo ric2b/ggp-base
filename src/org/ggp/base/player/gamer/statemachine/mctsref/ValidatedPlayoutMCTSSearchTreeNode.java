@@ -43,7 +43,7 @@ public class ValidatedPlayoutMCTSSearchTreeNode extends SearchTreeNode<Validated
   {
     RoleOrdering roleOrdering = tree.getStateMachine().getRoleOrdering();
 
-    tree.getStateMachine().getDepthChargeResult(state, null, roleOrdering.roleIndexToRole(choosingRole), stats, null, null, 1000);
+    tree.getStateMachine().getDepthChargeResult(state, tree.playoutInfo);
 
     for(int i = 0; i < playoutResult.length; i++)
     {

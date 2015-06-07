@@ -189,6 +189,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
 
   public void setExplorationBias(double value)
   {
+    assert(value >= 0 && value <= 5);
     explorationBias = value;
   }
 

@@ -14,7 +14,7 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
   protected static final double EPSILON = 0.001;
   private static final Random RAND = new Random();
 
-  protected final double EXPLORATION_BIAS = 0.5;
+  protected final double EXPLORATION_BIAS = 0.4;
 
   protected final TreeType tree;
   protected SearchTreeNode<TreeType>[] children = null;
@@ -250,7 +250,7 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
   {
     if ( child.numVisits == 0 )
     {
-      return 1000 + RAND.nextDouble();
+      return 10 + RAND.nextDouble();
     }
 
     assert(numVisits>0);
@@ -266,8 +266,7 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
   {
     RoleOrdering roleOrdering = tree.getStateMachine().getRoleOrdering();
 
-    tree.playoutList.clear();
-    tree.getStateMachine().getDepthChargeResult(state, null, roleOrdering.roleIndexToRole(choosingRole), null, null, tree.playoutList, 1000);
+    tree.getStateMachine().getDepthChargeResult(state, tree.playoutInfo);
 
     for(int i = 0; i < playoutResult.length; i++)
     {

@@ -30,14 +30,9 @@ public class RAVETestSearchTreeNode extends SearchTreeNode<RAVETestSearchTree>
     if ( !tree.selectedMovePath.isEmpty() && tree.updatedMovePath.isEmpty() )
     {
       tree.playoutRAVEWeight = 1;
-      for(int i = 0; i < PLAYOUT_SAMPLE_DEPTH; i++ )
+      for(int i = 0; i < tree.playoutInfo.playoutLength; i++ )
       {
-        if ( i >= tree.playoutList.size() )
-        {
-          break;
-        }
-
-        tree.updatedMovePath.add(tree.playoutList.get(i));
+        tree.updatedMovePath.add(tree.playoutInfo.playoutTrace[i]);
       }
     }
 
@@ -83,7 +78,7 @@ public class RAVETestSearchTreeNode extends SearchTreeNode<RAVETestSearchTree>
   {
     if ( child.numVisits == 0 )
     {
-      return 0;
+      return 0.5;
     }
 
     return RAVE_EXPLORATION_BIAS*Math.sqrt(2*Math.log(numVisits) / (child.numVisits));

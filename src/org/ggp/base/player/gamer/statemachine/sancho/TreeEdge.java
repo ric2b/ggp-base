@@ -73,8 +73,15 @@ public class TreeEdge
   TreeEdge                      hyperSuccessor       = null;
   long                          nextHyperChild       = TreeNode.NULL_REF;
 
-  double                        moveWeight = 0;
-
+  /**
+   * Number of RAVE samples for this edge's move from the parent node
+   */
+  int                           mRAVECount;
+  /**
+   * Average score (for the choosing role) of this edge's move in RAVE stats
+   * for the subtree rooted in the parent node
+   */
+  double                        mRAVEScore;
   /**
    * Create a tree edge.
    *
@@ -341,6 +348,6 @@ public class TreeEdge
     mFlags = 0;
     hyperSuccessor = null;
     nextHyperChild = TreeNode.NULL_REF;
-    moveWeight = 0;
+    mRAVECount = 0;
   }
 }

@@ -43,6 +43,7 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine.PlayoutInfo;
 import org.ggp.base.util.symbol.grammar.SymbolPool;
 
 import com.google.common.io.CharStreams;
@@ -737,7 +738,6 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     long simulationStopTime = Math.min(Math.max(timeout - (mGameCharacteristics.numRoles == 1 ? 12000 : 7000), simulationStartTime + 1000),
                                        simulationStartTime + 10000);
 
-    int[] rolloutStats = new int[2];
     double averageBranchingFactor = 0;
     double averageNumTurns = 0;
     double averageSquaredNumTurns = 0;
@@ -748,27 +748,27 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     int minNumNonDrawTurns = Integer.MAX_VALUE;
     int scoreSum = -1;
     boolean isFixedSum = true;
+    PlayoutInfo playoutInfo = underlyingStateMachine.new PlayoutInfo();
+
+    playoutInfo.cutoffDepth = 1000;
+    playoutInfo.factor = null;
+    playoutInfo.moveWeights = null;
+    playoutInfo.playoutTrace = null;
 
     while (System.currentTimeMillis() < simulationStopTime)
     {
       simulationsPerformed++;
 
-      underlyingStateMachine.getDepthChargeResult(initialState,
-                                                  null,
-                                                  getRole(),
-                                                  rolloutStats,
-                                                  null,
-                                                  null,
-                                                  1000);
+      underlyingStateMachine.getDepthChargeResult(initialState, playoutInfo);
 
       int netScore = netScore(underlyingStateMachine, null);
       if ( netScore != 50 )
       {
         numNonDrawSimulations++;
-        averageNumNonDrawTurns += rolloutStats[0];
-        if ( minNumNonDrawTurns > rolloutStats[0] )
+        averageNumNonDrawTurns += playoutInfo.playoutLength;
+        if ( minNumNonDrawTurns > playoutInfo.playoutLength )
         {
-          minNumNonDrawTurns = rolloutStats[0];
+          minNumNonDrawTurns = playoutInfo.playoutLength;
         }
       }
 
@@ -805,23 +805,23 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
         isFixedSum = false;
       }
 
-      averageNumTurns = (averageNumTurns * (simulationsPerformed - 1) + rolloutStats[0]) /
+      averageNumTurns = (averageNumTurns * (simulationsPerformed - 1) + playoutInfo.playoutLength) /
                         simulationsPerformed;
       averageSquaredNumTurns = (averageSquaredNumTurns *
-                                (simulationsPerformed - 1) + rolloutStats[0] *
-                                                             rolloutStats[0]) /
+                                (simulationsPerformed - 1) + playoutInfo.playoutLength *
+                                                             playoutInfo.playoutLength) /
                                simulationsPerformed;
 
-      if (rolloutStats[0] < minNumTurns)
+      if (playoutInfo.playoutLength < minNumTurns)
       {
-        minNumTurns = rolloutStats[0];
+        minNumTurns = playoutInfo.playoutLength;
       }
-      if (rolloutStats[0] > maxNumTurns)
+      if ( playoutInfo.playoutLength > maxNumTurns)
       {
-        maxNumTurns = rolloutStats[0];
+        maxNumTurns = playoutInfo.playoutLength;
       }
 
-      if ( rolloutStats[0] >= (maxNumTurns*95)/100 )
+      if ( playoutInfo.playoutLength >= (maxNumTurns*95)/100 )
       {
         numLongGames++;
 
@@ -832,9 +832,9 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       }
 
       averageBranchingFactor = (averageBranchingFactor *
-                                (simulationsPerformed - 1) + rolloutStats[1]) /
+                                (simulationsPerformed - 1) + playoutInfo.averageBranchingFactor) /
                                simulationsPerformed;
-      mGameCharacteristics.getChoicesHighWaterMark(rolloutStats[1]);
+      mGameCharacteristics.getChoicesHighWaterMark(playoutInfo.averageBranchingFactor);
 
       //LOGGER.debug("Saw score of ", netScore);
       if (netScore < observedMinNetScore)
@@ -1013,7 +1013,15 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       }
     }
 
-    mGameCharacteristics.setRolloutSampleSize(rolloutSampleSize);
+    if ( MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_RAVE) )
+    {
+      LOGGER.info("Use of RAVE forces sample size of 1");
+      mGameCharacteristics.setRolloutSampleSize(1);
+    }
+    else
+    {
+      mGameCharacteristics.setRolloutSampleSize(rolloutSampleSize);
+    }
     LOGGER.info("Performed " + simulationsPerformed + " simulations in " + (simulationStopTime - simulationStartTime) + "ms");
     LOGGER.info(simulationsPerformed *
                 1000 /

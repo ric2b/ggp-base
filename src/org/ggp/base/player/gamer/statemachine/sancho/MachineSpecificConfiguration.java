@@ -110,6 +110,11 @@ public class MachineSpecificConfiguration
     USE_LOCAL_SEARCH(true),
 
     /**
+     * Whether RAVE may be used.
+     */
+    ALLOW_RAVE(true),
+
+    /**
      * Time, in milliseconds, after which we assume that we aren't going to here from the server again - in which case
      * we abort the match.
      */

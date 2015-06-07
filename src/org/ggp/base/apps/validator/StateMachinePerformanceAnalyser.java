@@ -19,7 +19,6 @@ import org.ggp.base.util.game.LocalGameRepository;
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
-import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
@@ -357,16 +356,18 @@ public class StateMachinePerformanceAnalyser
         theMachine.optimizeStateTransitionMechanism(System.currentTimeMillis()+5000);
 
         ForwardDeadReckonInternalMachineState initialState = theMachine.createInternalState(theMachine.getInitialState());
-        Role ourRole = theMachine.getRoles()[0];
 
         try
         {
           long startTime = System.currentTimeMillis();
           int numDepthCharges = 0;
+          ForwardDeadReckonPropnetStateMachine.PlayoutInfo playoutInfo = theMachine.new PlayoutInfo();
+          playoutInfo.factor = null;
+          playoutInfo.cutoffDepth = 1000;
 
           while(System.currentTimeMillis() < startTime + 1000*numSeconds)
           {
-            theMachine.getDepthChargeResult(initialState, null, ourRole, null, null, null, 1000);
+            theMachine.getDepthChargeResult(initialState, playoutInfo);
             numDepthCharges++;
           }
 

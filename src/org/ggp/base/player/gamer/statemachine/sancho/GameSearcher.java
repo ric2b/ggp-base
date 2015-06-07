@@ -87,6 +87,10 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   private long                            mNumIterations      = 0;
   private int                             mRootDepth          = 0;
   private boolean                         mSuppressSampleSizeUpdate = false;
+  /**
+   * Whether this searcher uses RAVE
+   */
+  public boolean                          mUseRAVE = MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_RAVE);
   private final String                    mLogName;
 
   private final SampleAverageMean         mAverageFringeDepth = new SampleAverageMean();
@@ -1011,7 +1015,10 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
             lRequest.mPath.resetCursor();
 
             //  Now append the rollout path
-            fullPlayoutList.addAll(lRequest.mPlayedMovesForWin);
+            for(int moveIndex = 0; moveIndex < lRequest.mPlayoutLength; moveIndex++)
+            {
+              fullPlayoutList.add(lRequest.mPlayoutTrace[moveIndex]);
+            }
 
             //  Provide this winning path for consideration as our new plan
             mPlan.considerPlan(fullPlayoutList);
@@ -1125,18 +1132,26 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       // The sample size is always absolutely bound between 1 and 100 (inclusive).
       lNewSampleSize = Math.max(1.0,  Math.min(100.0, lNewSampleSize));
 
-      // Set the new sample size, unless it has to be suppressed because turn end processing meant we couldn't fill the
-      // pipeline (and therefore have invalid measurements from the rollout threads).
-      if (!mSuppressSampleSizeUpdate)
+      //  If we are using RAVE we cannot have a sample size larger than 1
+      if ( mUseRAVE )
       {
-        mGameCharacteristics.setRolloutSampleSize(lNewSampleSize);
+        mGameCharacteristics.setRolloutSampleSize(1);
+      }
+      else
+      {
+        // Set the new sample size, unless it has to be suppressed because turn end processing meant we couldn't fill the
+        // pipeline (and therefore have invalid measurements from the rollout threads).
+        if (!mSuppressSampleSizeUpdate)
+        {
+          mGameCharacteristics.setRolloutSampleSize(lNewSampleSize);
+        }
       }
 
       LOGGER.debug("Dynamic sample size");
       LOGGER.debug("  Useful work last time:  " + (int)(lStatsDiff.mUsefulWorkFraction * 100) + "%");
       LOGGER.debug("  Calculated sample size: " + (int)(lNewSampleSize + 0.5));
       LOGGER.debug("  Suppress update:        " + mSuppressSampleSizeUpdate);
-      LOGGER.debug("  Now using sample size:  " + mGameCharacteristics.getRolloutSampleSize());
+      LOGGER.debug("  Now using sample size:  " + mGameCharacteristics.getRolloutSampleSize() + (mUseRAVE ? " (forced by use of RAVE)" : ""));
       LOGGER.debug("  Useful work total:      " + (int)(lCombinedStatsTotal.mUsefulWorkFraction * 100) + "%");
 
       mSuppressSampleSizeUpdate = false;
