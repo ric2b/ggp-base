@@ -24,8 +24,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import com.google.common.base.Joiner;
-
 import external.JSON.JSONArray;
 import external.JSON.JSONObject;
 
@@ -174,28 +172,32 @@ public class TiltyardTest extends Assert
     {
       String lLastMoves = (lii == 0) ? "nil" : getMovesString(lMoves, lii - 1);
       lRequest = "(play " + mID + " " + lLastMoves + ")";
-      String lResponse = getResponse(lRequest);
+      String lResponse = getResponse(lRequest).replace("(", "").replace(")", "").trim();
       assertEquals("Wrong move played at turn " + (lii + 1), lMoves[lSanchoIndex][lii], lResponse);
     }
 
-    // Play the last move.
-    lRequest = "(stop " + mID + " " + getMovesString(lMoves, lLimit - 1) + ")";
-    assertEquals("done", getResponse(lRequest));
-    mStarted = false;
-
-    // For almost all puzzles, we ought to score 100.  There are a few exceptions through where the puzzle doesn't
-    // actually let us score 100 and some others where we're willing to accept a non-100 score in test runs.
-    assertEquals(100, mGamer.utGetFinalScore());
+    // Game will be aborted.
   }
 
   private static String getMovesString(String[][] xiMoves, int lIndex)
   {
+    String lMoves = "(";
     String[] lCurrentMoves = new String[xiMoves.length];
-    for (int ljj = 0; ljj < xiMoves.length; ljj++)
+    for (String[] lPlayerMoves : xiMoves)
     {
-      lCurrentMoves[ljj] = xiMoves[ljj][lIndex];
+      String lPlayerMove = lPlayerMoves[lIndex];
+      if (lPlayerMove.contains(" "))
+      {
+        lMoves += "(" + lPlayerMove + ")";
+      }
+      else
+      {
+        lMoves += lPlayerMove;
+      }
+      lMoves += " ";
     }
-    return "(" + Joiner.on(",").join(lCurrentMoves) + ")";
+    lMoves += ")";
+    return lMoves;
   }
 
   /**
