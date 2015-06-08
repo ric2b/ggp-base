@@ -3861,6 +3861,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   {
 		int result = 0;
     int index = 0;
+    int numChoices;
+    boolean choiceSeen = false;
     ForwardDeadReckonLegalMoveSet activeLegalMoves = propNet.getActiveLegalProps(instanceId);
 
     for (int roleIndex = 0; roleIndex < numRoles; roleIndex++)
@@ -3870,7 +3872,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       if ( factor == null && moveWeights == null )
       {
-        int numChoices = activeLegalMoves.getNumChoices(roleIndex);
+        numChoices = activeLegalMoves.getNumChoices(roleIndex);
         if (numChoices > result)
         {
           result = numChoices;
@@ -3886,7 +3888,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           return 0;
         }
 
-        int numChoices = StateMachineFilterUtils.getFilteredSize(null, moves, roleIndex, factor, false);
+        numChoices = StateMachineFilterUtils.getFilteredSize(null, moves, roleIndex, factor, false);
         int rand;
 
         if (moveWeights == null)
@@ -3951,9 +3953,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         chosenMoves[index] = chosen.move;
       }
       chosenJointMoveProps[index++] = chosen.inputProposition;
-      if (playedMoves != null)
+      if (playedMoves != null && (numChoices > 1 || (!choiceSeen && chosen.inputProposition != null && !chosen.isPseudoNoOp && !chosen.isVirtualNoOp)))
       {
         playedMoves[moveIndex] = chosen;
+        choiceSeen = true;
       }
     }
 
