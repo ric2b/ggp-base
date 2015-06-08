@@ -163,7 +163,6 @@ public class TreeNode
   final ForwardDeadReckonInternalMachineState state;
   int                                   decidingRoleIndex;
   boolean                               isTerminal           = false;
-  boolean                               autoExpand           = false;
   boolean                               complete             = false;
   private boolean                       allChildrenComplete  = false;
   LocalSearchStatus                     localSearchStatus    = LocalSearchStatus.LOCAL_SEARCH_UNSEARCHED;
@@ -1694,7 +1693,6 @@ public class TreeNode
     numVisits = 0;
     numUpdates = 0;
     isTerminal = false;
-    autoExpand = false;
     localSearchStatus = LocalSearchStatus.LOCAL_SEARCH_UNSEARCHED;
     leastLikelyWinner = -1;
     lastSelectionMade = -1;
@@ -2332,10 +2330,9 @@ public class TreeNode
 
   private StateInfo calculateTerminalityAndAutoExpansion(ForwardDeadReckonInternalMachineState theState)
   {
-    StateInfo result = StateInfo.bufferInstance;
+    StateInfo result = tree.mGameSearcher.mStateInfoBuffer;
 
     result.isTerminal = false;
-    result.autoExpand = false;
 
     // Check if the goal value is latched.
     if ( /*tree.numRoles == 1 &&*/ tree.underlyingStateMachine.scoresAreLatched(theState))
@@ -2492,7 +2489,6 @@ public class TreeNode
       if (roleIndex != tree.numRoles - 1 && (!tree.removeNonDecisionNodes || mNumChildren == 1))
       {
         // assert(newState == null);
-        newChild.autoExpand = autoExpand;
         newChild.setState(state);
       }
     }
@@ -2910,7 +2906,6 @@ public class TreeNode
           StateInfo info = calculateTerminalityAndAutoExpansion(state);
 
           isTerminal = info.isTerminal;
-          autoExpand = info.autoExpand;
 
           if (isTerminal)
           {
@@ -3453,7 +3448,7 @@ public class TreeNode
             //  not have access to the correct state information in other contexts
             ForwardDeadReckonLegalMoveInfo childMove = (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex];
             if ( (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) &&
-                 (info.isTerminal || info.autoExpand  || stateFastForwarded) && !childMove.isPseudoNoOp )
+                 (info.isTerminal || stateFastForwarded) && !childMove.isPseudoNoOp )
             {
               TreeEdge newEdge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
               newEdge.setParent(this, childMove);
@@ -3463,7 +3458,6 @@ public class TreeNode
 
               TreeNode newChild = get(newEdge.getChildRef());
               newChild.isTerminal = info.isTerminal;
-              newChild.autoExpand = info.autoExpand;
               if (info.isTerminal)
               {
                 if ( tree.gameCharacteristics.isPseudoPuzzle )
@@ -3518,6 +3512,31 @@ public class TreeNode
                   break;
                 }
               }
+            }
+          }
+        }
+      }
+
+      if (tree.mGameSearcher.mUseRAVE)
+      {
+        //  If we're using RAVE we need the edges to store the RAVE stats
+        for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
+        {
+          if ((primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) )
+          {
+            Object choice = children[lMoveIndex];
+            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+            if (edge == null)
+            {
+              //  Skip this for pseudo-noops
+              if ( ((ForwardDeadReckonLegalMoveInfo)choice).isPseudoNoOp )
+              {
+                continue;
+              }
+
+              edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
+              edge.setParent(this, (ForwardDeadReckonLegalMoveInfo)choice);
+              children[lMoveIndex] = edge;
             }
           }
         }
@@ -4417,7 +4436,7 @@ public class TreeNode
       {
         //calculatePathMoveWeights(path);
 
-        if ( tree.USE_NODE_SCORE_NORMALIZATION && numVisits > 500 && (numVisits&0xff) == 0xff &&
+        if ( tree.USE_NODE_SCORE_NORMALIZATION && numVisits > 500 && (numVisits&0xff) == 0xff && !tree.mGameSearcher.mUseRAVE &&
              (!tree.gameCharacteristics.isSimultaneousMove || roleIndex == 0))
         {
           normalizeScores(false);
@@ -4870,6 +4889,7 @@ public class TreeNode
                               " scores " + lNode2.stringizeScoreVector() +
                               ", visits " + lNode2.numVisits +
                               ", ref : " + lNode2.mRef +
+                              (tree.mGameSearcher.mUseRAVE ? (", RAVE[" + edge2.mRAVECount + ", " + FORMAT_2DP.format(edge2.mRAVEScore) + "]") : "") +
                               (lNode2.complete ? " (complete)" : "") +
                               (lNode2.localSearchStatus.HasResult() ? ("(" + lNode2.localSearchStatus + ")") : "");
 
@@ -5371,6 +5391,7 @@ public class TreeNode
                       " scores " + FORMAT_2DP.format(moveScore) + " (selectionScore score " +
                       FORMAT_2DP.format(selectionScore) + ", selection count " +
                       child.numVisits + ", ref " + child.mRef +
+                      (tree.mGameSearcher.mUseRAVE ? (", RAVE[" + edge.mRAVECount + ", " + FORMAT_2DP.format(edge.mRAVEScore) + "]") : "") +
                       (child.complete ? (", complete [" + ((child.completionDepth - tree.root.depth)/tree.numRoles) + "]") : "") +
                       (child.localSearchStatus.HasResult() ? (", " + child.localSearchStatus + " [" + ((child.completionDepth - tree.root.depth)/tree.numRoles) + "]") : "") +
                       ")");
@@ -5777,7 +5798,7 @@ public class TreeNode
         lNode.numUpdates += applicationWeight;
 
         //  RAVE stats update
-        if ( playedMoves != null )
+        if ( playedMoves != null && lNode.mNumChildren > 1 )
         {
           for(int i = 0; i < lNode.mNumChildren; i++)
           {

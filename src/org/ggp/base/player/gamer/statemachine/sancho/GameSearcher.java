@@ -162,6 +162,11 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   private int mLastTranspositions = 0;
 
   /**
+   * Buffer for state information that may be freely used by the main search thread
+   */
+  StateInfo mStateInfoBuffer;
+
+  /**
    * Create a game tree searcher with the specified maximum number of nodes.
    *
    * @param nodeTableSize - the maximum number of nodes.
@@ -215,7 +220,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     mGameCharacteristics = gameCharacteristics;
     mPlan = plan;
 
-    StateInfo.createBuffer(underlyingStateMachine.getRoles().length);
+    mStateInfoBuffer = new StateInfo(underlyingStateMachine.getRoles().length);
 
     if (ThreadControl.ROLLOUT_THREADS > 0)
     {
@@ -1019,13 +1024,15 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           {
             mPlayoutTrace.set(lRequest.mPlayoutTrace[i].masterIndex);
           }
+
+          assert(mPlayoutTrace.cardinality() == lRequest.mPlayoutLength);
         }
 
         lBackPropTime = lNode.updateStats(lRequest.mAverageScores,
                                           lRequest.mAverageSquaredScores,
                                           lRequest.mPath,
                                           lRequest.mWeight,
-                                          mPlayoutTrace);
+                                          mUseRAVE ? mPlayoutTrace : null);
       }
     }
 
@@ -1215,7 +1222,6 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         moveConsequenceSearcher = null;
       }
 
-      StateInfo.destroyBuffer();
       mTerminateRequested = true;
       notifyAll();
     }

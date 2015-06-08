@@ -127,7 +127,7 @@ class RolloutRequest
             mMinScore = lScore;
           }
 
-          if (mRecordPlayoutTrace)
+          if (mPlayoutInfo.playoutTrace != null)
           {
             stateMachine.getLatchedScoreRange(mState, xiRoleOrdering.roleIndexToRole(0), latchedScoreRangeBuffer);
 
@@ -135,7 +135,7 @@ class RolloutRequest
             {
               // Found a win.  Record the fact, and preserve the winning moves.
               mIsWin = true;
-              mRecordPlayoutTrace = false;
+              mPlayoutInfo.playoutTrace = null;
             }
           }
         }
