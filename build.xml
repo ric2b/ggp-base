@@ -180,6 +180,14 @@
             <classpath refid="GGP.classpath"/>
         </junit>
     </target>
+    <target name="TiltyardTest">
+        <mkdir dir="${junit.output.dir}"/>
+        <junit fork="yes" printsummary="on" haltonfailure="no" failureproperty="ut.failure">
+            <formatter type="xml"/>
+            <test name="org.ggp.base.test.TiltyardTest" todir="${junit.output.dir}"/>
+            <classpath refid="GGP.classpath"/>
+        </junit>
+    </target>
     <target name="junitreport">
         <junitreport todir="${junit.output.dir}">
             <fileset dir="${junit.output.dir}">

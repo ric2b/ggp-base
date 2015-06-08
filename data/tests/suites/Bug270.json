@@ -2,6 +2,7 @@
   "cases" : [
     {
       "case" : "Bug #270, Tiltyard.dff54d62e395c123c22b87aefd0400dd6069aa2a, player 1, move 12",
+      "skip" : true,
       "repo" : "games.ggp.org/base",
       "game" : "tron_10x10",
       "start" : "210",

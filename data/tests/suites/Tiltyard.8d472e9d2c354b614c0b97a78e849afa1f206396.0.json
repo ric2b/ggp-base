@@ -1,7 +1,35 @@
 {
   "cases" : [
     {
+      "case" : "Tiltyard 8d472e9d2c354b614c0b97a78e849afa1f206396, player 0, move 7",
+      "repo" : "games.ggp.org/base",
+      "game" : "2pffa",
+      "start" : 100,
+      "play" : 20,
+      "limit" : 7,
+      "players" : [
+        {
+          "type" : "Sancho",
+          "args" : [
+            "plan=move 1 4 2 6,noop,move 1 4 2 2,noop,move 1 4 3 3,noop"
+          ]
+        },
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "noop,move 7 4 6 6,noop,move 6 6 4 5,noop,move 7 4 5 3,noop"
+          ]
+        }
+      ],
+      "check" : {
+        "player" : "0",
+        "acceptable" : "move 1 4 3 5, move 2 2 4 3"
+      }
+    },
+
+    {
       "case" : "Tiltyard 8d472e9d2c354b614c0b97a78e849afa1f206396, player 0, move 25",
+      "skip" : true,
       "repo" : "games.ggp.org/base",
       "game" : "2pffa",
       "start" : 100,

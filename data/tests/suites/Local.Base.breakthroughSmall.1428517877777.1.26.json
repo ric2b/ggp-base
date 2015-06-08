@@ -23,7 +23,7 @@
       ],
       "check" : {
         "player" : "1",
-        "acceptable" : "!move 4 5 4 4"
+        "acceptable" : "!:move 4 5 4 4"
       }
     }
   ]

@@ -2,6 +2,7 @@
   "cases" : [
     {
       "case" : "Tiltyard 71ed3b17f057c511ef4ed5d3d1c0d4030fcdb27b, player 0, move 25",
+      "skip" : true,
       "repo" : "games.ggp.org/base",
       "game" : "2pffa",
       "start" : "180",

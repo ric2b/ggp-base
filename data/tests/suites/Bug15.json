@@ -2,6 +2,7 @@
   "cases" : [
     {
       "case" : "Bug #15, Tiltyard d125166ef6c8af6c731f4be0f50a950891b7a649, player 3, move 36",
+      "skip" : true,
       "repo" : "games.ggp.org/base",
       "game" : "4pffa",
       "start" : 180,

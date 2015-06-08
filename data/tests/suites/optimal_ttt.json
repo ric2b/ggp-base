@@ -2,7 +2,7 @@
   "cases":
   [
     {
-      "case" : "Takes a forced win",
+      "case" : "TTT - Takes a forced win",
 
       "repo"  : "games.ggp.org/stanford",
       "game"  : "tictactoe",
@@ -35,7 +35,8 @@
     },
 
     {
-      "case" : "Perfect initial move",
+      "case" : "TTT - Perfect initial move",
+      "skip" : true,
 
       "repo"  : "games.ggp.org/stanford",
       "game"  : "tictactoe",

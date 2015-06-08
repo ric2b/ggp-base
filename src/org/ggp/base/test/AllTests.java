@@ -15,6 +15,7 @@ import org.junit.runners.Suite;
                      BasePuzzleTest1.class,
                      BasePuzzleTest2.class,
                      StanfordPuzzleTest.class,
+                     TiltyardTest.class,
                      StaticValidationTests.class})
 public class AllTests
 {

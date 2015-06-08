@@ -29,7 +29,7 @@
       ],
       "check" : {
         "player" : "0",
-        "acceptable" : "move e3 f3"
+        "acceptable" : "move e3 f3,move e3 f4"
       }
     }
   ]

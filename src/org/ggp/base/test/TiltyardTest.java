@@ -52,9 +52,9 @@ public class TiltyardTest extends Assert
         // This is a test suite.  For now, just use the ones with a single case inside.
         JSONObject lSuite = new JSONObject(readFile(lSuiteFile));
         JSONArray  lCases = lSuite.getJSONArray("cases");
-        if (lCases.length() == 1)
+        for (int lii = 0; lii < lCases.length(); lii++)
         {
-          JSONObject lCase = lCases.getJSONObject(0);
+          JSONObject lCase = lCases.getJSONObject(lii);
           lTests.add(new Object[] {lCase.getString("case"), lCase});
         }
       }
@@ -100,6 +100,8 @@ public class TiltyardTest extends Assert
   @Test
   public void regress() throws Exception
   {
+    org.junit.Assume.assumeFalse(mName + " is marked for skipping", mCase.optBoolean("skip", false));
+
     // Get the game.
     GameRepository lRepo = new CloudGameRepository(mCase.getString("repo"));
     Game lGame = lRepo.getGame(mCase.getString("game"));
@@ -127,17 +129,25 @@ public class TiltyardTest extends Assert
         lSanchoIndex = lii;
 
         // Get the plan that Sancho is playing from.
-        JSONArray lArgs = lPlayer.getJSONArray("args");
-        assertEquals("Number of Sancho arguments", 1, lArgs.length());
-        String lPlan = lArgs.getString(0);
+        JSONArray lArgs = lPlayer.optJSONArray("args");
+        if (lArgs != null)
+        {
+          assertEquals("Number of Sancho arguments", 1, lArgs.length());
+          String lPlan = lArgs.getString(0);
 
-        // Parse the partial plan so that we can check Sancho is playing from it.
-        assertTrue("Test case arg doesn't start with plan=", lPlan.startsWith("plan="));
-        lMoves[lii] = lPlan.substring(5).split(",");
-        assertEquals("Number of moves for Sancho", lLimit - 1, lMoves[lii].length);
+          // Parse the partial plan so that we can check Sancho is playing from it.
+          assertTrue("Test case arg doesn't start with plan=", lPlan.startsWith("plan="));
+          lMoves[lii] = lPlan.substring(5).split(",");
+          assertEquals("Number of moves for Sancho", lLimit - 1, lMoves[lii].length);
 
-        // Configure Sancho (with the partial plan).
-        mGamer.configure(0, lPlan);
+          // Configure Sancho (with the partial plan).
+          mGamer.configure(0, lPlan);
+        }
+        else
+        {
+          lMoves[lii] = new String[0];
+          assertEquals("Limit", 1, lLimit);
+        }
       }
       else
       {
@@ -167,16 +177,48 @@ public class TiltyardTest extends Assert
                       lPlayClock + " )";
     assertEquals("ready", getResponse(lRequest));
 
-    // Run the pre-prepared moves at the start of the game, checking that Sancho is playing from the plan.
+    // Run the game.
     for (int lii = 0; lii < lLimit; lii++)
     {
       String lLastMoves = (lii == 0) ? "nil" : getMovesString(lMoves, lii - 1);
       lRequest = "(play " + mID + " " + lLastMoves + ")";
       String lResponse = getResponse(lRequest).replace("(", "").replace(")", "").trim();
-      assertEquals("Wrong move played at turn " + (lii + 1), lMoves[lSanchoIndex][lii], lResponse);
+
+      if (lii < lLimit - 1)
+      {
+        // Check that Sancho has played from the plan.
+        assertEquals("Wrong move played at turn " + (lii + 1), lMoves[lSanchoIndex][lii], lResponse);
+      }
+      else
+      {
+        // Check that the final move is acceptable.
+        checkFinalMove(mCase.getJSONObject("check").getString("acceptable"), lResponse);
+      }
     }
 
     // Game will be aborted.
+  }
+
+  private void checkFinalMove(String xiAcceptable, String xiMove)
+  {
+    boolean lListOfAcceptable = true;
+    if (xiAcceptable.startsWith("!:"))
+    {
+      xiAcceptable = xiAcceptable.substring(2);
+      lListOfAcceptable = false;
+    }
+
+    String[] lAcceptableMoves = xiAcceptable.split(",");
+    for (String lAcceptableMove : lAcceptableMoves)
+    {
+      if (lAcceptableMove.equals(xiMove))
+      {
+        assertTrue("Move played (" + xiMove + ") was on the unacceptable list: " + xiAcceptable, lListOfAcceptable);
+        return;
+      }
+    }
+
+    assertFalse("Move played (" + xiMove + ") was not on the acceptable list: " + xiAcceptable, lListOfAcceptable);
   }
 
   private static String getMovesString(String[][] xiMoves, int lIndex)
