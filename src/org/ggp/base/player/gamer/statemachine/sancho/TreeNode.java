@@ -1630,25 +1630,28 @@ public class TreeNode
           {
             Object choice = children[index];
 
-            //  Pseudo-noops in factored games can still be unexpanded at this point
+            //  Might be that two children completed concurrently (relative to opportunities
+            //  to process the node completion queue), in which case we may have multiple
+            //  decider-wins options even if some other children are unexpanded
             if ( choice instanceof TreeEdge )
             {
               TreeEdge edge = (TreeEdge)choice;
 
-              assert(edge.getChildRef() != NULL_REF);
-
-              TreeNode lNode = get(edge.getChildRef());
-              assert(lNode != null);
-              assert(lNode.complete);
-
-              if ( lNode.getAverageScore(roleIndex) == bestValue )
+              if (edge.getChildRef() != NULL_REF)
               {
-                double weight = (200 - lNode.getAverageScore(0));
-                for (int i = 0; i < tree.numRoles; i++)
+                TreeNode lNode = get(edge.getChildRef());
+                assert(lNode != null);
+                assert(lNode.complete);
+
+                if ( lNode.getAverageScore(roleIndex) == bestValue )
                 {
-                  tree.mBlendedCompletionScoreBuffer[i] += weight*lNode.getAverageScore(i);
+                  double weight = (200 - lNode.getAverageScore(0));
+                  for (int i = 0; i < tree.numRoles; i++)
+                  {
+                    tree.mBlendedCompletionScoreBuffer[i] += weight*lNode.getAverageScore(i);
+                  }
+                  totalWeight += weight;
                 }
-                totalWeight += weight;
               }
             }
           }
