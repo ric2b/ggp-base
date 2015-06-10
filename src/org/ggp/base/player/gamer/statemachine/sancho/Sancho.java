@@ -1410,7 +1410,12 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
         }
         else
         {
-          Thread.sleep(Math.min(250, xiFinishBy - System.currentTimeMillis()));
+          long sleepForUpTo = xiFinishBy - System.currentTimeMillis();
+
+          if ( sleepForUpTo > 0 )
+          {
+            Thread.sleep(Math.min(250, sleepForUpTo));
+          }
         }
       }
     }
