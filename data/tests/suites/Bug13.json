@@ -23,8 +23,9 @@
          ],
          "limit" : 55,
          "play" : 35,
-         "case" : "Bug #13, Checkers king pin",
-         "start" : 180
+         "case" : "Bug #13, Checkers king pin, Tiltyard f2a734a9519a4ab089e04463d2f711728b4ea4e6",
+         "start" : 180,
+         "skip", true
       }
    ]
 }
