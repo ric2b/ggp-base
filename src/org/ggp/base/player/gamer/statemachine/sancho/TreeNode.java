@@ -192,6 +192,13 @@ public class TreeNode
   //  To what depth is the hyper-linkage tree expanded from this node
   private short                         hyperExpansionDepth  = 0;
 
+  //  RAVE stats belong logically in EDGEs, but we need to maintain them for leaf nodes
+  //  where it is undesirable to have to create EDGEs until they are expanded.  Consequently
+  //  we store the RAVE stats in their own arrays directly in the parent node using the same
+  //  child indexes as the corresponding edge
+  private int[]                         mRAVECounts = null;
+  private double[]                      mRAVEScores = null;
+
   /**
    * Create a tree node.
    *
@@ -204,7 +211,14 @@ public class TreeNode
     mRef = xiPoolIndex;
     mInstanceID = xiPoolIndex;
     state = tree.underlyingStateMachine.createEmptyInternalState();
-    children = new Object[tree.gameCharacteristics.getChoicesHighWaterMark(0)];
+
+    int directChildHighWatermark = tree.gameCharacteristics.getChoicesHighWaterMark(0);
+    children = new Object[directChildHighWatermark];
+    if ( tree.mGameSearcher.mUseRAVE )
+    {
+      mRAVECounts = new int[directChildHighWatermark];
+      mRAVEScores = new double[directChildHighWatermark];
+    }
   }
 
   /**
@@ -677,6 +691,7 @@ public class TreeNode
     for (int lii = 0; lii < mNumChildren; lii++)
     {
       children[lii] = null;
+      mRAVECounts[lii] = 0;
     }
     mNumChildren = 0;
 
@@ -689,6 +704,11 @@ public class TreeNode
       if ( children.length > directChildHighWatermark*2 )
       {
         children = new Object[directChildHighWatermark];
+        if ( tree.mGameSearcher.mUseRAVE )
+        {
+          mRAVECounts = new int[directChildHighWatermark];
+          mRAVEScores = new double[directChildHighWatermark];
+        }
       }
     }
   }
@@ -2590,6 +2610,36 @@ public class TreeNode
     return result;
   }
 
+  private void expandChildCapacity()
+  {
+    Object[] newChildren = new Object[mNumChildren*2];
+
+    System.arraycopy(children, 0, newChildren, 0, mNumChildren);
+
+    children = newChildren;
+
+    if ( primaryChoiceMapping != null )
+    {
+      short[] newPrimaryChoiceMapping = new short[mNumChildren*2];
+
+      System.arraycopy(primaryChoiceMapping, 0, newPrimaryChoiceMapping, 0, mNumChildren);
+
+      primaryChoiceMapping = newPrimaryChoiceMapping;
+    }
+
+    if ( tree.mGameSearcher.mUseRAVE )
+    {
+      int[] newRAVECounts = new int[mNumChildren*2];
+      double[] newRAVEScores = new double[mNumChildren*2];
+
+      System.arraycopy(mRAVECounts, 0, newRAVECounts, 0, mNumChildren);
+      System.arraycopy(mRAVEScores, 0, newRAVEScores, 0, mNumChildren);
+
+      mRAVECounts = newRAVECounts;
+      mRAVEScores = newRAVEScores;
+    }
+  }
+
   public void hyperExpand(TreePath fullPathTo, ForwardDeadReckonLegalMoveInfo[] jointPartialMove, short hyperDepth)
   {
     assert(ThreadControl.checkTreeOwnership());
@@ -2777,20 +2827,7 @@ public class TreeNode
                         //  Do we need to expand the children array?
                         if ( children.length == mNumChildren )
                         {
-                          Object[] newChildren = new Object[mNumChildren*2];
-
-                          System.arraycopy(children, 0, newChildren, 0, mNumChildren);
-
-                          children = newChildren;
-
-                          if ( primaryChoiceMapping != null )
-                          {
-                            short[] newPrimaryChoiceMapping = new short[mNumChildren*2];
-
-                            System.arraycopy(primaryChoiceMapping, 0, newPrimaryChoiceMapping, 0, mNumChildren);
-
-                            primaryChoiceMapping = newPrimaryChoiceMapping;
-                          }
+                          expandChildCapacity();
                         }
 
                         TreeEdge hyperEdge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
@@ -2821,20 +2858,7 @@ public class TreeNode
                   //  Do we need to expand the children array?
                   if ( children.length == mNumChildren )
                   {
-                    Object[] newChildren = new Object[mNumChildren*2];
-
-                    System.arraycopy(children, 0, newChildren, 0, mNumChildren);
-
-                    children = newChildren;
-
-                    if ( primaryChoiceMapping != null )
-                    {
-                      short[] newPrimaryChoiceMapping = new short[mNumChildren*2];
-
-                      System.arraycopy(primaryChoiceMapping, 0, newPrimaryChoiceMapping, 0, mNumChildren);
-
-                      primaryChoiceMapping = newPrimaryChoiceMapping;
-                    }
+                    expandChildCapacity();
                   }
 
                   //  Hyper link directly to the expanded child
@@ -3226,7 +3250,14 @@ public class TreeNode
       assert(mNumChildren <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
       if (mNumChildren > children.length)
       {
-        children = new Object[tree.gameCharacteristics.getChoicesHighWaterMark(mNumChildren)];
+        int maxChildrenToAllocateFor = tree.gameCharacteristics.getChoicesHighWaterMark(mNumChildren);
+
+        children = new Object[maxChildrenToAllocateFor];
+        if ( tree.mGameSearcher.mUseRAVE )
+        {
+          mRAVECounts = new int[maxChildrenToAllocateFor];
+          mRAVEScores = new double[maxChildrenToAllocateFor];
+        }
 
         assert ( primaryChoiceMapping == null );
       }
@@ -3515,31 +3546,6 @@ public class TreeNode
                   break;
                 }
               }
-            }
-          }
-        }
-      }
-
-      if (tree.mGameSearcher.mUseRAVE)
-      {
-        //  If we're using RAVE we need the edges to store the RAVE stats
-        for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
-        {
-          if ((primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) )
-          {
-            Object choice = children[lMoveIndex];
-            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-            if (edge == null)
-            {
-              //  Skip this for pseudo-noops
-              if ( ((ForwardDeadReckonLegalMoveInfo)choice).isPseudoNoOp )
-              {
-                continue;
-              }
-
-              edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-              edge.setParent(this, (ForwardDeadReckonLegalMoveInfo)choice);
-              children[lMoveIndex] = edge;
             }
           }
         }
@@ -4335,23 +4341,25 @@ public class TreeNode
     return getExplorationBias(edge)*Math.sqrt(2*Math.log(numVisits) / edge.getNumChildVisits())/RAVE_EXPLORATION_REDUCTION_FACTOR;
   }
 
-  private double getRAVESelectionValue(TreeEdge edge)
+  private double getRAVESelectionValue(int edgeIndex)
   {
-    return getRAVEExplorationValue(edge) + edge.mRAVEScore/100;
+    return getRAVEExplorationValue((TreeEdge)children[edgeIndex]) + mRAVEScores[edgeIndex]/100;
   }
 
   //  Rave bias
   private static final double b = 0.05;
 
-  private double getSelectionValue(TreeEdge edge, TreeNode c, int roleIndex)
+  private double getSelectionValue(int edgeIndex, TreeNode c, int roleIndex)
   {
+    TreeEdge edge = (TreeEdge)children[edgeIndex];
     double UCTValue = getUCTSelectionValue(edge, c, roleIndex);
     double result;
 
     if ( tree.mGameSearcher.mUseRAVE && !c.complete )
     {
-      double RAVEValue = getRAVESelectionValue(edge);
-      double RAVEWeight = (edge.mRAVECount)/(edge.mRAVECount + edge.getNumChildVisits() + b*edge.getNumChildVisits()*edge.mRAVECount + 1);
+      double RAVEValue = getRAVESelectionValue(edgeIndex);
+      int RAVECount = mRAVECounts[edgeIndex];
+      double RAVEWeight = (RAVECount)/(RAVECount + edge.getNumChildVisits() + b*edge.getNumChildVisits()*RAVECount + 1);
 
       result = (1-RAVEWeight)*UCTValue + RAVEWeight*RAVEValue;
     }
@@ -4541,7 +4549,7 @@ public class TreeNode
                            (tree.root == this || !edge.mPartialMove.isPseudoNoOp))
                   {
                     //  Don't preferentially explore paths once they are known to have complete results
-                    uctValue = getSelectionValue(edge, c, roleIndex);
+                    uctValue = getSelectionValue(i, c, roleIndex);
 
                     //  If the node we most want to select through is complete (so there is nothing further to
                     //  learn) we select the best non-complete choice but record the fact
@@ -4892,7 +4900,7 @@ public class TreeNode
                               " scores " + lNode2.stringizeScoreVector() +
                               ", visits " + lNode2.numVisits +
                               ", ref : " + lNode2.mRef +
-                              (tree.mGameSearcher.mUseRAVE ? (", RAVE[" + edge2.mRAVECount + ", " + FORMAT_2DP.format(edge2.mRAVEScore) + "]") : "") +
+                              (tree.mGameSearcher.mUseRAVE ? (", RAVE[" + mRAVECounts[index] + ", " + FORMAT_2DP.format(mRAVEScores[index]) + "]") : "") +
                               (lNode2.complete ? " (complete)" : "") +
                               (lNode2.localSearchStatus.HasResult() ? ("(" + lNode2.localSearchStatus + ")") : "");
 
@@ -5394,7 +5402,7 @@ public class TreeNode
                       " scores " + FORMAT_2DP.format(moveScore) + " (selectionScore score " +
                       FORMAT_2DP.format(selectionScore) + ", selection count " +
                       child.numVisits + ", ref " + child.mRef +
-                      (tree.mGameSearcher.mUseRAVE ? (", RAVE[" + edge.mRAVECount + ", " + FORMAT_2DP.format(edge.mRAVEScore) + "]") : "") +
+                      (tree.mGameSearcher.mUseRAVE ? (", RAVE[" + mRAVECounts[lii] + ", " + FORMAT_2DP.format(mRAVEScores[lii]) + "]") : "") +
                       (child.complete ? (", complete [" + ((child.completionDepth - tree.root.depth)/tree.numRoles) + "]") : "") +
                       (child.localSearchStatus.HasResult() ? (", " + child.localSearchStatus + " [" + ((child.completionDepth - tree.root.depth)/tree.numRoles) + "]") : "") +
                       ")");
@@ -5808,15 +5816,12 @@ public class TreeNode
             if ( lNode.primaryChoiceMapping == null || lNode.primaryChoiceMapping[i] == i )
             {
               Object choice = lNode.children[i];
-              if ( (choice instanceof TreeEdge) )
+              ForwardDeadReckonLegalMoveInfo moveInfo = (choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice;
+              if ( playedMoves.get(moveInfo.masterIndex) )
               {
-                TreeEdge edge = (TreeEdge)choice;
-                if ( playedMoves.get(edge.mPartialMove.masterIndex) )
-                {
-                  //  This move was played so update the RAVE sdtats for it
-                  edge.mRAVEScore = (edge.mRAVEScore*edge.mRAVECount + xiValues[(lNode.decidingRoleIndex+1)%tree.numRoles])/(edge.mRAVECount+1);
-                  edge.mRAVECount++;
-                }
+                //  This move was played so update the RAVE sdtats for it
+                lNode.mRAVEScores[i] = (lNode.mRAVEScores[i]*lNode.mRAVECounts[i] + xiValues[(lNode.decidingRoleIndex+1)%tree.numRoles])/(lNode.mRAVECounts[i]+1);
+                lNode.mRAVECounts[i]++;
               }
             }
           }

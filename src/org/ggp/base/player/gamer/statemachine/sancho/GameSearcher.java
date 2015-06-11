@@ -1024,8 +1024,6 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           {
             mPlayoutTrace.set(lRequest.mPlayoutTrace[i].masterIndex);
           }
-
-          assert(mPlayoutTrace.cardinality() == lRequest.mPlayoutLength);
         }
 
         lBackPropTime = lNode.updateStats(lRequest.mAverageScores,
