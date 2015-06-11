@@ -1661,7 +1661,6 @@ public class TreeNode
               {
                 TreeNode lNode = get(edge.getChildRef());
                 assert(lNode != null);
-                assert(lNode.complete);
 
                 if ( lNode.getAverageScore(roleIndex) == bestValue )
                 {
