@@ -348,6 +348,7 @@ public class PieceHeuristic implements Heuristic
         }
 
         smallestRangeSize = Integer.MAX_VALUE;
+        int fallbackSingletonRangeIndex = -1;
 
         for(int rangeIndex = 0; rangeIndex < fnInfo.paramRanges.size(); rangeIndex++)
         {
@@ -362,11 +363,30 @@ public class PieceHeuristic implements Heuristic
           //  However this is totally arbitrary and therefore a complete hack
           //  TODO - more advanced analysis needed of how props change to detect the difference between a corrdinate
           //  a a piece type qualifier more reliably
-          if ( (rangeSize != ignoreSize || rangeIndex == fnInfo.paramRanges.size()-1) && rangeSize < smallestRangeSize && (rangeSize > 1 || fnInfo.paramRanges.size() == MIN_PIECE_PROP_ARITY))
+          if ( (rangeSize != ignoreSize || rangeIndex == fnInfo.paramRanges.size()-1) && rangeSize < smallestRangeSize )
           {
-            smallestRangeSize = rangeSize;
-            smallestRangeIndex = rangeIndex;
+            if ( rangeSize > 1 || fnInfo.paramRanges.size() == MIN_PIECE_PROP_ARITY )
+            {
+              smallestRangeSize = rangeSize;
+              smallestRangeIndex = rangeIndex;
+            }
+            else
+            {
+              fallbackSingletonRangeIndex = rangeIndex;
+            }
           }
+        }
+
+        if ( smallestRangeIndex == -1 && fallbackSingletonRangeIndex != -1 )
+        {
+          smallestRangeSize = 1;
+          smallestRangeIndex = fallbackSingletonRangeIndex;
+        }
+
+        if ( smallestRangeIndex == -1 )
+        {
+          //  Cound not identify a piece type term
+          return;
         }
 
         //  Should validate that the different values of this arg actually
