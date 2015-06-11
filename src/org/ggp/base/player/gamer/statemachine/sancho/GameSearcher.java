@@ -91,7 +91,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   /**
    * Whether this searcher uses RAVE
    */
-  public boolean                          mUseRAVE = MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_RAVE);
+  public boolean                          mUseRAVE = false;
   /**
    * Trace of moves played below the current node being updated by back propagation
    * (including the playout itself).  Enabled only if RAVE is in use.  BitSet indexes
@@ -306,10 +306,14 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     if ( mUseRAVE )
     {
       mPlayoutTrace = new OpenBitSet(underlyingStateMachine.getFullPropNet().getMasterMoveList().length);
+
+      LOGGER.info("Using RAVE");
     }
     else
     {
       mPlayoutTrace = null;
+
+      LOGGER.info("Not using RAVE");
     }
   }
 

@@ -55,7 +55,7 @@ public class MachineSpecificConfiguration
     /**
      * Whether to disable the use of state-similarity detection for node expansion weighting.
      */
-    DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING(false),
+    DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING(true),
 
     /**
      * Whether to periodically normalize tree node scores.
@@ -112,7 +112,7 @@ public class MachineSpecificConfiguration
     /**
      * Whether RAVE may be used.
      */
-    ALLOW_RAVE(false),
+    ALLOW_RAVE(true),
 
     /**
      * Time, in milliseconds, after which we assume that we aren't going to here from the server again - in which case

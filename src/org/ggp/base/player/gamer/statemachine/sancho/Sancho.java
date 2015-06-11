@@ -887,6 +887,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     //  Dump the game characteristics to trace output
     mGameCharacteristics.report();
 
+    boolean useRAVE = (!mGameCharacteristics.isSimultaneousMove && numRoles <= 2);
     double explorationBias = 15 / (averageNumTurns + ((maxNumTurns + minNumTurns) / 2 - averageNumTurns) *
                                               stdDevNumTurns / averageNumTurns) + 0.4;
     if (explorationBias < 0.5)
@@ -904,8 +905,9 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       //	exploration bias - not entirely sure why!
       explorationBias = explorationBias * 0.7;
     }
-    else if ( MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_RAVE) )
+    else if ( useRAVE )
     {
+      //  If we guiding early expansion with RAVE exploration can be turned down somewhat
       explorationBias *= 0.7;
     }
 
@@ -1017,7 +1019,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       }
     }
 
-    if ( MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_RAVE) )
+    if ( useRAVE )
     {
       LOGGER.info("Use of RAVE forces sample size of 1");
       mGameCharacteristics.setRolloutSampleSize(1);
@@ -1051,6 +1053,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
         mGameCharacteristics.setExplorationBias(explorationBias);
       }
 
+      searchProcessor.mUseRAVE = useRAVE;
       searchProcessor.setup(underlyingStateMachine,
                             initialState,
                             roleOrdering,
