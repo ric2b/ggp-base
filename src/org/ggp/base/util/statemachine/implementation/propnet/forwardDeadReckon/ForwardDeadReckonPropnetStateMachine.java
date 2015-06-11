@@ -3953,7 +3953,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         chosenMoves[index] = chosen.move;
       }
       chosenJointMoveProps[index++] = chosen.inputProposition;
-      if (playedMoves != null && (numChoices > 1 || (!choiceSeen && chosen.inputProposition != null && !chosen.isPseudoNoOp && !chosen.isVirtualNoOp)))
+      if (playedMoves != null &&
+          (numChoices > 1 ||
+           (!choiceSeen && chosen.inputProposition != null && !chosen.isPseudoNoOp && !chosen.isVirtualNoOp) ||
+           roleIndex == numRoles-1))
       {
         playedMoves[moveIndex] = chosen;
         choiceSeen = true;
