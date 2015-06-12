@@ -691,7 +691,10 @@ public class TreeNode
     for (int lii = 0; lii < mNumChildren; lii++)
     {
       children[lii] = null;
-      mRAVECounts[lii] = 0;
+      if ( tree.mGameSearcher.mUseRAVE )
+      {
+        mRAVECounts[lii] = 0;
+      }
     }
     mNumChildren = 0;
 
