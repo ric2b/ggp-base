@@ -3638,6 +3638,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                 {
                   if (playedMoves != null)
                   {
+                    assert(decisionState.chooserMoves[i] != null);
                     playedMoves[moveIndex] = decisionState.chooserMoves[i];
                   }
                   greedyRolloutEffectiveness++;
@@ -3666,6 +3667,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                 {
                   if ( getRandom(100) < latchImprovementWeight )
                   {
+                    if (playedMoves != null)
+                    {
+                      assert(decisionState.chooserMoves[i] != null);
+                      playedMoves[moveIndex] = decisionState.chooserMoves[i];
+                    }
+
                     decisionState.nextChoiceIndex = decisionState.baseChoiceIndex;
                     if ( getRandom(100) < latchWorseningAvoidanceWeight )
                     {
@@ -3739,6 +3746,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           {
             if (playedMoves != null)
             {
+              assert(decisionState.chooserMoves[choice] != null);
               playedMoves[moveIndex] = decisionState.chooserMoves[choice];
             }
             if (preEnumerate)
@@ -3770,6 +3778,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           {
             if ( getRandom(100) < latchImprovementWeight )
             {
+              if (playedMoves != null)
+              {
+                assert(decisionState.chooserMoves[choice] != null);
+                playedMoves[moveIndex] = decisionState.chooserMoves[choice];
+              }
               decisionState.nextChoiceIndex = (choiceIndex+1)%decisionState.numChoices;
               if ( getRandom(100) < latchWorseningAvoidanceWeight )
               {
@@ -3791,6 +3804,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       if (playedMoves != null)
       {
+        assert(decisionState.chooserMoves[lastTransitionChoice] != null);
         playedMoves[moveIndex] = decisionState.chooserMoves[lastTransitionChoice];
       }
 
@@ -3823,6 +3837,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       if (playedMoves != null)
       {
+        assert(choicelessMoveInfo != null);
         playedMoves[moveIndex] = choicelessMoveInfo;
       }
       if (isTerminal() || scoresAreLatched(lastInternalSetState))
