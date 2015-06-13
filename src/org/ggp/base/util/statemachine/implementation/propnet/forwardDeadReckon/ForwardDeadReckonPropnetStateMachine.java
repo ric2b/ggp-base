@@ -1494,6 +1494,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     legalPropositionsO = master.legalPropositionsO;
     legalPropositions = master.legalPropositions;
     initialState = master.initialState;
+    firstBasePropIndex = master.firstBasePropIndex;
     roles = master.roles;
     numRoles = master.numRoles;
     fullPropNet = master.fullPropNet;
@@ -1665,6 +1666,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         numGoals += goals.length;
       }
+      assert(numGoals>0);
       masterInfoSet = new ForwardDeadReckonPropositionCrossReferenceInfo[fullPropNet.getBasePropositions().size() + numGoals + 1];
       int index = 0;
 
@@ -1703,6 +1705,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         prop.setInfo(info);
       }
 
+      assert(index == numGoals+1);
       firstBasePropIndex = index;
 
       for (Entry<GdlSentence, PolymorphicProposition> e : fullPropNet.getBasePropositions().entrySet())

@@ -117,6 +117,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    */
   public ForwardDeadReckonInternalMachineState(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet, int xiFirstBasePropIndex)
   {
+    assert(xiFirstBasePropIndex > 2);
     infoSet = masterInfoSet;
     firstBasePropIndex = xiFirstBasePropIndex;
     contents = new OpenBitSet(infoSet.length);
@@ -282,7 +283,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
     // This effectively truncates trailing zeros without an explicit check.
     if ( modulo != 0 )
     {
-      h = (1 << modulo)-1;
+      h = ((long)1 << modulo)-1;
       h = ~h;
       bits[firstIndex] = (h & otherBits[firstIndex]);
 
