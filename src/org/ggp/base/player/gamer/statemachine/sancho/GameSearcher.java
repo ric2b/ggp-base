@@ -568,10 +568,12 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   {
     synchronized(getSerializationObject())
     {
+      Move result = null;
+
       //  If we instigated a plan during this move calculation we must play from it
       if (!mPlan.isEmpty())
       {
-        Move result = mPlan.nextMove();
+        result = mPlan.nextMove();
         LOGGER.info("Playing first move from new plan: " + result);
 
         if (mPlan.size() > thinkBelowPlanSize)
@@ -579,103 +581,113 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           //  No point in further searching
           terminate();
         }
-
-        return result;
       }
 
-      FactorMoveChoiceInfo bestChoice = null;
-
-      //  The following will move to (or also reflect in) the stats logger once it is stable
-      double fringeDepth = mAverageFringeDepth.getAverage();
-      double RMSFringeDepth = mRMSFringeDepth.getAverage();
-      double branchingFactor = mAverageBranchingFactor.getAverage();
-      if ( fringeDepth > 0 && branchingFactor > 0 )
+      if ( result == null )
       {
-        //  Adjust the branching factor to the correct geometric mean
-        if ( !mGameCharacteristics.isSimultaneousMove )
-        {
-          branchingFactor = Math.exp(Math.log(branchingFactor*mGameCharacteristics.numRoles)/mGameCharacteristics.numRoles);
-        }
-        LOGGER.info("Average fringe depth: " + fringeDepth);
-        LOGGER.info("Fringe depth variability: " + (RMSFringeDepth - fringeDepth)/fringeDepth);
-        LOGGER.info("Average branching factor: " + branchingFactor);
-        //  Calculate the tree aspect ratio, which is the ratio of the observed average fringe
-        //  depth to its expected depth given its observed branching factor
-        double aspect = fringeDepth/(Math.log(mNodePool.getNumItemsInUse())/Math.log(branchingFactor));
-        LOGGER.info("Tree aspect ratio: " + aspect);
-      }
+        FactorMoveChoiceInfo bestChoice = null;
 
-      LOGGER.debug("Searching for best move amongst factors:");
-      for (MCTSTree tree : factorTrees)
-      {
-        FactorMoveChoiceInfo factorChoice = tree.getBestMove(false);
-        if (factorChoice.bestMove != null)
+        //  The following will move to (or also reflect in) the stats logger once it is stable
+        double fringeDepth = mAverageFringeDepth.getAverage();
+        double RMSFringeDepth = mRMSFringeDepth.getAverage();
+        double branchingFactor = mAverageBranchingFactor.getAverage();
+        if ( fringeDepth > 0 && branchingFactor > 0 )
         {
-          LOGGER.debug("  Factor best move: " + (factorChoice.bestMove.isPseudoNoOp ? null : factorChoice.bestMove.move));
-
-          if (bestChoice == null)
+          //  Adjust the branching factor to the correct geometric mean
+          if ( !mGameCharacteristics.isSimultaneousMove )
           {
-            bestChoice = factorChoice;
+            branchingFactor = Math.exp(Math.log(branchingFactor*mGameCharacteristics.numRoles)/mGameCharacteristics.numRoles);
+          }
+          LOGGER.info("Average fringe depth: " + fringeDepth);
+          LOGGER.info("Fringe depth variability: " + (RMSFringeDepth - fringeDepth)/fringeDepth);
+          LOGGER.info("Average branching factor: " + branchingFactor);
+          //  Calculate the tree aspect ratio, which is the ratio of the observed average fringe
+          //  depth to its expected depth given its observed branching factor
+          double aspect = fringeDepth/(Math.log(mNodePool.getNumItemsInUse())/Math.log(branchingFactor));
+          LOGGER.info("Tree aspect ratio: " + aspect);
+        }
+
+        LOGGER.debug("Searching for best move amongst factors:");
+        for (MCTSTree tree : factorTrees)
+        {
+          FactorMoveChoiceInfo factorChoice = tree.getBestMove(false);
+          if (factorChoice.bestMove != null)
+          {
+            LOGGER.debug("  Factor best move: " + (factorChoice.bestMove.isPseudoNoOp ? null : factorChoice.bestMove.move));
+
+            if (bestChoice == null)
+            {
+              bestChoice = factorChoice;
+            }
+            else
+            {
+              if (factorChoice.pseudoNoopValue <= 0 && factorChoice.pseudoMoveIsComplete &&
+                  factorChoice.bestMoveValue > 0 &&
+                  (!bestChoice.pseudoMoveIsComplete || bestChoice.pseudoNoopValue > 0))
+              {
+                //  If no-oping this factor is a certain loss but the same is not true of the other
+                //  factor then take this factor
+                LOGGER.debug("  Factor move avoids a loss so selecting");
+                bestChoice = factorChoice;
+              }
+              else if (bestChoice.pseudoNoopValue <= 0 && bestChoice.pseudoMoveIsComplete &&
+                  bestChoice.bestMoveValue > 0 &&
+                  (!factorChoice.pseudoMoveIsComplete || factorChoice.pseudoNoopValue > 0))
+              {
+                //  If no-oping the other factor is a certain loss but the same is not true of this
+                //  factor then take the other factor
+                LOGGER.debug("  Factor move would be loss in oher factor");
+              }
+              // Complete win dominates everything else
+              else if (factorChoice.bestMoveValue > 100-TreeNode.EPSILON)
+              {
+                LOGGER.debug("  Factor move is a win so selecting");
+                bestChoice = factorChoice;
+              }
+              else if ((bestChoice.bestMoveValue > 100-TreeNode.EPSILON && bestChoice.bestMoveIsComplete) ||
+                       (factorChoice.bestMoveValue <= TreeNode.EPSILON && factorChoice.bestMoveIsComplete))
+              {
+                LOGGER.debug("  Already selected factor move is a win or this move is a loss - not selecting");
+                continue;
+              }
+              // otherwise choose the one that reduces the resulting net chances the least weighted
+              // by the resulting win chance in the chosen factor.  This biases the player towards
+              // concentrating on the factor it is most ahead in, and is somewhat experimental (since ignoring
+              // the factor you are behind in could be rather bad too!)
+              else
+              {
+                if (bestChoice.bestMoveValue*(bestChoice.bestMoveValue - bestChoice.pseudoNoopValue) <
+                    factorChoice.bestMoveValue*(factorChoice.bestMoveValue - factorChoice.pseudoNoopValue))
+                {
+                  bestChoice = factorChoice;
+                  LOGGER.debug("  This factor score is superior - selecting");
+                }
+                else
+                {
+                  LOGGER.debug("  This factor score is inferior - not selecting");
+                }
+              }
+            }
           }
           else
           {
-            if (factorChoice.pseudoNoopValue <= 0 && factorChoice.pseudoMoveIsComplete &&
-                factorChoice.bestMoveValue > 0 &&
-                (!bestChoice.pseudoMoveIsComplete || bestChoice.pseudoNoopValue > 0))
-            {
-              //  If no-oping this factor is a certain loss but the same is not true of the other
-              //  factor then take this factor
-              LOGGER.debug("  Factor move avoids a loss so selecting");
-              bestChoice = factorChoice;
-            }
-            else if (bestChoice.pseudoNoopValue <= 0 && bestChoice.pseudoMoveIsComplete &&
-                bestChoice.bestMoveValue > 0 &&
-                (!factorChoice.pseudoMoveIsComplete || factorChoice.pseudoNoopValue > 0))
-            {
-              //  If no-oping the other factor is a certain loss but the same is not true of this
-              //  factor then take the other factor
-              LOGGER.debug("  Factor move would be loss in oher factor");
-            }
-            // Complete win dominates everything else
-            else if (factorChoice.bestMoveValue > 100-TreeNode.EPSILON)
-            {
-              LOGGER.debug("  Factor move is a win so selecting");
-              bestChoice = factorChoice;
-            }
-            else if ((bestChoice.bestMoveValue > 100-TreeNode.EPSILON && bestChoice.bestMoveIsComplete) ||
-                     (factorChoice.bestMoveValue <= TreeNode.EPSILON && factorChoice.bestMoveIsComplete))
-            {
-              LOGGER.debug("  Already selected factor move is a win or this move is a loss - not selecting");
-              continue;
-            }
-            // otherwise choose the one that reduces the resulting net chances the least weighted
-            // by the resulting win chance in the chosen factor.  This biases the player towards
-            // concentrating on the factor it is most ahead in, and is somewhat experimental (since ignoring
-            // the factor you are behind in could be rather bad too!)
-            else
-            {
-              if (bestChoice.bestMoveValue*(bestChoice.bestMoveValue - bestChoice.pseudoNoopValue) <
-                  factorChoice.bestMoveValue*(factorChoice.bestMoveValue - factorChoice.pseudoNoopValue))
-              {
-                bestChoice = factorChoice;
-                LOGGER.debug("  This factor score is superior - selecting");
-              }
-              else
-              {
-                LOGGER.debug("  This factor score is inferior - not selecting");
-              }
-            }
+            LOGGER.warn("  Factor best move is NULL");
           }
         }
-        else
-        {
-          LOGGER.warn("  Factor best move is NULL");
-        }
+
+        assert(bestChoice != null) : "No move choice found";
+        StatsLogUtils.Series.SCORE.logDataPoint((long)Math.max(0, bestChoice.bestMoveValue + 0.5));
+        result = (bestChoice.bestMove.isPseudoNoOp ? null : bestChoice.bestMove.move);
       }
 
-      assert(bestChoice != null) : "No move choice found";
-      StatsLogUtils.Series.SCORE.logDataPoint((long)Math.max(0, bestChoice.bestMoveValue + 0.5));
-      return (bestChoice.bestMove.isPseudoNoOp ? null : bestChoice.bestMove.move);
+      // Record that we've made the move.  Until we've heard back from the server, the game searcher will always search
+      // down this branch.  (This must be done before we release the game searcher again.)
+      // Note - we ASSUME that the player will now play the move we told it to - we need to record the chosen move
+      // within the synchronized section or else a plan that is found between selecting the best move here, and recording
+      // that we played it will not know whether to include the root move or not
+      chooseMove(result);
+
+      return result;
     }
   }
 
@@ -989,18 +1001,27 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
             TreeEdge edge = lRequest.mPath.getCurrentElement().getEdgeUnsafe();
 
-            if ( lRequest.mPath.getCurrentElement().getChildNode().decidingRoleIndex == 0 )
+            if ( lRequest.mPath.getCurrentElement().getParentNode().decidingRoleIndex == lRequest.mTree.numRoles-1 )
             {
-              fullPlayoutList.add(0, edge.mPartialMove);
+              //  If we've already played a move (but not yet had the server confirm back to
+              //  us) then we need to NOT include it in the plan
+              if ( mChosenMove != null && fullPlayoutList.isEmpty() )
+              {
+                assert(edge.mPartialMove.move == mChosenMove);
+              }
+              else
+              {
+                fullPlayoutList.add(0, edge.mPartialMove);
+              }
             }
           }
 
           lRequest.mPath.resetCursor();
 
           //  Now append the rollout path
-          for(int moveIndex = 0; moveIndex < lRequest.mPlayoutLength; moveIndex++)
+          for(int moveIndex = 0; moveIndex < lRequest.mPlayoutInfo.playoutLength; moveIndex++)
           {
-            fullPlayoutList.add(lRequest.mPlayoutTrace[moveIndex]);
+            fullPlayoutList.add(lRequest.mPlayoutInfo.playoutTrace[moveIndex]);
           }
 
           //  Provide this winning path for consideration as our new plan
@@ -1024,9 +1045,9 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           mPlayoutTrace.clear(0, mPlayoutTrace.capacity());
 
           assert(lRequest.mRecordPlayoutTrace);
-          for(int i = 0; i < lRequest.mPlayoutLength; i++)
+          for(int i = 0; i < lRequest.mPlayoutInfo.playoutLength; i++)
           {
-            mPlayoutTrace.set(lRequest.mPlayoutTrace[i].masterIndex);
+            mPlayoutTrace.set(lRequest.mPlayoutInfo.playoutTrace[i].masterIndex);
           }
         }
 
