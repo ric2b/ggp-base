@@ -44,6 +44,7 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine.PlayoutInfo;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.PlayoutPolicyGoalGreedy;
 import org.ggp.base.util.symbol.grammar.SymbolPool;
 
 import com.google.common.io.CharStreams;
@@ -454,6 +455,10 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     //  to immediate non-win termination and hence is never chosen by greedy processing) giving misleading results
     underlyingStateMachine.enableGreedyRollouts(false, false);
 
+    int totalGoalSamples = 0;
+    int totalGoalChangeCount = 0;
+    boolean goalsMonotonic = true;
+
     //  Slight hack, but for now we don't bother continuing to simulate for a long time after discovering we're in
     //  a simultaneous turn game, because (for now anyway) we disable heuristics in such games anyway
     while ((System.currentTimeMillis() < lHeuristicStopTime) &&
@@ -464,6 +469,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       int numRoleMovesSimulated = 0;
       int numBranchesTaken = 0;
       int turnNum = 0;
+      int lastOurGoal = underlyingStateMachine.getGoal(sampleState, ourRole);
 
       heuristic.tuningStartSampleGame();
 
@@ -588,6 +594,19 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
         underlyingStateMachine.getNextState(sampleState, null, jointMove, newState);
 
         sampleState.copy(newState);
+
+        int currentOurGoal = underlyingStateMachine.getGoal(sampleState, ourRole);
+
+        totalGoalSamples++;
+        if ( currentOurGoal != lastOurGoal )
+        {
+          totalGoalChangeCount++;
+          if ( lastOurGoal > currentOurGoal )
+          {
+            goalsMonotonic = false;
+          }
+          lastOurGoal = currentOurGoal;
+        }
       }
 
       if ( turnNum > maxNumTurns )
@@ -596,6 +615,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       }
       if ( turnNum < minNumTurns )
       {
+        assert(turnNum>0);
         minNumTurns = turnNum;
       }
 
@@ -656,7 +676,6 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     if (mGameCharacteristics.isSimultaneousMove || mGameCharacteristics.isPseudoSimultaneousMove)
     {
       roleControlProps = null;
-
 
       greedyRolloutsDisabled = true;
       underlyingStateMachine.enableGreedyRollouts(false, true);
@@ -748,12 +767,11 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     int minNumNonDrawTurns = Integer.MAX_VALUE;
     int scoreSum = -1;
     boolean isFixedSum = true;
-    PlayoutInfo playoutInfo = underlyingStateMachine.new PlayoutInfo();
+    PlayoutInfo playoutInfo = underlyingStateMachine.new PlayoutInfo(-1);
 
     playoutInfo.cutoffDepth = 1000;
     playoutInfo.factor = null;
     playoutInfo.moveWeights = null;
-    playoutInfo.playoutTrace = null;
 
     while (System.currentTimeMillis() < simulationStopTime)
     {
@@ -814,6 +832,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
       if (playoutInfo.playoutLength < minNumTurns)
       {
+        assert(playoutInfo.playoutLength>0);
         minNumTurns = playoutInfo.playoutLength;
       }
       if ( playoutInfo.playoutLength > maxNumTurns)
@@ -887,7 +906,20 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     //  Dump the game characteristics to trace output
     mGameCharacteristics.report();
 
-    boolean useRAVE = (!mGameCharacteristics.isSimultaneousMove && numRoles <= 2);
+    LOGGER.info("Measured goal volatility is " + ((double)totalGoalChangeCount/totalGoalSamples) + (goalsMonotonic ? " [monotonic]" : "[ non-monotonic]"));
+    if ( mGameCharacteristics.isPseudoPuzzle )
+    {
+      if ( totalGoalChangeCount >= totalGoalSamples/4 && goalsMonotonic )
+      {
+        underlyingStateMachine.setPlayoutPolicy(new PlayoutPolicyGoalGreedy(underlyingStateMachine));
+      }
+      else
+      {
+        LOGGER.info("Not enabled Goal Greedy policy for pseudo puzzle with insufficient monotonic goal volatility");
+      }
+    }
+
+    boolean useRAVE = (!mGameCharacteristics.isSimultaneousMove && numRoles == 2);
     double explorationBias = 15 / (averageNumTurns + ((maxNumTurns + minNumTurns) / 2 - averageNumTurns) *
                                               stdDevNumTurns / averageNumTurns) + 0.4;
     if (explorationBias < 0.5)
@@ -947,7 +979,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     LOGGER.info("Estimated greedy rollout cost: " + greedyRolloutCost);
     if (minNumTurns == maxNumTurns ||
         ((greedyRolloutCost > 8 || stdDevNumTurns < 0.15 * averageNumTurns || underlyingStateMachine.greedyRolloutEffectiveness < underlyingStateMachine.numRolloutDecisionNodeExpansions / 3) &&
-         mGameCharacteristics.numRoles != 1 &&
+         (mGameCharacteristics.numRoles != 1 || underlyingStateMachine.greedyRolloutEffectiveness == 0) &&
          !underlyingStateMachine.hasNegativelyLatchedGoals() &&
          !underlyingStateMachine.hasPositivelyLatchedGoals()))
     {
@@ -1366,10 +1398,6 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
         bestMove = moves.get(0);
       }
       LOGGER.info("Playing move: " + bestMove);
-
-      // Record that we've made the move.  Until we've heard back from the server, the game searcher will always search
-      // down this branch.  (This must be done before we release the game searcher again.)
-      searchProcessor.chooseMove(bestMove);
 
       searchProcessor.requestYield(false);
     }

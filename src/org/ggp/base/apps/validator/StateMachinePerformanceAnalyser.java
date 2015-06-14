@@ -361,7 +361,7 @@ public class StateMachinePerformanceAnalyser
         {
           long startTime = System.currentTimeMillis();
           int numDepthCharges = 0;
-          ForwardDeadReckonPropnetStateMachine.PlayoutInfo playoutInfo = theMachine.new PlayoutInfo();
+          ForwardDeadReckonPropnetStateMachine.PlayoutInfo playoutInfo = theMachine.new PlayoutInfo(-1);
           playoutInfo.factor = null;
           playoutInfo.cutoffDepth = 1000;
 

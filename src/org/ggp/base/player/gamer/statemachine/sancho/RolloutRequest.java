@@ -1,7 +1,6 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
-import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
@@ -30,8 +29,6 @@ class RolloutRequest
   public int                                   mMaxScore;
   public int                                   mThreadId;
   private final int[]                          latchedScoreRangeBuffer = new int[2];
-  public final ForwardDeadReckonLegalMoveInfo[] mPlayoutTrace;
-  public int                                   mPlayoutLength;
 
   public long                                  mSelectElapsedTime;
   public long                                  mExpandElapsedTime;
@@ -44,7 +41,7 @@ class RolloutRequest
 
   public long                                  mQueueLatency;
 
-  private final ForwardDeadReckonPropnetStateMachine.PlayoutInfo mPlayoutInfo;
+  public final ForwardDeadReckonPropnetStateMachine.PlayoutInfo mPlayoutInfo;
 
   /**
    * Create a rollout request.
@@ -57,8 +54,7 @@ class RolloutRequest
     mAverageScores = new double[xiNumRoles];
     mAverageSquaredScores = new double[xiNumRoles];
     mState = underlyingStateMachine.createEmptyInternalState();
-    mPlayoutTrace = new ForwardDeadReckonLegalMoveInfo[MCTSTree.MAX_SUPPORTED_TREE_DEPTH];
-    mPlayoutInfo = underlyingStateMachine.new PlayoutInfo();
+    mPlayoutInfo = underlyingStateMachine.new PlayoutInfo(MCTSTree.MAX_SUPPORTED_TREE_DEPTH);
   }
 
   private static double sigma(double x)
@@ -94,13 +90,11 @@ class RolloutRequest
 
     mPlayoutInfo.factor = mFactor;
     mPlayoutInfo.cutoffDepth = mTree.mWeightDecayCutoffDepth;
-    mPlayoutInfo.playoutTrace = (mRecordPlayoutTrace ? mPlayoutTrace : null);
+    mPlayoutInfo.recordTrace = mRecordPlayoutTrace;
     // Perform the requested number of samples.
     for (int i = 0; i < mSampleSize && !mComplete; i++)
     {
       stateMachine.getDepthChargeResult(mState, mPlayoutInfo);
-
-      mPlayoutLength = mPlayoutInfo.playoutLength;
 
       double weight = (mTree.mWeightDecayKneeDepth == -1 ? 1 : 1 - sigma((mPlayoutInfo.playoutLength-mTree.mWeightDecayKneeDepth)/mTree.mWeightDecayScaleFactor));
       assert(!Double.isNaN(weight));
@@ -127,7 +121,7 @@ class RolloutRequest
             mMinScore = lScore;
           }
 
-          if (mPlayoutInfo.playoutTrace != null)
+          if (stateMachine.getIsPseudoPuzzle())
           {
             stateMachine.getLatchedScoreRange(mState, xiRoleOrdering.roleIndexToRole(0), latchedScoreRangeBuffer);
 
@@ -135,27 +129,43 @@ class RolloutRequest
             {
               // Found a win.  Record the fact, and preserve the winning moves.
               mIsWin = true;
-              mPlayoutInfo.playoutTrace = null;
             }
           }
         }
       }
 
-      //  For fixed sum games, if greedy rollouts are being employed, the last 2 movbes on the played path
+      //  For fixed sum games, if greedy rollouts are being employed, the last 2 moves on the played path
       //  are guaranteed to be optimal, so a depth lower than this implies a complete node immediately
-      if ( mPlayoutLength < 2 && stateMachine.getIsGreedyRollouts() && mTree.gameCharacteristics.getIsFixedSum() )
+      if ( mPlayoutInfo.playoutLength <= 2 && stateMachine.getIsGreedyRollouts() && mTree.gameCharacteristics.getIsFixedSum() )
       {
         mComplete = true;
+      }
+
+      if ( mIsWin )
+      {
+        //  Need the returned score to reflect JUST this (winning) playout
+        for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
+        {
+          int lScore = stateMachine.getGoal(xiRoleOrdering.roleIndexToRole(roleIndex));
+          mAverageScores[roleIndex] = lScore;
+          mAverageSquaredScores[roleIndex] = lScore * lScore;
+        }
+
+        break;
       }
     }
 
     assert(!Double.isNaN(mAverageScores[0]));
-    // Normalize the results for the number of samples.
-    for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
+
+    if ( !mIsWin && mSampleSize > 1 )
     {
-      mAverageScores[roleIndex] /= mWeight;
-      mAverageSquaredScores[roleIndex] /= mWeight;
+      // Normalize the results for the number of samples.
+      for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
+      {
+        mAverageScores[roleIndex] /= mWeight;
+        mAverageSquaredScores[roleIndex] /= mWeight;
+      }
+      assert(!Double.isNaN(mAverageScores[0]));
     }
-    assert(!Double.isNaN(mAverageScores[0]));
   }
 }
