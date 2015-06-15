@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.symbol.grammar.Symbol;
@@ -261,6 +262,13 @@ public class GDLTranslator
     {
       final SymbolAtom lGDLAtom = xiFlatGDL.get(lii);
       final SymbolAtom lStoredAtom = SymbolPool.getAtom(lStoredAtoms[lii]);
+
+      //  Don't map numerics - this is what caused us to recognize Amazons as being the same as Amazons Suicide!
+      if ( StringUtils.isNumeric(lGDLAtom.toString()) && !lGDLAtom.equals(lStoredAtom))
+      {
+        LOGGER.debug("Not " + lGameName + ":  Numeric constants differ");
+        return null;
+      }
       if (lMapping.containsKey(lStoredAtom))
       {
         if (!lMapping.get(lStoredAtom).equals(lGDLAtom))

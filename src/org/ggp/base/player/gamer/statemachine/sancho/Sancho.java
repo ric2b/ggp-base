@@ -621,7 +621,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
       for (int i = 0; i < numRoles; i++)
       {
-        roleScores[i] = underlyingStateMachine.getGoal(roleOrdering.roleIndexToRole(i));
+        roleScores[i] = underlyingStateMachine.getGoal(sampleState, roleOrdering.roleIndexToRole(i));
       }
 
       // Tell the heuristic about the terminal state, for tuning purposes.
