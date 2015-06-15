@@ -26,7 +26,6 @@ import org.ggp.base.util.gdl.grammar.GdlVariable;
 public class GdlCleaner
 {
   private final static int         MAX_ITERATIONS = 100;
-  private final static GdlConstant BASE           = GdlPool.getConstant("base");
 
   /**
    * Run the GDL cleaner to standardize the GDL.
@@ -126,7 +125,7 @@ public class GdlCleaner
       if (gdl instanceof GdlRelation)
       {
         GdlRelation relation = (GdlRelation)gdl;
-        if (relation.getName() == BASE && relation.arity() != 1)
+        if (relation.getName() == GdlPool.BASE && relation.arity() != 1)
         {
           removeBaseSentences = true;
           break;
@@ -140,7 +139,7 @@ public class GdlCleaner
       if (gdl instanceof GdlRelation)
       {
         GdlRelation relation = (GdlRelation)gdl;
-        if (removeBaseSentences && relation.getName() == BASE)
+        if (removeBaseSentences && relation.getName() == GdlPool.BASE)
         {
           //Leave out the relation
         }

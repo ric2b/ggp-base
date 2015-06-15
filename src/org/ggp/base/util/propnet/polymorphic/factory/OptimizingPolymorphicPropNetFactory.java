@@ -103,17 +103,8 @@ public class OptimizingPolymorphicPropNetFactory
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  static final private GdlConstant    LEGAL     = GdlPool.getConstant("legal");
-  static final private GdlConstant    NEXT      = GdlPool.getConstant("next");
-  static final private GdlConstant    TRUE      = GdlPool.getConstant("true");
-  static final private GdlConstant    DOES      = GdlPool.getConstant("does");
-  static final private GdlConstant    GOAL      = GdlPool.getConstant("goal");
-  static final private GdlConstant    INIT      = GdlPool.getConstant("init");
   //TODO: This currently doesn't actually give a different constant from INIT
   static final private GdlConstant    INIT_CAPS = GdlPool.getConstant("INIT");
-  static final private GdlConstant    TERMINAL  = GdlPool.getConstant("terminal");
-  static final private GdlConstant    BASE      = GdlPool.getConstant("base");
-  static final private GdlConstant    INPUT     = GdlPool.getConstant("input");
   static final private GdlProposition TEMP      = GdlPool.getProposition(GdlPool.getConstant("TEMP"));
 
   /**
@@ -195,11 +186,11 @@ public class OptimizingPolymorphicPropNetFactory
       if (constantChecker.isConstantForm(form))
       {
         // We only add sentence in constant form if they are important.
-        if (form.getName().equals(LEGAL) ||
-            form.getName().equals(GOAL) ||
-            form.getName().equals(INIT) ||
-            form.getName().equals(NEXT) ||
-            form.getName().equals(TERMINAL))
+        if (form.getName().equals(GdlPool.LEGAL) ||
+            form.getName().equals(GdlPool.GOAL) ||
+            form.getName().equals(GdlPool.INIT) ||
+            form.getName().equals(GdlPool.NEXT) ||
+            form.getName().equals(GdlPool.TERMINAL))
         {
           for (GdlSentence trueSentence : constantChecker.getTrueSentences(form))
           {
@@ -296,7 +287,7 @@ public class OptimizingPolymorphicPropNetFactory
     boolean changedSomething = false;
     for (Entry<GdlSentence, PolymorphicComponent> entry : components.entrySet())
     {
-      if (entry.getKey().getName() == TRUE)
+      if (entry.getKey().getName() == GdlPool.TRUE)
       {
         PolymorphicComponent comp = entry.getValue();
         if (comp.getInputs().size() == 0)
@@ -335,7 +326,7 @@ public class OptimizingPolymorphicPropNetFactory
         if (sentence instanceof GdlRelation)
         {
           GdlRelation relation = (GdlRelation)sentence;
-          if (relation.getName().equals(NEXT))
+          if (relation.getName().equals(GdlPool.NEXT))
           {
             p.setName(GdlPool.getProposition(GdlPool.getConstant("anon")));
           }
@@ -798,8 +789,8 @@ public class OptimizingPolymorphicPropNetFactory
     PolymorphicProposition prop = (PolymorphicProposition)component;
     GdlConstant name = prop.getName().getName();
 
-    return (name.equals(LEGAL) && !forFalse) /* || name.equals(NEXT) */||
-           name.equals(GOAL) || name.equals(INIT) || name.equals(TERMINAL);
+    return (name.equals(GdlPool.LEGAL) && !forFalse) /* || name.equals(NEXT) */||
+           name.equals(GdlPool.GOAL) || name.equals(GdlPool.INIT) || name.equals(GdlPool.TERMINAL);
   }
 
 
@@ -837,11 +828,10 @@ public class OptimizingPolymorphicPropNetFactory
     {
       GdlSentence sentence = entry.getKey();
 
-      if (sentence.getName().equals(NEXT))
+      if (sentence.getName().equals(GdlPool.NEXT))
       {
         //connect to true
-        GdlSentence trueSentence = GdlPool.getRelation(TRUE,
-                                                       sentence.getBody());
+        GdlSentence trueSentence = GdlPool.getRelation(GdlPool.TRUE, sentence.getBody());
         PolymorphicComponent nextComponent = entry.getValue();
         PolymorphicComponent trueComponent = components.get(trueSentence);
         //There might be no true component (for example, because the bases
@@ -875,10 +865,10 @@ public class OptimizingPolymorphicPropNetFactory
       //Is this something that will be true?
       if (entry.getValue() == trueComponent)
       {
-        if (entry.getKey().getName().equals(INIT))
+        if (entry.getKey().getName().equals(GdlPool.INIT))
         {
           //Find the corresponding true sentence
-          GdlSentence trueSentence = GdlPool.getRelation(TRUE, entry.getKey().getBody());
+          GdlSentence trueSentence = GdlPool.getRelation(GdlPool.TRUE, entry.getKey().getBody());
           PolymorphicComponent trueSentenceComponent = components.get(trueSentence);
           if (trueSentenceComponent.getInputs().isEmpty())
           {
@@ -1007,11 +997,11 @@ public class OptimizingPolymorphicPropNetFactory
       }
       //Don't add if it's true/next/legal/does and we're waiting for base/input
       if (usingBase &&
-          (curForm.getName().equals(TRUE) || curForm.getName().equals(NEXT) || curForm
-              .getName().equals(INIT)))
+          (curForm.getName().equals(GdlPool.TRUE) || curForm.getName().equals(GdlPool.NEXT) || curForm
+              .getName().equals(GdlPool.INIT)))
       {
         //Have we added the corresponding base sf yet?
-        SentenceForm baseForm = curForm.withName(BASE);
+        SentenceForm baseForm = curForm.withName(GdlPool.BASE);
         if (!alreadyOrdered.contains(baseForm))
         {
           //  If we're looping here it's probably a GDL issue - flag up where we're failing
@@ -1027,9 +1017,9 @@ public class OptimizingPolymorphicPropNetFactory
         }
       }
       if (usingInput &&
-          (curForm.getName().equals(DOES) || curForm.getName().equals(LEGAL)))
+          (curForm.getName().equals(GdlPool.DOES) || curForm.getName().equals(GdlPool.LEGAL)))
       {
-        SentenceForm inputForm = curForm.withName(INPUT);
+        SentenceForm inputForm = curForm.withName(GdlPool.INPUT);
         if (!alreadyOrdered.contains(inputForm))
         {
           if ( looping )
@@ -1091,9 +1081,9 @@ public class OptimizingPolymorphicPropNetFactory
     for (GdlSentence alwaysTrueSentence : alwaysTrueSentences)
     {
       //We add the sentence as a constant
-      if (alwaysTrueSentence.getName().equals(LEGAL) ||
-          alwaysTrueSentence.getName().equals(NEXT) ||
-          alwaysTrueSentence.getName().equals(GOAL))
+      if (alwaysTrueSentence.getName().equals(GdlPool.LEGAL) ||
+          alwaysTrueSentence.getName().equals(GdlPool.NEXT) ||
+          alwaysTrueSentence.getName().equals(GdlPool.GOAL))
       {
         PolymorphicProposition prop = componentFactory.createProposition(-1, alwaysTrueSentence);
         //Attach to true
@@ -1109,29 +1099,26 @@ public class OptimizingPolymorphicPropNetFactory
     }
 
     //For does/true, make nodes based on input/base, if available
-    if (usingInput && form.getName().equals(DOES))
+    if (usingInput && form.getName().equals(GdlPool.DOES))
     {
       //Add only those propositions for which there is a corresponding INPUT
-      SentenceForm inputForm = form.withName(INPUT);
+      SentenceForm inputForm = form.withName(GdlPool.INPUT);
       for (GdlSentence inputSentence : constantChecker
           .getTrueSentences(inputForm))
       {
-        GdlSentence doesSentence = GdlPool
-            .getRelation(DOES, inputSentence.getBody());
-        PolymorphicProposition prop = componentFactory
-            .createProposition(-1, doesSentence);
+        GdlSentence doesSentence = GdlPool.getRelation(GdlPool.DOES, inputSentence.getBody());
+        PolymorphicProposition prop = componentFactory.createProposition(-1, doesSentence);
         components.put(doesSentence, prop);
       }
       return;
     }
-    if (usingBase && form.getName().equals(TRUE))
+    if (usingBase && form.getName().equals(GdlPool.TRUE))
     {
-      SentenceForm baseForm = form.withName(BASE);
+      SentenceForm baseForm = form.withName(GdlPool.BASE);
       for (GdlSentence baseSentence : constantChecker
           .getTrueSentences(baseForm))
       {
-        GdlSentence trueSentence = GdlPool.getRelation(TRUE,
-                                                       baseSentence.getBody());
+        GdlSentence trueSentence = GdlPool.getRelation(GdlPool.TRUE, baseSentence.getBody());
         PolymorphicProposition prop = componentFactory
             .createProposition(-1, trueSentence);
         components.put(trueSentence, prop);
@@ -1391,7 +1378,7 @@ public class OptimizingPolymorphicPropNetFactory
     //True/does sentences will have none of these rules, but
     //still need to exist/"float"
     //We'll do this if we haven't used base/input as a basis
-    if (form.getName().equals(TRUE) || form.getName().equals(DOES))
+    if (form.getName().equals(GdlPool.TRUE) || form.getName().equals(GdlPool.DOES))
     {
       for (GdlSentence sentence : model.getDomain(form))
       {
@@ -2019,7 +2006,7 @@ public class OptimizingPolymorphicPropNetFactory
         if (p.getName() instanceof GdlRelation)
         {
           GdlRelation r = (GdlRelation)p.getName();
-          if (r.getName().equals(INIT))
+          if (r.getName().equals(GdlPool.INIT))
           {
             //Add the base
             initted.add(r.get(0));
@@ -2314,7 +2301,7 @@ public class OptimizingPolymorphicPropNetFactory
         if (pn.getLegalInputMap().containsKey(curComp))
         {
           GdlRelation r = (GdlRelation)p.getName();
-          if (r.getName().equals(DOES))
+          if (r.getName().equals(GdlPool.DOES))
           {
             //The legal prop. is a pseudo-parent
             PolymorphicComponent legal = pn.getLegalInputMap().get(curComp);
@@ -2526,7 +2513,7 @@ public class OptimizingPolymorphicPropNetFactory
       if (p.getName() instanceof GdlRelation)
       {
         GdlRelation relation = (GdlRelation)p.getName();
-        if (relation.getName() == INIT)
+        if (relation.getName() == GdlPool.INIT)
         {
           toRemove.add(p);
         }
@@ -3436,14 +3423,14 @@ public class OptimizingPolymorphicPropNetFactory
       GdlSentence sentence = p.getName();
       if (sentence instanceof GdlProposition)
       {
-        if (sentence.getName() == TERMINAL || sentence.getName() == INIT_CAPS)
+        if (sentence.getName() == GdlPool.TERMINAL || sentence.getName() == INIT_CAPS)
           continue;
       }
       else
       {
         GdlRelation relation = (GdlRelation)sentence;
         GdlConstant name = relation.getName();
-        if (name == LEGAL || name == GOAL || name == DOES || name == INIT)
+        if (name == GdlPool.LEGAL || name == GdlPool.GOAL || name == GdlPool.DOES || name == GdlPool.INIT)
           continue;
       }
       if (p.getInputs().size() < 1)
@@ -3497,7 +3484,7 @@ public class OptimizingPolymorphicPropNetFactory
       {
         GdlConstant name = ((PolymorphicProposition)c).getName().getName();
 
-        if (name == INIT)
+        if (name == GdlPool.INIT)
         {
           if (c.getInputs().size() > 0)
           {
@@ -3532,7 +3519,7 @@ public class OptimizingPolymorphicPropNetFactory
         GdlConstant name = ((PolymorphicProposition)output).getName()
             .getName();
 
-        if (name != GOAL)
+        if (name != GdlPool.GOAL)
         {
           return false;
         }
@@ -3579,11 +3566,11 @@ public class OptimizingPolymorphicPropNetFactory
           GdlConstant name = ((PolymorphicProposition)input).getName()
               .getName();
 
-          if (name == LEGAL)
+          if (name == GdlPool.LEGAL)
           {
             return true;
           }
-          else if (name == TERMINAL)
+          else if (name == GdlPool.TERMINAL)
           {
             if (componentInputDependsOnLegal(input, inputClosure))
             {
@@ -3623,7 +3610,7 @@ public class OptimizingPolymorphicPropNetFactory
       {
         GdlConstant name = ((PolymorphicProposition)c).getName().getName();
 
-        if (name == GOAL)
+        if (name == GdlPool.GOAL)
         {
           if (componentInputDependsOnLegal(c, null))
           {
@@ -3642,7 +3629,11 @@ public class OptimizingPolymorphicPropNetFactory
       {
         GdlConstant name = ((PolymorphicProposition)c).getName().getName();
 
-        if (name != TRUE && name != BASE && name != GOAL && name != TERMINAL && name != LEGAL)
+        if (name != GdlPool.TRUE &&
+            name != GdlPool.BASE &&
+            name != GdlPool.GOAL &&
+            name != GdlPool.TERMINAL &&
+            name != GdlPool.LEGAL)
         {
           remove = true;
         }
@@ -3695,7 +3686,7 @@ public class OptimizingPolymorphicPropNetFactory
       {
         GdlConstant name = ((PolymorphicProposition)c).getName().getName();
 
-        if ((name == TRUE || name == BASE) && c.getOutputs().isEmpty())
+        if ((name == GdlPool.TRUE || name == GdlPool.BASE) && c.getOutputs().isEmpty())
         {
           removedComponents.add(c);
         }
@@ -3733,7 +3724,7 @@ public class OptimizingPolymorphicPropNetFactory
         {
           GdlConstant name = ((PolymorphicProposition)c).getName().getName();
 
-          if (name == LEGAL)
+          if (name == GdlPool.LEGAL)
           {
             if (c.getInputs().size() > 0)
             {

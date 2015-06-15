@@ -878,7 +878,7 @@ public class PolymorphicPropNet
           legalInputMap.remove(p);
         }
       }
-      else if (name == GdlPool.getProposition(GdlPool.getConstant("terminal")))
+      else if (name == GdlPool.getProposition(GdlPool.TERMINAL))
       {
         throw new RuntimeException("The terminal component cannot be removed.");
       }

@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
@@ -30,8 +29,6 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.G
  */
 public class MajorityCountGoalsCalculator extends MajorityCalculator
 {
-  static final private GdlConstant    INIT      = GdlPool.getConstant("init");
-
   private final ForwardDeadReckonPropositionInfo[][] scoredPropositions;
 
   private MajorityCountGoalsCalculator(ForwardDeadReckonPropnetStateMachine xiStateMachine,
@@ -137,7 +134,7 @@ public class MajorityCountGoalsCalculator extends MajorityCalculator
           else
           {
             //  Anything else that can reset the score precludes use of this emulator (apart from init)
-            if ( supportingProp.getName().getName() != INIT )
+            if (supportingProp.getName().getName() != GdlPool.INIT)
             {
               return false;
             }

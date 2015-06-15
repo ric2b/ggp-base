@@ -5,7 +5,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.gdl.grammar.GdlProposition;
 import org.ggp.base.util.gdl.grammar.GdlRelation;
@@ -20,32 +19,18 @@ import org.ggp.base.util.statemachine.Role;
 public final class ProverQueryBuilder
 {
 
-  private final static GdlConstant    DOES           = GdlPool
-                                                         .getConstant("does");
-  private final static GdlConstant    GOAL           = GdlPool
-                                                         .getConstant("goal");
   private final static GdlRelation    INIT_QUERY     = GdlPool
-                                                         .getRelation(GdlPool
-                                                                          .getConstant("init"),
-                                                                      new GdlTerm[] {GdlPool
-                                                                          .getVariable("?x")});
-  private final static GdlConstant    LEGAL          = GdlPool
-                                                         .getConstant("legal");
+                                                         .getRelation(GdlPool.INIT,
+                                                                      new GdlTerm[] {GdlPool.getVariable("?x")});
   private final static GdlRelation    NEXT_QUERY     = GdlPool
-                                                         .getRelation(GdlPool
-                                                                          .getConstant("next"),
-                                                                      new GdlTerm[] {GdlPool
-                                                                          .getVariable("?x")});
+                                                         .getRelation(GdlPool.NEXT,
+                                                                      new GdlTerm[] {GdlPool.getVariable("?x")});
   private final static GdlRelation    ROLE_QUERY     = GdlPool
-                                                         .getRelation(GdlPool
-                                                                          .getConstant("role"),
+                                                         .getRelation(GdlPool.ROLE,
                                                                       new GdlTerm[] {GdlPool
                                                                           .getVariable("?x")});
-  private final static GdlProposition TERMINAL_QUERY = GdlPool
-                                                         .getProposition(GdlPool
-                                                             .getConstant("terminal"));
-  private final static GdlVariable    VARIABLE       = GdlPool
-                                                         .getVariable("?x");
+  private final static GdlProposition TERMINAL_QUERY = GdlPool.getProposition(GdlPool.TERMINAL);
+  private final static GdlVariable    VARIABLE       = GdlPool.getVariable("?x");
 
   public static Set<GdlSentence> getContext(MachineState state)
   {
@@ -66,7 +51,7 @@ public final class ProverQueryBuilder
 
   public static GdlRelation getGoalQuery(Role role)
   {
-    return GdlPool.getRelation(GOAL, new GdlTerm[] {role.getName(), VARIABLE});
+    return GdlPool.getRelation(GdlPool.GOAL, new GdlTerm[] {role.getName(), VARIABLE});
   }
 
   public static GdlRelation getInitQuery()
@@ -77,7 +62,7 @@ public final class ProverQueryBuilder
   public static GdlRelation getLegalQuery(Role role)
   {
     return GdlPool
-        .getRelation(LEGAL, new GdlTerm[] {role.getName(), VARIABLE});
+        .getRelation(GdlPool.LEGAL, new GdlTerm[] {role.getName(), VARIABLE});
   }
 
   public static GdlRelation getNextQuery()
@@ -97,7 +82,7 @@ public final class ProverQueryBuilder
 
   public static GdlRelation toDoes(Role role, Move move)
   {
-    return GdlPool.getRelation(DOES,
+    return GdlPool.getRelation(GdlPool.DOES,
                                new GdlTerm[] {role.getName(),
                                    move.getContents()});
   }

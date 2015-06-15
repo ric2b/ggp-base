@@ -39,8 +39,6 @@ public class DependencyDistanceAnalyser
   private static final int MAX_DISTANCE = 20;
   private static final int MAX_PLAUSIBLE_TREMINAL_COUPLING_SIZE = 20;
 
-  static final private GdlConstant    TRUE      = GdlPool.getConstant("true");
-
   private class SentenceInfo
   {
     int[] rangeSize;
@@ -1077,7 +1075,7 @@ public class DependencyDistanceAnalyser
       for(int i = 0; i < propInfoList.length; i++)
       {
         GdlSentence propSentence = propInfoList[i].sentence;
-        if ( propSentence.getName() == TRUE )
+        if ( propSentence.getName() == GdlPool.TRUE )
         {
           GdlSentence basePropBodySentence = propSentence.getBody().get(0).toSentence();
           if ( basePropBodySentence.getName() == sentence.getName() )
@@ -1110,7 +1108,7 @@ public class DependencyDistanceAnalyser
         for(int i = 0; i < propInfoList.length; i++)
         {
           GdlSentence propSentence = propInfoList[i].sentence;
-          if ( propSentence.getName() == TRUE )
+          if ( propSentence.getName() == GdlPool.TRUE )
           {
             GdlSentence basePropBodySentence = propInfoList[i].sentence.getBody().get(0).toSentence();
 

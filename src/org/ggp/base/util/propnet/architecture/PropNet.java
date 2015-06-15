@@ -548,7 +548,7 @@ public final class PropNet
       {
         throw new RuntimeException("The INIT component cannot be removed. Consider leaving it and ignoring it.");
       }
-      else if (name == GdlPool.getProposition(GdlPool.getConstant("terminal")))
+      else if (name == GdlPool.getProposition(GdlPool.TERMINAL))
       {
         throw new RuntimeException("The terminal component cannot be removed.");
       }
