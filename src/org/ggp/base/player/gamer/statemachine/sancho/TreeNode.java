@@ -4094,18 +4094,19 @@ public class TreeNode
           Object choice = children[index];
 
           TreeEdge edge2 = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-          if (edge2 != null && edge2.getChildRef() != NULL_REF)
+          if (edge2 != null && !edge2.mPartialMove.isPseudoNoOp && edge2.getChildRef() != NULL_REF)
           {
-            TreeNode lChild = get(edge2.getChildRef());
-            if (lChild.getAverageScore(roleIndex) > bestChildScore)
+            double childUtility = effectiveExploitationScore(index, roleIndex);
+
+            if (childUtility > bestChildScore)
             {
-              bestChildScore = lChild.getAverageScore(roleIndex);
+              bestChildScore = childUtility;
             }
           }
         }
       }
 
-      return bestChildScore / 100;
+      return bestChildScore;
     }
 
     TreeNode lInboundChild = get(inboundEdge.getChildRef());
@@ -4385,6 +4386,28 @@ public class TreeNode
         //$CASES-OMITTED$
       default:
         break;
+    }
+
+    return result;
+  }
+
+  private double effectiveExploitationScore(int edgeIndex, int roleIndex)
+  {
+    double result;
+    TreeEdge edge = (TreeEdge)children[edgeIndex];
+    TreeNode c = get(edge.getChildRef());
+
+    if ( tree.mGameSearcher.mUseRAVE && !c.complete )
+    {
+      double RAVEValue = mRAVEScores[edgeIndex]/100;
+      int RAVECount = mRAVECounts[edgeIndex];
+      double RAVEWeight = (RAVECount)/(RAVECount + edge.getNumChildVisits() + b*edge.getNumChildVisits()*RAVECount + 1);
+
+      result = (1-RAVEWeight)*c.getAverageScore(roleIndex)/100 + RAVEWeight*RAVEValue;
+    }
+    else
+    {
+      result = c.getAverageScore(roleIndex)/100;
     }
 
     return result;

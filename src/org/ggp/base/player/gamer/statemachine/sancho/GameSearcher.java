@@ -636,10 +636,10 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
               {
                 //  If no-oping the other factor is a certain loss but the same is not true of this
                 //  factor then take the other factor
-                LOGGER.debug("  Factor move would be loss in oher factor");
+                LOGGER.debug("  Factor move would be loss in other factor");
               }
               // Complete win dominates everything else
-              else if (factorChoice.bestMoveValue > 100-TreeNode.EPSILON)
+              else if (factorChoice.bestMoveValue > 100-TreeNode.EPSILON && bestChoice.bestMoveIsComplete)
               {
                 LOGGER.debug("  Factor move is a win so selecting");
                 bestChoice = factorChoice;
