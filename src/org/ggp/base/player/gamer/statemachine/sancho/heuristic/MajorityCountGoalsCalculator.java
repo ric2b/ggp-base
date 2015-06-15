@@ -8,6 +8,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.ggp.base.util.gdl.grammar.GdlConstant;
+import org.ggp.base.util.gdl.grammar.GdlPool;
+import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
@@ -27,6 +30,8 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.G
  */
 public class MajorityCountGoalsCalculator extends MajorityCalculator
 {
+  static final private GdlConstant    INIT      = GdlPool.getConstant("init");
+
   private final ForwardDeadReckonPropositionInfo[][] scoredPropositions;
 
   private MajorityCountGoalsCalculator(ForwardDeadReckonPropnetStateMachine xiStateMachine,
@@ -112,16 +117,27 @@ public class MajorityCountGoalsCalculator extends MajorityCalculator
         queuedBases = new HashSet<>();
       }
 
-      MajorityGoalsHeuristic.recursiveFindFeedingBaseProps(pn, p.getSingleInput().getSingleInput(), baseProps, processedComponents);
+      recursiveFindFeedingBaseProps(pn, p.getSingleInput().getSingleInput(), baseProps, processedComponents, scoreProps);
 
       queuedBases.add(p);
       for(PolymorphicProposition supportingProp : baseProps)
       {
-        if ( supportingProp != p && scoreProps.contains(supportingProp))
+        if ( supportingProp != p )
         {
-          if ( !orderedList.contains(supportingProp) )
+          if (scoreProps.contains(supportingProp))
           {
-            if ( queuedBases.contains(supportingProp) || !appendPreceedingPropositions(pn, supportingProp, scoreProps, orderedList, queuedBases))
+            if ( !orderedList.contains(supportingProp) )
+            {
+              if ( queuedBases.contains(supportingProp) || !appendPreceedingPropositions(pn, supportingProp, scoreProps, orderedList, queuedBases))
+              {
+                return false;
+              }
+            }
+          }
+          else
+          {
+            //  Anything else that can reset the score precludes use of this emulator (apart from init)
+            if ( supportingProp.getName().getName() != INIT )
             {
               return false;
             }
@@ -210,4 +226,65 @@ public class MajorityCountGoalsCalculator extends MajorityCalculator
     // TODO derived heuristic is dependent on goal stability
     return null;
   }
-}
+
+  /**
+   * Calculate the set of base propositions which a specified component is dependent on without passing through
+   * any transitions and omitting paths that require conjunction with the specified scoreProps.  Not that does<->legal IS traversed
+   * @param pn - propnet
+   * @param c - component whose immediate base dependencies are to be calculated
+   * @param baseProps - set of base props found
+   * @param processedComponents - set of components already visited during the recursion
+   * @param scoreProps - set of specified score props that conjuncts with should be ignored
+   */
+  private static void recursiveFindFeedingBaseProps(PolymorphicPropNet pn,
+                                                   PolymorphicComponent c,
+                                                   Set<PolymorphicProposition> baseProps,
+                                                   Set<PolymorphicComponent> processedComponents,
+                                                   Set<PolymorphicProposition> scoreProps)
+  {
+    if ( processedComponents.contains(c))
+    {
+      return;
+    }
+
+    processedComponents.add(c);
+
+    if ( c instanceof PolymorphicProposition )
+    {
+      if ( pn.getBasePropositions().values().contains(c))
+      {
+        baseProps.add((PolymorphicProposition)c);
+      }
+      else
+      {
+        //  Allow does->legal crossing
+        PolymorphicProposition legal = pn.getLegalInputMap().get(c);
+        if ( legal != null )
+        {
+          c = legal;
+        }
+      }
+    }
+    else if ( c instanceof PolymorphicAnd )
+    {
+      //  Determine if this is a conjunct with the score set - if it is then that
+      //  member of the score set is the only input we care about
+      for(PolymorphicComponent input : c.getInputs())
+      {
+        if ( scoreProps.contains(input) )
+        {
+          baseProps.add((PolymorphicProposition)input);
+          return;
+        }
+      }
+    }
+    else if ( c instanceof PolymorphicTransition )
+    {
+      return;
+    }
+
+    for(PolymorphicComponent input : c.getInputs())
+    {
+      recursiveFindFeedingBaseProps(pn, input, baseProps, processedComponents, scoreProps);
+    }
+  }}
