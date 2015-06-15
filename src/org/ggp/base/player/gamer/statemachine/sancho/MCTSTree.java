@@ -77,26 +77,10 @@ public class MCTSTree
   private long maxExpandTime = 0;
   public int maxChildrenSeen = 0;
 
-  /**
-   * For reasons not well understood, allowing select() to select complete children and propagate
-   * upward their values (while playing out something that adds information at the level below) seems
-   * harmful in most games, but strongly beneficial in some simultaneous move games.  Consequently
-   * this flag allows it to be disabled for all but simultaneous move games
-   *
-   * UPDATE - a recent modification to prevent the mechanism distorting the perceived variance
-   * of ancestor nodes when this mechanism is triggered appears to have resolved the observed degradation
-   * previously seen in C4, Pentago, and a few other games.  Results with it enabled are now no worse
-   * in any game so far tested, and significantly better in some, so default enabling at this time.
-   * Eventually this flag will probably be removed once we're more confident that always enabling is ok
-   */
-  final boolean                                        allowAllGamesToSelectThroughComplete        = true;
   final boolean                                        removeNonDecisionNodes;
   final boolean                                        useEstimatedValueForUnplayedNodes;
   ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
   volatile TreeNode                                    root = null;
-  //volatile TreeNode                                    oldRoot = null;
-  //volatile TreeNode                                    firstChoiceNode = null;
-  //int                                                  numUnexpandedRootChoices = 0;
   final int                                            numRoles;
   final int                                            mWeightDecayKneeDepth;
   final double                                         mWeightDecayScaleFactor;
@@ -108,7 +92,7 @@ public class MCTSTree
   final CappedPool<MoveScoreInfo>                      mCachedMoveScorePool;
   private final Map<ForwardDeadReckonInternalMachineState, Long> mPositions;
   int                                                  sweepInstance                               = 0;
-  List<TreeNode>                                       completedNodeQueue                          = new LinkedList<>();
+  List<Long>                                           completedNodeRefQueue                       = new LinkedList<>();
   Map<Move, MoveScoreInfo>                             cousinMoveCache                             = new HashMap<>();
   long                                                 cousinMovesCachedFor                        = TreeNode.NULL_REF;
   final double[]                                       roleRationality;
@@ -511,18 +495,15 @@ public class MCTSTree
 
   void processNodeCompletions()
   {
-    while (!completedNodeQueue.isEmpty())
+    while (!completedNodeRefQueue.isEmpty())
     {
       //validateAll();
-      TreeNode node = completedNodeQueue.remove(0);
-
-      //  Rarely we can have a situation where a complete node is queued, but gets freed by a parent completion DIRECTLY
-      //  processed from expand, and then reallocated before it gets processed here.  To address this flaw we really ought
-      //  to queue refs rather than actual nodes, but it is extremely rare, so, for now we just (heuristically) trap it
-      //  by checking this is actually a compete unfreed node
-      if (!node.freed && node.complete)
+      TreeNode lNode = TreeNode.get(nodePool, completedNodeRefQueue.remove(0));
+      if (lNode != null)
       {
-        node.processCompletion();
+        assert(!lNode.freed) : "Freed node returned from pool";
+        assert(lNode.complete) : "Queued node was not complete";
+        lNode.processCompletion();
       }
     }
   }

@@ -524,7 +524,7 @@ public class TreeNode
     }
     else
     {
-      tree.completedNodeQueue.add(this);
+      tree.completedNodeRefQueue.add(mRef);
     }
   }
 
@@ -1867,7 +1867,7 @@ public class TreeNode
             }
             if (lNode.complete &&
                 lNode.getAverageScore(decidingRoleIndex) > 100-EPSILON &&
-                !complete && !tree.completedNodeQueue.contains(lNode))
+                !complete && !tree.completedNodeRefQueue.contains(lNode.getRef()))
             {
               LOGGER.error("Completeness constraint violation");
             }
@@ -2538,11 +2538,11 @@ public class TreeNode
 
     assert(newChild.depth%tree.numRoles == (newChild.decidingRoleIndex+1)%tree.numRoles);
 
-    //  If we transition into a complete node we need to have it re-process that
-    //  completion again in the light of the new parentage
+    // If we transition into a complete node we need to have it re-process that completion again in the light of the
+    // new parentage.
     if (newChild.complete)
     {
-      tree.completedNodeQueue.add(newChild);
+      tree.completedNodeRefQueue.add(newChild.getRef());
     }
   }
 
@@ -4547,8 +4547,7 @@ public class TreeNode
                   //  Don't allow selection of a pseudo-noop
                   //  except from the root since we just want to know the difference in cost or omitting one
                   //  move (at root level) if we play in another factor
-                  if ((!c.complete || (tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2)) &&
-                           (tree.root == this || !edge.mPartialMove.isPseudoNoOp))
+                  if (tree.root == this || !edge.mPartialMove.isPseudoNoOp)
                   {
                     //  Don't preferentially explore paths once they are known to have complete results
                     uctValue = getSelectionValue(i, c, roleIndex);
@@ -4762,8 +4761,7 @@ public class TreeNode
     //  which happens to do well from the distorted stats you get without it.  This
     //  is due to the particular circumstance in MaxKnights that scores can only
     //  go up!
-    if ((tree.allowAllGamesToSelectThroughComplete || tree.gameCharacteristics.isSimultaneousMove || tree.gameCharacteristics.numRoles > 2) &&
-        bestCompleteNode != null && bestCompleteValue > bestValue && tree.gameCharacteristics.numRoles != 1)
+    if (bestCompleteNode != null && bestCompleteValue > bestValue && tree.gameCharacteristics.numRoles != 1)
     {
       assert(children[bestSelectedIndex] instanceof TreeEdge);
       TreeEdge bestSelectedEdge = (TreeEdge)children[bestSelectedIndex];
