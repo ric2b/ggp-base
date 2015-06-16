@@ -1,8 +1,6 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
@@ -92,7 +90,7 @@ public class MCTSTree
   final CappedPool<MoveScoreInfo>                      mCachedMoveScorePool;
   private final Map<ForwardDeadReckonInternalMachineState, Long> mPositions;
   int                                                  sweepInstance                               = 0;
-  List<Long>                                           completedNodeRefQueue                       = new LinkedList<>();
+  NodeRefQueue                                         completedNodeRefQueue                       = new NodeRefQueue(256);
   Map<Move, MoveScoreInfo>                             cousinMoveCache                             = new HashMap<>();
   long                                                 cousinMovesCachedFor                        = TreeNode.NULL_REF;
   final double[]                                       roleRationality;
@@ -498,7 +496,7 @@ public class MCTSTree
     while (!completedNodeRefQueue.isEmpty())
     {
       //validateAll();
-      TreeNode lNode = TreeNode.get(nodePool, completedNodeRefQueue.remove(0));
+      TreeNode lNode = TreeNode.get(nodePool, completedNodeRefQueue.remove());
       if (lNode != null)
       {
         assert(!lNode.freed) : "Freed node returned from pool";
