@@ -4651,11 +4651,19 @@ public class TreeNode
           {
             selectedIndex = primaryChoiceMapping[selectedIndex];
           }
-          assert(children[selectedIndex] instanceof TreeEdge);
-          chosenEdge = (TreeEdge)children[selectedIndex];
-        } while(tree.root != this && chosenEdge.mPartialMove.isPseudoNoOp);
+          if(children[selectedIndex] instanceof TreeEdge)
+          {
+            chosenEdge = (TreeEdge)children[selectedIndex];
+            assert(get(chosenEdge.getChildRef()) != null);
+          }
+          else
+          {
+            //  This can happen in the case where the randomly selected node happened to be the pseudo-noop
+            //  which is itself unexpanded (as it will be if the other choice is a regular noop)
+            chosenEdge = null;
+          }
+        } while(chosenEdge == null || (tree.root != this && chosenEdge.mPartialMove.isPseudoNoOp));
 
-        assert(get(chosenEdge.getChildRef()) != null);
         assert(chosenEdge.mPartialMove.isPseudoNoOp || get(chosenEdge.getChildRef()).complete);
       }
     }
