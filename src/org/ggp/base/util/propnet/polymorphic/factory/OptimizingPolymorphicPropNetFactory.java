@@ -3803,10 +3803,13 @@ public class OptimizingPolymorphicPropNetFactory
     while (numEndComponents != numStartComponents);
   }
 
+  private static boolean loopsFound;
+
   public static void removeDuplicateLogic(PolymorphicPropNet pn)
   {
     Map<Long, List<PolymorphicComponent>> componentSignatureMap = new HashMap<>();
 
+    loopsFound = false;
     for (PolymorphicComponent c : pn.getComponents())
     {
       calculateSignature(c, componentSignatureMap);
@@ -3859,6 +3862,10 @@ public class OptimizingPolymorphicPropNetFactory
     private final long mixMult = ((long)0x2127599b) << 32 + 0xf4325c37;
     private long       h       = m;
 
+    public FastHasher()
+    {
+    }
+
     private long mix(long x)
     {
       x ^= (x >> 23);
@@ -3908,8 +3915,19 @@ public class OptimizingPolymorphicPropNetFactory
       {
         if (!(input instanceof PolymorphicTransition))
         {
+          long inputSig = calculateSignature(input, componentSignatureMap);
+
+          if ( inputSig == 2 )
+          {
+            if ( !loopsFound )
+            {
+              loopsFound = true;
+              LOGGER.warn("Propnet loops detected - unable to check for duplicate logic amongst components fed from such loops");
+            }
+            return 2;
+          }
           numNonTransitionalInputs++;
-          inputsSig += calculateSignature(input, componentSignatureMap);
+          inputsSig += inputSig;
         }
       }
 
@@ -4006,10 +4024,6 @@ public class OptimizingPolymorphicPropNetFactory
 
         sigMatchList.add(c);
       }
-    }
-    else if (c.getSignature() == 2)
-    {
-      LOGGER.warn("LOOP!!!");
     }
 
     return c.getSignature();

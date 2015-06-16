@@ -59,9 +59,9 @@ public class FactorAnalyser
       moves.addAll(other.moves);
     }
 
-    public void buildImmediateBaseDependencies(PolymorphicComponent c)
+    public void buildImmediateBaseDependencies(PolymorphicComponent c, Set<PolymorphicComponent> pathSet)
     {
-      FactorAnalyser.this.buildImmediateBaseDependencies(c, this);
+      FactorAnalyser.this.buildImmediateBaseDependencies(c, this, pathSet);
     }
   }
 
@@ -75,9 +75,9 @@ public class FactorAnalyser
     }
 
     @Override
-    public void buildImmediateBaseDependencies(PolymorphicComponent c)
+    public void buildImmediateBaseDependencies(PolymorphicComponent c, Set<PolymorphicComponent> pathSet)
     {
-      FactorAnalyser.this.buildImmediateBaseDependencies(c, this);
+      FactorAnalyser.this.buildImmediateBaseDependencies(c, this, pathSet);
 
       //  The 0th level dependencies are the immediate dependencies
       dependenciesByLevel.add(new HashSet<>(dependencies));
@@ -119,7 +119,7 @@ public class FactorAnalyser
     componentDirectBaseDependencies = new DependencyCache(5000);
   }
 
-  private DirectDependencyInfo getComponentDirectDependencies(PolymorphicComponent c)
+  private DirectDependencyInfo getComponentDirectDependencies(PolymorphicComponent c, Set<PolymorphicComponent> pathSet)
   {
     if ( basePropositions.contains(c) )
     {
@@ -130,7 +130,7 @@ public class FactorAnalyser
         //  Do the put into the map BEFORE trying to recurse as otherwise loops
         //  will be infinite!
         basePropositionDependencies.put(c, newInfo);
-        newInfo.buildImmediateBaseDependencies(c);
+        newInfo.buildImmediateBaseDependencies(c, pathSet);
 
         return newInfo;
       }
@@ -148,7 +148,7 @@ public class FactorAnalyser
       {
         componentDirectBaseDependencies.put(c, newInfo);
       }
-      newInfo.buildImmediateBaseDependencies(c);
+      newInfo.buildImmediateBaseDependencies(c, pathSet);
 
       return newInfo;
     }
@@ -167,10 +167,15 @@ public class FactorAnalyser
     Set<Factor> factors = new HashSet<>();
     long lAbortTime = System.currentTimeMillis() + xiTimeout;
 
+    //  A path for the current recursion trhough the network is always maintained to
+    //  allow loop detection
+    Set<PolymorphicComponent> pathSet = new HashSet<>();
+
     //  Construct the full closure of base dependencies
     for(PolymorphicProposition baseProp : basePropositions)
     {
-      DependencyInfo dInfo = (DependencyInfo)getComponentDirectDependencies(baseProp);
+      pathSet.clear();
+      DependencyInfo dInfo = (DependencyInfo)getComponentDirectDependencies(baseProp, pathSet);
       int depth = 1;
 
       Set<PolymorphicProposition> dependenciesAtDepth;
@@ -184,8 +189,10 @@ public class FactorAnalyser
 
         for(PolymorphicProposition fringeDependency : dInfo.dependenciesByLevel.get(depth-1))
         {
-          dependenciesAtDepth.addAll(getComponentDirectDependencies(fringeDependency).dependencies);
-          movesAtDepth.addAll(getComponentDirectDependencies(fringeDependency).moves);
+          pathSet.clear();
+          DirectDependencyInfo ddInfo = getComponentDirectDependencies(fringeDependency, pathSet);
+          dependenciesAtDepth.addAll(ddInfo.dependencies);
+          movesAtDepth.addAll(ddInfo.moves);
 
           if ( dependenciesAtDepth.size() >= numBaseProps )
           {
@@ -222,7 +229,8 @@ public class FactorAnalyser
     //  Now look for pure disjunctive inputs to goal and terminal
     Map<PolymorphicComponent, DependencyInfo> disjunctiveInputs = new HashMap<>();
 
-    addDisjunctiveInputProps(stateMachine.getFullPropNet().getTerminalProposition(), disjunctiveInputs);
+    pathSet.clear();
+    addDisjunctiveInputProps(stateMachine.getFullPropNet().getTerminalProposition(), disjunctiveInputs, pathSet);
     //  TODO - same for goals
 
     //  Trim out from each disjunctive input set those propositions in the control set, which are only
@@ -231,7 +239,8 @@ public class FactorAnalyser
 
     for(PolymorphicProposition baseProp : basePropositions)
     {
-      DependencyInfo dInfo = (DependencyInfo)getComponentDirectDependencies(baseProp);
+      pathSet.clear();
+      DependencyInfo dInfo = (DependencyInfo)getComponentDirectDependencies(baseProp, pathSet);
 
       if ( dInfo.moves.isEmpty() )
       {
@@ -380,31 +389,31 @@ public class FactorAnalyser
     return null;
   }
 
-  private void addDisjunctiveInputProps(PolymorphicComponent c, Map<PolymorphicComponent, DependencyInfo> disjunctiveInputs)
+  private void addDisjunctiveInputProps(PolymorphicComponent c, Map<PolymorphicComponent, DependencyInfo> disjunctiveInputs, Set<PolymorphicComponent> pathSet)
   {
-    recursiveAddDisjunctiveInputProps(c.getSingleInput(), disjunctiveInputs);
+    recursiveAddDisjunctiveInputProps(c.getSingleInput(), disjunctiveInputs, pathSet);
   }
 
-  private void recursiveAddDisjunctiveInputProps(PolymorphicComponent c, Map<PolymorphicComponent, DependencyInfo> disjunctiveInputs)
+  private void recursiveAddDisjunctiveInputProps(PolymorphicComponent c, Map<PolymorphicComponent, DependencyInfo> disjunctiveInputs, Set<PolymorphicComponent> pathSet)
   {
     if ( c instanceof PolymorphicOr )
     {
       for(PolymorphicComponent input : c.getInputs())
       {
-        recursiveAddDisjunctiveInputProps(input, disjunctiveInputs);
+        recursiveAddDisjunctiveInputProps(input, disjunctiveInputs, pathSet);
       }
     }
     else
     {
       //  For each disjunctive input find the base props it is dependent on
-      DirectDependencyInfo immediateDependencies = getComponentDirectDependencies(c);
+      DirectDependencyInfo immediateDependencies = getComponentDirectDependencies(c, pathSet);
 
       DependencyInfo fullDependencies = new DependencyInfo();
 
       //  Construct the full dependencies from the already calculated base dependencies map
       for(PolymorphicProposition p : immediateDependencies.dependencies)
       {
-        DirectDependencyInfo immediateDependentDependencies = getComponentDirectDependencies(p);
+        DirectDependencyInfo immediateDependentDependencies = getComponentDirectDependencies(p, pathSet);
 
         fullDependencies.add(immediateDependentDependencies);
         if ( fullDependencies.dependencies.size() >= numBaseProps )
@@ -416,135 +425,149 @@ public class FactorAnalyser
     }
   }
 
-  DirectDependencyInfo buildImmediateBaseDependencies(PolymorphicComponent xiC, DirectDependencyInfo result)
+  DirectDependencyInfo buildImmediateBaseDependencies(PolymorphicComponent xiC, DirectDependencyInfo result, Set<PolymorphicComponent> pathSet)
   {
-    recursiveBuildImmediateBaseDependencies(xiC, xiC, result);
+    recursiveBuildImmediateBaseDependencies(xiC, xiC, result, pathSet);
 
     return result;
   }
 
   //  Return true if at least one dependency involved transitioning across a does->legal relationship
-  private void recursiveBuildImmediateBaseDependencies(PolymorphicComponent root, PolymorphicComponent c, DirectDependencyInfo dInfo)
+  private void recursiveBuildImmediateBaseDependencies(PolymorphicComponent root, PolymorphicComponent c, DirectDependencyInfo dInfo, Set<PolymorphicComponent> pathSet)
   {
-    if ( c instanceof PolymorphicProposition )
+    if ( pathSet.contains(c) )
     {
-      if ( dInfo.dependencies.contains(c))
-      {
-        return;
-      }
+      return;
+    }
+    pathSet.add(c);
 
-      PolymorphicProposition p = (PolymorphicProposition)c;
-      GdlConstant name = p.getName().getName();
-
-      if ( basePropositions.contains(p))
+    try
+    {
+      if ( c instanceof PolymorphicProposition )
       {
-        dInfo.dependencies.add(p);
-        if ( root != p )
+        if ( dInfo.dependencies.contains(c))
         {
+          return;
+        }
+
+        PolymorphicProposition p = (PolymorphicProposition)c;
+        GdlConstant name = p.getName().getName();
+
+        if ( basePropositions.contains(p))
+        {
+          dInfo.dependencies.add(p);
+          if ( root != p )
+          {
+            pathSet.remove(c);
+            return;
+          }
+        }
+
+        if (name.equals(GdlPool.INIT) )
+        {
+          return;
+        }
+
+        if ( name.equals(GdlPool.DOES))
+        {
+          if ( root != null )
+          {
+            PolymorphicProposition legalProp = stateMachine.getFullPropNet().getLegalInputMap().get(c);
+
+            if ( legalProp != null )
+            {
+              DirectDependencyInfo legalPropInfo = getComponentDirectDependencies(legalProp, pathSet);
+
+              ForwardDeadReckonLegalMoveInfo[] masterMoveList = stateMachine.getFullPropNet().getMasterMoveList();
+              ForwardDeadReckonLegalMoveInfo moveInfo = masterMoveList[((ForwardDeadReckonProposition)legalProp).getInfo().index];
+
+              dInfo.add(legalPropInfo);
+
+              dInfo.moves.add(moveInfo);
+            }
+          }
+
           return;
         }
       }
 
-      if (name.equals(GdlPool.INIT) )
+      //  The following is a somewhat heuristic approach to getting around 'fake' dependencies
+      //  introduced by distinct clauses in the GDL.  Specifically games often have rules of this
+      //  type (taken from KnighThrough):
+      //    (<= (next (cell ?x ?y ?state))
+      //        (true (cell ?x ?y ?state))
+      //        (does ?player (move ?x1 ?y1 ?x2 ?y2))
+      //        (distinctcell ?x ?y ?x1 ?y1)
+      //        (distinctcell ?x ?y ?x2 ?y2))
+      //  This is saying that a cell retains its state unless someone moves into or out of it
+      //  The problem is that it encodes this logic by testing that what is played is one of the
+      //  set of moves that is not a move into or out of the cell in question - i.e. - a vast OR
+      //  consisting of most moves in the game, and in particular, including all the moves on the
+      //  'other board' relative to the tested cell.  Naively this coupling of a move on the other
+      //  board to the next state of a cell on this board looks like a dependency that prevents
+      //  factorization, but we must prevent this being seen as a 'real' coupling.  This is a result
+      //  of the (not encoded into the propnet) requirement (for a well formed game) that exactly
+      //  one move must be played each turn, so this huge OR is equivalent to the NOT of a much smaller
+      //  OR for the complimentary set of moves.  We convert ORs involving more than half of the moves in
+      //  the game with that transformation and calculate the dependencies with respect to the result.
+      if ( c instanceof PolymorphicOr )
       {
-        return;
-      }
-
-      if ( name.equals(GdlPool.DOES))
-      {
-        if ( root != null )
+        Collection<PolymorphicProposition> inputProps = stateMachine.getFullPropNet().getInputPropositions().values();
+        if ( c.getInputs().size() > inputProps.size()/2 )
         {
-          PolymorphicProposition legalProp = stateMachine.getFullPropNet().getLegalInputMap().get(c);
+          Set<PolymorphicComponent> inputPropsOred = new HashSet<>();
 
-          if ( legalProp != null )
-          {
-            DirectDependencyInfo legalPropInfo = getComponentDirectDependencies(legalProp);
-
-            ForwardDeadReckonLegalMoveInfo[] masterMoveList = stateMachine.getFullPropNet().getMasterMoveList();
-            ForwardDeadReckonLegalMoveInfo moveInfo = masterMoveList[((ForwardDeadReckonProposition)legalProp).getInfo().index];
-
-            dInfo.add(legalPropInfo);
-
-            dInfo.moves.add(moveInfo);
-          }
-        }
-
-        return;
-      }
-    }
-
-    //  The following is a somewhat heuristic approach to getting around 'fake' dependencies
-    //  introduced by distinct clauses in the GDL.  Specifically games often have rules of this
-    //  type (taken from KnighThrough):
-    //    (<= (next (cell ?x ?y ?state))
-    //        (true (cell ?x ?y ?state))
-    //        (does ?player (move ?x1 ?y1 ?x2 ?y2))
-    //        (distinctcell ?x ?y ?x1 ?y1)
-    //        (distinctcell ?x ?y ?x2 ?y2))
-    //  This is saying that a cell retains its state unless someone moves into or out of it
-    //  The problem is that it encodes this logic by testing that what is played is one of the
-    //  set of moves that is not a move into or out of the cell in question - i.e. - a vast OR
-    //  consisting of most moves in the game, and in particular, including all the moves on the
-    //  'other board' relative to the tested cell.  Naively this coupling of a move on the other
-    //  board to the next state of a cell on this board looks like a dependency that prevents
-    //  factorization, but we must prevent this being seen as a 'real' coupling.  This is a result
-    //  of the (not encoded into the propnet) requirement (for a well formed game) that exactly
-    //  one move must be played each turn, so this huge OR is equivalent to the NOT of a much smaller
-    //  OR for the complimentary set of moves.  We convert ORs involving more than half of the moves in
-    //  the game with that transformation and calculate the dependencies with respect to the result.
-    if ( c instanceof PolymorphicOr )
-    {
-      Collection<PolymorphicProposition> inputProps = stateMachine.getFullPropNet().getInputPropositions().values();
-      if ( c.getInputs().size() > inputProps.size()/2 )
-      {
-        Set<PolymorphicComponent> inputPropsOred = new HashSet<>();
-
-        for(PolymorphicComponent input : c.getInputs())
-        {
-          if ( inputProps.contains(input))
-          {
-            inputPropsOred.add(input);
-          }
-        }
-
-        if ( inputPropsOred.size() > inputProps.size()/2 )
-        {
           for(PolymorphicComponent input : c.getInputs())
           {
-            if ( !inputPropsOred.contains(input))
+            if ( inputProps.contains(input))
             {
-              DirectDependencyInfo inputPropInfo = getComponentDirectDependencies(input);
-
-              dInfo.add(inputPropInfo);
+              inputPropsOred.add(input);
             }
           }
-          for(PolymorphicComponent input : inputProps)
+
+          if ( inputPropsOred.size() > inputProps.size()/2 )
           {
-            if ( !inputPropsOred.contains(input))
+            for(PolymorphicComponent input : c.getInputs())
             {
-              DirectDependencyInfo inputPropInfo = getComponentDirectDependencies(input);
+              if ( !inputPropsOred.contains(input))
+              {
+                DirectDependencyInfo inputPropInfo = getComponentDirectDependencies(input, pathSet);
 
-              dInfo.add(inputPropInfo);
+                dInfo.add(inputPropInfo);
+              }
             }
-          }
+            for(PolymorphicComponent input : inputProps)
+            {
+              if ( !inputPropsOred.contains(input))
+              {
+                DirectDependencyInfo inputPropInfo = getComponentDirectDependencies(input, pathSet);
 
-          return;
+                dInfo.add(inputPropInfo);
+              }
+            }
+
+            return;
+          }
+        }
+      }
+
+      for(PolymorphicComponent input : c.getInputs())
+      {
+        if ( basePropositions.contains(input))
+        {
+          dInfo.dependencies.add((PolymorphicProposition)input);
+        }
+        else
+        {
+          DirectDependencyInfo inputPropInfo = getComponentDirectDependencies(input, pathSet);
+
+          dInfo.add(inputPropInfo);
         }
       }
     }
-
-    for(PolymorphicComponent input : c.getInputs())
+    finally
     {
-      if ( basePropositions.contains(input))
-      {
-        dInfo.dependencies.add((PolymorphicProposition)input);
-      }
-      else
-      {
-        DirectDependencyInfo inputPropInfo = getComponentDirectDependencies(input);
-
-        dInfo.add(inputPropInfo);
-      }
+      pathSet.remove(c);
     }
   }
 
