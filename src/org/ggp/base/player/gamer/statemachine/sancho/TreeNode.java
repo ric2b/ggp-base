@@ -173,8 +173,6 @@ public class TreeNode
   private int                           sweepSeq;
   //private TreeNode sweepParent = null;
   boolean                               freed                = false;
-  private double                        leastLikelyRunnerUpValue;
-  private short                         leastLikelyWinner    = -1;
   private short                         lastSelectionMade     = -1;
 
   //  Note - the 'depth' of a node is an indicative measure of its distance from the
@@ -1719,7 +1717,6 @@ public class TreeNode
     numUpdates = 0;
     isTerminal = false;
     localSearchStatus = LocalSearchStatus.LOCAL_SEARCH_UNSEARCHED;
-    leastLikelyWinner = -1;
     lastSelectionMade = -1;
     complete = false;
     allChildrenComplete = false;
@@ -2174,7 +2171,6 @@ public class TreeNode
 
     freeChildren();
 
-    leastLikelyWinner = -1;
     lastSelectionMade = -1;
   }
 
@@ -2211,24 +2207,40 @@ public class TreeNode
       }
       else
       {
-        if (leastLikelyWinner != -1)
+        for (int i = 0; i < mNumChildren; i++)
         {
-          Object choice = children[leastLikelyWinner];
+          Object choice = children[i];
 
-          if ( choice instanceof TreeEdge )
+          if (choice instanceof TreeEdge)
           {
             TreeEdge edge = (TreeEdge)choice;
+
+            //  We just traverse the regular tree looking for nodes to free, so
+            //  stop when we reach the start of the hyper edges
+            if(edge.isHyperEdge())
+            {
+              break;
+            }
+
             long cr = edge.getChildRef();
             if (cr != NULL_REF)
             {
               TreeNode c = get(cr);
+              //  Note - if the node has been trimmed we must not delete the edge
+              //  because an unexpended edge asserts non-terminality of its child which
+              //  we do not know.  Only selecting back through this edge can establish
+              //  correct semantics
               if (c != null)
               {
+                if (c.freed)
+                {
+                  LOGGER.warn("Encountered freed child node in tree walk");
+                }
                 //  Don't descend into unexpanded nodes
                 if (!c.isUnexpanded())
                 {
                   double uctValue;
-                  if (edge.getNumChildVisits() == 0 )
+                  if (edge.getNumChildVisits() == 0)
                   {
                     uctValue = -1000;
                   }
@@ -2245,80 +2257,10 @@ public class TreeNode
                   //  in the tree which are more likely to require re-expansion
                   uctValue += tree.r.nextDouble()/20;
 
-                  if (uctValue >= leastLikelyRunnerUpValue)
+                  if (uctValue > bestValue)
                   {
-                    selectedIndex = leastLikelyWinner;
-                  }
-                }
-              }
-            }
-          }
-        }
-
-
-        if (selectedIndex == -1)
-        {
-          leastLikelyRunnerUpValue = -Double.MAX_VALUE;
-
-          for (int i = 0; i < mNumChildren; i++)
-          {
-            Object choice = children[i];
-
-            if (choice instanceof TreeEdge)
-            {
-              TreeEdge edge = (TreeEdge)choice;
-
-              //  We just traverse the regular tree looking for nodes to free, so
-              //  stop when we reach the start of the hyper edges
-              if(edge.isHyperEdge())
-              {
-                break;
-              }
-
-              long cr = edge.getChildRef();
-              if (cr != NULL_REF)
-              {
-                TreeNode c = get(cr);
-                //  Note - if the node has been trimmed we must not delete the edge
-                //  because an unexpended edge asserts non-terminality of its child which
-                //  we do not know.  Only selecting back through this edge can establish
-                //  correct semantics
-                if (c != null)
-                {
-                  if (c.freed)
-                  {
-                    LOGGER.warn("Encountered freed child node in tree walk");
-                  }
-                  //  Don't descend into unexpanded nodes
-                  if (!c.isUnexpanded())
-                  {
-                    double uctValue;
-                    if (edge.getNumChildVisits() == 0)
-                    {
-                      uctValue = -1000;
-                    }
-                    else
-                    {
-                      uctValue = -explorationUCT(numVisits,
-                                                 edge,
-                                                 roleIndex) -
-                                                 exploitationUCT(edge, roleIndex);
-                    }
-                    //  Add a small amount of noise to cause the subtrees we prune from
-                    //  to spread around amongst reasonable candidates rather than pruning
-                    //  entire subtrees which will quickly back up to low depths
-                    //  in the tree which are more likely to require re-expansion
-                    uctValue += tree.r.nextDouble()/20;
-
-                    if (uctValue > bestValue)
-                    {
-                      selectedIndex = i;
-                      if (bestValue != -Double.MAX_VALUE)
-                      {
-                        leastLikelyRunnerUpValue = bestValue;
-                      }
-                      bestValue = uctValue;
-                    }
+                    selectedIndex = i;
+                    bestValue = uctValue;
                   }
                 }
               }
@@ -2331,7 +2273,6 @@ public class TreeNode
     //validateAll();
     if (selectedIndex != -1)
     {
-      leastLikelyWinner = (short)selectedIndex;
       assert(children[selectedIndex] instanceof TreeEdge);
       TreeEdge selectedEdge = (TreeEdge)children[selectedIndex];
 
@@ -5833,7 +5774,6 @@ public class TreeNode
                                        (lNode.numUpdates + applicationWeight));
         }
 
-        lNode.leastLikelyWinner = -1;
         lNode.lastSelectionMade = -1;
 
         //validateScoreVector(averageScores);
