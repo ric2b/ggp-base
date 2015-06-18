@@ -590,7 +590,7 @@ public class MCTSTree
 
           assert(existingRootStateNode.linkageValid());
           root = existingRootStateNode;
-          assert(root.parents.size()>0);
+          assert(root.mParents.size()>0);
         }
         else
         {
@@ -612,16 +612,16 @@ public class MCTSTree
           {
             TreeEdge selected;
 
-            if (root.children[0] instanceof ForwardDeadReckonLegalMoveInfo)
+            if (root.mChildren[0] instanceof ForwardDeadReckonLegalMoveInfo)
             {
               //  Create an edge for the singular choice
               selected = edgePool.allocate(mTreeEdgeAllocator);
-              selected.setParent(root, (ForwardDeadReckonLegalMoveInfo)root.children[0]);
-              root.children[0] = selected;
+              selected.setParent(root, (ForwardDeadReckonLegalMoveInfo)root.mChildren[0]);
+              root.mChildren[0] = selected;
             }
             else
             {
-              selected = (TreeEdge)root.children[0];
+              selected = (TreeEdge)root.mChildren[0];
             }
 
             mJointMoveBuffer[0] = selected.mPartialMove;
@@ -696,13 +696,13 @@ public class MCTSTree
         }
 
         oldRoot.freeAllBut(root);
-        assert(existingRootStateNode == null || existingRootStateNode == root || existingRootStateNode.parents.size()==1);
-        assert(root.parents.size() == 0);
+        assert(existingRootStateNode == null || existingRootStateNode == root || existingRootStateNode.mParents.size()==1);
+        assert(root.mParents.size() == 0);
       }
     }
 
     assert(!root.freed) : "Root node has been freed";
-    assert(root.parents.size() == 0);
+    assert(root.mParents.size() == 0);
     //validateAll();
 
     //  Special case - because we can mark nodes complete before they are terminal if greedy rollouts are
@@ -715,10 +715,10 @@ public class MCTSTree
 
       for(int i = 0; i < root.mNumChildren; i++ )
       {
-        if ( root.children[i] instanceof TreeEdge &&
-             ((TreeEdge)root.children[i]).getChildRef() != TreeNode.NULL_REF )
+        if ( root.mChildren[i] instanceof TreeEdge &&
+             ((TreeEdge)root.mChildren[i]).getChildRef() != TreeNode.NULL_REF )
         {
-          TreeNode child = root.get(((TreeEdge)root.children[i]).getChildRef());
+          TreeNode child = root.get(((TreeEdge)root.mChildren[i]).getChildRef());
           if ( child != null && child.complete && child.getAverageScore(0) == root.getAverageScore(0))
           {
             foundChildPath = true;
@@ -951,7 +951,7 @@ public class MCTSTree
     if (!cur.complete)
     {
       assert(selected == null || cur == selected.getChildNode());
-      assert(selected == null || cur.parents.contains(selected.getParentNode()));
+      assert(selected == null || cur.mParents.contains(selected.getParentNode()));
 
       //  Expand for each role so we're back to our-move as we always rollout after joint moves
       cur = cur.expand(visited, mJointMoveBuffer, parentDepth);

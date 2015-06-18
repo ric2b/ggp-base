@@ -164,7 +164,7 @@ public class StateSimilarityMap
       boolean childFound = false;
       for (int lii = 0; lii < moveRoot.mNumChildren; lii++)
       {
-        Object child = moveRoot.children[lii];
+        Object child = moveRoot.mChildren[lii];
         ForwardDeadReckonLegalMoveInfo targetPartialMove = partialJointMove[index];
         TreeEdge childEdge = (child instanceof TreeEdge ? (TreeEdge)child : null);
         if ( child == targetPartialMove || (childEdge != null && childEdge.mPartialMove == targetPartialMove))
@@ -244,7 +244,7 @@ public class StateSimilarityMap
             {
               for (int lii = 0; lii < node.mNumChildren; lii++)
               {
-                Object child = node.children[lii];
+                Object child = node.mChildren[lii];
                 TreeEdge childEdge = (child instanceof TreeEdge ? (TreeEdge)child : null);
                 if ( childEdge != null &&
                      childEdge.getChildRef() != TreeNode.NULL_REF &&

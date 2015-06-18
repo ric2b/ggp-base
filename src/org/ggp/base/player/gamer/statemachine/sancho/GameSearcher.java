@@ -1297,10 +1297,10 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       }
       else
       {
-        if ( node == tree.root && node.mNumChildren == 1 && node.children[0] instanceof TreeEdge )
+        if ( node == tree.root && node.mNumChildren == 1 && node.mChildren[0] instanceof TreeEdge )
         {
           //  Pseudo-root node - real first choice node is one down
-          node = node.get(((TreeEdge)node.children[0]).getChildRef());
+          node = node.get(((TreeEdge)node.mChildren[0]).getChildRef());
 
           LOGGER.info("Node is pseudo-root, moving down to decision root");
         }
@@ -1361,16 +1361,16 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                 //  Win if the winning move is played
                 for (short index = 0; index < node.mNumChildren; index++)
                 {
-                  Object choice = node.children[index];
+                  Object choice = node.mChildren[index];
 
                   ForwardDeadReckonLegalMoveInfo moveInfo = ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice);
 
                   if ( moveInfo == searchResultsBuffer.winningMove )
                   {
                     moveFound = true;
-                    if ( node.primaryChoiceMapping != null )
+                    if ( node.mPrimaryChoiceMapping != null )
                     {
-                      choice = node.children[node.primaryChoiceMapping[index]];
+                      choice = node.mChildren[node.mPrimaryChoiceMapping[index]];
                     }
                     TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
                     if (edge != null && edge.getChildRef() != TreeNode.NULL_REF)
@@ -1445,7 +1445,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                     {
                       for (short index = 0; index < choiceFromNode.mNumChildren; index++)
                       {
-                        Object choice = choiceFromNode.children[index];
+                        Object choice = choiceFromNode.mChildren[index];
 
                         if ( choice instanceof TreeEdge )
                         {
@@ -1511,9 +1511,9 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
             //  Win here if the optional player does not play locally
             for (short index = 0; index < node.mNumChildren; index++)
             {
-              if ( node.primaryChoiceMapping == null || node.primaryChoiceMapping[index] == index )
+              if ( node.mPrimaryChoiceMapping == null || node.mPrimaryChoiceMapping[index] == index )
               {
-                Object choice = node.children[index];
+                Object choice = node.mChildren[index];
 
                 ForwardDeadReckonLegalMoveInfo moveInfo = ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice);
 

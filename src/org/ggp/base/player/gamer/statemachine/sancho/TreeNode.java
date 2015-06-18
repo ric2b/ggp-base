@@ -164,14 +164,13 @@ public class TreeNode
   int                                   decidingRoleIndex;
   boolean                               isTerminal           = false;
   boolean                               complete             = false;
-  private boolean                       allChildrenComplete  = false;
+  private boolean                       mAllChildrenComplete  = false;
   LocalSearchStatus                     localSearchStatus    = LocalSearchStatus.LOCAL_SEARCH_UNSEARCHED;
-  Object[]                              children             = null;
+  Object[]                              mChildren             = null;
   short                                 mNumChildren         = 0;
-  short[]                               primaryChoiceMapping = null;
-  final ArrayList<TreeNode>             parents              = new ArrayList<>(1);
+  short[]                               mPrimaryChoiceMapping = null;
+  final ArrayList<TreeNode>             mParents              = new ArrayList<>(1);
   private int                           sweepSeq;
-  //private TreeNode sweepParent = null;
   boolean                               freed                = false;
   private short                         lastSelectionMade     = -1;
 
@@ -211,8 +210,8 @@ public class TreeNode
     state = tree.underlyingStateMachine.createEmptyInternalState();
 
     int directChildHighWatermark = tree.gameCharacteristics.getChoicesHighWaterMark(0);
-    children = new Object[directChildHighWatermark];
-    if ( tree.mGameSearcher.mUseRAVE )
+    mChildren = new Object[directChildHighWatermark];
+    if (tree.mGameSearcher.mUseRAVE)
     {
       mRAVECounts = new int[directChildHighWatermark];
       mRAVEScores = new double[directChildHighWatermark];
@@ -270,42 +269,42 @@ public class TreeNode
   public void addParent(TreeNode xiParent)
   {
     assert(this != tree.root);
-    parents.add(xiParent);
+    mParents.add(xiParent);
 
     // Trim off any excess array slots from the last time this node was used.
-    if (parents.size() == 1)
+    if (mParents.size() == 1)
     {
-      parents.trimToSize();
+      mParents.trimToSize();
     }
   }
 
   private boolean checkFixedSum(double[] values)
   {
-    if ( !ASSERT_FIXED_SUM )
+    if (!ASSERT_FIXED_SUM)
     {
       return true;
     }
 
     assert(values.length == tree.numRoles);
     double total = 0;
-    for(int i = 0; i < tree.numRoles; i++)
+    for (int lii = 0; lii < tree.numRoles; lii++)
     {
-      total += values[i];
+      total += values[lii];
     }
     return (Math.abs(total-100) < EPSILON);
   }
 
   private boolean checkFixedSum()
   {
-    if ( !ASSERT_FIXED_SUM )
+    if (!ASSERT_FIXED_SUM)
     {
       return true;
     }
 
     double total = 0;
-    for(int i = 0; i < tree.numRoles; i++)
+    for (int lii = 0; lii < tree.numRoles; lii++)
     {
-      total += getAverageScore(i);
+      total += getAverageScore(lii);
     }
     return (Math.abs(total-100) < EPSILON);
   }
@@ -319,17 +318,17 @@ public class TreeNode
       TreeNode primaryPathParent = null;
       int mostSelectedRouteCount = 0;
 
-      for (TreeNode parent : parents)
+      for (TreeNode parent : mParents)
       {
         if (parent.numUpdates > 0)
         {
           for (short index = 0; index < parent.mNumChildren; index++)
           {
-            if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
+            if (parent.mPrimaryChoiceMapping == null || parent.mPrimaryChoiceMapping[index] == index)
             {
-              Object choice = parent.children[index];
+              Object lChoice = parent.mChildren[index];
 
-              TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+              TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
               if (edge != null && edge.getChildRef() != NULL_REF && get(edge.getChildRef()) == this)
               {
                 if (edge.getNumChildVisits() > mostSelectedRouteCount)
@@ -352,46 +351,46 @@ public class TreeNode
 
         double totalWeight = 0;
 
-        for (int i = 0; i < tree.numRoles; i++)
+        for (int lii = 0; lii < tree.numRoles; lii++)
         {
-          tree.mCorrectedAverageScoresBuffer[i] = 0;
+          tree.mCorrectedAverageScoresBuffer[lii] = 0;
         }
 
         for (short index = 0; index < primaryPathParent.mNumChildren; index++)
         {
-          if (primaryPathParent.primaryChoiceMapping == null || primaryPathParent.primaryChoiceMapping[index] == index)
+          if (primaryPathParent.mPrimaryChoiceMapping == null || primaryPathParent.mPrimaryChoiceMapping[index] == index)
           {
-            Object choice = primaryPathParent.children[index];
+            Object lChoice = primaryPathParent.mChildren[index];
 
-            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+            TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
             if (edge != null && edge.getChildRef() != NULL_REF && get(edge.getChildRef()) != null)
             {
               TreeNode lChild = get(edge.getChildRef());
 
-              if ( lChild.numUpdates > 0 || lChild.complete )
+              if (lChild.numUpdates > 0 || lChild.complete)
               {
                 double exploitationUct = primaryPathParent.exploitationUCT(edge, lChild.decidingRoleIndex);
 
                 double weight = (exploitationUct + 1 / Math.log(primaryPathParent.numVisits + 1)) * lChild.numVisits +
                                                                                                                   EPSILON;
                 totalWeight += weight;
-                for (int i = 0; i < tree.numRoles; i++)
+                for (int lii = 0; lii < tree.numRoles; lii++)
                 {
-                  tree.mCorrectedAverageScoresBuffer[i] += weight * lChild.getAverageScore(i);
+                  tree.mCorrectedAverageScoresBuffer[lii] += weight * lChild.getAverageScore(lii);
                 }
               }
             }
           }
         }
 
-        for (int i = 0; i < tree.numRoles; i++)
+        for (int lii = 0; lii < tree.numRoles; lii++)
         {
-          tree.mCorrectedAverageScoresBuffer[i] /= totalWeight;
+          tree.mCorrectedAverageScoresBuffer[lii] /= totalWeight;
         }
 
-        for (int i = 0; i < tree.numRoles; i++)
+        for (int lii = 0; lii < tree.numRoles; lii++)
         {
-          primaryPathParent.setAverageScore(i, tree.mCorrectedAverageScoresBuffer[i]);
+          primaryPathParent.setAverageScore(lii, tree.mCorrectedAverageScoresBuffer[lii]);
         }
 
         assert(primaryPathParent.checkFixedSum());
@@ -412,11 +411,11 @@ public class TreeNode
 
     for (short index = 0; index < mNumChildren; index++)
     {
-      if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+      if (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index)
       {
-        Object choice = children[index];
+        Object lChoice = mChildren[index];
 
-        TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+        TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
         if (edge != null && edge.getChildRef() != NULL_REF && get(edge.getChildRef()) != null)
         {
           TreeNode lChild = get(edge.getChildRef());
@@ -447,7 +446,7 @@ public class TreeNode
 
   void markAsLocalLoss(short atDepth, ForwardDeadReckonLegalMoveInfo withMove)
   {
-    if ( !complete )
+    if (!complete)
     {
       localSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
       completionDepth = (short)(depth + atDepth);
@@ -460,9 +459,9 @@ public class TreeNode
     {
       //validateCompletionValues(values);
       //validateAll();
-      for (int i = 0; i < tree.numRoles; i++)
+      for (int lii = 0; lii < tree.numRoles; lii++)
       {
-        setAverageScore(i, values[i]);
+        setAverageScore(lii, values[lii]);
       }
 
       enactMarkComplete(atCompletionDepth);
@@ -477,9 +476,9 @@ public class TreeNode
       //assert(state.toString().contains("control o") == (decidingRoleIndex == 1));
       //validateCompletionValues(values);
       //validateAll();
-      for (int i = 0; i < tree.numRoles; i++)
+      for (int lii = 0; lii < tree.numRoles; lii++)
       {
-        setAverageScore(i, fromDeciderNode.getAverageScore(i));
+        setAverageScore(lii, fromDeciderNode.getAverageScore(lii));
       }
 
       enactMarkComplete(atCompletionDepth);
@@ -538,9 +537,9 @@ public class TreeNode
       boolean keepAll = false;
       boolean keepBest = false;
 
-      if ( MCTSTree.KEEP_BEST_COMPLETION_PATHS )
+      if (MCTSTree.KEEP_BEST_COMPLETION_PATHS)
       {
-        if ( decidingRoleIndex == tree.numRoles-1 )
+        if (decidingRoleIndex == tree.numRoles - 1)
         {
           //  Our choice from this node - just retain the best
           keepBest = true;
@@ -552,32 +551,32 @@ public class TreeNode
         }
       }
 
-      if ( !keepAll )
+      if (!keepAll)
       {
         int keepIndex = -1;
 
-        if ( keepBest )
+        if (keepBest)
         {
           double bestScore = 0;
 
           for (int index = 0; index < mNumChildren; index++)
           {
-            if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+            if (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index)
             {
-              Object choice = children[index];
+              Object lChoice = mChildren[index];
 
-              TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+              TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
               if (edge != null)
               {
                 //  Completion processing happens via the direct link tree only, so ignore hyper-edges
-                if ( edge.isHyperEdge() )
+                if (edge.isHyperEdge())
                 {
                   break;
                 }
 
                 TreeNode lChild = (edge.getChildRef() == NULL_REF ? null : get(edge.getChildRef()));
 
-                if ( lChild != null && lChild.complete && lChild.getAverageScore(0) > bestScore )
+                if (lChild != null && lChild.complete && lChild.getAverageScore(0) > bestScore)
                 {
                   bestScore = lChild.getAverageScore(0);
                   keepIndex = index;
@@ -587,18 +586,18 @@ public class TreeNode
           }
         }
 
-        if ( keepIndex != -1 || this != tree.root )
+        if (keepIndex != -1 || this != tree.root)
         {
           for (int index = 0; index < mNumChildren; index++)
           {
-            if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+            if (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index)
             {
-              Object choice = children[index];
+              Object lChoice = mChildren[index];
 
-              TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+              TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
               if (edge != null)
               {
-                if ( keepIndex != index )
+                if (keepIndex != index)
                 {
                   TreeNode lChild = (edge.getChildRef() == NULL_REF || edge.isHyperEdge()) ? null : get(edge.getChildRef());
 
@@ -618,7 +617,7 @@ public class TreeNode
             }
           }
 
-          if ( keepIndex == -1 )
+          if (keepIndex == -1)
           {
             assert(this != tree.root);
             //  Actually retained nothing - can get rid of the children entirely
@@ -628,9 +627,9 @@ public class TreeNode
       }
     }
 
-    for (TreeNode parent : parents)
+    for (TreeNode parent : mParents)
     {
-      if ( !parent.complete )
+      if (!parent.complete)
       {
         boolean decidingRoleWin = false;
         boolean mutualWin = true;
@@ -646,15 +645,15 @@ public class TreeNode
           //  wins for the opponent concerned (if it's our win just take it and don;t worry if we could possibly
           //  make them suffer worse-  better to converge quickly)
           tree.underlyingStateMachine.getLatchedScoreRange(parent.state, tree.roleOrdering.roleIndexToRole(roleIndex), tree.latchedScoreRangeBuffer);
-          if ( tree.latchedScoreRangeBuffer[1] > tree.latchedScoreRangeBuffer[0] &&
-               getAverageScore(roleIndex) > tree.latchedScoreRangeBuffer[1] - EPSILON &&
-               (choosingRoleIndex == 0 || (tree.gameCharacteristics.getIsFixedSum() && tree.numRoles < 3)) )
+          if (tree.latchedScoreRangeBuffer[1] > tree.latchedScoreRangeBuffer[0] &&
+              getAverageScore(roleIndex) > tree.latchedScoreRangeBuffer[1] - EPSILON &&
+              (choosingRoleIndex == 0 || (tree.gameCharacteristics.getIsFixedSum() && tree.numRoles < 3)))
           {
             if (roleIndex == choosingRoleIndex &&
                 (tree.removeNonDecisionNodes || roleIndex == 0 || hasSiblinglessParents()))
             {
               decidingRoleWin = true;
-              if ( tree.numRoles == 1 )
+              if (tree.numRoles == 1)
               {
                 mutualWin = false;
               }
@@ -689,24 +688,24 @@ public class TreeNode
   {
     for (int lii = 0; lii < mNumChildren; lii++)
     {
-      children[lii] = null;
-      if ( tree.mGameSearcher.mUseRAVE )
+      mChildren[lii] = null;
+      if (tree.mGameSearcher.mUseRAVE)
       {
         mRAVECounts[lii] = 0;
       }
     }
     mNumChildren = 0;
 
-    if ( tree != null )
+    if (tree != null)
     {
       //  If the child array was above a certain threshold (due to having been used for a large number
       //  of hyper-edges, which will not be a dominant case) reduce the allocation back to the high
       //  watermark for direct children
       int directChildHighWatermark = tree.gameCharacteristics.getChoicesHighWaterMark(0);
-      if ( children.length > directChildHighWatermark*2 )
+      if (mChildren.length > directChildHighWatermark * 2)
       {
-        children = new Object[directChildHighWatermark];
-        if ( tree.mGameSearcher.mUseRAVE )
+        mChildren = new Object[directChildHighWatermark];
+        if (tree.mGameSearcher.mUseRAVE)
         {
           mRAVECounts = new int[directChildHighWatermark];
           mRAVEScores = new double[directChildHighWatermark];
@@ -719,9 +718,9 @@ public class TreeNode
   {
     boolean result = false;
 
-    for(int i = 0; i < mNumChildren; i++)
+    for (int lii = 0; lii < mNumChildren; lii++)
     {
-      if ( (children[i] instanceof TreeEdge) && ((TreeEdge)children[i]).getChildRef() == child.getRef() )
+      if ((mChildren[lii] instanceof TreeEdge) && ((TreeEdge)mChildren[lii]).getChildRef() == child.getRef())
       {
         result = true;
         break;
@@ -733,24 +732,24 @@ public class TreeNode
 
   boolean validateHyperChain(TreeEdge edge)
   {
-    if ( complete )
+    if (complete)
     {
       return true;
     }
 
-    if ( edge.mParentRef != getRef() )
+    if (edge.mParentRef != getRef())
     {
       //  Stale hyper-edge - can happen after trimming
       return true;
     }
 
-    if ( edge.hyperSuccessor == null )
+    if (edge.hyperSuccessor == null)
     {
-      if ( edge.getChildRef() != NULL_REF )
+      if (edge.getChildRef() != NULL_REF)
       {
         TreeNode child = get(edge.getChildRef());
 
-        if ( child != null )
+        if (child != null)
         {
           assert(child.depth/2 > depth/2);
           //assert(depth/2 == state.size()-3);
@@ -759,7 +758,7 @@ public class TreeNode
     }
     else
     {
-      if ( edge.getChildRef() != edge.hyperSuccessor.getChildRef() )
+      if (edge.getChildRef() != edge.hyperSuccessor.getChildRef())
       {
         //  Stale hyper-edge - can happen after trimming
         return true;
@@ -767,7 +766,7 @@ public class TreeNode
 
       TreeNode child = get(edge.nextHyperChild);
 
-      if ( child == null )
+      if (child == null)
       {
         assert(false) : "Null node link in the middle of a hyper chain";
         return false;
@@ -786,47 +785,47 @@ public class TreeNode
 
   boolean linkageValid()
   {
-    if ( mNumChildren > 0 )
+    if (mNumChildren > 0)
     {
       boolean hyperEdgeSeen = false;
 
-      for(short i = 0; i < mNumChildren; i++)
+      for (short lii = 0; lii < mNumChildren; lii++)
       {
-        if ( children[i] instanceof TreeEdge )
+        if (mChildren[lii] instanceof TreeEdge)
         {
-          TreeEdge edge = (TreeEdge)children[i];
+          TreeEdge edge = (TreeEdge)mChildren[lii];
 
-          if ( edge.isHyperEdge() )
+          if (edge.isHyperEdge())
           {
             hyperEdgeSeen = true;
           }
-          else if ( hyperEdgeSeen )
+          else if (hyperEdgeSeen)
           {
             assert(false) : "normal edge after start of hyper edges";
             return false;
           }
-          if ( edge.getChildRef() != NULL_REF )
+          if (edge.getChildRef() != NULL_REF)
           {
             TreeNode child = get(edge.getChildRef());
 
-            if ( child != null )
+            if (child != null)
             {
-              if ( edge.hyperSuccessor == null && child != tree.root && !child.parents.contains(this) )
+              if (edge.hyperSuccessor == null && child != tree.root && !child.mParents.contains(this))
               {
                 assert(false) : "child link not reflected in back-link";
                 return false;
               }
 
-              if ( !edge.isHyperEdge() )
+              if (!edge.isHyperEdge())
               {
-                for(short j = 0; j < mNumChildren; j++)
+                for (short ljj = 0; ljj < mNumChildren; ljj++)
                 {
-                  if ( i != j && children[j] instanceof TreeEdge )
+                  if (lii != ljj && mChildren[ljj] instanceof TreeEdge)
                   {
-                    TreeEdge edge2 = (TreeEdge)children[j];
+                    TreeEdge edge2 = (TreeEdge)mChildren[ljj];
                     TreeNode child2 = (edge2.getChildRef() == NULL_REF ? null : get(edge2.getChildRef()));
 
-                    if ( child == child2 && edge.isSelectable() )
+                    if (child == child2 && edge.isSelectable())
                     {
                       assert(false) : "multiply linked child";
                       return false;
@@ -839,7 +838,7 @@ public class TreeNode
                 validateHyperChain(edge);
               }
             }
-            else if ( edge.hyperSuccessor == null )
+            else if (edge.hyperSuccessor == null)
             {
               assert(false) : "edge points to stale child";
               return false;
@@ -849,9 +848,9 @@ public class TreeNode
       }
     }
 
-    for(TreeNode parent : parents)
+    for (TreeNode parent : mParents)
     {
-      if ( !parent.validateHasChild(this) )
+      if (!parent.validateHasChild(this))
       {
         assert(false) : "parent missing child link";
         return false;
@@ -862,30 +861,30 @@ public class TreeNode
 
   private void freeFromAncestor(TreeNode ancestor, TreeNode xiKeep)
   {
-    assert(this == xiKeep || parents.contains(ancestor));
+    assert(this == xiKeep || mParents.contains(ancestor));
 
-    boolean keep = (xiKeep == null ? (parents.size() > 1) : (sweepSeq == tree.sweepInstance));
+    boolean keep = (xiKeep == null ? (mParents.size() > 1) : (sweepSeq == tree.sweepInstance));
 
     if (keep)
     {
       // We're re-rooting the tree and have already calculated that this node (which we happen to have reached through
       // a part of the tree that's being pruned) is reachable from the new root.  Therefore, we know it needs to be
       // kept.
-      assert(parents.size() != 0 || this == xiKeep) : "Oops - no link left to new root";
+      assert(mParents.size() != 0 || this == xiKeep) : "Oops - no link left to new root";
 
-      parents.remove(ancestor);
+      mParents.remove(ancestor);
       assert(linkageValid());
       return;
     }
 
     for (int index = 0; index < mNumChildren; index++)
     {
-      if (primaryChoiceMapping == null || primaryChoiceMapping[index] == index)
+      if (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index)
       {
-        Object choice = children[index];
+        Object lChoice = mChildren[index];
         TreeNode lChild = null;
 
-        TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+        TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
         if (edge != null )
         {
           lChild = (edge.getChildRef() == NULL_REF || edge.isHyperEdge()) ? null : get(edge.getChildRef());
@@ -895,14 +894,14 @@ public class TreeNode
           //  No need to traverse hyper-edges in this process.  Also, since hyper-edges
           //  always follow the full set of direct edges in the array as soon as we see one
           //  we can stop looking
-          if ( edge.isHyperEdge() )
+          if (edge.isHyperEdge())
           {
             break;
           }
         }
 
         // Free the child (at least from us) and free our edge to it.
-        if ( lChild != null && lChild != xiKeep )
+        if (lChild != null && lChild != xiKeep)
         {
           lChild.freeFromAncestor(this, xiKeep);
         }
@@ -914,16 +913,16 @@ public class TreeNode
 
   private boolean hasSiblings()
   {
-    for (TreeNode parent : parents)
+    for (TreeNode parent : mParents)
     {
       for (short index = 0; index < parent.mNumChildren; index++)
       {
-        if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
+        if (parent.mPrimaryChoiceMapping == null || parent.mPrimaryChoiceMapping[index] == index)
         {
-          Object choice = parent.children[index];
+          Object lChoice = parent.mChildren[index];
 
           //  An unexpanded edge or child node cannot be the same as this one
-          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
           if (edge == null || edge.getChildRef() == NULL_REF || get(edge.getChildRef()) != this)
           {
             return true;
@@ -937,14 +936,14 @@ public class TreeNode
 
   private boolean hasSiblinglessParents()
   {
-    for (TreeNode parent : parents)
+    for (TreeNode parent : mParents)
     {
       if (parent == tree.root)
       {
         return false;
       }
 
-      for (TreeNode grandParent : parent.parents)
+      for (TreeNode grandParent : parent.mParents)
       {
         if (grandParent.mNumChildren > 1)
         {
@@ -958,14 +957,14 @@ public class TreeNode
 
   public boolean hasUnexpandedChoices()
   {
-    if ( children == null )
+    if (mChildren == null)
     {
       return true;
     }
 
-    for(Object choice : children)
+    for (Object lChoice : mChildren)
     {
-      if ( !(choice instanceof TreeEdge) )
+      if (!(lChoice instanceof TreeEdge))
       {
         return true;
       }
@@ -976,15 +975,15 @@ public class TreeNode
 
   private boolean allNephewsComplete()
   {
-    for (TreeNode parent : parents)
+    for (TreeNode parent : mParents)
     {
       for (short index = 0; index < parent.mNumChildren; index++)
       {
-        if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
+        if (parent.mPrimaryChoiceMapping == null || parent.mPrimaryChoiceMapping[index] == index)
         {
-          Object choice = parent.children[index];
+          Object lChoice = parent.mChildren[index];
 
-          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
           if (edge == null || edge.getChildRef() == NULL_REF)
           {
             return false;
@@ -999,9 +998,9 @@ public class TreeNode
               {
                 for (short nephewIndex = 0; nephewIndex < child.mNumChildren; nephewIndex++)
                 {
-                  if ( child.primaryChoiceMapping == null || child.primaryChoiceMapping[nephewIndex] == nephewIndex )
+                  if ( child.mPrimaryChoiceMapping == null || child.mPrimaryChoiceMapping[nephewIndex] == nephewIndex )
                   {
-                    Object nephewChoice = child.children[nephewIndex];
+                    Object nephewChoice = child.mChildren[nephewIndex];
 
                     TreeEdge nephewEdge = (nephewChoice instanceof TreeEdge ? (TreeEdge)nephewChoice : null);
                     if (nephewEdge == null || nephewEdge.getChildRef() == NULL_REF)
@@ -1035,23 +1034,26 @@ public class TreeNode
     return true;
   }
 
+  /**
+   * For each sibling of this node (from all parents), run the checkChildCompletion routine.
+   */
   private void checkSiblingCompletion()
   {
-    for (TreeNode parent : parents)
+    for (TreeNode lParent : mParents)
     {
-      for (short index = 0; index < parent.mNumChildren; index++)
+      for (short lIndex = 0; lIndex < lParent.mNumChildren; lIndex++)
       {
-        if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
+        if (lParent.mPrimaryChoiceMapping == null || lParent.mPrimaryChoiceMapping[lIndex] == lIndex)
         {
-          Object choice = parent.children[index];
+          Object mChoice = lParent.mChildren[lIndex];
 
-          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-          if (edge != null && edge.getChildRef() != NULL_REF)
+          TreeEdge lEdge = (mChoice instanceof TreeEdge ? (TreeEdge)mChoice : null);
+          if (lEdge != null && lEdge.getChildRef() != NULL_REF)
           {
-            TreeNode child = get(edge.getChildRef());
-            if (child != null && child != this && child.mNumChildren != 0 && !child.complete)
+            TreeNode lChild = get(lEdge.getChildRef());
+            if (lChild != null && lChild != this && lChild.mNumChildren != 0 && !lChild.complete)
             {
-              child.checkChildCompletion(false);
+              lChild.checkChildCompletion(false);
             }
           }
         }
@@ -1061,15 +1063,15 @@ public class TreeNode
 
   private boolean isBestMoveInAllUncles(Set<Move> moves, int roleIndex)
   {
-    for (TreeNode parent : parents)
+    for (TreeNode parent : mParents)
     {
       for (short index = 0; index < parent.mNumChildren; index++)
       {
-        if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
+        if ( parent.mPrimaryChoiceMapping == null || parent.mPrimaryChoiceMapping[index] == index )
         {
-          Object choice = parent.children[index];
+          Object lChoice = parent.mChildren[index];
 
-          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
           if (edge == null || edge.getChildRef() == NULL_REF)
           {
             return false;
@@ -1089,9 +1091,9 @@ public class TreeNode
               double thisMoveScore = -Double.MAX_VALUE;
               for (short nephewIndex = 0; nephewIndex < child.mNumChildren; nephewIndex++)
               {
-                if ( child.primaryChoiceMapping == null || child.primaryChoiceMapping[nephewIndex] == nephewIndex )
+                if ( child.mPrimaryChoiceMapping == null || child.mPrimaryChoiceMapping[nephewIndex] == nephewIndex )
                 {
-                  Object nephewChoice = child.children[nephewIndex];
+                  Object nephewChoice = child.mChildren[nephewIndex];
 
                   TreeEdge nephewEdge = (nephewChoice instanceof TreeEdge ? (TreeEdge)nephewChoice : null);
                   if (nephewEdge == null || nephewEdge.getChildRef() == NULL_REF)
@@ -1144,15 +1146,15 @@ public class TreeNode
   {
     TreeNode result = null;
 
-    for (TreeNode parent : parents)
+    for (TreeNode parent : mParents)
     {
       for (short index = 0; index < parent.mNumChildren; index++)
       {
-        if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
+        if ( parent.mPrimaryChoiceMapping == null || parent.mPrimaryChoiceMapping[index] == index )
         {
-          Object choice = parent.children[index];
+          Object lChoice = parent.mChildren[index];
 
-          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
           if (edge == null || edge.getChildRef() == NULL_REF)
           {
             return null;
@@ -1168,13 +1170,13 @@ public class TreeNode
           {
             for (short nephewIndex = 0; nephewIndex < child.mNumChildren; nephewIndex++)
             {
-              Object nephewChoice = child.children[nephewIndex];
+              Object nephewChoice = child.mChildren[nephewIndex];
               TreeEdge nephewEdge = (nephewChoice instanceof TreeEdge ? (TreeEdge)nephewChoice : null);
               ForwardDeadReckonLegalMoveInfo nephewMove = (nephewEdge == null ? (ForwardDeadReckonLegalMoveInfo)nephewChoice : nephewEdge.mPartialMove);
 
               if (move == nephewMove.move)
               {
-                Object primaryChoice = (child.primaryChoiceMapping == null ? nephewChoice : child.children[child.primaryChoiceMapping[nephewIndex]]);
+                Object primaryChoice = (child.mPrimaryChoiceMapping == null ? nephewChoice : child.mChildren[child.mPrimaryChoiceMapping[nephewIndex]]);
 
                 nephewEdge = (primaryChoice instanceof TreeEdge ? (TreeEdge)primaryChoice : null);
                 if (nephewEdge == null || nephewEdge.getChildRef() == NULL_REF)
@@ -1214,58 +1216,61 @@ public class TreeNode
     return result;
   }
 
-  @SuppressWarnings("null") void checkChildCompletion(boolean checkConsequentialSiblingCompletion)
+  @SuppressWarnings("null")
+  public void checkChildCompletion(boolean xiCheckConsequentialSiblingCompletion)
   {
-    boolean allImmediateChildrenComplete = true;
-    double bestValue = -1000;
-    TreeNode bestValueNode = null;
-    int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
-    boolean decidingRoleWin = false;
-    TreeNode worstDeciderNode = null;
-    TreeNode floorDeciderNode = null;
-    short determiningChildCompletionDepth = Short.MAX_VALUE;
-    boolean siblingCheckNeeded = false;
+    int lRoleIndex = (decidingRoleIndex + 1) % tree.numRoles;
+    boolean lDecidingRoleWin = false;
+    TreeNode lFloorDeciderNode = null;
+    boolean lSiblingCheckNeeded = false;
     double selectedNonDeciderScore = Double.MAX_VALUE;
     boolean inhibitDecidingWinPropagation = false;
-    boolean multupleBestChoices = false;
 
-    for (int i = 0; i < tree.numRoles; i++)
+    for (int lii = 0; lii < tree.numRoles; lii++)
     {
-      tree.mNodeAverageScores[i] = 0;
+      tree.mNodeAverageScores[lii] = 0;
 
-      tree.underlyingStateMachine.getLatchedScoreRange(state, tree.roleOrdering.roleIndexToRole(i), tree.latchedScoreRangeBuffer);
-      tree.roleMaxScoresBuffer[i] = tree.latchedScoreRangeBuffer[1];
+      tree.underlyingStateMachine.getLatchedScoreRange(state, tree.roleOrdering.roleIndexToRole(lii), tree.latchedScoreRangeBuffer);
+      tree.roleMaxScoresBuffer[lii] = tree.latchedScoreRangeBuffer[1];
     }
 
-    int numUniqueChildren = 0;
-
     // Loop over all children, checking for completion.
+
+    boolean lAllImmediateChildrenComplete = true;
+
+    short lDeterminingChildCompletionDepth = Short.MAX_VALUE;
+
+    double lBestValue = -1000;
+    TreeNode lBestValueNode = null;
+    boolean lMultipleBestChoices = false;
+
+    int lNumUniqueChildren = 0;
+
     for (int index = 0; index < mNumChildren; index++)
     {
-      if (primaryChoiceMapping == null || primaryChoiceMapping[index] == index)
+      if (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index)
       {
-        Object choice = children[index];
+        Object lChoice = mChildren[index];
 
         // Freed edges can occur when reconnecting complete nodes for a new root, of after stale hyper-edges have been
         // freed - just skip
-        if (choice == null)
+        if (lChoice == null)
         {
           continue;
         }
 
-        TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+        TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
         if (edge == null)
         {
           // We've found an unexpanded edge.  This almost certainly means that the child isn't complete.  Just need to
-          // check that it isn't a pseudo-noop.
-          assert(choice instanceof ForwardDeadReckonLegalMoveInfo);
+          // check that it isn't a pseudo-noop.  Pseudo-noops are not searched and do not form 'real' moves in this
+          // factor so ignore them for completion propagation purposes.
+          assert(lChoice instanceof ForwardDeadReckonLegalMoveInfo);
 
-          // Pseudo-noops are not searched and do not form 'real' moves in this factor so ignore them for completion
-          // propagation purposes.
-          if (!((ForwardDeadReckonLegalMoveInfo)choice).isPseudoNoOp)
+          if (!((ForwardDeadReckonLegalMoveInfo)lChoice).isPseudoNoOp)
           {
             // This is a real unexplored move.  The immediate children of this node aren't all complete.
-            allImmediateChildrenComplete = false;
+            lAllImmediateChildrenComplete = false;
           }
         }
         else if (edge.isHyperEdge())
@@ -1280,275 +1285,273 @@ public class TreeNode
               (get(edge.getChildRef()) == null))
           {
             // A child is missing, therefore they aren't all complete.
-            allImmediateChildrenComplete = false;
+            lAllImmediateChildrenComplete = false;
           }
           else
           {
-            // This is the normal case of a child that has explored to some extent.
+            // This is the normal case of a child that has been explored to some extent.
             TreeNode lNode = get(edge.getChildRef());
-            numUniqueChildren++;
+            lNumUniqueChildren++;
 
             if (!lNode.complete)
             {
               // This child isn't complete.  Therefore, we have at least 1 incomplete child.
-              allImmediateChildrenComplete = false;
+              lAllImmediateChildrenComplete = false;
             }
             else
             {
-              if (worstDeciderNode == null || lNode.getAverageScore(roleIndex) < worstDeciderNode.getAverageScore(roleIndex))
+              // This child is complete.  Check to see if it's the best result for the deciding role.
+              //
+              // In the event of several choices having the same score for the deciding role assume that the one with
+              // the lowest sum of opponent scores will be chosen.  If several turn out equal we will construct a
+              // blended value later that is somewhat pessimistic for us (but not completely so).
+              double lDeciderScore = lNode.getAverageScore(lRoleIndex);
+              double lNonDeciderScore = getSumOfOpponentScores(lRoleIndex);
+
+              if ((lDeciderScore > lBestValue) ||
+                  ((lDeciderScore == lBestValue) && (lNonDeciderScore <= selectedNonDeciderScore)))
               {
-                worstDeciderNode = lNode;
-              }
+                // We've found a node that's at least as good as the best found so far.
+                selectedNonDeciderScore = lNonDeciderScore;
+                lBestValue = lDeciderScore;
+                lBestValueNode = lNode;
 
-              //  In the event of several choices having the same score for the deciding role
-              //  assume that the one with the lowest sum of opponent scores will be chosen.
-              //  If several turn out equal we will construct a blended value later that is somewhat
-              //  pessimistic for us (but not completely so)
-              double deciderScore = lNode.getAverageScore(roleIndex);
-              double nonDeciderScore = 0;
+                // If it's just the same as the best so far, note that there are multiple best choices.  If this child
+                // is better than anything seen yet, then reset the multiple best choices flag.
+                lMultipleBestChoices = ((lDeciderScore == lBestValue) &&
+                                        (lNonDeciderScore == selectedNonDeciderScore));
 
-              for(int opponentRoleIndex = 0; opponentRoleIndex < tree.numRoles; opponentRoleIndex++)
-              {
-                if ( opponentRoleIndex != roleIndex )
+                if (lBestValue > tree.roleMaxScoresBuffer[lRoleIndex] - EPSILON)
                 {
-                  nonDeciderScore += lNode.getAverageScore(opponentRoleIndex);
-                }
-              }
+                  // Win for deciding role which they will choose unless it is also	a mutual win.
+                  boolean lMutualWin = true;
 
-              if ( deciderScore > bestValue || (deciderScore == bestValue && nonDeciderScore <= selectedNonDeciderScore))
-              {
-                if ( deciderScore == bestValue && nonDeciderScore == selectedNonDeciderScore )
-                {
-                  multupleBestChoices = true;
-                }
-                else
-                {
-                  multupleBestChoices = false;
-                }
-                selectedNonDeciderScore = nonDeciderScore;
-                bestValue = deciderScore;
-                bestValueNode = lNode;
-
-                if (bestValue > tree.roleMaxScoresBuffer[roleIndex]-EPSILON)
-                {
-                  //	Win for deciding role which they will choose unless it is also
-                  //	a mutual win
-                  boolean mutualWin = true;
-
-                  for (int i = 0; i < tree.numRoles; i++)
+                  for (int lii = 0; lii < tree.numRoles; lii++)
                   {
-                    if (lNode.getAverageScore(i) < tree.roleMaxScoresBuffer[i]-EPSILON)
+                    if (lNode.getAverageScore(lii) < tree.roleMaxScoresBuffer[lii] - EPSILON)
                     {
-                      if (determiningChildCompletionDepth > lNode.getCompletionDepth())
+                      // This isn't a win for at least one other player and it is a win for the deciding role.  Assume
+                      // that the deciding player will take this choice.
+                      //
+                      // When setting the completion depth, assume that the deciding player will take the shortest path
+                      // amongst all forced wins.  !! ARR Is this the cause of #270?
+                      if (lDeterminingChildCompletionDepth > lNode.getCompletionDepth())
                       {
-                        determiningChildCompletionDepth = lNode.getCompletionDepth();
+                        lDeterminingChildCompletionDepth = lNode.getCompletionDepth();
                       }
-                      mutualWin = false;
+                      lMutualWin = false;
                       break;
                     }
                   }
 
-                  if (!decidingRoleWin)
+                  if (!lDecidingRoleWin)
                   {
-                    decidingRoleWin |= !mutualWin;
+                    lDecidingRoleWin |= !lMutualWin;
 
-                    if (decidingRoleWin && tree.gameCharacteristics.isSimultaneousMove)
+                    if (lDecidingRoleWin && tree.gameCharacteristics.isSimultaneousMove)
                     {
-                      //	Only complete on this basis if this move is our choice (complete info)
-                      //	or wins in ALL cousin states also
-                      if (roleIndex != 0 && hasSiblings())
+                      // Only complete on this basis if this move is our choice (complete info)	or wins in ALL cousin
+                      // states also.
+                      if (lRoleIndex != 0 && hasSiblings())
                       {
                         Set<Move> equivalentMoves = new HashSet<>();
 
-                        if ( primaryChoiceMapping == null )
+                        if (mPrimaryChoiceMapping == null)
                         {
                           equivalentMoves.add(edge.mPartialMove.move);
                         }
                         else
                         {
-                          for (short siblingIndex = 0; siblingIndex < mNumChildren; siblingIndex++)
+                          for (short lSiblingIndex = 0; lSiblingIndex < mNumChildren; lSiblingIndex++)
                           {
-                            if ( primaryChoiceMapping[siblingIndex] == index )
+                            if (mPrimaryChoiceMapping[lSiblingIndex] == index)
                             {
-                              if ( siblingIndex == index )
+                              if (lSiblingIndex == index)
                               {
-                                assert(children[siblingIndex] instanceof TreeEdge);
-                                equivalentMoves.add(((TreeEdge)children[siblingIndex]).mPartialMove.move);
+                                assert(mChildren[lSiblingIndex] instanceof TreeEdge);
+                                equivalentMoves.add(((TreeEdge)mChildren[lSiblingIndex]).mPartialMove.move);
                               }
                               else
                               {
-                                assert(children[siblingIndex] instanceof ForwardDeadReckonLegalMoveInfo);
-                                equivalentMoves.add(((ForwardDeadReckonLegalMoveInfo)children[siblingIndex]).move);
+                                assert(mChildren[lSiblingIndex] instanceof ForwardDeadReckonLegalMoveInfo);
+                                equivalentMoves.add(((ForwardDeadReckonLegalMoveInfo)mChildren[lSiblingIndex]).move);
                               }
                             }
                           }
                         }
-                        if (!isBestMoveInAllUncles(equivalentMoves, roleIndex))
+                        if (!isBestMoveInAllUncles(equivalentMoves, lRoleIndex))
                         {
-                          decidingRoleWin = false;
+                          lDecidingRoleWin = false;
                         }
                         else
                         {
-                          if (checkConsequentialSiblingCompletion)
+                          if (xiCheckConsequentialSiblingCompletion)
                           {
-                            siblingCheckNeeded = true;
+                            lSiblingCheckNeeded = true;
                           }
                         }
                       }
                     }
                   }
-                  else if ( !mutualWin && roleIndex != 0 && (!tree.gameCharacteristics.getIsFixedSum() || tree.numRoles >= 3) )
+                  else if ((!lMutualWin) &&
+                           (lRoleIndex != 0) &&
+                           ((!tree.gameCharacteristics.getIsFixedSum()) ||
+                            (tree.numRoles >= 3)))
                   {
-                    //  If there are more than one choices that are decider wins for someone other than us and the game
-                    //  is non-fixed-sum with 3+ roles then inhibit completion propagation.  This is because in non-fixed-sum games it may be
-                    //  that a player has several winning moves, and we want to evaluate the worst one for us
-                    //  which may not be the first one to complete
+                    // If there are more than one choices that are decider wins for someone other than us and the game
+                    // is non-fixed-sum with 3+ roles then inhibit completion propagation.  This is because in
+                    // non-fixed-sum games it may be that a player has several winning moves, and we want to evaluate
+                    // the worst one for us which may not be the first one to complete.
                     inhibitDecidingWinPropagation = true;
                   }
                 }
               }
 
               if (tree.gameCharacteristics.isSimultaneousMove &&
-                  !decidingRoleWin &&
-                  roleIndex != 0 &&
-                  (floorDeciderNode == null || floorDeciderNode.getAverageScore(roleIndex) < lNode.getAverageScore(roleIndex)))
+                  !lDecidingRoleWin &&
+                  lRoleIndex != 0 &&
+                  (lFloorDeciderNode == null ||
+                   lFloorDeciderNode.getAverageScore(lRoleIndex) < lNode.getAverageScore(lRoleIndex)))
               {
                 //	Find the highest supported floor score for any of the moves equivalent to this one
-                TreeNode worstCousinValueNode = null;
-                short floorCompletionDepth = Short.MAX_VALUE;
+                TreeNode lWorstCousinValueNode = null;
+                short lFloorCompletionDepth = Short.MAX_VALUE;
 
                 for (short siblingIndex = 0; siblingIndex < mNumChildren; siblingIndex++)
                 {
-                  if ( siblingIndex == index || (primaryChoiceMapping != null && primaryChoiceMapping[siblingIndex] == index) )
+                  if (siblingIndex == index || (mPrimaryChoiceMapping != null && mPrimaryChoiceMapping[siblingIndex] == index))
                   {
-                    Object siblingChoice = children[siblingIndex];
-                    ForwardDeadReckonLegalMoveInfo siblingMove = (siblingChoice instanceof ForwardDeadReckonLegalMoveInfo) ? (ForwardDeadReckonLegalMoveInfo)siblingChoice : ((TreeEdge)siblingChoice).mPartialMove;
-                    TreeNode moveFloorNode = worstCompleteCousin(siblingMove.move, roleIndex);
+                    Object siblingChoice = mChildren[siblingIndex];
+                    ForwardDeadReckonLegalMoveInfo siblingMove =
+                      (siblingChoice instanceof ForwardDeadReckonLegalMoveInfo) ?
+                                                                         (ForwardDeadReckonLegalMoveInfo)siblingChoice :
+                                                                         ((TreeEdge)siblingChoice).mPartialMove;
+                    TreeNode moveFloorNode = worstCompleteCousin(siblingMove.move, lRoleIndex);
 
                     if (moveFloorNode != null)
                     {
-                      if (worstCousinValueNode == null ||
-                          worstCousinValueNode.getAverageScore(roleIndex) < moveFloorNode.getAverageScore(roleIndex))
+                      if (lWorstCousinValueNode == null ||
+                          lWorstCousinValueNode.getAverageScore(lRoleIndex) < moveFloorNode.getAverageScore(lRoleIndex))
                       {
-                        worstCousinValueNode = moveFloorNode;
-                        if (floorCompletionDepth > lNode.getCompletionDepth())
+                        lWorstCousinValueNode = moveFloorNode;
+                        if (lFloorCompletionDepth > lNode.getCompletionDepth())
                         {
-                          floorCompletionDepth = lNode.getCompletionDepth();
+                          lFloorCompletionDepth = lNode.getCompletionDepth();
                         }
                       }
                     }
                   }
                 }
 
-                if (worstCousinValueNode != null &&
-                    (floorDeciderNode == null || floorDeciderNode.getAverageScore(roleIndex) < worstCousinValueNode.getAverageScore(roleIndex)))
+                if (lWorstCousinValueNode != null &&
+                    (lFloorDeciderNode == null ||
+                     lFloorDeciderNode.getAverageScore(lRoleIndex) < lWorstCousinValueNode.getAverageScore(lRoleIndex)))
                 {
-                  floorDeciderNode = worstCousinValueNode;
-                  determiningChildCompletionDepth = floorCompletionDepth;
+                  lFloorDeciderNode = lWorstCousinValueNode;
+                  lDeterminingChildCompletionDepth = lFloorCompletionDepth;
                 }
               }
             }
 
-            for (int i = 0; i < tree.numRoles; i++)
+            for (int lii = 0; lii < tree.numRoles; lii++)
             {
-              tree.mNodeAverageScores[i] += lNode.getAverageScore(i);
+              tree.mNodeAverageScores[lii] += lNode.getAverageScore(lii);
             }
           }
         }
       }
     }
 
-    for (int i = 0; i < tree.numRoles; i++)
+    for (int lii = 0; lii < tree.numRoles; lii++)
     {
-      tree.mNodeAverageScores[i] /= numUniqueChildren;
+      tree.mNodeAverageScores[lii] /= lNumUniqueChildren;
     }
 
-    if (allImmediateChildrenComplete && !decidingRoleWin &&
-        tree.gameCharacteristics.isSimultaneousMove && roleIndex != 0)
+    if (lAllImmediateChildrenComplete &&
+        !lDecidingRoleWin &&
+        tree.gameCharacteristics.isSimultaneousMove &&
+        lRoleIndex != 0)
     {
-      allChildrenComplete = true;
+      mAllChildrenComplete = true;
 
-      //	If the best we can do from this node is no better than the supported floor we
-      //	don't require all nephews to be complete to complete this node at the floor
+      // If the best we can do from this node is no better than the supported floor we don't require all nephews to be
+      // complete to complete this node at the floor.
       if (!hasSiblings() ||
-          (floorDeciderNode != null && floorDeciderNode.getAverageScore(roleIndex) +
-          EPSILON >= bestValueNode.getAverageScore(roleIndex)))
+          (lFloorDeciderNode != null && lFloorDeciderNode.getAverageScore(lRoleIndex) +
+          EPSILON >= lBestValueNode.getAverageScore(lRoleIndex)))
       {
         //	There was only one opponent choice so this is not after all
         //	incomplete information, so complete with the best choice for
         //	the decider
-        decidingRoleWin = true;
+        lDecidingRoleWin = true;
       }
       else
       {
         //	To auto complete with simultaneous turn and no deciding role win
         //	we require that all nephews be complete or that all alternatives
         //	are anyway equivalent
-        boolean allNephewsComplete = allNephewsComplete();
+        boolean lAllNephewsComplete = allNephewsComplete();
 
-        for (int i = 0; i < tree.numRoles; i++)
+        for (int lii = 0; lii < tree.numRoles; lii++)
         {
-          if (Math.abs(tree.mNodeAverageScores[i] - bestValueNode.getAverageScore(i)) > EPSILON)
+          if (Math.abs(tree.mNodeAverageScores[lii] - lBestValueNode.getAverageScore(lii)) > EPSILON)
           {
-            allImmediateChildrenComplete = allNephewsComplete;
-
+            lAllImmediateChildrenComplete = lAllNephewsComplete;
             break;
           }
         }
       }
 
-      if (allImmediateChildrenComplete &&
-          checkConsequentialSiblingCompletion)
+      // If all our immediate children are complete and we've been asked to check for sibling completion, flag that
+      // we'll need to do that (at the end of this routine).
+      if (lAllImmediateChildrenComplete && xiCheckConsequentialSiblingCompletion)
       {
-        siblingCheckNeeded = true;
+        lSiblingCheckNeeded = true;
       }
 
-      //  It is possible for all children to be terminal, in which case no values will
-      //  ever have been propagated back from them (as we don't rollout from a terminal state)
-      //  In a simultaneous move game such a situation will result in this node's average score
-      //  not being set initially, since completion will not occur until all nephew's complete.
-      //  We address this case by setting the scores provisionally as an average of the children (but
-      //  not marking complete yet)
-      if ( !allImmediateChildrenComplete && numUpdates == 0 )
+      // It is possible for all children to be terminal, in which case no values will ever have been propagated back
+      // from them (as we don't rollout from a terminal state).  In a simultaneous move game such a situation will
+      // result in this node's average score not being set initially, since completion will not occur until all nephews
+      // are complete.  We address this case by setting the scores provisionally as an average of the children (but
+      // not marking complete yet).
+      if ((!lAllImmediateChildrenComplete) && (numUpdates == 0))
       {
-        for (int i = 0; i < tree.numRoles; i++)
+        for (int lii = 0; lii < tree.numRoles; lii++)
         {
-          setAverageScore(i, tree.mNodeAverageScores[i]);
+          setAverageScore(lii, tree.mNodeAverageScores[lii]);
         }
       }
     }
 
-    if (allImmediateChildrenComplete || (decidingRoleWin && !inhibitDecidingWinPropagation))
+    if (lAllImmediateChildrenComplete || (lDecidingRoleWin && !inhibitDecidingWinPropagation))
     {
-      if (determiningChildCompletionDepth == Short.MAX_VALUE)
+      if (lDeterminingChildCompletionDepth == Short.MAX_VALUE)
       {
-        //  If there was no winning choice but everything is complete then
-        //  the depth is the maximum of the non-winning choice alternatives.
-        //  Note - this may be slightly misleading for non-fixed-sum games
-        //  that are expected to end at intermediate score values, but should
-        //  operate correctly in other cases, and give reasonable indicative
-        //  results in all cases
-        determiningChildCompletionDepth = 0;
+        // If there was no winning choice but everything is complete then the depth is the maximum of the non-winning
+        // choice alternatives.  Note - this may be slightly misleading for non-fixed-sum games that are expected to end
+        // at intermediate score values, but should operate correctly in other cases, and give reasonable indicative
+        // results in all cases.
+        lDeterminingChildCompletionDepth = 0;
 
-        for (short index = 0; index < mNumChildren; index++)
+        for (short lIndex = 0; lIndex < mNumChildren; lIndex++)
         {
-          if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+          if (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[lIndex] == lIndex)
           {
-            Object choice = children[index];
+            Object lChoice = mChildren[lIndex];
 
-            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-            if ( edge != null )
+            TreeEdge lEdge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
+            if (lEdge != null)
             {
-              if ( edge.hyperSuccessor != null )
+              if (lEdge.hyperSuccessor != null)
               {
                 break;
               }
-              if (edge.getChildRef() != NULL_REF && get(edge.getChildRef()) != null)
+              if (lEdge.getChildRef() != NULL_REF && get(lEdge.getChildRef()) != null)
               {
-                TreeNode lNode = get(edge.getChildRef());
-                if (determiningChildCompletionDepth < lNode.getCompletionDepth())
+                TreeNode lNode = get(lEdge.getChildRef());
+                if (lDeterminingChildCompletionDepth < lNode.getCompletionDepth())
                 {
-                  determiningChildCompletionDepth = lNode.getCompletionDepth();
+                  lDeterminingChildCompletionDepth = lNode.getCompletionDepth();
                 }
               }
             }
@@ -1562,66 +1565,66 @@ public class TreeNode
       //	best value and crystalize as our value.   However, if it's simultaneous
       //	move complete with the average score since
       //	opponents cannot make the pessimal (for us) choice reliably
-      if (tree.gameCharacteristics.isSimultaneousMove && !decidingRoleWin)
+      if (tree.gameCharacteristics.isSimultaneousMove && !lDecidingRoleWin)
       {
         //	If all option are complete but not decisive due to incomplete information
         //  arising form the opponent's simultaneous turn then take a weighted average
         //  of the child node scores, weighting them by the average cousin value of the
         //  deciding role
-        if ( roleIndex != 0 )
+        if (lRoleIndex != 0)
         {
           tree.cousinMovesCachedFor = NULL_REF;
 
           //  Weight the values by their average cousin score
           double totalWeight = 0;
-          for (int i = 0; i < tree.numRoles; i++)
+          for (int lii = 0; lii < tree.numRoles; lii++)
           {
-            tree.mBlendedCompletionScoreBuffer[i] = 0;
+            tree.mBlendedCompletionScoreBuffer[lii] = 0;
           }
 
-          for (short index = 0; index < mNumChildren; index++)
+          for (short lIndex = 0; lIndex < mNumChildren; lIndex++)
           {
-            if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+            if (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[lIndex] == lIndex)
             {
-              Object choice = children[index];
+              Object lChoice = mChildren[lIndex];
 
-              //  Pseudo-noops in factored games can still be unexpanded at this point
-              if ( choice instanceof TreeEdge )
+              // Pseudo-noops in factored games can still be unexpanded at this point.
+              if (lChoice instanceof TreeEdge)
               {
-                TreeEdge edge = (TreeEdge)choice;
+                TreeEdge lEdge = (TreeEdge)lChoice;
 
-                assert(edge.getChildRef() != NULL_REF);
+                assert(lEdge.getChildRef() != NULL_REF);
 
-                TreeNode lNode = get(edge.getChildRef());
+                TreeNode lNode = get(lEdge.getChildRef());
                 assert(lNode != null);
                 assert(lNode.complete);
 
-                //  Add epsilon in case all are 0
-                double chooserScore = getAverageCousinMoveValue(edge, roleIndex) + EPSILON;
+                // Add epsilon in case all are 0.
+                double lChooserScore = getAverageCousinMoveValue(lEdge, lRoleIndex) + EPSILON;
 
-                for (int i = 0; i < tree.numRoles; i++)
+                for (int lii = 0; lii < tree.numRoles; lii++)
                 {
-                  tree.mBlendedCompletionScoreBuffer[i] += chooserScore*lNode.getAverageScore(i);
+                  tree.mBlendedCompletionScoreBuffer[lii] += lChooserScore * lNode.getAverageScore(lii);
                 }
-                totalWeight += chooserScore;
+                totalWeight += lChooserScore;
               }
             }
           }
 
-          for (int i = 0; i < tree.numRoles; i++)
+          for (int lii = 0; lii < tree.numRoles; lii++)
           {
-            tree.mBlendedCompletionScoreBuffer[i] /= totalWeight;
+            tree.mBlendedCompletionScoreBuffer[lii] /= totalWeight;
           }
 
           //  If a move provides a better-than-worst case in all uncles it provides a support
           //  floor the the worst that we can do with perfect play, so use that if its larger than
           //  what we would otherwise use
-          if (floorDeciderNode != null &&
-              floorDeciderNode.getAverageScore(roleIndex) > tree.mBlendedCompletionScoreBuffer[roleIndex])
+          if (lFloorDeciderNode != null &&
+              lFloorDeciderNode.getAverageScore(lRoleIndex) > tree.mBlendedCompletionScoreBuffer[lRoleIndex])
           {
-            for (int i = 0; i < tree.numRoles; i++)
+            for (int lii = 0; lii < tree.numRoles; lii++)
             {
-              tree.mBlendedCompletionScoreBuffer[i] = floorDeciderNode.getAverageScore(i);
+              tree.mBlendedCompletionScoreBuffer[lii] = lFloorDeciderNode.getAverageScore(lii);
             }
           }
         }
@@ -1629,14 +1632,14 @@ public class TreeNode
         {
           //  For the final role we're transitioning to an actual fully decided new state so the
           //  appropriate choice is the best one for the chooser
-          for (int i = 0; i < tree.numRoles; i++)
+          for (int lii = 0; lii < tree.numRoles; lii++)
           {
-            tree.mBlendedCompletionScoreBuffer[i] = bestValueNode.getAverageScore(i);
+            tree.mBlendedCompletionScoreBuffer[lii] = lBestValueNode.getAverageScore(lii);
           }
         }
-        markComplete(tree.mBlendedCompletionScoreBuffer, determiningChildCompletionDepth);
+        markComplete(tree.mBlendedCompletionScoreBuffer, lDeterminingChildCompletionDepth);
       }
-      else if ( multupleBestChoices )
+      else if (lMultipleBestChoices)
       {
         //  Weight the values by 200-ourScore (i.e. - assume the chooser will prefer
         //  to make us lose, but not to the point where it totally discounts the other lines)
@@ -1644,35 +1647,35 @@ public class TreeNode
         //  will cooperate against us, and makes giving up look as attractive as trying for
         //  a possible win that is not completely forced
         double totalWeight = 0;
-        for (int i = 0; i < tree.numRoles; i++)
+        for (int lii = 0; lii < tree.numRoles; lii++)
         {
-          tree.mBlendedCompletionScoreBuffer[i] = 0;
+          tree.mBlendedCompletionScoreBuffer[lii] = 0;
         }
 
-        for (short index = 0; index < mNumChildren; index++)
+        for (short lIndex = 0; lIndex < mNumChildren; lIndex++)
         {
-          if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+          if (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[lIndex] == lIndex)
           {
-            Object choice = children[index];
+            Object lChoice = mChildren[lIndex];
 
             //  Might be that two children completed concurrently (relative to opportunities
             //  to process the node completion queue), in which case we may have multiple
             //  decider-wins options even if some other children are unexpanded
-            if ( choice instanceof TreeEdge )
+            if (lChoice instanceof TreeEdge)
             {
-              TreeEdge edge = (TreeEdge)choice;
+              TreeEdge lEdge = (TreeEdge)lChoice;
 
-              if (edge.getChildRef() != NULL_REF)
+              if (lEdge.getChildRef() != NULL_REF)
               {
-                TreeNode lNode = get(edge.getChildRef());
+                TreeNode lNode = get(lEdge.getChildRef());
                 assert(lNode != null);
 
-                if ( lNode.getAverageScore(roleIndex) == bestValue )
+                if (lNode.getAverageScore(lRoleIndex) == lBestValue)
                 {
                   double weight = (200 - lNode.getAverageScore(0));
-                  for (int i = 0; i < tree.numRoles; i++)
+                  for (int lii = 0; lii < tree.numRoles; lii++)
                   {
-                    tree.mBlendedCompletionScoreBuffer[i] += weight*lNode.getAverageScore(i);
+                    tree.mBlendedCompletionScoreBuffer[lii] += weight*lNode.getAverageScore(lii);
                   }
                   totalWeight += weight;
                 }
@@ -1680,25 +1683,40 @@ public class TreeNode
             }
           }
         }
-        for (int i = 0; i < tree.numRoles; i++)
+        for (int lii = 0; lii < tree.numRoles; lii++)
         {
-          tree.mBlendedCompletionScoreBuffer[i] /= totalWeight;
+          tree.mBlendedCompletionScoreBuffer[lii] /= totalWeight;
         }
 
-        markComplete(tree.mBlendedCompletionScoreBuffer, determiningChildCompletionDepth);
+        markComplete(tree.mBlendedCompletionScoreBuffer, lDeterminingChildCompletionDepth);
       }
       else
       {
-        markComplete(bestValueNode, determiningChildCompletionDepth);
+        markComplete(lBestValueNode, lDeterminingChildCompletionDepth);
       }
 
-      if ( siblingCheckNeeded )
+      if (lSiblingCheckNeeded)
       {
         checkSiblingCompletion();
       }
     }
 
     lastSelectionMade = -1;
+  }
+
+  private double getSumOfOpponentScores(int xiRoleIndex)
+  {
+    double lSumOfOpponentScores = 0;
+
+    for (int lOpponentRoleIndex = 0; lOpponentRoleIndex < tree.numRoles; lOpponentRoleIndex++)
+    {
+      if (lOpponentRoleIndex != xiRoleIndex)
+      {
+        lSumOfOpponentScores += getAverageScore(lOpponentRoleIndex);
+      }
+    }
+
+    return lSumOfOpponentScores;
   }
 
   /**
@@ -1723,7 +1741,7 @@ public class TreeNode
     localSearchStatus = LocalSearchStatus.LOCAL_SEARCH_UNSEARCHED;
     lastSelectionMade = -1;
     complete = false;
-    allChildrenComplete = false;
+    mAllChildrenComplete = false;
     assert(freed || (xiTree == null));
     freed = (xiTree == null);
     depth = -1;
@@ -1735,34 +1753,34 @@ public class TreeNode
 
     // Reset objects (without allocating new ones).
     tree = xiTree;
-    parents.clear();
+    mParents.clear();
     state.clear();
 
     // Reset score values
-    if ( xiTree != null )
+    if (xiTree != null)
     {
-      for (int i = 0; i < xiTree.numRoles; i++)
+      for (int lii = 0; lii < xiTree.numRoles; lii++)
       {
-        setAverageScore(i, 0);
-        setAverageSquaredScore(i, 0);
+        setAverageScore(lii, 0);
+        setAverageSquaredScore(lii, 0);
       }
     }
 
     // Reset remaining objects.  These will need to be re-allocated later.  That's a shame, because it produces
     // unnecessary garbage, but sorting it won't be easy.
-    primaryChoiceMapping = null;
+    mPrimaryChoiceMapping = null;
   }
 
   TreeNode getChild(short index)
   {
     assert(index < mNumChildren);
 
-    Object choice = children[index];
+    Object lChoice = mChildren[index];
     TreeEdge edge;
 
-    if ( choice instanceof TreeEdge )
+    if ( lChoice instanceof TreeEdge )
     {
-      edge = (TreeEdge)choice;
+      edge = (TreeEdge)lChoice;
     }
     else
     {
@@ -1781,16 +1799,16 @@ public class TreeNode
   {
     assert(index < mNumChildren);
 
-    Object choice = children[index];
+    Object lChoice = mChildren[index];
     TreeEdge edge;
 
-    if ( choice instanceof TreeEdge )
+    if (lChoice instanceof TreeEdge)
     {
-      edge = (TreeEdge)choice;
+      edge = (TreeEdge)lChoice;
     }
     else
     {
-      ForwardDeadReckonLegalMoveInfo move = (ForwardDeadReckonLegalMoveInfo)children[index];
+      ForwardDeadReckonLegalMoveInfo move = (ForwardDeadReckonLegalMoveInfo)mChildren[index];
       if ( move.isPseudoNoOp && this != tree.root )
       {
         return null;
@@ -1798,7 +1816,7 @@ public class TreeNode
 
       edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
       edge.setParent(this, move);
-      children[index] = edge;
+      mChildren[index] = edge;
 
       assert(edge != null);
     }
@@ -1852,17 +1870,17 @@ public class TreeNode
   {
     for (short index = 0; index < mNumChildren; index++)
     {
-      if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+      if ( mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index )
       {
-        Object choice = children[index];
+        Object lChoice = mChildren[index];
 
-        TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+        TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
         if ( edge != null )
         {
           TreeNode lNode = get(edge.getChildRef());
           if (lNode != null)
           {
-            if (!lNode.parents.contains(this))
+            if (!lNode.mParents.contains(this))
             {
               LOGGER.error("Missing parent link");
             }
@@ -1886,19 +1904,19 @@ public class TreeNode
       }
     }
 
-    if (parents.size() > 0)
+    if (mParents.size() > 0)
     {
       int numInwardVisits = 0;
 
-      for (TreeNode parent : parents)
+      for (TreeNode parent : mParents)
       {
         for (short index = 0; index < parent.mNumChildren; index++)
         {
-          if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
+          if ( parent.mPrimaryChoiceMapping == null || parent.mPrimaryChoiceMapping[index] == index )
           {
-            Object choice = parent.children[index];
+            Object lChoice = parent.mChildren[index];
 
-            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+            TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
             if (edge != null && edge.getChildRef() != NULL_REF && get(edge.getChildRef()) == this)
             {
               numInwardVisits += edge.getNumChildVisits();
@@ -1921,18 +1939,18 @@ public class TreeNode
    */
   private void markTreeForSweep(TreeNode parent)
   {
-    assert(parent == null || parents.contains(parent)) : "Marked node for sweep from unexpected parent";
+    assert(parent == null || mParents.contains(parent)) : "Marked node for sweep from unexpected parent";
     if (sweepSeq != tree.sweepInstance)
     {
       //sweepParent = parent;
       sweepSeq = tree.sweepInstance;
       for (short index = 0; index < mNumChildren; index++)
       {
-        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+        if ( mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index )
         {
-          Object choice = children[index];
+          Object lChoice = mChildren[index];
 
-          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
           if (edge != null)
           {
             //  No need to traverse hyper-edges in this sweep.  Also, since hyper-edges
@@ -1984,16 +2002,16 @@ public class TreeNode
     // of the tree.
     tree.sweepInstance++;
     descendant.markTreeForSweep(null);
-    descendant.parents.clear(); //	Do this here to allow generic orphan checking in node freeing
+    descendant.mParents.clear(); //	Do this here to allow generic orphan checking in node freeing
                                 //	without tripping over this special case
 
     for (int index = 0; index < mNumChildren; index++)
     {
-      if (primaryChoiceMapping == null || primaryChoiceMapping[index] == index)
+      if (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index)
       {
-        Object choice = children[index];
+        Object lChoice = mChildren[index];
 
-        TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+        TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
         if (edge != null)
         {
           //  Note that hyper-edges represent duplicate paths that are not back-linked
@@ -2023,17 +2041,17 @@ public class TreeNode
 
   private void deleteEdge(int xiChildIndex)
   {
-    assert(children[xiChildIndex] instanceof TreeEdge) : "Asked to delete a non-edge";
-    TreeEdge lEdge = (TreeEdge)children[xiChildIndex];
+    assert(mChildren[xiChildIndex] instanceof TreeEdge) : "Asked to delete a non-edge";
+    TreeEdge lEdge = (TreeEdge)mChildren[xiChildIndex];
 
     // Replace the edge with its move (so that it can be re-expanded later if required).
     if ( lEdge.isHyperEdge() )
     {
-      children[xiChildIndex] = lEdge.mPartialMove;
+      mChildren[xiChildIndex] = lEdge.mPartialMove;
     }
     else
     {
-      children[xiChildIndex] = null;
+      mChildren[xiChildIndex] = null;
     }
 
     //  Make sure it is reset when freed not just whn re-allocated as it may still
@@ -2048,19 +2066,19 @@ public class TreeNode
     //  If the hyper-edge bing deleted is the last on through this mov then
     //  the principal (non-hyper) edge for that move must become selectable
     //  again
-    Move move = ((TreeEdge)children[xiChildIndex]).mPartialMove.move;
+    Move move = ((TreeEdge)mChildren[xiChildIndex]).mPartialMove.move;
 
     deleteEdge(xiChildIndex);
 
     TreeEdge principalEdge = null;
 
-    for(int i = 0; i < mNumChildren; i++)
+    for (int lii = 0; lii < mNumChildren; lii++)
     {
-      Object choice = children[i];
+      Object lChoice = mChildren[lii];
 
-      if ( choice instanceof TreeEdge )
+      if ( lChoice instanceof TreeEdge )
       {
-        TreeEdge edge = (TreeEdge)choice;
+        TreeEdge edge = (TreeEdge)lChoice;
 
         if ( edge.mPartialMove.move == move )
         {
@@ -2104,11 +2122,11 @@ public class TreeNode
 
     for (short index = 0; index < mNumChildren; index++)
     {
-      if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+      if ( mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index )
       {
-        Object choice = children[index];
+        Object lChoice = mChildren[index];
 
-        TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+        TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
         if (edge != null)
         {
           if (edge.getChildRef() != NULL_REF && get(edge.getChildRef()) != null)
@@ -2151,12 +2169,12 @@ public class TreeNode
 
     for (int index = 0; index < mNumChildren; index++)
     {
-      Object choice = children[index];
-      if (primaryChoiceMapping == null || primaryChoiceMapping[index] == index)
+      Object lChoice = mChildren[index];
+      if (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index)
       {
-        if ( choice instanceof TreeEdge )
+        if ( lChoice instanceof TreeEdge )
         {
-          TreeEdge edge = (TreeEdge)choice;
+          TreeEdge edge = (TreeEdge)lChoice;
           TreeNode child = (edge.getChildRef() == NULL_REF || edge.isHyperEdge()) ? null : get(edge.getChildRef());
 
           deleteEdge(index);
@@ -2169,7 +2187,7 @@ public class TreeNode
       }
       else
       {
-        assert(choice instanceof ForwardDeadReckonLegalMoveInfo);
+        assert(lChoice instanceof ForwardDeadReckonLegalMoveInfo);
       }
     }
 
@@ -2197,11 +2215,11 @@ public class TreeNode
     {
       if (mNumChildren == 1)
       {
-        Object choice = children[0];
+        Object lChoice = mChildren[0];
 
-        if ( choice instanceof TreeEdge )
+        if ( lChoice instanceof TreeEdge )
         {
-          long cr = ((TreeEdge)choice).getChildRef();
+          long cr = ((TreeEdge)lChoice).getChildRef();
           //  Don't descend into unexpanded nodes
           if (cr != NULL_REF && get(cr) != null && !get(cr).isUnexpanded())
           {
@@ -2211,13 +2229,13 @@ public class TreeNode
       }
       else
       {
-        for (int i = 0; i < mNumChildren; i++)
+        for (int lii = 0; lii < mNumChildren; lii++)
         {
-          Object choice = children[i];
+          Object lChoice = mChildren[lii];
 
-          if (choice instanceof TreeEdge)
+          if (lChoice instanceof TreeEdge)
           {
-            TreeEdge edge = (TreeEdge)choice;
+            TreeEdge edge = (TreeEdge)lChoice;
 
             //  We just traverse the regular tree looking for nodes to free, so
             //  stop when we reach the start of the hyper edges
@@ -2263,7 +2281,7 @@ public class TreeNode
 
                   if (uctValue > bestValue)
                   {
-                    selectedIndex = i;
+                    selectedIndex = lii;
                     bestValue = uctValue;
                   }
                 }
@@ -2277,8 +2295,8 @@ public class TreeNode
     //validateAll();
     if (selectedIndex != -1)
     {
-      assert(children[selectedIndex] instanceof TreeEdge);
-      TreeEdge selectedEdge = (TreeEdge)children[selectedIndex];
+      assert(mChildren[selectedIndex] instanceof TreeEdge);
+      TreeEdge selectedEdge = (TreeEdge)mChildren[selectedIndex];
 
       return get(selectedEdge.getChildRef()).selectLeastLikelyExpandedNode(selectedEdge);
     }
@@ -2309,21 +2327,21 @@ public class TreeNode
     {
       result.isTerminal = true;
 
-      for(int i = 0; i < tree.numRoles; i++)
+      for (int lii = 0; lii < tree.numRoles; lii++)
       {
-        tree.underlyingStateMachine.getLatchedScoreRange(theState, tree.roleOrdering.roleIndexToRole(i), tree.latchedScoreRangeBuffer);
+        tree.underlyingStateMachine.getLatchedScoreRange(theState, tree.roleOrdering.roleIndexToRole(lii), tree.latchedScoreRangeBuffer);
 
         assert(tree.latchedScoreRangeBuffer[0] == tree.latchedScoreRangeBuffer[1]);
-        result.terminalScore[i] = tree.latchedScoreRangeBuffer[0];
+        result.terminalScore[lii] = tree.latchedScoreRangeBuffer[0];
       }
     }
     else if (tree.searchFilter.isFilteredTerminal(theState))
     {
       result.isTerminal = true;
 
-      for (int i = 0; i < tree.numRoles; i++)
+      for (int lii = 0; lii < tree.numRoles; lii++)
       {
-        result.terminalScore[i] = tree.underlyingStateMachine.getGoal(theState, tree.roleOrdering.roleIndexToRole(i));
+        result.terminalScore[lii] = tree.underlyingStateMachine.getGoal(theState, tree.roleOrdering.roleIndexToRole(lii));
       }
     }
 
@@ -2335,16 +2353,16 @@ public class TreeNode
       //  propagatable completion score.  This doesn't matter for fixed sum games
       //  that can only end with score of 0,50,100 or for puzzles, but would matter
       //  for more complex scoring structures in multi-player games (issue tracked in GITHub)
-      for (int i = 0; i < tree.numRoles; i++)
+      for (int lii = 0; lii < tree.numRoles; lii++)
       {
-        double iScore = result.terminalScore[i];
-        tree.bonusBuffer[i] = 0;
+        double iScore = result.terminalScore[lii];
+        tree.bonusBuffer[lii] = 0;
 
-        for (int j = 0; j < tree.numRoles; j++)
+        for (int ljj = 0; ljj < tree.numRoles; ljj++)
         {
-          if (j != i)
+          if (ljj != lii)
           {
-            double jScore = result.terminalScore[j];
+            double jScore = result.terminalScore[ljj];
 
             if (iScore >= jScore)
             {
@@ -2355,49 +2373,19 @@ public class TreeNode
                 bonus *= 2;
               }
 
-              tree.bonusBuffer[i] += bonus;
+              tree.bonusBuffer[lii] += bonus;
             }
           }
         }
       }
 
-      for (int i = 0; i < tree.numRoles; i++)
+      for (int lii = 0; lii < tree.numRoles; lii++)
       {
-        result.terminalScore[i] = ((result.terminalScore[i] + tree.bonusBuffer[i]) * 100) /
+        result.terminalScore[lii] = ((result.terminalScore[lii] + tree.bonusBuffer[lii]) * 100) /
             (100 + 2 * (tree.numRoles - 1) *
                 tree.gameCharacteristics.getCompetitivenessBonus());
       }
     }
-//    else
-//    {
-//      int nonNoopCount = 0;
-//
-//      for (int i = 0; i < tree.numRoles && nonNoopCount < 2; i++ )
-//      {
-//        Role role = tree.roleOrdering.roleIndexToRole(i);
-//        ForwardDeadReckonLegalMoveSet moves = tree.underlyingStateMachine.getLegalMoveSet(theState);
-//        int numMoves = tree.searchFilter.getFilteredMovesSize(theState, moves, role, false);
-//        Iterator<ForwardDeadReckonLegalMoveInfo> itr = moves.getContents(role).iterator();
-//        for (int iMove = 0; iMove < numMoves; iMove++)
-//        {
-//          // Get next move for this factor
-//          ForwardDeadReckonLegalMoveInfo info = tree.searchFilter.nextFilteredMove(itr);
-//
-//          if (info.inputProposition != null)
-//          {
-//            if (nonNoopCount++ > 0)
-//            {
-//              break;
-//            }
-//          }
-//        }
-//      }
-//
-//      if (nonNoopCount == 1)
-//      {
-//        result.autoExpand = true;
-//      }
-//    }
 
     return result;
   }
@@ -2407,9 +2395,9 @@ public class TreeNode
     boolean isPseudoNullMove = (tree.factor != null);
     int roleIndex = (decidingRoleIndex + 1) % tree.numRoles;
 
-    for (int i = 0; i <= ((tree.removeNonDecisionNodes && mNumChildren > 1) ? tree.numRoles-1 : roleIndex); i++)
+    for (int lii = 0; lii <= ((tree.removeNonDecisionNodes && mNumChildren > 1) ? tree.numRoles-1 : roleIndex); lii++)
     {
-      if (jointPartialMove[i].inputProposition != null)
+      if (jointPartialMove[lii].inputProposition != null)
       {
         isPseudoNullMove = false;
       }
@@ -2505,17 +2493,17 @@ public class TreeNode
 
       while(current.getDepth() != tree.root.getDepth())
       {
-        assert(!current.parents.isEmpty());
-        TreeNode parent = current.parents.get(0);
+        assert(!current.mParents.isEmpty());
+        TreeNode parent = current.mParents.get(0);
 
         if ( current.decidingRoleIndex == 0 )
         {
           assert(parent.mNumChildren > 0);
-          for(Object choice : parent.children)
+          for (Object lChoice : parent.mChildren)
           {
-            if ( choice instanceof TreeEdge )
+            if ( lChoice instanceof TreeEdge )
             {
-              TreeEdge edge = (TreeEdge)choice;
+              TreeEdge edge = (TreeEdge)lChoice;
 
               if ( edge.getChildRef() != NULL_REF && get(edge.getChildRef()) == current )
               {
@@ -2546,7 +2534,7 @@ public class TreeNode
 
   public TreeNode expand(TreePath fullPathTo, ForwardDeadReckonLegalMoveInfo[] jointPartialMove, int parentDepth)
   {
-    assert(this == tree.root || fullPathTo == null || parents.contains(fullPathTo.getTailElement().getParentNode()));
+    assert(this == tree.root || fullPathTo == null || mParents.contains(fullPathTo.getTailElement().getParentNode()));
 
     assert(linkageValid());
 
@@ -2561,17 +2549,17 @@ public class TreeNode
   {
     Object[] newChildren = new Object[mNumChildren*2];
 
-    System.arraycopy(children, 0, newChildren, 0, mNumChildren);
+    System.arraycopy(mChildren, 0, newChildren, 0, mNumChildren);
 
-    children = newChildren;
+    mChildren = newChildren;
 
-    if ( primaryChoiceMapping != null )
+    if ( mPrimaryChoiceMapping != null )
     {
       short[] newPrimaryChoiceMapping = new short[mNumChildren*2];
 
-      System.arraycopy(primaryChoiceMapping, 0, newPrimaryChoiceMapping, 0, mNumChildren);
+      System.arraycopy(mPrimaryChoiceMapping, 0, newPrimaryChoiceMapping, 0, mNumChildren);
 
-      primaryChoiceMapping = newPrimaryChoiceMapping;
+      mPrimaryChoiceMapping = newPrimaryChoiceMapping;
     }
 
     if ( tree.mGameSearcher.mUseRAVE )
@@ -2620,7 +2608,7 @@ public class TreeNode
       {
         for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
         {
-          if (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex)
+          if (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[lMoveIndex] == lMoveIndex)
           {
             //  Create if necessary
             TreeNode child = createChildIfNeccessary(lMoveIndex, jointPartialMove, roleIndex);
@@ -2635,7 +2623,7 @@ public class TreeNode
       }
       else
       {
-        Object lastChild = children[mNumChildren-1];
+        Object lastChild = mChildren[mNumChildren-1];
 
         hyperExpansionNeeded = (lastChild == null || (lastChild instanceof TreeEdge && ((TreeEdge)lastChild).isHyperEdge()));
       }
@@ -2645,10 +2633,10 @@ public class TreeNode
       {
         for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
         {
-          if (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex)
+          if (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[lMoveIndex] == lMoveIndex)
           {
-            Object choice = children[lMoveIndex];
-            if ( choice instanceof TreeEdge &&  ((TreeEdge)choice).isHyperEdge() )
+            Object lChoice = mChildren[lMoveIndex];
+            if ( lChoice instanceof TreeEdge &&  ((TreeEdge)lChoice).isHyperEdge() )
             {
               //  We're only interested in recursively expanding the regular tree linkage
               //  so as soon as we hit a hyper-edge we can stop
@@ -2659,8 +2647,8 @@ public class TreeNode
 
             if ( child != null && !child.complete && child.state.contains(tree.mRoleControlProps[roleIndex]) )
             {
-              assert(choice instanceof TreeEdge);
-              TreeEdge edge = (TreeEdge)choice;
+              assert(lChoice instanceof TreeEdge);
+              TreeEdge edge = (TreeEdge)lChoice;
 
               TreeNode expandedChild;
 
@@ -2677,9 +2665,9 @@ public class TreeNode
 
                 //  Expanding can result in the discovery that forced moves transpose to the same state as another
                 //  edge, in which case expansion can retire this edge - check before continuing
-                if ( edge != children[lMoveIndex] )
+                if ( edge != mChildren[lMoveIndex] )
                 {
-                  assert(primaryChoiceMapping != null && primaryChoiceMapping[lMoveIndex] != lMoveIndex);
+                  assert(mPrimaryChoiceMapping != null && mPrimaryChoiceMapping[lMoveIndex] != lMoveIndex);
                   continue;
                 }
 
@@ -2704,7 +2692,7 @@ public class TreeNode
               if ( !expandedChild.complete )
               {
                 boolean expandedChildHasHyperEdges = false;
-                Object lastChoice = expandedChild.children[expandedChild.mNumChildren-1];
+                Object lastChoice = expandedChild.mChildren[expandedChild.mNumChildren-1];
 
                 if ( (lastChoice instanceof TreeEdge) && ((TreeEdge)lastChoice).hyperSuccessor != null )
                 {
@@ -2717,15 +2705,15 @@ public class TreeNode
                 //  Add in the implied hyper-edges
                 if ( expandedChildHasHyperEdges )
                 {
-                  for(short index = 0; index < expandedChild.mNumChildren; index++)
+                  for (short index = 0; index < expandedChild.mNumChildren; index++)
                   {
-                    Object childChoice = expandedChild.children[index];
+                    Object childChoice = expandedChild.mChildren[index];
                     if ( childChoice instanceof TreeEdge && !((TreeEdge)childChoice).isSelectable())
                     {
                       continue;
                     }
 
-                    if ( childChoice != null && (expandedChild.primaryChoiceMapping == null || expandedChild.primaryChoiceMapping[index] == index))
+                    if ( childChoice != null && (expandedChild.mPrimaryChoiceMapping == null || expandedChild.mPrimaryChoiceMapping[index] == index))
                     {
                       //  Children will have already been expanded by the recursive call above usually, but in
                       //  the case of a transposition it is possible they will not have been
@@ -2745,16 +2733,16 @@ public class TreeNode
                       //  most of the selection power of the theoretical approach with much less of an increase in branching factor
                       if ( !descendant.state.contains(tree.mRoleControlProps[roleIndex]) )
                       {
-                        assert(!((TreeEdge)expandedChild.children[index]).isHyperEdge());
+                        assert(!((TreeEdge)expandedChild.mChildren[index]).isHyperEdge());
                         continue;
                       }
-                      assert(((TreeEdge)expandedChild.children[index]).isHyperEdge());
+                      assert(((TreeEdge)expandedChild.mChildren[index]).isHyperEdge());
 
                       //  Only need to add if we don't already have a (hyper or otherwise) child
                       //  which is this node
                       boolean alreadyPresent = false;
 
-                      for(short ourIndex = 0; ourIndex < mNumChildren; ourIndex++)
+                      for (short ourIndex = 0; ourIndex < mNumChildren; ourIndex++)
                       {
                         TreeNode ourChild = getChild(ourIndex);
                         if ( ourChild != null && ourChild.state.equals(descendant.state))
@@ -2767,12 +2755,12 @@ public class TreeNode
                       if ( !alreadyPresent )
                       {
                         //  Add the new hyper-edge
-                        TreeEdge descendantEdge = (TreeEdge)expandedChild.children[index];
+                        TreeEdge descendantEdge = (TreeEdge)expandedChild.mChildren[index];
 
                         assert(descendantEdge.mParentRef == expandedChild.getRef());
 
                         //  Do we need to expand the children array?
-                        if ( children.length == mNumChildren )
+                        if ( mChildren.length == mNumChildren )
                         {
                           expandChildCapacity();
                         }
@@ -2789,11 +2777,11 @@ public class TreeNode
                         hyperEdge.nextHyperChild = expandedChild.getRef();
                         hyperEdge.setChildRef(descendantEdge.getChildRef());
 
-                        if ( primaryChoiceMapping != null )
+                        if ( mPrimaryChoiceMapping != null )
                         {
-                          primaryChoiceMapping[mNumChildren] = mNumChildren;
+                          mPrimaryChoiceMapping[mNumChildren] = mNumChildren;
                         }
-                        children[mNumChildren++] = hyperEdge;
+                        mChildren[mNumChildren++] = hyperEdge;
 
                         assert(validateHyperChain(hyperEdge));
                       }
@@ -2803,7 +2791,7 @@ public class TreeNode
                 else
                 {
                   //  Do we need to expand the children array?
-                  if ( children.length == mNumChildren )
+                  if ( mChildren.length == mNumChildren )
                   {
                     expandChildCapacity();
                   }
@@ -2823,11 +2811,11 @@ public class TreeNode
                   //  Can safely take on the visit count of the replaced normal edge
                   hyperEdge.setNumVisits(edge.getNumChildVisits());
 
-                  if ( primaryChoiceMapping != null )
+                  if ( mPrimaryChoiceMapping != null )
                   {
-                    primaryChoiceMapping[mNumChildren] = mNumChildren;
+                    mPrimaryChoiceMapping[mNumChildren] = mNumChildren;
                   }
-                  children[mNumChildren++] = hyperEdge;
+                  mChildren[mNumChildren++] = hyperEdge;
 
                   assert(validateHyperChain(hyperEdge));
                 }
@@ -2856,7 +2844,7 @@ public class TreeNode
 
     TreePathElement pathTo = (fullPathTo == null ? null : fullPathTo.getTailElement());
 
-    assert(this == tree.root || parents.size() > 0);
+    assert(this == tree.root || mParents.size() > 0);
     assert(depth/tree.numRoles == tree.root.depth/tree.numRoles || (!tree.removeNonDecisionNodes && decidingRoleIndex != tree.numRoles-1) || (pathTo != null && pathTo.getEdgeUnsafe().mPartialMove.isPseudoNoOp) || tree.findTransposition(state) == this);
     //assert(state.size()==10);
     //boolean assertTerminal = !state.toString().contains("b");
@@ -2978,24 +2966,24 @@ public class TreeNode
 
             //  Need to check that we don't already have a different edge leading from the same parent to this newly transposed-to
             //  node (multiple forced move paths can have a common destination)
-            if ( existing.parents.contains(parent))
+            if ( existing.mParents.contains(parent))
             {
               short thisIndex = -1;
               short otherPathIndex = -1;
 
-              for(short i = 0; i < parent.mNumChildren; i++)
+              for (short lii = 0; lii < parent.mNumChildren; lii++)
               {
-                if ( parent.children[i] instanceof TreeEdge )
+                if ( parent.mChildren[lii] instanceof TreeEdge )
                 {
-                  TreeEdge linkingEdge = (TreeEdge)parent.children[i];
+                  TreeEdge linkingEdge = (TreeEdge)parent.mChildren[lii];
 
                   if ( linkingEdge == edge )
                   {
-                    thisIndex = i;
+                    thisIndex = lii;
                   }
                   else if ( linkingEdge.getChildRef() == existing.getRef() )
                   {
-                    otherPathIndex = i;
+                    otherPathIndex = lii;
                   }
                 }
               }
@@ -3006,22 +2994,22 @@ public class TreeNode
               //  This edge is being newly traversed (for the first time), but the
               //  other may already have been traversed multiple times, so we must retire
               //  this one in favour of the other
-              parent.children[thisIndex] = edge.mPartialMove;
-              if ( parent.primaryChoiceMapping == null )
+              parent.mChildren[thisIndex] = edge.mPartialMove;
+              if ( parent.mPrimaryChoiceMapping == null )
               {
-                parent.primaryChoiceMapping = new short[parent.children.length];
+                parent.mPrimaryChoiceMapping = new short[parent.mChildren.length];
 
-                for(short i = 0; i < parent.mNumChildren; i++)
+                for (short lii = 0; lii < parent.mNumChildren; lii++)
                 {
-                  parent.primaryChoiceMapping[i] = i;
+                  parent.mPrimaryChoiceMapping[lii] = lii;
                 }
               }
 
-              parent.primaryChoiceMapping[thisIndex] = otherPathIndex;
+              parent.mPrimaryChoiceMapping[thisIndex] = otherPathIndex;
 
               edge.reset();
               tree.edgePool.free(edge);
-              edge = (TreeEdge)parent.children[otherPathIndex];
+              edge = (TreeEdge)parent.mChildren[otherPathIndex];
 
               //  The old edge will have been selected through (else we wouldn't be expanding it)
               //  which will have incremented its visit count - need to do that on the replacement
@@ -3077,7 +3065,7 @@ public class TreeNode
             //  not be unique (it could turn out that multiple forced move sequences which
             //  have different starting moves lead to the same result)
             //  If it's NOT unique we must make it so
-            if ( !existing.parents.contains(parent))
+            if ( !existing.mParents.contains(parent))
             {
               existing.addParent(parent);
             }
@@ -3104,8 +3092,8 @@ public class TreeNode
               assert(this != tree.root);
               assert(mNumChildren == 1) : "Expansion of non-decision node occuring on apparent decision node!";
               mNumChildren = 0; //  Must reset this so it appears unexpanded for other paths if it doesn't get freed
-              assert(parents.size() > 0);
-              if ( parents.contains(parent) )
+              assert(mParents.size() > 0);
+              if ( mParents.contains(parent) )
               {
                 freeFromAncestor(parent, null);
               }
@@ -3195,18 +3183,18 @@ public class TreeNode
 
       // If the child array isn't large enough, expand it.
       assert(mNumChildren <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
-      if (mNumChildren > children.length)
+      if (mNumChildren > mChildren.length)
       {
         int maxChildrenToAllocateFor = tree.gameCharacteristics.getChoicesHighWaterMark(mNumChildren);
 
-        children = new Object[maxChildrenToAllocateFor];
+        mChildren = new Object[maxChildrenToAllocateFor];
         if ( tree.mGameSearcher.mUseRAVE )
         {
           mRAVECounts = new int[maxChildrenToAllocateFor];
           mRAVEScores = new double[maxChildrenToAllocateFor];
         }
 
-        assert ( primaryChoiceMapping == null );
+        assert ( mPrimaryChoiceMapping == null );
       }
 
       if (MCTSTree.USE_STATE_SIMILARITY_IN_EXPANSION)
@@ -3231,13 +3219,13 @@ public class TreeNode
 
             //  Look to see if a sibling move has no heuristic variance - we can clone
             //  it's heuristic score and weight
-            for(short index = 0; index < tree.root.mNumChildren; index++)
+            for (short index = 0; index < tree.root.mNumChildren; index++)
             {
-              Object choice = tree.root.children[index];
+              Object lChoice = tree.root.mChildren[index];
 
-              if ( choice != edge && choice instanceof TreeEdge )
+              if ( lChoice != edge && lChoice instanceof TreeEdge )
               {
-                TreeEdge siblingEdge = (TreeEdge)choice;
+                TreeEdge siblingEdge = (TreeEdge)lChoice;
 
                 if ( !siblingEdge.hasHeuristicDeviation() )
                 {
@@ -3274,9 +3262,9 @@ public class TreeNode
 
         if ( isPseudoNullMove )
         {
-          for (int i = 0; i <= roleIndex; i++)
+          for (int lii = 0; lii <= roleIndex; lii++)
           {
-            if (jointPartialMove[i].inputProposition != null)
+            if (jointPartialMove[lii].inputProposition != null)
             {
               isPseudoNullMove = false;
             }
@@ -3305,9 +3293,9 @@ public class TreeNode
           newState.copy(state);
         }
 
-        if ( primaryChoiceMapping != null )
+        if ( mPrimaryChoiceMapping != null )
         {
-          primaryChoiceMapping[lMoveIndex] = lMoveIndex;
+          mPrimaryChoiceMapping[lMoveIndex] = lMoveIndex;
         }
 
         //	Check for multiple moves that all transition to the same state
@@ -3323,29 +3311,29 @@ public class TreeNode
         //     choice made between them on ancestor nodes
         if (!isPseudoNullMove)
         {
-          for (short i = 0; i < lMoveIndex; i++)
+          for (short lii = 0; lii < lMoveIndex; lii++)
           {
-            if (children[i] != null &&
+            if (mChildren[lii] != null &&
                 ((foundVirtualNoOp && newChoice.isVirtualNoOp) ||
                  ((tree.removeNonDecisionNodes || roleIndex == tree.numRoles - 1) &&
-                  tree.mChildStatesBuffer[i].equals(newState))))
+                  tree.mChildStatesBuffer[lii].equals(newState))))
             {
-              if ( primaryChoiceMapping == null )
+              if ( mPrimaryChoiceMapping == null )
               {
-                primaryChoiceMapping = new short[children.length];
-                for(short j = 0; j < lMoveIndex; j++)
+                mPrimaryChoiceMapping = new short[mChildren.length];
+                for (short ljj = 0; ljj < lMoveIndex; ljj++)
                 {
-                  primaryChoiceMapping[j] = j;
+                  mPrimaryChoiceMapping[ljj] = ljj;
                 }
               }
-              primaryChoiceMapping[lMoveIndex] = i;
+              mPrimaryChoiceMapping[lMoveIndex] = lii;
               break;
             }
           }
         }
 
         assert(newChoice != null);
-        children[lMoveIndex] = newChoice;
+        mChildren[lMoveIndex] = newChoice;
 
         foundVirtualNoOp |= newChoice.isVirtualNoOp;
       }
@@ -3356,7 +3344,7 @@ public class TreeNode
       {
         for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
         {
-          if (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex)
+          if (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[lMoveIndex] == lMoveIndex)
           {
             StateInfo info = calculateTerminalityAndAutoExpansion(tree.mChildStatesBuffer[lMoveIndex]);
             boolean stateFastForwarded = false;
@@ -3394,30 +3382,30 @@ public class TreeNode
                 short remappedTo = -1;
 
                 //  Since we have changed the state fixup the primary choice mappings
-                for (short i = 0; i < lMoveIndex; i++)
+                for (short lii = 0; lii < lMoveIndex; lii++)
                 {
-                  if (children[i] != null && tree.mChildStatesBuffer[i].equals(tree.mChildStatesBuffer[lMoveIndex]))
+                  if (mChildren[lii] != null && tree.mChildStatesBuffer[lii].equals(tree.mChildStatesBuffer[lMoveIndex]))
                   {
-                    if ( primaryChoiceMapping == null )
+                    if ( mPrimaryChoiceMapping == null )
                     {
-                      primaryChoiceMapping = new short[children.length];
-                      for(short j = 0; j < mNumChildren; j++)
+                      mPrimaryChoiceMapping = new short[mChildren.length];
+                      for (short ljj = 0; ljj < mNumChildren; ljj++)
                       {
-                        primaryChoiceMapping[j] = j;
+                        mPrimaryChoiceMapping[ljj] = ljj;
                       }
                     }
-                    primaryChoiceMapping[lMoveIndex] = i;
-                    remappedTo = i;
+                    mPrimaryChoiceMapping[lMoveIndex] = lii;
+                    remappedTo = lii;
                     break;
                   }
                 }
                 if ( remappedTo != -1 )
                 {
-                  for(short j = (short)(lMoveIndex+1); j < mNumChildren; j++)
+                  for (short ljj = (short)(lMoveIndex+1); ljj < mNumChildren; ljj++)
                   {
-                    if ( primaryChoiceMapping[j] == lMoveIndex )
+                    if ( mPrimaryChoiceMapping[ljj] == lMoveIndex )
                     {
-                      primaryChoiceMapping[j] = remappedTo;
+                      mPrimaryChoiceMapping[ljj] = remappedTo;
                     }
                   }
                 }
@@ -3427,13 +3415,13 @@ public class TreeNode
             //  We need to create the node at once if a fast-forward has taken place since
             //  the state will not be that reached directly by the move choice and we will
             //  not have access to the correct state information in other contexts
-            ForwardDeadReckonLegalMoveInfo childMove = (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex];
-            if ( (primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) &&
+            ForwardDeadReckonLegalMoveInfo childMove = (ForwardDeadReckonLegalMoveInfo)mChildren[lMoveIndex];
+            if ( (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[lMoveIndex] == lMoveIndex) &&
                  (info.isTerminal || stateFastForwarded) && !childMove.isPseudoNoOp )
             {
               TreeEdge newEdge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
               newEdge.setParent(this, childMove);
-              children[lMoveIndex] = newEdge;
+              mChildren[lMoveIndex] = newEdge;
               jointPartialMove[roleIndex] = newEdge.mPartialMove;
               createChildNodeForEdgeWithAssertedState(newEdge, tree.mChildStatesBuffer[lMoveIndex], fastForwardDepthIncrement, false);
 
@@ -3465,30 +3453,30 @@ public class TreeNode
       {
         for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
         {
-          if ((primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) )
+          if ((mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[lMoveIndex] == lMoveIndex) )
           {
-            Object choice = children[lMoveIndex];
-            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+            Object lChoice = mChildren[lMoveIndex];
+            TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
             if (edge == null || !get(edge.getChildRef()).isTerminal)
             {
               //  Skip this for pseudo-noops
-              if ( (edge != null ? edge.mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice).isPseudoNoOp )
+              if ( (edge != null ? edge.mPartialMove : (ForwardDeadReckonLegalMoveInfo)lChoice).isPseudoNoOp )
               {
                 continue;
               }
 
-              for (int i = 0; i < tree.mNodeTopMoveCandidates.length; i++)
+              for (int lii = 0; lii < tree.mNodeTopMoveCandidates.length; lii++)
               {
-                ForwardDeadReckonLegalMoveInfo moveCandidate = tree.mNodeTopMoveCandidates[i];
-                if (choice == moveCandidate || (edge != null && edge.mPartialMove == moveCandidate))
+                ForwardDeadReckonLegalMoveInfo moveCandidate = tree.mNodeTopMoveCandidates[lii];
+                if (lChoice == moveCandidate || (edge != null && edge.mPartialMove == moveCandidate))
                 {
                   if (edge == null)
                   {
                     edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
                     edge.setParent(this, moveCandidate);
-                    children[lMoveIndex] = edge;
+                    mChildren[lMoveIndex] = edge;
                   }
-                  edge.explorationAmplifier = (topMoveWeight * (tree.mNodeTopMoveCandidates.length + 1 - i)*2) /
+                  edge.explorationAmplifier = (topMoveWeight * (tree.mNodeTopMoveCandidates.length + 1 - lii)*2) /
                                               (tree.mNodeTopMoveCandidates.length + 1);
                   break;
                 }
@@ -3580,13 +3568,13 @@ public class TreeNode
 
         for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
         {
-          if ((primaryChoiceMapping == null || primaryChoiceMapping[lMoveIndex] == lMoveIndex) )
+          if ((mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[lMoveIndex] == lMoveIndex) )
           {
-            Object choice = children[lMoveIndex];
+            Object lChoice = mChildren[lMoveIndex];
 
             //  Skip this for pseudo-noops since we don't want to expand them except when they are immediate
             //  children of the root (and in that case their heuristic value is the same as the root's)
-            if ( ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice).isPseudoNoOp )
+            if ( ((lChoice instanceof TreeEdge) ? ((TreeEdge)lChoice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)lChoice).isPseudoNoOp )
             {
               continue;
             }
@@ -3602,15 +3590,15 @@ public class TreeNode
             TreeEdge edge = null;
             if ( tree.mNodeHeuristicInfo.treatAsSequenceStep )
             {
-              if ( children[lMoveIndex] instanceof TreeEdge )
+              if ( mChildren[lMoveIndex] instanceof TreeEdge )
               {
-                edge = (TreeEdge)children[lMoveIndex];
+                edge = (TreeEdge)mChildren[lMoveIndex];
               }
               else
               {
                 edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-                edge.setParent(this, (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex]);
-                children[lMoveIndex] = edge;
+                edge.setParent(this, (ForwardDeadReckonLegalMoveInfo)mChildren[lMoveIndex]);
+                mChildren[lMoveIndex] = edge;
               }
 
               assert(edge!=null);
@@ -3647,15 +3635,15 @@ public class TreeNode
                 //  Create the edge if necessary
                 if ( edge == null )
                 {
-                  if ( children[lMoveIndex] instanceof TreeEdge )
+                  if ( mChildren[lMoveIndex] instanceof TreeEdge )
                   {
-                    edge = (TreeEdge)children[lMoveIndex];
+                    edge = (TreeEdge)mChildren[lMoveIndex];
                   }
                   else
                   {
                     edge = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-                    edge.setParent(this, (ForwardDeadReckonLegalMoveInfo)children[lMoveIndex]);
-                    children[lMoveIndex] = edge;
+                    edge.setParent(this, (ForwardDeadReckonLegalMoveInfo)mChildren[lMoveIndex]);
+                    mChildren[lMoveIndex] = edge;
                   }
                 }
 
@@ -3687,33 +3675,33 @@ public class TreeNode
                   //  then do not apply the heuristic seeding to the average scores
                   if (newChild.numVisits == 0)
                   {
-                    for (int i = 0; i < tree.numRoles; i++)
+                    for (int lii = 0; lii < tree.numRoles; lii++)
                     {
                       double adjustedRoleScore;
-                      double referenceRoleScore = referenceNode.getAverageScore(i);
+                      double referenceRoleScore = referenceNode.getAverageScore(lii);
 
                       //  Weight by a measure of confidence in the reference score
                       //  TODO - experiment - should this be proportional to sqrt(num root visits)?
                       double referenceScoreWeight = referenceNode.numUpdates/50;
                       referenceRoleScore = (referenceRoleScore*referenceScoreWeight + 50)/(referenceScoreWeight+1);
 
-                      if (tree.mNodeHeuristicInfo.heuristicValue[i] > 50)
+                      if (tree.mNodeHeuristicInfo.heuristicValue[lii] > 50)
                       {
                         adjustedRoleScore = referenceRoleScore +
                                               (100 - referenceRoleScore) *
-                                              (tree.mNodeHeuristicInfo.heuristicValue[i] - 50) /
+                                              (tree.mNodeHeuristicInfo.heuristicValue[lii] - 50) /
                                               50;
                       }
                       else
                       {
                         adjustedRoleScore = referenceRoleScore -
                                               (referenceRoleScore) *
-                                              (50 - tree.mNodeHeuristicInfo.heuristicValue[i]) /
+                                              (50 - tree.mNodeHeuristicInfo.heuristicValue[lii]) /
                                               50;
                       }
 
-                      double newChildRoleScore = (newChild.getAverageScore(i)*newChild.numUpdates + adjustedRoleScore*tree.mNodeHeuristicInfo.heuristicWeight)/(newChild.numUpdates+tree.mNodeHeuristicInfo.heuristicWeight);
-                      newChild.setAverageScore(i, newChildRoleScore);
+                      double newChildRoleScore = (newChild.getAverageScore(lii)*newChild.numUpdates + adjustedRoleScore*tree.mNodeHeuristicInfo.heuristicWeight)/(newChild.numUpdates+tree.mNodeHeuristicInfo.heuristicWeight);
+                      newChild.setAverageScore(lii, newChildRoleScore);
                     }
                   }
 
@@ -3742,10 +3730,10 @@ public class TreeNode
 
         for (int lii = 0; lii < mNumChildren; lii++)
         {
-          Object choice = children[lii];
-          if (choice instanceof TreeEdge)
+          Object lChoice = mChildren[lii];
+          if (lChoice instanceof TreeEdge)
           {
-            long cr = ((TreeEdge)choice).getChildRef();
+            long cr = ((TreeEdge)lChoice).getChildRef();
             if (cr != NULL_REF && get(cr) != null)
             {
               TreeNode lNode = get(cr);
@@ -3797,9 +3785,9 @@ public class TreeNode
   {
     double total = 0;
 
-    for (int i = 0; i < tree.numRoles; i++)
+    for (int lii = 0; lii < tree.numRoles; lii++)
     {
-      total += scores[i];
+      total += scores[lii];
     }
 
     if (total > 0 && Math.abs(total - 100) > EPSILON)
@@ -3814,11 +3802,11 @@ public class TreeNode
 
       for (short index = 0; index < mNumChildren; index++)
       {
-        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+        if ( mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index )
         {
-          Object choice = children[index];
+          Object lChoice = mChildren[index];
 
-          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
           if (edge != null && edge.getChildRef() != NULL_REF)
           {
             total += get(edge.getChildRef()).getAverageScore(0) * edge.getNumChildVisits();
@@ -3928,15 +3916,15 @@ public class TreeNode
       tree.cousinMoveCache.clear();
       tree.mCachedMoveScorePool.clear(tree.mMoveScoreInfoAllocator, false);
 
-      for (TreeNode parent : parents)
+      for (TreeNode parent : mParents)
       {
         for (short index = 0; index < parent.mNumChildren; index++)
         {
-          if ( parent.primaryChoiceMapping == null || parent.primaryChoiceMapping[index] == index )
+          if ( parent.mPrimaryChoiceMapping == null || parent.mPrimaryChoiceMapping[index] == index )
           {
-            Object choice = parent.children[index];
+            Object lChoice = parent.mChildren[index];
 
-            TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+            TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
             if (edge == null || edge.getChildRef() == NULL_REF)
             {
               continue;
@@ -3947,8 +3935,8 @@ public class TreeNode
             {
               for (short nephewIndex = 0; nephewIndex < child.mNumChildren; nephewIndex++)
               {
-                Object rawChoice = child.children[nephewIndex];
-                Object nephewChoice = child.children[child.primaryChoiceMapping == null ? nephewIndex : child.primaryChoiceMapping[nephewIndex]];
+                Object rawChoice = child.mChildren[nephewIndex];
+                Object nephewChoice = child.mChildren[child.mPrimaryChoiceMapping == null ? nephewIndex : child.mPrimaryChoiceMapping[nephewIndex]];
 
                 TreeEdge nephewEdge = (nephewChoice instanceof TreeEdge ? (TreeEdge)nephewChoice : null);
                 if (nephewEdge == null || nephewEdge.getChildRef() == NULL_REF)
@@ -3967,10 +3955,10 @@ public class TreeNode
                     tree.cousinMoveCache.put(move, accumulatedMoveInfo);
                   }
 
-                  for(int i = 0; i < tree.numRoles; i++)
+                  for (int lii = 0; lii < tree.numRoles; lii++)
                   {
-                    accumulatedMoveInfo.averageScores[i] = (accumulatedMoveInfo.averageScores[i] *
-                        accumulatedMoveInfo.numSamples + nephew.getAverageScore(i)) /
+                    accumulatedMoveInfo.averageScores[lii] = (accumulatedMoveInfo.averageScores[lii] *
+                        accumulatedMoveInfo.numSamples + nephew.getAverageScore(lii)) /
                         (accumulatedMoveInfo.numSamples + 1);
                   }
                   accumulatedMoveInfo.numSamples++;
@@ -3989,7 +3977,7 @@ public class TreeNode
     {
       if ( lNode.numUpdates > 0 )
       {
-        parents.get(0).dumpTree("subTree.txt");
+        mParents.get(0).dumpTree("subTree.txt");
         LOGGER.warn("No newphews found for search move including own child!");
         tree.cousinMovesCachedFor = NULL_REF;
       }
@@ -4034,11 +4022,11 @@ public class TreeNode
 
       for (short index = 0; index < mNumChildren; index++)
       {
-        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+        if ( mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index )
         {
-          Object choice = children[index];
+          Object lChoice = mChildren[index];
 
-          TreeEdge edge2 = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          TreeEdge edge2 = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
           if (edge2 != null && !edge2.mPartialMove.isPseudoNoOp && edge2.getChildRef() != NULL_REF)
           {
             double childUtility = effectiveExploitationScore(index, roleIndex);
@@ -4106,7 +4094,7 @@ public class TreeNode
     double weightTotal = 0;
     int choosingRoleIndex = (decidingRoleIndex+1)%tree.numRoles;
 
-    for(int role = 0; role < tree.numRoles; role++)
+    for (int role = 0; role < tree.numRoles; role++)
     {
       tree.mNodeAverageScores[role] = 0;
       tree.mNodeAverageSquaredScores[role] = 0;
@@ -4124,13 +4112,13 @@ public class TreeNode
     double highestScoreWeight = 0;
     int highestScoreIndex = -1;
 
-    for(int i = 0; i < mNumChildren; i++)
+    for (int lii = 0; lii < mNumChildren; lii++)
     {
-      Object choice = children[i];
+      Object lChoice = mChildren[lii];
 
-      if ( choice instanceof TreeEdge )
+      if ( lChoice instanceof TreeEdge )
       {
-        TreeEdge edge = (TreeEdge)choice;
+        TreeEdge edge = (TreeEdge)lChoice;
 
         if ( edge.getChildRef() != NULL_REF && edge.isSelectable() )
         {
@@ -4143,7 +4131,7 @@ public class TreeNode
             {
               highestScore = score;
               highestScoreWeight = edge.getNumChildVisits();
-              highestScoreIndex = i;
+              highestScoreIndex = lii;
             }
           }
         }
@@ -4153,13 +4141,13 @@ public class TreeNode
     double highestVisitFactor = Math.log(numVisits)/highestScoreWeight;
     double c = highestScore/100 + Math.sqrt(highestVisitFactor);
 
-    for(int i = 0; i < mNumChildren; i++)
+    for (int lii = 0; lii < mNumChildren; lii++)
     {
-      Object choice = children[i];
+      Object lChoice = mChildren[lii];
 
-      if ( choice instanceof TreeEdge )
+      if ( lChoice instanceof TreeEdge )
       {
-        TreeEdge edge = (TreeEdge)choice;
+        TreeEdge edge = (TreeEdge)lChoice;
 
         if ( edge.getChildRef() != NULL_REF && edge.isSelectable() )
         {
@@ -4181,13 +4169,13 @@ public class TreeNode
             double chooserScore = child.getAverageScore(choosingRoleIndex)/100;
             double weight = Math.log(numVisits)/((c-chooserScore)*(c-chooserScore));
 
-            assert(i != highestScoreIndex || Math.abs(weight-edge.getNumChildVisits()) < EPSILON);
+            assert(lii != highestScoreIndex || Math.abs(weight-edge.getNumChildVisits()) < EPSILON);
 
             if ( bTrace )
             {
               LOGGER.info("Move " + edge.descriptiveName() + "choosing score " + child.getAverageScore(choosingRoleIndex) + " [" + edge.getNumChildVisits() + "], weight: " + weight);
             }
-            for(int role = 0; role < tree.numRoles; role++)
+            for (int role = 0; role < tree.numRoles; role++)
             {
               double score = child.getAverageScore(role);
               double squaredScore = child.getAverageSquaredScore(role);
@@ -4227,7 +4215,7 @@ public class TreeNode
 
     if ( weightTotal > 0)
     {
-      for(int role = 0; role < tree.numRoles; role++)
+      for (int role = 0; role < tree.numRoles; role++)
       {
         setAverageScore(role, tree.mNodeAverageScores[role]/weightTotal);
         setAverageSquaredScore(role, tree.mNodeAverageSquaredScores[role]/weightTotal);
@@ -4291,7 +4279,7 @@ public class TreeNode
 
   private double getRAVESelectionValue(int edgeIndex)
   {
-    return getRAVEExplorationValue((TreeEdge)children[edgeIndex]) + mRAVEScores[edgeIndex]/100;
+    return getRAVEExplorationValue((TreeEdge)mChildren[edgeIndex]) + mRAVEScores[edgeIndex]/100;
   }
 
   //  Rave bias
@@ -4299,7 +4287,7 @@ public class TreeNode
 
   private double getSelectionValue(int edgeIndex, TreeNode c, int roleIndex)
   {
-    TreeEdge edge = (TreeEdge)children[edgeIndex];
+    TreeEdge edge = (TreeEdge)mChildren[edgeIndex];
     double UCTValue = getUCTSelectionValue(edge, c, roleIndex);
     double result;
 
@@ -4339,7 +4327,7 @@ public class TreeNode
   private double effectiveExploitationScore(int edgeIndex, int roleIndex)
   {
     double result;
-    TreeEdge edge = (TreeEdge)children[edgeIndex];
+    TreeEdge edge = (TreeEdge)mChildren[edgeIndex];
     TreeNode c = get(edge.getChildRef());
 
     if ( tree.mGameSearcher.mUseRAVE && !c.complete )
@@ -4399,9 +4387,9 @@ public class TreeNode
         // Find the move that we already know we're going to play.
         for (short lii = 0; lii < mNumChildren; lii++)
         {
-          if (children[lii] instanceof TreeEdge)
+          if (mChildren[lii] instanceof TreeEdge)
           {
-            TreeEdge lEdge = (TreeEdge)children[lii];
+            TreeEdge lEdge = (TreeEdge)mChildren[lii];
             if (!lEdge.mPartialMove.isPseudoNoOp && lEdge.mPartialMove.move.equals(xiForceMove))
             {
               selectedIndex = lii;
@@ -4439,12 +4427,12 @@ public class TreeNode
         //  mechanism
         if (lastSelectionMade != -1 && (tree.factor == null || this != tree.root) && !tree.heuristic.isEnabled() )
         {
-          Object choice = children[lastSelectionMade];
-          if ( choice instanceof TreeEdge )
+          Object lChoice = mChildren[lastSelectionMade];
+          if ( lChoice instanceof TreeEdge )
           {
             TreeEdge edge;
 
-            edge = (TreeEdge)choice;
+            edge = (TreeEdge)lChoice;
 
             //  Hyper-edges may become stale due to down-stream links being freed - ignore
             //  hyper paths with stale linkage
@@ -4459,7 +4447,7 @@ public class TreeNode
               if(cr != NULL_REF)
               {
                 TreeNode c = get(cr);
-                if (c != null && (!c.complete) && !c.allChildrenComplete)
+                if (c != null && (!c.complete) && !c.mAllChildrenComplete)
                 {
                   selectedIndex = lastSelectionMade;
                 }
@@ -4476,20 +4464,20 @@ public class TreeNode
           {
             hyperLinksRemoved = false;
 
-            for (short i = 0; i < mNumChildren; i++)
+            for (short lii = 0; lii < mNumChildren; lii++)
             {
               //  Only select one move that is state-equivalent, and don't allow selection of a pseudo-noop
-              if ( primaryChoiceMapping == null || primaryChoiceMapping[i] == i )
+              if ( mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[lii] == lii )
               {
-                Object choice = children[i];
+                Object lChoice = mChildren[lii];
 
-                if ( choice == null )
+                if ( lChoice == null )
                 {
                   //  Previously removed stale hyper-edge (slot)
                   continue;
                 }
 
-                TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+                TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
                 double uctValue;
                 long cr;
                 TreeNode c;
@@ -4507,7 +4495,7 @@ public class TreeNode
                   //  hyper paths with stale linkage
                   if(edge.hyperSuccessor != null && edge.hyperLinkageStale())
                   {
-                    deleteHyperEdge(i);
+                    deleteHyperEdge(lii);
                     hyperLinksRemoved = true;
                     continue;
                   }
@@ -4518,7 +4506,7 @@ public class TreeNode
                   if (tree.root == this || !edge.mPartialMove.isPseudoNoOp)
                   {
                     //  Don't preferentially explore paths once they are known to have complete results
-                    uctValue = getSelectionValue(i, c, roleIndex);
+                    uctValue = getSelectionValue(lii, c, roleIndex);
 
                     //  If the node we most want to select through is complete (so there is nothing further to
                     //  learn) we select the best non-complete choice but record the fact
@@ -4532,7 +4520,7 @@ public class TreeNode
                     {
                       if (uctValue > bestValue)
                       {
-                        selectedIndex = i;
+                        selectedIndex = lii;
                         bestValue = uctValue;
                       }
                     }
@@ -4542,12 +4530,12 @@ public class TreeNode
                       {
                         bestCompleteValue = uctValue;
                         bestCompleteNode = c;
-                        bestSelectedIndex = i;
+                        bestSelectedIndex = lii;
                       }
                     }
                   }
                 }
-                else if ( tree.root == this || !(edge == null ? (ForwardDeadReckonLegalMoveInfo)choice : edge.mPartialMove).isPseudoNoOp )
+                else if ( tree.root == this || !(edge == null ? (ForwardDeadReckonLegalMoveInfo)lChoice : edge.mPartialMove).isPseudoNoOp )
                 {
                   if ( edge != null && edge.hyperSuccessor != null )
                   {
@@ -4561,7 +4549,7 @@ public class TreeNode
 
                   if (uctValue > bestValue)
                   {
-                    selectedIndex = i;
+                    selectedIndex = lii;
                     bestValue = uctValue;
                   }
                 }
@@ -4592,13 +4580,13 @@ public class TreeNode
         do
         {
           selectedIndex = tree.r.nextInt(mNumChildren);
-          if ( primaryChoiceMapping != null )
+          if ( mPrimaryChoiceMapping != null )
           {
-            selectedIndex = primaryChoiceMapping[selectedIndex];
+            selectedIndex = mPrimaryChoiceMapping[selectedIndex];
           }
-          if(children[selectedIndex] instanceof TreeEdge)
+          if(mChildren[selectedIndex] instanceof TreeEdge)
           {
-            chosenEdge = (TreeEdge)children[selectedIndex];
+            chosenEdge = (TreeEdge)mChildren[selectedIndex];
             assert(get(chosenEdge.getChildRef()) != null);
           }
           else
@@ -4617,17 +4605,17 @@ public class TreeNode
     lastSelectionMade = (short)selectedIndex;
 
     //  Expand the edge if necessary
-    Object choice = children[selectedIndex];
+    Object lChoice = mChildren[selectedIndex];
 
-    if ( choice instanceof TreeEdge )
+    if ( lChoice instanceof TreeEdge )
     {
-      selected = (TreeEdge)choice;
+      selected = (TreeEdge)lChoice;
     }
     else
     {
       selected = tree.edgePool.allocate(tree.mTreeEdgeAllocator);
-      selected.setParent(this, (ForwardDeadReckonLegalMoveInfo)choice);
-      children[selectedIndex] = selected;
+      selected.setParent(this, (ForwardDeadReckonLegalMoveInfo)lChoice);
+      mChildren[selectedIndex] = selected;
     }
 
     jointPartialMove[roleIndex] = selected.mPartialMove;
@@ -4665,7 +4653,7 @@ public class TreeNode
     //  so that the stats update applies to the correct intermediate states also
     if ( selected.hyperSuccessor == null )
     {
-      assert(get(selected.getChildRef()).parents.contains(this));
+      assert(get(selected.getChildRef()).mParents.contains(this));
       result = path.push(this, selected);
     }
     else
@@ -4677,9 +4665,9 @@ public class TreeNode
         //  Find the principal edge for the next part of the hyper-edge's sub-path
         TreeEdge principalEdge = null;
 
-        for(int lMoveIndex = 0; lMoveIndex < intermediaryParent.mNumChildren; lMoveIndex++)
+        for (int lMoveIndex = 0; lMoveIndex < intermediaryParent.mNumChildren; lMoveIndex++)
         {
-          Object intermediaryChoice = intermediaryParent.children[lMoveIndex];
+          Object intermediaryChoice = intermediaryParent.mChildren[lMoveIndex];
 
           if ( intermediaryChoice instanceof TreeEdge )
           {
@@ -4702,7 +4690,7 @@ public class TreeNode
         assert(principalEdge.getChildRef() == selected.nextHyperChild);
         TreeNode nextNode = get(principalEdge.getChildRef());
 
-        assert(nextNode.parents.contains(intermediaryParent));
+        assert(nextNode.mParents.contains(intermediaryParent));
         intermediaryParent = nextNode;
 
         assert(intermediaryParent != null);
@@ -4723,7 +4711,7 @@ public class TreeNode
 
       if ( !intermediaryParent.complete )
       {
-        assert(get(selected.getChildRef()).parents.contains(intermediaryParent));
+        assert(get(selected.getChildRef()).mParents.contains(intermediaryParent));
         result = path.push(intermediaryParent, selected);
       }
     }
@@ -4739,8 +4727,8 @@ public class TreeNode
     //  go up!
     if (bestCompleteNode != null && bestCompleteValue > bestValue && tree.gameCharacteristics.numRoles != 1)
     {
-      assert(children[bestSelectedIndex] instanceof TreeEdge);
-      TreeEdge bestSelectedEdge = (TreeEdge)children[bestSelectedIndex];
+      assert(mChildren[bestSelectedIndex] instanceof TreeEdge);
+      TreeEdge bestSelectedEdge = (TreeEdge)mChildren[bestSelectedIndex];
       assert(bestCompleteNode == get(bestSelectedEdge.getChildRef()));
 
       result.setScoreOverrides(bestCompleteNode);
@@ -4781,11 +4769,11 @@ public class TreeNode
 
     for (short index = 0; index < mNumChildren; index++)
     {
-      if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+      if ( mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index )
       {
-        Object choice = children[index];
+        Object lChoice = mChildren[index];
 
-        TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+        TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
         if (edge != null && get(edge.getChildRef()) != null)
         {
           TreeNode lNode = get(edge.getChildRef());
@@ -4816,13 +4804,13 @@ public class TreeNode
     StringBuilder sb = new StringBuilder();
 
     sb.append("[");
-    for (int i = 0; i < tree.numRoles; i++)
+    for (int lii = 0; lii < tree.numRoles; lii++)
     {
-      if (i > 0)
+      if (lii > 0)
       {
         sb.append(", ");
       }
-      sb.append(FORMAT_2DP.format(getAverageScore(i)));
+      sb.append(FORMAT_2DP.format(getAverageScore(lii)));
     }
     sb.append("]");
     if (isTerminal)
@@ -4850,16 +4838,16 @@ public class TreeNode
     {
       for (short index = 0; index < mNumChildren; index++)
       {
-        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+        if ( mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index )
         {
-          Object choice = children[index];
+          Object lChoice = mChildren[index];
 
-          if ( choice == null )
+          if ( lChoice == null )
           {
             continue;
           }
 
-          TreeEdge edge2 = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          TreeEdge edge2 = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
           if ( edge2 != null )
           {
             if ( !edge2.isSelectable() )
@@ -4917,7 +4905,7 @@ public class TreeNode
           else
           {
             String lLog = "    Response " +
-                ((ForwardDeadReckonLegalMoveInfo)choice).move +
+                ((ForwardDeadReckonLegalMoveInfo)lChoice).move +
                 " unexpanded edge";
 
             if (xiResponsesTraced < 400)
@@ -4928,9 +4916,9 @@ public class TreeNode
         }
       }
     }
-    else if (children[0] instanceof TreeEdge)
+    else if (mChildren[0] instanceof TreeEdge)
     {
-      TreeEdge edge2 = (TreeEdge)children[0];
+      TreeEdge edge2 = (TreeEdge)mChildren[0];
 
       if (edge2.getChildRef() != NULL_REF && get(edge2.getChildRef()) != null )
       {
@@ -4949,7 +4937,7 @@ public class TreeNode
     else
     {
       String lLog = "    Response " +
-          ((ForwardDeadReckonLegalMoveInfo)children[0]).move +
+          ((ForwardDeadReckonLegalMoveInfo)mChildren[0]).move +
           " unexpanded edge";
 
       if (xiResponsesTraced < 400)
@@ -4965,7 +4953,7 @@ public class TreeNode
   {
     StringBuilder indent = new StringBuilder();
 
-    for (int i = 0; i < depth; i++)
+    for (int lii = 0; lii < depth; lii++)
     {
       indent.append(" ");
     }
@@ -5004,15 +4992,15 @@ public class TreeNode
 
       for (short index = 0; index < mNumChildren; index++)
       {
-        if ( primaryChoiceMapping == null || primaryChoiceMapping[index] == index )
+        if ( mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[index] == index )
         {
-          Object choice = children[index];
-          if ( choice == null )
+          Object lChoice = mChildren[index];
+          if ( lChoice == null )
           {
             continue;
           }
 
-          TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+          TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
           if (edge != null && edge.getChildRef() != NULL_REF && get(edge.getChildRef()) != null && edge.isSelectable())
           {
             get(edge.getChildRef()).dumpTree(writer, dumpDepth + 1, edge, index);
@@ -5034,7 +5022,7 @@ public class TreeNode
                           "@" +
                               (dumpDepth + 1) +
                               ": Move " +
-                              (edge == null ? (ForwardDeadReckonLegalMoveInfo)choice : edge.mPartialMove).move +
+                              (edge == null ? (ForwardDeadReckonLegalMoveInfo)lChoice : edge.mPartialMove).move +
                               " unexpanded");
           }
         }
@@ -5097,7 +5085,7 @@ public class TreeNode
     //  If were asked for the first actual decision drill down through any leading no-choice path
     if ( firstDecision && mNumChildren == 1 )
     {
-      return get(((TreeEdge)children[0]).getChildRef()).getBestMove(traceResponses, pathTrace, firstDecision);
+      return get(((TreeEdge)mChildren[0]).getChildRef()).getBestMove(traceResponses, pathTrace, firstDecision);
     }
 
     //  If there is no pseudo-noop then there cannot be any penalty for not taking
@@ -5121,8 +5109,8 @@ public class TreeNode
     {
       for (int lii = 0; lii < mNumChildren; lii++)
       {
-        Object choice = children[lii];
-        TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+        Object lChoice = mChildren[lii];
+        TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
         if (edge != null && edge.getChildRef() != NULL_REF)
         {
           TreeNode lNode = get(edge.getChildRef());
@@ -5144,14 +5132,14 @@ public class TreeNode
 
     for (int lii = 0; lii < mNumChildren; lii++)
     {
-      Object choice = children[lii];
+      Object lChoice = mChildren[lii];
 
-      if ( choice == null )
+      if ( lChoice == null )
       {
         continue;
       }
 
-      TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
+      TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
       if (edge == null || edge.getChildRef() == NULL_REF)
       {
         if ( !lRecursiveCall && !firstDecision )
@@ -5160,7 +5148,7 @@ public class TreeNode
 
           if ( edge  == null )
           {
-            partialMove = (ForwardDeadReckonLegalMoveInfo)choice;
+            partialMove = (ForwardDeadReckonLegalMoveInfo)lChoice;
           }
           else
           {
@@ -5462,14 +5450,14 @@ public class TreeNode
     if (bestEdge == null)
     {
       //  This can happen if the node has no expanded children
-      assert(this != tree.root || complete || (mNumChildren == 1 && (children[0] instanceof TreeEdge) && ((TreeEdge)children[0]).mPartialMove.isPseudoNoOp)) : "Root incomplete but has no expanded children";
+      assert(this != tree.root || complete || (mNumChildren == 1 && (mChildren[0] instanceof TreeEdge) && ((TreeEdge)mChildren[0]).mPartialMove.isPseudoNoOp)) : "Root incomplete but has no expanded children";
 
       //  If we're being asked for the first decision node we need to give a response even if it's
       //  essentially arbitrary from equal choices
       if ( firstDecision )
       {
         //  If nothing is expanded pick the first (arbitrarily)
-        Object firstChoice = children[0];
+        Object firstChoice = mChildren[0];
         result.bestEdge = null;
         result.bestMove = (firstChoice instanceof ForwardDeadReckonLegalMoveInfo) ? (ForwardDeadReckonLegalMoveInfo)firstChoice : ((TreeEdge)firstChoice).mPartialMove;
         //  Complete with no expanded children implies arbitrary child must match parent score
@@ -5535,10 +5523,10 @@ public class TreeNode
       tree.numTerminalRollouts++;
 
       // Take a copy of the scores because updateStats may modify these values during back-propagation.
-      for (int i = 0; i < tree.numRoles; i++)
+      for (int lii = 0; lii < tree.numRoles; lii++)
       {
-        tree.mNodeAverageScores[i] = getAverageScore(i);
-        tree.mNodeAverageSquaredScores[i] = getAverageSquaredScore(i);
+        tree.mNodeAverageScores[lii] = getAverageScore(lii);
+        tree.mNodeAverageSquaredScores[lii] = getAverageSquaredScore(lii);
       }
 
       long lBackPropTime = updateStats(tree.mNodeAverageScores,
@@ -5661,7 +5649,7 @@ public class TreeNode
 
         if ( applicableValue > EPSILON )
         {
-          for(int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
+          for (int roleIndex = 0; roleIndex < tree.numRoles; roleIndex++)
           {
             double heuristicAdjustedValue;
 
@@ -5764,7 +5752,7 @@ public class TreeNode
               assert(xiValues[lRoleIndex] < 100+EPSILON);
             }
 
-            assert ( !lNode.allChildrenComplete || Math.abs(xiValues[lRoleIndex] - lChild.getAverageScore(lRoleIndex)) < EPSILON );
+            assert ( !lNode.mAllChildrenComplete || Math.abs(xiValues[lRoleIndex] - lChild.getAverageScore(lRoleIndex)) < EPSILON );
           }
 
           lNode.setAverageScore(lRoleIndex,
@@ -5786,17 +5774,17 @@ public class TreeNode
         //  RAVE stats update
         if ( playedMoves != null && lNode.mNumChildren > 1 )
         {
-          for(int i = 0; i < lNode.mNumChildren; i++)
+          for (int lii = 0; lii < lNode.mNumChildren; lii++)
           {
-            if ( lNode.primaryChoiceMapping == null || lNode.primaryChoiceMapping[i] == i )
+            if ( lNode.mPrimaryChoiceMapping == null || lNode.mPrimaryChoiceMapping[lii] == lii )
             {
-              Object choice = lNode.children[i];
-              ForwardDeadReckonLegalMoveInfo moveInfo = (choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice;
+              Object lChoice = lNode.mChildren[lii];
+              ForwardDeadReckonLegalMoveInfo moveInfo = (lChoice instanceof TreeEdge) ? ((TreeEdge)lChoice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)lChoice;
               if ( playedMoves.get(moveInfo.masterIndex) )
               {
                 //  This move was played so update the RAVE sdtats for it
-                lNode.mRAVEScores[i] = (lNode.mRAVEScores[i]*lNode.mRAVECounts[i] + xiValues[(lNode.decidingRoleIndex+1)%tree.numRoles])/(lNode.mRAVECounts[i]+1);
-                lNode.mRAVECounts[i]++;
+                lNode.mRAVEScores[lii] = (lNode.mRAVEScores[lii]*lNode.mRAVECounts[lii] + xiValues[(lNode.decidingRoleIndex+1)%tree.numRoles])/(lNode.mRAVECounts[lii]+1);
+                lNode.mRAVECounts[lii]++;
               }
             }
           }
