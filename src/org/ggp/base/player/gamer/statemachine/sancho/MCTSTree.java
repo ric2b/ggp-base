@@ -75,51 +75,51 @@ public class MCTSTree
   private long maxExpandTime = 0;
   public int maxChildrenSeen = 0;
 
-  final boolean                                        removeNonDecisionNodes;
-  final boolean                                        useEstimatedValueForUnplayedNodes;
-  ForwardDeadReckonPropnetStateMachine                 underlyingStateMachine;
-  volatile TreeNode                                    root = null;
-  final int                                            numRoles;
+  volatile TreeNode                                    mRoot = null;
+  final boolean                                        mRemoveNonDecisionNodes;
+  final boolean                                        mUseEstimatedValueForUnplayedNodes;
+  ForwardDeadReckonPropnetStateMachine                 mUnderlyingStateMachine;
+  final int                                            mNumRoles;
   final int                                            mWeightDecayKneeDepth;
   final double                                         mWeightDecayScaleFactor;
   final int                                            mWeightDecayCutoffDepth;
-  final CappedPool<TreeNode>                           nodePool;
-  final ScoreVectorPool                                scoreVectorPool;
-  final Pool<TreeEdge>                                 edgePool;
+  final CappedPool<TreeNode>                           mNodePool;
+  final ScoreVectorPool                                mScoreVectorPool;
+  final Pool<TreeEdge>                                 mEdgePool;
   final Pool<TreePath>                                 mPathPool;
   final CappedPool<MoveScoreInfo>                      mCachedMoveScorePool;
   private final Map<ForwardDeadReckonInternalMachineState, Long> mPositions;
-  int                                                  sweepInstance                               = 0;
-  NodeRefQueue                                         completedNodeRefQueue                       = new NodeRefQueue(512);
-  Map<Move, MoveScoreInfo>                             cousinMoveCache                             = new HashMap<>();
-  long                                                 cousinMovesCachedFor                        = TreeNode.NULL_REF;
-  final double[]                                       roleRationality;
-  final double[]                                       bonusBuffer;
-  final MoveWeights                                    weightsToUse;
-  final int[]                                          latchedScoreRangeBuffer                     = new int[2];
-  final int[]                                          roleMaxScoresBuffer;
-  long                                                 numCompletionsProcessed                     = 0;
-  Random                                               r                                           = new Random();
-  int                                                  numTerminalRollouts                         = 0;
-  int                                                  numNonTerminalRollouts                      = 0;
-  int                                                  numIncompleteNodes                          = 0;
-  int                                                  numCompletedBranches                        = 0;
-  int                                                  numNormalExpansions                         = 0;
-  int                                                  numAutoExpansions                           = 0;
-  int                                                  maxAutoExpansionDepth                       = 0;
-  int                                                  numAllocations                              = 0;
-  int                                                  numTranspositions                           = 0;
-  double                                               averageAutoExpansionDepth                   = 0;
-  boolean                                              completeSelectionFromIncompleteParentWarned = false;
-  int                                                  numReExpansions                             = 0;
-  Heuristic                                            heuristic;
-  final RoleOrdering                                   roleOrdering;
+  int                                                  mSweepInstance                               = 0;
+  NodeRefQueue                                         mCompletedNodeRefQueue                       = new NodeRefQueue(512);
+  Map<Move, MoveScoreInfo>                             mCousinMoveCache                             = new HashMap<>();
+  long                                                 mCousinMovesCachedFor                        = TreeNode.NULL_REF;
+  final double[]                                       mRoleRationality;
+  final double[]                                       mBonusBuffer;
+  final MoveWeights                                    mWeightsToUse;
+  final int[]                                          mLatchedScoreRangeBuffer                     = new int[2];
+  final int[]                                          mRoleMaxScoresBuffer;
+  long                                                 mNumCompletionsProcessed                     = 0;
+  Random                                               mRandom                                      = new Random();
+  int                                                  mNumTerminalRollouts                         = 0;
+  int                                                  mNumNonTerminalRollouts                      = 0;
+  int                                                  mNumIncompleteNodes                          = 0;
+  int                                                  mNumCompletedBranches                        = 0;
+  int                                                  mNumNormalExpansions                         = 0;
+  int                                                  mNumAutoExpansions                           = 0;
+  int                                                  mMaxAutoExpansionDepth                       = 0;
+  int                                                  mNumAllocations                              = 0;
+  int                                                  mNumTranspositions                           = 0;
+  double                                               mAverageAutoExpansionDepth                   = 0;
+  boolean                                              mCompleteSelectionFromIncompleteParentWarned = false;
+  int                                                  mNumReExpansions                             = 0;
+  Heuristic                                            mHeuristic;
+  final RoleOrdering                                   mRoleOrdering;
   final Role                                           mOurRole;
-  RolloutProcessorPool                                 rolloutPool;
-  RuntimeGameCharacteristics                           gameCharacteristics;
-  final Factor                                         factor;
-  final StateMachineFilter                             searchFilter;
-  boolean                                              evaluateTerminalOnNodeCreation;
+  RolloutProcessorPool                                 mRolloutPool;
+  RuntimeGameCharacteristics                           mGameCharacteristics;
+  final Factor                                         mFactor;
+  final StateMachineFilter                             mSearchFilter;
+  boolean                                              mEvaluateTerminalOnNodeCreation;
   private final TreeNodeAllocator                      mTreeNodeAllocator;
   final TreeEdgeAllocator                              mTreeEdgeAllocator;
   final MoveScoreInfoAllocator                         mMoveScoreInfoAllocator;
@@ -128,15 +128,16 @@ public class MCTSTree
   final StateSimilarityMap                             mStateSimilarityMap;
   private final ForwardDeadReckonInternalMachineState  mNonFactorInitialState;
   public boolean                                       mIsIrrelevantFactor = false;
+
   /**
    * The highest score seen in the current turn (for our role).
    */
-  public int                              highestRolloutScoreSeen;
+  public int                              mHighestRolloutScoreSeen;
 
   /**
    * The lowest score seen in the current turn (for our role).
    */
-  public int                              lowestRolloutScoreSeen;
+  public int                              mLowestRolloutScoreSeen;
 
 
   // Scratch variables for tree nodes to use to avoid unnecessary object allocation.
@@ -169,22 +170,22 @@ public class MCTSTree
                   GameSearcher xiGameSearcher,
                   ForwardDeadReckonPropositionInfo[] roleControlProps)
   {
-    underlyingStateMachine = xiStateMachine;
-    numRoles = xiStateMachine.getRoles().length;
+    mUnderlyingStateMachine = xiStateMachine;
+    mNumRoles = xiStateMachine.getRoles().length;
     mStateSimilarityMap = (MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING) ? null : new StateSimilarityMap(xiStateMachine.getFullPropNet(), xiNodePool));
     mRoleControlProps = roleControlProps;
-    nodePool = xiNodePool;
-    scoreVectorPool = xiScorePool;
-    edgePool = xiEdgePool;
+    mNodePool = xiNodePool;
+    mScoreVectorPool = xiScorePool;
+    mEdgePool = xiEdgePool;
     mPathPool = xiPathPool;
-    factor = xiFactor;
-    if ( factor != null )
+    mFactor = xiFactor;
+    if (mFactor != null)
     {
-      searchFilter = factor;
+      mSearchFilter = mFactor;
     }
     else
     {
-      searchFilter = xiStateMachine.getBaseFilter();
+      mSearchFilter = xiStateMachine.getBaseFilter();
     }
 
     //  Most of the time we don't want to create tree nodes representing stats in which
@@ -195,7 +196,7 @@ public class MCTSTree
     //    2) Simultaneous move games, because we must assess the impact of a move in a cousin
     //       to cope with partial information, and a forced choice in one node does not imply
     //       a forced choice in all cousins
-    removeNonDecisionNodes = (numRoles > 1 && xiGameCharacteristics.hasAdequateSampling && !xiGameCharacteristics.isSimultaneousMove && (!xiGameCharacteristics.isPseudoSimultaneousMove || xiFactor != null));
+    mRemoveNonDecisionNodes = (mNumRoles > 1 && xiGameCharacteristics.hasAdequateSampling && !xiGameCharacteristics.isSimultaneousMove && (!xiGameCharacteristics.isPseudoSimultaneousMove || xiFactor != null));
 
     //  Apply decay and cutoff if either:
     //    1)  The goals are sufficiently stable (goals in a non-terminal state are a good predictor
@@ -208,18 +209,18 @@ public class MCTSTree
     //        wherein win vs draw distribution over depth tends not to increase.  Mostly it is intended to capture
     //        the use of decay in games that have artificial draw-after-N-turns terminal conditions and where the non-draws
     //        can happen a lot earlier
-    if ( xiGameCharacteristics.numRoles > 1 &&
-         xiGameCharacteristics.getAverageNonDrawLength() > 0 &&
-         (xiGameCharacteristics.getGoalsStability() > GOALS_STABILITY_THRESHOLD ||
-          (xiGameCharacteristics.getLongDrawsProportion() > 0.8 &&
-           xiGameCharacteristics.getAverageNonDrawLength() <= xiGameCharacteristics.getAverageLength() &&
-           xiGameCharacteristics.getAverageLength() < (xiGameCharacteristics.getMaxLength()+xiGameCharacteristics.getMinLength())*1.05/2.0)))
+    if (xiGameCharacteristics.numRoles > 1 &&
+        xiGameCharacteristics.getAverageNonDrawLength() > 0 &&
+        (xiGameCharacteristics.getGoalsStability() > GOALS_STABILITY_THRESHOLD ||
+         (xiGameCharacteristics.getLongDrawsProportion() > 0.8 &&
+          xiGameCharacteristics.getAverageNonDrawLength() <= xiGameCharacteristics.getAverageLength() &&
+          xiGameCharacteristics.getAverageLength() < (xiGameCharacteristics.getMaxLength()+xiGameCharacteristics.getMinLength())*1.05/2.0)))
     {
       //  If goals are stable the decay depth is somewhat arbitrary, but we want finishes to be plausibly 'in range'
       //  so we use the shortest length seen from the initial state.
       //  If goals are NOT stable and we are using decay based on seeing
       //  non-draw results earlier than average finishes we use that non-draw average length
-      if ( xiGameCharacteristics.getGoalsStability() > GOALS_STABILITY_THRESHOLD )
+      if (xiGameCharacteristics.getGoalsStability() > GOALS_STABILITY_THRESHOLD)
       {
         mWeightDecayKneeDepth = xiGameCharacteristics.getMinLength();
       }
@@ -245,7 +246,7 @@ public class MCTSTree
       LOGGER.info("Weight decay disabled");
     }
 
-    if ( USE_NODE_SCORE_NORMALIZATION )
+    if (USE_NODE_SCORE_NORMALIZATION)
     {
       LOGGER.info("Using periodic node score normalization");
     }
@@ -264,7 +265,7 @@ public class MCTSTree
       LOGGER.info("Using simple UCB");
     }
 
-    if ( mWeightDecayCutoffDepth >= 1000 )
+    if (mWeightDecayCutoffDepth >= 1000)
     {
       LOGGER.info("Early cutoff disabled");
     }
@@ -273,24 +274,24 @@ public class MCTSTree
       LOGGER.info("Early cutoff depth: " + mWeightDecayCutoffDepth);
     }
 
-    roleOrdering = xiRoleOrdering;
+    mRoleOrdering = xiRoleOrdering;
     mOurRole = xiRoleOrdering.roleIndexToRole(0);
-    heuristic = xiHeuristic;
-    gameCharacteristics = xiGameCharacteristics;
-    rolloutPool = xiRolloutPool;
-    mPositions = new HashMap<>((int)(nodePool.getCapacity() / 0.75f), 0.75f);
+    mHeuristic = xiHeuristic;
+    mGameCharacteristics = xiGameCharacteristics;
+    mRolloutPool = xiRolloutPool;
+    mPositions = new HashMap<>((int)(mNodePool.getCapacity() / 0.75f), 0.75f);
 
     //  For now we only automatically enable use of estimated values for unplayed nodes (in select)
     //  in games with negative goal latches, which amounts to ELB.  Further testing is needed, so for
     //  now wider enablement requires an explicit config setting.
-    useEstimatedValueForUnplayedNodes = MachineSpecificConfiguration.getCfgBool(CfgItem.ENABLE_INITIAL_NODE_ESTIMATION) |
-                                        underlyingStateMachine.hasNegativelyLatchedGoals();
+    mUseEstimatedValueForUnplayedNodes = MachineSpecificConfiguration.getCfgBool(CfgItem.ENABLE_INITIAL_NODE_ESTIMATION) |
+                                        mUnderlyingStateMachine.hasNegativelyLatchedGoals();
 
-    if ( useEstimatedValueForUnplayedNodes )
+    if (mUseEstimatedValueForUnplayedNodes)
     {
       LOGGER.info("Estimated initial values for nodes with no play-throughs is enabled");
     }
-    if ( xiFactor != null )
+    if (xiFactor != null)
     {
       mNonFactorInitialState = xiStateMachine.createInternalState(xiStateMachine.getInitialState());
       mNonFactorInitialState.intersect(xiFactor.getInverseStateMask(false));
@@ -300,67 +301,67 @@ public class MCTSTree
       mNonFactorInitialState = null;
     }
 
-    evaluateTerminalOnNodeCreation = !gameCharacteristics.getIsFixedMoveCount();
+    mEvaluateTerminalOnNodeCreation = !mGameCharacteristics.getIsFixedMoveCount();
 
-    numCompletionsProcessed = 0;
-    completeSelectionFromIncompleteParentWarned = false;
+    mNumCompletionsProcessed = 0;
+    mCompleteSelectionFromIncompleteParentWarned = false;
     mTreeNodeAllocator = new TreeNodeAllocator(this);
     mTreeEdgeAllocator = new TreeEdgeAllocator();
     mTreePathAllocator = new TreePathAllocator(this);
     mGameSearcher = xiGameSearcher;
 
-    bonusBuffer = new double[numRoles];
-    roleRationality = new double[numRoles];
-    roleMaxScoresBuffer = new int[numRoles];
-    weightsToUse = xiStateMachine.createMoveWeights();
+    mBonusBuffer = new double[mNumRoles];
+    mRoleRationality = new double[mNumRoles];
+    mRoleMaxScoresBuffer = new int[mNumRoles];
+    mWeightsToUse = xiStateMachine.createMoveWeights();
 
     //  For now assume players in muli-player games are somewhat irrational.
     //  FUTURE - adjust during the game based on correlations with expected
     //  scores
-    for (int i = 0; i < numRoles; i++)
+    for (int i = 0; i < mNumRoles; i++)
     {
       if (xiGameCharacteristics.numRoles > 2)
       {
-        roleRationality[i] = (i == 0 ? 1 : 0.8);
+        mRoleRationality[i] = (i == 0 ? 1 : 0.8);
       }
       else
       {
-        roleRationality[i] = 1;
+        mRoleRationality[i] = 1;
       }
     }
 
     // Create the variables used by TreeNodes to avoid unnecessary object allocation.
-    mNodeHeuristicInfo            = new HeuristicInfo(numRoles);
-    mNodeAverageScores            = new double[numRoles];
-    mNodeAverageSquaredScores     = new double[numRoles];
-    mNodeSynchronousRequest       = new RolloutRequest(numRoles, underlyingStateMachine);
+    mNodeHeuristicInfo            = new HeuristicInfo(mNumRoles);
+    mNodeAverageScores            = new double[mNumRoles];
+    mNodeAverageSquaredScores     = new double[mNumRoles];
+    mNodeSynchronousRequest       = new RolloutRequest(mNumRoles, mUnderlyingStateMachine);
     mNodeTopMoveCandidates        = new ForwardDeadReckonLegalMoveInfo[NUM_TOP_MOVE_CANDIDATES];
-    mCorrectedAverageScoresBuffer = new double[numRoles];
-    mJointMoveBuffer              = new ForwardDeadReckonLegalMoveInfo[numRoles];
-    mFastForwardPartialMoveBuffer = new ForwardDeadReckonLegalMoveInfo[numRoles];
-    mBlendedCompletionScoreBuffer = new double[numRoles];
-    mNextStateBuffer              = underlyingStateMachine.createEmptyInternalState();
+    mCorrectedAverageScoresBuffer = new double[mNumRoles];
+    mJointMoveBuffer              = new ForwardDeadReckonLegalMoveInfo[mNumRoles];
+    mFastForwardPartialMoveBuffer = new ForwardDeadReckonLegalMoveInfo[mNumRoles];
+    mBlendedCompletionScoreBuffer = new double[mNumRoles];
+    mNextStateBuffer              = mUnderlyingStateMachine.createEmptyInternalState();
     mChildStatesBuffer            = new ForwardDeadReckonInternalMachineState[MAX_SUPPORTED_BRANCHING_FACTOR];
     for (int lii = 0; lii < MAX_SUPPORTED_BRANCHING_FACTOR; lii++)
     {
-      mChildStatesBuffer[lii] = underlyingStateMachine.createEmptyInternalState();
+      mChildStatesBuffer[lii] = mUnderlyingStateMachine.createEmptyInternalState();
     }
-    mStateScratchBuffer = underlyingStateMachine.createEmptyInternalState();
-    mMoveScoreInfoAllocator = new MoveScoreInfoAllocator(numRoles);
+    mStateScratchBuffer = mUnderlyingStateMachine.createEmptyInternalState();
+    mMoveScoreInfoAllocator = new MoveScoreInfoAllocator(mNumRoles);
     mCachedMoveScorePool = new CappedPool<>(MAX_SUPPORTED_BRANCHING_FACTOR);
   }
 
   public void empty()
   {
-    numCompletedBranches = 0;
-    numNormalExpansions = 0;
-    numAutoExpansions = 0;
-    maxAutoExpansionDepth = 0;
-    averageAutoExpansionDepth = 0;
-    root = null;
-    nodePool.clear(mTreeNodeAllocator, true);
+    mNumCompletedBranches = 0;
+    mNumNormalExpansions = 0;
+    mNumAutoExpansions = 0;
+    mMaxAutoExpansionDepth = 0;
+    mAverageAutoExpansionDepth = 0;
+    mRoot = null;
+    mNodePool.clear(mTreeNodeAllocator, true);
     mPositions.clear();
-    numIncompleteNodes = 0;
+    mNumIncompleteNodes = 0;
   }
 
   TreeNode allocateNode(ForwardDeadReckonInternalMachineState state,
@@ -373,12 +374,12 @@ public class MCTSTree
     //  Use of pseudo-noops in factors can result in recreation of the root state (only)
     //  a lower level with a joint move of (pseudo-noop, noop, noop, ..., noop).  This
     //  must not be linked back to or else a loop will be created
-    if ((!SUPPORT_TRANSITIONS || result == null) || result == root)
+    if ((!SUPPORT_TRANSITIONS || result == null) || result == mRoot)
     {
       //LOGGER.debug("Add state " + state);
-      result = nodePool.allocate(mTreeNodeAllocator);
+      result = mNodePool.allocate(mTreeNodeAllocator);
 
-      //if ( positions.values().contains(result))
+      //if (positions.values().contains(result))
       //{
       //  LOGGER.info("Node already referenced by a state!");
       //}
@@ -390,13 +391,13 @@ public class MCTSTree
           addToTranspositionIndexes(result);
         }
       }
-      assert(!result.freed) : "Bad ref in positions table";
+      assert(!result.mFreed) : "Bad ref in positions table";
     }
     else
     {
-      assert(!result.freed) : "Bad ref in positions table";
+      assert(!result.mFreed) : "Bad ref in positions table";
 
-      numTranspositions++;
+      mNumTranspositions++;
     }
 
     if (parent != null)
@@ -406,7 +407,7 @@ public class MCTSTree
       //parent.adjustDescendantCounts(result.descendantCount+1);
     }
 
-    numAllocations++;
+    mNumAllocations++;
 
     //validateAll();
     return result;
@@ -417,7 +418,7 @@ public class MCTSTree
    */
   public int getNumAllocations()
   {
-    return numAllocations;
+    return mNumAllocations;
   }
 
   /**
@@ -426,7 +427,7 @@ public class MCTSTree
    */
   public int getNumTranspositions()
   {
-    return numTranspositions;
+    return mNumTranspositions;
   }
 
   /**
@@ -443,8 +444,8 @@ public class MCTSTree
   {
     if (SUPPORT_TRANSITIONS)
     {
-      assert(!mPositions.containsKey(xiTreeNode.state));
-      mPositions.put(xiTreeNode.state, xiTreeNode.getRef());
+      assert(!mPositions.containsKey(xiTreeNode.mState));
+      mPositions.put(xiTreeNode.mState, xiTreeNode.getRef());
     }
   }
 
@@ -452,15 +453,15 @@ public class MCTSTree
   {
     if (SUPPORT_TRANSITIONS)
     {
-      Long ref = mPositions.get(xiTreeNode.state);
+      Long ref = mPositions.get(xiTreeNode.mState);
 
-      if ( ref == null )
+      if (ref == null)
       {
         return;
       }
-      else if ( ref.longValue() == xiTreeNode.getRef() )
+      else if (ref.longValue() == xiTreeNode.getRef())
       {
-        mPositions.remove(xiTreeNode.state);
+        mPositions.remove(xiTreeNode.mState);
       }
       else
       {
@@ -471,19 +472,19 @@ public class MCTSTree
 
   public TreeNode findTransposition(ForwardDeadReckonInternalMachineState xiState)
   {
-    if ( SUPPORT_TRANSITIONS )
+    if (SUPPORT_TRANSITIONS)
     {
       Long ref = mPositions.get(xiState);
 
-      if ( ref == null )
+      if (ref == null)
       {
         return null;
       }
 
-      TreeNode result = TreeNode.get(nodePool, ref);
+      TreeNode result = TreeNode.get(mNodePool, ref);
       assert(result != null);
-      assert(xiState.equals(result.state));
-      assert(!removeNonDecisionNodes || result == root || result.complete || result.mNumChildren != 1);
+      assert(xiState.equals(result.mState));
+      assert(!mRemoveNonDecisionNodes || result == mRoot || result.mComplete || result.mNumChildren != 1);
 
       return result;
     }
@@ -493,14 +494,14 @@ public class MCTSTree
 
   void processNodeCompletions()
   {
-    while (!completedNodeRefQueue.isEmpty())
+    while (!mCompletedNodeRefQueue.isEmpty())
     {
       //validateAll();
-      TreeNode lNode = TreeNode.get(nodePool, completedNodeRefQueue.remove());
+      TreeNode lNode = TreeNode.get(mNodePool, mCompletedNodeRefQueue.remove());
       if (lNode != null)
       {
-        assert(!lNode.freed) : "Freed node returned from pool";
-        assert(lNode.complete) : "Queued node was not complete";
+        assert(!lNode.mFreed) : "Freed node returned from pool";
+        assert(lNode.mComplete) : "Queued node was not complete";
         lNode.processCompletion();
       }
     }
@@ -508,7 +509,7 @@ public class MCTSTree
 
   void makeFactorState(ForwardDeadReckonInternalMachineState state)
   {
-    state.intersect(factor.getStateMask(false));
+    state.intersect(mFactor.getStateMask(false));
     //  Set the rest of the state to 'neutral' values.  We use the initial state
     //  as this is guaranteed to be legal and non-terminal
     state.merge(mNonFactorInitialState);
@@ -518,7 +519,7 @@ public class MCTSTree
   {
     ForwardDeadReckonInternalMachineState factorState;
 
-    if ( factor == null )
+    if (mFactor == null)
     {
       factorState = state;
     }
@@ -528,26 +529,26 @@ public class MCTSTree
       makeFactorState(factorState);
     }
 
-    if (root == null)
+    if (mRoot == null)
     {
       //oldRoot = null;
-      root = allocateNode(factorState, null, true);
-      root.decidingRoleIndex = numRoles - 1;
-      root.setDepth(rootDepth);
+      mRoot = allocateNode(factorState, null, true);
+      mRoot.mDecidingRoleIndex = mNumRoles - 1;
+      mRoot.setDepth(rootDepth);
     }
     else
     {
-      if ( root.state.equals(factorState))
+      if (mRoot.mState.equals(factorState))
       {
-        assert ( rootDepth == 0 || factor != null );
-        if ( rootDepth == 0 )
+        assert (rootDepth == 0 || mFactor != null);
+        if (rootDepth == 0)
         {
           //  This is the start of the first turn, after some searching at the end of meta-gaming
           //  If the root score variance is 0 and this is a factored game, we mark this factor as
           //  uninteresting, and will henceforth spend no time searching it
-          if ( factor != null &&
-               root.numVisits > 500 &&
-               lowestRolloutScoreSeen == highestRolloutScoreSeen )
+          if (mFactor != null &&
+              mRoot.mNumVisits > 500 &&
+              mLowestRolloutScoreSeen == mHighestRolloutScoreSeen)
           {
             mIsIrrelevantFactor = true;
 
@@ -562,12 +563,12 @@ public class MCTSTree
         //  In a factorized game there will be pseudo-noops, and the nodes generated by traversing the
         //  pseudo-noop from the root is not added to the transposition tables, and hence can result in the
         //  state we are searching for not being found, so we need to check that also
-        if ( existingRootStateNode == null && factor != null )
+        if (existingRootStateNode == null && mFactor != null)
         {
-          existingRootStateNode = root.findNode(factorState, underlyingStateMachine.getRoles().length + 1);
+          existingRootStateNode = mRoot.findNode(factorState, mUnderlyingStateMachine.getRoles().length + 1);
         }
 
-        assert(existingRootStateNode != null || root.findNode(factorState, underlyingStateMachine.getRoles().length + 1)==null);
+        assert(existingRootStateNode != null || mRoot.findNode(factorState, mUnderlyingStateMachine.getRoles().length + 1)==null);
         //assert(existingRootStateNode == null || existingRootStateNode.getDepth() > root.getDepth());
 
         //  In games with forced moves links will go from states-with-choices to other states-with-choices, so
@@ -582,63 +583,63 @@ public class MCTSTree
         //  so that it has the correct (singular) choice ready for getBestMove().  That
         //  singular choice will then point to the extant root state node, which is the
         //  actual decision node.
-        TreeNode oldRoot = root;
+        TreeNode oldRoot = mRoot;
 
-        if ( existingRootStateNode != null && existingRootStateNode.decidingRoleIndex == numRoles-1 )
+        if (existingRootStateNode != null && existingRootStateNode.mDecidingRoleIndex == mNumRoles - 1)
         {
           assert(oldRoot.linkageValid());
 
           assert(existingRootStateNode.linkageValid());
-          root = existingRootStateNode;
-          assert(root.mParents.size()>0);
+          mRoot = existingRootStateNode;
+          assert(mRoot.mParents.size()>0);
         }
         else
         {
-          assert(existingRootStateNode == null || removeNonDecisionNodes);
+          assert(existingRootStateNode == null || mRemoveNonDecisionNodes);
           assert(existingRootStateNode == null || existingRootStateNode.linkageValid());
 
           //  Allocate proxy node for the root
-          root = allocateNode(factorState, null, true);
-          root.decidingRoleIndex = numRoles - 1;
-          root.setDepth(rootDepth);
+          mRoot = allocateNode(factorState, null, true);
+          mRoot.mDecidingRoleIndex = mNumRoles - 1;
+          mRoot.setDepth(rootDepth);
 
           //  Expand to get the correct (singular) choice
-          root.expand(null, mJointMoveBuffer, rootDepth-1);
+          mRoot.expand(null, mJointMoveBuffer, rootDepth-1);
 
-          assert(existingRootStateNode == null || root.mNumChildren == 1 || oldRoot.complete);
+          assert(existingRootStateNode == null || mRoot.mNumChildren == 1 || oldRoot.mComplete);
 
           //  In the forced-move case check to see if we can link into the existing search tree
-          if ( root.mNumChildren == 1 )
+          if (mRoot.mNumChildren == 1)
           {
             TreeEdge selected;
 
-            if (root.mChildren[0] instanceof ForwardDeadReckonLegalMoveInfo)
+            if (mRoot.mChildren[0] instanceof ForwardDeadReckonLegalMoveInfo)
             {
               //  Create an edge for the singular choice
-              selected = edgePool.allocate(mTreeEdgeAllocator);
-              selected.setParent(root, (ForwardDeadReckonLegalMoveInfo)root.mChildren[0]);
-              root.mChildren[0] = selected;
+              selected = mEdgePool.allocate(mTreeEdgeAllocator);
+              selected.setParent(mRoot, (ForwardDeadReckonLegalMoveInfo)mRoot.mChildren[0]);
+              mRoot.mChildren[0] = selected;
             }
             else
             {
-              selected = (TreeEdge)root.mChildren[0];
+              selected = (TreeEdge)mRoot.mChildren[0];
             }
 
             mJointMoveBuffer[0] = selected.mPartialMove;
 
-            if ( existingRootStateNode == null )
+            if (existingRootStateNode == null)
             {
               if (selected.getChildRef() == TreeNode.NULL_REF)
               {
-                root.createChildNodeForEdge(selected, mJointMoveBuffer);
+                mRoot.createChildNodeForEdge(selected, mJointMoveBuffer);
               }
 
-              TreeNode createdForcedMoveChild = root.get(selected.getChildRef());
-              if ( !createdForcedMoveChild.complete && createdForcedMoveChild.isUnexpanded())
+              TreeNode createdForcedMoveChild = mRoot.get(selected.getChildRef());
+              if (!createdForcedMoveChild.mComplete && createdForcedMoveChild.isUnexpanded())
               {
                 TreePath visited = mPathPool.allocate(mTreePathAllocator);
 
-                visited.push(root, selected);
+                visited.push(mRoot, selected);
                 createdForcedMoveChild = createdForcedMoveChild.expand(visited, mJointMoveBuffer, rootDepth);
               }
 
@@ -648,45 +649,45 @@ public class MCTSTree
             }
             else
             {
-              if ( selected.getChildRef() == TreeNode.NULL_REF )
+              if (selected.getChildRef() == TreeNode.NULL_REF)
               {
                 selected.setChild(existingRootStateNode);
-                existingRootStateNode.addParent(root);
+                existingRootStateNode.addParent(mRoot);
               }
               else
               {
-                assert(existingRootStateNode == root.get(selected.getChildRef()));
+                assert(existingRootStateNode == mRoot.get(selected.getChildRef()));
               }
             }
 
-            assert(root.linkageValid());
+            assert(mRoot.linkageValid());
 
             //  Set the root's count stats to those of the extant choice node it is effectively
             //  proxying
-            selected.setNumVisits(existingRootStateNode.numVisits);
-            root.numVisits = existingRootStateNode.numVisits;
-            root.numUpdates = existingRootStateNode.numUpdates;
-            for(int i = 0; i < numRoles; i++)
+            selected.setNumVisits(existingRootStateNode.mNumVisits);
+            mRoot.mNumVisits = existingRootStateNode.mNumVisits;
+            mRoot.mNumUpdates = existingRootStateNode.mNumUpdates;
+            for(int i = 0; i < mNumRoles; i++)
             {
-              root.setAverageScore(i, existingRootStateNode.getAverageScore(i));
-              root.setAverageSquaredScore(i, existingRootStateNode.getAverageSquaredScore(i));
+              mRoot.setAverageScore(i, existingRootStateNode.getAverageScore(i));
+              mRoot.setAverageSquaredScore(i, existingRootStateNode.getAverageSquaredScore(i));
             }
 
-            if ( existingRootStateNode.complete)
+            if (existingRootStateNode.mComplete)
             {
               //  There are two possible reasons the old root could have been marked as
               //  complete - either it was complete because of the state of its children
               //  in which case we want to re-propagate that, or else it had been marked
               //  complete by local search without known path (in which case we must re-find
               //  the completion and so clear the completion)
-              if ( existingRootStateNode.isTerminal )
+              if (existingRootStateNode.mIsTerminal)
               {
-                root.markComplete(existingRootStateNode, (short)existingRootStateNode.getDepth());
+                mRoot.markComplete(existingRootStateNode, (short)existingRootStateNode.getDepth());
               }
               else
               {
-                existingRootStateNode.complete = false;
-                if ( !existingRootStateNode.isUnexpanded() )
+                existingRootStateNode.mComplete = false;
+                if (!existingRootStateNode.isUnexpanded())
                 {
                   existingRootStateNode.checkChildCompletion(false);
                 }
@@ -695,31 +696,31 @@ public class MCTSTree
           }
         }
 
-        oldRoot.freeAllBut(root);
-        assert(existingRootStateNode == null || existingRootStateNode == root || existingRootStateNode.mParents.size()==1);
-        assert(root.mParents.size() == 0);
+        oldRoot.freeAllBut(mRoot);
+        assert(existingRootStateNode == null || existingRootStateNode == mRoot || existingRootStateNode.mParents.size()==1);
+        assert(mRoot.mParents.size() == 0);
       }
     }
 
-    assert(!root.freed) : "Root node has been freed";
-    assert(root.mParents.size() == 0);
+    assert(!mRoot.mFreed) : "Root node has been freed";
+    assert(mRoot.mParents.size() == 0);
     //validateAll();
 
     //  Special case - because we can mark nodes complete before they are terminal if greedy rollouts are
     //  in use, it is possible for a complete root to not have a known child path as the root hits
     //  the penultimate move.  In such circumstances we must force re-expansion to identify the correct last
     //  move
-    if ( root.complete && underlyingStateMachine.getIsGreedyRollouts() )
+    if (mRoot.mComplete && mUnderlyingStateMachine.getIsGreedyRollouts())
     {
       boolean foundChildPath = false;
 
-      for(int i = 0; i < root.mNumChildren; i++ )
+      for(int i = 0; i < mRoot.mNumChildren; i++ )
       {
-        if ( root.mChildren[i] instanceof TreeEdge &&
-             ((TreeEdge)root.mChildren[i]).getChildRef() != TreeNode.NULL_REF )
+        if (mRoot.mChildren[i] instanceof TreeEdge &&
+            ((TreeEdge)mRoot.mChildren[i]).getChildRef() != TreeNode.NULL_REF)
         {
-          TreeNode child = root.get(((TreeEdge)root.mChildren[i]).getChildRef());
-          if ( child != null && child.complete && child.getAverageScore(0) == root.getAverageScore(0))
+          TreeNode child = mRoot.get(((TreeEdge)mRoot.mChildren[i]).getChildRef());
+          if (child != null && child.mComplete && child.getAverageScore(0) == mRoot.getAverageScore(0))
           {
             foundChildPath = true;
             break;
@@ -727,38 +728,38 @@ public class MCTSTree
         }
       }
 
-      if ( !foundChildPath )
+      if (!foundChildPath)
       {
         LOGGER.info("Complete root has no known child path - marking incomplete to force re-expansion");
-        root.complete = false;
+        mRoot.mComplete = false;
       }
     }
-    if (root.mNumChildren == 0)
+    if (mRoot.mNumChildren == 0)
     {
       LOGGER.info("Encountered childless root - must re-expand");
 
-      if ( root.complete )
+      if (mRoot.mComplete)
       {
-        numCompletedBranches--;
+        mNumCompletedBranches--;
       }
-      root.complete = false;
+      mRoot.mComplete = false;
       //  Latched score detection can cause a node that is not strictly terminal (but has totally
       //  fixed scores for all subtrees) to be flagged as terminal - we must reset this to ensure
       //  it get re-expanded one level (from which we'll essentially make a random choice)
-      root.isTerminal = false;
+      mRoot.mIsTerminal = false;
 
       //  Must expand here as async activity on the local search can mark the root complete again
       //  before an expansion takes place if we let control flow out of the synchronized section
       //  before expanding
-      root.expand(null, mJointMoveBuffer, rootDepth-1);
+      mRoot.expand(null, mJointMoveBuffer, rootDepth-1);
     }
 
-    LOGGER.info("Root has " + root.mNumChildren + " children, and is " + (root.complete ? "complete" : "not complete"));
+    LOGGER.info("Root has " + mRoot.mNumChildren + " children, and is " + (mRoot.mComplete ? "complete" : "not complete"));
 
-    lowestRolloutScoreSeen = 1000;
-    highestRolloutScoreSeen = -100;
+    mLowestRolloutScoreSeen = 1000;
+    mHighestRolloutScoreSeen = -100;
 
-    heuristic.newTurn(root.state, root);
+    mHeuristic.newTurn(mRoot.mState, mRoot);
   }
 
   /**
@@ -779,7 +780,7 @@ public class MCTSTree
   {
     //  In an irrelevant factor we don't want to waste time searching - just need
     //  to do enough for the children to be enumerable
-    if ( mIsIrrelevantFactor && !root.hasUnexpandedChoices() )
+    if (mIsIrrelevantFactor && !mRoot.hasUnexpandedChoices())
     {
       return false;
     }
@@ -788,7 +789,7 @@ public class MCTSTree
     //validationCount++;
     selectAction(forceSynchronous, xiChosenMove);
     processNodeCompletions();
-    return root.complete;
+    return mRoot.mComplete;
   }
 
   /**
@@ -797,28 +798,28 @@ public class MCTSTree
    */
   public FactorMoveChoiceInfo getBestMove(boolean firstDecision)
   {
-    FactorMoveChoiceInfo bestMoveInfo = root.getBestMove(true, null, firstDecision);
+    FactorMoveChoiceInfo bestMoveInfo = mRoot.getBestMove(true, null, firstDecision);
 
-    if ( !firstDecision )
+    if (!firstDecision)
     {
-      LOGGER.info("Num nodes in use: " + nodePool.getNumItemsInUse());
-      LOGGER.info("Num true rollouts added: " + numNonTerminalRollouts);
-      LOGGER.info("Num terminal nodes revisited: " + numTerminalRollouts);
-      LOGGER.info("Num incomplete nodes: " + numIncompleteNodes);
-      LOGGER.info("Num completely explored branches: " + numCompletedBranches);
-      if (numAutoExpansions + numNormalExpansions > 0)
+      LOGGER.info("Num nodes in use: " + mNodePool.getNumItemsInUse());
+      LOGGER.info("Num true rollouts added: " + mNumNonTerminalRollouts);
+      LOGGER.info("Num terminal nodes revisited: " + mNumTerminalRollouts);
+      LOGGER.info("Num incomplete nodes: " + mNumIncompleteNodes);
+      LOGGER.info("Num completely explored branches: " + mNumCompletedBranches);
+      if (mNumAutoExpansions + mNumNormalExpansions > 0)
       {
         LOGGER.info("Percentage forced single-choice expansion: " +
-                    ((double)numAutoExpansions / (numAutoExpansions + numNormalExpansions)));
-        LOGGER.info("Average depth of auto-expansion instances: " + averageAutoExpansionDepth);
-        LOGGER.info("Maximum depth of auto-expansion instances: " + maxAutoExpansionDepth);
+                    ((double)mNumAutoExpansions / (mNumAutoExpansions + mNumNormalExpansions)));
+        LOGGER.info("Average depth of auto-expansion instances: " + mAverageAutoExpansionDepth);
+        LOGGER.info("Maximum depth of auto-expansion instances: " + mMaxAutoExpansionDepth);
       }
       LOGGER.info("Current observed rollout score range: [" +
-                  lowestRolloutScoreSeen + ", " +
-                  highestRolloutScoreSeen + "]");
+                  mLowestRolloutScoreSeen + ", " +
+                  mHighestRolloutScoreSeen + "]");
 
-      numNonTerminalRollouts = 0;
-      numTerminalRollouts = 0;
+      mNumNonTerminalRollouts = 0;
+      mNumTerminalRollouts = 0;
     }
 
     //root.dumpTree("treeDump.txt");
@@ -827,38 +828,38 @@ public class MCTSTree
 
   void validateAll()
   {
-    if (root != null)
-      root.validate(true);
+    if (mRoot != null)
+      mRoot.validate(true);
 
     for (ForwardDeadReckonInternalMachineState e : mPositions.keySet())
     {
       TreeNode node = findTransposition(e);
 
-      if ( node != null )
+      if (node != null)
       {
-        if (node.decidingRoleIndex != numRoles - 1)
+        if (node.mDecidingRoleIndex != mNumRoles - 1)
         {
           LOGGER.warn("Position references bad type");
         }
-        if (!node.state.equals(e))
+        if (!node.mState.equals(e))
         {
           LOGGER.warn("Position state mismatch");
         }
       }
     }
 
-    for (Object lNodeAsObject : nodePool.getItemTable())
+    for (Object lNodeAsObject : mNodePool.getItemTable())
     {
       TreeNode lNode = (TreeNode)lNodeAsObject;
-      if (lNode != null && !lNode.freed)
+      if (lNode != null && !lNode.mFreed)
       {
-        if (lNode.decidingRoleIndex == numRoles - 1)
+        if (lNode.mDecidingRoleIndex == mNumRoles - 1)
         {
-          if (lNode != findTransposition(lNode.state))
+          if (lNode != findTransposition(lNode.mState))
           {
             LOGGER.warn("Missing reference in positions table");
-            LOGGER.warn("node state is: " + lNode.state + " with hash " + lNode.state.hashCode());
-            LOGGER.warn(findTransposition(lNode.state));
+            LOGGER.warn("node state is: " + lNode.mState + " with hash " + lNode.mState.hashCode());
+            LOGGER.warn(findTransposition(lNode.mState));
           }
         }
       }
@@ -874,15 +875,15 @@ public class MCTSTree
    */
   public boolean setForcedMoveProps(ForwardDeadReckonInternalMachineState xiState, ForwardDeadReckonLegalMoveInfo[] jointMove)
   {
-    if ( removeNonDecisionNodes )
+    if (mRemoveNonDecisionNodes)
     {
       boolean result = true;
 
-      for(int i = 0; i < numRoles; i++)
+      for(int i = 0; i < mNumRoles; i++)
       {
-        Role role = roleOrdering.roleIndexToRole(i);
-        ForwardDeadReckonLegalMoveSet moves = underlyingStateMachine.getLegalMoveSet(xiState);
-        if (searchFilter.getFilteredMovesSize(xiState, moves, role, true) == 1)
+        Role role = mRoleOrdering.roleIndexToRole(i);
+        ForwardDeadReckonLegalMoveSet moves = mUnderlyingStateMachine.getLegalMoveSet(xiState);
+        if (mSearchFilter.getFilteredMovesSize(xiState, moves, role, true) == 1)
         {
           jointMove[i] = moves.getContents(role).iterator().next();
         }
@@ -900,13 +901,13 @@ public class MCTSTree
 
   public boolean validateForcedMoveProps(ForwardDeadReckonInternalMachineState xiState, ForwardDeadReckonLegalMoveInfo[] jointMove)
   {
-    if ( removeNonDecisionNodes )
+    if (mRemoveNonDecisionNodes)
     {
-      for(int i = 0; i < numRoles; i++)
+      for(int i = 0; i < mNumRoles; i++)
       {
-        Role role = roleOrdering.roleIndexToRole(i);
-        ForwardDeadReckonLegalMoveSet moves = underlyingStateMachine.getLegalMoveSet(xiState);
-        if (searchFilter.getFilteredMovesSize(xiState, moves, role, true) == 1)
+        Role role = mRoleOrdering.roleIndexToRole(i);
+        ForwardDeadReckonLegalMoveSet moves = mUnderlyingStateMachine.getLegalMoveSet(xiState);
+        if (mSearchFilter.getFilteredMovesSize(xiState, moves, role, true) == 1)
         {
           ForwardDeadReckonLegalMoveInfo expectedMove = moves.getContents(role).iterator().next();
           if ((jointMove[i].inputProposition == null) != (expectedMove.inputProposition == null))
@@ -927,16 +928,16 @@ public class MCTSTree
 
     long lSelectStartTime = System.nanoTime();
     TreePath visited = mPathPool.allocate(mTreePathAllocator);
-    TreeNode cur = root;
+    TreeNode cur = mRoot;
     TreePathElement selected = null;
     int parentDepth = 0;
 
     while (!cur.isUnexpanded())
     {
       //  Hyper expand first choice layer for each role
-      if ( cur.getDepth() < root.getDepth()+2*numRoles && cur.mNumChildren > 1 )
+      if (cur.getDepth() < mRoot.getDepth()+2*mNumRoles && cur.mNumChildren > 1)
       {
-        setForcedMoveProps(cur.state, mJointMoveBuffer);
+        setForcedMoveProps(cur.mState, mJointMoveBuffer);
         cur.hyperExpand(visited, mJointMoveBuffer, MAX_HYPER_RECURSION_DEPTH);
       }
 
@@ -948,7 +949,7 @@ public class MCTSTree
 
     long lExpandStartTime = System.nanoTime();
     TreeNode newNode;
-    if (!cur.complete)
+    if (!cur.mComplete)
     {
       assert(selected == null || cur == selected.getChildNode());
       assert(selected == null || cur.mParents.contains(selected.getParentNode()));
@@ -966,21 +967,21 @@ public class MCTSTree
     long selectTime = lExpandStartTime - lSelectStartTime;
     long expandTime = System.nanoTime() - lExpandStartTime;
 
-    if ( selectTime > maxSelectTime )
+    if (selectTime > maxSelectTime)
     {
       maxSelectTime = selectTime;
       LOGGER.debug("Max select time seen (ms): " + (selectTime/1000000));
     }
-    if ( expandTime > maxExpandTime )
+    if (expandTime > maxExpandTime)
     {
       maxExpandTime = expandTime;
       LOGGER.debug("Max expand time seen (ms): " + (expandTime/1000000));
     }
 
     // Perform the rollout request.
-    assert(selected != null || newNode == root);
+    assert(selected != null || newNode == mRoot);
     assert(selected == null || newNode == selected.getChildNode());
-    assert(!newNode.freed);
+    assert(!newNode.mFreed);
     newNode.rollOut(visited,
                     mGameSearcher.getPipeline(),
                     forceSynchronous,

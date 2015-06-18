@@ -88,7 +88,7 @@ public class TreePath
       assert(mParentRef != mChildRef) : "Parent and child mustn't be the same";
       assert(mParentRef == xiEdge.mParentRef) : "Edge must come from the parent";
       assert(getNode(mChildRef) != null) : "Can't add invalid node ref to path";
-      assert(xiEdge.getNumChildVisits() <= getNode(mChildRef).numVisits) : "Edge has more visits than child";
+      assert(xiEdge.getNumChildVisits() <= getNode(mChildRef).mNumVisits) : "Edge has more visits than child";
     }
 
     /**
@@ -99,11 +99,11 @@ public class TreePath
      */
     public void setScoreOverrides(TreeNode overridingNode)
     {
-      scoreOverrides = new double[mTree.numRoles]; // !! ARR Just store a node ref and get the scores on demand, but be
+      scoreOverrides = new double[mTree.mNumRoles]; // !! ARR Just store a node ref and get the scores on demand, but be
                                                    // !! ARR careful because the array returned by getScoreOverrides()
                                                    // !! ARR is subsequently modified.
 
-      for (int i = 0; i < mTree.numRoles; i++)
+      for (int i = 0; i < mTree.mNumRoles; i++)
       {
         scoreOverrides[i] = overridingNode.getAverageScore(i);
       }
@@ -174,7 +174,7 @@ public class TreePath
 
     private TreeNode getNode(long xiNodeRef)
     {
-      return TreeNode.get(mTree.nodePool, xiNodeRef);
+      return TreeNode.get(mTree.mNodePool, xiNodeRef);
     }
 
     /**
@@ -272,7 +272,7 @@ public class TreePath
       TreeNode node = element.getChildNode();
       return node;
     }
-    return mTree.root;
+    return mTree.mRoot;
   }
 
   /**
@@ -286,7 +286,7 @@ public class TreePath
       TreePathElement element = mElements[mNumElements - 2];
       TreeNode node = element.getChildNode();
 
-      if ( node == null || node.complete )
+      if ( node == null || node.mComplete )
       {
         mNumElements--;
       }
@@ -377,9 +377,9 @@ public class TreePath
       // The edge can't have been visited more often than its child.  (The converse isn't true because children can
       // have multiple parents.)
       assert(getCurrentElement().getChildNode() != null) : "Child is null even after edge validated";
-      assert(lEdge.getNumChildVisits() <= getCurrentElement().getChildNode().numVisits) :
+      assert(lEdge.getNumChildVisits() <= getCurrentElement().getChildNode().mNumVisits) :
         "Edge " + lEdge + " has been visited " + lEdge.getNumChildVisits() + " times, but the child (" +
-        getCurrentElement().getChildNode() + ") only has " + getCurrentElement().getChildNode().numVisits + " visits!";
+        getCurrentElement().getChildNode() + ") only has " + getCurrentElement().getChildNode().mNumVisits + " visits!";
     }
     resetCursor();
     return true;

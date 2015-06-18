@@ -279,8 +279,8 @@ public class TreeEdge
     assert(mParentRef != TreeNode.NULL_REF);
     assert(mChildRef != mParentRef);
     assert(mChildRef == TreeNode.NULL_REF ||
-           TreeNode.get(xiParent.tree.nodePool, mChildRef).tree == xiParent.tree);
-    assert(!xiPartialMove.isPseudoNoOp || xiParent == xiParent.tree.root || xiParent.mNumChildren == 1);
+           TreeNode.get(xiParent.mTree.mNodePool, mChildRef).mTree == xiParent.mTree);
+    assert(!xiPartialMove.isPseudoNoOp || xiParent == xiParent.mTree.mRoot || xiParent.mNumChildren == 1);
   }
 
   /**
@@ -297,7 +297,7 @@ public class TreeEdge
     assert(mChildRef != TreeNode.NULL_REF);
     assert(mChildRef != mParentRef);
     assert(mParentRef == TreeNode.NULL_REF ||
-           TreeNode.get(xiChild.tree.nodePool, mParentRef).tree == xiChild.tree);
+           TreeNode.get(xiChild.mTree.mNodePool, mParentRef).mTree == xiChild.mTree);
   }
 
   /**

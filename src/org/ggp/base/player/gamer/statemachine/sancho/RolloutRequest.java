@@ -136,7 +136,7 @@ class RolloutRequest
 
       //  For fixed sum games, if greedy rollouts are being employed, the last 2 moves on the played path
       //  are guaranteed to be optimal, so a depth lower than this implies a complete node immediately
-      if ( mPlayoutInfo.playoutLength <= 2 && stateMachine.getIsGreedyRollouts() && mTree.gameCharacteristics.getIsFixedSum() )
+      if ( mPlayoutInfo.playoutLength <= 2 && stateMachine.getIsGreedyRollouts() && mTree.mGameCharacteristics.getIsFixedSum() )
       {
         mComplete = true;
       }

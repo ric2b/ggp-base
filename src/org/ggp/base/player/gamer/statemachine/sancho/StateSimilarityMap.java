@@ -38,7 +38,7 @@ public class StateSimilarityMap
         TreeNode lNodeToAdd = getNode(xiNodeRef);
         assert(lNodeToAdd != null);
 
-        double highestEvictionMeasure = -Math.log(lNodeToAdd.numVisits + 1);
+        double highestEvictionMeasure = -Math.log(lNodeToAdd.mNumVisits + 1);
 
         for (int i = 0; i < capacity; i++)
         {
@@ -50,7 +50,7 @@ public class StateSimilarityMap
             break;
           }
 
-          double evictionMeasure = -Math.log(lNode.numVisits + 1);
+          double evictionMeasure = -Math.log(lNode.mNumVisits + 1);
 
           if ( evictionMeasure > highestEvictionMeasure )
           {
@@ -88,7 +88,7 @@ public class StateSimilarityMap
 
   public void add(TreeNode xiNode)
   {
-    int hash = hashGenerator.getHash(xiNode.state);
+    int hash = hashGenerator.getHash(xiNode.mState);
 
     if (buckets[hash] == null)
     {
@@ -115,10 +115,10 @@ public class StateSimilarityMap
       {
         TreeNode lNode = getNode(bucket.refs[i]);
 
-        if (lNode != null && lNode.numVisits > 0 && state != lNode.state)
+        if (lNode != null && lNode.mNumVisits > 0 && state != lNode.mState)
         {
-          double distanceWeight = (1 - state.distance(lNode.state));
-          double weight = distanceWeight*distanceWeight*Math.log(lNode.numVisits+1);
+          double distanceWeight = (1 - state.distance(lNode.mState));
+          double weight = distanceWeight*distanceWeight*Math.log(lNode.mNumVisits+1);
 
           for(int j = 0; j < result.length; j++)
           {
@@ -234,10 +234,10 @@ public class StateSimilarityMap
         {
           TreeNode lNode = getNode(bucket.refs[i]);
 
-          if (lNode != null && lNode.numVisits > 0 && state != lNode.state)
+          if (lNode != null && lNode.mNumVisits > 0 && state != lNode.mState)
           {
-            double distanceWeight = (1 - state.distance(lNode.state));
-            double weight = distanceWeight*distanceWeight*Math.log10(lNode.numVisits + 1);
+            double distanceWeight = (1 - state.distance(lNode.mState));
+            double weight = distanceWeight*distanceWeight*Math.log10(lNode.mNumVisits + 1);
 
             TreeNode node = getJointMoveParent(lNode, partialJointMove);
             if (node != null && node.mNumChildren != 0)
@@ -249,13 +249,13 @@ public class StateSimilarityMap
                 if ( childEdge != null &&
                      childEdge.getChildRef() != TreeNode.NULL_REF &&
                      getNode(childEdge.getChildRef()) != null &&
-                     getNode(childEdge.getChildRef()).numVisits > 0)
+                     getNode(childEdge.getChildRef()).mNumVisits > 0)
                 {
                   TreeNode lChild = getNode(childEdge.getChildRef());
                   ForwardDeadReckonLegalMoveInfo move = childEdge.mPartialMove;
                   int moveSlotIndex = getMoveSlot(move);
 
-                  double moveVal = weight*(lChild.getAverageScore(lChild.decidingRoleIndex));
+                  double moveVal = weight*(lChild.getAverageScore(lChild.mDecidingRoleIndex));
 
                   moveValueBuffer[moveSlotIndex] = (moveValueBuffer[moveSlotIndex]*moveWeightBuffer[moveSlotIndex] + moveVal)/(moveWeightBuffer[moveSlotIndex] + weight);
                   moveWeightBuffer[moveSlotIndex] += weight;
