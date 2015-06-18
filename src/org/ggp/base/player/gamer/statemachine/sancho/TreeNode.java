@@ -500,6 +500,7 @@ public class TreeNode
     tree.numCompletedBranches++;
     complete = true;
     completionDepth = atCompletionDepth;
+    assert(isTerminal || (completionDepth > depth)) : "Can't be immediately complete except in terminal node";
 
     //LOGGER.debug("Mark complete with score " + averageScore + (ourMove == null ? " (for opponent)" : " (for us)") + " in state: " + state);
     if (this == tree.root)
@@ -1238,51 +1239,58 @@ public class TreeNode
 
     int numUniqueChildren = 0;
 
+    // Loop over all children, checking for completion.
     for (int index = 0; index < mNumChildren; index++)
     {
       if (primaryChoiceMapping == null || primaryChoiceMapping[index] == index)
       {
         Object choice = children[index];
 
-        //  Freed edges can occur when reconnecting complete nodes for a new root,
-        //  of after stale hyper-edges have been freed - just skip
-        if ( choice == null )
+        // Freed edges can occur when reconnecting complete nodes for a new root, of after stale hyper-edges have been
+        // freed - just skip
+        if (choice == null)
         {
           continue;
         }
 
         TreeEdge edge = (choice instanceof TreeEdge ? (TreeEdge)choice : null);
-
         if (edge == null)
         {
+          // We've found an unexpanded edge.  This almost certainly means that the child isn't complete.  Just need to
+          // check that it isn't a pseudo-noop.
           assert(choice instanceof ForwardDeadReckonLegalMoveInfo);
 
-          //  Pseudo-noops are not searched and do not form 'real' moves in this factor
-          //  so ignore them for completion propagation purposes
-          if ( !((ForwardDeadReckonLegalMoveInfo)choice).isPseudoNoOp )
+          // Pseudo-noops are not searched and do not form 'real' moves in this factor so ignore them for completion
+          // propagation purposes.
+          if (!((ForwardDeadReckonLegalMoveInfo)choice).isPseudoNoOp)
           {
+            // This is a real unexplored move.  The immediate children of this node aren't all complete.
             allImmediateChildrenComplete = false;
           }
         }
+        else if (edge.isHyperEdge())
+        {
+          // We don't need to process hyper-edges to determine completion.  Furthermore, hyper-edges always come after
+          // all real edges, so we're safe to break out of the loop completely now.
+          break;
+        }
         else
         {
-          //  No need to process hyper-edges to determine completion
-          if ( edge.isHyperEdge() )
+          if ((edge.getChildRef() == NULL_REF) ||
+              (get(edge.getChildRef()) == null))
           {
-            break;
-          }
-
-          if (edge.getChildRef() == NULL_REF)
-          {
+            // A child is missing, therefore they aren't all complete.
             allImmediateChildrenComplete = false;
           }
-          else if (get(edge.getChildRef()) != null)
+          else
           {
+            // This is the normal case of a child that has explored to some extent.
             TreeNode lNode = get(edge.getChildRef());
             numUniqueChildren++;
 
             if (!lNode.complete)
             {
+              // This child isn't complete.  Therefore, we have at least 1 incomplete child.
               allImmediateChildrenComplete = false;
             }
             else
@@ -1445,10 +1453,6 @@ public class TreeNode
             {
               tree.mNodeAverageScores[i] += lNode.getAverageScore(i);
             }
-          }
-          else
-          {
-            allImmediateChildrenComplete = false;
           }
         }
       }
