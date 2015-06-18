@@ -847,17 +847,18 @@ public class MCTSTree
       }
     }
 
-    for (TreeNode node : nodePool.getItemTable())
+    for (Object lNodeAsObject : nodePool.getItemTable())
     {
-      if (node != null && !node.freed)
+      TreeNode lNode = (TreeNode)lNodeAsObject;
+      if (lNode != null && !lNode.freed)
       {
-        if (node.decidingRoleIndex == numRoles - 1)
+        if (lNode.decidingRoleIndex == numRoles - 1)
         {
-          if (node != findTransposition(node.state))
+          if (lNode != findTransposition(lNode.state))
           {
             LOGGER.warn("Missing reference in positions table");
-            LOGGER.warn("node state is: " + node.state + " with hash " + node.state.hashCode());
-            LOGGER.warn(findTransposition(node.state));
+            LOGGER.warn("node state is: " + lNode.state + " with hash " + lNode.state.hashCode());
+            LOGGER.warn(findTransposition(lNode.state));
           }
         }
       }
