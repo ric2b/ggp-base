@@ -1334,7 +1334,7 @@ public class TreeNode
                       // that the deciding player will take this choice.
                       //
                       // When setting the completion depth, assume that the deciding player will take the shortest path
-                      // amongst all forced wins.  !! ARR Is this the cause of #270?
+                      // amongst all forced wins.  (This is corrected later for simultaneous move games.)
                       if (lDeterminingChildCompletionDepth > lNode.getCompletionDepth())
                       {
                         lDeterminingChildCompletionDepth = lNode.getCompletionDepth();
@@ -1525,12 +1525,18 @@ public class TreeNode
 
     if (lAllImmediateChildrenComplete || (lDecidingRoleWin && !inhibitDecidingWinPropagation))
     {
-      if (lDeterminingChildCompletionDepth == Short.MAX_VALUE)
+      if ((lDeterminingChildCompletionDepth == Short.MAX_VALUE) ||
+          (mTree.mGameCharacteristics.isSimultaneousMove))
       {
         // If there was no winning choice but everything is complete then the depth is the maximum of the non-winning
         // choice alternatives.  Note - this may be slightly misleading for non-fixed-sum games that are expected to end
         // at intermediate score values, but should operate correctly in other cases, and give reasonable indicative
         // results in all cases.
+        //
+        // Also, for simultaneous move games where the deciding role has a forced win (including in all cousins), we
+        // need to select the longest completion depth as our completion depth (rather than the shortest completion
+        // depth selected above) because we have to assume that the opponent(s) will play for the longest path.
+
         lDeterminingChildCompletionDepth = 0;
 
         for (short lIndex = 0; lIndex < mNumChildren; lIndex++)
