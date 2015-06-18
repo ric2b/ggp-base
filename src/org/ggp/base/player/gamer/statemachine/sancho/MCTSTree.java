@@ -90,7 +90,7 @@ public class MCTSTree
   final CappedPool<MoveScoreInfo>                      mCachedMoveScorePool;
   private final Map<ForwardDeadReckonInternalMachineState, Long> mPositions;
   int                                                  sweepInstance                               = 0;
-  NodeRefQueue                                         completedNodeRefQueue                       = new NodeRefQueue(256);
+  NodeRefQueue                                         completedNodeRefQueue                       = new NodeRefQueue(512);
   Map<Move, MoveScoreInfo>                             cousinMoveCache                             = new HashMap<>();
   long                                                 cousinMovesCachedFor                        = TreeNode.NULL_REF;
   final double[]                                       roleRationality;

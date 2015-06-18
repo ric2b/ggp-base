@@ -10,8 +10,8 @@ public class NodeRefQueue
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private final long[] mBuffer;
-  private final int mCapacity;
+  private long[] mBuffer;
+  private int mCapacity;
 
   private int mNextInsertIndex;
   private int mNextRemoveIndex;
@@ -20,7 +20,7 @@ public class NodeRefQueue
   /**
    * Create a queue of node references with the specified maximum capacity.
    *
-   * @param xiCapacity - the capacity.
+   * @param xiCapacity - the initial capacity.
    */
   public NodeRefQueue(int xiCapacity)
   {
@@ -48,10 +48,7 @@ public class NodeRefQueue
 
     if (mSize == mCapacity)
     {
-      LOGGER.warn("Not inserting node ref " + xiRef + " because the queue is full");
-      assert(mNextInsertIndex == mNextRemoveIndex) :
-                  "Queue is full (" + mSize + ") but has mHead = " + mNextInsertIndex + ", mTail = " + mNextRemoveIndex;
-      return;
+      expand();
     }
 
     mBuffer[mNextInsertIndex] = xiRef;
@@ -110,7 +107,31 @@ public class NodeRefQueue
       {
         return true;
       }
+      lIndex = (lIndex + 1) % mCapacity;
     }
     return false;
+  }
+
+  /**
+   * Expand the capacity of the queue, preserving the contents.
+   */
+  private void expand()
+  {
+    // Create a new buffer with double the capacity.
+    long[] lNewBuffer = new long[mCapacity * 2];
+    int lNewIndex = 0;
+
+    // Copy out the old elements into the new array.
+    while (mSize != 0)
+    {
+      lNewBuffer[lNewIndex++] = remove();
+    }
+
+    // Fix up members with the new state.
+    mBuffer = lNewBuffer;
+    mCapacity *= 2;
+    mNextInsertIndex = lNewIndex;
+    mNextRemoveIndex = 0;
+    mSize = lNewIndex;
   }
 }
