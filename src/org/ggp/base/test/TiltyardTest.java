@@ -199,7 +199,13 @@ public class TiltyardTest extends Assert
     // Game will be aborted.
   }
 
-  private void checkFinalMove(String xiAcceptable, String xiMove)
+  /**
+   * Check whether the final move is correct.
+   *
+   * @param xiAcceptable - the acceptable move string from the test case.
+   * @param xiMove - the final move played by the player under test.
+   */
+  private static void checkFinalMove(String xiAcceptable, String xiMove)
   {
     boolean lListOfAcceptable = true;
     if (xiAcceptable.startsWith("!:"))
@@ -221,13 +227,18 @@ public class TiltyardTest extends Assert
     assertFalse("Move played (" + xiMove + ") was not on the acceptable list: " + xiAcceptable, lListOfAcceptable);
   }
 
-  private static String getMovesString(String[][] xiMoves, int lIndex)
+  /**
+   * @return the moves for the specified turn, as a GDL-compliant string.
+   *
+   * @param xiMoves - the moves for all players over all turns.
+   * @param xiTurn - the turn.
+   */
+  private static String getMovesString(String[][] xiMoves, int xiTurn)
   {
     String lMoves = "(";
-    String[] lCurrentMoves = new String[xiMoves.length];
     for (String[] lPlayerMoves : xiMoves)
     {
-      String lPlayerMove = lPlayerMoves[lIndex];
+      String lPlayerMove = lPlayerMoves[xiTurn];
       if (lPlayerMove.contains(" "))
       {
         lMoves += "(" + lPlayerMove + ")";
@@ -272,6 +283,14 @@ public class TiltyardTest extends Assert
     return mRequestFactory.create(mGamer, lRequest).process(System.currentTimeMillis());
   }
 
+  /**
+   * Read a file into a String, assuming UTF-8 encoding.
+   *
+   * @param xiFile - the file to read.
+   * @return the contents of the file.
+   *
+   * @throws IOException if there was a problem reading the file.
+   */
   private static String readFile(File xiFile) throws IOException
   {
     byte[] encoded = Files.readAllBytes(xiFile.toPath());
