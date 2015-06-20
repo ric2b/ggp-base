@@ -51,5 +51,6 @@
 	</classpathentry>
 	<classpathentry kind="lib" path="src/external/JUnit/hamcrest-core-1.3.jar"/>
 	<classpathentry kind="lib" path="src/external/JUnit/junit-4.11.jar"/>
+	<classpathentry kind="lib" path="src/external/Trove/trove-3.1a1.jar" sourcepath="src/external/Trove/trove-3.1a1-src.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
