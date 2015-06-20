@@ -2455,6 +2455,11 @@ public class TreeNode
         // assert(newState == null);
         newChild.setState(mState);
       }
+
+      if ( tree.mGameSearcher.mUseGoalGreedy )
+      {
+        newChild.heuristicValue = tree.underlyingStateMachine.getGoal(newState, tree.mOurRole);
+      }
     }
 
     //  If this was a transposition to an existing node it can be linked at multiple depths.
@@ -2858,7 +2863,7 @@ public class TreeNode
     int roleIndex = (mDecidingRoleIndex + 1) % mTree.mNumRoles;
 
     //  Don't bother evaluating terminality of children above the earliest completion depth
-    boolean evaluateTerminalOnNodeCreation = (mTree.mEvaluateTerminalOnNodeCreation && (mDepth >= mTree.mGameCharacteristics.getEarliestCompletionDepth() || mTree.mHeuristic.isEnabled()));
+    boolean evaluateTerminalOnNodeCreation = (mTree.mEvaluateTerminalOnNodeCreation && (mDepth >= mTree.mGameCharacteristics.getEarliestCompletionDepth() || mTree.mHeuristic.isEnabled() || mTree.mGameSearcher.mUseGoalGreedy));
 
     //  Don't evaluate terminality on the root since it cannot be (and latched score states
     //  might indicate it should be treated as such, but this is never correct for the root)
@@ -3348,6 +3353,8 @@ public class TreeNode
 
       if (evaluateTerminalOnNodeCreation && ((mNumChildren != 1 && mTree.mRemoveNonDecisionNodes) || roleIndex == mTree.mNumRoles - 1))
       {
+        int bestChildGoalValue = 0;
+
         for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
         {
           if (mPrimaryChoiceMapping == null || mPrimaryChoiceMapping[lMoveIndex] == lMoveIndex)
@@ -3418,6 +3425,16 @@ public class TreeNode
               }
             }
 
+            if ( tree.mGameSearcher.mUseGoalGreedy )
+            {
+              int goalValue = tree.underlyingStateMachine.getGoal(tree.mChildStatesBuffer[lMoveIndex], tree.mOurRole);
+
+              if ( goalValue > bestChildGoalValue )
+              {
+                bestChildGoalValue = goalValue;
+              }
+            }
+
             //  We need to create the node at once if a fast-forward has taken place since
             //  the state will not be that reached directly by the move choice and we will
             //  not have access to the correct state information in other contexts
@@ -3449,6 +3466,14 @@ public class TreeNode
 
               assert(newChild.linkageValid());
             }
+          }
+        }
+
+        if ( tree.mGameSearcher.mUseGoalGreedy )
+        {
+          if ( bestChildGoalValue <= heuristicValue && !parents.isEmpty() )
+          {
+            heuristicValue = parents.get(0).heuristicValue;
           }
         }
       }
@@ -3906,6 +3931,13 @@ public class TreeNode
     }
 
     result *= (1 + edge.explorationAmplifier)*(edge.isHyperEdge() ? 5 : 1);
+    if ( tree.mGameSearcher.mUseGoalGreedy && this != tree.root )
+    {
+      if ( childNode.heuristicValue <= heuristicValue )
+      {
+        result *= 0.25;  //  Supress searching of non-goal-increasing branches
+      }
+    }
     return result;
   }
 
@@ -4411,7 +4443,10 @@ public class TreeNode
       {
         //calculatePathMoveWeights(path);
 
-        if ( mTree.USE_NODE_SCORE_NORMALIZATION && mNumVisits > 500 && (mNumVisits&0xff) == 0xff && !mTree.mGameSearcher.mUseRAVE &&
+        //  We do not normalize puzzles as this seems to be detrimental.  Normalization is helpful when initial convergence
+        //  is misleading (i.e. - non-monotonic), which is probably much rarer in puzzles (where there is no agent acting
+        //  against us).  However, this remains just a theory.
+        if ( !mTree.gameCharacteristics.isPseudoPuzzle && mTree.USE_NODE_SCORE_NORMALIZATION && mNumVisits > 500 && (mNumVisits&0xff) == 0xff &&
              (!mTree.mGameCharacteristics.isSimultaneousMove || roleIndex == 0))
         {
           normalizeScores(false);
