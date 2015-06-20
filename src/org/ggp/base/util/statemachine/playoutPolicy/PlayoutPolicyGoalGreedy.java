@@ -1,9 +1,10 @@
-package org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon;
+package org.ggp.base.util.statemachine.playoutPolicy;
 
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
 import org.ggp.base.util.statemachine.Role;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 /**
  * @author steve
@@ -14,6 +15,8 @@ public class PlayoutPolicyGoalGreedy implements IPlayoutPolicy
   private final ForwardDeadReckonPropnetStateMachine stateMachine;
   private final int[] currentStateScores;
   private ForwardDeadReckonInternalMachineState currentState = null;
+  private final int[] latchedScoreRangeBuffer;
+  protected int currentDepth;
 
   /**
    * @param xiStateMachine - state machine instance this policy will be used from
@@ -21,7 +24,8 @@ public class PlayoutPolicyGoalGreedy implements IPlayoutPolicy
   public PlayoutPolicyGoalGreedy(ForwardDeadReckonPropnetStateMachine xiStateMachine)
   {
     stateMachine = xiStateMachine;
-    currentStateScores = new int[xiStateMachine.numRoles];
+    currentStateScores = new int[xiStateMachine.getNumRoles()];
+    latchedScoreRangeBuffer = new int[2];
   }
 
   @Override
@@ -33,6 +37,7 @@ public class PlayoutPolicyGoalGreedy implements IPlayoutPolicy
   {
     int roleIndex = 0;
 
+    currentDepth = moveIndex;
     currentState = state;
     for(Role role : stateMachine.getRoles())
     {
@@ -80,9 +85,10 @@ public class PlayoutPolicyGoalGreedy implements IPlayoutPolicy
     if ( stateMachine.isTerminal(xiToState))
     {
       //  Only allow terminality at the maximum achievable score
-      stateMachine.getLatchedScoreRange(currentState, role, stateMachine.latchedScoreRangeBuffer);
-      return (candidateScore >= stateMachine.latchedScoreRangeBuffer[1]);
+      stateMachine.getLatchedScoreRange(currentState, role, latchedScoreRangeBuffer);
+      return (candidateScore >= latchedScoreRangeBuffer[1]);
     }
+
     return (candidateScore > currentStateScores[xiRoleIndex]);
   }
 
@@ -90,5 +96,22 @@ public class PlayoutPolicyGoalGreedy implements IPlayoutPolicy
   public String toString()
   {
     return "Goal Greedy";
+  }
+
+  @Override
+  public boolean popStackOnAllUnacceptableMoves(int xiPopDepth)
+  {
+    return false;
+  }
+
+  @Override
+  public void noteNewPlayout()
+  {
+  }
+
+  @Override
+  public boolean terminatePlayout()
+  {
+    return false;
   }
 }

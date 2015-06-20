@@ -1,8 +1,9 @@
-package org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon;
+package org.ggp.base.util.statemachine.playoutPolicy;
 
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 /**
  * Interface for playout policies, which can influence move selection during
@@ -41,6 +42,17 @@ public interface IPlayoutPolicy
    */
   public boolean requiresStateHistory();
   /**
+   * Force-terminate the playout
+   * TODO - we need a way to assert some goal values here really but for now
+   * will only be using in games where the goals are ok in non-terminal state anyway
+   * @return true to terminate the current playour
+   */
+  public boolean terminatePlayout();
+  /**
+   * Note that a new playout is beginning
+   */
+  public void noteNewPlayout();
+  /**
    * Select a specific move to play
    * @param roleIndex - role for which the move is to be selected
    * @return selected move, or null if no preference
@@ -62,4 +74,10 @@ public interface IPlayoutPolicy
    */
   public boolean isAcceptableState(ForwardDeadReckonInternalMachineState toState,
                                    int roleIndex);
+
+  /**
+   * @param popDepth number of (consecutive) pops already performed to reach this point
+   * @return whether to pop back up the playout stack another level
+   */
+  public boolean popStackOnAllUnacceptableMoves(int popDepth);
 }

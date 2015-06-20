@@ -47,6 +47,7 @@ import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBuilder;
+import org.ggp.base.util.statemachine.playoutPolicy.IPlayoutPolicy;
 import org.ggp.base.util.stats.Stats;
 
 /**
@@ -160,6 +161,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   //  the mechanism at all, so if we had to go to that due to a counter example this is still a big step forward)
   private final int                                                    latchImprovementWeight = 100;
   private final int                                                    latchWorseningAvoidanceWeight = 0;
+
+  //  Stack variables used during playouts that are not exposed to the caller or the policy
+  private int[]                                                        playoutStackMoveInitialChoiceIndex = null;
+  private int[]                                                        playoutStackMoveNextChoiceIndex = null;
 
   private class TestPropnetStateMachineStats extends Stats
   {
@@ -2333,6 +2338,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   }
 
   /**
+   * @return number of roles in the game
+   */
+  public int getNumRoles()
+  {
+    return numRoles;
+  }
+
+  /**
    * Get a state mask for the control propositions
    * @return null if unknown else state mask
    */
@@ -3907,13 +3920,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                     ForwardDeadReckonInternalMachineState[] statesVisited)
   {
 		int result = 0;
-    int startingRand = -1;
     int numChoices;
-    int choiceIndex = 0;
+    int choiceIndex = -1;
     int choosingRole = -1;
     boolean choiceSeen = false;
     boolean acceptableChoice = true;
     ForwardDeadReckonLegalMoveSet activeLegalMoves = propNet.getActiveLegalProps(instanceId);
+    int startingDepth = rolloutDepth;
+    boolean subtreeFullySearched = false;
 
     if ( mPlayoutPolicy != null )
     {
@@ -3923,6 +3937,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     do
     {
       int index = 0;
+      int numChooserChoices = 1;
       ForwardDeadReckonLegalMoveInfo chooserChoice = null;
 
       for (int roleIndex = 0; roleIndex < numRoles; roleIndex++)
@@ -3958,16 +3973,20 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         int moveIndex;
         if ( numChoices > 1 )
         {
-          if ( startingRand == -1 )
+          choosingRole = roleIndex;
+          numChooserChoices = numChoices;
+
+          if ( choiceIndex == -1 )
           {
-            startingRand = getRandom(numChoices);
-            choiceIndex = startingRand;
-            choosingRole = roleIndex;
+            choiceIndex = getRandom(numChoices);
+
+            if ( playoutStackMoveInitialChoiceIndex != null )
+            {
+              playoutStackMoveInitialChoiceIndex[rolloutDepth] = choiceIndex;
+            }
           }
-          else
-          {
-            choiceIndex = (choiceIndex+1)%numChoices;
-          }
+          assert(playoutStackMoveInitialChoiceIndex == null || playoutStackMoveInitialChoiceIndex[rolloutDepth] < numChoices);
+          assert(choiceIndex < numChoices);
 
           moveIndex = choiceIndex;
         }
@@ -4015,15 +4034,64 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       //  Do we have a non-default policy?
       acceptableChoice = true;
-      if ( mPlayoutPolicy != null && statesVisited != null && choosingRole != -1 && choiceIndex != (startingRand+result-1)%result )
+      if ( mPlayoutPolicy != null && statesVisited != null && choosingRole != -1 )
       {
-        acceptableChoice = mPlayoutPolicy.isAcceptableMove(chooserChoice, choosingRole) &&
-                           mPlayoutPolicy.isAcceptableState(lastInternalSetState, choosingRole);
+        assert(numChooserChoices > playoutStackMoveInitialChoiceIndex[rolloutDepth]);
+        choiceIndex = (choiceIndex+1)%numChooserChoices;
+        playoutStackMoveNextChoiceIndex[rolloutDepth] = choiceIndex;
+
+        acceptableChoice = subtreeFullySearched ||
+                           (mPlayoutPolicy.isAcceptableMove(chooserChoice, choosingRole) &&
+                            mPlayoutPolicy.isAcceptableState(lastInternalSetState, choosingRole));
 
         if ( !acceptableChoice )
         {
-          setPropNetUsage(statesVisited[rolloutDepth]);
-          setBasePropositionsFromState(statesVisited[rolloutDepth]);
+          //LOGGER.info("Reject move " + chooserChoice + " at depth " + rolloutDepth);
+
+          if ( choiceIndex == playoutStackMoveInitialChoiceIndex[rolloutDepth] )
+          {
+            while( choiceIndex == playoutStackMoveInitialChoiceIndex[rolloutDepth] )
+            {
+              if ( rolloutDepth > 0 &&
+                   !subtreeFullySearched &&
+                   mPlayoutPolicy.popStackOnAllUnacceptableMoves(startingDepth-rolloutDepth) )
+              {
+                //  Pop back up the stack
+                rolloutDepth--;
+
+                //LOGGER.info("Pop back to depth " + rolloutDepth);
+                //System.out.println("Popped state is: " + statesVisited[rolloutDepth]);
+                setPropNetUsage(statesVisited[rolloutDepth]);
+                setBasePropositionsFromState(statesVisited[rolloutDepth]);
+                activeLegalMoves = propNet.getActiveLegalProps(instanceId);
+                choiceIndex = playoutStackMoveNextChoiceIndex[rolloutDepth];
+                assert(choiceIndex < activeLegalMoves.getNumChoices(0));
+                mPlayoutPolicy.noteCurrentState(statesVisited[rolloutDepth], activeLegalMoves, rolloutDepth, playedMoves, statesVisited);
+              }
+              else
+              {
+                //LOGGER.info("Cannot pop any further");
+                //  All possibilities have been explored so just play next path down to
+                //  next required move depth (startingDepth chosen)
+                subtreeFullySearched = true;
+                //rolloutDepth = startingDepth;
+                setPropNetUsage(statesVisited[rolloutDepth]);
+                setBasePropositionsFromState(statesVisited[rolloutDepth]);
+                activeLegalMoves = propNet.getActiveLegalProps(instanceId);
+                choiceIndex = playoutStackMoveNextChoiceIndex[rolloutDepth];
+                break;
+              }
+            }
+          }
+          else
+          {
+            setPropNetUsage(statesVisited[rolloutDepth]);
+            setBasePropositionsFromState(statesVisited[rolloutDepth]);
+          }
+        }
+        else
+        {
+          //LOGGER.info("Accept move " + chooserChoice + " at depth " + rolloutDepth);
         }
       }
 //      if ( numRoles == 1 && statesVisited != null && getNonControlMask() != null && choiceIndex != (startingRand+result-1)%result )
@@ -4046,6 +4114,21 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 //          setBasePropositionsFromState(statesVisited[rolloutDepth]);
 //        }
 //      }
+
+      if ( rolloutDepth < startingDepth && acceptableChoice )
+      {
+        //  If we popped a move we need to continue down again until we fill in
+        //  moves down to the expected starting level
+        acceptableChoice = false;
+        rolloutDepth++;
+        choiceIndex = -1;
+
+        assert(statesVisited != null);
+        //System.out.println("Recording new state for depth " + rolloutDepth + ": " + lastInternalSetState);
+        statesVisited[rolloutDepth].copy(lastInternalSetState);
+        activeLegalMoves = propNet.getActiveLegalProps(instanceId);
+        mPlayoutPolicy.noteCurrentState(statesVisited[rolloutDepth], activeLegalMoves, rolloutDepth, playedMoves, statesVisited);
+      }
     } while(!acceptableChoice);
 
     return result;
@@ -4225,6 +4308,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       if ( mPlayoutPolicy != null && info.statesVisited != null )
       {
+        mPlayoutPolicy.noteNewPlayout();
         if ( mPlayoutPolicy.requiresMoveHistory() )
         {
           info.recordTrace = true;
@@ -4232,6 +4316,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         if ( mPlayoutPolicy.requiresStateHistory() )
         {
           info.recordTraceStates = true;
+          if ( playoutStackMoveInitialChoiceIndex == null )
+          {
+            playoutStackMoveInitialChoiceIndex = new int[info.playoutTrace.length];
+            playoutStackMoveNextChoiceIndex = new int[info.playoutTrace.length];
+          }
         }
       }
 
@@ -4240,7 +4329,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         info.statesVisited[0].copy(state);
       }
 
-      while (!isTerminal() && !scoresAreLatched(lastInternalSetState))
+      while (!isTerminal() && !scoresAreLatched(lastInternalSetState) && (mPlayoutPolicy == null || !mPlayoutPolicy.terminatePlayout()))
       {
         int numChoices = transitionToRandomJointMove(info.factor, info.playoutTrace, info.statesVisited);
         totalChoices += numChoices;
