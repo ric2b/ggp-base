@@ -194,7 +194,7 @@ public class TreeNode
   //  we store the RAVE stats in their own arrays directly in the parent node using the same
   //  child indexes as the corresponding edge
   private int[]                         mRAVECounts = null;
-  private double[]                      mRAVEScores = null;
+  private float[]                       mRAVEScores = null;
 
   /**
    * Create a tree node.
@@ -214,7 +214,7 @@ public class TreeNode
     if (mTree.mGameSearcher.mUseRAVE)
     {
       mRAVECounts = new int[directChildHighWatermark];
-      mRAVEScores = new double[directChildHighWatermark];
+      mRAVEScores = new float[directChildHighWatermark];
     }
   }
 
@@ -708,7 +708,7 @@ public class TreeNode
         if (mTree.mGameSearcher.mUseRAVE)
         {
           mRAVECounts = new int[directChildHighWatermark];
-          mRAVEScores = new double[directChildHighWatermark];
+          mRAVEScores = new float[directChildHighWatermark];
         }
       }
     }
@@ -2570,8 +2570,8 @@ public class TreeNode
 
     if ( mTree.mGameSearcher.mUseRAVE )
     {
-      int[] newRAVECounts = new int[mNumChildren*2];
-      double[] newRAVEScores = new double[mNumChildren*2];
+      int[] newRAVECounts = new int[mNumChildren * 2];
+      float[] newRAVEScores = new float[mNumChildren * 2];
 
       System.arraycopy(mRAVECounts, 0, newRAVECounts, 0, mNumChildren);
       System.arraycopy(mRAVEScores, 0, newRAVEScores, 0, mNumChildren);
@@ -3197,7 +3197,7 @@ public class TreeNode
         if ( mTree.mGameSearcher.mUseRAVE )
         {
           mRAVECounts = new int[maxChildrenToAllocateFor];
-          mRAVEScores = new double[maxChildrenToAllocateFor];
+          mRAVEScores = new float[maxChildrenToAllocateFor];
         }
 
         assert ( mPrimaryChoiceMapping == null );
@@ -5788,8 +5788,10 @@ public class TreeNode
               ForwardDeadReckonLegalMoveInfo moveInfo = (lChoice instanceof TreeEdge) ? ((TreeEdge)lChoice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)lChoice;
               if ( playedMoves.get(moveInfo.masterIndex) )
               {
-                //  This move was played so update the RAVE sdtats for it
-                lNode.mRAVEScores[lii] = (lNode.mRAVEScores[lii]*lNode.mRAVECounts[lii] + xiValues[(lNode.mDecidingRoleIndex+1)%mTree.mNumRoles])/(lNode.mRAVECounts[lii]+1);
+                // This move was played so update the RAVE stats for it.
+                lNode.mRAVEScores[lii] = (lNode.mRAVEScores[lii]*lNode.mRAVECounts[lii] +
+                                          (float)xiValues[(lNode.mDecidingRoleIndex+1) % mTree.mNumRoles]) /
+                                                                                           (lNode.mRAVECounts[lii] + 1);
                 lNode.mRAVECounts[lii]++;
               }
             }
