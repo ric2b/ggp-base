@@ -1,5 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import gnu.trove.map.hash.TObjectLongHashMap;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -88,7 +90,7 @@ public class MCTSTree
   final Pool<TreeEdge>                                 mEdgePool;
   final Pool<TreePath>                                 mPathPool;
   final CappedPool<MoveScoreInfo>                      mCachedMoveScorePool;
-  private final NodeRefMap<ForwardDeadReckonInternalMachineState> mPositions;
+  private final TObjectLongHashMap<ForwardDeadReckonInternalMachineState> mPositions;
   int                                                  mSweepInstance                               = 0;
   NodeRefQueue                                         mCompletedNodeRefQueue                       = new NodeRefQueue(512);
   Map<Move, MoveScoreInfo>                             mCousinMoveCache                             = new HashMap<>();
@@ -279,7 +281,7 @@ public class MCTSTree
     mHeuristic = xiHeuristic;
     mGameCharacteristics = xiGameCharacteristics;
     mRolloutPool = xiRolloutPool;
-    mPositions = new NodeRefMap<>((int)(mNodePool.getCapacity() / 0.75f), 0.75f);
+    mPositions = new TObjectLongHashMap<>((int)(mNodePool.getCapacity() / 0.75f), 0.75f, TreeNode.NULL_REF);
 
     //  For now we only automatically enable use of estimated values for unplayed nodes (in select)
     //  in games with negative goal latches, which amounts to ELB.  Further testing is needed, so for
