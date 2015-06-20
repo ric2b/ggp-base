@@ -44,7 +44,7 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine.PlayoutInfo;
-import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.PlayoutPolicyGoalGreedy;
+import org.ggp.base.util.statemachine.playoutPolicy.PlayoutPolicyGoalGreedyWithPop;
 import org.ggp.base.util.symbol.grammar.SymbolPool;
 
 import com.google.common.io.CharStreams;
@@ -911,7 +911,8 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     {
       if ( totalGoalChangeCount >= totalGoalSamples/4 && goalsMonotonic )
       {
-        underlyingStateMachine.setPlayoutPolicy(new PlayoutPolicyGoalGreedy(underlyingStateMachine));
+        underlyingStateMachine.setPlayoutPolicy(new PlayoutPolicyGoalGreedyWithPop(underlyingStateMachine));
+        searchProcessor.mUseGoalGreedy = true;
       }
       else
       {

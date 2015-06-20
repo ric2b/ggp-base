@@ -92,6 +92,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
    * Whether this searcher uses RAVE
    */
   public boolean                          mUseRAVE = false;
+  public boolean                          mUseGoalGreedy = false;
   /**
    * Trace of moves played below the current node being updated by back propagation
    * (including the playout itself).  Enabled only if RAVE is in use.  BitSet indexes
@@ -426,6 +427,10 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
    */
   public boolean isComplete()
   {
+    if ( !mPlan.isEmpty() )
+    {
+      return true;
+    }
     for (MCTSTree tree : factorTrees)
     {
       if (!tree.mRoot.mComplete)

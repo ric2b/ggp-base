@@ -303,7 +303,7 @@ public class MCTSTree
       mNonFactorInitialState = null;
     }
 
-    mEvaluateTerminalOnNodeCreation = !mGameCharacteristics.getIsFixedMoveCount();
+    mEvaluateTerminalOnNodeCreation = !mGameCharacteristics.getIsFixedMoveCount() || xiGameSearcher.mUseGoalGreedy;
 
     mNumCompletionsProcessed = 0;
     mCompleteSelectionFromIncompleteParentWarned = false;
