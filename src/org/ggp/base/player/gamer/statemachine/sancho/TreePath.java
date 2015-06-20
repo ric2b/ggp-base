@@ -384,4 +384,30 @@ public class TreePath
     resetCursor();
     return true;
   }
+
+  @Override
+  public String toString()
+  {
+    String result = "";
+
+    for (int lii = 0; lii < mNumElements; lii++)
+    {
+      TreeEdge edge = mElements[lii].getEdge();
+      if (edge != null)
+      {
+        if ( !result.isEmpty())
+        {
+          result += ", ";
+        }
+        result += edge.mPartialMove;
+      }
+      else
+      {
+        result += "XXX";
+        break;
+      }
+    }
+
+    return result;
+  }
 }
