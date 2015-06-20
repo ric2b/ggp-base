@@ -708,7 +708,7 @@ public class PieceHeuristic implements Heuristic
         }
       }
 
-      if (smallestFitIndex != -1 && smallestFitIndex <= MAX_NUM_PIECES)
+      if (smallestFitIndex != -1 && smallestFit <= MAX_NUM_PIECES)
       {
         potentialPiecePropSets
             .add(new PotentialPiecePropSet(fnInfo.getName(), smallestFitIndex));
