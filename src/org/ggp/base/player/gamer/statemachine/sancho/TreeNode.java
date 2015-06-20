@@ -2456,9 +2456,9 @@ public class TreeNode
         newChild.setState(mState);
       }
 
-      if ( tree.mGameSearcher.mUseGoalGreedy )
+      if ( mTree.mGameSearcher.mUseGoalGreedy )
       {
-        newChild.heuristicValue = tree.underlyingStateMachine.getGoal(newState, tree.mOurRole);
+        newChild.mHeuristicValue = mTree.mUnderlyingStateMachine.getGoal(newState, mTree.mOurRole);
       }
     }
 
@@ -3425,9 +3425,9 @@ public class TreeNode
               }
             }
 
-            if ( tree.mGameSearcher.mUseGoalGreedy )
+            if ( mTree.mGameSearcher.mUseGoalGreedy )
             {
-              int goalValue = tree.underlyingStateMachine.getGoal(tree.mChildStatesBuffer[lMoveIndex], tree.mOurRole);
+              int goalValue = mTree.mUnderlyingStateMachine.getGoal(mTree.mChildStatesBuffer[lMoveIndex], mTree.mOurRole);
 
               if ( goalValue > bestChildGoalValue )
               {
@@ -3469,11 +3469,11 @@ public class TreeNode
           }
         }
 
-        if ( tree.mGameSearcher.mUseGoalGreedy )
+        if ( mTree.mGameSearcher.mUseGoalGreedy )
         {
-          if ( bestChildGoalValue <= heuristicValue && !parents.isEmpty() )
+          if ( bestChildGoalValue <= mHeuristicValue && !mParents.isEmpty() )
           {
-            heuristicValue = parents.get(0).heuristicValue;
+            mHeuristicValue = mParents.get(0).mHeuristicValue;
           }
         }
       }
@@ -3931,9 +3931,9 @@ public class TreeNode
     }
 
     result *= (1 + edge.explorationAmplifier)*(edge.isHyperEdge() ? 5 : 1);
-    if ( tree.mGameSearcher.mUseGoalGreedy && this != tree.root )
+    if ( mTree.mGameSearcher.mUseGoalGreedy && this != mTree.mRoot )
     {
-      if ( childNode.heuristicValue <= heuristicValue )
+      if ( childNode.mHeuristicValue <= mHeuristicValue )
       {
         result *= 0.25;  //  Supress searching of non-goal-increasing branches
       }
@@ -4446,7 +4446,7 @@ public class TreeNode
         //  We do not normalize puzzles as this seems to be detrimental.  Normalization is helpful when initial convergence
         //  is misleading (i.e. - non-monotonic), which is probably much rarer in puzzles (where there is no agent acting
         //  against us).  However, this remains just a theory.
-        if ( !mTree.gameCharacteristics.isPseudoPuzzle && mTree.USE_NODE_SCORE_NORMALIZATION && mNumVisits > 500 && (mNumVisits&0xff) == 0xff &&
+        if ( !mTree.mGameCharacteristics.isPseudoPuzzle && mTree.USE_NODE_SCORE_NORMALIZATION && mNumVisits > 500 && (mNumVisits&0xff) == 0xff &&
              (!mTree.mGameCharacteristics.isSimultaneousMove || roleIndex == 0))
         {
           normalizeScores(false);
