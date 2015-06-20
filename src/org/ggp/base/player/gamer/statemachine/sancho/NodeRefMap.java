@@ -447,8 +447,9 @@ public class NodeRefMap<K>
     }
 
     @Override
-    public final int hashCode() {
-      return Objects.hashCode(getKey()) ^ Objects.hashCode(getValue()); // !! ARR Need to use Long's hashCode.
+    public final int hashCode()
+    {
+      return Objects.hashCode(getKey()) ^ ((int)(value ^ (value >>> 32)));
     }
 
     @Override

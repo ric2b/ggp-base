@@ -88,7 +88,7 @@ public class MCTSTree
   final Pool<TreeEdge>                                 mEdgePool;
   final Pool<TreePath>                                 mPathPool;
   final CappedPool<MoveScoreInfo>                      mCachedMoveScorePool;
-  private final Map<ForwardDeadReckonInternalMachineState, Long> mPositions;
+  private final NodeRefMap<ForwardDeadReckonInternalMachineState> mPositions;
   int                                                  mSweepInstance                               = 0;
   NodeRefQueue                                         mCompletedNodeRefQueue                       = new NodeRefQueue(512);
   Map<Move, MoveScoreInfo>                             mCousinMoveCache                             = new HashMap<>();
@@ -279,7 +279,7 @@ public class MCTSTree
     mHeuristic = xiHeuristic;
     mGameCharacteristics = xiGameCharacteristics;
     mRolloutPool = xiRolloutPool;
-    mPositions = new HashMap<>((int)(mNodePool.getCapacity() / 0.75f), 0.75f);
+    mPositions = new NodeRefMap<>((int)(mNodePool.getCapacity() / 0.75f), 0.75f);
 
     //  For now we only automatically enable use of estimated values for unplayed nodes (in select)
     //  in games with negative goal latches, which amounts to ELB.  Further testing is needed, so for
@@ -453,13 +453,13 @@ public class MCTSTree
   {
     if (SUPPORT_TRANSITIONS)
     {
-      Long ref = mPositions.get(xiTreeNode.mState);
+      long lRef = mPositions.get(xiTreeNode.mState);
 
-      if (ref == null)
+      if (lRef == TreeNode.NULL_REF)
       {
         return;
       }
-      else if (ref.longValue() == xiTreeNode.getRef())
+      else if (lRef == xiTreeNode.getRef())
       {
         mPositions.remove(xiTreeNode.mState);
       }
@@ -474,19 +474,19 @@ public class MCTSTree
   {
     if (SUPPORT_TRANSITIONS)
     {
-      Long ref = mPositions.get(xiState);
+      long lRef = mPositions.get(xiState);
 
-      if (ref == null)
+      if (lRef == TreeNode.NULL_REF)
       {
         return null;
       }
 
-      TreeNode result = TreeNode.get(mNodePool, ref);
-      assert(result != null);
-      assert(xiState.equals(result.mState));
-      assert(!mRemoveNonDecisionNodes || result == mRoot || result.mComplete || result.mNumChildren != 1);
+      TreeNode lNode = TreeNode.get(mNodePool, lRef);
+      assert(lNode != null);
+      assert(xiState.equals(lNode.mState));
+      assert(!mRemoveNonDecisionNodes || lNode == mRoot || lNode.mComplete || lNode.mNumChildren != 1);
 
-      return result;
+      return lNode;
     }
 
     return null;
