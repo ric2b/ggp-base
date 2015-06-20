@@ -34,7 +34,7 @@
         <pathelement location="src/external/Lucene/lucene-core-4.8.1.jar"/>
         <pathelement location="src/external/javassist/javassist.jar"/>
         <pathelement location="src/external/reflections/reflections-0.9.9-RC1.jar"/>
-        <pathelement location="src/external/Trove4J/trove-3.1a1.jar"/>
+        <pathelement location="src/external/Trove/trove-3.1a1.jar"/>
     </path>
     <target name="init">
         <mkdir dir="bin"/>
