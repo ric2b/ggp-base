@@ -4122,10 +4122,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         acceptableChoice = false;
         rolloutDepth++;
         choiceIndex = -1;
-
         assert(statesVisited != null);
         //System.out.println("Recording new state for depth " + rolloutDepth + ": " + lastInternalSetState);
         statesVisited[rolloutDepth].copy(lastInternalSetState);
+
+        if(isTerminal())
+        {
+          break;
+        }
+
         activeLegalMoves = propNet.getActiveLegalProps(instanceId);
         mPlayoutPolicy.noteCurrentState(statesVisited[rolloutDepth], activeLegalMoves, rolloutDepth, playedMoves, statesVisited);
       }
