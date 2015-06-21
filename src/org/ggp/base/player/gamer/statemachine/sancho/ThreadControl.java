@@ -155,7 +155,7 @@ public class ThreadControl
   }
 
   /**
-   * Take ownership of the tree.  Only permitted when no other thread(s) own the tree.
+   * Take ownership of the tree.  Only permitted when no other thread owns the tree.
    *
    * @return true, always.
    */
@@ -189,6 +189,21 @@ public class ThreadControl
   {
     assert(sTreeOwner == Thread.currentThread()) :
                   Thread.currentThread().getName() + " can't modify tree because it's owned by " + sTreeOwner.getName();
+    return true;
+  }
+
+  /**
+   * Release tree ownership.  Must only be called when there's a problem (e.g. when ownership state is unknown
+   * following an exception).
+   *
+   * @return true, always.
+   */
+  public static boolean abortTreeOwnership()
+  {
+    if (sTreeOwner == Thread.currentThread())
+    {
+      sTreeOwner = null;
+    }
     return true;
   }
 

@@ -21,7 +21,6 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
 import org.ggp.base.util.statemachine.Move;
-import org.ggp.base.util.statemachine.exceptions.GDLException;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
@@ -402,25 +401,27 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           // sample size.
           mSuppressSampleSizeUpdate = true;
         }
-        catch (GDLException lEx)
-        {
-          LOGGER.error("GDLException: " + lEx);
-          lEx.printStackTrace();
-        }
         catch (AssertionError lEx)
         {
-          LOGGER.error("AssertionError: " + lEx);
+          // Rethrow assertions so that we quit the loop.
+          LOGGER.error("AssertionError", lEx);
+          assert(ThreadControl.abortTreeOwnership());
           throw new AssertionError("Rethrown AssertionError", lEx);
+        }
+        catch (Exception lEx)
+        {
+          // Log other exceptions, but attempt to carry on.
+          LOGGER.error("Exception", lEx);
+          assert(ThreadControl.abortTreeOwnership());
         }
       }
     }
-    catch (InterruptedException e)
+    catch (InterruptedException lEx)
     {
-      LOGGER.warn("Game search unexpectedly interrupted");
-      e.printStackTrace();
+      LOGGER.warn("Game search unexpectedly interrupted", lEx);
     }
 
-    LOGGER.info("Terminating GameSearcher");
+    LOGGER.info("Terminating GameSearcher (mTerminateRequested = " + mTerminateRequested + ")");
   }
 
   /**
