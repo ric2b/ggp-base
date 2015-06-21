@@ -394,7 +394,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
             }
           }
 
-          LOGGER.info("Move search complete");
+          LOGGER.info("Move search complete: mTerminateRequested = " + mTerminateRequested +
+                      ", complete = " + complete);
 
           // Because this thread has finished searching the game tree, it will no longer fill the rollout pipeline.
           // Therefore, the performance stats from the rollout threads are meaningless and mustn't be used to update the

@@ -185,7 +185,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     if (mWatchdog != null)
     {
       LOGGER.error("Watchdog exists at start of new match");
-      tidyUp(false);
+      tidyUp(false, true);
     }
 
     mWatchdog = new Watchdog(MachineSpecificConfiguration.getCfgInt(CfgItem.DEAD_MATCH_INTERVAL), this);
@@ -1491,7 +1491,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
 
     makePostMatchAnnouncement(false);
-    tidyUp(true);
+    tidyUp(true, false);
   }
 
   @Override
@@ -1499,7 +1499,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
   {
     LOGGER.warn("Game aborted by server");
     makePostMatchAnnouncement(true);
-    tidyUp(true);
+    tidyUp(true, false);
   }
 
   @Override
@@ -1507,15 +1507,16 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
   {
     LOGGER.warn("Game aborted on watchdog expiry");
     makePostMatchAnnouncement(true);
-    tidyUp(false);
+    tidyUp(false, false);
   }
 
   /**
    * Tidy up game state at the end of the game.
    *
    * @param xiRegularTermination - whether the termination is regular (stop/abort) or irregular (watchdog).
+   * @param xiNewMatch - whether the start of a new match triggered this tidy-up.
    */
-  private void tidyUp(boolean xiRegularTermination)
+  private void tidyUp(boolean xiRegularTermination, boolean xiNewMatch)
   {
     StatsLogUtils.Series.TURN.logDataPoint(System.currentTimeMillis(), 999);
 
@@ -1571,7 +1572,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     mLastMove                    = null;
     lastMove                     = null;
 
-    if (xiRegularTermination)
+    if (!xiNewMatch)
     {
       // Get our parent to tidy up too.
       cleanupAfterMatch();
