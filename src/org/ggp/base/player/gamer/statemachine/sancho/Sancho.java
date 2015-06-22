@@ -345,17 +345,11 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
 
     // Analyze game semantics.  This includes latch identification and search filter generation.
-    // This needs to be done before the AvailableGoalHeuristic is initialized.
     long lSemanticAnalysisStartTime = System.currentTimeMillis();
-    long lSemanticAnalysisStopTime = Math.min(timeout - 10000, lSemanticAnalysisStartTime + (timeout - lSemanticAnalysisStartTime)/2);
+    long lSemanticAnalysisStopTime = Math.min(timeout - 10000,
+                                              lSemanticAnalysisStartTime + (timeout - lSemanticAnalysisStartTime) / 2);
 
     underlyingStateMachine.performSemanticAnalysis(lSemanticAnalysisStopTime);
-
-    //  TEMP TEMP TEMP
-//    DependencyDistanceAnalyser distanceAnalyser = new DependencyDistanceAnalyser(underlyingStateMachine);
-//    LOGGER.info("Begin analysing move distances...");
-//    int[][] result = distanceAnalyser.createMoveDistanceMatrix();
-//    LOGGER.info("Completed analysing move distances...");
 
     PayoffMatrixGamePlayer lPayoffMatrixGamePlayer;
     try
@@ -376,7 +370,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
     else
     {
-      heuristic = new CombinedHeuristic(new PieceHeuristic(), goalsPredictionHeuristic, goalsStabilityHeuristic /*, new AvailableGoalHeuristic() */);
+      heuristic = new CombinedHeuristic(new PieceHeuristic(), goalsPredictionHeuristic, goalsStabilityHeuristic);
     }
 
     boolean hasHeuristicCandidates = heuristic.tuningInitialise(underlyingStateMachine, roleOrdering);

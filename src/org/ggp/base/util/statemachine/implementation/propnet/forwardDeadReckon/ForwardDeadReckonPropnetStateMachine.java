@@ -1843,15 +1843,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           performDepthCharge(initialState, null);
         }
       }
-      catch (TransitionDefinitionException e1)
+      catch (TransitionDefinitionException | MoveDefinitionException lEx)
       {
-        // TODO Auto-generated catch block
-        e1.printStackTrace();
-      }
-      catch (MoveDefinitionException e1)
-      {
-        // TODO Auto-generated catch block
-        e1.printStackTrace();
+        LOGGER.warn("Exception performing depth charges", lEx);
       }
       measuringBasePropChanges = false;
 
