@@ -44,6 +44,8 @@ public class MCTSTree
   public static final int                              MAX_SUPPORTED_TREE_DEPTH                    = 500;
   private static final int                             NUM_TOP_MOVE_CANDIDATES                     = 4;
 
+  private final String                                 mTreeDumpFile                               = MachineSpecificConfiguration.getCfgStr(CfgItem.TREE_DUMP);
+
   /**
    * If goal stability is above a certain threshold we can use interim-state goals to predict final results
    * which makes the use of weight decay and cutoffs appropriate
@@ -827,7 +829,11 @@ public class MCTSTree
       mNumTerminalRollouts = 0;
     }
 
-    //root.dumpTree("treeDump.txt");
+    if ( mTreeDumpFile != null )
+    {
+      mRoot.dumpTree(mTreeDumpFile);
+    }
+
     return bestMoveInfo;
   }
 

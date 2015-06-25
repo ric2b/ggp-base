@@ -126,6 +126,11 @@ public class MachineSpecificConfiguration
     TLKIO_CHANNEL("sancho"),
 
     /**
+     * Full path of file to dump tree to after each move
+     */
+    TREE_DUMP(null),
+
+    /**
      * Limit on number of MCTS expansions to perform per turn (for testing)
      */
     MAX_ITERATIONS_PER_TURN(-1);
