@@ -87,6 +87,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   private long                            mNumIterations      = 0;
   private int                             mRootDepth          = 0;
   private boolean                         mSuppressSampleSizeUpdate = false;
+  private int                             mMaxIterationsPerTurn = -1;
   /**
    * Whether this searcher uses RAVE
    */
@@ -221,6 +222,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     mPlan = plan;
 
     mStateInfoBuffer = new StateInfo(underlyingStateMachine.getRoles().length);
+
+    mMaxIterationsPerTurn = MachineSpecificConfiguration.getCfgInt(CfgItem.MAX_ITERATIONS_PER_TURN);
 
     if (ThreadControl.ROLLOUT_THREADS > 0)
     {
@@ -429,6 +432,10 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
    */
   public boolean isComplete()
   {
+    if ( mMaxIterationsPerTurn != -1 && getNumIterations() >= mMaxIterationsPerTurn )
+    {
+      return true;
+    }
     if ( !mPlan.isEmpty() )
     {
       return true;
@@ -713,6 +720,11 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException
   {
     boolean lAllTreesCompletelyExplored;
+
+    if ( mMaxIterationsPerTurn != -1 && getNumIterations() >= mMaxIterationsPerTurn )
+    {
+      return true;
+    }
 
     while (mNodePool.isFull())
     {

@@ -123,7 +123,12 @@ public class MachineSpecificConfiguration
     /**
      * The tlk.io channel to log to.
      */
-    TLKIO_CHANNEL("sancho");
+    TLKIO_CHANNEL("sancho"),
+
+    /**
+     * Limit on number of MCTS expansions to perform per turn (for testing)
+     */
+    MAX_ITERATIONS_PER_TURN(-1);
 
 
     /**
