@@ -22,6 +22,12 @@ public class PlayoutPolicyGoalGreedyWithPop extends PlayoutPolicyGoalGreedy
   }
 
    @Override
+   public IPlayoutPolicy cloneFor(ForwardDeadReckonPropnetStateMachine xiStateMachine)
+   {
+     return new PlayoutPolicyGoalGreedyWithPop(xiStateMachine);
+   }
+
+   @Override
    public void noteNewPlayout()
    {
      policyFailedHasFailed = false;

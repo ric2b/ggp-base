@@ -22,6 +22,11 @@ public class GoalsStabilityHeuristic implements Heuristic
 
   public double getGoalStability()
   {
+    if ( !tuningComplete )
+    {
+      return 0;
+    }
+
     double instability = 0;
 
     assert(tuningComplete);

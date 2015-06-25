@@ -155,7 +155,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     {
       ForwardDeadReckonLegalMoveInfo move = (ForwardDeadReckonLegalMoveInfo)xiO;
       //return (move != null && parent.contents.fastGet(move.masterIndex));
-      return (move != null && parent.isLegalMove(move.roleIndex, move.masterIndex));
+      return (move != null && roleIndex == move.roleIndex && parent.isLegalMove(move.roleIndex, move.masterIndex));
     }
 
     @Override

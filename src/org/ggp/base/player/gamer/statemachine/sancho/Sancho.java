@@ -27,6 +27,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.GoalsStabilityHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MajorityGoalsHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristic;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.SimplePieceHeuristic;
 import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
@@ -370,7 +371,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
     else
     {
-      heuristic = new CombinedHeuristic(new PieceHeuristic(), goalsPredictionHeuristic, goalsStabilityHeuristic);
+      heuristic = new CombinedHeuristic(new SimplePieceHeuristic()/*, goalsPredictionHeuristic, goalsStabilityHeuristic, new AvailableGoalHeuristic() */);
     }
 
     boolean hasHeuristicCandidates = heuristic.tuningInitialise(underlyingStateMachine, roleOrdering);
@@ -913,8 +914,12 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
         LOGGER.info("Not enabled Goal Greedy policy for pseudo puzzle with insufficient monotonic goal volatility");
       }
     }
+    else if ( !mGameCharacteristics.isSimultaneousMove && mGameCharacteristics.getIsFixedSum() && mGameCharacteristics.numRoles == 2 )
+    {
+      //underlyingStateMachine.setPlayoutPolicy(new PlayoutPolicyLastGoodResponse(underlyingStateMachine));
+    }
 
-    boolean useRAVE = (!mGameCharacteristics.isSimultaneousMove && numRoles == 2);
+    boolean useRAVE = (MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_RAVE) && !mGameCharacteristics.isSimultaneousMove && numRoles == 2);
     double explorationBias = 15 / (averageNumTurns + ((maxNumTurns + minNumTurns) / 2 - averageNumTurns) *
                                               stdDevNumTurns / averageNumTurns) + 0.4;
     if (explorationBias < 0.5)
@@ -1324,6 +1329,8 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     synchronized (searchProcessor.getSerializationObject())
     {
+      underlyingStateMachine.noteTurnNumber(mTurn);
+
       currentState = underlyingStateMachine.createInternalState(getCurrentState());
       moves = underlyingStateMachine.getLegalMovesCopy(currentState, ourRole);
 

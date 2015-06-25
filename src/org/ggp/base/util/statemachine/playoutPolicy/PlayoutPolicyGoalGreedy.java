@@ -5,6 +5,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.StateMachineFilter;
 
 /**
  * @author steve
@@ -16,7 +17,6 @@ public class PlayoutPolicyGoalGreedy implements IPlayoutPolicy
   private final int[] currentStateScores;
   private ForwardDeadReckonInternalMachineState currentState = null;
   private final int[] latchedScoreRangeBuffer;
-  protected int currentDepth;
 
   /**
    * @param xiStateMachine - state machine instance this policy will be used from
@@ -31,13 +31,13 @@ public class PlayoutPolicyGoalGreedy implements IPlayoutPolicy
   @Override
   public void noteCurrentState(ForwardDeadReckonInternalMachineState state,
                                ForwardDeadReckonLegalMoveSet legalMoves,
+                               StateMachineFilter factor,
                                int moveIndex,
                                ForwardDeadReckonLegalMoveInfo[] moveHistory,
                                ForwardDeadReckonInternalMachineState[] stateHistory)
   {
     int roleIndex = 0;
 
-    currentDepth = moveIndex;
     currentState = state;
     for(Role role : stateMachine.getRoles())
     {
@@ -113,5 +113,20 @@ public class PlayoutPolicyGoalGreedy implements IPlayoutPolicy
   public boolean terminatePlayout()
   {
     return false;
+  }
+
+  @Override
+  public void noteCompletePlayout(int xiLength,
+                                  ForwardDeadReckonLegalMoveInfo[] xiMoves,
+                                  ForwardDeadReckonInternalMachineState[] xiStates)
+  {
+    // Nothing to do here for this policy
+  }
+
+  @Override
+  public void noteNewTurn()
+  {
+    // TODO Auto-generated method stub
+
   }
 }

@@ -54,11 +54,11 @@ public class PieceHeuristic implements Heuristic
 
   private Map<PieceMaskSpecifier, HeuristicScoreInfo>                    propGroupScoreSets        = null;
   int                                                                    numRoles                  = 0;
-  private PieceMaskSpecifier[]                                           pieceSets                 = null;
+  protected PieceMaskSpecifier[]                                           pieceSets                 = null;
   private int                                                            totalSimulatedTurns       = 0;
   //  The following track runtime usage state and are dependent on the current game-state
-  private int                                                            heuristicSampleWeight     = 10;
-  private double[]                                                       rootPieceValues           = null;
+  protected int                                                            heuristicSampleWeight     = 10;
+  protected double[]                                                       rootPieceValues           = null;
   private boolean                                                        mTuningComplete           = false;
 
   private static class GdlFunctionInfo
@@ -279,7 +279,7 @@ public class PieceHeuristic implements Heuristic
     }
   }
 
-  private class PieceMaskSpecifier
+  protected class PieceMaskSpecifier
   {
     public final ForwardDeadReckonInternalMachineState  overallPieceMask;
     public ConstituentPieceInfo[]                       individualPieceTypes = null;

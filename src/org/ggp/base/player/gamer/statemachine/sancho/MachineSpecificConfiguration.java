@@ -25,7 +25,7 @@ public class MachineSpecificConfiguration
     /**
      * Player name to report.
      */
-    PLAYER_NAME("Sancho 1.60x"),
+    PLAYER_NAME("Sancho 1.60test"),
 
     /**
      * Location of the working copy - used for fine-grained version logging.

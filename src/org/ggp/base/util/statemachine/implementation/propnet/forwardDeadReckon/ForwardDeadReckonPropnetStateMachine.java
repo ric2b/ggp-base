@@ -62,6 +62,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   /** The underlying proposition network - in various optimised forms. */
 
+  private final ForwardDeadReckonPropnetStateMachine                   mMaster;
+
   // The complete propnet.
   private ForwardDeadReckonPropNet                                     fullPropNet                     = null;
 
@@ -166,6 +168,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   //  Stack variables used during playouts that are not exposed to the caller or the policy
   private int[]                                                        playoutStackMoveInitialChoiceIndex = null;
   private int[]                                                        playoutStackMoveNextChoiceIndex = null;
+
+  /**
+   * Current turn number within the overall game
+   */
+  volatile int                                                         mTurnNumber = 0;
+  private int                                                          mLastPlayoutTurnNumber = -1;
 
   private class TestPropnetStateMachineStats extends Stats
   {
@@ -1499,6 +1507,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     maxInstances = 1;
     ourRole = null;
     mGameCharacteristics = null;
+    mMaster = this;
   }
 
   public ForwardDeadReckonPropnetStateMachine(int xiMaxInstances,
@@ -1510,10 +1519,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     metagameTimeout = xiMetaGameTimeout;
     ourRole = xiOurRole;
     mGameCharacteristics = xiGameCharacteristics;
+    mMaster = this;
   }
 
   private ForwardDeadReckonPropnetStateMachine(ForwardDeadReckonPropnetStateMachine master, int instanceId)
   {
+    mMaster = master;
     maxInstances = -1;
     this.instanceId = instanceId;
     propNetX = master.propNetX;
@@ -2315,6 +2326,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return searchFilter;
   }
 
+  /**
+   * Note a new turn has started of the specified number (within the game)
+   * @param turn
+   */
+  public void noteTurnNumber(int turn)
+  {
+    mTurnNumber = turn;
+  }
+
   private void setBaseFilter(StateMachineFilter filter)
   {
     searchFilter = filter;
@@ -2675,6 +2695,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   {
     boolean result = propNet.getActiveBaseProps(instanceId).contains(((ForwardDeadReckonProposition)fullPropNet.getTerminalProposition()).getInfo());
 
+    assert(!useGoalNetForTerminalAndLegal || result == isTerminal(lastInternalSetState));
     if (validationMachine != null)
     {
       if (validationMachine.isTerminal(validationState) != result)
@@ -2753,9 +2774,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public Collection<ForwardDeadReckonLegalMoveInfo> getLegalMoves(ForwardDeadReckonInternalMachineState state,
                                                                   Role role)
   {
-    setPropNetUsage(state);
-    setBasePropositionsFromState(state);
-    Collection<ForwardDeadReckonLegalMoveInfo> lResult = propNet.getActiveLegalProps(instanceId).getContents(role);
+    Collection<ForwardDeadReckonLegalMoveInfo> lResult = getLegalMoveSet(state).getContents(role);
     assert(lResult.size() > 0);
     return lResult;
   }
@@ -3144,6 +3163,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     transitionTo.isXState = targetIsXNet;
 
     setBasePropositionsFromState(transitionTo);
+    assert(transitionTo.contains(((ForwardDeadReckonProposition)fullPropNet.getTerminalProposition()).getInfo())==lastInternalSetState.contains(((ForwardDeadReckonProposition)fullPropNet.getTerminalProposition()).getInfo()));
   }
 
   private ForwardDeadReckonInternalMachineState getInternalStateFromBase(ForwardDeadReckonInternalMachineState xbState)
@@ -3917,13 +3937,13 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     int choosingRole = -1;
     boolean choiceSeen = false;
     boolean acceptableChoice = true;
-    ForwardDeadReckonLegalMoveSet activeLegalMoves = propNet.getActiveLegalProps(instanceId);
+    ForwardDeadReckonLegalMoveSet activeLegalMoves = getLegalMoveSet(lastInternalSetState);
     int startingDepth = rolloutDepth;
     boolean subtreeFullySearched = false;
 
     if ( mPlayoutPolicy != null )
     {
-      mPlayoutPolicy.noteCurrentState(statesVisited == null ? lastInternalSetState : statesVisited[rolloutDepth], activeLegalMoves, rolloutDepth, playedMoves, statesVisited);
+      mPlayoutPolicy.noteCurrentState(statesVisited == null ? lastInternalSetState : statesVisited[rolloutDepth], activeLegalMoves, factor, rolloutDepth, playedMoves, statesVisited);
     }
 
     do
@@ -3931,6 +3951,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       int index = 0;
       int numChooserChoices = 1;
       ForwardDeadReckonLegalMoveInfo chooserChoice = null;
+      boolean policySelectedMove = false;
 
       for (int roleIndex = 0; roleIndex < numRoles; roleIndex++)
       {
@@ -3938,71 +3959,85 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         ForwardDeadReckonLegalMoveInfo chosen = null;
         Iterator<ForwardDeadReckonLegalMoveInfo> itr;
 
-        if ( factor == null )
+        if ( mPlayoutPolicy != null && playedMoves != null )
         {
-          numChoices = moves.getNumChoices(roleIndex);
-          itr = moves.getContents(roleIndex).iterator();
+          chosen = mPlayoutPolicy.selectMove(roleIndex);
+        }
+
+        if ( chosen == null )
+        {
+          if ( factor == null )
+          {
+            numChoices = moves.getNumChoices(roleIndex);
+            itr = moves.getContents(roleIndex).iterator();
+          }
+          else
+          {
+            //  In a factored game the terminal logic can sometimes span the factors in a way we don't
+            //  cleanly cater for currently, so use lack of legal moves as a proxy for terminality.
+            if (moves.getNumChoices(roleIndex) == 0)
+            {
+              return 0;
+            }
+
+            numChoices = StateMachineFilterUtils.getFilteredSize(null, moves, roleIndex, factor, false);
+
+            itr = moves.getContents(roleIndex).iterator();
+          }
+
+          if (numChoices > result)
+          {
+            result = numChoices;
+          }
+
+          int moveIndex;
+          if ( numChoices > 1 )
+          {
+            choosingRole = roleIndex;
+            numChooserChoices = numChoices;
+
+            if ( choiceIndex == -1 )
+            {
+              choiceIndex = getRandom(numChoices);
+
+              if ( playoutStackMoveInitialChoiceIndex != null )
+              {
+                playoutStackMoveInitialChoiceIndex[rolloutDepth] = choiceIndex;
+              }
+            }
+            assert(playoutStackMoveInitialChoiceIndex == null || playoutStackMoveInitialChoiceIndex[rolloutDepth] < numChoices);
+            assert(choiceIndex < numChoices);
+
+            moveIndex = choiceIndex;
+          }
+          else
+          {
+            moveIndex = 0;
+          }
+
+          for (int iMove = 0; iMove < numChoices; iMove++)
+          {
+            ForwardDeadReckonLegalMoveInfo info;
+
+            // Get next move for this factor
+            info = StateMachineFilterUtils.nextFilteredMove(factor, itr);
+
+            if (moveIndex == iMove)
+            {
+              chosen = info;
+              if ( roleIndex == choosingRole )
+              {
+                chooserChoice = chosen;
+              }
+              break;
+            }
+          }
         }
         else
         {
-          //  In a factored game the terminal logic can sometimes span the factors in a way we don't
-          //  cleanly cater for currently, so use lack of legal moves as a proxy for terminality.
-          if (moves.getNumChoices(roleIndex) == 0)
-          {
-            return 0;
-          }
-
-          numChoices = StateMachineFilterUtils.getFilteredSize(null, moves, roleIndex, factor, false);
-
-          itr = moves.getContents(roleIndex).iterator();
-        }
-
-        if (numChoices > result)
-        {
-          result = numChoices;
-        }
-
-        int moveIndex;
-        if ( numChoices > 1 )
-        {
-          choosingRole = roleIndex;
-          numChooserChoices = numChoices;
-
-          if ( choiceIndex == -1 )
-          {
-            choiceIndex = getRandom(numChoices);
-
-            if ( playoutStackMoveInitialChoiceIndex != null )
-            {
-              playoutStackMoveInitialChoiceIndex[rolloutDepth] = choiceIndex;
-            }
-          }
-          assert(playoutStackMoveInitialChoiceIndex == null || playoutStackMoveInitialChoiceIndex[rolloutDepth] < numChoices);
-          assert(choiceIndex < numChoices);
-
-          moveIndex = choiceIndex;
-        }
-        else
-        {
-          moveIndex = 0;
-        }
-
-        for (int iMove = 0; iMove < numChoices; iMove++)
-        {
-          ForwardDeadReckonLegalMoveInfo info;
-
-          // Get next move for this factor
-          info = StateMachineFilterUtils.nextFilteredMove(factor, itr);
-
-          if (moveIndex == iMove)
-          {
-            chosen = info;
-            if ( roleIndex == choosingRole )
-            {
-              chooserChoice = chosen;
-            }
-            break;
-          }
+          assert(moves.getContents(roleIndex).contains(chosen));
+          policySelectedMove = true;
+          numChoices = 2; //  Arbitrary number > 1
         }
 
         assert(chosen != null);
@@ -4010,11 +4045,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           chosenMoves[index] = chosen.move;
         }
-        chosenJointMoveProps[index++] = chosen.inputProposition;
+        ForwardDeadReckonProposition chosenMoveProp = chosen.isPseudoNoOp ? null : (useGoalNetForTerminalAndLegal ? propNet.getActiveLegalProps(instanceId).getMasterList()[chosen.masterIndex].inputProposition : chosen.inputProposition);
+        chosenJointMoveProps[index++] = chosenMoveProp;
         if (playedMoves != null &&
             (numChoices > 1 ||
              (!choiceSeen &&
-              ((chosen.inputProposition != null && !chosen.isPseudoNoOp && !chosen.isVirtualNoOp) ||
+              ((chosenMoveProp != null && !chosen.isPseudoNoOp && !chosen.isVirtualNoOp) ||
                roleIndex == numRoles-1))))
         {
           playedMoves[rolloutDepth] = chosen;
@@ -4024,9 +4060,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       transitionToNextStateFromChosenMove();
 
-      //  Do we have a non-default policy?
+      //  Do we have a non-default policy that has not already selected an explicit move
       acceptableChoice = true;
-      if ( mPlayoutPolicy != null && statesVisited != null && choosingRole != -1 )
+      if ( !policySelectedMove && mPlayoutPolicy != null && playoutStackMoveInitialChoiceIndex != null && statesVisited != null && choosingRole != -1 )
       {
         assert(numChooserChoices > playoutStackMoveInitialChoiceIndex[rolloutDepth]);
         choiceIndex = (choiceIndex+1)%numChooserChoices;
@@ -4055,10 +4091,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                 //System.out.println("Popped state is: " + statesVisited[rolloutDepth]);
                 setPropNetUsage(statesVisited[rolloutDepth]);
                 setBasePropositionsFromState(statesVisited[rolloutDepth]);
-                activeLegalMoves = propNet.getActiveLegalProps(instanceId);
+                activeLegalMoves = getLegalMoveSet(lastInternalSetState);
                 choiceIndex = playoutStackMoveNextChoiceIndex[rolloutDepth];
                 assert(choiceIndex < activeLegalMoves.getNumChoices(0));
-                mPlayoutPolicy.noteCurrentState(statesVisited[rolloutDepth], activeLegalMoves, rolloutDepth, playedMoves, statesVisited);
+                mPlayoutPolicy.noteCurrentState(statesVisited[rolloutDepth], activeLegalMoves, factor, rolloutDepth, playedMoves, statesVisited);
               }
               else
               {
@@ -4069,7 +4105,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                 //rolloutDepth = startingDepth;
                 setPropNetUsage(statesVisited[rolloutDepth]);
                 setBasePropositionsFromState(statesVisited[rolloutDepth]);
-                activeLegalMoves = propNet.getActiveLegalProps(instanceId);
+                activeLegalMoves = getLegalMoveSet(lastInternalSetState);
                 choiceIndex = playoutStackMoveNextChoiceIndex[rolloutDepth];
                 break;
               }
@@ -4123,8 +4159,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           break;
         }
 
-        activeLegalMoves = propNet.getActiveLegalProps(instanceId);
-        mPlayoutPolicy.noteCurrentState(statesVisited[rolloutDepth], activeLegalMoves, rolloutDepth, playedMoves, statesVisited);
+        activeLegalMoves = getLegalMoveSet(lastInternalSetState);
+        mPlayoutPolicy.noteCurrentState(statesVisited[rolloutDepth], activeLegalMoves, factor, rolloutDepth, playedMoves, statesVisited);
       }
     } while(!acceptableChoice);
 
@@ -4305,6 +4341,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       if ( mPlayoutPolicy != null && info.statesVisited != null )
       {
+        if ( mMaster.mTurnNumber != mLastPlayoutTurnNumber )
+        {
+          mPlayoutPolicy.noteNewTurn();
+          mLastPlayoutTurnNumber = mMaster.mTurnNumber;
+        }
         mPlayoutPolicy.noteNewPlayout();
         if ( mPlayoutPolicy.requiresMoveHistory() )
         {
@@ -4341,6 +4382,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         }
       }
       assert(rolloutDepth>0);
+
+      if ( mPlayoutPolicy != null )
+      {
+        mPlayoutPolicy.noteCompletePlayout(rolloutDepth, info.playoutTrace, info.statesVisited);
+      }
 
       info.playoutLength = rolloutDepth;
       if ( rolloutDepth > 0 )

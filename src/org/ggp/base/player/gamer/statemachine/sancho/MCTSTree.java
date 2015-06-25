@@ -45,10 +45,10 @@ public class MCTSTree
   private static final int                             NUM_TOP_MOVE_CANDIDATES                     = 4;
 
   /**
-   * If goal stabiliy is above a certain threshold we can use interim-state goals to predict final results
+   * If goal stability is above a certain threshold we can use interim-state goals to predict final results
    * which makes the use of weight decay and cutoffs appropriate
    */
-  private static final double                          GOALS_STABILITY_THRESHOLD                   = 0.65;
+  private static final double                          GOALS_STABILITY_THRESHOLD                   = 0.8;
 
   /**
    * The point in the weight decay at which cutoff occurs is set by how many sigmas past the knee
@@ -190,7 +190,7 @@ public class MCTSTree
       mSearchFilter = xiStateMachine.getBaseFilter();
     }
 
-    //  Most of the time we don't want to create tree nodes representing stats in which
+    //  Most of the time we don't want to create tree nodes representing states in which
     //  only a single choice is available to whichever role is choosing at that node.
     //  However we continue to do so in two cases:
     //    1) Single player games - this is necessary to preserve plan-generation by (simple)
@@ -230,7 +230,7 @@ public class MCTSTree
       {
         mWeightDecayKneeDepth = (int)xiGameCharacteristics.getAverageNonDrawLength();
       }
-      //  Steepness of the cutoff is proportional th the depth of the knee (so basically we use
+      //  Steepness of the cutoff is proportional to the depth of the knee (so basically we use
       //  a scale-free shape for decay) - this is an empirical decision and seems to be better than using
       //  std deviation of game length
       mWeightDecayScaleFactor = (double)mWeightDecayKneeDepth/6;
@@ -372,6 +372,7 @@ public class MCTSTree
   {
     TreeNode result = ((state != null && !disallowTransposition) ? findTransposition(state) : null);
 
+    assert(state == null || (!state.toString().contains("goal") && !state.toString().contains("terminal")));
     //validateAll();
     //  Use of pseudo-noops in factors can result in recreation of the root state (only)
     //  a lower level with a joint move of (pseudo-noop, noop, noop, ..., noop).  This
@@ -446,6 +447,7 @@ public class MCTSTree
   {
     if (SUPPORT_TRANSITIONS)
     {
+      assert(!xiTreeNode.mState.toString().contains("goal") && !xiTreeNode.mState.toString().contains("terminal"));
       assert(!mPositions.containsKey(xiTreeNode.mState));
       mPositions.put(xiTreeNode.mState, xiTreeNode.getRef());
     }
@@ -476,6 +478,7 @@ public class MCTSTree
   {
     if (SUPPORT_TRANSITIONS)
     {
+      assert(!xiState.toString().contains("goal") && !xiState.toString().contains("terminal"));
       long lRef = mPositions.get(xiState);
 
       if (lRef == TreeNode.NULL_REF)
@@ -937,11 +940,11 @@ public class MCTSTree
     while (!cur.isUnexpanded())
     {
       //  Hyper expand first choice layer for each role
-      if (cur.getDepth() < mRoot.getDepth()+2*mNumRoles && cur.mNumChildren > 1)
-      {
-        setForcedMoveProps(cur.mState, mJointMoveBuffer);
-        cur.hyperExpand(visited, mJointMoveBuffer, MAX_HYPER_RECURSION_DEPTH);
-      }
+//      if (cur.getDepth() < mRoot.getDepth()+2*mNumRoles && cur.mNumChildren > 1)
+//      {
+//        setForcedMoveProps(cur.mState, mJointMoveBuffer);
+//        cur.hyperExpand(visited, mJointMoveBuffer, MAX_HYPER_RECURSION_DEPTH);
+//      }
 
       parentDepth = cur.getDepth();
       selected = cur.select(visited, mJointMoveBuffer, xiChosenMove);

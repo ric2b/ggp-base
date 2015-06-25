@@ -4,6 +4,7 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.StateMachineFilter;
 
 /**
  * Interface for playout policies, which can influence move selection during
@@ -20,6 +21,7 @@ public interface IPlayoutPolicy
   /**
    * @param state - current state with respect to which subsequent queries will be made
    * @param legalMoves  - moves available in this state
+   * @param factor  - factor this playout is occuring in
    * @param moveIndex - index in the move/state history trace of the move to be selected
    * @param moveHistory - trace of moves played thus far in the playout, or null if the policy has indicated
    *                      it does not require move history
@@ -28,6 +30,7 @@ public interface IPlayoutPolicy
    */
   public void noteCurrentState(ForwardDeadReckonInternalMachineState state,
                                ForwardDeadReckonLegalMoveSet legalMoves,
+                               StateMachineFilter factor,
                                int moveIndex,
                                ForwardDeadReckonLegalMoveInfo[] moveHistory,
                                ForwardDeadReckonInternalMachineState[] stateHistory);
@@ -49,9 +52,21 @@ public interface IPlayoutPolicy
    */
   public boolean terminatePlayout();
   /**
+   * Note a new turn has started in the game
+   */
+  public void noteNewTurn();
+  /**
    * Note that a new playout is beginning
    */
   public void noteNewPlayout();
+  /**
+   * Note that a playout has completed.  At the point of call the underlying state machine is guaranteed
+   * to be in the final state of the playout
+   * @param length - of the playout in joint moves
+   * @param moves - chooser moves at each joint move
+   * @param states - states before each move played
+   */
+  public void noteCompletePlayout(int length, ForwardDeadReckonLegalMoveInfo[] moves, ForwardDeadReckonInternalMachineState[] states);
   /**
    * Select a specific move to play
    * @param roleIndex - role for which the move is to be selected
