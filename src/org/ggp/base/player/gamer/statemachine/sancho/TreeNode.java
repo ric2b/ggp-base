@@ -459,6 +459,7 @@ public class TreeNode
   {
     if (!mComplete)
     {
+      mComplete = true;
       //validateCompletionValues(values);
       //validateAll();
       for (int lii = 0; lii < mTree.mNumRoles; lii++)
@@ -475,6 +476,7 @@ public class TreeNode
   {
     if (!mComplete)
     {
+      mComplete = true;
       //assert(state.toString().contains("control o") == (decidingRoleIndex == 1));
       //validateCompletionValues(values);
       //validateAll();
@@ -1852,16 +1854,63 @@ public class TreeNode
     return mRef;
   }
 
+  private void checkScorePlausibility(int roleIndex)
+  {
+    double result = mTree.mScoreVectorPool.getAverageScore(mInstanceID, roleIndex);
+    if ( mNumVisits > 500 && !mComplete)
+    {
+      boolean suspicious = false;
+
+      for(int i = 0; i < mNumChildren; i++)
+      {
+        Object choice = mChildren[i];
+
+        if ( choice instanceof TreeEdge )
+        {
+          TreeEdge edge = (TreeEdge)choice;
+          {
+            TreeNode child = get(edge.getChildRef());
+            if ( child != null )
+            {
+              if ( child.mComplete )
+              {
+                suspicious = false;
+                break;
+              }
+              else if (edge.getNumChildVisits() > (mNumVisits*9)/10 && child.mNumVisits <= mNumVisits && Math.abs(result - mTree.mScoreVectorPool.getAverageScore(child.mInstanceID, roleIndex)) > 5)
+              {
+                suspicious = true;
+              }
+            }
+          }
+        }
+      }
+
+      assert(!suspicious);
+    }
+  }
+
   public double getAverageScore(int roleIndex)
   {
-    return mTree.mScoreVectorPool.getAverageScore(mInstanceID, roleIndex);
+    double result = mTree.mScoreVectorPool.getAverageScore(mInstanceID, roleIndex);
+
+    checkScorePlausibility(roleIndex);
+
+    return result;
   }
 
   public void setAverageScore(int roleIndex, double value)
   {
+    assert(mNumVisits < 500 || value == 100 || value == 0 || value == 50 || Math.abs(value-mTree.mScoreVectorPool.getAverageScore(mInstanceID, roleIndex)) < 5);
     assert(-EPSILON<=value);
     assert(100+EPSILON>=value);
     mTree.mScoreVectorPool.setAverageScore(mInstanceID, roleIndex, value);
+
+    checkScorePlausibility(roleIndex);
+    for(TreeNode parent : mParents)
+    {
+      parent.checkScorePlausibility(roleIndex);
+    }
   }
 
   public double getAverageSquaredScore(int roleIndex)
@@ -5013,7 +5062,7 @@ public class TreeNode
                 String lLog = "    Response " +
                               edge2.mPartialMove.move + (edge2.isHyperEdge() ? " (hyper)" : "") +
                               " scores " + lNode2.stringizeScoreVector() +
-                              ", visits " + lNode2.mNumVisits +
+                              ", visits " + lNode2.mNumVisits + " [edge " + edge2.getNumChildVisits() + ", updates " + lNode2.mNumUpdates + "]" +
                               ", ref : " + lNode2.mRef +
                               (mTree.mGameSearcher.mUseRAVE ? (", RAVE[" + mRAVECounts[index] + ", " + FORMAT_2DP.format(mRAVEScores[index]) + "]") : "") +
                               (lNode2.mComplete ? " (complete)" : "") +
@@ -5516,7 +5565,7 @@ public class TreeNode
           LOGGER.info("Move " + edge.descriptiveName() +
                       " scores " + FORMAT_2DP.format(moveScore) + " (selectionScore score " +
                       FORMAT_2DP.format(selectionScore) + ", selection count " +
-                      child.mNumVisits + ", ref " + child.mRef +
+                      child.mNumVisits + " [edge " + edge.getNumChildVisits() + ", updates " + child.mNumUpdates + "]" +  ", ref " + child.mRef +
                       (mTree.mGameSearcher.mUseRAVE ? (", RAVE[" + mRAVECounts[lii] + ", " + FORMAT_2DP.format(mRAVEScores[lii]) + "]") : "") +
                       (child.mComplete ? (", complete [" + ((child.mCompletionDepth - mTree.mRoot.mDepth)/mTree.mNumRoles) + "]") : "") +
                       (child.mLocalSearchStatus.HasResult() ? (", " + child.mLocalSearchStatus + " [" + ((child.mCompletionDepth - mTree.mRoot.mDepth)/mTree.mNumRoles) + "]") : "") +
@@ -5826,10 +5875,10 @@ public class TreeNode
       //  parent after O(branching factor) visits, which can otherwise cause it to sometimes not be
       //  explored further
       boolean isAntiDecisiveCompletePropagation = false;
-      if ( lastNodeWasComplete && xiValues[(lNode.mDecidingRoleIndex+1)%mTree.mNumRoles] == 0 )
-      {
-        isAntiDecisiveCompletePropagation = true;
-      }
+//      if ( lastNodeWasComplete && xiValues[(lNode.mDecidingRoleIndex+1)%mTree.mNumRoles] == 0 )
+//      {
+//        isAntiDecisiveCompletePropagation = true;
+//      }
 
       // Across a turn end it is possible for queued paths to run into freed nodes due to trimming of the tree at the
       // root to advance the turn.  Rather than add locking and force clearing the rollout pipeline synchronously on

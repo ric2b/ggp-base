@@ -672,13 +672,13 @@ public class MCTSTree
             //  Set the root's count stats to those of the extant choice node it is effectively
             //  proxying
             selected.setNumVisits(existingRootStateNode.mNumVisits);
-            mRoot.mNumVisits = existingRootStateNode.mNumVisits;
-            mRoot.mNumUpdates = existingRootStateNode.mNumUpdates;
             for(int i = 0; i < mNumRoles; i++)
             {
               mRoot.setAverageScore(i, existingRootStateNode.getAverageScore(i));
               mRoot.setAverageSquaredScore(i, existingRootStateNode.getAverageSquaredScore(i));
             }
+            mRoot.mNumVisits = existingRootStateNode.mNumVisits;
+            mRoot.mNumUpdates = existingRootStateNode.mNumUpdates;
 
             if (existingRootStateNode.mComplete)
             {
@@ -831,7 +831,21 @@ public class MCTSTree
 
     if ( mTreeDumpFile != null )
     {
-      mRoot.dumpTree(mTreeDumpFile);
+      String extension;
+      String stem;
+      int lastDotIndex = mTreeDumpFile.lastIndexOf('.');
+      if ( lastDotIndex != -1 )
+      {
+        extension = mTreeDumpFile.substring(lastDotIndex);
+        stem = mTreeDumpFile.substring(0,lastDotIndex);
+      }
+      else
+      {
+        extension = "";
+        stem = mTreeDumpFile;
+      }
+      String thisTurnDumpFile = stem + "." + mOurRole + "." + (mRoot.getDepth()/mNumRoles) + extension;
+      mRoot.dumpTree(thisTurnDumpFile);
     }
 
     return bestMoveInfo;
