@@ -6,8 +6,10 @@
   <entry key="pseudo_simultaneous">false</entry>
   <entry key="iterated">false</entry>
   <entry key="max_factor_failure_time">0</entry>
-  <entry key="num_factors">0</entry>
+  <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">8</entry>
   <entry key="fixed_length">false</entry>
+  <entry key="control_mask">( ( true ( control black ) ), ( true ( control red ) ) )</entry>
+  <entry key="factors"></entry>
 </properties>

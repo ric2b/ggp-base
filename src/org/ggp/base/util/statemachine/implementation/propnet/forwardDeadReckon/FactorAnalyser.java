@@ -22,13 +22,13 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 
 /**
- * Class responsible for analysing a game's propnet to determine its factors.
+ * Class responsible for analysing a game's propnet to determine its control set and factors.
  */
 public class FactorAnalyser
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private ForwardDeadReckonPropnetStateMachine stateMachine;
+  private ForwardDeadReckonPropnetStateMachine mStateMachine;
 
   //  We don't accept more than a reasonable smallish number of factors since
   //  1) The way we instantiate search trees for each only scales modestly
@@ -37,12 +37,10 @@ public class FactorAnalyser
   //     in spurious factorization in 'Guess Two Thirds'
   static final private int            MAX_FACTORS = 16;
 
-  private DependencyCache componentDirectBaseDependencies;
-  private Map<PolymorphicComponent, DependencyInfo> basePropositionDependencies = new HashMap<>();
-  private int numBaseProps;
-  private final Collection<PolymorphicProposition> basePropositions;
-  private final Set<PolymorphicProposition> controlSet = new HashSet<>();
-  private boolean mbControlSetCalculated = false;
+  private int                                             mNumBaseProps;
+  private final Collection<PolymorphicProposition>        mBasePropositions;
+  private final Map<PolymorphicComponent, DependencyInfo> mBasePropositionDependencies = new HashMap<>();
+  private final DependencyCache                           mComponentDirectBaseDependencies;
 
   private class DirectDependencyInfo
   {
@@ -65,9 +63,8 @@ public class FactorAnalyser
     }
   }
 
-  //  An LRU cache is used to cache component dependencies.  The size of this
-  //  cache is a trade-off between performance of walking the dependency graph
-  //  and memory consumption (which can equate to performance via GC time)
+  // An LRU cache is used to cache component dependencies.  The size of this cache is a trade-off between performance of
+  // walking the dependency graph and memory consumption (which can equate to performance via GC time).
   private class DependencyInfo extends DirectDependencyInfo
   {
     public DependencyInfo()
@@ -88,13 +85,8 @@ public class FactorAnalyser
     public List<Set<ForwardDeadReckonLegalMoveInfo>>  movesByLevel = new ArrayList<>();
   }
 
-  private class DependencyCache
-  extends
-  LinkedHashMap<PolymorphicComponent, DirectDependencyInfo>
+  private class DependencyCache extends LinkedHashMap<PolymorphicComponent, DirectDependencyInfo>
   {
-    /**
-     *
-     */
     private static final long serialVersionUID = 1L;
     private int               maxEntries;
 
@@ -113,66 +105,146 @@ public class FactorAnalyser
 
   public FactorAnalyser(ForwardDeadReckonPropnetStateMachine stateMachine)
   {
-    this.stateMachine = stateMachine;
-    basePropositions = stateMachine.getFullPropNet().getBasePropositions().values();
-    numBaseProps = basePropositions.size();
-    componentDirectBaseDependencies = new DependencyCache(5000);
+    this.mStateMachine = stateMachine;
+    mBasePropositions = stateMachine.getFullPropNet().getBasePropositions().values();
+    mNumBaseProps = mBasePropositions.size();
+    mComponentDirectBaseDependencies = new DependencyCache(5000);
   }
 
   private DirectDependencyInfo getComponentDirectDependencies(PolymorphicComponent c, Set<PolymorphicComponent> pathSet)
   {
-    if ( basePropositions.contains(c) )
+    if (mBasePropositions.contains(c))
     {
-      if ( !basePropositionDependencies.containsKey(c))
+      if (!mBasePropositionDependencies.containsKey(c))
       {
         DependencyInfo newInfo = new DependencyInfo();
 
         //  Do the put into the map BEFORE trying to recurse as otherwise loops
         //  will be infinite!
-        basePropositionDependencies.put(c, newInfo);
+        mBasePropositionDependencies.put(c, newInfo);
         newInfo.buildImmediateBaseDependencies(c, pathSet);
 
         return newInfo;
       }
 
-      return basePropositionDependencies.get(c);
+      return mBasePropositionDependencies.get(c);
     }
-    else if ( !componentDirectBaseDependencies.containsKey(c) )
+    else if (!mComponentDirectBaseDependencies.containsKey(c))
     {
       DirectDependencyInfo newInfo = new DirectDependencyInfo();
 
       //  Do the put into the map BEFORE trying to recurse as otherwise loops
       //  will be infinite!  We also cache components with many inputs, as they will
       //  be expensive to recalculate
-      if ( c instanceof PolymorphicProposition || c.getInputs().size() > 5 )
+      if (c instanceof PolymorphicProposition || c.getInputs().size() > 5)
       {
-        componentDirectBaseDependencies.put(c, newInfo);
+        mComponentDirectBaseDependencies.put(c, newInfo);
       }
       newInfo.buildImmediateBaseDependencies(c, pathSet);
 
       return newInfo;
     }
 
-    return componentDirectBaseDependencies.get(c);
+    return mComponentDirectBaseDependencies.get(c);
   }
 
   /**
+   * Identify the control set and any factors.
+   *
    * @param xiTimeout             - When to give up if the analysis takes too long.
    * @param xiGameCharacteristics - Information learned about this game.
    *
-   * @return  The identified factors (or null if there are none or we ran out of time).
+   * @return the factor information.
    */
-  public Set<Factor> analyse(long xiTimeout, RuntimeGameCharacteristics xiGameCharacteristics)
+  public FactorInfo run(long xiTimeout, RuntimeGameCharacteristics xiGameCharacteristics)
   {
-    Set<Factor> factors = new HashSet<>();
+    // Attempt to reload the analysis.
+    boolean lReloaded = true;
+    FactorInfo lFactorInfo = reloadAnalysis(xiGameCharacteristics);
+    if ((!lFactorInfo.mControlSetCalculated) || (!lFactorInfo.mFactorsCalculated))
+    {
+      lReloaded = false;
+
+      // Missing some information.  Perform the analysis - if we've got more time than before.
+      if (xiTimeout > xiGameCharacteristics.getMaxFactorFailureTime() * 1.25)
+      {
+        LOGGER.info("Performing factor analysis");
+        analyse(lFactorInfo, xiTimeout, xiGameCharacteristics);
+      }
+      else
+      {
+        LOGGER.info("Not attempting to factor this game.  Previous attempt showed " +
+                    xiGameCharacteristics.getNumFactors() + " factor(s) in " +
+                    xiGameCharacteristics.getMaxFactorFailureTime() + "ms.");
+      }
+    }
+
+    // Record the factor that each proposition belongs to.
+    Set<Factor> lFactors = lFactorInfo.mFactors;
+    if (lFactors != null && lFactors.size() > 1 && lFactors.size() <= MAX_FACTORS)
+    {
+      for (Factor lFactor : lFactors)
+      {
+        lFactor.dump();
+
+        for (PolymorphicComponent c : lFactor.getComponents())
+        {
+          if (c instanceof PolymorphicProposition)
+          {
+            PolymorphicProposition p = (PolymorphicProposition)c;
+
+            ForwardDeadReckonProposition fdrp = (ForwardDeadReckonProposition)p;
+            ForwardDeadReckonPropositionCrossReferenceInfo lInfo = (ForwardDeadReckonPropositionCrossReferenceInfo)fdrp.getInfo();
+
+            lInfo.factor = lFactor;
+          }
+        }
+      }
+
+      // Mark all the factors complete.
+      for (Factor lFactor : lFactors)
+      {
+        lFactor.complete(mStateMachine);
+      }
+
+      // If this isn't just a copy of the reloaded state, be sure to save it.
+      if (!lReloaded)
+      {
+        xiGameCharacteristics.setFactors(lFactors);
+      }
+    }
+
+    // If we've learned for sure that there's only 1 factor, record that.
+    if (lFactorInfo.mFactorsCalculated && lFactors == null)
+    {
+      Factor lDummyFactor = new Factor();
+      Set<Factor> lDummyFactors = new HashSet<>();
+      lDummyFactors.add(lDummyFactor);
+      xiGameCharacteristics.setFactors(lDummyFactors);
+    }
+
+    return lFactorInfo;
+  }
+
+  /**
+   * Identify the control set and any factors.
+   *
+   * @param xiFactorInfo          - Structure in which to store the results.
+   * @param xiTimeout             - When to give up if the analysis takes too long.
+   * @param xiGameCharacteristics - Information learned about this game.
+   */
+  public void analyse(FactorInfo xiFactorInfo, long xiTimeout, RuntimeGameCharacteristics xiGameCharacteristics)
+  {
+    // Perform a fresh analysis.  (This can take a while.)
+    Set<PolymorphicProposition> lControlSet = new HashSet<>();
+    Set<Factor> lFactors = new HashSet<>();
     long lAbortTime = System.currentTimeMillis() + xiTimeout;
 
-    //  A path for the current recursion trhough the network is always maintained to
-    //  allow loop detection
+    // A path for the current recursion through the network is always maintained to allow loop detection.
     Set<PolymorphicComponent> pathSet = new HashSet<>();
 
     //  Construct the full closure of base dependencies
-    for(PolymorphicProposition baseProp : basePropositions)
+    for (PolymorphicProposition baseProp : mBasePropositions)
     {
       pathSet.clear();
       DependencyInfo dInfo = (DependencyInfo)getComponentDirectDependencies(baseProp, pathSet);
@@ -187,24 +259,24 @@ public class FactorAnalyser
         movesAtDepth = new HashSet<>();
         dInfo.movesByLevel.add(movesAtDepth);
 
-        for(PolymorphicProposition fringeDependency : dInfo.dependenciesByLevel.get(depth-1))
+        for (PolymorphicProposition fringeDependency : dInfo.dependenciesByLevel.get(depth - 1))
         {
           pathSet.clear();
           DirectDependencyInfo ddInfo = getComponentDirectDependencies(fringeDependency, pathSet);
           dependenciesAtDepth.addAll(ddInfo.dependencies);
           movesAtDepth.addAll(ddInfo.moves);
 
-          if ( dependenciesAtDepth.size() >= numBaseProps )
+          if (dependenciesAtDepth.size() >= mNumBaseProps)
           {
             break;
           }
 
-          //  If the analysis is just taking too long give up
+          //  If the analysis is just taking, too long give up.
           if (System.currentTimeMillis() > lAbortTime)
           {
             LOGGER.warn("Factorization analysis timed out after at least " + xiTimeout + "ms");
             xiGameCharacteristics.factoringFailedAfter(xiTimeout);
-            return null;
+            return;
           }
         }
 
@@ -215,14 +287,15 @@ public class FactorAnalyser
         dInfo.moves.addAll(movesAtDepth);
 
         depth++;
-      } while(!dependenciesAtDepth.isEmpty() && dInfo.dependencies.size() < numBaseProps);
+      } while (!dependenciesAtDepth.isEmpty() && dInfo.dependencies.size() < mNumBaseProps);
 
       // If we find a base prop that depends on more than 2/3rds of the others assume we're not going to be able to
-      // factorize, so minimize wasting time on the factorization analysis.  We cannot simply quit now however, since we need to
-      //  complete analysis of the control set if possible
-      if (dInfo.dependencies.size() > (numBaseProps * 2) / 3)
+      // factorize, so minimize wasting time on the factorization analysis.  We cannot simply quit now however, since we
+      // need to complete analysis of the control set if possible.
+      if (dInfo.dependencies.size() > (mNumBaseProps * 2) / 3)
       {
-        factors = null;
+        xiFactorInfo.mFactorsCalculated = true;
+        lFactors = null;
       }
     }
 
@@ -230,41 +303,44 @@ public class FactorAnalyser
     Map<PolymorphicComponent, DependencyInfo> disjunctiveInputs = new HashMap<>();
 
     pathSet.clear();
-    addDisjunctiveInputProps(stateMachine.getFullPropNet().getTerminalProposition(), disjunctiveInputs, pathSet);
+    addDisjunctiveInputProps(mStateMachine.getFullPropNet().getTerminalProposition(), disjunctiveInputs, pathSet);
     //  TODO - same for goals
 
     //  Trim out from each disjunctive input set those propositions in the control set, which are only
     //  influenced by other base props independently of moves (usually step and control logic)
     Set<PolymorphicComponent> controlOnlyInputs = new HashSet<>();
 
-    for(PolymorphicProposition baseProp : basePropositions)
+    for (PolymorphicProposition baseProp : mBasePropositions)
     {
       pathSet.clear();
       DependencyInfo dInfo = (DependencyInfo)getComponentDirectDependencies(baseProp, pathSet);
 
-      if ( dInfo.moves.isEmpty() )
+      if (dInfo.moves.isEmpty())
       {
-        controlSet.add(baseProp);
+        lControlSet.add(baseProp);
       }
     }
 
-    mbControlSetCalculated = true;
-    if ( factors == null )
+    xiFactorInfo.mControlSetCalculated = true;
+    xiFactorInfo.mControlSet = lControlSet;
+
+    LOGGER.info("Control set: " + lControlSet);
+    if (lFactors == null)
     {
-      return null;
+      return;
     }
 
-    for( Entry<PolymorphicComponent, DependencyInfo> e : disjunctiveInputs.entrySet())
+    for (Entry<PolymorphicComponent, DependencyInfo> e : disjunctiveInputs.entrySet())
     {
-      e.getValue().dependencies.removeAll(controlSet);
-      if ( e.getValue().dependencies.isEmpty())
+      e.getValue().dependencies.removeAll(lControlSet);
+      if (e.getValue().dependencies.isEmpty())
       {
         controlOnlyInputs.add(e.getKey());
       }
     }
 
     //  Trim out those inputs which have no base dependencies
-    for(PolymorphicComponent c : controlOnlyInputs)
+    for (PolymorphicComponent c : controlOnlyInputs)
     {
       disjunctiveInputs.remove(c);
     }
@@ -298,37 +374,36 @@ public class FactorAnalyser
     //  can be ignored for the purposes of determining factorization!
     Set<PolymorphicComponent> ignorableDisjuncts = new HashSet<>();
 
-    for( Entry<PolymorphicComponent, DependencyInfo> e : disjunctiveInputs.entrySet())
+    for (Entry<PolymorphicComponent, DependencyInfo> e : disjunctiveInputs.entrySet())
     {
-      if ( e.getValue().dependencies.size() > (numBaseProps - controlSet.size())/2 )
+      if (e.getValue().dependencies.size() > (mNumBaseProps - lControlSet.size()) / 2)
       {
         ignorableDisjuncts.add(e.getKey());
       }
     }
 
-    for(PolymorphicComponent c : ignorableDisjuncts)
+    for (PolymorphicComponent c : ignorableDisjuncts)
     {
       disjunctiveInputs.remove(c);
     }
 
-    //  Now find sets of disjunctive inputs with non-intersecting base prop
-    //  dependencies - these are the factors
-    while(!disjunctiveInputs.isEmpty())
+    // Now find sets of disjunctive inputs with non-intersecting base prop dependencies - these are the factors.
+    while (!disjunctiveInputs.isEmpty())
     {
       //  If the analysis is just taking too long give up
       if (System.currentTimeMillis() > lAbortTime)
       {
         LOGGER.warn("Factorization analysis (post dependency phase) timed out after at least " + xiTimeout + "ms");
         xiGameCharacteristics.factoringFailedAfter(xiTimeout);
-        return null;
+        return;
       }
 
-      Factor newFactor = new Factor(stateMachine);
+      Factor lNewFactor = new Factor();
 
-      newFactor.addAll(disjunctiveInputs.values().iterator().next().dependencies);
-      factors.add(newFactor);
+      lNewFactor.addAll(disjunctiveInputs.values().iterator().next().dependencies);
+      lFactors.add(lNewFactor);
 
-      for(Factor factor : factors)
+      for (Factor lFactor : lFactors)
       {
         boolean anyAdded;
 
@@ -338,55 +413,33 @@ public class FactorAnalyser
 
           Set<PolymorphicComponent> inputsProcessed = new HashSet<>();
 
-          for( Entry<PolymorphicComponent, DependencyInfo> e : disjunctiveInputs.entrySet())
+          for (Entry<PolymorphicComponent, DependencyInfo> e : disjunctiveInputs.entrySet())
           {
-            if ( factor.containsAny(e.getValue().dependencies) )
+            if (lFactor.containsAny(e.getValue().dependencies))
             {
-              factor.addAll(e.getValue().dependencies);
-              factor.addAllMoves(e.getValue().moves);
+              lFactor.addAll(e.getValue().dependencies);
+              lFactor.addAllMoves(e.getValue().moves);
               inputsProcessed.add(e.getKey());
               anyAdded = true;
             }
           }
 
-          for(PolymorphicComponent p : inputsProcessed)
+          for (PolymorphicComponent p : inputsProcessed)
           {
             disjunctiveInputs.remove(p);
           }
-        } while(anyAdded);
+        } while (anyAdded);
       }
     }
 
-    //  If we only found 1 factor (or none, which is possible with the current hacky
-    //  approach to handling global couplings) then we do not have a factorizable
-    //  game, and we can leave the cross ref info recording null for the factor of every
-    //  base prop, but if we have factorized then record the factor each base prop belongs to
-    //  (if any - pure control props are not included in any factor)
-    if ( factors.size() > 1 && factors.size() <= MAX_FACTORS )
+    // Factor analysis is complete.
+    xiFactorInfo.mFactorsCalculated = true;
+    if (lFactors.size() > 1)
     {
-      for(Factor factor : factors)
-      {
-        factor.dump();
-
-        for(PolymorphicComponent c : factor.getComponents())
-        {
-          if (c instanceof PolymorphicProposition)
-          {
-            PolymorphicProposition p = (PolymorphicProposition)c;
-
-            ForwardDeadReckonProposition fdrp = (ForwardDeadReckonProposition)p;
-            ForwardDeadReckonPropositionCrossReferenceInfo info = (ForwardDeadReckonPropositionCrossReferenceInfo)fdrp.getInfo();
-
-            info.factor = factor;
-          }
-        }
-      }
-
-      xiGameCharacteristics.setFactors(factors);
-      return factors;
+      xiFactorInfo.mFactors = lFactors;
     }
 
-    return null;
+    return;
   }
 
   private void addDisjunctiveInputProps(PolymorphicComponent c, Map<PolymorphicComponent, DependencyInfo> disjunctiveInputs, Set<PolymorphicComponent> pathSet)
@@ -396,9 +449,9 @@ public class FactorAnalyser
 
   private void recursiveAddDisjunctiveInputProps(PolymorphicComponent c, Map<PolymorphicComponent, DependencyInfo> disjunctiveInputs, Set<PolymorphicComponent> pathSet)
   {
-    if ( c instanceof PolymorphicOr )
+    if (c instanceof PolymorphicOr)
     {
-      for(PolymorphicComponent input : c.getInputs())
+      for (PolymorphicComponent input : c.getInputs())
       {
         recursiveAddDisjunctiveInputProps(input, disjunctiveInputs, pathSet);
       }
@@ -411,12 +464,12 @@ public class FactorAnalyser
       DependencyInfo fullDependencies = new DependencyInfo();
 
       //  Construct the full dependencies from the already calculated base dependencies map
-      for(PolymorphicProposition p : immediateDependencies.dependencies)
+      for (PolymorphicProposition p : immediateDependencies.dependencies)
       {
         DirectDependencyInfo immediateDependentDependencies = getComponentDirectDependencies(p, pathSet);
 
         fullDependencies.add(immediateDependentDependencies);
-        if ( fullDependencies.dependencies.size() >= numBaseProps )
+        if (fullDependencies.dependencies.size() >= mNumBaseProps)
         {
           break;
         }
@@ -432,10 +485,9 @@ public class FactorAnalyser
     return result;
   }
 
-  //  Return true if at least one dependency involved transitioning across a does->legal relationship
   private void recursiveBuildImmediateBaseDependencies(PolymorphicComponent root, PolymorphicComponent c, DirectDependencyInfo dInfo, Set<PolymorphicComponent> pathSet)
   {
-    if ( pathSet.contains(c) )
+    if (pathSet.contains(c))
     {
       return;
     }
@@ -443,9 +495,9 @@ public class FactorAnalyser
 
     try
     {
-      if ( c instanceof PolymorphicProposition )
+      if (c instanceof PolymorphicProposition)
       {
-        if ( dInfo.dependencies.contains(c))
+        if (dInfo.dependencies.contains(c))
         {
           return;
         }
@@ -453,32 +505,32 @@ public class FactorAnalyser
         PolymorphicProposition p = (PolymorphicProposition)c;
         GdlConstant name = p.getName().getName();
 
-        if ( basePropositions.contains(p))
+        if (mBasePropositions.contains(p))
         {
           dInfo.dependencies.add(p);
-          if ( root != p )
+          if (root != p)
           {
             pathSet.remove(c);
             return;
           }
         }
 
-        if (name.equals(GdlPool.INIT) )
+        if (name.equals(GdlPool.INIT))
         {
           return;
         }
 
-        if ( name.equals(GdlPool.DOES))
+        if (name.equals(GdlPool.DOES))
         {
-          if ( root != null )
+          if (root != null)
           {
-            PolymorphicProposition legalProp = stateMachine.getFullPropNet().getLegalInputMap().get(c);
+            PolymorphicProposition legalProp = mStateMachine.getFullPropNet().getLegalInputMap().get(c);
 
-            if ( legalProp != null )
+            if (legalProp != null)
             {
               DirectDependencyInfo legalPropInfo = getComponentDirectDependencies(legalProp, pathSet);
 
-              ForwardDeadReckonLegalMoveInfo[] masterMoveList = stateMachine.getFullPropNet().getMasterMoveList();
+              ForwardDeadReckonLegalMoveInfo[] masterMoveList = mStateMachine.getFullPropNet().getMasterMoveList();
               ForwardDeadReckonLegalMoveInfo moveInfo = masterMoveList[((ForwardDeadReckonProposition)legalProp).getInfo().index];
 
               dInfo.add(legalPropInfo);
@@ -510,35 +562,35 @@ public class FactorAnalyser
       //  one move must be played each turn, so this huge OR is equivalent to the NOT of a much smaller
       //  OR for the complimentary set of moves.  We convert ORs involving more than half of the moves in
       //  the game with that transformation and calculate the dependencies with respect to the result.
-      if ( c instanceof PolymorphicOr )
+      if (c instanceof PolymorphicOr)
       {
-        Collection<PolymorphicProposition> inputProps = stateMachine.getFullPropNet().getInputPropositions().values();
-        if ( c.getInputs().size() > inputProps.size()/2 )
+        Collection<PolymorphicProposition> inputProps = mStateMachine.getFullPropNet().getInputPropositions().values();
+        if (c.getInputs().size() > inputProps.size() / 2)
         {
           Set<PolymorphicComponent> inputPropsOred = new HashSet<>();
 
-          for(PolymorphicComponent input : c.getInputs())
+          for (PolymorphicComponent input : c.getInputs())
           {
-            if ( inputProps.contains(input))
+            if (inputProps.contains(input))
             {
               inputPropsOred.add(input);
             }
           }
 
-          if ( inputPropsOred.size() > inputProps.size()/2 )
+          if (inputPropsOred.size() > inputProps.size() / 2)
           {
-            for(PolymorphicComponent input : c.getInputs())
+            for (PolymorphicComponent input : c.getInputs())
             {
-              if ( !inputPropsOred.contains(input))
+              if (!inputPropsOred.contains(input))
               {
                 DirectDependencyInfo inputPropInfo = getComponentDirectDependencies(input, pathSet);
 
                 dInfo.add(inputPropInfo);
               }
             }
-            for(PolymorphicComponent input : inputProps)
+            for (PolymorphicComponent input : inputProps)
             {
-              if ( !inputPropsOred.contains(input))
+              if (!inputPropsOred.contains(input))
               {
                 DirectDependencyInfo inputPropInfo = getComponentDirectDependencies(input, pathSet);
 
@@ -551,9 +603,9 @@ public class FactorAnalyser
         }
       }
 
-      for(PolymorphicComponent input : c.getInputs())
+      for (PolymorphicComponent input : c.getInputs())
       {
-        if ( basePropositions.contains(input))
+        if (mBasePropositions.contains(input))
         {
           dInfo.dependencies.add((PolymorphicProposition)input);
         }
@@ -572,18 +624,113 @@ public class FactorAnalyser
   }
 
   /**
-   * Get the set of base propositions that constitute the control set,
-   * which is the set of base props whose values do not depend on the moves played
-   * at any stage of the game (e.g. - step counters etc.)
-   * @return set of props in the control set of null if not available
+   * Reload analysis from the game characteristics.
+   *
+   * @param xiCharacteristics - the characteristics.
+   *
+   * @return the factor information.
    */
-  public Set<PolymorphicProposition> getControlProps()
+  private FactorInfo reloadAnalysis(RuntimeGameCharacteristics xiCharacteristics)
   {
-    if ( mbControlSetCalculated )
+    FactorInfo lFactorInfo = new FactorInfo();
+
+    // Load the control mask.
+    String lSavedControlMask = xiCharacteristics.getControlMask();
+    if (lSavedControlMask != null)
     {
-      return controlSet;
+      lFactorInfo.mControlSet = reloadControlSet(lSavedControlMask);
+      lFactorInfo.mControlSetCalculated = true;
     }
 
-    return null;
+    // Load the factors.
+    int lNumFactors = xiCharacteristics.getNumFactors();
+    if (lNumFactors > 0)
+    {
+      lFactorInfo.mFactorsCalculated = true;
+
+      if (lNumFactors > 1)
+      {
+        String lSavedFactors = xiCharacteristics.getFactors();
+        if (lSavedFactors == null)
+        {
+          // For games saved before we saved factors, we might know how many there are without knowing what they are.
+          // Calculate them again from scratch.
+          lFactorInfo.mFactorsCalculated = false;
+        }
+        else
+        {
+          lFactorInfo.mFactors = reloadFactors(lSavedFactors);
+        }
+      }
+    }
+
+    return lFactorInfo;
+  }
+
+  private Set<PolymorphicProposition> reloadControlSet(String xiSavedState)
+  {
+    LOGGER.debug("Reloading control set: " + xiSavedState);
+
+    Set<PolymorphicProposition> lControlSet = new HashSet<>();
+
+    // Strip the surrounding "( " + " )"
+    xiSavedState = xiSavedState.substring(2, xiSavedState.length() - 2);
+
+    // Split on ", "
+    String[] lProps = xiSavedState.split(", ");
+    SET_PROPS: for (String lProp : lProps)
+    {
+      // Find the matching prop in the info set.
+      for (ForwardDeadReckonPropositionCrossReferenceInfo lInfo : mStateMachine.getInfoSet())
+      {
+        if (lInfo.fullNetProp.getName().toString().equals(lProp))
+        {
+          lControlSet.add(lInfo.fullNetProp);
+          continue SET_PROPS;
+        }
+      }
+      assert(false) : "Failed to find proposition: " + lProp;
+    }
+
+    return lControlSet;
+  }
+
+  private Set<Factor> reloadFactors(String xiSavedState)
+  {
+    LOGGER.debug("Reloading factors: " + xiSavedState);
+
+    Set<Factor> lFactors = new HashSet<>();
+    for (String lFactor : xiSavedState.split(";"))
+    {
+      lFactors.add(new Factor(lFactor, mStateMachine.getInfoSet(), mStateMachine.getMasterLegalMoves()));
+    }
+
+    return lFactors;
+  }
+
+  /**
+   * Information about factors.
+   */
+  public static class FactorInfo
+  {
+    /**
+     * Whether the control set has been calculated.
+     */
+    public boolean                     mControlSetCalculated = false;
+
+    /**
+     * The control set - i.e. those propositions which can't ever affect the goals (e.g. step counters).
+     */
+    public Set<PolymorphicProposition> mControlSet = new HashSet<>();
+
+    /**
+     * Whether the factors have been calculated.
+     */
+    public boolean                     mFactorsCalculated = false;
+
+    /**
+     * The factors.  If the factors have been calculated, but this is null, the game is known not to split into factors.
+     */
+    public Set<Factor>                 mFactors;
   }
 }

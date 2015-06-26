@@ -2341,7 +2341,7 @@ public class TreeNode
         result.terminalScore[lii] = mTree.mLatchedScoreRangeBuffer[0];
       }
     }
-    else if (mTree.mSearchFilter.isFilteredTerminal(theState))
+    else if (mTree.mSearchFilter.isFilteredTerminal(theState, mTree.mUnderlyingStateMachine))
     {
       result.isTerminal = true;
 
@@ -2898,7 +2898,7 @@ public class TreeNode
       }
     }
 
-    assert(!mTree.mSearchFilter.isFilteredTerminal(mState));
+    assert(!mTree.mSearchFilter.isFilteredTerminal(mState, mTree.mUnderlyingStateMachine));
     assert(linkageValid());
 
     assert (mNumChildren == 0);

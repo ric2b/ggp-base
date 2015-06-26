@@ -46,6 +46,7 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.FactorAnalyser.FactorInfo;
 import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBuilder;
 import org.ggp.base.util.statemachine.playoutPolicy.IPlayoutPolicy;
 import org.ggp.base.util.stats.Stats;
@@ -437,6 +438,13 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return masterInfoSet;
   }
 
+  /**
+   * @return the master set of legal moves - i.e. information about all moves that could ever be legal.
+   */
+  public ForwardDeadReckonLegalMoveInfo[] getMasterLegalMoves()
+  {
+    return masterLegalMoveSet;
+  }
 
   public RoleOrdering getRoleOrdering()
   {
@@ -1768,40 +1776,31 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //   now.
       long factorizationAnalysisTimeout = (metagameTimeout - System.currentTimeMillis()) / 2;
 
-      if (mGameCharacteristics != null )
+      if (mGameCharacteristics != null)
       {
-        if ((mGameCharacteristics.getNumFactors() != -1) &&
-            (factorizationAnalysisTimeout > mGameCharacteristics.getMaxFactorFailureTime() * 1.25))
+        FactorAnalyser factorAnalyser = new FactorAnalyser(this);
+        FactorInfo lFactorInfo = factorAnalyser.run(factorizationAnalysisTimeout, mGameCharacteristics);
+
+        factors = lFactorInfo.mFactors;
+        if (factors != null)
         {
-          FactorAnalyser factorAnalyser = new FactorAnalyser(this);
-          factors = factorAnalyser.analyse(factorizationAnalysisTimeout, mGameCharacteristics);
-
-          if (factors != null)
-          {
-            LOGGER.info("Game appears to factorize into " + factors.size() + " factors");
-          }
-
-          mControlMask = createEmptyInternalState();
-
-          if (factorAnalyser.getControlProps() != null)
-          {
-            for (PolymorphicProposition p : factorAnalyser.getControlProps())
-            {
-              ForwardDeadReckonPropositionInfo info = ((ForwardDeadReckonProposition)p).getInfo();
-
-              mControlMask.add(info);
-            }
-          }
-
-          mNonControlMask = new ForwardDeadReckonInternalMachineState(mControlMask);
-          mNonControlMask.invert();
+          LOGGER.info("Game factorizes into " + factors.size() + " factors");
         }
-        else
+
+        mControlMask = createEmptyInternalState();
+
+        if (lFactorInfo.mControlSet != null)
         {
-          LOGGER.info("Not attempting to factor this game.  Previous attempt showed " +
-                      mGameCharacteristics.getNumFactors() + " factor(s) in " +
-                      mGameCharacteristics.getMaxFactorFailureTime() + "ms.");
+          for (PolymorphicProposition p : lFactorInfo.mControlSet)
+          {
+            ForwardDeadReckonPropositionInfo info = ((ForwardDeadReckonProposition)p).getInfo();
+            mControlMask.add(info);
+          }
         }
+
+        mGameCharacteristics.setControlMask(mControlMask.toString());
+        mNonControlMask = new ForwardDeadReckonInternalMachineState(mControlMask);
+        mNonControlMask.invert();
       }
 
       for (ForwardDeadReckonPropositionInfo info : masterInfoSet)
@@ -2304,14 +2303,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   }
 
   /**
-   * Return a search filter for use with this state machine when performing higher level goal search
+   * Return a search filter for use with this state machine when performing higher level goal search.
+   *
    * @return filter to use
    */
   public StateMachineFilter getBaseFilter()
   {
     if (searchFilter == null)
     {
-      searchFilter = new NullStateMachineFilter(this);
+      searchFilter = new NullStateMachineFilter();
     }
 
     return searchFilter;

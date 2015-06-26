@@ -113,7 +113,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   /**
    * Construct a new empty state for the given set of possible base propositions
    * @param masterInfoSet list of the possible base propositions that may occur
-   * @param xiFirstBasePropIndex index of first base poorp (previous are pseudo-triggers for goals/terminal)
+   * @param xiFirstBasePropIndex index of first base prop (previous are pseudo-triggers for goals/terminal)
    */
   public ForwardDeadReckonInternalMachineState(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet, int xiFirstBasePropIndex)
   {

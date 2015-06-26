@@ -8,26 +8,15 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.Role;
 
 /**
- * @author steve
- * Null default filter that performs direct pass-through to an underlying state machine
+ * Null default filter that performs direct pass-through to an underlying state machine.
  */
 public class NullStateMachineFilter implements StateMachineFilter
 {
-  private final ForwardDeadReckonPropnetStateMachine stateMachine;
-
-  /**
-   * Construct a pass-through filter for the specified state machine
-   * @param xiStateMachine
-   */
-  public NullStateMachineFilter(ForwardDeadReckonPropnetStateMachine xiStateMachine)
-  {
-    stateMachine = xiStateMachine;
-  }
-
   @Override
-  public boolean isFilteredTerminal(ForwardDeadReckonInternalMachineState xiState)
+  public boolean isFilteredTerminal(ForwardDeadReckonInternalMachineState xiState,
+                                    ForwardDeadReckonPropnetStateMachine xiStateMachine)
   {
-    return stateMachine.isTerminal(xiState);
+    return xiStateMachine.isTerminal(xiState);
   }
 
   @Override

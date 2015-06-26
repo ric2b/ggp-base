@@ -20,11 +20,15 @@ import org.ggp.base.util.statemachine.Role;
 public interface StateMachineFilter
 {
   /**
-   * Determine if a given state should be treated as terminal by the search
-   * @param state
-   * @return virtual terminality
+   * Determine if a given state should be treated as terminal by the search.
+   *
+   * @param xiState - the state.
+   * @param xiStateMachine - a state machine performing any necessary checking.
+   *
+   * @return virtual terminality.
    */
-  boolean isFilteredTerminal(ForwardDeadReckonInternalMachineState state);
+  boolean isFilteredTerminal(ForwardDeadReckonInternalMachineState xiState,
+                             ForwardDeadReckonPropnetStateMachine xiStateMachine);
 
   /**
    * Count available legal moves given a raw collection from the state machine

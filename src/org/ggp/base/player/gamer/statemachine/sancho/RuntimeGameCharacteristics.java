@@ -31,10 +31,12 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private static final String PSEUDO_SIMULTANEOUS_KEY       = "pseudo_simultaneous";
   private static final String ITERATED_KEY                  = "iterated";
   private static final String NUM_FACTORS_KEY               = "num_factors";
+  private static final String FACTORS_KEY                   = "factors";
   private static final String MAX_FACTOR_FAILURE_TIME       = "max_factor_failure_time";
   private static final String MOVES_IN_MULTIPLE_FACTORS_KEY = "moves_in_multiple_factors";
   private static final String MAX_BRANCHING_FACTOR_KEY      = "max_branching_factor";
   private static final String FIXED_LENGTH_KEY              = "fixed_length";
+  private static final String CONTROL_MASK                  = "control_mask";
 
   private final XMLPropertiesConfiguration mConfigFile;
   private boolean             mLoadedConfig;
@@ -49,6 +51,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   final private int           fixedSampleSize         = MachineSpecificConfiguration.getCfgInt(CfgItem.FIXED_SAMPLE_SIZE);
   private String              mPlan                   = null;
   private int                 mNumFactors             = 0;
+  private String              mFactors                = null;
   private int                 mMinLength              = 0;
   private int                 mMaxLength              = -1;
   private double              mAverageLength          = -1;
@@ -58,6 +61,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private double              mGoalsStability         = 0;
   private double              mLongDrawsProportion    = 0;
   private long                mMaxFactorFailureTime   = 0;
+  private String              mControlMask            = null;
 
   /**
    * Create game characteristics, loading any state from previous games.
@@ -113,11 +117,13 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
           isSimultaneousMove             = lConfigFile.getBoolean(SIMULTANEOUS_KEY, false);
           isIteratedGame                 = lConfigFile.getBoolean(ITERATED_KEY, false);
           mNumFactors                    = lConfigFile.getInt(NUM_FACTORS_KEY, 0);
+          mFactors                       = lConfigFile.getString(FACTORS_KEY, null);
           mMaxFactorFailureTime          = lConfigFile.getLong(MAX_FACTOR_FAILURE_TIME, 0);
           moveChoicesFromMultipleFactors = lConfigFile.getBoolean(MOVES_IN_MULTIPLE_FACTORS_KEY, false);
           mMaxObservedChoices            = lConfigFile.getInt(MAX_BRANCHING_FACTOR_KEY, 1);
           isFixedMoveCount               = lConfigFile.getBoolean(FIXED_LENGTH_KEY, false);
           mPlan                          = lConfigFile.getString(PLAN_KEY, null);
+          mControlMask                   = lConfigFile.getString(CONTROL_MASK, null);
         }
       }
       catch (ConfigurationException lEx)
@@ -167,10 +173,9 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     mConfigFile.setProperty(MOVES_IN_MULTIPLE_FACTORS_KEY, moveChoicesFromMultipleFactors);
     mConfigFile.setProperty(MAX_BRANCHING_FACTOR_KEY,      mMaxObservedChoices);
     mConfigFile.setProperty(FIXED_LENGTH_KEY,              isFixedMoveCount);
-    if (mPlan != null)
-    {
-      mConfigFile.setProperty(PLAN_KEY, mPlan);
-    }
+    if (mPlan        != null) {mConfigFile.setProperty(PLAN_KEY,     mPlan);}
+    if (mControlMask != null) {mConfigFile.setProperty(CONTROL_MASK, mControlMask);}
+    if (mFactors     != null) {mConfigFile.setProperty(FACTORS_KEY, mFactors);}
 
     try
     {
@@ -301,13 +306,43 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
    */
   public void setFactors(Set<Factor> xiFactors)
   {
-    // For now, just record the number of factors.
+    assert(xiFactors != null) : "Don't call this method if factors are unknown";
+
     mNumFactors = xiFactors.size();
+
+    if (mNumFactors == 1)
+    {
+      mFactors = "";
+    }
+    else
+    {
+      StringBuilder lBuilder = new StringBuilder();
+      for (Factor lFactor : xiFactors)
+      {
+        LOGGER.info("Factor: " + lFactor.toPersistentString());
+        lBuilder.append(lFactor.toPersistentString());
+        lBuilder.append(";");
+      }
+      lBuilder.setLength(lBuilder.length() - 1);
+      mFactors = lBuilder.toString();
+    }
   }
 
+  /**
+   * @return the number of factors or 0 if the number is unknown.  (Returns 1 if the game is know not to split into
+   * multiple factors.)
+   */
   public int getNumFactors()
   {
     return mNumFactors;
+  }
+
+  /**
+   * @return a string representation of all the factors.
+   */
+  public String getFactors()
+  {
+    return mFactors;
   }
 
   public int getMaxLength()
@@ -439,5 +474,15 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     {
       mMaxFactorFailureTime = xiFailureTime;
     }
+  }
+
+  public void setControlMask(String xiMask)
+  {
+    mControlMask = xiMask;
+  }
+
+  public String getControlMask()
+  {
+    return mControlMask;
   }
 }
