@@ -1798,7 +1798,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           }
         }
 
-        mGameCharacteristics.setControlMask(mControlMask.toString());
+        if (lFactorInfo.mControlSetCalculated)
+        {
+          mGameCharacteristics.setControlMask(mControlMask.toString());
+        }
         mNonControlMask = new ForwardDeadReckonInternalMachineState(mControlMask);
         mNonControlMask.invert();
       }

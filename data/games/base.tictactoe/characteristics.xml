@@ -10,4 +10,6 @@
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">9</entry>
   <entry key="fixed_length">false</entry>
+  <entry key="control_mask">( ( true ( control xplayer ) ), ( true ( control oplayer ) ) )</entry>
+  <entry key="factors"></entry>
 </properties>
