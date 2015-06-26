@@ -11,4 +11,6 @@
   <entry key="max_branching_factor">3</entry>
   <entry key="fixed_length">false</entry>
   <entry key="plan">f,g</entry>
+  <entry key="control_mask">( ( true s1 ) )</entry>
+  <entry key="factors">v1~( true s4 )~c;v1~( true s3 )~b;v1~( true s2 )~a;v1~( true s5 )~d;v1~( true s8 ),( true s7 )~f,g;v1~( true s6 )~e</entry>
 </properties>

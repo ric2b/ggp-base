@@ -11,6 +11,6 @@
   <entry key="max_branching_factor">0</entry>
   <entry key="fixed_length">false</entry>
   <entry key="plan">a 6,b 6,c 6,a 6,b 6,a 6</entry>
-  <entry key="control_mask">( ( true ( step 1 ) ), ( true ( step 7 ) ), ( true ( step 2 ) ), ( true ( step 5 ) ), ( true ( step 6 ) ), ( true ( step 3 ) ), ( true ( step 4 ) ) )</entry>
+  <entry key="control_mask">( ( true ( step 2 ) ), ( true ( step 4 ) ), ( true ( step 6 ) ), ( true ( step 5 ) ), ( true ( step 1 ) ), ( true ( step 3 ) ), ( true ( step 7 ) ) )</entry>
   <entry key="factors">v1~( true ( p 7 ) ),( true ( q 7 ) ),( true ( r 7 ) )~( a 7 ),( c 7 ),( b 7 );v1~( true ( q 3 ) ),( true ( r 3 ) ),( true ( p 3 ) )~( b 3 ),( c 3 ),( a 3 );v1~( true ( r 4 ) ),( true ( p 4 ) ),( true ( q 4 ) )~( a 4 ),( b 4 ),( c 4 );v1~( true ( q 1 ) ),( true ( r 1 ) ),( true ( p 1 ) )~( c 1 ),( b 1 ),( a 1 );v1~( true ( r 5 ) ),( true ( p 5 ) ),( true ( q 5 ) )~( b 5 ),( c 5 ),( a 5 );v1~( true ( p 6 ) ),( true ( r 6 ) ),( true ( q 6 ) )~( a 6 ),( b 6 ),( c 6 );v1~( true ( q 9 ) ),( true ( r 9 ) ),( true ( p 9 ) )~( a 9 ),( b 9 ),( c 9 );v1~( true ( r 8 ) ),( true ( q 8 ) ),( true ( p 8 ) )~( b 8 ),( a 8 ),( c 8 );v1~( true ( p 2 ) ),( true ( q 2 ) ),( true ( r 2 ) )~( b 2 ),( c 2 ),( a 2 )</entry>
 </properties>
