@@ -169,7 +169,29 @@ public class FactorAnalyser
       if (xiTimeout > xiGameCharacteristics.getMaxFactorFailureTime() * 1.25)
       {
         LOGGER.info("Performing factor analysis");
+        boolean lAlreadyKnewControlSet = lFactorInfo.mControlSetCalculated;
         analyse(lFactorInfo, xiTimeout, xiGameCharacteristics);
+
+        // If we've just learned the control set for the first time, record it.
+        if ((lFactorInfo.mControlSetCalculated) && (!lAlreadyKnewControlSet))
+        {
+          // Build a string representation.  We can't just to lFactorInfo.mControlSet.toString() because it contains
+          // spurious detail.
+          StringBuilder lControlSet = new StringBuilder("( ");
+          for (PolymorphicProposition lProp : lFactorInfo.mControlSet)
+          {
+            lControlSet.append(lProp.getName());
+            lControlSet.append(", ");
+          }
+          if (lControlSet.length() > 2)
+          {
+            // Strip the trailing ", ".
+            lControlSet.setLength(lControlSet.length() - 2);
+          }
+          lControlSet.append(" )");
+
+          xiGameCharacteristics.setControlMask(lControlSet.toString());
+        }
       }
       else
       {
