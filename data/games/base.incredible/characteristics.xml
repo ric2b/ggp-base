@@ -6,9 +6,11 @@
   <entry key="pseudo_simultaneous">false</entry>
   <entry key="iterated">false</entry>
   <entry key="max_factor_failure_time">0</entry>
-  <entry key="num_factors">0</entry>
+  <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">48</entry>
   <entry key="fixed_length">false</entry>
   <entry key="plan">contemplate x y,s b c,contemplate y x,move,u f e,contemplate y x,move,grab,move,u b c,move,u e d,s d f,s b d,contemplate y x,u c a,s a e,s c a,drop</entry>
+  <entry key="control_mask">( ( true ( step c6 ) ), ( true ( step c18 ) ), ( true ( step c3 ) ), ( true ( step c15 ) ), ( true ( step c2 ) ), ( true ( step c4 ) ), ( true ( step c11 ) ), ( true ( step c8 ) ), ( true ( step c16 ) ), ( true ( step c12 ) ), ( true ( step c5 ) ), ( true ( step c19 ) ), ( true ( step c14 ) ), ( true ( step c20 ) ), ( true ( step c13 ) ), ( true ( step c7 ) ), ( true ( step c17 ) ), ( true ( step c9 ) ), ( true ( step c1 ) ), ( true ( step c10 ) ) )</entry>
+  <entry key="factors"></entry>
 </properties>

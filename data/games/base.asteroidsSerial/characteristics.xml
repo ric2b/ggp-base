@@ -6,9 +6,11 @@
   <entry key="pseudo_simultaneous">false</entry>
   <entry key="iterated">false</entry>
   <entry key="max_factor_failure_time">0</entry>
-  <entry key="num_factors">0</entry>
+  <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">3</entry>
   <entry key="fixed_length">false</entry>
   <entry key="plan">turn1 clock,thrust1,turn1 clock,thrust1,thrust1,thrust1,turn1 clock,thrust1,thrust1,thrust1,turn2 clock,thrust2,turn2 clock,thrust2,thrust2,thrust2,turn2 clock,thrust2,thrust2,thrust2</entry>
+  <entry key="control_mask">(  )</entry>
+  <entry key="factors"></entry>
 </properties>
