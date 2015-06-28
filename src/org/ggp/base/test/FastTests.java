@@ -8,6 +8,7 @@ import org.junit.runners.Suite;
 @Suite.SuiteClasses({FDRPStateMachineTests.class,
                      GameParsingTests.class,
                      GdlCleanerTests.class,
+                     KnownGameTest.class,
                      NoTabsInRulesheetsTest.class,
                      ProverStateMachineTests.class,
                      SimpleSentenceFormTest.class,
