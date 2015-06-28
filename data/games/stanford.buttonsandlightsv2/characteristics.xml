@@ -4,13 +4,13 @@
   <entry key="num_roles">1</entry>
   <entry key="simultaneous">false</entry>
   <entry key="pseudo_simultaneous">false</entry>
-  <entry key="iterated">false</entry>
+  <entry key="iterated">true</entry>
   <entry key="max_factor_failure_time">0</entry>
   <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
-  <entry key="max_branching_factor">0</entry>
-  <entry key="fixed_length">false</entry>
-  <entry key="plan">right,down,left,up,right,down</entry>
-  <entry key="control_mask">( ( true ( step 3 ) ), ( true ( step 2 ) ), ( true ( step 5 ) ), ( true ( step 4 ) ), ( true ( step 6 ) ), ( true ( step 7 ) ), ( true ( step 1 ) ) )</entry>
+  <entry key="max_branching_factor">3</entry>
+  <entry key="fixed_length">true</entry>
+  <entry key="plan">a,b,c,a,b,a</entry>
+  <entry key="control_mask">( ( true 1 ), ( true 4 ), ( true 6 ), ( true 7 ), ( true 5 ), ( true 3 ), ( true 2 ) )</entry>
   <entry key="factors"></entry>
 </properties>
