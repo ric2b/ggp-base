@@ -3993,8 +3993,19 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           int moveIndex;
           if ( numChoices > 1 )
           {
-            choosingRole = roleIndex;
-            numChooserChoices = numChoices;
+            if ( choosingRole != -1 && choosingRole != roleIndex )
+            {
+              //  Multiple roles have choices so this must be a simultaneous move game
+              //  which we do not currently support playout policies in, and for which we
+              //  must independently select moves for each role
+              choosingRole = -1;
+              choiceIndex = -1;
+            }
+            else
+            {
+              choosingRole = roleIndex;
+              numChooserChoices = numChoices;
+            }
 
             if ( choiceIndex == -1 )
             {
