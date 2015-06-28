@@ -6,9 +6,11 @@
   <entry key="pseudo_simultaneous">false</entry>
   <entry key="iterated">false</entry>
   <entry key="max_factor_failure_time">0</entry>
-  <entry key="num_factors">0</entry>
+  <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">19</entry>
   <entry key="fixed_length">false</entry>
   <entry key="plan">jump b c4 d c4,jump c c2 c c4,jump a c3 c c3,jump c c4 c c2,jump c c1 c c3,jump d c3 b c3,jump e c2 c c2,jump e c1 c c1,jump a c5 a c3,jump e c4 e c2,jump e c6 e c4,jump c c6 c c4,jump g c5 e c5,jump e c4 e c6,jump a c3 c c3,jump d c5 d c3,jump d c3 b c3,jump e c7 e c5,jump g c3 e c3,jump c c7 e c7,jump g c4 e c4,jump e c4 e c6,jump e c7 e c5,jump e c2 e c4,jump e c5 e c3,jump c c1 c c3,jump b c3 d c3,jump e c3 c c3,jump c c3 c c5,jump b c5 d c5,jump d c6 d c4</entry>
+  <entry key="control_mask">( ( true ( pegs s6 ) ), ( true ( pegs s26 ) ), ( true ( pegs s2 ) ), ( true ( pegs s27 ) ), ( true ( pegs s17 ) ), ( true ( pegs s7 ) ), ( true ( pegs s22 ) ), ( true ( pegs s21 ) ), ( true ( pegs s5 ) ), ( true ( pegs s1 ) ), ( true ( pegs s16 ) ), ( true ( pegs s31 ) ), ( true ( pegs s23 ) ), ( true ( pegs s32 ) ), ( true ( pegs s9 ) ), ( true ( pegs s8 ) ), ( true ( pegs s28 ) ), ( true ( pegs s13 ) ), ( true ( pegs s24 ) ), ( true ( pegs s3 ) ), ( true ( pegs s18 ) ), ( true ( pegs s12 ) ), ( true ( pegs s14 ) ), ( true ( pegs s10 ) ), ( true ( pegs s11 ) ), ( true ( pegs s30 ) ), ( true ( pegs s20 ) ), ( true ( pegs s29 ) ), ( true ( pegs s25 ) ), ( true ( pegs s4 ) ), ( true ( pegs s19 ) ), ( true ( pegs s15 ) ) )</entry>
+  <entry key="factors"></entry>
 </properties>

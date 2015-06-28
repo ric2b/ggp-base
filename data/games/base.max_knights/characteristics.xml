@@ -6,9 +6,11 @@
   <entry key="pseudo_simultaneous">false</entry>
   <entry key="iterated">false</entry>
   <entry key="max_factor_failure_time">0</entry>
-  <entry key="num_factors">0</entry>
+  <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">64</entry>
   <entry key="fixed_length">false</entry>
   <entry key="plan">place f 3,place c 8,place f 5,place a 6,place c 4,place c 2,place e 4,place c 6,place b 7,place a 8,place b 1,place g 6,place e 6,place b 3,place h 1,place e 8,place g 8,place g 4,place h 3,place d 1,place f 7,place a 2,place b 5,place e 2,place f 1,place d 5,place g 2,place d 7,place h 5,place d 3,place a 4,place h 7,place b 8</entry>
+  <entry key="control_mask">( ( true ( points 1 ) ), ( true ( points 55 ) ), ( true ( points 18 ) ), ( true ( points 3 ) ), ( true ( points 24 ) ), ( true ( points 90 ) ), ( true ( points 80 ) ), ( true ( points 8 ) ), ( true ( points 65 ) ), ( true ( points 2 ) ), ( true ( points 7 ) ), ( true ( points 28 ) ), ( true ( points 5 ) ), ( true ( points 22 ) ), ( true ( points 12 ) ), ( true ( points 20 ) ), ( true ( points 45 ) ), ( true ( points 75 ) ), ( true ( points 50 ) ), ( true ( points 10 ) ), ( true ( points 0 ) ), ( true ( points 9 ) ), ( true ( points 60 ) ), ( true ( points 6 ) ), ( true ( points 30 ) ), ( true ( points 4 ) ), ( true ( points 40 ) ), ( true initial ), ( true ( points 70 ) ), ( true ( points 14 ) ), ( true ( points 16 ) ), ( true ( points 35 ) ), ( true ( points 100 ) ), ( true ( points 26 ) ) )</entry>
+  <entry key="factors"></entry>
 </properties>
