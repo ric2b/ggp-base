@@ -3934,7 +3934,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       for (int roleIndex = 0; roleIndex < numRoles; roleIndex++)
       {
-        choiceIndex = -1;
         ForwardDeadReckonLegalMoveSet moves = activeLegalMoves;
         ForwardDeadReckonLegalMoveInfo chosen = null;
         Iterator<ForwardDeadReckonLegalMoveInfo> itr;
