@@ -271,4 +271,10 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator imple
     // TODO Auto-generated method stub
     return null;
   }
+
+  @Override
+  public boolean applyAsSimpleHeuristic()
+  {
+    return false;
+  }
 }

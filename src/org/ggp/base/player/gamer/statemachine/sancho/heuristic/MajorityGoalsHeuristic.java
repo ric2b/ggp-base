@@ -470,4 +470,10 @@ public class MajorityGoalsHeuristic implements Heuristic
       recursiveFindFeedingBaseProps(pn, input, baseProps, processedComponents);
     }
   }
+
+  @Override
+  public boolean applyAsSimpleHeuristic()
+  {
+    return false;
+  }
 }

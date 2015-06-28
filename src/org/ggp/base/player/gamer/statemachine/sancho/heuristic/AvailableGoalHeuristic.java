@@ -123,4 +123,11 @@ public class AvailableGoalHeuristic implements Heuristic
     // TODO Auto-generated method stub
 
   }
+
+  @Override
+  public boolean applyAsSimpleHeuristic()
+  {
+    // TODO Auto-generated method stub
+    return true;
+  }
 }

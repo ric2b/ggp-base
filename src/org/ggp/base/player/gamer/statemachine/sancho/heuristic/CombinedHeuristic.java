@@ -24,6 +24,7 @@ public class CombinedHeuristic implements Heuristic
   private Heuristic[] mRuntimeHeuristics;
   private int mNumRoles;
   private HeuristicInfo mInfo = null;
+  private boolean mApplyAsSimpleHeuristic = false;
 
   /**
    * Create a combined heuristic.
@@ -50,6 +51,7 @@ public class CombinedHeuristic implements Heuristic
     }
     mRuntimeHeuristics = mTuningHeuristics.toArray(new Heuristic[mTuningHeuristics.size()]);
     mInfo = new HeuristicInfo(mNumRoles);
+    mApplyAsSimpleHeuristic = copyFrom.mApplyAsSimpleHeuristic;
 }
 
   /**
@@ -131,6 +133,7 @@ public class CombinedHeuristic implements Heuristic
     {
       LOGGER.info("No heuristics enabled");
     }
+
     while (lIterator.hasNext())
     {
       Heuristic lHeuristic = lIterator.next();
@@ -139,6 +142,47 @@ public class CombinedHeuristic implements Heuristic
 
     // Convert the heuristics into an array (to avoid list iteration overheads during game-play).
     mRuntimeHeuristics = mTuningHeuristics.toArray(new Heuristic[mTuningHeuristics.size()]);
+  }
+
+  /**
+   * Evaluate (based on the enabled constituents) whether the combined heuristic
+   * should be applied simply or in advanced mode
+   */
+  public void evaluateSimplicity()
+  {
+    Iterator<Heuristic> lIterator = mTuningHeuristics.iterator();
+    boolean foundAdvancedHeuristic = false;
+    while (lIterator.hasNext())
+    {
+      Heuristic lHeuristic = lIterator.next();
+      if ( lHeuristic.applyAsSimpleHeuristic() )
+      {
+        mApplyAsSimpleHeuristic = true;
+      }
+      else
+      {
+        foundAdvancedHeuristic = true;
+      }
+    }
+
+    //  A mixture of constituents that want to be handled simply and in advanced
+    //  mode is problematic.  Just warn for now - we plan to do a major rework of
+    //  heuristics at some point anyway
+    if ( foundAdvancedHeuristic && mApplyAsSimpleHeuristic )
+    {
+      LOGGER.warn("Combined heuristic contains both advanced and simple elements - application mechanism will be simple");
+    }
+    else
+    {
+      if ( mApplyAsSimpleHeuristic )
+      {
+        LOGGER.info("Using simplified heuristic mechanism");
+      }
+      else
+      {
+        LOGGER.info("Using advanced heuristic mechanism");
+      }
+    }
   }
 
   /**
@@ -255,5 +299,11 @@ public class CombinedHeuristic implements Heuristic
   {
     //  Return a suitable clone
     return new CombinedHeuristic(this);
+  }
+
+  @Override
+  public boolean applyAsSimpleHeuristic()
+  {
+    return mApplyAsSimpleHeuristic;
   }
 }

@@ -146,4 +146,11 @@ public class GoalsStabilityHeuristic implements Heuristic
   {
     return null;
   }
+
+  @Override
+  public boolean applyAsSimpleHeuristic()
+  {
+    // TODO Auto-generated method stub
+    return false;
+  }
 }

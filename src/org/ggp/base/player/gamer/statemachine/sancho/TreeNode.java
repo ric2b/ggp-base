@@ -84,9 +84,7 @@ public class TreeNode
    */
   static final double         EPSILON = 1e-4;
 
-  static final double         SCORE_TEMPORAL_DECAY_RATE = 1.0;//0.99;
-
-  static final boolean        USE_SIMPLE_HEURISTICS = true;
+  static final double         SCORE_TEMPORAL_DECAY_RATE = 0.99;
 
   /**
    * For debugging use only - enable assertion that the game is fixed sum
@@ -459,7 +457,6 @@ public class TreeNode
   {
     if (!mComplete)
     {
-      mComplete = true;
       //validateCompletionValues(values);
       //validateAll();
       for (int lii = 0; lii < mTree.mNumRoles; lii++)
@@ -476,7 +473,6 @@ public class TreeNode
   {
     if (!mComplete)
     {
-      mComplete = true;
       //assert(state.toString().contains("control o") == (decidingRoleIndex == 1));
       //validateCompletionValues(values);
       //validateAll();
@@ -1854,63 +1850,16 @@ public class TreeNode
     return mRef;
   }
 
-  private void checkScorePlausibility(int roleIndex)
-  {
-    double result = mTree.mScoreVectorPool.getAverageScore(mInstanceID, roleIndex);
-    if ( mNumVisits > 500 && !mComplete)
-    {
-      boolean suspicious = false;
-
-      for(int i = 0; i < mNumChildren; i++)
-      {
-        Object choice = mChildren[i];
-
-        if ( choice instanceof TreeEdge )
-        {
-          TreeEdge edge = (TreeEdge)choice;
-          {
-            TreeNode child = get(edge.getChildRef());
-            if ( child != null )
-            {
-              if ( child.mComplete )
-              {
-                suspicious = false;
-                break;
-              }
-              else if (edge.getNumChildVisits() > (mNumVisits*9)/10 && child.mNumVisits <= mNumVisits && Math.abs(result - mTree.mScoreVectorPool.getAverageScore(child.mInstanceID, roleIndex)) > 5)
-              {
-                suspicious = true;
-              }
-            }
-          }
-        }
-      }
-
-      assert(!suspicious);
-    }
-  }
-
   public double getAverageScore(int roleIndex)
   {
-    double result = mTree.mScoreVectorPool.getAverageScore(mInstanceID, roleIndex);
-
-    checkScorePlausibility(roleIndex);
-
-    return result;
+    return mTree.mScoreVectorPool.getAverageScore(mInstanceID, roleIndex);
   }
 
   public void setAverageScore(int roleIndex, double value)
   {
-    assert(mNumVisits < 500 || value == 100 || value == 0 || value == 50 || Math.abs(value-mTree.mScoreVectorPool.getAverageScore(mInstanceID, roleIndex)) < 5);
     assert(-EPSILON<=value);
     assert(100+EPSILON>=value);
     mTree.mScoreVectorPool.setAverageScore(mInstanceID, roleIndex, value);
-
-    checkScorePlausibility(roleIndex);
-    for(TreeNode parent : mParents)
-    {
-      parent.checkScorePlausibility(roleIndex);
-    }
   }
 
   public double getAverageSquaredScore(int roleIndex)
@@ -3574,7 +3523,7 @@ public class TreeNode
 
       if ( mTree.mHeuristic.isEnabled() && ((mNumChildren != 1 && mTree.mRemoveNonDecisionNodes) || roleIndex == mTree.mNumRoles - 1) )
       {
-        if ( USE_SIMPLE_HEURISTICS )
+        if ( mTree.mHeuristic.applyAsSimpleHeuristic() )
         {
           for (short lMoveIndex = 0; lMoveIndex < mNumChildren; lMoveIndex++)
           {
@@ -3666,11 +3615,11 @@ public class TreeNode
 
                       // Use the heuristic confidence to guide how many virtual rollouts to pretend there have been through
                       // the new child.
-                      newChild.mNumUpdates += mTree.mNodeHeuristicInfo.heuristicWeight;
+                      //newChild.mNumUpdates += mTree.mNodeHeuristicInfo.heuristicWeight;
                       assert(!Double.isNaN(newChild.getAverageScore(0)));
 
-                      newChild.mNumVisits += mTree.mNodeHeuristicInfo.heuristicWeight;
-                      edge.setNumVisits(newChild.mNumVisits);
+                      //newChild.mNumVisits += mTree.mNodeHeuristicInfo.heuristicWeight;
+                      //edge.setNumVisits(newChild.mNumVisits);
                     }
                   }
                 }
@@ -4605,7 +4554,7 @@ public class TreeNode
         //  We do not normalize puzzles as this seems to be detrimental.  Normalization is helpful when initial convergence
         //  is misleading (i.e. - non-monotonic), which is probably much rarer in puzzles (where there is no agent acting
         //  against us).  However, this remains just a theory.
-        if ( !mTree.mGameCharacteristics.isPseudoPuzzle && mTree.USE_NODE_SCORE_NORMALIZATION && mNumVisits > 500 && (mNumVisits&0xff) == 0xff &&
+        if ( mTree.USE_NODE_SCORE_NORMALIZATION && mNumVisits > 500 && (mNumVisits&0xff) == 0xff &&
              (!mTree.mGameCharacteristics.isSimultaneousMove || roleIndex == 0))
         {
           normalizeScores(false);
@@ -5843,7 +5792,7 @@ public class TreeNode
       TreeEdge lChildEdge = (lElement == null ? null : lElement.getEdgeUnsafe());
       lNextNode = null;
 
-      if ( !USE_SIMPLE_HEURISTICS && lNode.mHeuristicWeight > 0 && !lastNodeWasComplete )
+      if ( !mTree.mHeuristic.applyAsSimpleHeuristic() && lNode.mHeuristicWeight > 0 && !lastNodeWasComplete )
       {
         double applicableValue = (lNode.mHeuristicValue > 50 ? lNode.mHeuristicValue : 100 - lNode.mHeuristicValue);
 
@@ -5875,10 +5824,10 @@ public class TreeNode
       //  parent after O(branching factor) visits, which can otherwise cause it to sometimes not be
       //  explored further
       boolean isAntiDecisiveCompletePropagation = false;
-//      if ( lastNodeWasComplete && xiValues[(lNode.mDecidingRoleIndex+1)%mTree.mNumRoles] == 0 )
-//      {
-//        isAntiDecisiveCompletePropagation = true;
-//      }
+      if ( !mTree.mHeuristic.applyAsSimpleHeuristic() && lastNodeWasComplete && xiValues[(lNode.mDecidingRoleIndex+1)%mTree.mNumRoles] == 0 )
+      {
+        isAntiDecisiveCompletePropagation = true;
+      }
 
       // Across a turn end it is possible for queued paths to run into freed nodes due to trimming of the tree at the
       // root to advance the turn.  Rather than add locking and force clearing the rollout pipeline synchronously on
@@ -5920,10 +5869,10 @@ public class TreeNode
 
       //  Choke off propagation that originated through an anti-decisive (losing) complete
       //  choice except for the first one through that parent
-//      if ( isAntiDecisiveCompletePropagation && lNode.mNumUpdates > 0 )
-//      {
-//        return System.nanoTime() - lStartTime;
-//      }
+      if ( isAntiDecisiveCompletePropagation && lNode.mNumUpdates > 0 )
+      {
+        return System.nanoTime() - lStartTime;
+      }
 
       if ( !lNode.mComplete )
       {
@@ -5935,11 +5884,17 @@ public class TreeNode
           if (lChildEdge != null)
           {
             TreeNode lChild = lNode.get(lChildEdge.getChildRef());
+            int     adjustedChildVisits = lChild.mNumVisits;
+            if ( mTree.mHeuristic.applyAsSimpleHeuristic() )
+            {
+              adjustedChildVisits += (int)lChild.mHeuristicWeight;
+            }
+
             //  Take the min of the apparent edge selection and the total num visits in the child
             //  This is necessary because when we re-expand a node that was previously trimmed we
             //  leave the edge with its old selection count even though the child node will be
             //  reset.
-            int lNumChildVisits = Math.min(lChildEdge.getNumChildVisits(), lChild.mNumVisits);
+            int lNumChildVisits = Math.min(lChildEdge.getNumChildVisits(), adjustedChildVisits);
 
             assert(lNumChildVisits > 0);
             //  Propagate a value that is a blend of this rollout value and the current score for the child node
@@ -5947,23 +5902,29 @@ public class TreeNode
             if (xiValues != lOverrides && lNumChildVisits > 0)
             {
               xiValues[lRoleIndex] = (xiValues[lRoleIndex] * lNumChildVisits + lChild.getAverageScore(lRoleIndex) *
-                                      (lChild.mNumVisits - lNumChildVisits)) /
-                                     lChild.mNumVisits;
+                                      (adjustedChildVisits - lNumChildVisits)) /
+                                      adjustedChildVisits;
               assert(xiValues[lRoleIndex] < 100+EPSILON);
             }
 
             assert ( !lNode.mAllChildrenComplete || Math.abs(xiValues[lRoleIndex] - lChild.getAverageScore(lRoleIndex)) < EPSILON );
           }
 
+          double numUpdatesIncludedHeuristicBias = lNode.mNumUpdates;
+          if ( mTree.mHeuristic.applyAsSimpleHeuristic() )
+          {
+            numUpdatesIncludedHeuristicBias += lNode.mHeuristicWeight;
+          }
+
           lNode.setAverageScore(lRoleIndex,
-                                (lNode.getAverageScore(lRoleIndex) * lNode.mNumUpdates * SCORE_TEMPORAL_DECAY_RATE + xiValues[lRoleIndex]*applicationWeight) /
-                                (lNode.mNumUpdates*SCORE_TEMPORAL_DECAY_RATE + applicationWeight));
+                                (lNode.getAverageScore(lRoleIndex) * numUpdatesIncludedHeuristicBias * SCORE_TEMPORAL_DECAY_RATE + xiValues[lRoleIndex]*applicationWeight) /
+                                (numUpdatesIncludedHeuristicBias*SCORE_TEMPORAL_DECAY_RATE + applicationWeight));
 
 
           lNode.setAverageSquaredScore(lRoleIndex,
                                        (lNode.getAverageSquaredScore(lRoleIndex) *
-                                        lNode.mNumUpdates + xiSquaredValues[lRoleIndex]*applicationWeight) /
-                                       (lNode.mNumUpdates + applicationWeight));
+                                           numUpdatesIncludedHeuristicBias + xiSquaredValues[lRoleIndex]*applicationWeight) /
+                                       (numUpdatesIncludedHeuristicBias + applicationWeight));
         }
 
         lNode.mLastSelectionMade = -1;
@@ -5999,7 +5960,7 @@ public class TreeNode
       if ( playedMoves != null && lChildEdge != null )
       {
         //  Add this edge's move into the played move record so that the ancestors will
-        //  process it as well as what was prrocessed here
+        //  process it as well as what was processed here
         playedMoves.set(lChildEdge.mPartialMove.masterIndex);
       }
 

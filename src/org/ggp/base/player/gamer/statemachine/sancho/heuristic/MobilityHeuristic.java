@@ -266,4 +266,10 @@ public class MobilityHeuristic implements Heuristic
     // TODO Auto-generated method stub
 
   }
+
+  @Override
+  public boolean applyAsSimpleHeuristic()
+  {
+    return false;
+  }
 }

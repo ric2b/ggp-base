@@ -60,6 +60,8 @@ public class PieceHeuristic implements Heuristic
   protected int                                                            heuristicSampleWeight     = 10;
   protected double[]                                                       rootPieceValues           = null;
   private boolean                                                        mTuningComplete           = false;
+  private boolean                                                        mUseSimpleHeuristic = false;
+  private TreeNode                                                       mRootNode = null;
 
   private static class GdlFunctionInfo
   {
@@ -284,6 +286,7 @@ public class PieceHeuristic implements Heuristic
     public final ForwardDeadReckonInternalMachineState  overallPieceMask;
     public ConstituentPieceInfo[]                       individualPieceTypes = null;
     public List<PieceUsageStats>                        individualPieceUsageStats = new ArrayList<>();
+    private int                                         numPieceTypes = 1;
 
     public PieceMaskSpecifier(ForwardDeadReckonInternalMachineState pieceMask)
     {
@@ -479,9 +482,15 @@ public class PieceHeuristic implements Heuristic
       }
     }
 
+    public int getNumPieceTypes()
+    {
+      return numPieceTypes;
+    }
+
     public void finalizePieceValues(int roleIndex)
     {
-      if ( individualPieceTypes != null && individualPieceTypes.length < MIN_NUM_PIECES )
+      numPieceTypes = (individualPieceTypes != null ? individualPieceTypes.length : 1);
+      if ( numPieceTypes < MIN_NUM_PIECES )
       {
         individualPieceTypes = null;
       }
@@ -590,6 +599,16 @@ public class PieceHeuristic implements Heuristic
     totalSimulatedTurns        = copyFrom.totalSimulatedTurns;
     //  The following track runtime usage state and are dependent on the current game-state
     rootPieceValues            = new double[numRoles];
+    mUseSimpleHeuristic        = copyFrom.mUseSimpleHeuristic;
+  }
+
+  /**
+   * @param value - whether to use simple piece heuristic (no use of heuristic
+   * steps, based on piece count relative to root, applied simply)
+   */
+  public void setUseSimpleHeuristic(boolean value)
+  {
+    mUseSimpleHeuristic = value;
   }
 
   /**
@@ -958,10 +977,17 @@ public class PieceHeuristic implements Heuristic
 
       if (pieceSets != null)
       {
+        mUseSimpleHeuristic = true;
+
         LOGGER.debug("All roles have piece sets");
         for (int i = 0; i < numRoles; i++)
         {
           pieceSets[i].finalizePieceValues(i);
+          //  Nasty hack that basically is used to cause checkers-type games to use simple piece heuristics for now
+          if ( pieceSets[i].getNumPieceTypes() != 2 )
+          {
+            mUseSimpleHeuristic = false;
+          }
 
           LOGGER.info("Role " + i + " will use piece set " + pieceSets[i]);
         }
@@ -982,42 +1008,122 @@ public class PieceHeuristic implements Heuristic
                                 ForwardDeadReckonInternalMachineState xiReferenceState,
                                 HeuristicInfo resultInfo)
   {
-    //  If a piece value is 0 thn we risk divide by zero issues, so add EPSILON
-    double ourPieceValue = pieceSets[0].getValue(xiState) + EPSILON;
-    double theirPieceValue = pieceSets[1].getValue(xiState) + EPSILON;
-    double proportion = (ourPieceValue - theirPieceValue) / (ourPieceValue + theirPieceValue);
-    double referenceProportion = 0;
-
-    if ( xiPreviousState != null )
+    //  The simple heuristic is exactly the one we used in 1.60, prior to the rework of
+    //  heuristics to better support games like chess and skirmish
+    if ( mUseSimpleHeuristic )
     {
-      double ourPreviousPieceValue = pieceSets[0].getValue(xiPreviousState) + EPSILON;
-      double theirPreviousPieceValue = pieceSets[1].getValue(xiPreviousState) + EPSILON;
-      double previousProportion = (ourPreviousPieceValue - theirPreviousPieceValue) / (ourPreviousPieceValue + theirPreviousPieceValue);
+      double total = 0;
+      double rootTotal = 0;
 
-      resultInfo.treatAsSequenceStep = (Math.abs( proportion - previousProportion ) > MIN_HEURISTIC_DIFF_FOR_SEQUENCE);
-
-      if ( xiReferenceState == xiPreviousState )
+      for (int i = 0; i < numRoles; i++)
       {
-        referenceProportion = (ourPreviousPieceValue - theirPreviousPieceValue) / (ourPreviousPieceValue + theirPreviousPieceValue);
+        // Set the initial heuristic value for this role according to the difference in number of pieces between this
+        // state and the current state in the tree root.
+        double numPieces = pieceSets[i].getValue(xiState);
+        resultInfo.heuristicValue[i] = numPieces - rootPieceValues[i];
+
+        total += numPieces;
+        rootTotal += rootPieceValues[i];
+
+        // Counter-weight exchange sequences slightly to remove the first-capture bias, at least to first order.
+        double previousNumPieces = pieceSets[i].getValue(xiPreviousState);
+        if (numPieces == rootPieceValues[i] &&
+            previousNumPieces < rootPieceValues[i])
+        {
+          resultInfo.heuristicValue[i] += 0.1;
+          total += 0.1;
+        }
+        else if (numPieces == rootPieceValues[i] &&
+                 previousNumPieces > rootPieceValues[i])
+        {
+          resultInfo.heuristicValue[i] -= 0.1;
+          total -= 0.1;
+        }
       }
-      else
-      {
-        double ourReferencePieceValue = pieceSets[0].getValue(xiReferenceState) + EPSILON;
-        double theirReferencePieceValue = pieceSets[1].getValue(xiReferenceState) + EPSILON;
 
-        referenceProportion = (ourReferencePieceValue - theirReferencePieceValue) / (ourReferencePieceValue + theirReferencePieceValue);
+      for (int i = 0; i < numRoles; i++)
+      {
+        if (rootTotal != total)
+        {
+          // There has been an overall change in the number of pieces.  Calculate the proportion of that total gained/lost
+          // by this role and use that to generate a new average heuristic value for the role.
+          double proportion = (resultInfo.heuristicValue[i] - (total - rootTotal) / numRoles) / (total / numRoles);
+          resultInfo.heuristicValue[i] = 100 / (1 + Math.exp(-proportion * 10));
+        }
+        else
+        {
+          // There has been no overall change to the number of pieces.  Assume an average value.
+          // !! ARR Why?
+          resultInfo.heuristicValue[i] = 50;
+        }
+
+        // Normalize against the root score since this is relative to the root state material balance.  Only do this if
+        // the root has had enough visits to have a credible estimate.
+        if (mRootNode != null && mRootNode.mNumVisits > 50)
+        {
+          // Set the average score for the child to the average score of the root displaced towards the extremities
+          // (0/100) by a proportion of the amount that it currently deviates from the extremities, where that proportion
+          // is equal to the proportion by which the heuristic value deviates from the centre.
+          //
+          // This assumes that the root's score is a very good basis as the initial estimate for this child node and is
+          // certainly better than the heuristic value alone.
+          double rootAverageScore = mRootNode.getAverageScore(i);
+          if (resultInfo.heuristicValue[i] > 50)
+          {
+            resultInfo.heuristicValue[i] = rootAverageScore +
+                                  (100 - rootAverageScore) *
+                                  (resultInfo.heuristicValue[i] - 50) /
+                                  50;
+          }
+          else
+          {
+            resultInfo.heuristicValue[i] = rootAverageScore -
+                                  (rootAverageScore) *
+                                  (50 - resultInfo.heuristicValue[i]) /
+                                  50;
+          }
+        }
       }
     }
     else
     {
-      proportion = 0;
-      resultInfo.treatAsSequenceStep = false;
+      //  If a piece value is 0 thn we risk divide by zero issues, so add EPSILON
+      double ourPieceValue = pieceSets[0].getValue(xiState) + EPSILON;
+      double theirPieceValue = pieceSets[1].getValue(xiState) + EPSILON;
+      double proportion = (ourPieceValue - theirPieceValue) / (ourPieceValue + theirPieceValue);
+      double referenceProportion = 0;
+
+      if ( xiPreviousState != null )
+      {
+        double ourPreviousPieceValue = pieceSets[0].getValue(xiPreviousState) + EPSILON;
+        double theirPreviousPieceValue = pieceSets[1].getValue(xiPreviousState) + EPSILON;
+        double previousProportion = (ourPreviousPieceValue - theirPreviousPieceValue) / (ourPreviousPieceValue + theirPreviousPieceValue);
+
+        resultInfo.treatAsSequenceStep = (Math.abs( proportion - previousProportion ) > MIN_HEURISTIC_DIFF_FOR_SEQUENCE);
+
+        if ( xiReferenceState == xiPreviousState )
+        {
+          referenceProportion = (ourPreviousPieceValue - theirPreviousPieceValue) / (ourPreviousPieceValue + theirPreviousPieceValue);
+        }
+        else
+        {
+          double ourReferencePieceValue = pieceSets[0].getValue(xiReferenceState) + EPSILON;
+          double theirReferencePieceValue = pieceSets[1].getValue(xiReferenceState) + EPSILON;
+
+          referenceProportion = (ourReferencePieceValue - theirReferencePieceValue) / (ourReferencePieceValue + theirReferencePieceValue);
+        }
+      }
+      else
+      {
+        proportion = 0;
+        resultInfo.treatAsSequenceStep = false;
+      }
+
+      double sigmaScaling = (ourPieceValue+theirPieceValue)/4;
+
+      resultInfo.heuristicValue[0] = 100 * sigma(sigmaScaling*(proportion-referenceProportion));
+      resultInfo.heuristicValue[1] = 100 - resultInfo.heuristicValue[0];
     }
-
-    double sigmaScaling = (ourPieceValue+theirPieceValue)/4;
-
-    resultInfo.heuristicValue[0] = 100 * sigma(sigmaScaling*(proportion-referenceProportion));
-    resultInfo.heuristicValue[1] = 100 - resultInfo.heuristicValue[0];
 
     resultInfo.heuristicWeight = heuristicSampleWeight;
   }
@@ -1034,6 +1140,8 @@ public class PieceHeuristic implements Heuristic
     {
       double total = 0;
       double ourPieceValue = 0;
+
+      mRootNode = xiNode;
 
       for (int i = 0; i < numRoles; i++)
       {
@@ -1072,5 +1180,11 @@ public class PieceHeuristic implements Heuristic
   public Heuristic createIndependentInstance()
   {
     return new PieceHeuristic(this);
+  }
+
+  @Override
+  public boolean applyAsSimpleHeuristic()
+  {
+    return mUseSimpleHeuristic;
   }
 }

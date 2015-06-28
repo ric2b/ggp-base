@@ -159,6 +159,12 @@ public interface Heuristic
   public boolean isEnabled();
 
   /**
+   * @return whether to apply using just initial value weights, as opposed to with
+   * ongoing bias applied through update propagation
+   */
+  public boolean applyAsSimpleHeuristic();
+
+  /**
    * @return an instance of the heuristic that can be used independently of existing instances on different game trees
    * (for the same game).
    *

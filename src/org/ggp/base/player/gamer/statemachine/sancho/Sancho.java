@@ -27,7 +27,6 @@ import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.GoalsStabilityHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.MajorityGoalsHeuristic;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.PieceHeuristic;
-import org.ggp.base.player.gamer.statemachine.sancho.heuristic.SimplePieceHeuristic;
 import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
@@ -364,6 +363,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     MajorityGoalsHeuristic goalsPredictionHeuristic = new MajorityGoalsHeuristic();
     GoalsStabilityHeuristic goalsStabilityHeuristic = new GoalsStabilityHeuristic();
+    PieceHeuristic pieceHeuristic = new PieceHeuristic();
 
     if (MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_PIECE_HEURISTIC))
     {
@@ -371,7 +371,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
     else
     {
-      heuristic = new CombinedHeuristic(new SimplePieceHeuristic()/*, goalsPredictionHeuristic, goalsStabilityHeuristic, new AvailableGoalHeuristic() */);
+      heuristic = new CombinedHeuristic(pieceHeuristic, goalsPredictionHeuristic, goalsStabilityHeuristic );//, new AvailableGoalHeuristic() );
     }
 
     boolean hasHeuristicCandidates = heuristic.tuningInitialise(underlyingStateMachine, roleOrdering);
@@ -919,7 +919,13 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       //underlyingStateMachine.setPlayoutPolicy(new PlayoutPolicyLastGoodResponse(underlyingStateMachine));
     }
 
-    boolean useRAVE = (MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_RAVE) && !mGameCharacteristics.isSimultaneousMove && numRoles == 2);
+    heuristic.evaluateSimplicity();
+
+    //  Don't use RAVE with heuristics that use simple application as it will swamp them
+    boolean useRAVE = (MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_RAVE) &&
+                       !mGameCharacteristics.isSimultaneousMove &&
+                       numRoles == 2 &&
+                       (!pieceHeuristic.isEnabled() || !pieceHeuristic.applyAsSimpleHeuristic()));
     double explorationBias = 15 / (averageNumTurns + ((maxNumTurns + minNumTurns) / 2 - averageNumTurns) *
                                               stdDevNumTurns / averageNumTurns) + 0.4;
     if (explorationBias < 0.5)
@@ -931,7 +937,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       explorationBias = 1.2;
     }
 
-    if (heuristic.includes(PieceHeuristic.class))
+    if (pieceHeuristic.isEnabled())
     {
       //	Empirically games with piece count heuristics seem to like lower
       //	exploration bias - not entirely sure why!
@@ -1058,6 +1064,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
     else
     {
+      LOGGER.info("Not using RAVE");
       mGameCharacteristics.setRolloutSampleSize(rolloutSampleSize);
     }
     LOGGER.info("Performed " + simulationsPerformed + " simulations in " + (simulationStopTime - simulationStartTime) + "ms");

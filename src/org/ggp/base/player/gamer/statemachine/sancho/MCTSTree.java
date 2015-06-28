@@ -65,9 +65,9 @@ public class MCTSTree
                          !MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_STATE_SIMILARITY_EXPANSION_WEIGHTING);
 
   /**
-   * Whether to use periodic normalization on node scors
+   * Whether to use periodic normalization on node scores
    */
-  public final boolean                                 USE_NODE_SCORE_NORMALIZATION = MachineSpecificConfiguration.getCfgBool(CfgItem.USE_NODE_SCORE_NORMALIZATION);
+  public final boolean                                 USE_NODE_SCORE_NORMALIZATION;
   /**
    * Whether to use UCB tuned as opposed to simple UCB
    */
@@ -250,6 +250,9 @@ public class MCTSTree
       LOGGER.info("Weight decay disabled");
     }
 
+    USE_NODE_SCORE_NORMALIZATION = !xiGameCharacteristics.isPseudoPuzzle &&
+                                   MachineSpecificConfiguration.getCfgBool(CfgItem.USE_NODE_SCORE_NORMALIZATION) &&
+                                   !xiHeuristic.applyAsSimpleHeuristic();
     if (USE_NODE_SCORE_NORMALIZATION)
     {
       LOGGER.info("Using periodic node score normalization");
@@ -374,7 +377,6 @@ public class MCTSTree
   {
     TreeNode result = ((state != null && !disallowTransposition) ? findTransposition(state) : null);
 
-    assert(state == null || (!state.toString().contains("goal") && !state.toString().contains("terminal")));
     //validateAll();
     //  Use of pseudo-noops in factors can result in recreation of the root state (only)
     //  a lower level with a joint move of (pseudo-noop, noop, noop, ..., noop).  This
@@ -449,7 +451,6 @@ public class MCTSTree
   {
     if (SUPPORT_TRANSITIONS)
     {
-      assert(!xiTreeNode.mState.toString().contains("goal") && !xiTreeNode.mState.toString().contains("terminal"));
       assert(!mPositions.containsKey(xiTreeNode.mState));
       mPositions.put(xiTreeNode.mState, xiTreeNode.getRef());
     }
@@ -480,7 +481,6 @@ public class MCTSTree
   {
     if (SUPPORT_TRANSITIONS)
     {
-      assert(!xiState.toString().contains("goal") && !xiState.toString().contains("terminal"));
       long lRef = mPositions.get(xiState);
 
       if (lRef == TreeNode.NULL_REF)
@@ -959,12 +959,12 @@ public class MCTSTree
 
     while (!cur.isUnexpanded())
     {
-      //  Hyper expand first choice layer for each role
-//      if (cur.getDepth() < mRoot.getDepth()+2*mNumRoles && cur.mNumChildren > 1)
-//      {
-//        setForcedMoveProps(cur.mState, mJointMoveBuffer);
-//        cur.hyperExpand(visited, mJointMoveBuffer, MAX_HYPER_RECURSION_DEPTH);
-//      }
+      //  Hyper expand first choice layer for each role.
+      if ( cur.getDepth() < mRoot.getDepth()+2*mNumRoles && cur.mNumChildren > 1)
+      {
+        setForcedMoveProps(cur.mState, mJointMoveBuffer);
+        cur.hyperExpand(visited, mJointMoveBuffer, MAX_HYPER_RECURSION_DEPTH);
+      }
 
       parentDepth = cur.getDepth();
       selected = cur.select(visited, mJointMoveBuffer, xiChosenMove);
