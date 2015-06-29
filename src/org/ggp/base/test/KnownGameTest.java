@@ -1,9 +1,11 @@
 package org.ggp.base.test;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
+import org.ggp.base.player.gamer.statemachine.sancho.RuntimeGameCharacteristics;
 import org.ggp.base.player.request.factory.RequestFactory;
 import org.ggp.base.player.request.factory.exceptions.RequestFormatException;
 import org.ggp.base.util.game.CloudGameRepository;
@@ -26,6 +28,15 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class KnownGameTest extends Assert
 {
+  private static HashSet<String> SKIP = new HashSet<>();
+  static
+  {
+    SKIP.add("stanford.firesheep");
+    SKIP.add("stanford.kono");
+    SKIP.add("stanford.madness");
+    SKIP.add("stanford.pilgrimage");
+  }
+
   private static HashMap<String, String> AKA = new HashMap<>();
   static
   {
@@ -92,23 +103,9 @@ public class KnownGameTest extends Assert
   @Test
   public void testGameKnown() throws Exception
   {
-    // Extract game information.
-    StateMachine lStateMachine = new ProverStateMachine();
-    lStateMachine.initialize(mGame.getRules());
-    String lRole = lStateMachine.getRoles()[0].toString();
-    String lRules = mGame.getRulesheet();
-    int lStartClock = 60;
-    int lPlayClock = 60;
+    org.junit.Assume.assumeFalse(mName + " is broken", SKIP.contains(mName));
 
-    // Send a start request to a test gamer.  That's enough to trigger game recognition.
-    String lRequest = "(start " +
-                      mID + " " +
-                      lRole + " " +
-                      lRules + " " +
-                      lStartClock + " " +
-                      lPlayClock + " )";
-
-    assertEquals("ready", getResponse(lRequest));
+    sendStartRequest();
 
     // Check that we know about this game - and that it's recorded under the correct name.
     if (AKA.containsKey(mName))
@@ -121,6 +118,12 @@ public class KnownGameTest extends Assert
     {
       assertEquals(mName, mGamer.getGameName());
     }
+
+    // Check that we know the control set.
+    assertNotNull("Control set not learned", mGamer.getCharacteristics().getControlMask());
+
+    // Check that we know the number of factors.
+    assertNotEquals("Factors not learned", 0, mGamer.getCharacteristics().getNumFactors());
   }
 
   /**
@@ -136,6 +139,32 @@ public class KnownGameTest extends Assert
     {
       getResponse("(abort " + mID + ")");
     }
+  }
+
+  /**
+   * Send a start request for the current game to the test gamer.
+   *
+   * @throws RequestFormatException
+   */
+  private void sendStartRequest() throws RequestFormatException
+  {
+    // Extract game information.
+    StateMachine lStateMachine = new ProverStateMachine();
+    lStateMachine.initialize(mGame.getRules());
+    String lRole = lStateMachine.getRoles()[0].toString();
+    String lRules = mGame.getRulesheet();
+    int lStartClock = 60;
+    int lPlayClock = 60;
+
+    // Send a start request to a test gamer.  That's enough to trigger game recognition and characteristic loading.
+    String lRequest = "(start " +
+                      mID + " " +
+                      lRole + " " +
+                      lRules + " " +
+                      lStartClock + " " +
+                      lPlayClock + " )";
+
+    assertEquals("ready", getResponse(lRequest));
   }
 
   /**
@@ -200,6 +229,14 @@ public class KnownGameTest extends Assert
     public String getName()
     {
       return "PuzzleBaseTestGamer";
+    }
+
+    /**
+     * @return the game characteristics.
+     */
+    public RuntimeGameCharacteristics getCharacteristics()
+    {
+      return mGameCharacteristics;
     }
   }
 }
