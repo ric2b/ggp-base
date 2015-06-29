@@ -41,9 +41,21 @@ public class TreeNode
    */
   public enum LocalSearchStatus
   {
+    /**
+     * This node has not been the subject of a local search
+     */
     LOCAL_SEARCH_UNSEARCHED,
+    /**
+     * This node was local searched, but no definitive result was found
+     */
     LOCAL_SEARCH_NO_RESULT,
+    /**
+     * Local search found this node to be a loss (for its chooser)
+     */
     LOCAL_SEARCH_LOSS,
+    /**
+     * Local search found this node to be a win (for its chooser)
+     */
     LOCAL_SEARCH_WIN;
 
     /**
@@ -84,6 +96,9 @@ public class TreeNode
    */
   static final double         EPSILON = 1e-4;
 
+  /**
+   * Decay per-update of averages weights (to make update calculate a moving average)
+   */
   static final double         SCORE_TEMPORAL_DECAY_RATE = 0.99;
 
   /**
