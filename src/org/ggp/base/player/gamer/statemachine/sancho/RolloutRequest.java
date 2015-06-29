@@ -157,9 +157,9 @@ class RolloutRequest
 
     assert(!Double.isNaN(mAverageScores[0]));
 
-    if ( !mIsWin && mSampleSize > 1 )
+    if ( !mIsWin && mWeight != 1 )
     {
-      // Normalize the results for the number of samples.
+      // Normalize the results for the number of samples and their weights.
       for (int roleIndex = 0; roleIndex < lNumRoles; roleIndex++)
       {
         mAverageScores[roleIndex] /= mWeight;
