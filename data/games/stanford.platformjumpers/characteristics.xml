@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+  <entry key="num_roles">2</entry>
+  <entry key="simultaneous">false</entry>
+  <entry key="pseudo_simultaneous">false</entry>
+  <entry key="iterated">false</entry>
+  <entry key="max_factor_failure_time">0</entry>
+  <entry key="num_factors">1</entry>
+  <entry key="moves_in_multiple_factors">false</entry>
+  <entry key="max_branching_factor">23</entry>
+  <entry key="fixed_length">false</entry>
+  <entry key="control_mask">( ( true ( cell blue 5 5 ) ), ( true ( control red ) ), ( true ( cell blue 10 5 ) ), ( true ( cell blue 8 5 ) ), ( true ( cell red 9 6 ) ), ( true ( cell red 4 6 ) ), ( true ( cell blue 1 5 ) ), ( true ( cell blue 7 5 ) ), ( true ( cell red 7 6 ) ), ( true ( cell red 5 6 ) ), ( true ( cell red 10 6 ) ), ( true ( cell red 1 6 ) ), ( true ( cell red 3 6 ) ), ( true ( cell red 2 6 ) ), ( true ( cell blue 4 5 ) ), ( true ( control blue ) ), ( true ( cell blue 6 5 ) ), ( true ( cell blue 9 5 ) ), ( true ( cell red 6 6 ) ), ( true ( cell blue 2 5 ) ), ( true ( cell blue 3 5 ) ), ( true ( cell red 8 6 ) ) )</entry>
+  <entry key="factors"></entry>
+</properties>

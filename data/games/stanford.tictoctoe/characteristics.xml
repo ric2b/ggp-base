@@ -8,8 +8,8 @@
   <entry key="max_factor_failure_time">0</entry>
   <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
-  <entry key="max_branching_factor">40</entry>
+  <entry key="max_branching_factor">9</entry>
   <entry key="fixed_length">false</entry>
-  <entry key="control_mask">( ( true ( control white ) ), ( true ( control black ) ) )</entry>
+  <entry key="control_mask">( ( true ( step 2 ) ), ( true ( control black ) ), ( true ( step 6 ) ), ( true ( step 7 ) ), ( true ( step 3 ) ), ( true ( step 9 ) ), ( true ( step 5 ) ), ( true ( step 8 ) ), ( true ( control white ) ), ( true ( step 4 ) ), ( true ( step 1 ) ) )</entry>
   <entry key="factors"></entry>
 </properties>
