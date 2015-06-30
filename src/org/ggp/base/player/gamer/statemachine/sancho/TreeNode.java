@@ -690,7 +690,11 @@ public class TreeNode
         if (decidingRoleWin && !mutualWin)
         {
           // Win for whoever just moved after they got to choose so parent node is also decided
-          parent.markComplete(this, mCompletionDepth);
+          // Note that this node might be transposed to from parents at differing depths, so mark
+          // the parent complete at a depth relative to its own
+          short parentCompletionDepth = (short)(mCompletionDepth-mDepth+1+parent.mDepth);
+
+          parent.markComplete(this, parentCompletionDepth);
         }
         else
         {
@@ -1260,7 +1264,7 @@ public class TreeNode
 
     boolean lAllImmediateChildrenComplete = true;
 
-    short lDeterminingChildCompletionDepth = Short.MAX_VALUE;
+    short lDeterminingChildRelativeCompletionDepth = Short.MAX_VALUE;
 
     double lBestValue = -1000;
     TreeNode lBestValueNode = null;
@@ -1357,9 +1361,9 @@ public class TreeNode
                       //
                       // When setting the completion depth, assume that the deciding player will take the shortest path
                       // amongst all forced wins.  (This is corrected later for simultaneous move games.)
-                      if (lDeterminingChildCompletionDepth > lNode.getCompletionDepth())
+                      if (lDeterminingChildRelativeCompletionDepth > (lNode.getCompletionDepth() - lNode.getDepth()))
                       {
-                        lDeterminingChildCompletionDepth = lNode.getCompletionDepth();
+                        lDeterminingChildRelativeCompletionDepth = (short)(lNode.getCompletionDepth() - lNode.getDepth());
                       }
                       lMutualWin = false;
                       break;
@@ -1437,7 +1441,7 @@ public class TreeNode
               {
                 //	Find the highest supported floor score for any of the moves equivalent to this one
                 TreeNode lWorstCousinValueNode = null;
-                short lFloorCompletionDepth = Short.MAX_VALUE;
+                short lFloorRelativeCompletionDepth = Short.MAX_VALUE;
 
                 for (short siblingIndex = 0; siblingIndex < mNumChildren; siblingIndex++)
                 {
@@ -1456,9 +1460,9 @@ public class TreeNode
                           lWorstCousinValueNode.getAverageScore(lRoleIndex) < moveFloorNode.getAverageScore(lRoleIndex))
                       {
                         lWorstCousinValueNode = moveFloorNode;
-                        if (lFloorCompletionDepth > lNode.getCompletionDepth())
+                        if (lFloorRelativeCompletionDepth > lNode.getCompletionDepth() - lNode.getDepth())
                         {
-                          lFloorCompletionDepth = lNode.getCompletionDepth();
+                          lFloorRelativeCompletionDepth = (short)(lNode.getCompletionDepth() - lNode.getDepth());
                         }
                       }
                     }
@@ -1470,7 +1474,7 @@ public class TreeNode
                      lFloorDeciderNode.getAverageScore(lRoleIndex) < lWorstCousinValueNode.getAverageScore(lRoleIndex)))
                 {
                   lFloorDeciderNode = lWorstCousinValueNode;
-                  lDeterminingChildCompletionDepth = lFloorCompletionDepth;
+                  lDeterminingChildRelativeCompletionDepth = lFloorRelativeCompletionDepth;
                 }
               }
             }
@@ -1547,7 +1551,7 @@ public class TreeNode
 
     if (lAllImmediateChildrenComplete || (lDecidingRoleWin && !inhibitDecidingWinPropagation))
     {
-      if ((lDeterminingChildCompletionDepth == Short.MAX_VALUE) ||
+      if ((lDeterminingChildRelativeCompletionDepth == Short.MAX_VALUE) ||
           (mTree.mGameCharacteristics.isSimultaneousMove))
       {
         // If there was no winning choice but everything is complete then the depth is the maximum of the non-winning
@@ -1559,7 +1563,7 @@ public class TreeNode
         // need to select the longest completion depth as our completion depth (rather than the shortest completion
         // depth selected above) because we have to assume that the opponent(s) will play for the longest path.
 
-        lDeterminingChildCompletionDepth = 0;
+        lDeterminingChildRelativeCompletionDepth = 0;
 
         for (short lIndex = 0; lIndex < mNumChildren; lIndex++)
         {
@@ -1577,9 +1581,9 @@ public class TreeNode
               if (lEdge.getChildRef() != NULL_REF && get(lEdge.getChildRef()) != null)
               {
                 TreeNode lNode = get(lEdge.getChildRef());
-                if (lDeterminingChildCompletionDepth < lNode.getCompletionDepth())
+                if (lDeterminingChildRelativeCompletionDepth < lNode.getCompletionDepth() - lNode.getDepth())
                 {
-                  lDeterminingChildCompletionDepth = lNode.getCompletionDepth();
+                  lDeterminingChildRelativeCompletionDepth = (short)(lNode.getCompletionDepth() - lNode.getDepth());
                 }
               }
             }
@@ -1665,7 +1669,7 @@ public class TreeNode
             mTree.mBlendedCompletionScoreBuffer[lii] = lBestValueNode.getAverageScore(lii);
           }
         }
-        markComplete(mTree.mBlendedCompletionScoreBuffer, lDeterminingChildCompletionDepth);
+        markComplete(mTree.mBlendedCompletionScoreBuffer, (short)(lDeterminingChildRelativeCompletionDepth + mDepth));
       }
       else if (lMultipleBestChoices)
       {
@@ -1716,11 +1720,11 @@ public class TreeNode
           mTree.mBlendedCompletionScoreBuffer[lii] /= totalWeight;
         }
 
-        markComplete(mTree.mBlendedCompletionScoreBuffer, lDeterminingChildCompletionDepth);
+        markComplete(mTree.mBlendedCompletionScoreBuffer, (short)(lDeterminingChildRelativeCompletionDepth + mDepth));
       }
       else
       {
-        markComplete(lBestValueNode, lDeterminingChildCompletionDepth);
+        markComplete(lBestValueNode, (short)(lDeterminingChildRelativeCompletionDepth + mDepth));
       }
 
       if (lSiblingCheckNeeded)
