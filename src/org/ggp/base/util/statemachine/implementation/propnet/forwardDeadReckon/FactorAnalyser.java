@@ -456,7 +456,7 @@ public class FactorAnalyser
 
     // Factor analysis is complete.
     xiFactorInfo.mFactorsCalculated = true;
-    if (lFactors.size() > 1)
+    if (lFactors.size() > 1 && lFactors.size() <= MAX_FACTORS)
     {
       xiFactorInfo.mFactors = lFactors;
     }
