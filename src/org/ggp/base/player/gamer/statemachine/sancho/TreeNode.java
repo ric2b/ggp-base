@@ -181,9 +181,7 @@ public class TreeNode
   boolean                               mComplete             = false;
   private boolean                       mAllChildrenComplete  = false;
   LocalSearchStatus                     mLocalSearchStatus    = LocalSearchStatus.LOCAL_SEARCH_UNSEARCHED;
-  Object[]                              mChildren             = null;
   short                                 mNumChildren          = 0;
-  short[]                               mPrimaryChoiceMapping = null;
   final ArrayList<TreeNode>             mParents              = new ArrayList<>(1);
   private int                           mSweepSeq;
   boolean                               mFreed                = false;
@@ -203,6 +201,15 @@ public class TreeNode
 
   //  To what depth is the hyper-linkage tree expanded from this node
   private short                         mHyperExpansionDepth  = 0;
+
+  /**
+   * WARNING: The following arrays are created for every node and are sized per max. branching factor.  Every byte here
+   *          costs ~100MB (depending on the game).  It is absolutely vital that this is kept below 20 bytes.
+   */
+  // Children.  Before expansion, a ForwardDeadReckonLegalMoveInfo.  After expansion, a TreeEdge.
+  Object[]                              mChildren   = null;
+
+  short[]                               mPrimaryChoiceMapping = null;
 
   //  RAVE stats belong logically in EDGEs, but we need to maintain them for leaf nodes
   //  where it is undesirable to have to create EDGEs until they are expanded.  Consequently
