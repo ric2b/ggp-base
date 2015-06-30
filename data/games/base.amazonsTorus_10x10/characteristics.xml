@@ -8,8 +8,8 @@
   <entry key="max_factor_failure_time">0</entry>
   <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
-  <entry key="max_branching_factor">36</entry>
+  <entry key="max_branching_factor">130</entry>
   <entry key="fixed_length">false</entry>
-  <entry key="control_mask">( ( true ( control white ) ), ( true ( control black ) ) )</entry>
+  <entry key="control_mask">( ( true ( turn black fire ) ), ( true ( turn black move ) ), ( true ( turn white move ) ), ( true ( turn white fire ) ) )</entry>
   <entry key="factors"></entry>
 </properties>
