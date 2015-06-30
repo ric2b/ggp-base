@@ -87,7 +87,7 @@ public class MCTSTree
   final int                                            mWeightDecayKneeDepth;
   final double                                         mWeightDecayScaleFactor;
   final int                                            mWeightDecayCutoffDepth;
-  final CappedPool<TreeNode>                           mNodePool;
+  final Pool<TreeNode>                                 mNodePool;
   final ScoreVectorPool                                mScoreVectorPool;
   final Pool<TreeEdge>                                 mEdgePool;
   final Pool<TreePath>                                 mPathPool;
@@ -163,7 +163,7 @@ public class MCTSTree
 
   public MCTSTree(ForwardDeadReckonPropnetStateMachine xiStateMachine,
                   Factor xiFactor,
-                  CappedPool<TreeNode> xiNodePool,
+                  Pool<TreeNode> xiNodePool,
                   ScoreVectorPool xiScorePool,
                   Pool<TreeEdge> xiEdgePool,
                   Pool<TreePath> xiPathPool,
@@ -873,6 +873,7 @@ public class MCTSTree
       }
     }
 
+/*
     for (Object lNodeAsObject : mNodePool.getItemTable())
     {
       TreeNode lNode = (TreeNode)lNodeAsObject;
@@ -889,6 +890,7 @@ public class MCTSTree
         }
       }
     }
+*/
   }
 
   /**

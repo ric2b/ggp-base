@@ -73,7 +73,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   private volatile boolean                requestYield        = false;
   private MCTSTree[]                      factorTrees;
   private GamePlan                        mPlan               = null;
-  private final CappedPool<TreeNode>      mNodePool;
+  private final Pool<TreeNode>            mNodePool;
   private final Pool<TreeEdge>            mEdgePool;
   private final UncappedPool<TreePath>    mPathPool;
   private final ScoreVectorPool           mScoreVectorPool;
@@ -176,6 +176,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
    */
   public GameSearcher(int nodeTableSize, int numRoles, String xiLogName)
   {
+    // mNodePool = new UnsafePool<>(TreeNode.class, nodeTableSize);
     mNodePool = new CappedPool<>(nodeTableSize);
     mEdgePool = new UncappedPool<>(nodeTableSize * 2);
     mPathPool = new UncappedPool<>(PIPELINE_SIZE * 2);
@@ -279,7 +280,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       }
     }
 
-    mNodePool.setNonFreeThreshold(factorTrees.length*MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
+    mNodePool.setNonFreeThreshold(factorTrees.length * MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
 
     if (MachineSpecificConfiguration.getCfgBool(CfgItem.USE_LOCAL_SEARCH))
     {
@@ -1138,7 +1139,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                              lRequest.mEnqueue2Time - lRequest.mRolloutStartTime,
                              lBackPropTime);
 
-      mPathPool.free(lRequest.mPath);
+      mPathPool.free(lRequest.mPath, 0);
       lRequest.mPath = null;
       mPipeline.completedBackPropagation();
       xiNeedToDoOne = false;

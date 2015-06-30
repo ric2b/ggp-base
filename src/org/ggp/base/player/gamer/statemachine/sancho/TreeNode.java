@@ -14,7 +14,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.OpenBitSet;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathElement;
-import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
+import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool;
 import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool.ObjectAllocator;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.logging.GamerLogger;
@@ -2009,7 +2009,7 @@ public class TreeNode
 
     // LOGGER.debug("    Freeing (" + ourIndex + "): " + state);
     mFreed = true;
-    mTree.mNodePool.free(this);
+    mTree.mNodePool.free(this, mInstanceID);
     mRef += 0x100000000L;
   }
 
@@ -2079,7 +2079,7 @@ public class TreeNode
     //  be referenced by a hyper-path, which will check validity via the refs
     lEdge.reset();
     // Return the edge to the pool.
-    mTree.mEdgePool.free(lEdge);
+    mTree.mEdgePool.free(lEdge, 0);
   }
 
   private void deleteHyperEdge(int xiChildIndex)
@@ -3034,7 +3034,7 @@ public class TreeNode
               parent.mPrimaryChoiceMapping[thisIndex] = otherPathIndex;
 
               edge.reset();
-              mTree.mEdgePool.free(edge);
+              mTree.mEdgePool.free(edge, 0);
               edge = (TreeEdge)parent.mChildren[otherPathIndex];
 
               //  The old edge will have been selected through (else we wouldn't be expanding it)
@@ -5699,7 +5699,7 @@ public class TreeNode
                                        1,
                                        null);
       mTree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, 0, lBackPropTime);
-      mTree.mPathPool.free(path);
+      mTree.mPathPool.free(path, 0);
 
       return;
     }
@@ -5726,7 +5726,7 @@ public class TreeNode
         //  ancestor has).  In such cases abort the rollout.
         if (path.isFreed())
         {
-          mTree.mPathPool.free(path);
+          mTree.mPathPool.free(path, 0);
           return;
         }
       }
@@ -5772,7 +5772,7 @@ public class TreeNode
       long lBackPropTime = mTree.mGameSearcher.processCompletedRollout(lRequest);
 
       mTree.mGameSearcher.recordIterationTimings(xiSelectTime, xiExpandTime, 0, lRolloutTime, lBackPropTime);
-      mTree.mPathPool.free(lRequest.mPath);
+      mTree.mPathPool.free(lRequest.mPath, 0);
       lRequest.mPath = null;
     }
   }
@@ -5995,7 +5995,7 @@ public class TreeNode
    *
    * @return the node, or null if it has been recycled.
    */
-  public static TreeNode get(CappedPool<TreeNode> xiPool, long xiNodeRef)
+  public static TreeNode get(Pool<TreeNode> xiPool, long xiNodeRef)
   {
     assert(xiNodeRef != NULL_REF);
 

@@ -1,6 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.sancho.pool;
 
-
 /**
  * A pool with a fixed maximum size.
  *
@@ -19,8 +18,7 @@ public class CappedPool<ItemType> implements Pool<ItemType>
   // The pool of items.
   private final ItemType[]                             mItems;
 
-  //  Items that are available for re-use.  This is a circular buffer
-  //  so that it has a LIFO access pattern
+  // Items that are available for re-use.  This is a circular buffer so that it has a LIFO access pattern.
   private final ItemType[]                             mFreeItems;
   private int                                          mNumFreeItems;
   private int                                          mFirstFreeitem;
@@ -47,18 +45,15 @@ public class CappedPool<ItemType> implements Pool<ItemType>
     mItems     = (ItemType[])(new Object[xiPoolSize]);
     mFreeItems = (ItemType[])(new Object[xiPoolSize]);
 
-    mFreeThresholdForNonFull = xiPoolSize/100;  //  Default to 1% free
+    mFreeThresholdForNonFull = xiPoolSize / 100;  // Default to 1% free
   }
 
-  /**
-   * Set a minimum free node requirement to report non-full
-   * @param threshold
-   */
-  public void setNonFreeThreshold(int threshold)
+  @Override
+  public void setNonFreeThreshold(int xiThreshold)
   {
-    if ( mFreeThresholdForNonFull < threshold )
+    if (mFreeThresholdForNonFull < xiThreshold)
     {
-      mFreeThresholdForNonFull = threshold;
+      mFreeThresholdForNonFull = xiThreshold;
     }
   }
 
@@ -72,17 +67,13 @@ public class CappedPool<ItemType> implements Pool<ItemType>
     return mItems;
   }
 
-  /**
-   * @return the capacity of the pool.
-   */
+  @Override
   public int getCapacity()
   {
     return mPoolSize;
   }
 
-  /**
-   * @return the number of items currently in active use.
-   */
+  @Override
   public int getNumItemsInUse()
   {
     return mNumItemsInUse;
@@ -103,7 +94,7 @@ public class CappedPool<ItemType> implements Pool<ItemType>
     // (c) makes GC slower because there's a bigger heap to inspect.
     if (mNumFreeItems != 0)
     {
-      lAllocatedItem = mFreeItems[(mFirstFreeitem + --mNumFreeItems)%mPoolSize];
+      lAllocatedItem = mFreeItems[(mFirstFreeitem + --mNumFreeItems) % mPoolSize];
 
       // Reset the item so that it's ready for re-use.
       xiAllocator.resetObject(lAllocatedItem, false);
@@ -121,24 +112,18 @@ public class CappedPool<ItemType> implements Pool<ItemType>
     return lAllocatedItem;
   }
 
-  /**
-   * Get an item that has already been allocated.
-   *
-   * @param xiIndex - the index of the item.
-   *
-   * @return the item.
-   */
+  @Override
   public ItemType get(int xiIndex)
   {
     return mItems[xiIndex];
   }
 
   @Override
-  public void free(ItemType xiItem)
+  public void free(ItemType xiItem, int xiIndex)
   {
     assert(mNumItemsInUse > 0);
     mNumItemsInUse--;
-    mFreeItems[(mFirstFreeitem + mNumFreeItems++)%mPoolSize] = xiItem;
+    mFreeItems[(mFirstFreeitem + mNumFreeItems++) % mPoolSize] = xiItem;
   }
 
   @Override
@@ -177,7 +162,7 @@ public class CappedPool<ItemType> implements Pool<ItemType>
         if (xiAllocator.shouldReset(mItems[i]))
         {
           xiAllocator.resetObject(mItems[i], true);
-          mFreeItems[(mFirstFreeitem+mNumFreeItems++)%mPoolSize] = mItems[i];
+          mFreeItems[(mFirstFreeitem + mNumFreeItems++) % mPoolSize] = mItems[i];
           mNumItemsInUse--;
         }
       }

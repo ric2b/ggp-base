@@ -60,7 +60,7 @@ public class UncappedPool<ItemType> implements Pool<ItemType>
   }
 
   @Override
-  public void free(ItemType xiItem)
+  public void free(ItemType xiItem, int xiIndex)
   {
     mNumItemsInUse--;
     if (mNumFreeItems < mMaxFreeItems)
@@ -92,5 +92,33 @@ public class UncappedPool<ItemType> implements Pool<ItemType>
   {
     // This pool doesn't keep references to the items it has allocated, so it can't free them all.
     assert(false) : "Don't call clear() on UncappedPool";
+  }
+
+  @Override
+  public ItemType get(int xiIndex)
+  {
+    throw new RuntimeException("get(int) not supported by UncappedPool");
+  }
+
+  /**
+   * @return the current capacity of the pool (in-use items + free items).  This is an uncapped pool, so the pool will
+   * be increased as required.
+   */
+  @Override
+  public int getCapacity()
+  {
+    return 0;
+  }
+
+  @Override
+  public int getNumItemsInUse()
+  {
+    return mNumItemsInUse;
+  }
+
+  @Override
+  public void setNonFreeThreshold(int xiThreshold)
+  {
+    // Nothing to do.
   }
 }

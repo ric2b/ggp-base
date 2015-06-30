@@ -1,6 +1,6 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
+import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
@@ -76,10 +76,10 @@ public class StateSimilarityMap
   private final double[] moveWeightBuffer = new double[maxMovesConsidered];
   private final double[] topValues = new double[maxMovesConsidered];
   private final double[] topWeights = new double[maxMovesConsidered];
-  private final CappedPool<TreeNode> mNodePool;
+  private final Pool<TreeNode> mNodePool;
   private int numMovesBuffered;
 
-  public StateSimilarityMap(ForwardDeadReckonPropNet propNet, CappedPool<TreeNode> xiNodePool)
+  public StateSimilarityMap(ForwardDeadReckonPropNet propNet, Pool<TreeNode> xiNodePool)
   {
     hashGenerator = new StateSimilarityHashGenerator(propNet);
     buckets = new StateSimilarityBucket[1<<StateSimilarityHashGenerator.hashSize];
