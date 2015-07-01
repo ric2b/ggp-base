@@ -1670,7 +1670,7 @@ public class TreeNode
             mTree.mBlendedCompletionScoreBuffer[lii] = lBestValueNode.getAverageScore(lii);
           }
         }
-        markComplete(mTree.mBlendedCompletionScoreBuffer, (short)(lDeterminingChildRelativeCompletionDepth + mDepth));
+        markComplete(mTree.mBlendedCompletionScoreBuffer, (short)(lDeterminingChildRelativeCompletionDepth + mDepth + 1));
       }
       else if (lMultipleBestChoices)
       {
@@ -1721,11 +1721,11 @@ public class TreeNode
           mTree.mBlendedCompletionScoreBuffer[lii] /= totalWeight;
         }
 
-        markComplete(mTree.mBlendedCompletionScoreBuffer, (short)(lDeterminingChildRelativeCompletionDepth + mDepth));
+        markComplete(mTree.mBlendedCompletionScoreBuffer, (short)(lDeterminingChildRelativeCompletionDepth + mDepth + 1));
       }
       else
       {
-        markComplete(lBestValueNode, (short)(lDeterminingChildRelativeCompletionDepth + mDepth));
+        markComplete(lBestValueNode, (short)(lDeterminingChildRelativeCompletionDepth + mDepth + 1));
       }
 
       if (lSiblingCheckNeeded)
