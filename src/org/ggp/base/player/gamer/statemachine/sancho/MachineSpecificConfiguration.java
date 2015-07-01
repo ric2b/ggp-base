@@ -128,7 +128,7 @@ public class MachineSpecificConfiguration
     /**
      * The tlk.io channel to log to.
      */
-    TLKIO_CHANNEL("sancho"),
+    TLKIO_CHANNEL("sanchoggp"),
 
     /**
      * Full path of file to dump tree to after each move
