@@ -76,6 +76,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   private final Pool<TreeNode>            mNodePool;
   private final Pool<TreeEdge>            mEdgePool;
   private final UncappedPool<TreePath>    mPathPool;
+  private final Pool<RAVEStats>           mRAVEStatsPool;
   private final ScoreVectorPool           mScoreVectorPool;
   private RolloutProcessorPool            rolloutPool         = null;
   private double                          minExplorationBias  = 0.5;
@@ -180,6 +181,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     mNodePool = new CappedPool<>(nodeTableSize);
     mEdgePool = new UncappedPool<>(nodeTableSize * 2);
     mPathPool = new UncappedPool<>(PIPELINE_SIZE * 2);
+    mRAVEStatsPool = new UncappedPool<>(nodeTableSize);
     mScoreVectorPool = new ScoreVectorPool(nodeTableSize, numRoles);
     mLogName = xiLogName;
   }
@@ -251,6 +253,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                                                  mScoreVectorPool,
                                                  mEdgePool,
                                                  mPathPool,
+                                                 mRAVEStatsPool,
                                                  roleOrdering,
                                                  rolloutPool,
                                                  gameCharacteristics,
@@ -270,6 +273,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                                           mScoreVectorPool,
                                           mEdgePool,
                                           mPathPool,
+                                          mRAVEStatsPool,
                                           roleOrdering,
                                           rolloutPool,
                                           gameCharacteristics,

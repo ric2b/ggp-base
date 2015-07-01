@@ -113,6 +113,8 @@ public class TreeNode
    */
   public static final long NULL_REF = -1L;
 
+  private static final double RAVE_BIAS = 0.05;
+
   /**
    * Utility class for allocating tree nodes from a CappedPool.
    */
@@ -215,8 +217,7 @@ public class TreeNode
   //  where it is undesirable to have to create EDGEs until they are expanded.  Consequently
   //  we store the RAVE stats in their own arrays directly in the parent node using the same
   //  child indexes as the corresponding edge
-  private int[]                         mRAVECounts = null;
-  private float[]                       mRAVEScores = null;
+  private RAVEStats                     mRAVEStats = null;
 
   /**
    * Create a tree node.
@@ -231,13 +232,8 @@ public class TreeNode
     mInstanceID = xiPoolIndex;
     mState = mTree.mUnderlyingStateMachine.createEmptyInternalState();
 
-    int directChildHighWatermark = mTree.mGameCharacteristics.getChoicesHighWaterMark(0);
-    mChildren = new Object[directChildHighWatermark];
-    if (mTree.mGameSearcher.mUseRAVE)
-    {
-      mRAVECounts = new int[directChildHighWatermark];
-      mRAVEScores = new float[directChildHighWatermark];
-    }
+    int lMaxDirectChildren = mTree.mGameCharacteristics.getChoicesHighWaterMark(0);
+    mChildren = new Object[lMaxDirectChildren];
   }
 
   /**
@@ -715,10 +711,6 @@ public class TreeNode
     for (int lii = 0; lii < mNumChildren; lii++)
     {
       mChildren[lii] = null;
-      if (mTree.mGameSearcher.mUseRAVE)
-      {
-        mRAVECounts[lii] = 0;
-      }
     }
     mNumChildren = 0;
 
@@ -727,14 +719,23 @@ public class TreeNode
       //  If the child array was above a certain threshold (due to having been used for a large number
       //  of hyper-edges, which will not be a dominant case) reduce the allocation back to the high
       //  watermark for direct children
-      int directChildHighWatermark = mTree.mGameCharacteristics.getChoicesHighWaterMark(0);
-      if (mChildren.length > directChildHighWatermark * 2)
+      int lMaxDirectChildren = mTree.mGameCharacteristics.getChoicesHighWaterMark(0);
+      if (mChildren.length > lMaxDirectChildren * 2)
       {
-        mChildren = new Object[directChildHighWatermark];
-        if (mTree.mGameSearcher.mUseRAVE)
+        mChildren = new Object[lMaxDirectChildren];
+      }
+
+      // Dispose of RAVE results.  If there are as many as the high-water mark, free them back to the pool.  Otherwise,
+      // just null out the because they aren't useful any longer.
+      if (mRAVEStats != null)
+      {
+        if ((mRAVEStats.mCounts.length >= lMaxDirectChildren) && (mRAVEStats.mCounts.length < lMaxDirectChildren * 2))
         {
-          mRAVECounts = new int[directChildHighWatermark];
-          mRAVEScores = new float[directChildHighWatermark];
+          mTree.mRAVEStatsPool.free(mRAVEStats, 0);
+        }
+        else
+        {
+          mRAVEStats = null;
         }
       }
     }
@@ -2582,33 +2583,45 @@ public class TreeNode
     return result;
   }
 
+  /**
+   * Expand the number of children.
+   *
+   * Normally, the number of children is known at node creation time.  But, in the presence of hyper-edges, we need to
+   * expand the child arrays to account for the hyper-children.
+   */
   private void expandChildCapacity()
   {
-    Object[] newChildren = new Object[mNumChildren*2];
+    Object[] newChildren = new Object[mNumChildren * 2];
 
     System.arraycopy(mChildren, 0, newChildren, 0, mNumChildren);
 
     mChildren = newChildren;
 
-    if ( mPrimaryChoiceMapping != null )
+    if (mPrimaryChoiceMapping != null)
     {
-      short[] newPrimaryChoiceMapping = new short[mNumChildren*2];
+      short[] newPrimaryChoiceMapping = new short[mNumChildren * 2];
 
       System.arraycopy(mPrimaryChoiceMapping, 0, newPrimaryChoiceMapping, 0, mNumChildren);
 
       mPrimaryChoiceMapping = newPrimaryChoiceMapping;
     }
 
-    if ( mTree.mGameSearcher.mUseRAVE )
+    if (mTree.mGameSearcher.mUseRAVE)
     {
-      int[] newRAVECounts = new int[mNumChildren * 2];
-      float[] newRAVEScores = new float[mNumChildren * 2];
+      RAVEStats lNewRAVEStats = new RAVEStats(mNumChildren * 2);
 
-      System.arraycopy(mRAVECounts, 0, newRAVECounts, 0, mNumChildren);
-      System.arraycopy(mRAVEScores, 0, newRAVEScores, 0, mNumChildren);
+      System.arraycopy(mRAVEStats.mCounts, 0, lNewRAVEStats.mCounts, 0, mNumChildren);
+      System.arraycopy(mRAVEStats.mScores, 0, lNewRAVEStats.mScores, 0, mNumChildren);
 
-      mRAVECounts = newRAVECounts;
-      mRAVEScores = newRAVEScores;
+      // Free the old RAVE stats back to the pool - provided that the arrays are a useful size.
+      int lMaxDirectChildren = mTree.mGameCharacteristics.getChoicesHighWaterMark(0);
+      if ((mRAVEStats.mCounts.length >= lMaxDirectChildren) && (mRAVEStats.mCounts.length < lMaxDirectChildren * 2))
+      {
+        mTree.mRAVEStatsPool.free(mRAVEStats, 0);
+      }
+
+      // Use the freshly allocated versions.
+      mRAVEStats = lNewRAVEStats;
     }
   }
 
@@ -3222,16 +3235,10 @@ public class TreeNode
       assert(mNumChildren <= MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR);
       if (mNumChildren > mChildren.length)
       {
-        int maxChildrenToAllocateFor = mTree.mGameCharacteristics.getChoicesHighWaterMark(mNumChildren);
-
-        mChildren = new Object[maxChildrenToAllocateFor];
-        if ( mTree.mGameSearcher.mUseRAVE )
-        {
-          mRAVECounts = new int[maxChildrenToAllocateFor];
-          mRAVEScores = new float[maxChildrenToAllocateFor];
-        }
-
-        assert ( mPrimaryChoiceMapping == null );
+        int lMaxDirectChildren = mTree.mGameCharacteristics.getChoicesHighWaterMark(mNumChildren);
+        mChildren = new Object[lMaxDirectChildren];
+        attachRaveStats();
+        assert(mPrimaryChoiceMapping == null);
       }
 
       if (MCTSTree.USE_STATE_SIMILARITY_IN_EXPANSION)
@@ -3946,6 +3953,29 @@ public class TreeNode
     return this;
   }
 
+  /**
+   * Attach RAVE stats to this node.
+   *
+   * @param xiRequiredSize - the number of slots required.
+   */
+  private void attachRaveStats()
+  {
+    assert(mRAVEStats == null) : "RAVE stats already attached";
+    assert(mTree != null) : "Can't attach RAVE stats without a tree";
+
+    // Request RAVE counts from the pool.
+    mRAVEStats = mTree.mRAVEStatsPool.allocate(mTree.mRAVEStatsAllocator); // !! Need an allocator.
+
+    int lMaxDirectChildren = mTree.mGameCharacteristics.getChoicesHighWaterMark(mNumChildren);
+    if (mRAVEStats.mCounts.length < lMaxDirectChildren)
+    {
+      // The pooled object wasn't big enough.  It won't be big enough for anybody else, so discard it and allocate a new
+      // array.  We don't want to take the hit of trying to drain the whole pool all at once, so just allocate directly.
+      // (We're still allowed to free back to the pool.)
+      mRAVEStats = new RAVEStats(lMaxDirectChildren);
+    }
+  }
+
   private void validateScoreVector(double[] scores)
   {
     double total = 0;
@@ -4451,11 +4481,13 @@ public class TreeNode
 
   private double getRAVESelectionValue(int edgeIndex)
   {
-    return getRAVEExplorationValue((TreeEdge)mChildren[edgeIndex]) + mRAVEScores[edgeIndex]/100;
-  }
+    if (mRAVEStats == null)
+    {
+      return 0.5;
+    }
 
-  //  Rave bias
-  private static final double b = 0.05;
+    return getRAVEExplorationValue((TreeEdge)mChildren[edgeIndex]) + mRAVEStats.mScores[edgeIndex] / 100;
+  }
 
   private double getSelectionValue(int edgeIndex, TreeNode c, int roleIndex)
   {
@@ -4463,13 +4495,14 @@ public class TreeNode
     double UCTValue = getUCTSelectionValue(edge, c, roleIndex);
     double result;
 
-    if ( mTree.mGameSearcher.mUseRAVE && !c.mComplete )
+    if (mTree.mGameSearcher.mUseRAVE && !c.mComplete)
     {
-      double RAVEValue = getRAVESelectionValue(edgeIndex);
-      int RAVECount = mRAVECounts[edgeIndex];
-      double RAVEWeight = (RAVECount)/(RAVECount + edge.getNumChildVisits() + b*edge.getNumChildVisits()*RAVECount + 1);
+      double lRAVEValue = getRAVESelectionValue(edgeIndex);
+      int lRAVECount = (mRAVEStats == null) ? 0 : mRAVEStats.mCounts[edgeIndex];
+      double lRAVEWeight = (lRAVECount) /
+                          (lRAVECount + edge.getNumChildVisits() + RAVE_BIAS * edge.getNumChildVisits() * lRAVECount + 1);
 
-      result = (1-RAVEWeight)*UCTValue + RAVEWeight*RAVEValue;
+      result = (1 - lRAVEWeight) * UCTValue + lRAVEWeight * lRAVEValue;
     }
     else
     {
@@ -4498,24 +4531,25 @@ public class TreeNode
 
   private double effectiveExploitationScore(int edgeIndex, int roleIndex)
   {
-    double result;
+    double lResult;
     TreeEdge edge = (TreeEdge)mChildren[edgeIndex];
     TreeNode c = get(edge.getChildRef());
 
-    if ( mTree.mGameSearcher.mUseRAVE && !c.mComplete )
+    if (mTree.mGameSearcher.mUseRAVE && !c.mComplete)
     {
-      double RAVEValue = mRAVEScores[edgeIndex]/100;
-      int RAVECount = mRAVECounts[edgeIndex];
-      double RAVEWeight = (RAVECount)/(RAVECount + edge.getNumChildVisits() + b*edge.getNumChildVisits()*RAVECount + 1);
+      double lRAVEValue = mRAVEStats.mScores[edgeIndex] / 100;
+      int lRAVECount = mRAVEStats.mCounts[edgeIndex];
+      double lRAVEWeight = (lRAVECount) /
+                           (lRAVECount + edge.getNumChildVisits() + RAVE_BIAS * edge.getNumChildVisits() * lRAVECount + 1);
 
-      result = (1-RAVEWeight)*c.getAverageScore(roleIndex)/100 + RAVEWeight*RAVEValue;
+      lResult = (1 - lRAVEWeight) * c.getAverageScore(roleIndex) / 100 + lRAVEWeight * lRAVEValue;
     }
     else
     {
-      result = c.getAverageScore(roleIndex)/100;
+      lResult = c.getAverageScore(roleIndex) / 100;
     }
 
-    return result;
+    return lResult;
   }
 
   /**
@@ -5039,7 +5073,7 @@ public class TreeNode
                               " scores " + lNode2.stringizeScoreVector() +
                               ", visits " + lNode2.mNumVisits + " [edge " + edge2.getNumChildVisits() + ", updates " + lNode2.mNumUpdates + "]" +
                               ", ref : " + lNode2.mRef +
-                              (mTree.mGameSearcher.mUseRAVE ? (", RAVE[" + mRAVECounts[index] + ", " + FORMAT_2DP.format(mRAVEScores[index]) + "]") : "") +
+                              (mRAVEStats != null ? (", RAVE[" + mRAVEStats.mCounts[index] + ", " + FORMAT_2DP.format(mRAVEStats.mScores[index]) + "]") : "") +
                               (lNode2.mComplete ? " (complete)" : "") +
                               (lNode2.mLocalSearchStatus.HasResult() ? ("(" + lNode2.mLocalSearchStatus + ")") : "");
 
@@ -5541,7 +5575,7 @@ public class TreeNode
                       " scores " + FORMAT_2DP.format(moveScore) + " (selectionScore score " +
                       FORMAT_2DP.format(selectionScore) + ", selection count " +
                       child.mNumVisits + " [edge " + edge.getNumChildVisits() + ", updates " + child.mNumUpdates + "]" +  ", ref " + child.mRef +
-                      (mTree.mGameSearcher.mUseRAVE ? (", RAVE[" + mRAVECounts[lii] + ", " + FORMAT_2DP.format(mRAVEScores[lii]) + "]") : "") +
+                      (mRAVEStats != null ? (", RAVE[" + mRAVEStats.mCounts[lii] + ", " + FORMAT_2DP.format(mRAVEStats.mScores[lii]) + "]") : "") +
                       (child.mComplete ? (", complete [" + ((child.mCompletionDepth - mTree.mRoot.mDepth)/mTree.mNumRoles) + "]") : "") +
                       (child.mLocalSearchStatus.HasResult() ? (", " + child.mLocalSearchStatus + " [" + ((child.mCompletionDepth - mTree.mRoot.mDepth)/mTree.mNumRoles) + "]") : "") +
                       ")");
@@ -5959,21 +5993,27 @@ public class TreeNode
         lNode.mNumUpdates += applicationWeight;
 
         //  RAVE stats update
-        if ( playedMoves != null && lNode.mNumChildren > 1 )
+        if (playedMoves != null && lNode.mNumChildren > 1)
         {
+          if (lNode.mRAVEStats == null)
+          {
+            // First update through this node, so allocate RAVE stats.
+            lNode.attachRaveStats();
+          }
+
           for (int lii = 0; lii < lNode.mNumChildren; lii++)
           {
-            if ( lNode.mPrimaryChoiceMapping == null || lNode.mPrimaryChoiceMapping[lii] == lii )
+            if (lNode.mPrimaryChoiceMapping == null || lNode.mPrimaryChoiceMapping[lii] == lii)
             {
               Object lChoice = lNode.mChildren[lii];
               ForwardDeadReckonLegalMoveInfo moveInfo = (lChoice instanceof TreeEdge) ? ((TreeEdge)lChoice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)lChoice;
-              if ( playedMoves.get(moveInfo.masterIndex) )
+              if (playedMoves.get(moveInfo.masterIndex))
               {
                 // This move was played so update the RAVE stats for it.
-                lNode.mRAVEScores[lii] = (lNode.mRAVEScores[lii]*lNode.mRAVECounts[lii] +
-                                          (float)xiValues[(lNode.mDecidingRoleIndex+1) % mTree.mNumRoles]) /
-                                                                                           (lNode.mRAVECounts[lii] + 1);
-                lNode.mRAVECounts[lii]++;
+                lNode.mRAVEStats.mScores[lii] = (lNode.mRAVEStats.mScores[lii] * lNode.mRAVEStats.mCounts[lii] +
+                                                (float)xiValues[(lNode.mDecidingRoleIndex+1) % mTree.mNumRoles]) /
+                                                                                    (lNode.mRAVEStats.mCounts[lii] + 1);
+                lNode.mRAVEStats.mCounts[lii]++;
               }
             }
           }
@@ -5983,7 +6023,7 @@ public class TreeNode
       //assert(lNode.numUpdates <= lNode.numVisits);
       lastNodeWasComplete = lNode.mComplete;
 
-      if ( playedMoves != null && lChildEdge != null )
+      if (playedMoves != null && lChildEdge != null)
       {
         //  Add this edge's move into the played move record so that the ancestors will
         //  process it as well as what was processed here

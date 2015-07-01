@@ -10,6 +10,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.MoveScoreInfo.MoveScoreInfoAllocator;
+import org.ggp.base.player.gamer.statemachine.sancho.RAVEStats.RAVEStatsAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeEdge.TreeEdgeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode.TreeNodeAllocator;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath.TreePathAllocator;
@@ -78,7 +79,7 @@ public class MCTSTree
 
   private long maxSelectTime = 0;
   private long maxExpandTime = 0;
-  public int maxChildrenSeen = 0;
+  public int   maxChildrenSeen = 0;
 
   volatile TreeNode                                    mRoot = null;
   final boolean                                        mRemoveNonDecisionNodes;
@@ -92,6 +93,7 @@ public class MCTSTree
   final ScoreVectorPool                                mScoreVectorPool;
   final Pool<TreeEdge>                                 mEdgePool;
   final Pool<TreePath>                                 mPathPool;
+  final Pool<RAVEStats>                                mRAVEStatsPool;
   final CappedPool<MoveScoreInfo>                      mCachedMoveScorePool;
   private final TObjectLongHashMap<ForwardDeadReckonInternalMachineState> mPositions;
   int                                                  mSweepInstance                               = 0;
@@ -129,6 +131,7 @@ public class MCTSTree
   final TreeEdgeAllocator                              mTreeEdgeAllocator;
   final MoveScoreInfoAllocator                         mMoveScoreInfoAllocator;
   private final TreePathAllocator                      mTreePathAllocator;
+  final RAVEStatsAllocator                             mRAVEStatsAllocator;
   final GameSearcher                                   mGameSearcher;
   final StateSimilarityMap                             mStateSimilarityMap;
   private final ForwardDeadReckonInternalMachineState  mNonFactorInitialState;
@@ -168,6 +171,7 @@ public class MCTSTree
                   ScoreVectorPool xiScorePool,
                   Pool<TreeEdge> xiEdgePool,
                   Pool<TreePath> xiPathPool,
+                  Pool<RAVEStats> xiRAVEStatsPool,
                   RoleOrdering xiRoleOrdering,
                   RolloutProcessorPool xiRolloutPool,
                   RuntimeGameCharacteristics xiGameCharacteristics,
@@ -183,6 +187,7 @@ public class MCTSTree
     mScoreVectorPool = xiScorePool;
     mEdgePool = xiEdgePool;
     mPathPool = xiPathPool;
+    mRAVEStatsPool = xiRAVEStatsPool;
     mFactor = xiFactor;
     if (mFactor != null)
     {
@@ -316,6 +321,7 @@ public class MCTSTree
     mTreeNodeAllocator = new TreeNodeAllocator(this);
     mTreeEdgeAllocator = new TreeEdgeAllocator();
     mTreePathAllocator = new TreePathAllocator(this);
+    mRAVEStatsAllocator = new RAVEStatsAllocator(mGameCharacteristics);
     mGameSearcher = xiGameSearcher;
 
     mBonusBuffer = new double[mNumRoles];
