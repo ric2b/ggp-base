@@ -115,6 +115,11 @@ public class MachineSpecificConfiguration
     ALLOW_RAVE(true),
 
     /**
+     * Whether hyper-expansion may be used.
+     */
+    ALLOW_HYPEREXPANSION(true),
+
+    /**
      * Time, in milliseconds, after which we assume that we aren't going to here from the server again - in which case
      * we abort the match.
      */

@@ -45,6 +45,7 @@ public class MCTSTree
   private static final int                             NUM_TOP_MOVE_CANDIDATES                     = 4;
 
   private final String                                 mTreeDumpFile                               = MachineSpecificConfiguration.getCfgStr(CfgItem.TREE_DUMP);
+  private final boolean                                mAllowHyperExpansion                        = MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_HYPEREXPANSION);
 
   /**
    * If goal stability is above a certain threshold we can use interim-state goals to predict final results
@@ -962,7 +963,7 @@ public class MCTSTree
     while (!cur.isUnexpanded())
     {
       //  Hyper expand first choice layer for each role.
-      if ( cur.getDepth() < mRoot.getDepth()+2*mNumRoles && cur.mNumChildren > 1)
+      if ( mAllowHyperExpansion && cur.getDepth() < mRoot.getDepth()+2*mNumRoles && cur.mNumChildren > 1)
       {
         setForcedMoveProps(cur.mState, mJointMoveBuffer);
         cur.hyperExpand(visited, mJointMoveBuffer, MAX_HYPER_RECURSION_DEPTH);
