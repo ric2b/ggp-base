@@ -571,6 +571,11 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     {
       FactorMoveChoiceInfo factorChoice = factorTrees[0].getBestMove(true);
 
+      if ( factorChoice.bestEdge == null )
+      {
+        return null;
+      }
+
       resultingState.copy(factorChoice.resultingState);
       return factorChoice.bestEdge;
     }
@@ -793,18 +798,26 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           }
         }
 
+        long timeRemaining = moveTime - System.currentTimeMillis();
+
         if ( primaryLine != null )
         {
           moveConsequenceSearcher.newSearch(localSearchRoot, factorTrees[0].mRoot.mState, primaryLine, choosingRole, getRootDepth() != rootDepthAtLastLocalSearchStart, false);
           rootDepthAtLastLocalSearchStart = getRootDepth();
-        }
 
-        //  Recheck periodically that we're still thinking the same move is most interesting.
-        //  We don't want to wind up chopping backwards and forwards between a couple of moves
-        //  and having to restart frequently, so give a fixed proportion the remaining time at each rechoice
-        //  (down to a reasonable minimum)
-        long timeRemaining = moveTime - System.currentTimeMillis();
-        localSearchRefreshTime = System.currentTimeMillis() + Math.max(timeRemaining/3, MIN_LOCAL_SEARCH_REFRESH_PERIOD);
+          //  Recheck periodically that we're still thinking the same move is most interesting.
+          //  We don't want to wind up chopping backwards and forwards between a couple of moves
+          //  and having to restart frequently, so give a fixed proportion the remaining time at each rechoice
+          //  (down to a reasonable minimum)
+          localSearchRefreshTime = System.currentTimeMillis() + Math.max(timeRemaining/3, MIN_LOCAL_SEARCH_REFRESH_PERIOD);
+        }
+        else
+        {
+          //  Recheck after a short period since currently the root has no primary line, which means either
+          //  it's complete (in which case search is about to stop anyway) or it has not yet been expanded after
+          //  a fresh re-rooting of the tree
+          localSearchRefreshTime = System.currentTimeMillis() + Math.max(timeRemaining/3, 50);
+        }
       }
     }
 
