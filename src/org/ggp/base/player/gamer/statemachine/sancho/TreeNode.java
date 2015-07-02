@@ -729,12 +729,7 @@ public class TreeNode
       // just null out the because they aren't useful any longer.
       if (mRAVEStats != null)
       {
-        if ((mRAVEStats.mCounts.length >= lMaxDirectChildren) && (mRAVEStats.mCounts.length < lMaxDirectChildren * 2))
-        {
-          mTree.mRAVEStatsPool.free(mRAVEStats, 0);
-        }
-
-        mRAVEStats = null;
+        detachRAVEStats();
       }
     }
   }
@@ -2611,14 +2606,8 @@ public class TreeNode
       System.arraycopy(mRAVEStats.mCounts, 0, lNewRAVEStats.mCounts, 0, mNumChildren);
       System.arraycopy(mRAVEStats.mScores, 0, lNewRAVEStats.mScores, 0, mNumChildren);
 
-      // Free the old RAVE stats back to the pool - provided that the arrays are a useful size.
-      int lMaxDirectChildren = mTree.mGameCharacteristics.getChoicesHighWaterMark(0);
-      if ((mRAVEStats.mCounts.length >= lMaxDirectChildren) && (mRAVEStats.mCounts.length < lMaxDirectChildren * 2))
-      {
-        mTree.mRAVEStatsPool.free(mRAVEStats, 0);
-      }
-
-      // Use the freshly allocated versions.
+      // Detach the old RAVE stats and use the freshly allocated version.
+      detachRAVEStats();
       mRAVEStats = lNewRAVEStats;
     }
   }
@@ -3953,16 +3942,15 @@ public class TreeNode
 
   /**
    * Attach RAVE stats to this node.
-   *
-   * @param xiRequiredSize - the number of slots required.
    */
-  private void attachRaveStats()
+  private void attachRAVEStats()
   {
     assert(mRAVEStats == null) : "RAVE stats already attached";
     assert(mTree != null) : "Can't attach RAVE stats without a tree";
+    assert(mTree.mGameSearcher.mUseRAVE) : "Shouldn't attach RAVE stats if not using RAVE";
 
     // Request RAVE counts from the pool.
-    mRAVEStats = mTree.mRAVEStatsPool.allocate(mTree.mRAVEStatsAllocator); // !! Need an allocator.
+    mRAVEStats = mTree.mRAVEStatsPool.allocate(mTree.mRAVEStatsAllocator);
 
     int lMaxDirectChildren = mTree.mGameCharacteristics.getChoicesHighWaterMark(mNumChildren);
     if (mRAVEStats.mCounts.length < lMaxDirectChildren)
@@ -3972,6 +3960,24 @@ public class TreeNode
       // (We're still allowed to free back to the pool.)
       mRAVEStats = new RAVEStats(lMaxDirectChildren);
     }
+  }
+
+  /**
+   * Detach RAVE stats from this node, returning them to the pool if suitable.
+   */
+  private void detachRAVEStats()
+  {
+    assert(mRAVEStats != null) : "No RAVE stats attached";
+    assert(mTree != null) : "Can't detatch RAVE stats without a tree";
+    assert(mTree.mGameSearcher.mUseRAVE) : "Shouldn't have RAVE stats if not using RAVE";
+
+    int lMaxDirectChildren = mTree.mGameCharacteristics.getChoicesHighWaterMark(mNumChildren);
+    if ((mRAVEStats.mCounts.length >= lMaxDirectChildren) && (mRAVEStats.mCounts.length < lMaxDirectChildren * 2))
+    {
+      mTree.mRAVEStatsPool.free(mRAVEStats, 0);
+    }
+
+    mRAVEStats = null;
   }
 
   private void validateScoreVector(double[] scores)
@@ -5991,7 +5997,7 @@ public class TreeNode
           if (lNode.mRAVEStats == null)
           {
             // First update through this node, so allocate RAVE stats.
-            lNode.attachRaveStats();
+            lNode.attachRAVEStats();
           }
 
           for (int lii = 0; lii < lNode.mNumChildren; lii++)
