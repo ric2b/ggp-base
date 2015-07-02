@@ -46,7 +46,12 @@ public class MCTSTree
   private static final int                             NUM_TOP_MOVE_CANDIDATES                     = 4;
 
   private final String                                 mTreeDumpFile                               = MachineSpecificConfiguration.getCfgStr(CfgItem.TREE_DUMP);
-  private final boolean                                mAllowHyperExpansion                        = MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_HYPEREXPANSION);
+  private final boolean                                mAllowHyperExpansion;
+
+  // Thresholds governing whether we enable hyper-expansion for a game - the minimums must both be exceeded
+  // for it to be enabled
+  private static final double                          HYPER_SEQUENCE_MIN_LENGTH_THRESHOLD         = 1.2;
+  private static final double                          HYPER_SEQUENCE_MIN_VARIANCE_THRESHOLD       = 0.5;
 
   /**
    * If goal stability is above a certain threshold we can use interim-state goals to predict final results
@@ -196,6 +201,20 @@ public class MCTSTree
     else
     {
       mSearchFilter = xiStateMachine.getBaseFilter();
+    }
+
+    //  Hyper-expansion is enabled if allowed by the config and the game exhibits sufficiently common hyper-sequences with
+    //  a sufficiently variable length to make it worthwhile
+    mAllowHyperExpansion = MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_HYPEREXPANSION) &&
+                           xiGameCharacteristics.getAverageHyperSequenceLength() > HYPER_SEQUENCE_MIN_LENGTH_THRESHOLD &&
+                           xiGameCharacteristics.getVarianceHyperSequenceLength() > HYPER_SEQUENCE_MIN_VARIANCE_THRESHOLD;
+    if ( mAllowHyperExpansion)
+    {
+      LOGGER.info("Hyper expansion processing is enabled");
+    }
+    else
+    {
+      LOGGER.info("Hyper expansion processing is not enabled");
     }
 
     //  Most of the time we don't want to create tree nodes representing states in which

@@ -60,6 +60,8 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private int                 mMinNonDrawLength       = 0;
   private double              mGoalsStability         = 0;
   private double              mLongDrawsProportion    = 0;
+  private double              mAverageHyperSequenceLength = 0;
+  private double              mVarianceHyperSequenceLength = 0;
   private long                mMaxFactorFailureTime   = 0;
   private String              mControlMask            = null;
 
@@ -415,6 +417,8 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     LOGGER.info("  Average num turns:                              " + getAverageLength());
     LOGGER.info("  Std deviation num turns:                        " + getStdDeviationLength());
     LOGGER.info("  Average num turns for non-drawn result:         " + getAverageNonDrawLength());
+    LOGGER.info("  Average hyper-sequence length:                  " + getAverageHyperSequenceLength());
+    LOGGER.info("  Variance in hyper-sequence length:              " + getVarianceHyperSequenceLength());
     LOGGER.info("  Goals stability:                                " + getGoalsStability());
     LOGGER.info("  Proportion of max length games ending in draws: " + getLongDrawsProportion());
     LOGGER.info("  Num factors:                                    " + getNumFactors());
@@ -453,6 +457,40 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   public void setLongDrawsProportion(double xiLongDrawProportion)
   {
     mLongDrawsProportion = xiLongDrawProportion;
+  }
+
+  /**
+   * @return average length of hyper-sequences observed
+   */
+  public double getAverageHyperSequenceLength()
+  {
+    return mAverageHyperSequenceLength;
+  }
+
+  /**
+   * Setter for average length of hyper-sequences observed
+   * @param xiAverageHyperSequenceLength
+   */
+  public void setAverageHyperSequenceLength(double xiAverageHyperSequenceLength)
+  {
+    mAverageHyperSequenceLength = xiAverageHyperSequenceLength;
+  }
+
+  /**
+   * @return variance in length of hyper-sequences observed
+   */
+  public double getVarianceHyperSequenceLength()
+  {
+    return mVarianceHyperSequenceLength;
+  }
+
+  /**
+   * Setter for variance in length of hyper-sequences observed
+   * @param xiVarianceHyperSequenceLength
+   */
+  public void setVarianceHyperSequenceLength(double xiVarianceHyperSequenceLength)
+  {
+    mVarianceHyperSequenceLength = xiVarianceHyperSequenceLength;
   }
 
   /**
