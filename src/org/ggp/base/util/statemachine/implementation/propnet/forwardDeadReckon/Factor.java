@@ -81,7 +81,7 @@ public class Factor implements StateMachineFilter
     String[] lParts = xiSaved.split("~");
     assert(lParts.length == 2) : "Unexpected number of colons in factor string: " + (lParts.length - 1);
 
-    String[] lProps = lParts[0].split(", ");
+    String[] lProps = lParts[0].split(",");
     SET_PROPS: for (String lProp : lProps)
     {
       // Find the matching prop in the info set.
@@ -100,7 +100,7 @@ public class Factor implements StateMachineFilter
     {
       for (ForwardDeadReckonLegalMoveInfo lInfo : xiMoveInfo)
       {
-        if (lInfo.move.getContents().equals(lInfo))
+        if (lInfo.move.getContents().toString().equals(lMove))
         {
           mMoveInfos.add(lInfo);
           continue SET_MOVES;
