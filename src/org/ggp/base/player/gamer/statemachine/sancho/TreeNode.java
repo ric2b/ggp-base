@@ -733,10 +733,8 @@ public class TreeNode
         {
           mTree.mRAVEStatsPool.free(mRAVEStats, 0);
         }
-        else
-        {
-          mRAVEStats = null;
-        }
+
+        mRAVEStats = null;
       }
     }
   }
@@ -3237,7 +3235,7 @@ public class TreeNode
       {
         int lMaxDirectChildren = mTree.mGameCharacteristics.getChoicesHighWaterMark(mNumChildren);
         mChildren = new Object[lMaxDirectChildren];
-        attachRaveStats();
+        assert(mRAVEStats == null);
         assert(mPrimaryChoiceMapping == null);
       }
 
@@ -4481,12 +4479,7 @@ public class TreeNode
 
   private double getRAVESelectionValue(int edgeIndex)
   {
-    if (mRAVEStats == null)
-    {
-      return 0.5;
-    }
-
-    return getRAVEExplorationValue((TreeEdge)mChildren[edgeIndex]) + mRAVEStats.mScores[edgeIndex] / 100;
+    return getRAVEExplorationValue((TreeEdge)mChildren[edgeIndex]) + (mRAVEStats == null ? 0 : mRAVEStats.mScores[edgeIndex] / 100);
   }
 
   private double getSelectionValue(int edgeIndex, TreeNode c, int roleIndex)
@@ -4535,7 +4528,7 @@ public class TreeNode
     TreeEdge edge = (TreeEdge)mChildren[edgeIndex];
     TreeNode c = get(edge.getChildRef());
 
-    if (mTree.mGameSearcher.mUseRAVE && !c.mComplete)
+    if (mRAVEStats != null && !c.mComplete)
     {
       double lRAVEValue = mRAVEStats.mScores[edgeIndex] / 100;
       int lRAVECount = mRAVEStats.mCounts[edgeIndex];
@@ -5993,7 +5986,7 @@ public class TreeNode
         lNode.mNumUpdates += applicationWeight;
 
         //  RAVE stats update
-        if (playedMoves != null && lNode.mNumChildren > 1)
+        if (mTree.mGameSearcher.mUseRAVE && lNode.mNumChildren > 1 && playedMoves != null)
         {
           if (lNode.mRAVEStats == null)
           {
