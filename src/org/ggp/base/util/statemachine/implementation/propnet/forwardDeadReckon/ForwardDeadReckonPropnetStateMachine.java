@@ -3163,7 +3163,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     transitionTo.isXState = targetIsXNet;
 
     setBasePropositionsFromState(transitionTo);
-    assert(transitionTo.contains(((ForwardDeadReckonProposition)fullPropNet.getTerminalProposition()).getInfo())==lastInternalSetState.contains(((ForwardDeadReckonProposition)fullPropNet.getTerminalProposition()).getInfo()));
   }
 
   private ForwardDeadReckonInternalMachineState getInternalStateFromBase(ForwardDeadReckonInternalMachineState xbState)
