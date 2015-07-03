@@ -698,20 +698,23 @@ public class FactorAnalyser
     // Strip the surrounding "( " + " )"
     xiSavedState = xiSavedState.substring(2, xiSavedState.length() - 2);
 
-    // Split on ", "
-    String[] lProps = xiSavedState.split(", ");
-    SET_PROPS: for (String lProp : lProps)
+    if ( !xiSavedState.isEmpty())
     {
-      // Find the matching prop in the info set.
-      for (ForwardDeadReckonPropositionCrossReferenceInfo lInfo : mStateMachine.getInfoSet())
+      // Split on ", "
+      String[] lProps = xiSavedState.split(", ");
+      SET_PROPS: for (String lProp : lProps)
       {
-        if (lInfo.fullNetProp.getName().toString().equals(lProp))
+        // Find the matching prop in the info set.
+        for (ForwardDeadReckonPropositionCrossReferenceInfo lInfo : mStateMachine.getInfoSet())
         {
-          lControlSet.add(lInfo.fullNetProp);
-          continue SET_PROPS;
+          if (lInfo.fullNetProp.getName().toString().equals(lProp))
+          {
+            lControlSet.add(lInfo.fullNetProp);
+            continue SET_PROPS;
+          }
         }
+        assert(false) : "Failed to find proposition: " + lProp;
       }
-      assert(false) : "Failed to find proposition: " + lProp;
     }
 
     return lControlSet;
