@@ -5046,7 +5046,7 @@ public class TreeNode
     return sb.toString();
   }
 
-  private int traceFirstChoiceNode(int xiResponsesTraced)
+  private int traceFirstChoiceNode(int xiResponsesTraced, boolean forceTrace)
   {
     if (mNumChildren == 0)
     {
@@ -5086,7 +5086,7 @@ public class TreeNode
                               (lNode2.mComplete ? " (complete)" : "") +
                               (lNode2.mLocalSearchStatus.HasResult() ? ("(" + lNode2.mLocalSearchStatus + ")") : "");
 
-                if (xiResponsesTraced < 400)
+                if (xiResponsesTraced < 400 || forceTrace)
                 {
                   LOGGER.debug(lLog);
                 }
@@ -5140,13 +5140,13 @@ public class TreeNode
 
       if (edge2.getChildRef() != NULL_REF && get(edge2.getChildRef()) != null)
       {
-        xiResponsesTraced = get(edge2.getChildRef()).traceFirstChoiceNode(xiResponsesTraced);
+        xiResponsesTraced = get(edge2.getChildRef()).traceFirstChoiceNode(xiResponsesTraced, forceTrace);
       }
       else
       {
         String lLog = "    Response " + edge2.mPartialMove.move + " unexpanded";
 
-        if (xiResponsesTraced < 400)
+        if (xiResponsesTraced < 400 || forceTrace)
         {
           LOGGER.debug(lLog);
         }
@@ -5158,7 +5158,7 @@ public class TreeNode
           ((ForwardDeadReckonLegalMoveInfo)mChildren[0]).move +
           " unexpanded edge";
 
-      if (xiResponsesTraced < 400)
+      if (xiResponsesTraced < 400 || forceTrace)
       {
         LOGGER.debug(lLog);
       }
@@ -5592,7 +5592,7 @@ public class TreeNode
 
         if (child.mNumChildren != 0 && !child.mComplete && traceResponses && !firstDecision)
         {
-          lResponsesTraced = child.traceFirstChoiceNode(lResponsesTraced);
+          lResponsesTraced = child.traceFirstChoiceNode(lResponsesTraced, (selectionScore > bestScore));
         }
 
         if (edge.mPartialMove.isPseudoNoOp)
