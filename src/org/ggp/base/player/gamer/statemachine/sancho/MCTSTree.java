@@ -275,9 +275,12 @@ public class MCTSTree
       LOGGER.info("Weight decay disabled");
     }
 
+    //  Empirical results indicate normalization does not work well in games with either old-style
+    //  heuristics or which use hyper-expansion
     USE_NODE_SCORE_NORMALIZATION = !xiGameCharacteristics.isPseudoPuzzle &&
                                    MachineSpecificConfiguration.getCfgBool(CfgItem.USE_NODE_SCORE_NORMALIZATION) &&
-                                   !xiHeuristic.applyAsSimpleHeuristic();
+                                   !xiHeuristic.applyAsSimpleHeuristic() &&
+                                   !mAllowHyperExpansion;
     if (USE_NODE_SCORE_NORMALIZATION)
     {
       LOGGER.info("Using periodic node score normalization");
