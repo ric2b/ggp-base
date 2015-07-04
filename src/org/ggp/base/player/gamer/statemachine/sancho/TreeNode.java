@@ -4315,16 +4315,9 @@ public class TreeNode
       mTree.mNodeAverageSquaredScores[role] = 0;
     }
 
-    //  Complete children are a problem since every would-be visit through
-    //  a complete child actually results in a visit through a non-complete
-    //  alternate selection, with override scores from the complete node
-    //  being applied during update.  The effect is that the non-completed nodes
-    //  will have exaggerated visit counts relative to their UCT selection.
-    //  We have insufficient information to fully correct for this, so we approximate
-    //  by assuming that the visits to the complete nodes have also been redistributed
-    //  in proportion to the visit counts of the other nodes
-    double highestScore = -Double.MAX_VALUE;
-    double highestScoreWeight = 0;
+    double pivotScore = -Double.MAX_VALUE;
+    double pivotScoreWeight = -1;
+    boolean pivotIsHyper = false;
     int highestScoreIndex = -1;
 
     for (int lii = 0; lii < mNumChildren; lii++)
@@ -4342,19 +4335,28 @@ public class TreeNode
           if (child != null)
           {
             double score = child.getAverageScore(choosingRoleIndex);
-            if (score > highestScore)
+            int weight = edge.getNumChildVisits();
+            // In principal it shouldn't matter which node we pick as the pivot node, but
+            // choosing the most visited makes sense as it should have the lowest uncertainty
+            if (weight > pivotScoreWeight)
             {
-              highestScore = score;
-              highestScoreWeight = edge.getNumChildVisits();
+              pivotScore = score;
+              pivotScoreWeight = weight;
               highestScoreIndex = lii;
+              pivotIsHyper = edge.isHyperEdge();
             }
           }
         }
       }
     }
 
-    double highestVisitFactor = Math.log(mNumVisits)/highestScoreWeight;
-    double c = highestScore/100 + Math.sqrt(highestVisitFactor);
+    double highestVisitFactor = Math.log(mNumVisits)/pivotScoreWeight;
+    //  Note - the following line should remove biases from hyper-edge selection, but empirically
+    //  (with or without this adjustment) normalization and hyper-edges just do not seem to mix well
+    //  I do not know why, but for now normalization is just disabled in games with hyper-expansion
+    double expBias = pivotIsHyper ? 2.5 : 0.5;  //  Account for boosted selection used on hyper edges
+    double c = pivotScore/100 + expBias*Math.sqrt(highestVisitFactor);
+
 
     for (int lii = 0; lii < mNumChildren; lii++)
     {
@@ -4382,7 +4384,7 @@ public class TreeNode
             //  and result in slower parent convergence.  Normalization should increase convergence rates in
             //  such cases, especially if child convergence is non-monotonic
             double chooserScore = child.getAverageScore(choosingRoleIndex)/100;
-            double weight = Math.log(mNumVisits)/((c-chooserScore)*(c-chooserScore));
+            double weight = expBias*expBias*Math.log(mNumVisits)/((c-chooserScore)*(c-chooserScore));
 
             assert(lii != highestScoreIndex || Math.abs(weight-edge.getNumChildVisits()) < EPSILON);
 
