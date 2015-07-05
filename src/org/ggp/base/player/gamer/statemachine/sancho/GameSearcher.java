@@ -441,7 +441,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     {
       return true;
     }
-    if ( !mPlan.isEmpty() )
+    if ( mPlan.size() > GameSearcher.thinkBelowPlanSize )
     {
       return true;
     }
