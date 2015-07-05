@@ -102,6 +102,16 @@ public class TreeNode
   static final double         SCORE_TEMPORAL_DECAY_RATE = 0.99;
 
   /**
+   * Selections through a node before first periodic normalizations
+   */
+  static private final short  NORMALIZATION_WARMUP_PERIOD = 500;
+
+  /**
+   * Selections through a node between periodic normalizations
+   */
+  static private final short  NORMALIZATION_PERIOD = 100;
+
+  /**
    * For debugging use only - enable assertion that the game is fixed sum
    */
   private static final boolean       ASSERT_FIXED_SUM = false;
@@ -187,6 +197,7 @@ public class TreeNode
   final ArrayList<TreeNode>             mParents              = new ArrayList<>(1);
   private int                           mSweepSeq;
   boolean                               mFreed                = false;
+  private short                         mUpdatesToNormalization = NORMALIZATION_WARMUP_PERIOD;
   private short                         mLastSelectionMade    = -1;
 
   //  Note - the 'depth' of a node is an indicative measure of its distance from the
@@ -1776,6 +1787,7 @@ public class TreeNode
     mHeuristicValue = 0;
     mHeuristicWeight = 0;
     mHyperExpansionDepth = 0;
+    mUpdatesToNormalization = NORMALIZATION_WARMUP_PERIOD;
 
     // Reset objects (without allocating new ones).
     mTree = xiTree;
@@ -2030,6 +2042,8 @@ public class TreeNode
     descendant.markTreeForSweep(null);
     descendant.mParents.clear(); //	Do this here to allow generic orphan checking in node freeing
                                 //	without tripping over this special case
+
+    LOGGER.info("Sweep complete, beginning delete...");
 
     for (int index = 0; index < mNumChildren; index++)
     {
@@ -4309,6 +4323,8 @@ public class TreeNode
     double weightTotal = 0;
     int choosingRoleIndex = (mDecidingRoleIndex + 1) % mTree.mNumRoles;
 
+    mUpdatesToNormalization = NORMALIZATION_PERIOD;
+
     for (int role = 0; role < mTree.mNumRoles; role++)
     {
       mTree.mNodeAverageScores[role] = 0;
@@ -4434,7 +4450,19 @@ public class TreeNode
     {
       for (int role = 0; role < mTree.mNumRoles; role++)
       {
-        setAverageScore(role, mTree.mNodeAverageScores[role]/weightTotal);
+        double newValue = mTree.mNodeAverageScores[role]/weightTotal;
+
+        //  If normalization caused a significant change in value (for now taking that
+        //  as 3%) cause the parents to be normalized next time they are selected through
+        if ( Math.abs(getAverageScore(role) - newValue) > 3 )
+        {
+          //  Flag the parents as in need of normalization
+          for(TreeNode parent : mParents)
+          {
+            parent.mUpdatesToNormalization = 0;
+          }
+        }
+        setAverageScore(role, newValue);
         setAverageSquaredScore(role, mTree.mNodeAverageSquaredScores[role]/weightTotal);
       }
     }
@@ -4622,10 +4650,8 @@ public class TreeNode
       {
         //calculatePathMoveWeights(path);
 
-        //  We do not normalize puzzles as this seems to be detrimental.  Normalization is helpful when initial convergence
-        //  is misleading (i.e. - non-monotonic), which is probably much rarer in puzzles (where there is no agent acting
-        //  against us).  However, this remains just a theory.
-        if (mTree.USE_NODE_SCORE_NORMALIZATION && mNumVisits > 500 && (mNumVisits&0xff) == 0xff &&
+        //  Perform a normalization if one is due
+        if (mTree.USE_NODE_SCORE_NORMALIZATION && mUpdatesToNormalization-- <= 0 &&
              (!mTree.mGameCharacteristics.isSimultaneousMove || roleIndex == 0))
         {
           normalizeScores(false);

@@ -275,7 +275,10 @@ public class MCTSTree
       LOGGER.info("Weight decay disabled");
     }
 
-    //  Empirical results indicate normalization does not work well in games with either old-style
+    //  We do not normalize puzzles as this seems to be detrimental.  Normalization is helpful when initial convergence
+    //  is misleading (i.e. - non-monotonic), which is probably much rarer in puzzles (where there is no agent acting
+    //  against us).  However, this remains just a theory.
+    //  Empirical results also indicate normalization does not work well in games with either old-style
     //  heuristics or which use hyper-expansion
     USE_NODE_SCORE_NORMALIZATION = !xiGameCharacteristics.isPseudoPuzzle &&
                                    MachineSpecificConfiguration.getCfgBool(CfgItem.USE_NODE_SCORE_NORMALIZATION) &&
