@@ -10,4 +10,6 @@
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">2</entry>
   <entry key="fixed_length">true</entry>
+  <entry key="control_mask">( ( true ( control white ) ), ( true ( control black ) ) )</entry>
+  <entry key="factors"></entry>
 </properties>
