@@ -1382,6 +1382,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                 LOGGER.info("noop win for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove);
                 node.mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_WIN;
                 node.mCompletionDepth = (short)(node.getDepth() + searchResultsBuffer.atDepth);
+                assert(node.mCompletionDepth >= 0 && node.mCompletionDepth >= node.getDepth());
 
                 if ( node == tree.mRoot && searchResultsBuffer.winForRole == 0 )
                 {
@@ -1431,6 +1432,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                             LOGGER.info("Win for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove + " with move " + searchResultsBuffer.winningMove + " overrides previously found deeper local loss");
                             child.mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_WIN;
                             child.mCompletionDepth = (short)(node.getDepth()+searchResultsBuffer.atDepth-1);
+                            assert(child.mCompletionDepth >= 0 && child.mCompletionDepth >= child.getDepth());
                           }
                         }
                         else
@@ -1438,6 +1440,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                           LOGGER.info("Win for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove + " with move " + searchResultsBuffer.winningMove);
                           child.mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_WIN;
                           child.mCompletionDepth = (short)(node.getDepth()+searchResultsBuffer.atDepth-1);
+                          assert(child.mCompletionDepth >= 0 && child.mCompletionDepth >= child.getDepth());
                         }
                         break;
                       }
@@ -1469,6 +1472,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
                   node.mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
                   node.mCompletionDepth = (short)(node.getDepth() + searchResultsBuffer.atDepth);
+                  assert(node.mCompletionDepth >= 0 && node.mCompletionDepth >= node.getDepth());
 
                   if (searchResultsBuffer.choiceFromState != null && !searchResultsBuffer.seedMayEnableResult())
                   {
@@ -1497,6 +1501,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                                 LOGGER.info("Looks like move " + edge.mPartialMove + " would also allow this win");
                                 childNode.mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
                                 childNode.mCompletionDepth = (short)( childNode.getDepth() + searchResultsBuffer.atDepth);
+                                assert(childNode.mCompletionDepth >= 0 && childNode.mCompletionDepth >= childNode.getDepth());
                               }
                               else
                               {
@@ -1569,12 +1574,14 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                           LOGGER.info(moveInfo.move.toString() + " is a global loss for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
                           child.mCompletionDepth = (short)(node.getDepth()+searchResultsBuffer.atDepth-1);
                           child.mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
+                          assert(child.mCompletionDepth >= 0 && child.mCompletionDepth >= child.getDepth());
                         }
                         else
                         {
                           LOGGER.info(moveInfo.move.toString() + " is a local loss for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
                           child.mCompletionDepth = (short)(node.getDepth()+searchResultsBuffer.atDepth-1);
                           child.mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
+                          assert(child.mCompletionDepth >= 0 && child.mCompletionDepth >= child.getDepth());
                         }
                         break;
                       }

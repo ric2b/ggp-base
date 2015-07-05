@@ -475,6 +475,7 @@ public class TreeNode
 
   void markAsLocalLoss(short atDepth, ForwardDeadReckonLegalMoveInfo withMove)
   {
+    assert(atDepth>=0);
     if (!mComplete)
     {
       mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
@@ -528,6 +529,7 @@ public class TreeNode
     mTree.mNumCompletedBranches++;
     mComplete = true;
     mCompletionDepth = atCompletionDepth;
+    assert(mCompletionDepth >= mDepth);
     assert(mIsTerminal || (mCompletionDepth > mDepth)) : "Can't be immediately complete except in terminal node";
 
     //LOGGER.debug("Mark complete with score " + averageScore + (ourMove == null ? " (for opponent)" : " (for us)") + " in state: " + state);
@@ -1586,7 +1588,7 @@ public class TreeNode
               if (lEdge.getChildRef() != NULL_REF && get(lEdge.getChildRef()) != null)
               {
                 TreeNode lNode = get(lEdge.getChildRef());
-                if (lDeterminingChildRelativeCompletionDepth < lNode.getCompletionDepth() - lNode.getDepth())
+                if (lNode.mComplete && lDeterminingChildRelativeCompletionDepth < lNode.getCompletionDepth() - lNode.getDepth())
                 {
                   lDeterminingChildRelativeCompletionDepth = (short)(lNode.getCompletionDepth() - lNode.getDepth());
                 }
@@ -3500,7 +3502,7 @@ public class TreeNode
                     newChild.considerPathToAsPlan();
                   }
                 }
-                newChild.markComplete(info.terminalScore, (short)(mDepth + 1));
+                newChild.markComplete(info.terminalScore, newChild.mDepth);
               }
 
               assert(newChild.linkageValid());
@@ -4322,6 +4324,16 @@ public class TreeNode
   {
     double weightTotal = 0;
     int choosingRoleIndex = (mDecidingRoleIndex + 1) % mTree.mNumRoles;
+
+    //  It is possible that transpositions can result in a rarely visited node
+    //  being flagged for normalization due to value changes in a (transposed to and
+    //  heavily visited by other routes) child.  In such cases it's not worth
+    //  attempting to normalize (and may be impossible if no edges have actually
+    //  been selected through yet!)
+    if ( mNumVisits < NORMALIZATION_WARMUP_PERIOD )
+    {
+      return;
+    }
 
     mUpdatesToNormalization = NORMALIZATION_PERIOD;
 
@@ -6006,7 +6018,7 @@ public class TreeNode
               assert(xiValues[lRoleIndex] < 100+EPSILON);
             }
 
-            assert (!lNode.mAllChildrenComplete || Math.abs(xiValues[lRoleIndex] - lChild.getAverageScore(lRoleIndex)) < EPSILON);
+            assert (!lNode.mAllChildrenComplete || mTree.mGameCharacteristics.isSimultaneousMove || Math.abs(xiValues[lRoleIndex] - lChild.getAverageScore(lRoleIndex)) < EPSILON);
           }
 
           double numUpdatesIncludedHeuristicBias = lNode.mNumUpdates;

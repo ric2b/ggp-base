@@ -540,7 +540,10 @@ public class MCTSTree
       if (lNode != null)
       {
         assert(!lNode.mFreed) : "Freed node returned from pool";
-        assert(lNode.mComplete) : "Queued node was not complete";
+        //  New root will always be marked as incomplete on setting a new root state so
+        //  it can be re-expanded.  If it happens to be on the completion queue at the time
+        //  that can lead to this effect (which is harmless)
+        assert(lNode.mComplete || lNode == lNode.mTree.mRoot) : "Queued node was not complete";
         lNode.processCompletion();
       }
     }
