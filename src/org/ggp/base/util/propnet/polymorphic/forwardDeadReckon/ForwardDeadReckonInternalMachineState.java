@@ -117,7 +117,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
    */
   public ForwardDeadReckonInternalMachineState(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet, int xiFirstBasePropIndex)
   {
-    assert(xiFirstBasePropIndex > 2);
+    assert(xiFirstBasePropIndex > 1);
     infoSet = masterInfoSet;
     firstBasePropIndex = xiFirstBasePropIndex;
     contents = new OpenBitSet(infoSet.length);

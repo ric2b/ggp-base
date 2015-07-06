@@ -1522,6 +1522,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     // If we've just solved a puzzle for the first time, save the game history as a plan.
     if (((mFinalScore == 100) || (mSolvedFromStart)) &&
         (mGameCharacteristics.numRoles == 1) &&
+        getMatch().getMoveHistory().size() > 0 &&
         (mGameCharacteristics.getPlan() == null))
     {
       mGameCharacteristics.setPlan(convertHistoryToPlan());

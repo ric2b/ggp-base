@@ -84,35 +84,42 @@ public final class HttpReader
 
     // The first line of the HTTP request is the request line.
     String requestLine = lReader.readLine();
-    if (requestLine.toUpperCase().startsWith("GET "))
+    if ( requestLine != null )
     {
-      String lMessage = requestLine.substring(5, requestLine.lastIndexOf(' '));
-      lMessage = URLDecoder.decode(lMessage, "UTF-8");
-      lMessage = lMessage.replace((char)13, ' ');
-      lRequest.mRequest = lMessage;
+      if (requestLine.toUpperCase().startsWith("GET "))
+      {
+        String lMessage = requestLine.substring(5, requestLine.lastIndexOf(' '));
+        lMessage = URLDecoder.decode(lMessage, "UTF-8");
+        lMessage = lMessage.replace((char)13, ' ');
+        lRequest.mRequest = lMessage;
 
-      parseHeaders(lReader, lRequest);
-    }
-    else if (requestLine.toUpperCase().startsWith("POST "))
-    {
-      lRequest = readContentFromPOST(lReader);
-    }
-    else if (requestLine.toUpperCase().startsWith("OPTIONS "))
-    {
-      // Web browsers can send an OPTIONS request in advance of sending
-      // real XHR requests, to discover whether they should have permission
-      // to send those XHR requests. We want to handle this at the network
-      // layer rather than sending it up to the actual player, so we write
-      // a blank response (which will include the headers that the browser
-      // is interested in) and throw an exception so the player ignores the
-      // rest of this request.
-      HttpWriter.writeAsServer(socket, "");
-      throw new IOException("Drop this message at the network layer.");
+        parseHeaders(lReader, lRequest);
+      }
+      else if (requestLine.toUpperCase().startsWith("POST "))
+      {
+        lRequest = readContentFromPOST(lReader);
+      }
+      else if (requestLine.toUpperCase().startsWith("OPTIONS "))
+      {
+        // Web browsers can send an OPTIONS request in advance of sending
+        // real XHR requests, to discover whether they should have permission
+        // to send those XHR requests. We want to handle this at the network
+        // layer rather than sending it up to the actual player, so we write
+        // a blank response (which will include the headers that the browser
+        // is interested in) and throw an exception so the player ignores the
+        // rest of this request.
+        HttpWriter.writeAsServer(socket, "");
+        throw new IOException("Drop this message at the network layer.");
+      }
+      else
+      {
+        HttpWriter.writeAsServer(socket, "");
+        throw new IOException("Unexpected request type: " + requestLine);
+      }
     }
     else
     {
-      HttpWriter.writeAsServer(socket, "");
-      throw new IOException("Unexpected request type: " + requestLine);
+      throw new IOException("Connection terminated");
     }
 
     return lRequest;
