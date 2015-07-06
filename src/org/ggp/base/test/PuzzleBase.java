@@ -45,6 +45,7 @@ public abstract class PuzzleBase extends Assert
     // Puzzles where 100 is not achievable.  These are nothing to do with our play quality - it's the way the GDL is
     // written.  Nobody can possibly score better than the values stated here.
     EXPECTED_SCORES.put("stanford.hunter", 87);
+    EXPECTED_SCORES.put("stanford.multiplehunter", 87);
     EXPECTED_SCORES.put("stanford.multiplesukoshi", 0);
     EXPECTED_SCORES.put("stanford.pearls", 90);
     EXPECTED_SCORES.put("stanford.untwistycomplex2", 0);
@@ -65,9 +66,6 @@ public abstract class PuzzleBase extends Assert
   {
     // Puzzles with broken GDL.
     SKIP.add("stanford.arithmetic");
-
-    // Stanford puzzles we fail.  Individual issues exist.
-    SKIP.add("stanford.multiplehunter"); // Issue #320.
 
     // Games which we fail.  Covered by issue #260.
     SKIP.add("base.asteroidsParallel");

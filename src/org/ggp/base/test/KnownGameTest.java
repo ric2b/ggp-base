@@ -43,7 +43,6 @@ public class KnownGameTest extends Assert
     SKIP.add("stanford.arithmetic"); // GDL is so bugged that we refuse to play.  (No goals for the only role.)
     SKIP.add("stanford.arithmetic-stupid"); // Massive GDL means we refuse to learn.  Issue #154.
     SKIP.add("stanford.go"); // Crash in propnet construction.  Issue #321.
-    SKIP.add("stanford.multiplehunter"); // Not saving characteristics, because they look dodgy.  Issue #320.
     SKIP.add("stanford.yinsh"); // We claim there are no goals for black.  Not sure that's true.  Issue #322.
     SKIP.add("stanford.zertz"); // Crash in propnet construction.  Issue #323.
   }
