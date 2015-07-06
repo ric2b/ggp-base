@@ -39,11 +39,11 @@ public class KnownGameTest extends Assert
     SKIP.add("stanford.madness");
     SKIP.add("stanford.pilgrimage");
     SKIP.add("stanford.skirmishbad"); // Bad GDL (unsafe rule).
+    SKIP.add("stanford.yinsh");       // GDL refers to rule as if it were a proposition (using "true (order ...)").
 
     SKIP.add("stanford.arithmetic"); // GDL is so bugged that we refuse to play.  (No goals for the only role.)
     SKIP.add("stanford.arithmetic-stupid"); // Massive GDL means we refuse to learn.  Issue #154.
     SKIP.add("stanford.go"); // Crash in propnet construction.  Issue #321.
-    SKIP.add("stanford.yinsh"); // We claim there are no goals for black.  Not sure that's true.  Issue #322.
     SKIP.add("stanford.zertz"); // Crash in propnet construction.  Issue #323.
   }
 
