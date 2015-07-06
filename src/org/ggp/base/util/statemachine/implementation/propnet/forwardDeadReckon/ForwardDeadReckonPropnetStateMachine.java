@@ -4125,6 +4125,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           {
             setPropNetUsage(statesVisited[rolloutDepth]);
             setBasePropositionsFromState(statesVisited[rolloutDepth]);
+            activeLegalMoves = getLegalMoveSet(lastInternalSetState);
           }
         }
         else
