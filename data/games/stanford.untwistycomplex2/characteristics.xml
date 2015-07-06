@@ -8,9 +8,10 @@
   <entry key="max_factor_failure_time">0</entry>
   <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
-  <entry key="max_branching_factor">2</entry>
+  <entry key="max_branching_factor">10</entry>
   <entry key="fixed_length">false</entry>
-  <entry key="plan">a,a,c,a,a,c,b,b,c,b,b</entry>
-  <entry key="control_mask">( ( true p1 ) )</entry>
+  <entry key="plan">
+  e 8,6,10,1,2,5,1,7,6</entry>
+  <entry key="control_mask">( ( true q1 ), ( true ( step 3 ) ), ( true ( step 5 ) ), ( true ( step 8 ) ), ( true ( step 2 ) ), ( true ( step 6 ) ), ( true ( step 4 ) ), ( true ( step 1 ) ), ( true p ), ( true ( step 7 ) ), ( true ( step 9 ) ), ( true ( step 10 ) ) )</entry>
   <entry key="factors"></entry>
 </properties>
