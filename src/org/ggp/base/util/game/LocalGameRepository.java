@@ -45,8 +45,7 @@ public final class LocalGameRepository extends GameRepository
     {
       try
       {
-        theLocalRepoServer = HttpServer
-            .create(new InetSocketAddress(REPO_SERVER_PORT), 0);
+        theLocalRepoServer = HttpServer.create(new InetSocketAddress(REPO_SERVER_PORT), 0);
         theLocalRepoServer.createContext("/", new LocalRepoServer());
         theLocalRepoServer.setExecutor(null); // creates a default executor
         theLocalRepoServer.start();

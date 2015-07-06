@@ -1,5 +1,8 @@
 package org.ggp.base.test;
 
+import java.text.Collator;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -29,12 +32,22 @@ public abstract class PuzzleBase extends Assert
     public boolean allow(String xiRepoName, String xiGameName);
   }
 
+  public static final HashMap<String, String> REPO_URL = new HashMap<>();
+  static
+  {
+    REPO_URL.put("base", "games.ggp.org/base");
+    REPO_URL.put("stanford", "gamemaster.stanford.edu/gamemaster");
+  }
+
   private static HashMap<String, Integer> EXPECTED_SCORES = new HashMap<>();
   static
   {
-    // Puzzles where 100 is not achievable.
+    // Puzzles where 100 is not achievable.  These are nothing to do with our play quality - it's the way the GDL is
+    // written.  Nobody can possibly score better than the values stated here.
     EXPECTED_SCORES.put("stanford.hunter", 87);
     EXPECTED_SCORES.put("stanford.multiplesukoshi", 0);
+    EXPECTED_SCORES.put("stanford.pearls", 90);
+    EXPECTED_SCORES.put("stanford.untwistycomplex2", 0);
 
     // Puzzles where we ought to get 100, but don't (or don't reliably).  Covered by issue 260.
     EXPECTED_SCORES.put("base.tpeg", 90);
@@ -50,7 +63,13 @@ public abstract class PuzzleBase extends Assert
   private static HashSet<String> SKIP = new HashSet<>();
   static
   {
-    // Games which we fail.  Covered by issue 260.
+    // Puzzles with broken GDL.
+    SKIP.add("stanford.arithmetic");
+
+    // Stanford puzzles we fail.  Individual issues exist.
+    SKIP.add("stanford.multiplehunter"); // Issue #320.
+
+    // Games which we fail.  Covered by issue #260.
     SKIP.add("base.asteroidsParallel");
     SKIP.add("base.brain_teaser_extended");
     SKIP.add("base.factoringGeorgeForman");
@@ -86,7 +105,7 @@ public abstract class PuzzleBase extends Assert
     for (String lRepoName : new String[] {"base", "stanford"})
     {
       // Get all the games in the repository.
-      GameRepository lRepo = new CloudGameRepository("games.ggp.org/" + lRepoName);
+      GameRepository lRepo = new CloudGameRepository(REPO_URL.get(lRepoName));
 
       // Filter them.
       for (String lGameName : lRepo.getGameKeys())
@@ -96,8 +115,17 @@ public abstract class PuzzleBase extends Assert
           lTests.add(new Object[] {lRepoName + "." + lGameName, lRepo.getGame(lGameName)});
         }
       }
-
     }
+
+    // Sort the tests
+    Collections.sort(lTests, new Comparator<Object[]>()
+                     {
+                       @Override
+                       public int compare(Object[] xiA, Object[] xiB)
+                       {
+                         return Collator.getInstance().compare((String)(xiA[0]), (String)(xiB[0]));
+                       }
+                     });
 
     return lTests;
   }
@@ -154,7 +182,7 @@ public abstract class PuzzleBase extends Assert
     String lRole = stateMachine.getRoles()[0].toString();
     String lRules = mGame.getRulesheet();
     int lStartClock = 60;
-    int lPlayClock = 60;
+    int lPlayClock = 10;
 
     // Some games need a little extra time (but better to do it this way, because it reduces the running time of the
     // while suite.

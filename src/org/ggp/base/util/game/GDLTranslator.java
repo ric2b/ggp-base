@@ -300,7 +300,7 @@ public class GDLTranslator
 
     if (xiFlatGDL.size() > MAX_GDL_SIZE)
     {
-      LOGGER.warn("Not saving GDL because it's too big");
+      LOGGER.warn("Not saving GDL because it's too big (" + xiFlatGDL.size() + " atoms)");
     }
 
     // Convert the GDL to a string.

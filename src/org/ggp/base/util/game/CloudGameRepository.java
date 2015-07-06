@@ -119,7 +119,12 @@ public final class CloudGameRepository extends GameRepository
     {
       return cachedGame;
     }
+
     // Request the game directly on a cache miss.
+    if (theRepoURL.contains("gamemaster"))
+    {
+      return new GamemasterGameRepository(theRepoURL).getGame(theKey);
+    }
     return new RemoteGameRepository(theRepoURL).getGame(theKey);
   }
 
@@ -143,12 +148,10 @@ public final class CloudGameRepository extends GameRepository
       try
       {
         String theGameURL = theRepository.getGameURL(theKey);
-        JSONObject theMetadata = RemoteGameRepository
-            .getGameMetadataFromRepository(theGameURL);
+        JSONObject theMetadata = theRepository.getGameMetadataFromRepository(theGameURL);
 
         int repoVersion = theMetadata.getInt("version");
-        String versionedRepoURL = RemoteGameRepository
-            .addVersionToGameURL(theGameURL, repoVersion);
+        String versionedRepoURL = theRepository.addVersionToGameURL(theGameURL, repoVersion);
 
         Game myGameVersion = loadGameFromCache(theKey);
         String myVersionedRepoURL = "";
@@ -159,8 +162,7 @@ public final class CloudGameRepository extends GameRepository
         {
           // Cache miss: we don't have the current version for
           // this game, and so we need to load it from the web.
-          Game theGame = RemoteGameRepository
-              .loadSingleGameFromMetadata(theKey, theGameURL, theMetadata);
+          Game theGame = theRepository.loadSingleGameFromMetadata(theKey, theGameURL, theMetadata);
           saveGameToCache(theKey, theGame);
         }
       }
@@ -171,7 +173,7 @@ public final class CloudGameRepository extends GameRepository
     }
   }
 
-  class RefreshCacheThread extends Thread
+  private class RefreshCacheThread extends Thread
   {
     String theRepoURL;
 
@@ -195,7 +197,15 @@ public final class CloudGameRepository extends GameRepository
         return;
       }
 
-      RemoteGameRepository remoteRepository = new RemoteGameRepository(theRepoURL);
+      RemoteGameRepository remoteRepository;
+      if (theRepoURL.contains("gamemaster"))
+      {
+        remoteRepository = new GamemasterGameRepository(theRepoURL);
+      }
+      else
+      {
+        remoteRepository = new RemoteGameRepository(theRepoURL);
+      }
 
       System.out.println("Updating the game cache...");
       long beginTime = System.currentTimeMillis();
@@ -224,13 +234,11 @@ public final class CloudGameRepository extends GameRepository
             String remoteGameURL = remoteRepository.getGameURL(theKey);
             int remoteVersion = bundledMetadata.getJSONObject(theKey)
                 .getInt("version");
-            String remoteVersionedGameURL = RemoteGameRepository
-                .addVersionToGameURL(remoteGameURL, remoteVersion);
+            String remoteVersionedGameURL = remoteRepository.addVersionToGameURL(remoteGameURL, remoteVersion);
 
             // Skip updating the game cache entry if the version is the same
             // and the cache entry was written less than a week ago.
-            if (myGameVersion.getRepositoryURL()
-                .equals(remoteVersionedGameURL) &&
+            if (myGameVersion.getRepositoryURL().equals(remoteVersionedGameURL) &&
                 getCacheEntryAge(theKey) < 604800000)
             {
               unchangedKeys.add(theKey);

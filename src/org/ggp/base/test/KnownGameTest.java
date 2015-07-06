@@ -1,5 +1,8 @@
 package org.ggp.base.test;
 
+import java.text.Collator;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -35,14 +38,25 @@ public class KnownGameTest extends Assert
     SKIP.add("stanford.kono");
     SKIP.add("stanford.madness");
     SKIP.add("stanford.pilgrimage");
+    SKIP.add("stanford.skirmishbad"); // Bad GDL (unsafe rule).
+
+    SKIP.add("stanford.arithmetic"); // GDL is so bugged that we refuse to play.  (No goals for the only role.)
+    SKIP.add("stanford.arithmetic-stupid"); // Massive GDL means we refuse to learn.  Issue #154.
+    SKIP.add("stanford.go"); // Crash in propnet construction.  Issue #321.
+    SKIP.add("stanford.multiplehunter"); // Not saving characteristics, because they look dodgy.  Issue #320.
+    SKIP.add("stanford.yinsh"); // We claim there are no goals for black.  Not sure that's true.  Issue #322.
+    SKIP.add("stanford.zertz"); // Crash in propnet construction.  Issue #323.
+
+    SKIP.add("stanford.hexforfour"); // !! ARR Haven't had time to build control set for this yet.  Will do so soon.
   }
 
   private static HashMap<String, String> AKA = new HashMap<>();
   static
   {
-    AKA.put("stanford.threepuzzle",      "stanford.3puzzle");
-    AKA.put("stanford.jointconnectfour", "stanford.dualconnectfour");
-    AKA.put("stanford.trifecta",         "stanford.tictactoe");
+    AKA.put("stanford.chinesecheckers4local", "stanford.chinesecheckers4");
+    AKA.put("stanford.jointconnectfour",      "stanford.dualconnectfour");
+    AKA.put("stanford.threepuzzle",           "stanford.3puzzle");
+    AKA.put("stanford.trifecta",              "stanford.tictactoe");
   }
 
   /**
@@ -58,7 +72,7 @@ public class KnownGameTest extends Assert
     for (String lRepoName : new String[] {/*"base",*/ "stanford"})
     {
       // Get all the games in the repository.
-      GameRepository lRepo = new CloudGameRepository("games.ggp.org/" + lRepoName);
+      GameRepository lRepo = new CloudGameRepository(PuzzleBase.REPO_URL.get(lRepoName));
 
       // Filter them.
       for (String lGameName : lRepo.getGameKeys())
@@ -66,6 +80,16 @@ public class KnownGameTest extends Assert
         lTests.add(new Object[] {lRepoName + "." + lGameName, lRepo.getGame(lGameName)});
       }
     }
+
+    // Sort the tests
+    Collections.sort(lTests, new Comparator<Object[]>()
+                     {
+                       @Override
+                       public int compare(Object[] xiA, Object[] xiB)
+                       {
+                         return Collator.getInstance().compare((String)(xiA[0]), (String)(xiB[0]));
+                       }
+                     });
 
     return lTests;
   }

@@ -113,23 +113,19 @@ public class BasesInputsValidator implements GameValidator
     }
     catch (MoveDefinitionException mde)
     {
-      throw new ValidatorException("Could not find legal moves while simulating: " +
-                                   mde);
+      throw new ValidatorException("Could not find legal moves while simulating: " + mde);
     }
     catch (TransitionDefinitionException tde)
     {
-      throw new ValidatorException("Could not find transition definition while simulating: " +
-                                   tde);
+      throw new ValidatorException("Could not find transition definition while simulating: " + tde);
     }
     catch (RuntimeException e)
     {
-      throw new ValidatorException("Ran into a runtime exception while simulating: " +
-                                   e);
+      throw new ValidatorException("Ran into a runtime exception while simulating: " + e);
     }
     catch (StackOverflowError e)
     {
-      throw new ValidatorException("Ran into a stack overflow while simulating: " +
-                                   e);
+      throw new ValidatorException("Ran into a stack overflow while simulating: " + e);
     }
     catch (OutOfMemoryError e)
     {
@@ -146,21 +142,17 @@ public class BasesInputsValidator implements GameValidator
 
     for (String gameKey : gameRepo.getGameKeys())
     {
-      if (!gameKey.equals("amazons") //Skip games that currently result in out-of-memory errors
-          &&
+      if (!gameKey.equals("amazons") && //Skip games that currently result in out-of-memory errors
           !gameKey.equals("alexChess"))
       {
         try
         {
-          new BasesInputsValidator(20000).checkValidity(gameRepo
-              .getGame(gameKey));
-          System.out.println("Game " + gameKey +
-                             " has valid base/input propositions.");
+          new BasesInputsValidator(20000).checkValidity(gameRepo.getGame(gameKey));
+          System.out.println("Game " + gameKey + " has valid base/input propositions.");
         }
         catch (ValidatorException ve)
         {
-          System.out.println("Game " + gameKey + " is invalid: " +
-                             ve.getMessage());
+          System.out.println("Game " + gameKey + " is invalid: " + ve.getMessage());
         }
       }
     }
