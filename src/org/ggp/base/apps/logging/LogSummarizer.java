@@ -89,14 +89,17 @@ public class LogSummarizer
         }
         else
         {
+          System.out.println(System.currentTimeMillis() + ": Got request for logs for " + lRequest);
           lContentType = "text/acl";
           lResponse = SUMMARY_GENERATOR.getLogSummary(lRequest);
+          System.out.println(System.currentTimeMillis() + ": Got " + lResponse.length() + " bytes of logs for " + lRequest);
           long lDuration = System.currentTimeMillis() - lStartTime;
-          System.out.println("Took " + lDuration + "ms to generate " + lResponse.length() + " bytes of logs for " + lRequest);
+          System.out.println(System.currentTimeMillis() + ": Took " + lDuration + "ms to generate the logs");
         }
 
         HttpWriter.writeAsServer(mConnection, lResponse, lContentType);
         mConnection.close();
+        System.out.println(System.currentTimeMillis() + ": Successfully replied to log request for " + lRequest);
       }
       catch (IOException e)
       {

@@ -30,7 +30,6 @@ public class LogSummaryGenerator
    */
   public synchronized String getLogSummary(final String xiMatchID)
   {
-    System.out.println("Generating logs for " + xiMatchID + " at " + System.currentTimeMillis());
     FilenameFilter lFilter = new FilenameFilter()
     {
       @Override
