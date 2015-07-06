@@ -43,8 +43,7 @@ public class GDLTranslator
    */
   public GDLTranslator(SymbolList xiRulesheet)
   {
-    // Produce a rule mapping from the internal (saved) form to the network
-    //(current) form.
+    // Produce a rule mapping from the internal (saved) form to the network(current) form.
     mInternalToNetwork = findMapping(xiRulesheet);
 
     // Produce the reverse mapping.
@@ -145,8 +144,7 @@ public class GDLTranslator
 
     try
     {
-      // Iterate over all the games that we've previously played, checking
-      // if any of them are equivalent to the current game.
+      // Iterate over all the games we know, checking if any of them are equivalent to the current game.
       final File lGameDirs[] = LEARNING_DIR.listFiles();
 
       for (final File lGameDir : lGameDirs)
@@ -177,8 +175,7 @@ public class GDLTranslator
       lEx.printStackTrace();
     }
 
-    // If we didn't get a mapping, save the GDL so we'll be able to find one
-    // next time.
+    // If we didn't get a mapping, save the GDL so we'll be able to find one next time.
     if (lMapping == null)
     {
       saveGDL(lFlatGDL);
@@ -248,7 +245,7 @@ public class GDLTranslator
 
     if (xiFlatGDL.size() != lStoredAtoms.length)
     {
-      LOGGER.debug("Not " + lGameName + ": GDL has wrong number of terms");
+      LOGGER.trace("Not " + lGameName + ": GDL has wrong number of terms");
       return null;
     }
 
@@ -263,17 +260,17 @@ public class GDLTranslator
       final SymbolAtom lGDLAtom = xiFlatGDL.get(lii);
       final SymbolAtom lStoredAtom = SymbolPool.getAtom(lStoredAtoms[lii]);
 
-      //  Don't map numerics - this is what caused us to recognize Amazons as being the same as Amazons Suicide!
-      if ( StringUtils.isNumeric(lGDLAtom.toString()) && !lGDLAtom.equals(lStoredAtom))
+      // Don't map numerics - this is what caused us to recognize Amazons as being the same as Amazons Suicide!
+      if (StringUtils.isNumeric(lGDLAtom.toString()) && !lGDLAtom.equals(lStoredAtom))
       {
-        LOGGER.debug("Not " + lGameName + ":  Numeric constants differ");
+        LOGGER.trace("Not " + lGameName + ":  Numeric constants differ");
         return null;
       }
       if (lMapping.containsKey(lStoredAtom))
       {
         if (!lMapping.get(lStoredAtom).equals(lGDLAtom))
         {
-          LOGGER.debug("Not " + lGameName + ":  Already had " + lStoredAtom + " -> " + lMapping.get(lStoredAtom) + " but now have " + lStoredAtom + " -> " + lGDLAtom);
+          LOGGER.trace("Not " + lGameName + ":  Already had " + lStoredAtom + " -> " + lMapping.get(lStoredAtom) + " but now have " + lStoredAtom + " -> " + lGDLAtom);
           return null;
         }
       }
@@ -347,8 +344,7 @@ public class GDLTranslator
   private static String readStringFromFile(File xiFile)
   {
     String lResult = null;
-    try (final BufferedReader lReader =
-                                    new BufferedReader(new FileReader(xiFile)))
+    try (final BufferedReader lReader = new BufferedReader(new FileReader(xiFile)))
     {
       lResult = lReader.readLine();
     }
