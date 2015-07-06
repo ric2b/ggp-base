@@ -46,8 +46,6 @@ public class KnownGameTest extends Assert
     SKIP.add("stanford.multiplehunter"); // Not saving characteristics, because they look dodgy.  Issue #320.
     SKIP.add("stanford.yinsh"); // We claim there are no goals for black.  Not sure that's true.  Issue #322.
     SKIP.add("stanford.zertz"); // Crash in propnet construction.  Issue #323.
-
-    SKIP.add("stanford.hexforfour"); // !! ARR Haven't had time to build control set for this yet.  Will do so soon.
   }
 
   private static HashMap<String, String> AKA = new HashMap<>();
