@@ -124,7 +124,14 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
           moveChoicesFromMultipleFactors = lConfigFile.getBoolean(MOVES_IN_MULTIPLE_FACTORS_KEY, false);
           mMaxObservedChoices            = lConfigFile.getInt(MAX_BRANCHING_FACTOR_KEY, 1);
           isFixedMoveCount               = lConfigFile.getBoolean(FIXED_LENGTH_KEY, false);
-          mPlan                          = lConfigFile.getString(PLAN_KEY, null);
+          if ( !MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_SAVED_PLANS) )
+          {
+            mPlan                        = lConfigFile.getString(PLAN_KEY, null);
+          }
+          else
+          {
+            LOGGER.debug("Persisted plans disbaled - not loading a plan");
+          }
           mControlMask                   = lConfigFile.getString(CONTROL_MASK, null);
         }
       }

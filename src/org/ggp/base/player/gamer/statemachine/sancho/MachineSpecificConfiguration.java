@@ -68,6 +68,11 @@ public class MachineSpecificConfiguration
     DISABLE_LEARNING(false),
 
     /**
+     * Whether to disable the use of persisted puzzle plans (auto disabled if learning if disabled).
+     */
+    DISABLE_SAVED_PLANS(false),
+
+    /**
      * Whether to disable node trimming on pool full (if disabled search stalls until the next move
      * reroots the tree).
      */
