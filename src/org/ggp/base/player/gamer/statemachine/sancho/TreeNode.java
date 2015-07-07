@@ -4222,6 +4222,10 @@ public class TreeNode
   {
     double result = mTree.mGameCharacteristics.getExplorationBias();
 
+//    if ( mDepth < mTree.mRoot.mDepth + mTree.mNumRoles )
+//    {
+//      result /= 5;
+//    }
 //    if (moveEdge.moveWeight != 0)
 //    {
 //      result *= (1 + moveEdge.moveWeight/25);
@@ -4322,6 +4326,7 @@ public class TreeNode
 
   private void normalizeScores(boolean bTrace)
   {
+    final int MIN_NUM_VISITS = 20;  //  Threshold child visits below which child weights are not renormalized
     double weightTotal = 0;
     int choosingRoleIndex = (mDecidingRoleIndex + 1) % mTree.mNumRoles;
 
@@ -4355,21 +4360,22 @@ public class TreeNode
       if (lChoice instanceof TreeEdge)
       {
         TreeEdge edge = (TreeEdge)lChoice;
+        int visits = edge.getNumChildVisits();
 
-        if (edge.getChildRef() != NULL_REF && edge.isSelectable())
+        if (edge.getChildRef() != NULL_REF && edge.isSelectable() && visits >= MIN_NUM_VISITS)
         {
           TreeNode child = get(edge.getChildRef());
 
           if (child != null)
           {
-            double score = child.getAverageScore(choosingRoleIndex);
-            int weight = edge.getNumChildVisits();
-            // In principal it shouldn't matter which node we pick as the pivot node, but
-            // choosing the most visited makes sense as it should have the lowest uncertainty
-            if (weight > pivotScoreWeight)
+            double score = effectiveExploitationScore(lii, choosingRoleIndex);
+            // We must pick the highest score of the children we plan to include in renormalization
+            // or else the UCT renormalization formula breaks down for scores above a certain amount
+            // greater than the score of the node we do choose as a pivot
+            if (score > pivotScore)
             {
               pivotScore = score;
-              pivotScoreWeight = weight;
+              pivotScoreWeight = visits;
               highestScoreIndex = lii;
               pivotIsHyper = edge.isHyperEdge();
             }
@@ -4383,7 +4389,7 @@ public class TreeNode
     //  (with or without this adjustment) normalization and hyper-edges just do not seem to mix well
     //  I do not know why, but for now normalization is just disabled in games with hyper-expansion
     double expBias = pivotIsHyper ? 2.5 : 0.5;  //  Account for boosted selection used on hyper edges
-    double c = pivotScore/100 + expBias*Math.sqrt(highestVisitFactor);
+    double c = pivotScore + expBias*Math.sqrt(highestVisitFactor);
 
 
     for (int lii = 0; lii < mNumChildren; lii++)
@@ -4411,9 +4417,9 @@ public class TreeNode
             //  un-normalized MCTS will weight that child's score more highly than the renormalized version,
             //  and result in slower parent convergence.  Normalization should increase convergence rates in
             //  such cases, especially if child convergence is non-monotonic
-            double chooserScore = child.getAverageScore(choosingRoleIndex)/100;
-            double weight = expBias*expBias*Math.log(mNumVisits)/((c-chooserScore)*(c-chooserScore));
-
+            double chooserScore = effectiveExploitationScore(lii, choosingRoleIndex);
+            int numChildVisits = edge.getNumChildVisits();
+            double weight = (numChildVisits >= MIN_NUM_VISITS ? expBias*expBias*Math.log(mNumVisits)/((c-chooserScore)*(c-chooserScore)) : numChildVisits);
             assert(lii != highestScoreIndex || Math.abs(weight-edge.getNumChildVisits()) < EPSILON);
 
             if (bTrace)
