@@ -155,7 +155,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
     {
       ForwardDeadReckonLegalMoveInfo move = (ForwardDeadReckonLegalMoveInfo)xiO;
       //return (move != null && parent.contents.fastGet(move.masterIndex));
-      return (move != null && roleIndex == move.roleIndex && parent.isLegalMove(move.roleIndex, move.masterIndex));
+      return (move != null && roleIndex == move.mRoleIndex && parent.isLegalMove(move.mRoleIndex, move.mMasterIndex));
     }
 
     @Override
@@ -334,9 +334,9 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
 
       for(ForwardDeadReckonLegalMoveInfo info : alwaysLegalMoves)
       {
-        if ( info.roleIndex == i )
+        if ( info.mRoleIndex == i )
         {
-          add(info.masterIndex);
+          add(info.mMasterIndex);
         }
       }
 
@@ -376,12 +376,12 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
       {
         ForwardDeadReckonLegalMoveInfo info = masterListAsArray[index];
 
-        assert(info.roleIndex == roleIndex);
+        assert(info.mRoleIndex == roleIndex);
         if (!first)
         {
           sb.append(", ");
         }
-        sb.append(moveIndex++ + ": " + masterListAsArray[index].move);
+        sb.append(moveIndex++ + ": " + masterListAsArray[index].mMove);
         first = false;
       }
 
@@ -495,7 +495,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public void addAlwaysLegal(ForwardDeadReckonLegalMoveInfo info)
   {
-    assert(info.masterIndex != -1);
+    assert(info.mMasterIndex != -1);
 
     alwaysLegalMoves.add(info);
   }
@@ -506,12 +506,12 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public void add(ForwardDeadReckonLegalMoveInfo info)
   {
-    assert(info.masterIndex != -1);
+    assert(info.mMasterIndex != -1);
 
     assert(valid());
 
-    int roleIndex = info.roleIndex;
-    short index = (short)info.masterIndex;
+    int roleIndex = info.mRoleIndex;
+    short index = (short)info.mMasterIndex;
     int[] linkageForRole = linkage[roleIndex];
 
     if ( linkageForRole[index] == INVALID_PREV )
@@ -590,9 +590,9 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public void remove(ForwardDeadReckonLegalMoveInfo info)
   {
-    assert(info.masterIndex != -1);
+    assert(info.mMasterIndex != -1);
 
-    remove(info.roleIndex, info.masterIndex);
+    remove(info.mRoleIndex, info.mMasterIndex);
   }
 
   private void remove(int roleIndex, int index)
@@ -772,7 +772,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   public boolean isLegalMove(int roleIndex, ForwardDeadReckonLegalMoveInfo move)
   {
-    return isLegalMove(roleIndex, move.masterIndex);
+    return isLegalMove(roleIndex, move.mMasterIndex);
   }
 
   /**

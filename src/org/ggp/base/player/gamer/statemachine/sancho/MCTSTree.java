@@ -972,7 +972,7 @@ public class MCTSTree
         if (mSearchFilter.getFilteredMovesSize(xiState, moves, role, true) == 1)
         {
           ForwardDeadReckonLegalMoveInfo expectedMove = moves.getContents(role).iterator().next();
-          if ((jointMove[i].inputProposition == null) != (expectedMove.inputProposition == null))
+          if ((jointMove[i].mInputProposition == null) != (expectedMove.mInputProposition == null))
           {
             return false;
           }

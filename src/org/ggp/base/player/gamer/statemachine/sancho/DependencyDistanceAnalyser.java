@@ -275,7 +275,7 @@ public class DependencyDistanceAnalyser
       MoveInfo depInfo = moveDependencyInfo[i];
       if ( depInfo.forRoleIndex != -1 )
       {
-        PolymorphicProposition inputProp = moveList[i].inputProposition;
+        PolymorphicProposition inputProp = moveList[i].mInputProposition;
         PolymorphicProposition legalProp = propNet.getLegalInputMap().get(inputProp);
 
         if ( legalProp != null )
@@ -328,7 +328,7 @@ public class DependencyDistanceAnalyser
       MoveInfo depInfo = moveDependencyInfo[i];
       if ( depInfo.forRoleIndex != -1 )
       {
-        PolymorphicProposition inputProp = moveList[i].inputProposition;
+        PolymorphicProposition inputProp = moveList[i].mInputProposition;
 
         if ( inputProp != null )
         {
@@ -676,8 +676,8 @@ public class DependencyDistanceAnalyser
       {
         if (result.moveCoInfluenceDistances[i][j] != result.moveCoInfluenceDistances[j][i])
         {
-          LOGGER.info(moveList[i].inputProposition.getName().toString() + " -> " + moveList[j].inputProposition.getName().toString() + " = " + result.moveCoInfluenceDistances[i][j]);
-          LOGGER.info(moveList[j].inputProposition.getName().toString() + " -> " + moveList[i].inputProposition.getName().toString() + " = " + result.moveCoInfluenceDistances[j][i]);
+          LOGGER.info(moveList[i].mInputProposition.getName().toString() + " -> " + moveList[j].mInputProposition.getName().toString() + " = " + result.moveCoInfluenceDistances[i][j]);
+          LOGGER.info(moveList[j].mInputProposition.getName().toString() + " -> " + moveList[i].mInputProposition.getName().toString() + " = " + result.moveCoInfluenceDistances[j][i]);
         }
         assert(result.moveCoInfluenceDistances[i][j] == result.moveCoInfluenceDistances[j][i]);
       }

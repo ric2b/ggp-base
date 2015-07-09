@@ -100,7 +100,7 @@ public class Factor implements StateMachineFilter
     {
       for (ForwardDeadReckonLegalMoveInfo lInfo : xiMoveInfo)
       {
-        if (lInfo.move.getContents().toString().equals(lMove))
+        if (lInfo.toPersistentString().equals(lMove))
         {
           mMoveInfos.add(lInfo);
           continue SET_MOVES;
@@ -215,7 +215,7 @@ public class Factor implements StateMachineFilter
 
     for (ForwardDeadReckonLegalMoveInfo moveInfo : mMoveInfos)
     {
-      mMoves.add(moveInfo.move);
+      mMoves.add(moveInfo.mMove);
     }
   }
 
@@ -238,7 +238,7 @@ public class Factor implements StateMachineFilter
     LOGGER.debug("Factor moves:");
     for (ForwardDeadReckonLegalMoveInfo moveInfo : mMoveInfos)
     {
-      LOGGER.debug("  " + moveInfo.move);
+      LOGGER.debug("  " + moveInfo.mMove);
     }
   }
 
@@ -330,11 +330,11 @@ public class Factor implements StateMachineFilter
     boolean noopFound = false;
     for (ForwardDeadReckonLegalMoveInfo lMove : xiMoves)
     {
-      if (lMove.factor == null || lMove.factor == this)
+      if (lMove.mFactor == null || lMove.mFactor == this)
       {
         lCount++;
 
-        if (lMove.inputProposition == null || lMove.factor == null)
+        if (lMove.mInputProposition == null || lMove.mFactor == null)
         {
           noopFound = true;
         }
@@ -357,7 +357,7 @@ public class Factor implements StateMachineFilter
     while(xiItr.hasNext())
     {
       result = xiItr.next();
-      if (result.factor == this || result.factor == null)
+      if (result.mFactor == this || result.mFactor == null)
       {
         return result;
       }
@@ -394,9 +394,9 @@ public class Factor implements StateMachineFilter
     lResult.setCharAt(lResult.length() - 1, '~');
 
     // Add the legal moves (comma-separated).
-    for (ForwardDeadReckonLegalMoveInfo moveInfo : mMoveInfos)
+    for (ForwardDeadReckonLegalMoveInfo lMoveInfo : mMoveInfos)
     {
-      lResult.append(moveInfo.move);
+      lResult.append(lMoveInfo.toPersistentString());
       lResult.append(',');
     }
 

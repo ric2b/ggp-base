@@ -163,7 +163,7 @@ public class IteratedGamePlayer
 
             for(ForwardDeadReckonLegalMoveInfo moveInfo : roleMoves)
             {
-              legalMoveMap.put(moveInfo.move, moveInfo);
+              legalMoveMap.put(moveInfo.mMove, moveInfo);
             }
 
             if (role.equals(ourRole))

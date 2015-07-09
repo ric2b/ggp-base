@@ -637,7 +637,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           FactorMoveChoiceInfo factorChoice = tree.getBestMove(false);
           if (factorChoice.bestMove != null)
           {
-            LOGGER.debug("  Factor best move: " + (factorChoice.bestMove.isPseudoNoOp ? null : factorChoice.bestMove.move));
+            LOGGER.debug("  Factor best move: " + (factorChoice.bestMove.mIsPseudoNoOp ? null : factorChoice.bestMove.mMove));
 
             if (bestChoice == null)
             {
@@ -701,7 +701,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
         assert(bestChoice != null) : "No move choice found";
         StatsLogUtils.Series.SCORE.logDataPoint((long)Math.max(0, bestChoice.bestMoveValue + 0.5));
-        result = (bestChoice.bestMove.isPseudoNoOp ? null : bestChoice.bestMove.move);
+        result = (bestChoice.bestMove.mIsPseudoNoOp ? null : bestChoice.bestMove.mMove);
       }
 
       // Record that we've made the move.  Until we've heard back from the server, the game searcher will always search
@@ -1044,7 +1044,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
               //  us) then we need to NOT include it in the plan
               if ( mChosenMove != null && fullPlayoutList.isEmpty() )
               {
-                assert(edge.mPartialMove.move == mChosenMove);
+                assert(edge.mPartialMove.mMove == mChosenMove);
               }
               else
               {
@@ -1084,7 +1084,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           assert(lRequest.mRecordPlayoutTrace);
           for(int i = 0; i < lRequest.mPlayoutInfo.playoutLength; i++)
           {
-            mPlayoutTrace.set(lRequest.mPlayoutInfo.playoutTrace[i].masterIndex);
+            mPlayoutTrace.set(lRequest.mPlayoutInfo.playoutTrace[i].mMasterIndex);
           }
         }
 
@@ -1571,14 +1571,14 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                       {
                         if ( searchResultsBuffer.hasKnownWinDistances() )
                         {
-                          LOGGER.info(moveInfo.move.toString() + " is a global loss for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
+                          LOGGER.info(moveInfo.mMove.toString() + " is a global loss for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
                           child.mCompletionDepth = (short)(node.getDepth()+searchResultsBuffer.atDepth-1);
                           child.mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
                           assert(child.mCompletionDepth >= 0 && child.mCompletionDepth >= child.getDepth());
                         }
                         else
                         {
-                          LOGGER.info(moveInfo.move.toString() + " is a local loss for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
+                          LOGGER.info(moveInfo.mMove.toString() + " is a local loss for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
                           child.mCompletionDepth = (short)(node.getDepth()+searchResultsBuffer.atDepth-1);
                           child.mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
                           assert(child.mCompletionDepth >= 0 && child.mCompletionDepth >= child.getDepth());

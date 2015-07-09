@@ -49,11 +49,11 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
 
     for(int i = 0; i < children.length; i++)
     {
-      System.out.println("Move " + childMoves[i].move + " scores: " + children[i].scoreVector[choosingRole] + " after " + children[i].numVisits + " visits");
+      System.out.println("Move " + childMoves[i].mMove + " scores: " + children[i].scoreVector[choosingRole] + " after " + children[i].numVisits + " visits");
       if ( children[i].scoreVector[choosingRole] > bestScore || (children[i].scoreVector[choosingRole] == bestScore && children[i].complete) )
       {
         bestScore = children[i].scoreVector[choosingRole];
-          result = childMoves[i].move;
+          result = childMoves[i].mMove;
       }
     }
 

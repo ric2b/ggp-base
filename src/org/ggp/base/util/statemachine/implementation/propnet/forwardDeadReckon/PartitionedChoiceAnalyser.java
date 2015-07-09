@@ -145,9 +145,9 @@ public class PartitionedChoiceAnalyser
       Map<PolymorphicProposition, ForwardDeadReckonLegalMoveInfo> inputToLegalInfoMap = new HashMap<>();
       for(ForwardDeadReckonLegalMoveInfo moveInfo : stateMachine.getFullPropNet().getMasterMoveList())
       {
-        if ( moveInfo.inputProposition != null )
+        if ( moveInfo.mInputProposition != null )
         {
-          inputToLegalInfoMap.put(moveInfo.inputProposition, moveInfo);
+          inputToLegalInfoMap.put(moveInfo.mInputProposition, moveInfo);
         }
       }
 

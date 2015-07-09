@@ -119,9 +119,9 @@ public class MoveConsequenceSearcher implements Runnable, LocalSearchController
     synchronized(this)
     {
       //  If we're being asked for the same search again just continue
-      if ( seedMove == null || seedMove.masterIndex != seed.masterIndex || forceSearchReset || !startState.equals(currentState) )
+      if ( seedMove == null || seedMove.mMasterIndex != seed.mMasterIndex || forceSearchReset || !startState.equals(currentState) )
       {
-        LOGGER.info("New local search request - move " + ((seedMove == null || seedMove.masterIndex != seed.masterIndex) ?  "differs" : "does not differ") + ", state " + (startState.equals(currentState) ? "does not differ" : "differs"));
+        LOGGER.info("New local search request - move " + ((seedMove == null || seedMove.mMasterIndex != seed.mMasterIndex) ?  "differs" : "does not differ") + ", state " + (startState.equals(currentState) ? "does not differ" : "differs"));
         currentState = new ForwardDeadReckonInternalMachineState(startState);
         if ( xiChoiceFromState != null )
         {

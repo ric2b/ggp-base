@@ -280,7 +280,7 @@ public class TreeEdge
     assert(mChildRef != mParentRef);
     assert(mChildRef == TreeNode.NULL_REF ||
            TreeNode.get(xiParent.mTree.mNodePool, mChildRef).mTree == xiParent.mTree);
-    assert(!xiPartialMove.isPseudoNoOp || xiParent == xiParent.mTree.mRoot || xiParent.mNumChildren == 1);
+    assert(!xiPartialMove.mIsPseudoNoOp || xiParent == xiParent.mTree.mRoot || xiParent.mNumChildren == 1);
   }
 
   /**
@@ -307,13 +307,13 @@ public class TreeEdge
   {
     String result;
 
-    if ( mPartialMove.isPseudoNoOp )
+    if ( mPartialMove.mIsPseudoNoOp )
     {
       result = "<Pseudo no-op>";
     }
     else
     {
-      result = mPartialMove.move.toString();
+      result = mPartialMove.mMove.toString();
     }
 
     if ( isHyperEdge() )

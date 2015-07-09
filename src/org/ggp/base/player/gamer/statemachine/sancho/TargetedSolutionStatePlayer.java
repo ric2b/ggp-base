@@ -187,7 +187,7 @@ public class TargetedSolutionStatePlayer
 
         if (!AStarVisitedStates.contains(steplessStateBuffer))
         {
-          AStarNode newChild = new AStarNode(stateBuffer, node, moveInfo.move);
+          AStarNode newChild = new AStarNode(stateBuffer, node, moveInfo.mMove);
           AStarFringe.add(newChild);
 
           AStarVisitedStates.add(new ForwardDeadReckonInternalMachineState(steplessStateBuffer));

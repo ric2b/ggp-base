@@ -70,7 +70,7 @@ public class GamePlan
           plan.clear();
           for(ForwardDeadReckonLegalMoveInfo move : candidate)
           {
-            plan.add(move.move);
+            plan.add(move.mMove);
           }
 
           LOGGER.info("Cached new best plan: " + plan);

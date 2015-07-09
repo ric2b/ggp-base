@@ -113,13 +113,13 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
         ForwardDeadReckonLegalMoveInfo move = xiMoves[i];
         if ( prev != null )
         {
-          if ( (move.roleIndex == ourRoleIndex) == isWin )
+          if ( (move.mRoleIndex == ourRoleIndex) == isWin )
           {
-            bestResponseScores[prev.masterIndex][move.masterIndex]++;
+            bestResponseScores[prev.mMasterIndex][move.mMasterIndex]++;
           }
           else
           {
-            bestResponseScores[prev.masterIndex][move.masterIndex]--;
+            bestResponseScores[prev.mMasterIndex][move.mMasterIndex]--;
           }
         }
 
@@ -139,7 +139,7 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
     }
 
     ForwardDeadReckonLegalMoveInfo bestResponse = null;
-    int[] moveResponseScores = bestResponseScores[playoutMoves[currentMoveIndex-1].masterIndex];
+    int[] moveResponseScores = bestResponseScores[playoutMoves[currentMoveIndex-1].mMasterIndex];
     int best = -Integer.MAX_VALUE;
     for(int i = 0; i < moveResponseScores.length; i++)
     {

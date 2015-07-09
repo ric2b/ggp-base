@@ -118,7 +118,7 @@ public class LocalRegionSearcher
     relevantMoves = new ForwardDeadReckonLegalMoveSet[MAX_DEPTH+1][];
 
     pseudoNoop = new ForwardDeadReckonLegalMoveInfo();
-    pseudoNoop.isPseudoNoOp = true;
+    pseudoNoop.mIsPseudoNoOp = true;
 
     optionalMoveKillerWeight = new int[underlyingStateMachine.getFullPropNet().getMasterMoveList().length];
     NonOptionalMoveKillerWeight = new int[underlyingStateMachine.getFullPropNet().getMasterMoveList().length];
@@ -416,7 +416,7 @@ public class LocalRegionSearcher
           //  force searching relative to it in other alternatives
           for(int i = 0; i < jointMove[1].length; i++)
           {
-            if ( jointMove[1][i] != null && jointMove[1][i].inputProposition != null )
+            if ( jointMove[1][i] != null && jointMove[1][i].mInputProposition != null )
             {
               tenukiLossSeeds[1-optionalRole] = jointMove[1][i];
               break;
@@ -502,7 +502,7 @@ public class LocalRegionSearcher
       Role role = roleOrdering.roleIndexToRole(i);
       Collection<ForwardDeadReckonLegalMoveInfo> legalMoves = underlyingStateMachine.getLegalMoves(state, role);
 
-      if ( legalMoves.iterator().next().inputProposition == null )
+      if ( legalMoves.iterator().next().mInputProposition == null )
       {
         if ( depth == 1 && i == 0 )
         {
@@ -754,11 +754,11 @@ public class LocalRegionSearcher
         int killerValue = 1<<(currentDepth-depth);
         if ( choosingRole == optionalRole)
         {
-          optionalMoveKillerWeight[jointMove[depth][choosingRole].masterIndex] += killerValue;
+          optionalMoveKillerWeight[jointMove[depth][choosingRole].mMasterIndex] += killerValue;
         }
         else
         {
-          NonOptionalMoveKillerWeight[jointMove[depth][choosingRole].masterIndex] += killerValue;
+          NonOptionalMoveKillerWeight[jointMove[depth][choosingRole].mMasterIndex] += killerValue;
 
           //  This is the path we would take from here so it is relevant to the solution
           relevantMoves[depth][depth].add(jointMove[depth][choosingRole]);
@@ -805,12 +805,12 @@ public class LocalRegionSearcher
 
   public int getMoveCoInfluenceDistance(ForwardDeadReckonLegalMoveInfo from, ForwardDeadReckonLegalMoveInfo to)
   {
-    return moveDistances.moveCoInfluenceDistances[from.masterIndex][to.masterIndex];
+    return moveDistances.moveCoInfluenceDistances[from.mMasterIndex][to.mMasterIndex];
   }
 
   public int getMoveEnablementDistance(ForwardDeadReckonLegalMoveInfo from, ForwardDeadReckonLegalMoveInfo to)
   {
-    return moveDistances.moveEnablingDistances[from.masterIndex][to.masterIndex];
+    return moveDistances.moveEnablingDistances[from.mMasterIndex][to.mMasterIndex];
   }
 
   private int heuristicValue(ForwardDeadReckonLegalMoveInfo move, int depth, ForwardDeadReckonLegalMoveInfo previousLocalMove, boolean forOptionalRole)
@@ -821,15 +821,15 @@ public class LocalRegionSearcher
 //    }
     //  If we're joint searching with a secondary seed and a legal move at depth 1 is exactly the
     //  secondary seed move choose it first
-    if ( depth == 1 && jointMove[0][1] != null && jointMove[0][1].masterIndex == move.masterIndex )
+    if ( depth == 1 && jointMove[0][1] != null && jointMove[0][1].mMasterIndex == move.mMasterIndex )
     {
       return Integer.MAX_VALUE;
     }
     if ( forOptionalRole )
     {
-      return optionalMoveKillerWeight[move.masterIndex];
+      return optionalMoveKillerWeight[move.mMasterIndex];
     }
-    return NonOptionalMoveKillerWeight[move.masterIndex];
+    return NonOptionalMoveKillerWeight[move.mMasterIndex];
   }
 
   private int getLocalMoves(Collection<ForwardDeadReckonLegalMoveInfo> allMoves, ForwardDeadReckonLegalMoveInfo[] localMoves, int depth, int maxDistance, int optionalRole)
@@ -877,7 +877,7 @@ public class LocalRegionSearcher
           //  the seed).  Optional moves have to be allowed to go outside this boundary
           //  or else refutations of non-optional moves played may not be found and a
           //  false positive can result from the overall search for a win
-          if ( !chosenMovesAreForOptionalRole && !jointSearch && jointMove[0][0] != null && moveDistances.moveCoInfluenceDistances[jointMove[0][0].masterIndex][move.masterIndex] > maxDistance )
+          if ( !chosenMovesAreForOptionalRole && !jointSearch && jointMove[0][0] != null && moveDistances.moveCoInfluenceDistances[jointMove[0][0].mMasterIndex][move.mMasterIndex] > maxDistance )
           {
             continue;
           }
@@ -991,7 +991,7 @@ public class LocalRegionSearcher
             {
               for(int j = 0; j < jointMove[i].length; j++)
               {
-                if ( jointMove[i][j].inputProposition != null )
+                if ( jointMove[i][j].mInputProposition != null )
                 {
                   plyMove = jointMove[i][j];
                   break;
@@ -1001,15 +1001,15 @@ public class LocalRegionSearcher
               {
                 int maxAllowableDistance = ((chosenMovesAreForOptionalRole || previousWasForced) ? maxDistance-i : Math.min(maxDistance-i, FOCUS_DISTANCE));
   //              plyMoveFound = true;
-                int distance = moveDistances.moveCoInfluenceDistances[plyMove.masterIndex][move.masterIndex];
+                int distance = moveDistances.moveCoInfluenceDistances[plyMove.mMasterIndex][move.mMasterIndex];
                 boolean includeAtThisPly = (distance <= maxAllowableDistance);
                 if ( i == 0 && jointSearch )
                 {
-                  includeAtThisPly |= (moveDistances.moveCoInfluenceDistances[jointMove[0][1].masterIndex][move.masterIndex] <= maxAllowableDistance);
+                  includeAtThisPly |= (moveDistances.moveCoInfluenceDistances[jointMove[0][1].mMasterIndex][move.mMasterIndex] <= maxAllowableDistance);
                 }
                 if ( chosenMovesAreForOptionalRole && tenukiLossDepth[1-optionalRole] < MAX_DEPTH )
                 {
-                  includeAtThisPly |= (moveDistances.moveCoInfluenceDistances[tenukiLossSeeds[1-optionalRole].masterIndex][move.masterIndex] <= tenukiLossDepth[1-optionalRole]+1);
+                  includeAtThisPly |= (moveDistances.moveCoInfluenceDistances[tenukiLossSeeds[1-optionalRole].mMasterIndex][move.mMasterIndex] <= tenukiLossDepth[1-optionalRole]+1);
                 }
                 //  If the move is already included and this ply is not an apparent response
                 //  then the inclusion we already have must have been as a response we which are

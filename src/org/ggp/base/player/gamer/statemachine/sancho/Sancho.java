@@ -516,7 +516,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
                 for(ForwardDeadReckonLegalMoveInfo moveInfo : legalMoves)
                 {
-                  moves.add(moveInfo.move);
+                  moves.add(moveInfo.mMove);
                 }
 
                 if ( !previousChoices.equals(moves) )
@@ -531,7 +531,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
               for(ForwardDeadReckonLegalMoveInfo moveInfo : legalMoves)
               {
-                moves.add(moveInfo.move);
+                moves.add(moveInfo.mMove);
               }
 
               roleMoves.set(i, moves);
@@ -559,7 +559,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
               {
                 for(Factor factor : factors)
                 {
-                  if ( factor.getMoves().contains(moveInfo.move))
+                  if ( factor.getMoves().contains(moveInfo.mMove))
                   {
                     if ( turnFactor != null && turnFactor != factor )
                     {
@@ -570,13 +570,13 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
                   }
                 }
               }
-              if (allMovesInState.contains(moveInfo.move))
+              if (allMovesInState.contains(moveInfo.mMove))
               {
                 mGameCharacteristics.isSimultaneousMove = true;
                 choosingRoleIndex = -1;
                 break;
               }
-              allMovesInState.add(moveInfo.move);
+              allMovesInState.add(moveInfo.mMove);
             }
 
             if (roleWithChoiceSeen)
@@ -1288,9 +1288,9 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     for(ForwardDeadReckonLegalMoveInfo info : underlyingStateMachine.getFullPropNet().getMasterMoveList())
     {
-      if ( info.move.equals(move) && info.inputProposition != null )
+      if ( info.mMove.equals(move) && info.mInputProposition != null )
       {
-        PolymorphicProposition legalProp = legalInputMap.get(info.inputProposition);
+        PolymorphicProposition legalProp = legalInputMap.get(info.mInputProposition);
         if ( legalsForRole.contains(legalProp))
         {
           return info;
@@ -1333,7 +1333,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
         else
         {
           lastMove = findMoveInfo(roleOrdering.roleIndexToRole(i), lastJointMove.get(roleOrdering.roleIndexToRawRoleIndex(i)));
-          if ( lastMove != null && lastMove.inputProposition != null )
+          if ( lastMove != null && lastMove.mInputProposition != null )
           {
             LOGGER.info("Non-null move last turn was: " + lastMove);
             break;

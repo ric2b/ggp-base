@@ -44,11 +44,11 @@ public class RAVETestSearchTreeNode extends SearchTreeNode<RAVETestSearchTree>
       {
         for(int i = 0; i < children.length; i++)
         {
-          if ( childMoves[i].move == move.move )
+          if ( childMoves[i].mMove == move.mMove )
           {
             double weight = tree.playoutRAVEWeight;
             RAVETestSearchTreeNode child = (RAVETestSearchTreeNode)children[i];
-            if ( childMoves[i].roleIndex == move.roleIndex )
+            if ( childMoves[i].mRoleIndex == move.mRoleIndex )
             {
               child.RAVEScore = (child.RAVEScore*child.RAVECount + weight*playoutResult[choosingRole])/(child.RAVECount+weight);
               child.RAVECount += weight;
@@ -127,11 +127,11 @@ public class RAVETestSearchTreeNode extends SearchTreeNode<RAVETestSearchTree>
     {
       RAVETestSearchTreeNode child = (RAVETestSearchTreeNode)children[i];
       double RAVEWeight = (child.RAVECount)/(child.RAVECount + child.numVisits + b*child.numVisits*child.RAVECount + 1);
-      System.out.println("Move " + childMoves[i].move + " scores: " + child.scoreVector[choosingRole] + " after " + child.numVisits + " visits (RAVE score " + child.RAVEScore + " and count " + child.RAVECount + ") [" + RAVEWeight + "]");
+      System.out.println("Move " + childMoves[i].mMove + " scores: " + child.scoreVector[choosingRole] + " after " + child.numVisits + " visits (RAVE score " + child.RAVEScore + " and count " + child.RAVECount + ") [" + RAVEWeight + "]");
       if ( child.scoreVector[choosingRole] > bestScore || (child.scoreVector[choosingRole] == bestScore && child.complete) )
       {
         bestScore = children[i].scoreVector[choosingRole];
-        result = childMoves[i].move;
+        result = childMoves[i].mMove;
       }
     }
 

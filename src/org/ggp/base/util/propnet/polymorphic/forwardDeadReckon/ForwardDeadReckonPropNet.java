@@ -101,7 +101,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
 
       for(ForwardDeadReckonLegalMoveInfo moveInfo : masterMoveList)
       {
-        masterMoveIndexMap[moveInfo.roleIndex].put(moveInfo.move, moveInfo.masterIndex);
+        masterMoveIndexMap[moveInfo.mRoleIndex].put(moveInfo.mMove, moveInfo.mMasterIndex);
       }
     }
     else
@@ -118,11 +118,11 @@ public ForwardDeadReckonPropNet(Role[] roles,
         ForwardDeadReckonProposition pfdr = (ForwardDeadReckonProposition)p;
         ForwardDeadReckonLegalMoveInfo info = new ForwardDeadReckonLegalMoveInfo();
 
-        info.move = new Move(pfdr.getName().getBody().get(1));
-        info.inputProposition = (ForwardDeadReckonProposition)getLegalInputMap().get(p);
-        info.roleIndex = roleIndex;
-        assert(masterMoveIndexMap == null || masterMoveIndexMap[info.roleIndex].containsKey(info.move));
-        info.masterIndex = alwaysTrueLegalMoves.resolveId(info, masterMoveIndexMap == null ? -1 : masterMoveIndexMap[info.roleIndex].get(info.move));
+        info.mMove = new Move(pfdr.getName().getBody().get(1));
+        info.mInputProposition = (ForwardDeadReckonProposition)getLegalInputMap().get(p);
+        info.mRoleIndex = roleIndex;
+        assert(masterMoveIndexMap == null || masterMoveIndexMap[info.mRoleIndex].containsKey(info.mMove));
+        info.mMasterIndex = alwaysTrueLegalMoves.resolveId(info, masterMoveIndexMap == null ? -1 : masterMoveIndexMap[info.mRoleIndex].get(info.mMove));
 
         PolymorphicComponent propInput = p.getSingleInput();
         if (propInput instanceof PolymorphicConstant)
@@ -136,7 +136,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
         {
           for (int instanceId = 0; instanceId < numInstances; instanceId++)
           {
-            pfdr.setTransitionSet(info.masterIndex,
+            pfdr.setTransitionSet(info.mMasterIndex,
                                   instanceId,
                                   activeLegalMoves[instanceId]);
           }
@@ -146,7 +146,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
         ForwardDeadReckonPropositionInfo propInfo = new ForwardDeadReckonPropositionInfo();
 
         propInfo.sentence = p.getName();
-        propInfo.index = info.masterIndex;
+        propInfo.index = info.mMasterIndex;
 
         pfdr.setInfo(propInfo);
       }

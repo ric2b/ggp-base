@@ -623,7 +623,8 @@ public class PolymorphicPropNet
 
   /**
    * Get the list of roles involved in the game for which this propnet implements the statemachine.
-   * @return list of roles
+   *
+   * @return list of roles, in the order that they appear in the GDL.
    */
   public Role[] getRoles()
   {
