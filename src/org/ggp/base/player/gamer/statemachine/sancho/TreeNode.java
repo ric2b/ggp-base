@@ -5741,7 +5741,7 @@ public class TreeNode
       ForwardDeadReckonLegalMoveInfo moveInfo = bestEdge.mPartialMove;
 
       result.bestEdge = bestEdge;
-      result.bestMove = (moveInfo.isPseudoNoOp ? null : moveInfo);
+      result.bestMove = (moveInfo.mIsPseudoNoOp ? null : moveInfo);
       result.resultingState = get(bestEdge.getChildRef()).mState;
       if (!moveInfo.mIsPseudoNoOp)
       {
