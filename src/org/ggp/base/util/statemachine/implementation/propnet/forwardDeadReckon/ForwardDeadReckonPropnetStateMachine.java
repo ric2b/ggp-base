@@ -1059,6 +1059,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     }
   }
 
+  /**
+   * @return instance id of this instance
+   */
+  public int getInstanceId()
+  {
+    return instanceId;
+  }
+
   public Set<MachineState> findTerminalStates(int maxResultSet, int maxDepth)
   {
     PolymorphicProposition terminal = fullPropNet.getTerminalProposition();

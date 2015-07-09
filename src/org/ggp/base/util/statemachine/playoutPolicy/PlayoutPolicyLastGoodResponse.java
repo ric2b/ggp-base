@@ -23,13 +23,13 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
 
   private final ForwardDeadReckonPropnetStateMachine stateMachine;
   private final int[][]  bestResponseScores;
+  private final int[][]  responseSampleSize;
   private final int[] latchedScoreRangeBuffer = new int[2];
 
   private ForwardDeadReckonLegalMoveInfo[] playoutMoves = null;
   private int                              currentMoveIndex;
   private final int                        ourRoleIndex;
   private final Role                       ourRole;
-  private int                              sampleSize = 0;
   final private Random                     rand = new Random();
 
   private ForwardDeadReckonLegalMoveSet    availableMoves = null;
@@ -42,6 +42,7 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
   {
     stateMachine = xiStateMachine;
     bestResponseScores = new int[stateMachine.getFullPropNet().getMasterMoveList().length][stateMachine.getFullPropNet().getMasterMoveList().length];
+    responseSampleSize = new int[stateMachine.getFullPropNet().getMasterMoveList().length][stateMachine.getFullPropNet().getMasterMoveList().length];
 
     ourRoleIndex = stateMachine.getRoleOrdering().getOurRawRoleIndex();
     ourRole = stateMachine.getRoleOrdering().getOurRole();
@@ -50,7 +51,7 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
   @Override
   public IPlayoutPolicy cloneFor(ForwardDeadReckonPropnetStateMachine xiStateMachine)
   {
-    return new PlayoutPolicyLastGoodResponse(stateMachine);
+    return new PlayoutPolicyLastGoodResponse(xiStateMachine);
   }
 
   @Override
@@ -105,6 +106,7 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
     if ( xiMoves != null )
     {
       ForwardDeadReckonLegalMoveInfo prev = null;
+      ForwardDeadReckonLegalMoveInfo prevPrev = null;
       int ourGoalValue = stateMachine.getGoal(ourRole);
       boolean isWin = (ourGoalValue == latchedScoreRangeBuffer[1]);
 
@@ -113,20 +115,25 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
         ForwardDeadReckonLegalMoveInfo move = xiMoves[i];
         if ( prev != null )
         {
-          if ( (move.mRoleIndex == ourRoleIndex) == isWin )
+          responseSampleSize[prev.masterIndex][move.masterIndex]++;
+          if ( (move.roleIndex == ourRoleIndex) == isWin )
           {
             bestResponseScores[prev.mMasterIndex][move.mMasterIndex]++;
           }
-          else
+        }
+
+        if ( prevPrev != null )
+        {
+          responseSampleSize[prevPrev.masterIndex][move.masterIndex]++;
+          if ( (move.roleIndex == ourRoleIndex) == isWin )
           {
-            bestResponseScores[prev.mMasterIndex][move.mMasterIndex]--;
+            bestResponseScores[prevPrev.masterIndex][move.masterIndex]++;
           }
         }
 
+        prevPrev = prev;
         prev = move;
       }
-
-      sampleSize++;
     }
   }
 
@@ -139,18 +146,34 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
     }
 
     ForwardDeadReckonLegalMoveInfo bestResponse = null;
-    int[] moveResponseScores = bestResponseScores[playoutMoves[currentMoveIndex-1].mMasterIndex];
-    int best = -Integer.MAX_VALUE;
+    int[] moveResponseScores = bestResponseScores[playoutMoves[currentMoveIndex-1].masterIndex];
+    int[] moveResponseSamples = responseSampleSize[playoutMoves[currentMoveIndex-1].masterIndex];
+    int[] moveFollowOnScores = (currentMoveIndex > 1 ? bestResponseScores[playoutMoves[currentMoveIndex-2].masterIndex] : null);
+    int[] moveFollowOnSamples = (currentMoveIndex > 1 ? responseSampleSize[playoutMoves[currentMoveIndex-2].masterIndex] : null);
+    float best = -Float.MAX_VALUE;
     for(int i = 0; i < moveResponseScores.length; i++)
     {
-      if ( moveResponseScores[i] > best )
+      ForwardDeadReckonLegalMoveInfo response = stateMachine.getFullPropNet().getMasterMoveList()[i];
+
+      if ( response.roleIndex == xiRoleIndex )
       {
-        best = moveResponseScores[i];
-        ForwardDeadReckonLegalMoveInfo response = availableMoves.getMasterList()[i];
-        if ( availableMoves.getContents(xiRoleIndex).contains(response) )
+        float score = 0;
+        if ( moveResponseSamples[i] > 0 )
         {
-          bestResponse = response;
-          best = moveResponseScores[i];
+          score += (float)moveResponseScores[i]/moveResponseSamples[i];
+        }
+        if ( moveFollowOnSamples != null && moveFollowOnSamples[i] > 0 )
+        {
+          assert(moveFollowOnScores != null);
+          score += (float)moveFollowOnScores[i]/moveFollowOnSamples[i];
+        }
+        if ( score > best )
+        {
+          if ( availableMoves.getContents(xiRoleIndex).contains(response) )
+          {
+            bestResponse = availableMoves.getMasterList()[response.masterIndex];
+            best = score;
+          }
         }
       }
     }
@@ -190,24 +213,30 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
   @Override
   public void noteNewTurn()
   {
-    //  Dump best responses from the previous turn
-//    ForwardDeadReckonLegalMoveInfo[] masterList = stateMachine.getFullPropNet().getMasterMoveList();
-//    for(int i = 0; i < bestResponseScores.length; i++)
-//    {
-//      int best = -Integer.MAX_VALUE;
-//      int bestIndex = -1;
-//      for(int j = 0; j < bestResponseScores.length; j++)
-//      {
-//        if ( bestResponseScores[i][j] > best )
-//        {
-//          best = bestResponseScores[i][j];
-//          bestIndex = j;
-//        }
-//      }
-//
-//      assert(bestIndex != -1);
-//      LOGGER.info("Best response to " + masterList[i] + ": " + masterList[bestIndex] + " (" + (100*(double)best/sampleSize) + "%)");
-//    }
+    //  Dump best responses from the previous turn for first non-master instance
+    if ( stateMachine.getInstanceId() == 1 )
+    {
+      ForwardDeadReckonLegalMoveInfo[] masterList = stateMachine.getFullPropNet().getMasterMoveList();
+      for(int i = 0; i < bestResponseScores.length; i++)
+      {
+        float best = -Float.MAX_VALUE;
+        int bestIndex = -1;
+        for(int j = 0; j < bestResponseScores.length; j++)
+        {
+          if ( responseSampleSize[i][j] > 0 )
+          {
+            float score = (float)bestResponseScores[i][j]/responseSampleSize[i][j];
+            if ( score > best )
+            {
+              best = score;
+              bestIndex = j;
+            }
+          }
+        }
+
+        LOGGER.info("Best response to " + masterList[i].inputProposition + ": " + (bestIndex == -1 ? "NONE" : masterList[bestIndex].inputProposition + " (" + (100*best) + "% [" + responseSampleSize[i][bestIndex] + "] )"));
+      }
+    }
 
     // Reset the stats
     for(int i = 0; i < bestResponseScores.length; i++)
@@ -215,9 +244,8 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
       for(int j = 0; j < bestResponseScores.length; j++)
       {
         bestResponseScores[i][j] = 0;
+        responseSampleSize[i][j] = 0;
       }
     }
-
-    sampleSize = 0;
   }
 }
