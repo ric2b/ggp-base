@@ -6,11 +6,10 @@
   <entry key="pseudo_simultaneous">false</entry>
   <entry key="iterated">false</entry>
   <entry key="max_factor_failure_time">0</entry>
-  <entry key="num_factors">6</entry>
+  <entry key="num_factors">0</entry>
   <entry key="moves_in_multiple_factors">true</entry>
   <entry key="max_branching_factor">3</entry>
   <entry key="fixed_length">false</entry>
   <entry key="plan">f,g</entry>
   <entry key="control_mask">( ( true s1 ) )</entry>
-  <entry key="factors">v1~( true s4 )~c;v1~( true s3 )~b;v1~( true s2 )~a;v1~( true s5 )~d;v1~( true s8 ),( true s7 )~f,g;v1~( true s6 )~e</entry>
 </properties>
