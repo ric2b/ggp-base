@@ -783,7 +783,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
    */
   boolean isLegalMove(int roleIndex, int index)
   {
-    return (linkage[roleIndex][index] != INVALID_PREV);
+    return (linkage[roleIndex].length > index && linkage[roleIndex][index] != INVALID_PREV);
   }
 
   /**
