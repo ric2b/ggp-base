@@ -5,9 +5,8 @@
       "repo" : "games.ggp.org/base",
       "game" : "breakthroughWalls",
       "start" : "30",
-      "play" : "45",
+      "play" : "30",
       "limit" : 37,
-      "skip" : true,
       "players" : [
         {
           "type" : "Sancho",
@@ -24,7 +23,7 @@
       ],
       "check" : {
         "player" : "0",
-        "acceptable" : "move 5 5 6 6"
+        "acceptable" : "move 5 5 6 6,move 7 5 7 6"
       }
     }
   ]

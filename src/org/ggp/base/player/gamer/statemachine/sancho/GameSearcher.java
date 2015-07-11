@@ -663,7 +663,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                 LOGGER.debug("  Factor move would be loss in other factor");
               }
               // Complete win dominates everything else
-              else if (factorChoice.mBestMoveValue > 100-TreeNode.EPSILON && bestChoice.mBestMoveIsComplete)
+              else if (factorChoice.mBestMoveValue > 100-TreeNode.EPSILON && factorChoice.mBestMoveIsComplete)
               {
                 LOGGER.debug("  Factor move is a win so selecting");
                 bestChoice = factorChoice;
