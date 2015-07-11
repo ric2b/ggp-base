@@ -69,32 +69,31 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
   /**
    * When adding additional state, you MUST null out references in {@link #tidyUp()}.
    */
-  private Role                        ourRole;
-  private int                         mTurn                           = 0;
-  private String                      mPlanString                     = null;
-  private GamePlan                    mPlan                           = null;
-  private int                         transpositionTableSize          = MachineSpecificConfiguration.getCfgInt(CfgItem.NODE_TABLE_SIZE);
-  private RoleOrdering                roleOrdering                    = null;
-  private ForwardDeadReckonPropositionInfo[] roleControlProps         = null;
-  private ForwardDeadReckonPropnetStateMachine underlyingStateMachine = null;
-  private ForwardDeadReckonInternalMachineState previousTurnRootState = null;
-  private StateMachineProxy           stateMachineProxy               = null;
-  private int                         numRoles                        = 0;
-  private int                         MinRawNetScore                  = 0;
-  private int                         MaxRawNetScore                  = 100;
-  private int                         multiRoleAverageScoreDiff       = 0;
-  private short                       currentMoveDepth                = 0;
-  private boolean                     underExpectedRangeScoreReported = false;
-  private boolean                     overExpectedRangeScoreReported  = false;
-  private GameSearcher                searchProcessor                 = null;
-  private String                      mLogName                        = null;
-  private SystemStatsLogger           mSysStatsLogger                 = null;
-  private Move                        mLastMove                       = null;
-  private ForwardDeadReckonLegalMoveInfo lastMove                     = null;
-  private int                         mFinalScore                     = -1;
-  private boolean                     mSolvedFromStart                = false;
-  private Tlkio                       mBroadcaster                    = null;
-  private Watchdog                    mWatchdog                       = null;
+  private Role                                  mOurRole;
+  private int                                   mTurn                            = 0;
+  private String                                mPlanString                      = null;
+  private GamePlan                              mPlan                            = null;
+  private RoleOrdering                          mRoleOrdering                    = null;
+  private ForwardDeadReckonPropositionInfo[]    mRoleControlProps                = null;
+  private ForwardDeadReckonPropnetStateMachine  mUnderlyingStateMachine          = null;
+  private ForwardDeadReckonInternalMachineState mPreviousTurnRootState           = null;
+  private StateMachineProxy                     mStateMachineProxy               = null;
+  private int                                   mNumRoles                        = 0;
+  private int                                   mMinRawNetScore                  = 0;
+  private int                                   mMaxRawNetScore                  = 100;
+  private int                                   mMultiRoleAverageScoreDiff       = 0;
+  private short                                 mCurrentMoveDepth                = 0;
+  private boolean                               mUnderExpectedRangeScoreReported = false;
+  private boolean                               mOverExpectedRangeScoreReported  = false;
+  private GameSearcher                          mSearchProcessor                 = null;
+  private String                                mLogName                         = null;
+  private SystemStatsLogger                     mSysStatsLogger                  = null;
+  private Move                                  mLastMove                        = null;
+  private ForwardDeadReckonLegalMoveInfo        mLastMoveInfo                    = null;
+  private int                                   mFinalScore                      = -1;
+  private boolean                               mSolvedFromStart                 = false;
+  private Tlkio                                 mBroadcaster                     = null;
+  private Watchdog                              mWatchdog                        = null;
   /**
    * When adding additional state, you MUST null out references in {@link #tidyUp()}.
    */
@@ -123,7 +122,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     int bestEnemyScore = 0;
     for (Role role : stateMachine.getRoles())
     {
-      if (!role.equals(ourRole))
+      if (!role.equals(mOurRole))
       {
         int score = stateMachine.getGoal(state, role);
         if (score > bestEnemyScore)
@@ -148,19 +147,19 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       }
     }
     int rawResult = (mGameCharacteristics.numRoles == 1 ? result : ((result + winBonus) * 100) / 110);
-    int normalizedResult = ((rawResult - MinRawNetScore) * 100) /
-                           (MaxRawNetScore - MinRawNetScore);
+    int normalizedResult = ((rawResult - mMinRawNetScore) * 100) /
+                           (mMaxRawNetScore - mMinRawNetScore);
 
-    if (normalizedResult > 100 && !overExpectedRangeScoreReported)
+    if (normalizedResult > 100 && !mOverExpectedRangeScoreReported)
     {
       normalizedResult = 100;
-      overExpectedRangeScoreReported = true;
+      mOverExpectedRangeScoreReported = true;
       LOGGER.warn("Saw score that nornmalized to > 100");
     }
-    else if (normalizedResult < 0 && !underExpectedRangeScoreReported)
+    else if (normalizedResult < 0 && !mUnderExpectedRangeScoreReported)
     {
       normalizedResult = 0;
-      underExpectedRangeScoreReported = true;
+      mUnderExpectedRangeScoreReported = true;
       LOGGER.warn("Saw score that nornmalized to < 0");
     }
 
@@ -193,16 +192,16 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     ThreadControl.sCPUIdParity = (getPort()%2 == 0);
     ThreadControl.reset();
 
-    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS + 1,
+    mUnderlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS + 1,
                                                                       getMetaGamingTimeout(),
                                                                       getRole(),
                                                                       mGameCharacteristics);
     System.gc();
 
-    currentMoveDepth = 0;
+    mCurrentMoveDepth = 0;
 
-    stateMachineProxy = new StateMachineProxy(underlyingStateMachine);
-    return stateMachineProxy;
+    mStateMachineProxy = new StateMachineProxy(mUnderlyingStateMachine);
+    return mStateMachineProxy;
   }
 
   private static int unNormalizedStateDistance(MachineState queriedState, MachineState targetState)
@@ -272,14 +271,16 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     mSysStatsLogger = new SystemStatsLogger(mLogName);
 
-    searchProcessor = new GameSearcher(transpositionTableSize, underlyingStateMachine.getRoles().length, mLogName);
-    stateMachineProxy.setController(searchProcessor);
+    mSearchProcessor = new GameSearcher(MachineSpecificConfiguration.getCfgInt(CfgItem.NODE_TABLE_SIZE),
+                                        mUnderlyingStateMachine.getRoles().length,
+                                        mLogName);
+    mStateMachineProxy.setController(mSearchProcessor);
 
-    previousTurnRootState = null; //  No move seen yet
+    mPreviousTurnRootState = null; //  No move seen yet
 
     if (!ThreadControl.RUN_SYNCHRONOUSLY)
     {
-      Thread lSearchProcessorThread = new Thread(searchProcessor, "Search Processor");
+      Thread lSearchProcessorThread = new Thread(mSearchProcessor, "Search Processor");
       lSearchProcessorThread.setDaemon(true);
       lSearchProcessorThread.start();
     }
@@ -305,21 +306,22 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       GameSearcher.thinkBelowPlanSize = 0;
     }
 
-    ourRole = getRole();
+    mOurRole = getRole();
     LOGGER.info("Start clock: " + getMatch().getStartClock() + "s");
     LOGGER.info("Play clock:  " + getMatch().getPlayClock() + "s");
-    LOGGER.info("We are:      " + ourRole);
+    LOGGER.info("We are:      " + mOurRole);
 
-    numRoles = underlyingStateMachine.getRoles().length;
-    roleOrdering = underlyingStateMachine.getRoleOrdering();
+    mNumRoles = mUnderlyingStateMachine.getRoles().length;
+    mRoleOrdering = mUnderlyingStateMachine.getRoleOrdering();
 
     mTurn = 0;
     StatsLogUtils.Series.TURN.logDataPoint(System.currentTimeMillis(), mTurn);
 
-    MinRawNetScore = 0;
-    MaxRawNetScore = 100;
-    underExpectedRangeScoreReported = false;
-    overExpectedRangeScoreReported = false;
+    mSolvedFromStart = false;
+    mMinRawNetScore = 0;
+    mMaxRawNetScore = 100;
+    mUnderExpectedRangeScoreReported = false;
+    mOverExpectedRangeScoreReported = false;
 
     int observedMinNetScore = Integer.MAX_VALUE;
     int observedMaxNetScore = Integer.MIN_VALUE;
@@ -327,10 +329,10 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     int multiRoleSamples = 0;
     boolean greedyRolloutsDisabled = MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_GREEDY_ROLLOUTS);
 
-    multiRoleAverageScoreDiff = 0;
+    mMultiRoleAverageScoreDiff = 0;
 
     // Set up those game characteristics that we only know now that we've got a state machine.
-    mGameCharacteristics.numRoles = numRoles;
+    mGameCharacteristics.numRoles = mNumRoles;
 
     // Check if we already know how to solve this game.
     String lSavedPlan = mGameCharacteristics.getPlan();
@@ -340,6 +342,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       // We've played this game before and know how to solve it.
       LOGGER.info("Considering saved plan: " + lSavedPlan);
       mPlan.considerPlan(convertPlanString(mGameCharacteristics.getPlan()));
+      mSolvedFromStart = true;
       LOGGER.info("Ready to play");
       return;
     }
@@ -349,12 +352,12 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     long lSemanticAnalysisStopTime = Math.min(timeout - 10000,
                                               lSemanticAnalysisStartTime + (timeout - lSemanticAnalysisStartTime) / 2);
 
-    underlyingStateMachine.performSemanticAnalysis(lSemanticAnalysisStopTime);
+    mUnderlyingStateMachine.performSemanticAnalysis(lSemanticAnalysisStopTime);
 
     PayoffMatrixGamePlayer lPayoffMatrixGamePlayer;
     try
     {
-      lPayoffMatrixGamePlayer = new PayoffMatrixGamePlayer(underlyingStateMachine, lSemanticAnalysisStopTime);
+      lPayoffMatrixGamePlayer = new PayoffMatrixGamePlayer(mUnderlyingStateMachine, lSemanticAnalysisStopTime);
       LOGGER.info("Game can be represented by a simple payoff matrix");
     }
     catch (UnsupportedGameException lEx) {/* Do nothing */}
@@ -374,9 +377,9 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       heuristic = new CombinedHeuristic(pieceHeuristic, goalsPredictionHeuristic, goalsStabilityHeuristic );//, new AvailableGoalHeuristic() );
     }
 
-    boolean hasHeuristicCandidates = heuristic.tuningInitialise(underlyingStateMachine, roleOrdering);
+    boolean hasHeuristicCandidates = heuristic.tuningInitialise(mUnderlyingStateMachine, mRoleOrdering);
 
-    ForwardDeadReckonInternalMachineState initialState = underlyingStateMachine.createInternalState(getCurrentState());
+    ForwardDeadReckonInternalMachineState initialState = mUnderlyingStateMachine.createInternalState(getCurrentState());
 
     //	Sample to see if multiple roles have multiple moves available
     //	implying this must be a simultaneous move game
@@ -385,17 +388,17 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     //	games like C4-simultaneous or Chinook (but it's a hack!)
     mGameCharacteristics.isSimultaneousMove = false;
     mGameCharacteristics.isPseudoSimultaneousMove = false;
-    mGameCharacteristics.isPseudoPuzzle = underlyingStateMachine.getIsPseudoPuzzle();
+    mGameCharacteristics.isPseudoPuzzle = mUnderlyingStateMachine.getIsPseudoPuzzle();
     mGameCharacteristics.isStrictlyAlternatingPlay = true;
 
     //  Create masks of possible control props, which we'll whittle down during simulation
     //  If we wind up with a unique prop for each role e'll note it for future use
-    ForwardDeadReckonInternalMachineState[] roleControlMasks = new ForwardDeadReckonInternalMachineState[numRoles];
-    roleControlProps = new ForwardDeadReckonPropositionInfo[numRoles];
+    ForwardDeadReckonInternalMachineState[] roleControlMasks = new ForwardDeadReckonInternalMachineState[mNumRoles];
+    mRoleControlProps = new ForwardDeadReckonPropositionInfo[mNumRoles];
 
-    for(int i = 0; i < numRoles; i++)
+    for(int i = 0; i < mNumRoles; i++)
     {
-      roleControlMasks[i] = underlyingStateMachine.createEmptyInternalState();
+      roleControlMasks[i] = mUnderlyingStateMachine.createEmptyInternalState();
       roleControlMasks[i].clear();
       roleControlMasks[i].invert();
     }
@@ -405,7 +408,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     List<Set<Move>> roleMoves = new ArrayList<>();
     mGameCharacteristics.isIteratedGame = true;
 
-    for (int i = 0; i < numRoles; i++)
+    for (int i = 0; i < mNumRoles; i++)
     {
       roleMoves.add(null);
     }
@@ -413,9 +416,9 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     double branchingFactorApproximation = 0;
     double averageHyperSequenceLength = 0;
     double varianceHyperSequenceLength = 0;
-    int[] roleScores = new int[numRoles];
+    int[] roleScores = new int[mNumRoles];
 
-    Collection<Factor> factors = underlyingStateMachine.getFactors();
+    Collection<Factor> factors = mUnderlyingStateMachine.getFactors();
 
     //	Perform a small number of move-by-move simulations to assess how
     //	the potential piece count heuristics behave at the granularity of
@@ -441,8 +444,8 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     //  Buffer for new states
     ForwardDeadReckonInternalMachineState newState = new ForwardDeadReckonInternalMachineState(initialState);
-    int[] playerMoveParity = new int[numRoles];
-    for(int i = 0; i < numRoles; i++)
+    int[] playerMoveParity = new int[mNumRoles];
+    for(int i = 0; i < mNumRoles; i++)
     {
       playerMoveParity[i] = -1;
     }
@@ -450,7 +453,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     //  Start with greedy rollouts disabled for finding basic characteristics.  This is likely to result in more
     //  simulations, and prevents games with forced greedy paths (like Centipede wherein one choice always leads
     //  to immediate non-win termination and hence is never chosen by greedy processing) giving misleading results
-    underlyingStateMachine.enableGreedyRollouts(false, false);
+    mUnderlyingStateMachine.enableGreedyRollouts(false, false);
 
     int totalTurnSamples = 0;
     int totalGoalChangeCount = 0;
@@ -469,17 +472,17 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       int numRoleMovesSimulated = 0;
       int numBranchesTaken = 0;
       int turnNum = 0;
-      int lastOurGoal = underlyingStateMachine.getGoal(sampleState, ourRole);
+      int lastOurGoal = mUnderlyingStateMachine.getGoal(sampleState, mOurRole);
       int hyperExpansionLength = -1;
       int previousChoosingRoleIndex;
       int choosingRoleIndex = -2;
 
       heuristic.tuningStartSampleGame();
 
-      while (!underlyingStateMachine.isTerminal(sampleState))
+      while (!mUnderlyingStateMachine.isTerminal(sampleState))
       {
         boolean roleWithChoiceSeen = false;
-        ForwardDeadReckonLegalMoveInfo[] jointMove = new ForwardDeadReckonLegalMoveInfo[numRoles];
+        ForwardDeadReckonLegalMoveInfo[] jointMove = new ForwardDeadReckonLegalMoveInfo[mNumRoles];
         Set<Move> allMovesInState = new HashSet<>();
 
         previousChoosingRoleIndex = choosingRoleIndex;
@@ -488,11 +491,11 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
         turnNum++;
         hyperExpansionLength++;
 
-        for (int i = 0; i < numRoles; i++)
+        for (int i = 0; i < mNumRoles; i++)
         {
           //List<Move> legalMoves = underlyingStateMachine.getLegalMovesCopy(sampleState,
           //                                                                 roleOrdering.roleIndexToRole(i));
-          List<ForwardDeadReckonLegalMoveInfo> legalMoves = new ArrayList<>(underlyingStateMachine.getLegalMoves(sampleState, roleOrdering.roleIndexToRole(i)));
+          List<ForwardDeadReckonLegalMoveInfo> legalMoves = new ArrayList<>(mUnderlyingStateMachine.getLegalMoves(sampleState, mRoleOrdering.roleIndexToRole(i)));
 
           if (legalMoves.size() > 1)
           {
@@ -542,7 +545,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
             if ( mGameCharacteristics.isStrictlyAlternatingPlay )
             {
-              int moveParity = (turnNum%numRoles);
+              int moveParity = (turnNum%mNumRoles);
               if ( playerMoveParity[choosingRoleIndex] == -1 )
               {
                 playerMoveParity[choosingRoleIndex] = moveParity;
@@ -604,11 +607,11 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
         heuristic.tuningInterimStateSample(sampleState, choosingRoleIndex);
 
-        underlyingStateMachine.getNextState(sampleState, null, jointMove, newState);
+        mUnderlyingStateMachine.getNextState(sampleState, null, jointMove, newState);
 
         sampleState.copy(newState);
 
-        int currentOurGoal = underlyingStateMachine.getGoal(sampleState, ourRole);
+        int currentOurGoal = mUnderlyingStateMachine.getGoal(sampleState, mOurRole);
 
         totalTurnSamples++;
         if ( currentOurGoal != lastOurGoal )
@@ -639,13 +642,13 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
         minNumTurns = turnNum;
       }
 
-      for (int i = 0; i < numRoles; i++)
+      for (int i = 0; i < mNumRoles; i++)
       {
-        roleScores[i] = underlyingStateMachine.getGoal(sampleState, roleOrdering.roleIndexToRole(i));
+        roleScores[i] = mUnderlyingStateMachine.getGoal(sampleState, mRoleOrdering.roleIndexToRole(i));
       }
 
       // Tell the heuristic about the terminal state, for tuning purposes.
-      assert(underlyingStateMachine.isTerminal(sampleState));
+      assert(mUnderlyingStateMachine.isTerminal(sampleState));
       heuristic.tuningTerminalStateSample(sampleState, roleScores);
 
       if (numRoleMovesSimulated > 0)
@@ -697,19 +700,19 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     if (mGameCharacteristics.isSimultaneousMove || mGameCharacteristics.isPseudoSimultaneousMove)
     {
-      roleControlProps = null;
+      mRoleControlProps = null;
 
       greedyRolloutsDisabled = true;
-      underlyingStateMachine.enableGreedyRollouts(false, true);
+      mUnderlyingStateMachine.enableGreedyRollouts(false, true);
     }
     else
     {
       //  Turn greedy rollouts back on for now to measure their effectiveness
-      underlyingStateMachine.enableGreedyRollouts(true, false);
+      mUnderlyingStateMachine.enableGreedyRollouts(true, false);
 
-      if ( numRoles == 1 )
+      if ( mNumRoles == 1 )
       {
-        roleControlProps = null;
+        mRoleControlProps = null;
       }
       else
       {
@@ -718,18 +721,18 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
         //  move choice, and is never true if any other player has more than one move choice
         //  This is slightly ovr-specific, and will not work for games with control denoted by a
         //  set of props rather than a single one (e.g. - Pentago), but it will suffice for now
-        ForwardDeadReckonInternalMachineState[] inverseMasks = new ForwardDeadReckonInternalMachineState[numRoles];
+        ForwardDeadReckonInternalMachineState[] inverseMasks = new ForwardDeadReckonInternalMachineState[mNumRoles];
 
-        for(int i = 0; i < numRoles; i++)
+        for(int i = 0; i < mNumRoles; i++)
         {
           inverseMasks[i] = new ForwardDeadReckonInternalMachineState(roleControlMasks[i]);
           inverseMasks[i].invert();
         }
 
-        for(int i = 0; i < numRoles; i++)
+        for(int i = 0; i < mNumRoles; i++)
         {
           //  Eliminate anything common to multiple roles
-          for(int j = 0; j < numRoles; j++)
+          for(int j = 0; j < mNumRoles; j++)
           {
             if ( j != i )
             {
@@ -740,18 +743,18 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
           {
             LOGGER.info("Non-unique control mask for role " + i + ": " + roleControlMasks[i]);
 
-            roleControlProps = null;
+            mRoleControlProps = null;
             break;
           }
 
-          roleControlProps[i] = roleControlMasks[i].resolveIndex(roleControlMasks[i].getContents().nextSetBit(0));
+          mRoleControlProps[i] = roleControlMasks[i].resolveIndex(roleControlMasks[i].getContents().nextSetBit(0));
         }
 
-        if ( roleControlProps != null )
+        if ( mRoleControlProps != null )
         {
-          for(int i = 0; i < numRoles; i++)
+          for(int i = 0; i < mNumRoles; i++)
           {
-            LOGGER.info("Role " + i + " has control prop: " + roleControlProps[i].sentence);
+            LOGGER.info("Role " + i + " has control prop: " + mRoleControlProps[i].sentence);
           }
         }
       }
@@ -789,7 +792,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     int minNumNonDrawTurns = Integer.MAX_VALUE;
     int scoreSum = -1;
     boolean isFixedSum = true;
-    PlayoutInfo playoutInfo = underlyingStateMachine.new PlayoutInfo(-1);
+    PlayoutInfo playoutInfo = mUnderlyingStateMachine.new PlayoutInfo(-1);
 
     playoutInfo.cutoffDepth = 1000;
     playoutInfo.factor = null;
@@ -799,9 +802,9 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     {
       simulationsPerformed++;
 
-      underlyingStateMachine.getDepthChargeResult(initialState, playoutInfo);
+      mUnderlyingStateMachine.getDepthChargeResult(initialState, playoutInfo);
 
-      int netScore = netScore(underlyingStateMachine, null);
+      int netScore = netScore(mUnderlyingStateMachine, null);
       if ( netScore != 50 )
       {
         numNonDrawSimulations++;
@@ -814,23 +817,23 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
       int thisScoreSum = 0;
 
-      for (int i = 0; i < numRoles; i++)
+      for (int i = 0; i < mNumRoles; i++)
       {
-        roleScores[i] = underlyingStateMachine.getGoal(roleOrdering.roleIndexToRole(i));
+        roleScores[i] = mUnderlyingStateMachine.getGoal(mRoleOrdering.roleIndexToRole(i));
 
         thisScoreSum += roleScores[i];
         if (i != 0 && mGameCharacteristics.numRoles > 2)
         {
           //	If there are several enemy players involved extract a measure
           //	of their goal correlation
-          for (Role role2 : underlyingStateMachine.getRoles())
+          for (Role role2 : mUnderlyingStateMachine.getRoles())
           {
-            if (!role2.equals(ourRole) && !role2.equals(roleOrdering.roleIndexToRole(i)))
+            if (!role2.equals(mOurRole) && !role2.equals(mRoleOrdering.roleIndexToRole(i)))
             {
-              int role2Score = underlyingStateMachine.getGoal(role2);
+              int role2Score = mUnderlyingStateMachine.getGoal(role2);
 
               multiRoleSamples++;
-              multiRoleAverageScoreDiff += Math.abs(role2Score - roleScores[i]);
+              mMultiRoleAverageScoreDiff += Math.abs(role2Score - roleScores[i]);
             }
           }
         }
@@ -917,7 +920,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     mGameCharacteristics.setAverageHyperSequenceLength(averageHyperSequenceLength);
     mGameCharacteristics.setVarianceHyperSequenceLength(varianceHyperSequenceLength);
 
-    mGameCharacteristics.setEarliestCompletionDepth(numRoles*minNumTurns);
+    mGameCharacteristics.setEarliestCompletionDepth(mNumRoles*minNumTurns);
     if ( maxNumTurns == minNumTurns )
     {
       mGameCharacteristics.setIsFixedMoveCount();
@@ -935,8 +938,8 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     {
       if ( totalGoalChangeCount >= totalTurnSamples/4 && goalsMonotonic )
       {
-        underlyingStateMachine.setPlayoutPolicy(new PlayoutPolicyGoalGreedyWithPop(underlyingStateMachine));
-        searchProcessor.mUseGoalGreedy = true;
+        mUnderlyingStateMachine.setPlayoutPolicy(new PlayoutPolicyGoalGreedyWithPop(mUnderlyingStateMachine));
+        mSearchProcessor.mUseGoalGreedy = true;
       }
       else
       {
@@ -953,7 +956,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     //  Don't use RAVE with heuristics that use simple application as it will swamp them
     boolean useRAVE = (MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_RAVE) &&
                        !mGameCharacteristics.isSimultaneousMove &&
-                       numRoles == 2 &&
+                       mNumRoles == 2 &&
                        (!pieceHeuristic.isEnabled() || !pieceHeuristic.applyAsSimpleHeuristic()));
     double explorationBias = 15 / (averageNumTurns + ((maxNumTurns + minNumTurns) / 2 - averageNumTurns) *
                                               stdDevNumTurns / averageNumTurns) + 0.4;
@@ -979,49 +982,49 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
 
     mGameCharacteristics.setExplorationBias(explorationBias);
-    searchProcessor.setExplorationBiasRange(explorationBias * 0.8, explorationBias * 1.2);
+    mSearchProcessor.setExplorationBiasRange(explorationBias * 0.8, explorationBias * 1.2);
 
-    if (underlyingStateMachine.numRolloutDecisionNodeExpansions > 0)
+    if (mUnderlyingStateMachine.numRolloutDecisionNodeExpansions > 0)
     {
       LOGGER.info("Greedy rollout terminal discovery effectiveness: " +
-                  (underlyingStateMachine.greedyRolloutEffectiveness * 100) /
-                  underlyingStateMachine.numRolloutDecisionNodeExpansions);
+                  (mUnderlyingStateMachine.greedyRolloutEffectiveness * 100) /
+                  mUnderlyingStateMachine.numRolloutDecisionNodeExpansions);
       LOGGER.info("Num terminal props seen: " +
-                  underlyingStateMachine.getNumTerminatingMoveProps() +
+                  mUnderlyingStateMachine.getNumTerminatingMoveProps() +
                   " out of " +
-                  underlyingStateMachine.getBasePropositions().size());
+                  mUnderlyingStateMachine.getBasePropositions().size());
     }
 
     if (simulationsPerformed > 100)
     {
       if (multiRoleSamples > 0)
       {
-        multiRoleAverageScoreDiff /= multiRoleSamples;
+        mMultiRoleAverageScoreDiff /= multiRoleSamples;
       }
     }
     else
     {
       observedMinNetScore = 0;
       observedMaxNetScore = 100;
-      multiRoleAverageScoreDiff = 0;
+      mMultiRoleAverageScoreDiff = 0;
     }
 
-    double greedyRolloutCost = (underlyingStateMachine.numRolloutDecisionNodeExpansions == 0 ? 0
+    double greedyRolloutCost = (mUnderlyingStateMachine.numRolloutDecisionNodeExpansions == 0 ? 0
                                                                                             : averageBranchingFactor *
-                                                                                              (1 - underlyingStateMachine.greedyRolloutEffectiveness /
-                                                                                                   (underlyingStateMachine.numRolloutDecisionNodeExpansions)));
+                                                                                              (1 - mUnderlyingStateMachine.greedyRolloutEffectiveness /
+                                                                                                   (mUnderlyingStateMachine.numRolloutDecisionNodeExpansions)));
 
     LOGGER.info("Estimated greedy rollout cost: " + greedyRolloutCost);
     if (minNumTurns == maxNumTurns ||
-        ((greedyRolloutCost > 8 || stdDevNumTurns < 0.15 * averageNumTurns || underlyingStateMachine.greedyRolloutEffectiveness < underlyingStateMachine.numRolloutDecisionNodeExpansions / 3) &&
-         (mGameCharacteristics.numRoles != 1 || underlyingStateMachine.greedyRolloutEffectiveness == 0) &&
-         !underlyingStateMachine.hasNegativelyLatchedGoals() &&
-         !underlyingStateMachine.hasPositivelyLatchedGoals()))
+        ((greedyRolloutCost > 8 || stdDevNumTurns < 0.15 * averageNumTurns || mUnderlyingStateMachine.greedyRolloutEffectiveness < mUnderlyingStateMachine.numRolloutDecisionNodeExpansions / 3) &&
+         (mGameCharacteristics.numRoles != 1 || mUnderlyingStateMachine.greedyRolloutEffectiveness == 0) &&
+         !mUnderlyingStateMachine.hasNegativelyLatchedGoals() &&
+         !mUnderlyingStateMachine.hasPositivelyLatchedGoals()))
     {
       if (!greedyRolloutsDisabled)
       {
         greedyRolloutsDisabled = true;
-        underlyingStateMachine.enableGreedyRollouts(false, true);
+        mUnderlyingStateMachine.enableGreedyRollouts(false, true);
 
         //	Scale up the estimate of simulation rate since we'll be running without the overhead
         //	of greedy rollouts (which is proportional to the branching factor)
@@ -1046,7 +1049,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
 
     LOGGER.info("Min raw score = " + observedMinNetScore + ", max = " + observedMaxNetScore);
-    LOGGER.info("multiRoleAverageScoreDiff = " + multiRoleAverageScoreDiff);
+    LOGGER.info("multiRoleAverageScoreDiff = " + mMultiRoleAverageScoreDiff);
 
     if (observedMinNetScore == observedMaxNetScore)
     {
@@ -1065,10 +1068,10 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
 
     //	Normalize score ranges
-    MinRawNetScore = observedMinNetScore;
-    MaxRawNetScore = observedMaxNetScore;
-    multiRoleAverageScoreDiff = (multiRoleAverageScoreDiff * 100) /
-                                (MaxRawNetScore - MinRawNetScore);
+    mMinRawNetScore = observedMinNetScore;
+    mMaxRawNetScore = observedMaxNetScore;
+    mMultiRoleAverageScoreDiff = (mMultiRoleAverageScoreDiff * 100) /
+                                (mMaxRawNetScore - mMinRawNetScore);
 
     int rolloutSampleSize;
 
@@ -1107,30 +1110,30 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     {
       long tuningEnd = Math.min(System.currentTimeMillis() + 5000,timeout - (mGameCharacteristics.numRoles == 1 ? 10000 : 5000));
 
-      underlyingStateMachine.optimizeStateTransitionMechanism(tuningEnd);
+      mUnderlyingStateMachine.optimizeStateTransitionMechanism(tuningEnd);
     }
     else
     {
       LOGGER.info("Insufficient time remaining for transition mechanism tuning");
     }
 
-    if (!mGameCharacteristics.isIteratedGame || numRoles != 2)
+    if (!mGameCharacteristics.isIteratedGame || mNumRoles != 2)
     {
       if (ThreadControl.RUN_SYNCHRONOUSLY)
       {
         mGameCharacteristics.setExplorationBias(explorationBias);
       }
 
-      searchProcessor.mUseRAVE = useRAVE;
-      searchProcessor.setup(underlyingStateMachine,
+      mSearchProcessor.mUseRAVE = useRAVE;
+      mSearchProcessor.setup(mUnderlyingStateMachine,
                             initialState,
-                            roleOrdering,
+                            mRoleOrdering,
                             mGameCharacteristics,
                             greedyRolloutsDisabled,
                             heuristic,
                             mPlan,
-                            roleControlProps);
-      searchProcessor.startSearch(System.currentTimeMillis() + 60000,
+                            mRoleControlProps);
+      mSearchProcessor.startSearch(System.currentTimeMillis() + 60000,
                                   new ForwardDeadReckonInternalMachineState(initialState),
                                   (short)0,
                                   null);
@@ -1158,7 +1161,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       lAnnouncement = "I am playing " + getGameName();
     }
 
-    lAnnouncement += " as " + ourRole + " (Match ID " + getMatch().getMatchId() + ")";
+    lAnnouncement += " as " + mOurRole + " (Match ID " + getMatch().getMatchId() + ")";
     mBroadcaster.broadcast(lAnnouncement);
   }
 
@@ -1219,7 +1222,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     LOGGER.info("Puzzle with no observed solution");
 
     MachineState lTerminalState;
-    Set<MachineState> lGoalStates = underlyingStateMachine.findGoalStates(getRole(), 90, 500, 20);
+    Set<MachineState> lGoalStates = mUnderlyingStateMachine.findGoalStates(getRole(), 90, 500, 20);
     Set<MachineState> lCleanedStates = new HashSet<>();
 
     for (MachineState lState : lGoalStates)
@@ -1266,7 +1269,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       }
       else
       {
-        Collection<Move> lSolution = new TargetedSolutionStatePlayer(underlyingStateMachine,
+        Collection<Move> lSolution = new TargetedSolutionStatePlayer(mUnderlyingStateMachine,
                                                                      lTerminalState,
                                                                      this).attemptAStarSolve(99,
                                                                                              xiTimeout - SAFETY_MARGIN);
@@ -1281,12 +1284,12 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
   private ForwardDeadReckonLegalMoveInfo findMoveInfo(Role role, GdlTerm moveTerm)
   {
-    Move move = underlyingStateMachine.getMoveFromTerm(moveTerm);
+    Move move = mUnderlyingStateMachine.getMoveFromTerm(moveTerm);
     HashSet<PolymorphicProposition> legalsForRole = new HashSet<>();
-    legalsForRole.addAll(Arrays.asList(underlyingStateMachine.getFullPropNet().getLegalPropositions().get(role)));
-    Map<PolymorphicProposition,PolymorphicProposition> legalInputMap = underlyingStateMachine.getFullPropNet().getLegalInputMap();
+    legalsForRole.addAll(Arrays.asList(mUnderlyingStateMachine.getFullPropNet().getLegalPropositions().get(role)));
+    Map<PolymorphicProposition,PolymorphicProposition> legalInputMap = mUnderlyingStateMachine.getFullPropNet().getLegalInputMap();
 
-    for(ForwardDeadReckonLegalMoveInfo info : underlyingStateMachine.getFullPropNet().getMasterMoveList())
+    for(ForwardDeadReckonLegalMoveInfo info : mUnderlyingStateMachine.getFullPropNet().getMasterMoveList())
     {
       if ( info.mMove.equals(move) && info.mInputProposition != null )
       {
@@ -1319,23 +1322,23 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     {
       LOGGER.info("Moves played for turn " + mTurn + ": " + lastJointMove);
 
-      for(int i = 0; i < numRoles; i++)
+      for(int i = 0; i < mNumRoles; i++)
       {
-        if ( previousTurnRootState != null && roleControlProps != null )
+        if ( mPreviousTurnRootState != null && mRoleControlProps != null )
         {
-          if ( previousTurnRootState.contains(roleControlProps[i]) )
+          if ( mPreviousTurnRootState.contains(mRoleControlProps[i]) )
           {
-            lastMove = findMoveInfo(roleOrdering.roleIndexToRole(i), lastJointMove.get(roleOrdering.roleIndexToRawRoleIndex(i)));
-            LOGGER.info("Non-null move last turn was: " + lastMove);
+            mLastMoveInfo = findMoveInfo(mRoleOrdering.roleIndexToRole(i), lastJointMove.get(mRoleOrdering.roleIndexToRawRoleIndex(i)));
+            LOGGER.info("Non-null move last turn was: " + mLastMoveInfo);
             break;
           }
         }
         else
         {
-          lastMove = findMoveInfo(roleOrdering.roleIndexToRole(i), lastJointMove.get(roleOrdering.roleIndexToRawRoleIndex(i)));
-          if ( lastMove != null && lastMove.mInputProposition != null )
+          mLastMoveInfo = findMoveInfo(mRoleOrdering.roleIndexToRole(i), lastJointMove.get(mRoleOrdering.roleIndexToRawRoleIndex(i)));
+          if ( mLastMoveInfo != null && mLastMoveInfo.mInputProposition != null )
           {
-            LOGGER.info("Non-null move last turn was: " + lastMove);
+            LOGGER.info("Non-null move last turn was: " + mLastMoveInfo);
             break;
           }
         }
@@ -1348,13 +1351,13 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     ForwardDeadReckonInternalMachineState currentState;
 
-    searchProcessor.requestYield(true);
+    mSearchProcessor.requestYield(true);
 
     // Check that the last move as reported by the server is the same that was sent.  Flag up if they differ because
     // there has obviously been some communication problem.
     if (mLastMove != null)
     {
-      Move lLastMove = new Move(getMatch().getMostRecentMoves().get(roleOrdering.getOurRawRoleIndex()));
+      Move lLastMove = new Move(getMatch().getMostRecentMoves().get(mRoleOrdering.getOurRawRoleIndex()));
       if (!mLastMove.equals(lLastMove))
       {
         LOGGER.error("Wrong move recorded!  Submitted move was " + mLastMove + " but the server reported " + lLastMove);
@@ -1363,24 +1366,24 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     LOGGER.debug("Calculating current state");
 
-    synchronized (searchProcessor.getSerializationObject())
+    synchronized (mSearchProcessor.getSerializationObject())
     {
-      underlyingStateMachine.noteTurnNumber(mTurn);
+      mUnderlyingStateMachine.noteTurnNumber(mTurn);
 
-      currentState = underlyingStateMachine.createInternalState(getCurrentState());
-      moves = underlyingStateMachine.getLegalMovesCopy(currentState, ourRole);
+      currentState = mUnderlyingStateMachine.createInternalState(getCurrentState());
+      moves = mUnderlyingStateMachine.getLegalMovesCopy(currentState, mOurRole);
 
       //LOGGER.warn("Received current state: " + getCurrentState());
       //LOGGER.warn("Using current state: " + currentState);
       //LOGGER.warn("Legal moves: " + moves);
 
-      if (underlyingStateMachine.isTerminal(currentState))
+      if (mUnderlyingStateMachine.isTerminal(currentState))
       {
         LOGGER.warn("Asked to search in terminal state!");
         assert(false);
       }
 
-      previousTurnRootState = currentState;
+      mPreviousTurnRootState = currentState;
     }
 
 //    if ( localSearchStateMachine == null )
@@ -1398,32 +1401,32 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       {
         // We need to keep the search 'up with' the plan to make forced-play testing work properly, or else the search
         // will not be 'primed' during forced play when the plan runs out.
-        searchProcessor.startSearch(finishBy, currentState, currentMoveDepth, null);
-        currentMoveDepth += numRoles;
+        mSearchProcessor.startSearch(finishBy, currentState, mCurrentMoveDepth, null);
+        mCurrentMoveDepth += mNumRoles;
       }
     }
-    else if (mGameCharacteristics.isIteratedGame && numRoles == 2)
+    else if (mGameCharacteristics.isIteratedGame && mNumRoles == 2)
     {
-      IteratedGamePlayer iteratedPlayer = new IteratedGamePlayer(underlyingStateMachine, this, mGameCharacteristics.isPseudoSimultaneousMove, roleOrdering, mGameCharacteristics.competitivenessBonus);
+      IteratedGamePlayer iteratedPlayer = new IteratedGamePlayer(mUnderlyingStateMachine, this, mGameCharacteristics.isPseudoSimultaneousMove, mRoleOrdering, mGameCharacteristics.competitivenessBonus);
       bestMove = iteratedPlayer.selectMove(moves, timeout);
       LOGGER.info("Playing best iterated game move: " + bestMove);
     }
     else
     {
       LOGGER.debug("Setting search root");
-      searchProcessor.startSearch(finishBy, currentState, currentMoveDepth, lastMove);
-      currentMoveDepth += numRoles;
+      mSearchProcessor.startSearch(finishBy, currentState, mCurrentMoveDepth, mLastMoveInfo);
+      mCurrentMoveDepth += mNumRoles;
 
-      searchProcessor.requestYield(false);
+      mSearchProcessor.requestYield(false);
 
       LOGGER.debug("Waiting for processing");
       searchUntil(finishBy);
 
       LOGGER.debug("Time to submit order - ask GameSearcher to yield");
-      searchProcessor.requestYield(true);
+      mSearchProcessor.requestYield(true);
 
       long getBestMoveStartTime = System.currentTimeMillis();
-      bestMove = searchProcessor.getBestMove();
+      bestMove = mSearchProcessor.getBestMove();
       if ( System.currentTimeMillis() - getBestMoveStartTime > 250 )
       {
         LOGGER.warn("Retrieving the best move took " + (System.currentTimeMillis() - getBestMoveStartTime) + "ms");
@@ -1437,7 +1440,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       }
       LOGGER.info("Playing move: " + bestMove);
 
-      searchProcessor.requestYield(false);
+      mSearchProcessor.requestYield(false);
     }
 
     // We get the end time
@@ -1471,11 +1474,11 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
   {
     try
     {
-      while (System.currentTimeMillis() < xiFinishBy && !searchProcessor.isComplete())
+      while (System.currentTimeMillis() < xiFinishBy && !mSearchProcessor.isComplete())
       {
         if (ThreadControl.RUN_SYNCHRONOUSLY)
         {
-          searchProcessor.expandSearch(true);
+          mSearchProcessor.expandSearch(true);
         }
         else
         {
@@ -1493,7 +1496,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       LOGGER.error("Unexpected interruption during meta-gaming", lEx);
     }
 
-    if (searchProcessor.isComplete())
+    if (mSearchProcessor.isComplete())
     {
       LOGGER.info("Early search termination because root is complete");
 
@@ -1510,10 +1513,10 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
   public void stateMachineStop()
   {
     // Log the final score.
-    synchronized (searchProcessor.getSerializationObject())
+    synchronized (mSearchProcessor.getSerializationObject())
     {
-      ForwardDeadReckonInternalMachineState lState = underlyingStateMachine.createInternalState(getCurrentState());
-      mFinalScore = underlyingStateMachine.getGoal(lState, ourRole);
+      ForwardDeadReckonInternalMachineState lState = mUnderlyingStateMachine.createInternalState(getCurrentState());
+      mFinalScore = mUnderlyingStateMachine.getGoal(lState, mOurRole);
       LOGGER.info("Final score: " + mFinalScore);
       StatsLogUtils.Series.SCORE.logDataPoint(mFinalScore);
       StatsLogUtils.Series.SAMPLE_RATE.logDataPoint(mGameCharacteristics.getRolloutSampleSize());
@@ -1559,10 +1562,10 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     StatsLogUtils.Series.TURN.logDataPoint(System.currentTimeMillis(), 999);
 
     // Terminate all other threads.
-    if (searchProcessor != null)
+    if (mSearchProcessor != null)
     {
-      searchProcessor.terminate();
-      searchProcessor = null;
+      mSearchProcessor.terminate();
+      mSearchProcessor = null;
     }
 
     if (mSysStatsLogger != null)
@@ -1592,23 +1595,23 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
 
     // Tidy up the proxy.
-    if (stateMachineProxy != null)
+    if (mStateMachineProxy != null)
     {
-      stateMachineProxy.setController(null);
-      stateMachineProxy = null;
+      mStateMachineProxy.setController(null);
+      mStateMachineProxy = null;
     }
 
     // Free off all our references.
-    ourRole                      = null;
+    mOurRole                      = null;
     mPlanString                  = null;
     mPlan                        = null;
-    roleOrdering                 = null;
-    roleControlProps             = null;
-    underlyingStateMachine       = null;
-    previousTurnRootState        = null;
+    mRoleOrdering                 = null;
+    mRoleControlProps             = null;
+    mUnderlyingStateMachine       = null;
+    mPreviousTurnRootState        = null;
     mLogName                     = null;
     mLastMove                    = null;
-    lastMove                     = null;
+    mLastMoveInfo                     = null;
 
     // Reset simple variables for the next game.
     mSolvedFromStart = false;
