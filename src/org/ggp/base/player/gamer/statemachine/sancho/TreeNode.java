@@ -5354,7 +5354,7 @@ public class TreeNode
 
     //  If there is no pseudo-noop then there cannot be any penalty for not taking
     //  this factor's results - we simply return a pseudo-noop penalty value of 0
-    result.pseudoNoopValue = 100;
+    result.mPseudoNoopValue = 100;
 
     // This routine is called recursively for path tracing purposes.  When
     // calling this routine for path tracing purposes, don't make any other
@@ -5643,8 +5643,8 @@ public class TreeNode
 
         if (edge.mPartialMove.mIsPseudoNoOp)
         {
-          result.pseudoNoopValue = moveScore;
-          result.pseudoMoveIsComplete = child.mComplete;
+          result.mPseudoNoopValue = moveScore;
+          result.mPseudoMoveIsComplete = child.mComplete;
           continue;
         }
         //	Don't accept a complete score which no rollout has seen worse than, if there is
@@ -5722,31 +5722,31 @@ public class TreeNode
       {
         //  If nothing is expanded pick the first (arbitrarily)
         Object firstChoice = mChildren[0];
-        result.bestEdge = null;
-        result.bestMove = (firstChoice instanceof ForwardDeadReckonLegalMoveInfo) ? (ForwardDeadReckonLegalMoveInfo)firstChoice : ((TreeEdge)firstChoice).mPartialMove;
+        result.mBestEdge = null;
+        result.mBestMove = (firstChoice instanceof ForwardDeadReckonLegalMoveInfo) ? (ForwardDeadReckonLegalMoveInfo)firstChoice : ((TreeEdge)firstChoice).mPartialMove;
         //  Complete with no expanded children implies arbitrary child must match parent score
-        result.bestMoveValue = getAverageScore(0);
-        result.resultingState = null;
+        result.mBestMoveValue = getAverageScore(0);
+        result.mResultingState = null;
       }
       else
       {
         //  For a non firstDecision call (i.e. - actually retrieving best move to play)
         //  we need to ensure that we return null here so that in a factorized game this
         //  factor will never be picked
-        result.bestMove = null;
+        result.mBestMove = null;
       }
     }
     else
     {
       ForwardDeadReckonLegalMoveInfo moveInfo = bestEdge.mPartialMove;
 
-      result.bestEdge = bestEdge;
-      result.bestMove = (moveInfo.mIsPseudoNoOp ? null : moveInfo);
-      result.resultingState = get(bestEdge.getChildRef()).mState;
+      result.mBestEdge = bestEdge;
+      result.mBestMove = (moveInfo.mIsPseudoNoOp ? null : moveInfo);
+      result.mResultingState = get(bestEdge.getChildRef()).mState;
       if (!moveInfo.mIsPseudoNoOp)
       {
-        result.bestMoveValue = bestMoveScore;
-        result.bestMoveIsComplete = get(bestEdge.getChildRef()).mComplete;
+        result.mBestMoveValue = bestMoveScore;
+        result.mBestMoveIsComplete = get(bestEdge.getChildRef()).mComplete;
       }
     }
 

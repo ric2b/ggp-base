@@ -575,13 +575,13 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     {
       FactorMoveChoiceInfo factorChoice = factorTrees[0].getBestMove(true);
 
-      if ( factorChoice.bestEdge == null )
+      if ( factorChoice.mBestEdge == null )
       {
         return null;
       }
 
-      resultingState.copy(factorChoice.resultingState);
-      return factorChoice.bestEdge;
+      resultingState.copy(factorChoice.mResultingState);
+      return factorChoice.mBestEdge;
     }
   }
 
@@ -635,9 +635,9 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         for (MCTSTree tree : factorTrees)
         {
           FactorMoveChoiceInfo factorChoice = tree.getBestMove(false);
-          if (factorChoice.bestMove != null)
+          if (factorChoice.mBestMove != null)
           {
-            LOGGER.debug("  Factor best move: " + (factorChoice.bestMove.mIsPseudoNoOp ? null : factorChoice.bestMove.mMove));
+            factorChoice.log();
 
             if (bestChoice == null)
             {
@@ -645,31 +645,31 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
             }
             else
             {
-              if (factorChoice.pseudoNoopValue <= 0 && factorChoice.pseudoMoveIsComplete &&
-                  factorChoice.bestMoveValue > 0 &&
-                  (!bestChoice.pseudoMoveIsComplete || bestChoice.pseudoNoopValue > 0))
+              if (factorChoice.mPseudoNoopValue <= 0 && factorChoice.mPseudoMoveIsComplete &&
+                  factorChoice.mBestMoveValue > 0 &&
+                  (!bestChoice.mPseudoMoveIsComplete || bestChoice.mPseudoNoopValue > 0))
               {
                 //  If no-oping this factor is a certain loss but the same is not true of the other
                 //  factor then take this factor
                 LOGGER.debug("  Factor move avoids a loss so selecting");
                 bestChoice = factorChoice;
               }
-              else if (bestChoice.pseudoNoopValue <= 0 && bestChoice.pseudoMoveIsComplete &&
-                  bestChoice.bestMoveValue > 0 &&
-                  (!factorChoice.pseudoMoveIsComplete || factorChoice.pseudoNoopValue > 0))
+              else if (bestChoice.mPseudoNoopValue <= 0 && bestChoice.mPseudoMoveIsComplete &&
+                  bestChoice.mBestMoveValue > 0 &&
+                  (!factorChoice.mPseudoMoveIsComplete || factorChoice.mPseudoNoopValue > 0))
               {
                 //  If no-oping the other factor is a certain loss but the same is not true of this
                 //  factor then take the other factor
                 LOGGER.debug("  Factor move would be loss in other factor");
               }
               // Complete win dominates everything else
-              else if (factorChoice.bestMoveValue > 100-TreeNode.EPSILON && bestChoice.bestMoveIsComplete)
+              else if (factorChoice.mBestMoveValue > 100-TreeNode.EPSILON && bestChoice.mBestMoveIsComplete)
               {
                 LOGGER.debug("  Factor move is a win so selecting");
                 bestChoice = factorChoice;
               }
-              else if ((bestChoice.bestMoveValue > 100-TreeNode.EPSILON && bestChoice.bestMoveIsComplete) ||
-                       (factorChoice.bestMoveValue <= TreeNode.EPSILON && factorChoice.bestMoveIsComplete))
+              else if ((bestChoice.mBestMoveValue > 100-TreeNode.EPSILON && bestChoice.mBestMoveIsComplete) ||
+                       (factorChoice.mBestMoveValue <= TreeNode.EPSILON && factorChoice.mBestMoveIsComplete))
               {
                 LOGGER.debug("  Already selected factor move is a win or this move is a loss - not selecting");
                 continue;
@@ -680,8 +680,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
               // the factor you are behind in could be rather bad too!)
               else
               {
-                if (bestChoice.bestMoveValue*(bestChoice.bestMoveValue - bestChoice.pseudoNoopValue) <
-                    factorChoice.bestMoveValue*(factorChoice.bestMoveValue - factorChoice.pseudoNoopValue))
+                if (bestChoice.mBestMoveValue*(bestChoice.mBestMoveValue - bestChoice.mPseudoNoopValue) <
+                    factorChoice.mBestMoveValue*(factorChoice.mBestMoveValue - factorChoice.mPseudoNoopValue))
                 {
                   bestChoice = factorChoice;
                   LOGGER.debug("  This factor score is superior - selecting");
@@ -700,8 +700,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         }
 
         assert(bestChoice != null) : "No move choice found";
-        StatsLogUtils.Series.SCORE.logDataPoint((long)Math.max(0, bestChoice.bestMoveValue + 0.5));
-        result = (bestChoice.bestMove.mIsPseudoNoOp ? null : bestChoice.bestMove.mMove);
+        StatsLogUtils.Series.SCORE.logDataPoint((long)Math.max(0, bestChoice.mBestMoveValue + 0.5));
+        result = (bestChoice.mBestMove.mIsPseudoNoOp ? null : bestChoice.mBestMove.mMove);
       }
 
       // Record that we've made the move.  Until we've heard back from the server, the game searcher will always search
