@@ -4,6 +4,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.text.Collator;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedList;
 
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration;
@@ -59,6 +62,16 @@ public class TiltyardTest extends Assert
         }
       }
     }
+
+    // Sort the tests
+    Collections.sort(lTests, new Comparator<Object[]>()
+                     {
+                       @Override
+                       public int compare(Object[] xiA, Object[] xiB)
+                       {
+                         return Collator.getInstance().compare((String)(xiA[0]), (String)(xiB[0]));
+                       }
+                     });
 
     return lTests;
   }
