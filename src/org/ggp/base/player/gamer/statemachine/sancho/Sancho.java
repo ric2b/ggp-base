@@ -1610,6 +1610,9 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     mLastMove                    = null;
     lastMove                     = null;
 
+    // Reset simple variables for the next game.
+    mSolvedFromStart = false;
+
     if (!xiNewMatch)
     {
       // Get our parent to tidy up too.
