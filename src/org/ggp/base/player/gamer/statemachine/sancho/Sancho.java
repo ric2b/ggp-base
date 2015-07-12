@@ -109,7 +109,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
     mPlanString = xiParam.substring(5);
 
-    // Start pre-warming he search tree 2 moves before he end of the plan so that we arrive at the turn we need to
+    // Start pre-warming the search tree 2 moves before he end of the plan so that we arrive at the turn we need to
     // search in earnest in with a warmed-up tree.  (This isn't needed in the case of a learned plan, because they
     // always take us to the end of the game.)
     GameSearcher.thinkBelowPlanSize = 2;
@@ -1398,13 +1398,10 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       bestMove = mPlan.nextMove();
       LOGGER.info("Playing pre-planned move: " + bestMove);
 
-      if (GameSearcher.thinkBelowPlanSize > 0)
-      {
-        // We need to keep the search 'up with' the plan to make forced-play testing work properly, or else the search
-        // will not be 'primed' during forced play when the plan runs out.
-        mSearchProcessor.startSearch(finishBy, currentState, mCurrentMoveDepth, null);
-        mCurrentMoveDepth += mNumRoles;
-      }
+      // We need to keep the search 'up with' the plan to make forced-play testing work properly, or else the search
+      // will not be 'primed' during forced play when the plan runs out.
+      mSearchProcessor.startSearch(finishBy, currentState, mCurrentMoveDepth, null);
+      mCurrentMoveDepth += mNumRoles;
     }
     else if (mGameCharacteristics.isIteratedGame && mNumRoles == 2)
     {
