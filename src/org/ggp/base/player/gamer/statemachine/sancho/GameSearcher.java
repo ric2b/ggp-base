@@ -1022,6 +1022,13 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           lNode.mTree.mLowestRolloutScoreSeen = lRequest.mMinScore;
         }
 
+        int thisCompletionDepth = lRequest.mPlayoutInfo.playoutLength*lNode.mTree.mNumRoles + lNode.getDepth();
+        if ( thisCompletionDepth < lNode.mTree.mShallowestCompletionDepth )
+        {
+          lNode.mTree.mShallowestCompletionDepth = thisCompletionDepth;
+          LOGGER.info("New minimum game length observed: " + thisCompletionDepth);
+        }
+
         mAverageFringeDepth.addSample(lNode.getDepth() - getRootDepth());
         mRMSFringeDepth.addSample(lNode.getDepth() - getRootDepth());
         lRequest.mPath.resetCursor();

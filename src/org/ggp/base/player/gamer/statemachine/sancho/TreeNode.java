@@ -2910,7 +2910,7 @@ public class TreeNode
     int roleIndex = (mDecidingRoleIndex + 1) % mTree.mNumRoles;
 
     //  Don't bother evaluating terminality of children above the earliest completion depth
-    boolean evaluateTerminalOnNodeCreation = (mTree.mEvaluateTerminalOnNodeCreation && (mDepth >= mTree.mGameCharacteristics.getEarliestCompletionDepth() || mTree.mHeuristic.isEnabled() || mTree.mGameSearcher.mUseGoalGreedy));
+    boolean evaluateTerminalOnNodeCreation = (mTree.mEvaluateTerminalOnNodeCreation && (mDepth >= mTree.mShallowestCompletionDepth || mTree.mHeuristic.isEnabled() || mTree.mGameSearcher.mUseGoalGreedy));
 
     //  Don't evaluate terminality on the root since it cannot be (and latched score states
     //  might indicate it should be treated as such, but this is never correct for the root)
@@ -2918,6 +2918,10 @@ public class TreeNode
     {
       if (roleIndex == 0)
       {
+        //  We cannot be sure that the parent evaluated terminality unless it is deeper than the observed
+        //  minmimal game depth from meta-gaming.  The current best (dynamic) estimate may be lowert than
+        //  this and **may** mean that the parent expansion DID calculate terminality, but in such cases
+        //  we repeat the test here (it's cheap since we are running the state anyway to obtain legal moves)
         boolean parentEvaluatedTerminalOnNodeCreation = (mTree.mEvaluateTerminalOnNodeCreation &&
                                                          !isRecursiveExpansion &&
                                                          parentDepth >= mTree.mGameCharacteristics.getEarliestCompletionDepth());

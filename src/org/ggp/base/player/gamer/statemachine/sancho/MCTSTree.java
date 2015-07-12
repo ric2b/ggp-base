@@ -152,6 +152,10 @@ public class MCTSTree
    */
   public int                              mLowestRolloutScoreSeen;
 
+  /**
+   * Shallowest observed completion depth for the game - updated dynamically
+   */
+  int                                                 mShallowestCompletionDepth;
 
   // Scratch variables for tree nodes to use to avoid unnecessary object allocation.
   // Note - several of these could probably be collapsed into a lesser number since they are not
@@ -202,6 +206,9 @@ public class MCTSTree
     {
       mSearchFilter = xiStateMachine.getBaseFilter();
     }
+
+    //  Initialize shallowest completion depth to estimate from metagaming
+    mShallowestCompletionDepth = xiGameCharacteristics.getEarliestCompletionDepth();
 
     //  Hyper-expansion is enabled if allowed by the config and the game exhibits sufficiently common hyper-sequences with
     //  a sufficiently variable length to make it worthwhile
