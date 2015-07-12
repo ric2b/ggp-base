@@ -6060,6 +6060,41 @@ public class TreeNode
           {
             // First update through this node, so allocate RAVE stats.
             lNode.attachRAVEStats();
+
+            //  Pre-warm the stats from the nearest same-role-choice ancestor
+            TreeNode ancestor = lNode.findSameRoleAncestor();
+
+            if ( ancestor != null && ancestor.mRAVEStats != null )
+            {
+              int ancestorIndex = 0;
+
+              for (int lii = 0; lii < lNode.mNumChildren; lii++)
+              {
+                if (lNode.mPrimaryChoiceMapping == null || lNode.mPrimaryChoiceMapping[lii] == lii)
+                {
+                  Object lChoice = lNode.mChildren[lii];
+                  ForwardDeadReckonLegalMoveInfo moveInfo = (lChoice instanceof TreeEdge) ? ((TreeEdge)lChoice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)lChoice;
+
+                  //  Use of the partebt index rather than the loop variable directly optimizes the common case
+                  //  where moves have the same ordering in the ancestor as in the child
+                  for(int lij = 0; lij < ancestor.mNumChildren; lij++, ancestorIndex = (ancestorIndex + 1)%ancestor.mNumChildren)
+                  {
+                    Object lParentChoice = ancestor.mChildren[ancestorIndex];
+                    ForwardDeadReckonLegalMoveInfo parentMoveInfo = (lParentChoice instanceof TreeEdge) ? ((TreeEdge)lParentChoice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)lParentChoice;
+
+                    if ( parentMoveInfo.mMasterIndex == moveInfo.mMasterIndex )
+                    {
+                      int canonicalIndex = (ancestor.mPrimaryChoiceMapping == null ? ancestorIndex : ancestor.mPrimaryChoiceMapping[ancestorIndex]);
+
+                      //  Put a ceiling on the weight of the pre-warm value from the parent so that we converge using
+                      //  local data quickly without the parewnt hint having too much momentum
+                      lNode.mRAVEStats.mCounts[lii] = Math.min(ancestor.mRAVEStats.mCounts[canonicalIndex], 5);
+                      lNode.mRAVEStats.mScores[lii] = ancestor.mRAVEStats.mScores[canonicalIndex];
+                    }
+                  }
+                }
+              }
+            }
           }
 
           for (int lii = 0; lii < lNode.mNumChildren; lii++)
@@ -6098,6 +6133,22 @@ public class TreeNode
     return System.nanoTime() - lStartTime;
   }
 
+  private TreeNode findSameRoleAncestor()
+  {
+    TreeNode ancestor = this;
+
+    do
+    {
+      if ( ancestor.mParents.isEmpty() )
+      {
+        return null;
+      }
+
+      ancestor = ancestor.mParents.get(0);  //  Any parentage will do
+    } while(ancestor.mDecidingRoleIndex != mDecidingRoleIndex);
+
+    return ancestor;
+  }
 
   /**
    * Get a node by reference, from the specified pool.
