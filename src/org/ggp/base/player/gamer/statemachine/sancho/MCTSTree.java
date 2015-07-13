@@ -596,6 +596,10 @@ public class MCTSTree
         {
           previousChoiceNode = mRoot.get(((TreeEdge)choice).getChildRef());
         }
+        else
+        {
+          break;
+        }
       }
 
       if (mRoot.mState.equals(factorState))

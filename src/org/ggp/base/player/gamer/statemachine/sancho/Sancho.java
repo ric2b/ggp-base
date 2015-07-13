@@ -115,6 +115,11 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     GameSearcher.thinkBelowPlanSize = 2;
   }
 
+  private boolean isUsingConfigredPlan()
+  {
+    return mPlanString != null;
+  }
+
   private int netScore(ForwardDeadReckonPropnetStateMachine stateMachine,
                        ForwardDeadReckonInternalMachineState state)
   {
@@ -1395,7 +1400,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     if (mPlan != null && mPlan.size() > GameSearcher.thinkBelowPlanSize)
     {
-      if ( mTurn == 1 && mBroadcaster != null )
+      if ( mTurn == 1 && mBroadcaster != null && !isUsingConfigredPlan() )
       {
         mBroadcaster.broadcast("Hah, too easy!  I solved it during meta-gaming!");
       }
@@ -1404,9 +1409,13 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       LOGGER.info("Playing pre-planned move: " + bestMove);
 
       // We need to keep the search 'up with' the plan to make forced-play testing work properly, or else the search
-      // will not be 'primed' during forced play when the plan runs out.
-      mSearchProcessor.startSearch(finishBy, currentState, mCurrentMoveDepth, null);
-      mCurrentMoveDepth += mNumRoles;
+      // will not be 'primed' during forced play when the plan runs out.  This is only necessary when testing with
+      //  a pre-configured plan (or else plans will always go to a terminal state)
+      if ( isUsingConfigredPlan() )
+      {
+        mSearchProcessor.startSearch(finishBy, currentState, mCurrentMoveDepth, null);
+        mCurrentMoveDepth += mNumRoles;
+      }
     }
     else if (mGameCharacteristics.isIteratedGame && mNumRoles == 2)
     {
