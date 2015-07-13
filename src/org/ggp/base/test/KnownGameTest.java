@@ -35,16 +35,17 @@ public class KnownGameTest extends Assert
   static
   {
     SKIP.add("stanford.firesheep");
+    SKIP.add("stanford.go");          // Illegal GDL (unsafe rule).
     SKIP.add("stanford.kono");
     SKIP.add("stanford.madness");
     SKIP.add("stanford.pilgrimage");
-    SKIP.add("stanford.skirmishbad"); // Bad GDL (unsafe rule).
+    SKIP.add("stanford.reflectconnect6"); // Illegal GDL (mis-matched brackets).
+    SKIP.add("stanford.skirmishbad"); // Illegal GDL (unsafe rule).
     SKIP.add("stanford.yinsh");       // GDL refers to rule as if it were a proposition (using "true (order ...)").
+    SKIP.add("stanford.zertz");       // Illegal GDL (unsafe rule).
 
     SKIP.add("stanford.arithmetic"); // GDL is so bugged that we refuse to play.  (No goals for the only role.)
     SKIP.add("stanford.arithmetic-stupid"); // Massive GDL means we refuse to learn.  Issue #154.
-    SKIP.add("stanford.go"); // Crash in propnet construction.  Issue #321.
-    SKIP.add("stanford.zertz"); // Crash in propnet construction.  Issue #323.
   }
 
   private static HashMap<String, String> AKA = new HashMap<>();
