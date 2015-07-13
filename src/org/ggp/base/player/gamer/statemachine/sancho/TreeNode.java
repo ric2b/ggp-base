@@ -4549,7 +4549,17 @@ public class TreeNode
       return 0.5;
     }
 
-    return getExplorationBias(edge) * Math.sqrt(2 * Math.log(mNumVisits) / edge.getNumChildVisits()) /
+    //  It is possible for an un-visited node to still have children that have been visited due
+    //  to transpositions, which means that we will need to apply UCT based on the child visit
+    //  counts even though the parent count is 0.  In such cases the parent count is the same for all
+    //  children so it just amounts to a common normalization factor that will not impact ordering,
+    //  so set it to 1 so we get meaningful values
+    int effectiveTotalVisits = mNumVisits;
+    if (effectiveTotalVisits == 0)
+    {
+      effectiveTotalVisits = 1;
+    }
+    return getExplorationBias(edge) * Math.sqrt(2 * Math.log(effectiveTotalVisits) / edge.getNumChildVisits()) /
            RAVE_EXPLORATION_REDUCTION_FACTOR;
   }
 
