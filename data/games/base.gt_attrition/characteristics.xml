@@ -8,7 +8,7 @@
   <entry key="max_factor_failure_time">0</entry>
   <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
-  <entry key="max_branching_factor">90</entry>
+  <entry key="max_branching_factor">91</entry>
   <entry key="fixed_length">true</entry>
   <entry key="control_mask">( ( true ( round 1 ) ), ( true ( round 3 ) ), ( true ( round 0 ) ), ( true ( round 5 ) ), ( true ( round 2 ) ), ( true ( round 4 ) ) )</entry>
   <entry key="factors"></entry>
