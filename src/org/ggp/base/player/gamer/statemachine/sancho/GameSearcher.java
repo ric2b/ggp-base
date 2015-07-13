@@ -89,6 +89,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   private int                             mRootDepth          = 0;
   private boolean                         mSuppressSampleSizeUpdate = false;
   private int                             mMaxIterationsPerTurn = -1;
+  private int                             mPreviousExpectedScore = -10000;  //  Initial to large negative value a sentinel
   /**
    * Whether this searcher uses RAVE
    */
@@ -138,6 +139,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
   private double currentExplorationBias;
 
+  private Tlkio mBroadcaster = null;
   private long localSearchRefreshTime;
   private int rootDepthAtLastLocalSearchStart = 0;
   private MoveConsequenceSearcher     moveConsequenceSearcher         = null;
@@ -184,6 +186,23 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     mRAVEStatsPool = new UncappedPool<>(nodeTableSize);
     mScoreVectorPool = new ScoreVectorPool(nodeTableSize, numRoles);
     mLogName = xiLogName;
+  }
+
+  /**
+   * Set the Tlk.io broadcaster to use for this game
+   * @param xiBroadcaster
+   */
+  public void setBroadcaster(Tlkio xiBroadcaster)
+  {
+    mBroadcaster = xiBroadcaster;
+  }
+
+  /**
+   * @return The Tlk.io broadcaster to use for this game
+   */
+  public Tlkio getBroadcaster()
+  {
+    return mBroadcaster;
   }
 
   /**
@@ -700,8 +719,12 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         }
 
         assert(bestChoice != null) : "No move choice found";
-        StatsLogUtils.Series.SCORE.logDataPoint((long)Math.max(0, bestChoice.mBestMoveValue + 0.5));
+
+        double expectedScore = Math.max(0, bestChoice.mBestMoveValue + 0.5);
+        StatsLogUtils.Series.SCORE.logDataPoint((long)expectedScore);
         result = (bestChoice.mBestMove.mIsPseudoNoOp ? null : bestChoice.mBestMove.mMove);
+
+        makePerTurnScoreAnnouncement((int)expectedScore);
       }
 
       // Record that we've made the move.  Until we've heard back from the server, the game searcher will always search
@@ -713,6 +736,69 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
       return result;
     }
+  }
+
+  private void makePerTurnScoreAnnouncement(int expectedScore)
+  {
+    String announcement = "";
+    int turnDifference = (expectedScore - mPreviousExpectedScore);
+
+    if ( turnDifference < 1000  && Math.abs(turnDifference) > 10 )
+    {
+      if ( turnDifference > 0 )
+      {
+        announcement += "Things seem to be looking up - ";
+      }
+      else
+      {
+        announcement += "Uh oh, I don't like the way this is going - ";
+      }
+    }
+
+    if ( mPreviousExpectedScore*expectedScore < 0 || mPreviousExpectedScore/10 != expectedScore/10)
+    {
+      if ( expectedScore < 0 )
+      {
+        announcement += "I appear to be about to lose :-(";
+      }
+      else if ( expectedScore < 30 )
+      {
+        announcement += "This looks very bad!";
+      }
+      else if ( expectedScore < 40 )
+      {
+        announcement += "This is not looking so good for me";
+      }
+      else if ( expectedScore < 60 )
+      {
+        announcement += "Not sure which way this game is going yet";
+      }
+      else if ( expectedScore < 70 )
+      {
+        announcement += "This position looks pretty decent";
+      }
+      else if ( expectedScore < 100 - TreeNode.EPSILON )
+      {
+        announcement += "This is looking like I should win now";
+      }
+      else
+      {
+        announcement += "I think I've got this in the bag";
+      }
+
+      announcement += " (" + expectedScore + "%)";
+    }
+    else
+    {
+      announcement += "My current assessment is " + expectedScore + "%";
+    }
+
+    if ( mBroadcaster != null )
+    {
+      mBroadcaster.broadcast(announcement);
+    }
+
+    mPreviousExpectedScore = expectedScore;
   }
 
   /**
@@ -948,7 +1034,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
       for (MCTSTree tree : factorTrees)
       {
-        tree.setRootState(startState, rootDepth);
+        tree.setRootState(startState, rootDepth, lastMove);
       }
 
       moveTime = moveTimeout;
@@ -1070,6 +1156,10 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
           //  Provide this winning path for consideration as our new plan
           mPlan.considerPlan(fullPlayoutList);
+          if ( mBroadcaster != null )
+          {
+            mBroadcaster.broadcast("Ah hah, I see a solution!");
+          }
         }
 
         if ( lRequest.mComplete )

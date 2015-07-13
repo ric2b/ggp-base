@@ -564,7 +564,7 @@ public class MCTSTree
     state.merge(mNonFactorInitialState);
   }
 
-  public void setRootState(ForwardDeadReckonInternalMachineState state, short rootDepth)
+  public void setRootState(ForwardDeadReckonInternalMachineState state, short rootDepth, ForwardDeadReckonLegalMoveInfo lastMove)
   {
     ForwardDeadReckonInternalMachineState factorState;
 
@@ -587,6 +587,17 @@ public class MCTSTree
     }
     else
     {
+      TreeNode previousChoiceNode = mRoot;
+
+      while(previousChoiceNode != null && previousChoiceNode.mNumChildren == 1)
+      {
+        Object choice = previousChoiceNode.mChildren[0];
+        if ( choice instanceof TreeEdge)
+        {
+          previousChoiceNode = mRoot.get(((TreeEdge)choice).getChildRef());
+        }
+      }
+
       if (mRoot.mState.equals(factorState))
       {
         assert (rootDepth == 0 || mFactor != null);
@@ -745,7 +756,31 @@ public class MCTSTree
           }
         }
 
-        oldRoot.freeAllBut(mRoot);
+        int percentageFreed = oldRoot.freeAllBut(mRoot);
+
+        if ( previousChoiceNode != null && previousChoiceNode.mNumChildren > 1 && mGameSearcher.getPlan().isEmpty() )
+        {
+          //  If there was an unexpectedly large amount freed that indicates an unexpected opponent
+          //  move
+          int maxExpectedFreed = (100*previousChoiceNode.mNumChildren - 100)/previousChoiceNode.mNumChildren;
+          if ( percentageFreed > maxExpectedFreed )
+          {
+            String unexpectedMoveMessage;
+
+            if ( mRandom.nextInt(2) == 0 )
+            {
+              unexpectedMoveMessage = "Hmmm...I wasn't expecting that" + (lastMove == null ? "" : " " + lastMove) + ", did I miss something?";
+            }
+            else
+            {
+              unexpectedMoveMessage = "That was not something I expected" + (lastMove == null ? "" : " " + lastMove) + "!  Are you sure you really wanted to do that?";
+            }
+            if ( mGameSearcher.getBroadcaster() != null )
+            {
+              mGameSearcher.getBroadcaster().broadcast(unexpectedMoveMessage);
+            }
+          }
+        }
         assert(existingRootStateNode == null || existingRootStateNode == mRoot || existingRootStateNode.mParents.size()==1);
         assert(mRoot.mParents.size() == 0);
       }

@@ -288,6 +288,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     Random r = new Random();
 
     mBroadcaster = new Tlkio(getName(), MachineSpecificConfiguration.getCfgStr(CfgItem.TLKIO_CHANNEL));
+    mSearchProcessor.setBroadcaster(mBroadcaster);
 
     // If have been configured with a plan (for test purposes), load it now.
     // We'll still do everything else as normal, but whilst there are moves in
@@ -1394,6 +1395,10 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     if (mPlan != null && mPlan.size() > GameSearcher.thinkBelowPlanSize)
     {
+      if ( mTurn == 1 && mBroadcaster != null )
+      {
+        mBroadcaster.broadcast("Hah, too easy!  I solved it during meta-gaming!");
+      }
       // We have a pre-prepared plan.  Simply play the next move.
       bestMove = mPlan.nextMove();
       LOGGER.info("Playing pre-planned move: " + bestMove);

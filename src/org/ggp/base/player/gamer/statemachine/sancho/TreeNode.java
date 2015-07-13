@@ -2032,7 +2032,13 @@ public class TreeNode
     mRef += 0x100000000L;
   }
 
-  public void freeAllBut(TreeNode descendant)
+  /**
+   * Free all nodes apart from those reachable from the specified descendant
+   * of this node
+   * @param descendant
+   * @return percentage of allocated nodes freed
+   */
+  public int freeAllBut(TreeNode descendant)
   {
     LOGGER.info("Free all but rooted in state: " + descendant.mState);
 
@@ -2044,7 +2050,6 @@ public class TreeNode
     descendant.markTreeForSweep(null);
     descendant.mParents.clear(); //	Do this here to allow generic orphan checking in node freeing
                                 //	without tripping over this special case
-
     LOGGER.info("Sweep complete, beginning delete...");
 
     for (int index = 0; index < mNumChildren; index++)
@@ -2077,8 +2082,11 @@ public class TreeNode
     mTree.mSweepInstance++;
 
     int numNodesInUseAfterTrim = mTree.mNodePool.getNumItemsInUse();
+    int percentageFreed = (100*(numNodesInUseBeforeTrim-numNodesInUseAfterTrim))/numNodesInUseBeforeTrim;
 
-    LOGGER.info("Freed " + (100*(numNodesInUseBeforeTrim-numNodesInUseAfterTrim))/numNodesInUseBeforeTrim + "% of allocated nodes (" + (numNodesInUseBeforeTrim-numNodesInUseAfterTrim) + " of " + numNodesInUseBeforeTrim + ")");
+    LOGGER.info("Freed " + percentageFreed + "% of allocated nodes (" + (numNodesInUseBeforeTrim-numNodesInUseAfterTrim) + " of " + numNodesInUseBeforeTrim + ")");
+
+    return percentageFreed;
   }
 
   private void deleteEdge(int xiChildIndex)
