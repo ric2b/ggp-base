@@ -1154,12 +1154,13 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
             fullPlayoutList.add(lRequest.mPlayoutInfo.playoutTrace[moveIndex]);
           }
 
-          //  Provide this winning path for consideration as our new plan
-          mPlan.considerPlan(fullPlayoutList);
-          if ( mBroadcaster != null )
+          if ( mBroadcaster != null && mPlan.isEmpty())
           {
             mBroadcaster.broadcast("Ah hah, I see a solution!");
           }
+
+          //  Provide this winning path for consideration as our new plan
+          mPlan.considerPlan(fullPlayoutList);
         }
 
         if ( lRequest.mComplete )
