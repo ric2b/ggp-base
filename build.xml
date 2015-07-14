@@ -59,6 +59,7 @@
     </target>
     <target name="clean">
         <delete dir="bin"/>
+        <delete dir="${user.home}/.ggpserver-gamecache"/>
     </target>
     <target depends="clean" name="cleanall"/>
     <target depends="build-subprojects,build-project" name="build"/>
