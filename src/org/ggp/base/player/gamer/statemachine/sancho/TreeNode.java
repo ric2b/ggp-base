@@ -2040,7 +2040,8 @@ public class TreeNode
    */
   public int freeAllBut(TreeNode descendant)
   {
-    LOGGER.info("Free all but rooted in state: " + descendant.mState);
+    LOGGER.info("Freeing redundant state");
+    LOGGER.debug("Free all but rooted in state: " + descendant.mState);
 
     int numNodesInUseBeforeTrim = mTree.mNodePool.getNumItemsInUse();
 
@@ -5350,7 +5351,7 @@ public class TreeNode
     }
   }
 
-  public FactorMoveChoiceInfo getBestMove(boolean traceResponses, StringBuffer pathTrace, boolean firstDecision)
+  public FactorMoveChoiceInfo getBestMove(boolean xiTraceResponses, StringBuffer xbPathTrace, boolean xiFirstDecision)
   {
     double bestScore = -Double.MAX_VALUE;
     double bestMoveScore = -Double.MAX_VALUE;
@@ -5359,7 +5360,7 @@ public class TreeNode
     TreeEdge bestEdge = null;
     boolean anyComplete = false;
     TreeNode bestNode = null;
-    FactorMoveChoiceInfo result = new FactorMoveChoiceInfo();
+    FactorMoveChoiceInfo lResult = new FactorMoveChoiceInfo();
     int lResponsesTraced = 0;
     GdlConstant primaryMoveName = null;
     GdlConstant secondaryMoveName = null;
@@ -5369,25 +5370,25 @@ public class TreeNode
     int numSecondaryMoves = 0;
 
     //  If were asked for the first actual decision drill down through any leading no-choice path
-    if (firstDecision && mNumChildren == 1)
+    if (xiFirstDecision && mNumChildren == 1)
     {
-      return get(((TreeEdge)mChildren[0]).getChildRef()).getBestMove(traceResponses, pathTrace, firstDecision);
+      return get(((TreeEdge)mChildren[0]).getChildRef()).getBestMove(xiTraceResponses, xbPathTrace, xiFirstDecision);
     }
 
     //  If there is no pseudo-noop then there cannot be any penalty for not taking
     //  this factor's results - we simply return a pseudo-noop penalty value of 0
-    result.mPseudoNoopValue = 100;
+    lResult.mPseudoNoopValue = 100;
 
     // This routine is called recursively for path tracing purposes.  When
     // calling this routine for path tracing purposes, don't make any other
     // debugging output (because it would be confusing).
-    boolean lRecursiveCall = (pathTrace != null);
+    boolean lRecursiveCall = (xbPathTrace != null);
 
     // Find the role which has a choice at this node.  If this function is
     // being called for real (rather than for debug trace) it MUST be our role
     // (always 0), otherwise why are we trying to get the best move?
     int roleIndex = (mDecidingRoleIndex + 1) % mTree.mNumRoles;
-    assert(lRecursiveCall || roleIndex == 0 || firstDecision);
+    assert(lRecursiveCall || roleIndex == 0 || xiFirstDecision);
     assert(mNumChildren != 0) : "Asked to get best move when there are NO CHILDREN!";
 
     int maxChildVisitCount = 1;
@@ -5428,7 +5429,7 @@ public class TreeNode
       TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
       if (edge == null || edge.getChildRef() == NULL_REF)
       {
-        if (!lRecursiveCall && !firstDecision)
+        if (!lRecursiveCall && !xiFirstDecision)
         {
           ForwardDeadReckonLegalMoveInfo partialMove;
 
@@ -5605,7 +5606,7 @@ public class TreeNode
             //  Whether we're looking for a choice of node to concentrate local search on (firstDecision==true)
             //  of looking for our final choice to play (firstDecision==false) impacts how we weight
             //  children relative to one another
-            if (firstDecision)
+            if (xiFirstDecision)
             {
               //  If it's already been local-searched down-weight it to avoid flipping
               //  back and forth between the same few moves
@@ -5646,7 +5647,7 @@ public class TreeNode
             }
           }
         }
-        if (!lRecursiveCall && !firstDecision)
+        if (!lRecursiveCall && !xiFirstDecision)
         {
           LOGGER.info("Move " + edge.descriptiveName() +
                       " scores " + FORMAT_2DP.format(moveScore) + " (selectionScore score " +
@@ -5658,15 +5659,15 @@ public class TreeNode
                       ")");
         }
 
-        if (child.mNumChildren != 0 && !child.mComplete && traceResponses && !firstDecision)
+        if (child.mNumChildren != 0 && !child.mComplete && xiTraceResponses && !xiFirstDecision)
         {
           lResponsesTraced = child.traceFirstChoiceNode(lResponsesTraced, (selectionScore > bestScore));
         }
 
         if (edge.mPartialMove.mIsPseudoNoOp)
         {
-          result.mPseudoNoopValue = moveScore;
-          result.mPseudoMoveIsComplete = child.mComplete;
+          lResult.mPseudoNoopValue = moveScore;
+          lResult.mPseudoMoveIsComplete = child.mComplete;
           continue;
         }
         //	Don't accept a complete score which no rollout has seen worse than, if there is
@@ -5697,7 +5698,7 @@ public class TreeNode
       }
     }
 
-    if (!lRecursiveCall && !firstDecision)
+    if (!lRecursiveCall && !xiFirstDecision)
     {
       if (bestEdge == null && mTree.mFactor == null)
       {
@@ -5710,26 +5711,29 @@ public class TreeNode
     }
 
     // Trace the most likely path through the tree if searching from the root
-    if (!firstDecision)
+    if (!xiFirstDecision)
     {
       if (!lRecursiveCall)
       {
-        pathTrace = new StringBuffer("Most likely path: ");
+        xbPathTrace = new StringBuffer("Most likely path: ");
       }
-      assert(pathTrace != null);
+      assert(xbPathTrace != null);
       if (bestEdge != null)
       {
-        pathTrace.append(bestEdge.descriptiveName());
-        pathTrace.append(roleIndex == 0 ? ", " : " | ");
+        xbPathTrace.append(bestEdge.descriptiveName());
+        xbPathTrace.append(roleIndex == 0 ? ", " : " | ");
       }
 
       if ((bestNode != null) && (bestNode.mNumChildren != 0))
       {
-        bestNode.getBestMove(false, pathTrace, false);
+        FactorMoveChoiceInfo lChildInfo = bestNode.getBestMove(false, xbPathTrace, false);
+        lResult.mPathTrace = lChildInfo.mPathTrace;
       }
       else
       {
-        LOGGER.info(pathTrace.toString());
+        String lPathTrace = xbPathTrace.toString();
+        LOGGER.info(lPathTrace);
+        lResult.mPathTrace = lPathTrace;
       }
     }
 
@@ -5740,39 +5744,39 @@ public class TreeNode
 
       //  If we're being asked for the first decision node we need to give a response even if it's
       //  essentially arbitrary from equal choices
-      if (firstDecision)
+      if (xiFirstDecision)
       {
         //  If nothing is expanded pick the first (arbitrarily)
         Object firstChoice = mChildren[0];
-        result.mBestEdge = null;
-        result.mBestMove = (firstChoice instanceof ForwardDeadReckonLegalMoveInfo) ? (ForwardDeadReckonLegalMoveInfo)firstChoice : ((TreeEdge)firstChoice).mPartialMove;
+        lResult.mBestEdge = null;
+        lResult.mBestMove = (firstChoice instanceof ForwardDeadReckonLegalMoveInfo) ? (ForwardDeadReckonLegalMoveInfo)firstChoice : ((TreeEdge)firstChoice).mPartialMove;
         //  Complete with no expanded children implies arbitrary child must match parent score
-        result.mBestMoveValue = getAverageScore(0);
-        result.mResultingState = null;
+        lResult.mBestMoveValue = getAverageScore(0);
+        lResult.mResultingState = null;
       }
       else
       {
         //  For a non firstDecision call (i.e. - actually retrieving best move to play)
         //  we need to ensure that we return null here so that in a factorized game this
         //  factor will never be picked
-        result.mBestMove = null;
+        lResult.mBestMove = null;
       }
     }
     else
     {
       ForwardDeadReckonLegalMoveInfo moveInfo = bestEdge.mPartialMove;
 
-      result.mBestEdge = bestEdge;
-      result.mBestMove = (moveInfo.mIsPseudoNoOp ? null : moveInfo);
-      result.mResultingState = get(bestEdge.getChildRef()).mState;
+      lResult.mBestEdge = bestEdge;
+      lResult.mBestMove = (moveInfo.mIsPseudoNoOp ? null : moveInfo);
+      lResult.mResultingState = get(bestEdge.getChildRef()).mState;
       if (!moveInfo.mIsPseudoNoOp)
       {
-        result.mBestMoveValue = bestMoveScore;
-        result.mBestMoveIsComplete = get(bestEdge.getChildRef()).mComplete;
+        lResult.mBestMoveValue = bestMoveScore;
+        lResult.mBestMoveIsComplete = get(bestEdge.getChildRef()).mComplete;
       }
     }
 
-    return result;
+    return lResult;
   }
 
   /**

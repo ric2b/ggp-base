@@ -48,6 +48,11 @@ public class FactorMoveChoiceInfo
   public boolean                               mPseudoMoveIsComplete;
 
   /**
+   * Trace of the expected path through this factor.  Suitable for logging.
+   */
+  public String mPathTrace;
+
+  /**
    * Log debugging information about the factor move choice.
    */
   public void log()

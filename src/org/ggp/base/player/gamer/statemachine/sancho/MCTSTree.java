@@ -767,7 +767,7 @@ public class MCTSTree
           //  If there was an unexpectedly large amount freed that indicates an unexpected opponent
           //  move
           int maxExpectedFreed = (100*previousChoiceNode.mNumChildren - 100)/previousChoiceNode.mNumChildren;
-          if ( percentageFreed > maxExpectedFreed )
+          if ((percentageFreed > maxExpectedFreed) && (!mRoot.mComplete))
           {
             String unexpectedMoveMessage;
 

@@ -307,7 +307,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
     if (MachineSpecificConfiguration.getCfgBool(CfgItem.USE_LOCAL_SEARCH))
     {
-      if ( factorTrees.length == 1 &&
+      if (factorTrees.length == 1 &&
           gameCharacteristics.numRoles == 2 &&
           !gameCharacteristics.isPseudoSimultaneousMove &&
           gameCharacteristics.isStrictlyAlternatingPlay &&
@@ -330,7 +330,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       tree.mRoot.setDepth((short)0);
     }
 
-    if ( mUseRAVE )
+    if (mUseRAVE)
     {
       mPlayoutTrace = new OpenBitSet(underlyingStateMachine.getFullPropNet().getMasterMoveList().length);
 
@@ -456,11 +456,11 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
    */
   public boolean isComplete()
   {
-    if ( mMaxIterationsPerTurn != -1 && getNumIterations() >= mMaxIterationsPerTurn )
+    if (mMaxIterationsPerTurn != -1 && getNumIterations() >= mMaxIterationsPerTurn)
     {
       return true;
     }
-    if ( mPlan.size() > GameSearcher.thinkBelowPlanSize )
+    if (mPlan.size() > GameSearcher.thinkBelowPlanSize)
     {
       return true;
     }
@@ -540,28 +540,28 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
     STATS_LOGGER.info(lLogBuf.toString());
 
-    if ( ADJUST_EXPLORATION_BIAS_FROM_TREE_SHAPE )
+    if (ADJUST_EXPLORATION_BIAS_FROM_TREE_SHAPE)
     {
       double fringeDepth = mAverageFringeDepth.getAverage();
       double branchingFactor = mAverageBranchingFactor.getAverage();
 
       //  Adjust the branching factor to the correct geometric mean
-      if ( !mGameCharacteristics.isSimultaneousMove )
+      if (!mGameCharacteristics.isSimultaneousMove)
       {
         branchingFactor = Math.exp(Math.log(branchingFactor*mGameCharacteristics.numRoles)/mGameCharacteristics.numRoles);
       }
-      if ( fringeDepth > 0 && branchingFactor > 0 )
+      if (fringeDepth > 0 && branchingFactor > 0)
       {
         //  Calculate the tree aspect ratio, which is the ratio of the observed average fringe
         //  depth to its expected depth given its observed branching factor
         double aspect = fringeDepth/(Math.log(mNodePool.getNumItemsInUse())/Math.log(branchingFactor));
 
-        if ( aspect < 1.2 && currentExplorationBias > 0.2 )//minExplorationBias )
+        if (aspect < 1.2 && currentExplorationBias > 0.2)//minExplorationBias)
         {
           currentExplorationBias /= 1.1;
           LOGGER.info("Decreasing exploration bias to: " + currentExplorationBias);
         }
-        else if ( aspect > 1.3 && currentExplorationBias < maxExplorationBias )
+        else if (aspect > 1.3 && currentExplorationBias < maxExplorationBias)
         {
           currentExplorationBias *= 1.1;
           LOGGER.info("Increasing exploration bias to: " + currentExplorationBias);
@@ -585,7 +585,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   public TreeEdge getPrimaryPath(ForwardDeadReckonInternalMachineState resultingState)
   {
     //  Currently no attempt to local serach in factored games
-    if ( factorTrees.length > 1 )
+    if (factorTrees.length > 1)
     {
       return null;
     }
@@ -594,7 +594,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     {
       FactorMoveChoiceInfo factorChoice = factorTrees[0].getBestMove(true);
 
-      if ( factorChoice.mBestEdge == null )
+      if (factorChoice.mBestEdge == null)
       {
         return null;
       }
@@ -626,7 +626,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         }
       }
 
-      if ( result == null )
+      if (result == null)
       {
         FactorMoveChoiceInfo bestChoice = null;
 
@@ -634,10 +634,10 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         double fringeDepth = mAverageFringeDepth.getAverage();
         double RMSFringeDepth = mRMSFringeDepth.getAverage();
         double branchingFactor = mAverageBranchingFactor.getAverage();
-        if ( fringeDepth > 0 && branchingFactor > 0 )
+        if (fringeDepth > 0 && branchingFactor > 0)
         {
           //  Adjust the branching factor to the correct geometric mean
-          if ( !mGameCharacteristics.isSimultaneousMove )
+          if (!mGameCharacteristics.isSimultaneousMove)
           {
             branchingFactor = Math.exp(Math.log(branchingFactor*mGameCharacteristics.numRoles)/mGameCharacteristics.numRoles);
           }
@@ -724,7 +724,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         StatsLogUtils.Series.SCORE.logDataPoint((long)expectedScore);
         result = (bestChoice.mBestMove.mIsPseudoNoOp ? null : bestChoice.mBestMove.mMove);
 
-        makePerTurnScoreAnnouncement((int)expectedScore);
+        makePerTurnScoreAnnouncement((int)expectedScore, bestChoice);
       }
 
       // Record that we've made the move.  Until we've heard back from the server, the game searcher will always search
@@ -738,67 +738,78 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     }
   }
 
-  private void makePerTurnScoreAnnouncement(int expectedScore)
+  private void makePerTurnScoreAnnouncement(int xiExpectedScore, FactorMoveChoiceInfo xiBestChoice)
   {
-    String announcement = "";
-    int turnDifference = (expectedScore - mPreviousExpectedScore);
+    StringBuilder lAnnouncement = new StringBuilder(1024);
+    int lTurnDifference = (xiExpectedScore - mPreviousExpectedScore);
 
-    if ( turnDifference < 1000  && Math.abs(turnDifference) > 10 )
+    if (lTurnDifference < 1000  && Math.abs(lTurnDifference) > 10)
     {
-      if ( turnDifference > 0 )
+      if (lTurnDifference > 0)
       {
-        announcement += "Things seem to be looking up - ";
+        lAnnouncement.append("Things seem to be looking up - ");
       }
       else
       {
-        announcement += "Uh oh, I don't like the way this is going - ";
+        lAnnouncement.append("Uh oh, I don't like the way this is going - ");
       }
     }
 
-    if ( mPreviousExpectedScore*expectedScore < 0 || mPreviousExpectedScore/10 != expectedScore/10)
+    if (mPreviousExpectedScore * xiExpectedScore < 0 ||
+        mPreviousExpectedScore / 10 != xiExpectedScore / 10)
     {
-      if ( expectedScore < 0 )
+      if (xiExpectedScore < 0)
       {
-        announcement += "I appear to be about to lose :-(";
+        lAnnouncement.append("I appear to be about to lose :-(");
       }
-      else if ( expectedScore < 30 )
+      else if (xiExpectedScore < 30)
       {
-        announcement += "This looks very bad!";
+        lAnnouncement.append("This looks very bad!");
       }
-      else if ( expectedScore < 40 )
+      else if (xiExpectedScore < 40)
       {
-        announcement += "This is not looking so good for me";
+        lAnnouncement.append("This is not looking so good for me");
       }
-      else if ( expectedScore < 60 )
+      else if (xiExpectedScore < 60)
       {
-        announcement += "Not sure which way this game is going yet";
+        lAnnouncement.append("Not sure which way this game is going yet");
       }
-      else if ( expectedScore < 70 )
+      else if (xiExpectedScore < 70)
       {
-        announcement += "This position looks pretty decent";
+        lAnnouncement.append("This position looks pretty decent");
       }
-      else if ( expectedScore < 100 - TreeNode.EPSILON )
+      else if (xiExpectedScore < 100 - TreeNode.EPSILON)
       {
-        announcement += "This is looking like I should win now";
+        lAnnouncement.append("This is looking like I should win now");
       }
       else
       {
-        announcement += "I think I've got this in the bag";
+        lAnnouncement.append("I think I've got this in the bag");
       }
 
-      announcement += " (" + expectedScore + "%)";
+      lAnnouncement.append(" (");
+      lAnnouncement.append(xiExpectedScore);
+      lAnnouncement.append("%)");
     }
     else
     {
-      announcement += "My current assessment is " + expectedScore + "%";
+      lAnnouncement.append("My current assessment is ");
+      lAnnouncement.append(xiExpectedScore);
+      lAnnouncement.append("%.");
+
+      if (xiBestChoice.mPathTrace != null)
+      {
+        lAnnouncement.append("  ");
+        lAnnouncement.append(xiBestChoice.mPathTrace);
+      }
     }
 
-    if ( mBroadcaster != null )
+    if (mBroadcaster != null)
     {
-      mBroadcaster.broadcast(announcement);
+      mBroadcaster.broadcast(lAnnouncement.toString());
     }
 
-    mPreviousExpectedScore = expectedScore;
+    mPreviousExpectedScore = xiExpectedScore;
   }
 
   /**
@@ -817,7 +828,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   {
     boolean lAllTreesCompletelyExplored;
 
-    if ( mMaxIterationsPerTurn != -1 && getNumIterations() >= mMaxIterationsPerTurn )
+    if (mMaxIterationsPerTurn != -1 && getNumIterations() >= mMaxIterationsPerTurn)
     {
       return true;
     }
@@ -826,7 +837,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     {
       boolean somethingDisposed = false;
 
-      if ( DISABLE_NODE_TRIMMING )
+      if (DISABLE_NODE_TRIMMING)
       {
         return false;
       }
@@ -856,16 +867,16 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       }
     }
 
-    if ( moveConsequenceSearcher != null && moveConsequenceSearcher.isEnabled() )
+    if (moveConsequenceSearcher != null && moveConsequenceSearcher.isEnabled())
     {
       ProcessQueuedLocalSearchResults();
 
-      if (System.currentTimeMillis() > localSearchRefreshTime )
+      if (System.currentTimeMillis() > localSearchRefreshTime)
       {
         ForwardDeadReckonLegalMoveInfo primaryLine = null;
         int choosingRole = 0;
 
-        if ( priorityLocalSearchSeed != null && getRootDepth() != rootDepthAtLastLocalSearchStart )
+        if (priorityLocalSearchSeed != null && getRootDepth() != rootDepthAtLastLocalSearchStart)
         {
           LOGGER.info("Setting priority search seed: " + priorityLocalSearchSeed);
           primaryLine = priorityLocalSearchSeed;
@@ -875,12 +886,12 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         else
         {
           TreeEdge primaryPathEdge = getPrimaryPath(localSearchRoot);
-          if ( primaryPathEdge != null )
+          if (primaryPathEdge != null)
           {
             TreeNode primaryPathNode = factorTrees[0].mRoot.get(primaryPathEdge.getChildRef());
 
             primaryLine = primaryPathEdge.mPartialMove;
-            if ( primaryPathNode.mLocalSearchStatus == LocalSearchStatus.LOCAL_SEARCH_UNSEARCHED )
+            if (primaryPathNode.mLocalSearchStatus == LocalSearchStatus.LOCAL_SEARCH_UNSEARCHED)
             {
               primaryPathNode.mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_NO_RESULT;
             }
@@ -890,7 +901,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
         long timeRemaining = moveTime - System.currentTimeMillis();
 
-        if ( primaryLine != null )
+        if (primaryLine != null)
         {
           moveConsequenceSearcher.newSearch(localSearchRoot, factorTrees[0].mRoot.mState, primaryLine, choosingRole, getRootDepth() != rootDepthAtLastLocalSearchStart, false);
           rootDepthAtLastLocalSearchStart = getRootDepth();
@@ -1007,11 +1018,11 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       return;
     }
 
-    if ( moveConsequenceSearcher != null && moveConsequenceSearcher.isEnabled() )
+    if (moveConsequenceSearcher != null && moveConsequenceSearcher.isEnabled())
     {
       int choosingRole  = (getRootDepth()/2)%2;
 
-      if ( lastMove != null )
+      if (lastMove != null)
       {
         moveConsequenceSearcher.newSearch(startState, null, lastMove, choosingRole, true, false);
       }
@@ -1109,7 +1120,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         }
 
         int thisCompletionDepth = lRequest.mPlayoutInfo.playoutLength*lNode.mTree.mNumRoles + lNode.getDepth();
-        if ( thisCompletionDepth < lNode.mTree.mShallowestCompletionDepth )
+        if (thisCompletionDepth < lNode.mTree.mShallowestCompletionDepth)
         {
           lNode.mTree.mShallowestCompletionDepth = thisCompletionDepth;
           LOGGER.info("New minimum game length observed: " + thisCompletionDepth);
@@ -1131,11 +1142,11 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
             TreeEdge edge = lRequest.mPath.getCurrentElement().getEdgeUnsafe();
 
-            if ( lRequest.mPath.getCurrentElement().getParentNode().mDecidingRoleIndex == lRequest.mTree.mNumRoles-1 )
+            if (lRequest.mPath.getCurrentElement().getParentNode().mDecidingRoleIndex == lRequest.mTree.mNumRoles-1)
             {
               //  If we've already played a move (but not yet had the server confirm back to
               //  us) then we need to NOT include it in the plan
-              if ( mChosenMove != null && fullPlayoutList.isEmpty() )
+              if (mChosenMove != null && fullPlayoutList.isEmpty())
               {
                 assert(edge.mPartialMove.mMove == mChosenMove);
               }
@@ -1154,7 +1165,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
             fullPlayoutList.add(lRequest.mPlayoutInfo.playoutTrace[moveIndex]);
           }
 
-          if ( mBroadcaster != null && mPlan.isEmpty())
+          if (mBroadcaster != null && mPlan.isEmpty())
           {
             mBroadcaster.broadcast("Ah hah, I see a solution!");
           }
@@ -1163,7 +1174,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           mPlan.considerPlan(fullPlayoutList);
         }
 
-        if ( lRequest.mComplete )
+        if (lRequest.mComplete)
         {
           //  Propagate the implications of the completion discovered by the playout
           lNode.markComplete(lRequest.mAverageScores, (short)(lNode.getDepth()+1));
@@ -1174,7 +1185,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           lNode = lRequest.mPath.getTailElement().getChildNode();
         }
 
-        if ( mUseRAVE )
+        if (mUseRAVE)
         {
           //  Decant played moves into a bitset for O(1) existance queries
           mPlayoutTrace.clear(0, mPlayoutTrace.capacity());
@@ -1305,7 +1316,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
    */
   private void updateSampleSize()
   {
-    if ( mPipeline != null )
+    if (mPipeline != null)
     {
       // Get the most recent combined total statistics and calculate the difference from last time round.
       RolloutPerfStats lCombinedStatsTotal = new RolloutPerfStats(mPipeline.getRolloutPerfStats());
@@ -1336,7 +1347,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
       lNewSampleSize = Math.max(1.0,  Math.min(100.0, lNewSampleSize));
 
       //  If we are using RAVE we cannot have a sample size larger than 1
-      if ( mUseRAVE )
+      if (mUseRAVE)
       {
         mGameCharacteristics.setRolloutSampleSize(1);
       }
@@ -1374,7 +1385,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         rolloutPool = null;
       }
 
-      if ( moveConsequenceSearcher != null )
+      if (moveConsequenceSearcher != null)
       {
         moveConsequenceSearcher.stop();
         moveConsequenceSearcher = null;
@@ -1402,7 +1413,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
   public void ProcessLocalSearchResult(LocalSearchResults xiResults)
   {
     LOGGER.info("Received search result for processing when numIterations=" + mNumIterations);
-    while ( lastProcessedSearchResultSeq != lastQueuedSearchResultSeq && !mTerminateRequested )
+    while (lastProcessedSearchResultSeq != lastQueuedSearchResultSeq && !mTerminateRequested)
     {
       //  Spin-wait
       Thread.yield();
@@ -1414,7 +1425,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
   private void ProcessQueuedLocalSearchResults()
   {
-    if ( lastQueuedSearchResultSeq > lastProcessedSearchResultSeq )
+    if (lastQueuedSearchResultSeq > lastProcessedSearchResultSeq)
     {
       LOGGER.info("Processing queued search results when numIterations=" + mNumIterations);
 
@@ -1426,20 +1437,20 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
       //  Find the root node for the local search
       TreeNode node = tree.findTransposition(searchResultsBuffer.startState);
-      if ( node == null )
+      if (node == null)
       {
         LOGGER.warn("Unexpectedly unable to find MCTS node for root of completed local search");
       }
       else
       {
-        if ( node == tree.mRoot && node.mNumChildren == 1 && node.mChildren[0] instanceof TreeEdge )
+        if (node == tree.mRoot && node.mNumChildren == 1 && node.mChildren[0] instanceof TreeEdge)
         {
           //  Pseudo-root node - real first choice node is one down
           node = node.get(((TreeEdge)node.mChildren[0]).getChildRef());
 
           LOGGER.info("Node is pseudo-root, moving down to decision root");
         }
-        if ( node.mComplete )
+        if (node.mComplete)
         {
           LOGGER.info("Node already complete");
         }
@@ -1451,7 +1462,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           boolean nodeIsRootChild = !nodeIsRootEquivalent && (node.getDepth() <= tree.mRoot.getDepth()+3);
 
           //  Is this a win, or a must-play-local-move?
-          if ( searchResultsBuffer.winForRole != -1 )
+          if (searchResultsBuffer.winForRole != -1)
           {
              assert(searchResultsBuffer.tenukiLossForRole == -1);
 
@@ -1460,8 +1471,8 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
             //  will just result in random moves, making the opponent's job that much easier.
             //  Better to let MCTS labour on in ignorance and try to make life as hard as
             //  possible for the opponent
-            if ( searchResultsBuffer.winForRole != 0 &&
-                 (nodeIsRootEquivalent || (nodeIsRootChild && node.mDecidingRoleIndex == searchResultsBuffer.winForRole)) )
+            if (searchResultsBuffer.winForRole != 0 &&
+                 (nodeIsRootEquivalent || (nodeIsRootChild && node.mDecidingRoleIndex == searchResultsBuffer.winForRole)))
             {
               LOGGER.info("Result is an unconditional loss for us - ignoring to allow MCTS to obfuscate!");
             }
@@ -1474,7 +1485,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                 completeResultBuffer[i] = (i == searchResultsBuffer.winForRole ? 100 : 0);
               }
 
-              if ( searchResultsBuffer.winForRole == node.mDecidingRoleIndex )
+              if (searchResultsBuffer.winForRole == node.mDecidingRoleIndex)
               {
                 //  Unconditional win here whatever is played
                 LOGGER.info("noop win for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove);
@@ -1482,7 +1493,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                 node.mCompletionDepth = (short)(node.getDepth() + searchResultsBuffer.atDepth);
                 assert(node.mCompletionDepth >= 0 && node.mCompletionDepth >= node.getDepth());
 
-                if ( node == tree.mRoot && searchResultsBuffer.winForRole == 0 )
+                if (node == tree.mRoot && searchResultsBuffer.winForRole == 0)
                 {
                   LOGGER.info("Root is local win without known win path for us - storing seed move for next priority search seed");
 
@@ -1501,10 +1512,10 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
                   ForwardDeadReckonLegalMoveInfo moveInfo = ((choice instanceof TreeEdge) ? ((TreeEdge)choice).mPartialMove : (ForwardDeadReckonLegalMoveInfo)choice);
 
-                  if ( moveInfo == searchResultsBuffer.winningMove )
+                  if (moveInfo == searchResultsBuffer.winningMove)
                   {
                     moveFound = true;
-                    if ( node.mPrimaryChoiceMapping != null )
+                    if (node.mPrimaryChoiceMapping != null)
                     {
                       choice = node.mChildren[node.mPrimaryChoiceMapping[index]];
                     }
@@ -1514,13 +1525,13 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                       TreeNode child = node.get(edge.getChildRef());
                       if (child != null)
                       {
-                        if ( child.mComplete )
+                        if (child.mComplete)
                         {
                           LOGGER.info("Move already complete with score for winning role of: " + child.getAverageScore(searchResultsBuffer.winForRole));
                         }
-                        else if ( child.mLocalSearchStatus == LocalSearchStatus.LOCAL_SEARCH_LOSS )
+                        else if (child.mLocalSearchStatus == LocalSearchStatus.LOCAL_SEARCH_LOSS)
                         {
-                          if ( child.mCompletionDepth < (short)(node.getDepth()+searchResultsBuffer.atDepth-1) )
+                          if (child.mCompletionDepth < (short)(node.getDepth()+searchResultsBuffer.atDepth-1))
                           {
                             LOGGER.info("Local win for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.winForRole) + " from seed move " + searchResultsBuffer.seedMove + " with move " + searchResultsBuffer.winningMove + " ignored because it is a known local loss at lower depth");
                             winIsValid= false;
@@ -1552,7 +1563,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                     //  root.
                     //  To cope with this circumstance we just leave the result queued and allow up to a fixed threshold iterations to take
                     //  place before we give up (which should never really happen)
-                    if ( localSearchResultProcessingAttemptSeq > LOCAL_SEARCH_WIN_PROCESSING_MAX_RETRIES )
+                    if (localSearchResultProcessingAttemptSeq > LOCAL_SEARCH_WIN_PROCESSING_MAX_RETRIES)
                     {
                       LOGGER.warn("Winning move " + searchResultsBuffer.winningMove + " from local search not found in MCTS tree after retry period");
                       break;
@@ -1564,7 +1575,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
 
                 //assert(moveFound) : "Unable to find winning move in tree";
 
-                if ( winIsValid )
+                if (winIsValid)
                 {
                   assert(node.mLocalSearchStatus != LocalSearchStatus.LOCAL_SEARCH_WIN);
 
@@ -1576,7 +1587,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                   {
                     LOGGER.info("Win is not enabled by this seed, so checking for other non-relevant moves to eliminate");
                     TreeNode choiceFromNode = tree.findTransposition(searchResultsBuffer.choiceFromState);
-                    if ( choiceFromNode == null )
+                    if (choiceFromNode == null)
                     {
                       LOGGER.warn("Unexpectedly unable to find MCTS node for choice node");
                     }
@@ -1586,19 +1597,19 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                       {
                         Object choice = choiceFromNode.mChildren[index];
 
-                        if ( choice instanceof TreeEdge )
+                        if (choice instanceof TreeEdge)
                         {
                           TreeEdge edge = (TreeEdge)choice;
-                          if ( edge.getChildRef() != TreeNode.NULL_REF )
+                          if (edge.getChildRef() != TreeNode.NULL_REF)
                           {
                             TreeNode childNode = node.get(edge.getChildRef());
-                            if ( childNode != null )
+                            if (childNode != null)
                             {
-                              if ( !searchResultsBuffer.canInfluenceFoundResult(edge.mPartialMove))
+                              if (!searchResultsBuffer.canInfluenceFoundResult(edge.mPartialMove))
                               {
                                 LOGGER.info("Looks like move " + edge.mPartialMove + " would also allow this win");
                                 childNode.mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
-                                childNode.mCompletionDepth = (short)( childNode.getDepth() + searchResultsBuffer.atDepth);
+                                childNode.mCompletionDepth = (short)(childNode.getDepth() + searchResultsBuffer.atDepth);
                                 assert(childNode.mCompletionDepth >= 0 && childNode.mCompletionDepth >= childNode.getDepth());
                               }
                               else
@@ -1625,7 +1636,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                   }
                 }
 
-                if ( node == tree.mRoot && searchResultsBuffer.winForRole == 0 )
+                if (node == tree.mRoot && searchResultsBuffer.winForRole == 0)
                 {
                   LOGGER.info("Root complete with known win path for us - storing winning move for next priority search seed");
 
@@ -1651,7 +1662,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
             //  Win here if the optional player does not play locally
             for (short index = 0; index < node.mNumChildren; index++)
             {
-              if ( node.mPrimaryChoiceMapping == null || node.mPrimaryChoiceMapping[index] == index )
+              if (node.mPrimaryChoiceMapping == null || node.mPrimaryChoiceMapping[index] == index)
               {
                 Object choice = node.mChildren[index];
 
@@ -1665,18 +1676,18 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
                   {
                     for(int i = 0; i < searchResultsBuffer.numTenukiLossMoves; i++)
                     {
-                      if ( searchResultsBuffer.tenukiLossMoves[i] == moveInfo )
+                      if (searchResultsBuffer.tenukiLossMoves[i] == moveInfo)
                       {
-                        if ( searchResultsBuffer.hasKnownWinDistances() )
+                        if (searchResultsBuffer.hasKnownWinDistances())
                         {
-                          LOGGER.info(moveInfo.mMove.toString() + " is a global loss for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
+                          LOGGER.info(moveInfo.mMove.toString() + " is a global loss for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove);
                           child.mCompletionDepth = (short)(node.getDepth()+searchResultsBuffer.atDepth-1);
                           child.mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
                           assert(child.mCompletionDepth >= 0 && child.mCompletionDepth >= child.getDepth());
                         }
                         else
                         {
-                          LOGGER.info(moveInfo.mMove.toString() + " is a local loss for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove );
+                          LOGGER.info(moveInfo.mMove.toString() + " is a local loss for " + tree.mRoleOrdering.roleIndexToRole(searchResultsBuffer.tenukiLossForRole) + " from seed move " + searchResultsBuffer.seedMove);
                           child.mCompletionDepth = (short)(node.getDepth()+searchResultsBuffer.atDepth-1);
                           child.mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_LOSS;
                           assert(child.mCompletionDepth >= 0 && child.mCompletionDepth >= child.getDepth());
