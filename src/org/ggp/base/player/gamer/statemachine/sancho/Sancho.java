@@ -115,7 +115,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     GameSearcher.thinkBelowPlanSize = 2;
   }
 
-  private boolean isUsingConfigredPlan()
+  private boolean isUsingConfiguredPlan()
   {
     return mPlanString != null;
   }
@@ -1403,7 +1403,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     if (mPlan != null && mPlan.size() > GameSearcher.thinkBelowPlanSize)
     {
-      if ( mTurn == 1 && mBroadcaster != null && !isUsingConfigredPlan() )
+      if ( mTurn == 1 && mBroadcaster != null && !isUsingConfiguredPlan() )
       {
         mBroadcaster.broadcast("Hah, too easy!  I solved it during meta-gaming!");
       }
@@ -1414,7 +1414,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       // We need to keep the search 'up with' the plan to make forced-play testing work properly, or else the search
       // will not be 'primed' during forced play when the plan runs out.  This is only necessary when testing with
       //  a pre-configured plan (or else plans will always go to a terminal state)
-      if ( isUsingConfigredPlan() )
+      if ( isUsingConfiguredPlan() )
       {
         mSearchProcessor.startSearch(finishBy, currentState, mCurrentMoveDepth, null);
         mCurrentMoveDepth += mNumRoles;
