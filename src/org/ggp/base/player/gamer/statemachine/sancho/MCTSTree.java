@@ -744,7 +744,7 @@ public class MCTSTree
               //  in which case we want to re-propagate that, or else it had been marked
               //  complete by local search without known path (in which case we must re-find
               //  the completion and so clear the completion)
-              if (existingRootStateNode.mIsTerminal)
+              if (existingRootStateNode.mTerminal)
               {
                 mRoot.markComplete(existingRootStateNode, (short)existingRootStateNode.getDepth());
               }
@@ -834,7 +834,7 @@ public class MCTSTree
       //  Latched score detection can cause a node that is not strictly terminal (but has totally
       //  fixed scores for all subtrees) to be flagged as terminal - we must reset this to ensure
       //  it get re-expanded one level (from which we'll essentially make a random choice)
-      mRoot.mIsTerminal = false;
+      mRoot.mTerminal = false;
 
       //  Must expand here as async activity on the local search can mark the root complete again
       //  before an expansion takes place if we let control flow out of the synchronized section
@@ -890,6 +890,7 @@ public class MCTSTree
 
     if (!firstDecision)
     {
+      bestMoveInfo.logBest();
       LOGGER.info("Num nodes in use: " + mNodePool.getNumItemsInUse());
       LOGGER.info("Num true rollouts added: " + mNumNonTerminalRollouts);
       LOGGER.info("Num terminal nodes revisited: " + mNumTerminalRollouts);
@@ -929,6 +930,7 @@ public class MCTSTree
       mRoot.dumpTree(thisTurnDumpFile);
     }
 
+    assert(bestMoveInfo != null) : "Best move choice info was illegally null";
     return bestMoveInfo;
   }
 

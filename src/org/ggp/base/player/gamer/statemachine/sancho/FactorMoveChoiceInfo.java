@@ -1,5 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.text.DecimalFormat;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -11,6 +13,8 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 public class FactorMoveChoiceInfo
 {
   private static final Logger LOGGER = LogManager.getLogger();
+
+  private static final DecimalFormat FORMAT_2DP = new DecimalFormat("####0.00");
 
   /**
    * The best move in this factor.
@@ -53,14 +57,23 @@ public class FactorMoveChoiceInfo
   public String mPathTrace;
 
   /**
-   * Log debugging information about the factor move choice.
+   * Log full debugging information about the factor move choice.
    */
-  public void log()
+  public void logFull()
   {
     LOGGER.debug("  Factor best move:          " + (mBestMove.mIsPseudoNoOp ? null : mBestMove.mMove));
     LOGGER.debug("  Factor best move value:    " + mBestMoveValue);
     LOGGER.debug("  Factor best move complete? " + mBestMoveIsComplete);
     LOGGER.debug("  Factor no-op value:        " + mPseudoNoopValue);
     LOGGER.debug("  Factor no-op complete?     " + mPseudoMoveIsComplete);
+  }
+
+  /**
+   * Log brief information about the best choice.
+   */
+  public void logBest()
+  {
+    LOGGER.info("Best move was " + (mBestMove.mIsPseudoNoOp ? "<no-op>" : mBestMove.mMove) +
+                ", scoring " + FORMAT_2DP.format(mBestMoveValue));
   }
 }

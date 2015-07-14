@@ -189,7 +189,7 @@ public class TreeNode
   double                                mNumUpdates           = 0;
   final ForwardDeadReckonInternalMachineState mState;
   int                                   mDecidingRoleIndex;
-  boolean                               mIsTerminal           = false;
+  boolean                               mTerminal             = false;
   boolean                               mComplete             = false;
   private boolean                       mAllChildrenComplete  = false;
   LocalSearchStatus                     mLocalSearchStatus    = LocalSearchStatus.LOCAL_SEARCH_UNSEARCHED;
@@ -530,7 +530,7 @@ public class TreeNode
     mComplete = true;
     mCompletionDepth = atCompletionDepth;
     assert(mCompletionDepth >= mDepth);
-    assert(mIsTerminal || (mCompletionDepth > mDepth)) : "Can't be immediately complete except in terminal node";
+    assert(mTerminal || (mCompletionDepth > mDepth)) : "Can't be immediately complete except in terminal node";
 
     //LOGGER.debug("Mark complete with score " + averageScore + (ourMove == null ? " (for opponent)" : " (for us)") + " in state: " + state);
     if (this == mTree.mRoot)
@@ -1776,7 +1776,7 @@ public class TreeNode
     // Reset primitives.
     mNumVisits = 0;
     mNumUpdates = 0;
-    mIsTerminal = false;
+    mTerminal = false;
     mLocalSearchStatus = LocalSearchStatus.LOCAL_SEARCH_UNSEARCHED;
     mLastSelectionMade = -1;
     mComplete = false;
@@ -2539,7 +2539,7 @@ public class TreeNode
 
   private void considerPathToAsPlan()
   {
-    assert(mIsTerminal);
+    assert(mTerminal);
 
     GamePlan plan = mTree.mGameSearcher.getPlan();
     if (plan != null)
@@ -2938,9 +2938,9 @@ public class TreeNode
         {
           StateInfo info = calculateTerminalityAndAutoExpansion(mState);
 
-          mIsTerminal = info.isTerminal;
+          mTerminal = info.isTerminal;
 
-          if (mIsTerminal)
+          if (mTerminal)
           {
             if (mTree.mGameCharacteristics.isPseudoPuzzle)
             {
@@ -3503,7 +3503,7 @@ public class TreeNode
               createChildNodeForEdgeWithAssertedState(newEdge, mTree.mChildStatesBuffer[lMoveIndex], fastForwardDepthIncrement, false);
 
               TreeNode newChild = get(newEdge.getChildRef());
-              newChild.mIsTerminal = info.isTerminal;
+              newChild.mTerminal = info.isTerminal;
               if (info.isTerminal)
               {
                 if (mTree.mGameCharacteristics.isPseudoPuzzle)
@@ -3542,7 +3542,7 @@ public class TreeNode
           {
             Object lChoice = mChildren[lMoveIndex];
             TreeEdge edge = (lChoice instanceof TreeEdge ? (TreeEdge)lChoice : null);
-            if (edge == null || !get(edge.getChildRef()).mIsTerminal)
+            if (edge == null || !get(edge.getChildRef()).mTerminal)
             {
               //  Skip this for pseudo-noops
               if ((edge != null ? edge.mPartialMove : (ForwardDeadReckonLegalMoveInfo)lChoice).mIsPseudoNoOp)
@@ -3650,7 +3650,7 @@ public class TreeNode
 
                   TreeNode newChild = get(edge.getChildRef());
 
-                  if (!newChild.mIsTerminal && (newChild.mNumVisits == 0 || newChild.mHeuristicWeight == 0 || Math.abs(newChild.mHeuristicValue-50) < EPSILON))
+                  if (!newChild.mTerminal && (newChild.mNumVisits == 0 || newChild.mHeuristicWeight == 0 || Math.abs(newChild.mHeuristicValue-50) < EPSILON))
                   {
                     newChild.mHeuristicValue = mTree.mNodeHeuristicInfo.heuristicValue[0];
                     newChild.mHeuristicWeight = mTree.mNodeHeuristicInfo.heuristicWeight;
@@ -3860,7 +3860,7 @@ public class TreeNode
 
                   TreeNode newChild = get(edge.getChildRef());
 
-                  if (!newChild.mIsTerminal && (newChild.mNumVisits == 0 || newChild.mHeuristicWeight == 0 || Math.abs(newChild.mHeuristicValue-50) < EPSILON))
+                  if (!newChild.mTerminal && (newChild.mNumVisits == 0 || newChild.mHeuristicWeight == 0 || Math.abs(newChild.mHeuristicValue-50) < EPSILON))
                   {
                     newChild.mHeuristicValue = mTree.mNodeHeuristicInfo.heuristicValue[0];
                     newChild.mHeuristicWeight = heuristicWeightToApply;
@@ -3934,7 +3934,7 @@ public class TreeNode
             if (cr != NULL_REF && get(cr) != null)
             {
               TreeNode lNode = get(cr);
-              if (lNode.mIsTerminal)
+              if (lNode.mTerminal)
               {
                 //lNode.markComplete(lNode, lNode.depth);
                 lNode.mComplete = true;
@@ -5100,7 +5100,7 @@ public class TreeNode
       sb.append(FORMAT_2DP.format(getAverageScore(lii)));
     }
     sb.append("]");
-    if (mIsTerminal)
+    if (mTerminal)
     {
       sb.append('T');
     }
@@ -5433,7 +5433,7 @@ public class TreeNode
         {
           ForwardDeadReckonLegalMoveInfo partialMove;
 
-          if (edge  == null)
+          if (edge == null)
           {
             partialMove = (ForwardDeadReckonLegalMoveInfo)lChoice;
           }
@@ -5441,7 +5441,17 @@ public class TreeNode
           {
             partialMove = edge.mPartialMove;
           }
-          LOGGER.warn("Unexpanded child of root for move: " + partialMove.mMove);
+
+          if (mComplete)
+          {
+            // We expect unexpanded children if the root is complete.
+            LOGGER.info("Unexpanded child of complete root for move: " + partialMove.mMove);
+          }
+          else
+          {
+            // Otherwise, it's a bit surprising that we haven't managed to play out everything at least once.
+            LOGGER.warn("Unexpanded child of root for move: " + partialMove.mMove);
+          }
         }
         continue;
       }
@@ -5650,9 +5660,9 @@ public class TreeNode
         if (!lRecursiveCall && !xiFirstDecision)
         {
           LOGGER.info("Move " + edge.descriptiveName() +
-                      " scores " + FORMAT_2DP.format(moveScore) + " (selectionScore score " +
-                      FORMAT_2DP.format(selectionScore) + ", selection count " +
-                      child.mNumVisits + " [edge " + edge.getNumChildVisits() + ", updates " + child.mNumUpdates + "]" +  ", ref " + child.mRef +
+                      " scores " + FORMAT_2DP.format(moveScore) + " (selectionScore " +
+                      FORMAT_2DP.format(selectionScore) + ", selection count " + child.mNumVisits +
+                      " [edge " + edge.getNumChildVisits() + ", updates " + child.mNumUpdates + "]" +  ", ref " + child.mRef +
                       (mRAVEStats != null ? (", RAVE[" + mRAVEStats.mCounts[lii] + ", " + FORMAT_2DP.format(mRAVEStats.mScores[lii]) + "]") : "") +
                       (child.mComplete ? (", complete [" + ((child.mCompletionDepth - mTree.mRoot.mDepth) / mTree.mNumRoles) + "]") : "") +
                       (child.mLocalSearchStatus.HasResult() ? (", " + child.mLocalSearchStatus + " [" + ((child.mCompletionDepth - mTree.mRoot.mDepth) / mTree.mNumRoles) + "]") : "") +
@@ -5731,6 +5741,7 @@ public class TreeNode
       }
       else
       {
+        xbPathTrace.setLength(xbPathTrace.length() - 2);
         String lPathTrace = xbPathTrace.toString();
         LOGGER.info(lPathTrace);
         lResult.mPathTrace = lPathTrace;

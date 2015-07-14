@@ -656,7 +656,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
           FactorMoveChoiceInfo factorChoice = tree.getBestMove(false);
           if (factorChoice.mBestMove != null)
           {
-            factorChoice.log();
+            factorChoice.logFull();
 
             if (bestChoice == null)
             {

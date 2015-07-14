@@ -1365,7 +1365,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     }
 
     mTurn++;
-    LOGGER.info("Starting turn " + mTurn);
+    LOGGER.info("> > > > > Starting turn " + mTurn + " < < < < <");
     StatsLogUtils.Series.TURN.logDataPoint(start, mTurn);
 
     ForwardDeadReckonInternalMachineState currentState;
