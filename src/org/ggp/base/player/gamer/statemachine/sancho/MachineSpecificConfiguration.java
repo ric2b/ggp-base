@@ -165,8 +165,12 @@ public class MachineSpecificConfiguration
     {
       mDefault = xiDefault ? "true" : "false";
     }
-
   }
+
+  /**
+   * Reserved value for TLKIO_CHANNEL which disabled chat integration
+   */
+  public final static String NO_TLK_CHANNEL = "NONE";
 
   private static final Properties MACHINE_PROPERTIES = new Properties();
   static

@@ -292,8 +292,11 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
 
     Random r = new Random();
 
-    mBroadcaster = new Tlkio(getName(), MachineSpecificConfiguration.getCfgStr(CfgItem.TLKIO_CHANNEL));
-    mSearchProcessor.setBroadcaster(mBroadcaster);
+    if ( MachineSpecificConfiguration.getCfgStr(CfgItem.TLKIO_CHANNEL) != MachineSpecificConfiguration.NO_TLK_CHANNEL )
+    {
+      mBroadcaster = new Tlkio(getName(), MachineSpecificConfiguration.getCfgStr(CfgItem.TLKIO_CHANNEL));
+      mSearchProcessor.setBroadcaster(mBroadcaster);
+    }
 
     // If have been configured with a plan (for test purposes), load it now.
     // We'll still do everything else as normal, but whilst there are moves in
