@@ -2096,7 +2096,7 @@ public class TreeNode
     TreeEdge lEdge = (TreeEdge)mChildren[xiChildIndex];
 
     // Replace the edge with its move (so that it can be re-expanded later if required).
-    if (lEdge.isHyperEdge())
+    if (!lEdge.isHyperEdge())
     {
       mChildren[xiChildIndex] = lEdge.mPartialMove;
     }
