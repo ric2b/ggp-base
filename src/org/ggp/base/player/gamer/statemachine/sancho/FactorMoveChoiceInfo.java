@@ -73,7 +73,13 @@ public class FactorMoveChoiceInfo
    */
   public void logBest()
   {
-    LOGGER.info("Best move was " + (mBestMove.mIsPseudoNoOp ? "<no-op>" : mBestMove.mMove) +
+    if (mBestMove == null)
+    {
+      // No move in this factor this turn.
+      return;
+    }
+
+    LOGGER.info("Best move was " + (mBestMove.mIsPseudoNoOp ? "<Pseudo no-op>" : mBestMove.mMove) +
                 ", scoring " + FORMAT_2DP.format(mBestMoveValue));
   }
 }
