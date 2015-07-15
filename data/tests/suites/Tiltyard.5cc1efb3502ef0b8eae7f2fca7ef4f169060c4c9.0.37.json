@@ -23,7 +23,7 @@
       ],
       "check" : {
         "player" : "0",
-        "acceptable" : "move 5 5 6 6,move 7 5 7 6"
+        "acceptable" : "move 5 5 6 6,move 7 5 6 6,move 7 5 7 6"
       }
     }
   ]
