@@ -345,12 +345,12 @@ public class LocalRegionSearcher
         if ( tenukiLossSeeds[1-optionalRole] != null && tenukiLossSeeds[1-optionalRole] != regionCentre && getMoveCoInfluenceDistance(tenukiLossSeeds[1-optionalRole], regionCentre) > currentDepth)
         {
           jointMove[0][1] = tenukiLossSeeds[1-optionalRole];
-          LOGGER.info("Performing joint search for optional role " + optionalRole + " at depth " + currentDepth + " with secondary seed " + tenukiLossSeeds[1-optionalRole]);
+          LOGGER.debug("Performing joint search for optional role " + optionalRole + " at depth " + currentDepth + " with secondary seed " + tenukiLossSeeds[1-optionalRole]);
         }
         else
         {
           jointMove[0][1] = null;
-          LOGGER.info("Performing regular search for optional role " + optionalRole + " at depth " + currentDepth);
+          LOGGER.debug("Performing regular search for optional role " + optionalRole + " at depth " + currentDepth);
         }
         score = searchToDepth(startingState, 1, currentDepth, optionalRole, null, false);
         resultFound = (score == (optionalRole==0 ? 0 : 100));
@@ -444,11 +444,11 @@ public class LocalRegionSearcher
 
     if ( controller != null && controller.terminateSearch() )
     {
-      LOGGER.info("Local search terminated at depth " + currentDepth + " with " + numNodesSearched + " states visited");
+      LOGGER.debug("Local search terminated at depth " + currentDepth + " with " + numNodesSearched + " states visited");
     }
     else
     {
-      LOGGER.info("Local search completed at depth " + currentDepth + " with " + numNodesSearched + " states visited");
+      LOGGER.debug("Local search completed at depth " + currentDepth + " with " + numNodesSearched + " states visited");
       currentDepth++;
 
       if ( currentDepth > MAX_DEPTH )
