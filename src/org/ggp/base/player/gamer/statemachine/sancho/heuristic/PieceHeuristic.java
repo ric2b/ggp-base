@@ -578,6 +578,17 @@ public class PieceHeuristic implements Heuristic
     }
 
     @Override
+    public boolean equals(Object other)
+    {
+      if ( other instanceof PieceMaskSpecifier )
+      {
+        return overallPieceMask.equals(((PieceMaskSpecifier)other).overallPieceMask);
+      }
+
+      return false;
+    }
+
+    @Override
     public String toString()
     {
       return overallPieceMask.toString() + " with piece types " + java.util.Arrays.toString(individualPieceTypes);
@@ -907,6 +918,30 @@ public class PieceHeuristic implements Heuristic
             LOGGER.debug("Piece set insufficiently correlated for role");
           }
         }
+      }
+    }
+
+    //  If both roles have exactly the SAME heuristic it is pointless (since we're looking at the difference when
+    //  evaluating), so discount this case (motivated by Alerquerque where both roles like to maximize blanks with positive
+    //  correlation [and will also find they like to minimize opponent pieces even more if you let it examine negative
+    //  correlation as it will below])
+    if ( pieceSets != null && numRoles > 1)
+    {
+      boolean pieceSetsMatchForAllRoles = true;
+
+      for(int i = 0; i < numRoles; i++)
+      {
+        if ( !pieceSets[i].equals(pieceSets[0]))
+        {
+          pieceSetsMatchForAllRoles = false;
+          break;
+        }
+      }
+
+      if ( pieceSetsMatchForAllRoles )
+      {
+        LOGGER.info("Positively correlated piece sets were the same for all roles so discounting and checking for negatively correlated sets");
+        pieceSets = null;
       }
     }
 
