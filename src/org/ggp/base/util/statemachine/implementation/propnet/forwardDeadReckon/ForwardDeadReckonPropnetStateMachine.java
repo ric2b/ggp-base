@@ -71,6 +71,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   // state is terminal.
   private ForwardDeadReckonPropNet                                     goalsNet                        = null;
   private boolean                                                      useGoalNetForTerminalAndLegal   = false;
+  // A propnet containing just those components required to compute the terminality of a state
+  private ForwardDeadReckonPropNet                                     terminalityNet                  = null;
 
   // The propnet is split into two networks dependent on the proposition which changes most frequently during metagame
   // simulations.  This is commonly a "control" proposition identifying which player's turn it is in a non-simultaneous
@@ -1534,6 +1536,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     enableGreedyRollouts = master.enableGreedyRollouts;
     goalsNet = master.goalsNet;
     useGoalNetForTerminalAndLegal = false;  //  Only ever on instance 0
+    terminalityNet = master.terminalityNet;
     XSentence = master.XSentence;
     XSentenceInfo = master.XSentenceInfo;
     legalPropositionMovesX = master.legalPropositionMovesX;
@@ -1749,6 +1752,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         info.xNetProp = prop;
         info.oNetProp = prop;
         info.goalsNetProp = prop;
+        info.terminalityNetProp = prop;
         info.index = index;
 
         masterInfoSet[index++] = info;
@@ -1769,6 +1773,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         info.xNetProp = prop;
         info.oNetProp = prop;
         info.goalsNetProp = prop;
+        info.terminalityNetProp = prop;
         info.index = index;
 
         masterInfoSet[index++] = info;
@@ -1880,6 +1885,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       propNetX = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
       propNetO = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
       goalsNet = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
+      terminalityNet = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
       propNetX.RemoveInits();
       propNetO.RemoveInits();
 
@@ -2017,13 +2023,16 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       propNetXWithoutGoals.renderToFile("propnet_070_XWithoutGoals.dot");
       propNetOWithoutGoals.renderToFile("propnet_080_OWithoutGoals.dot");
 
-      useGoalNetForTerminalAndLegal = goalsNet.RemoveAllButGoals();
+      terminalityNet.RemoveAllButTerminal();
+      //useGoalNetForTerminalAndLegal = goalsNet.RemoveAllButGoals();
+      goalsNet.RemoveAllButGoals();
 
       goalsNet.renderToFile("propnet_090_GoalsReduced.dot");
 
       LOGGER.info("Num components in goal-less X-net: " + propNetXWithoutGoals.getComponents().size());
       LOGGER.info("Num components in goal-less O-net: " + propNetOWithoutGoals.getComponents().size());
       LOGGER.info("Num components in goal net:        " + goalsNet.getComponents().size());
+      LOGGER.info("Num components in terminality net: " + terminalityNet.getComponents().size());
 
       //masterInfoSet = new ForwardDeadReckonPropositionCrossReferenceInfo[fullPropNet
       //    .getBasePropositions().size()];
@@ -2033,6 +2042,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       propNetX.crystalize(masterInfoSet, firstBasePropIndex, masterLegalMoveSet, maxInstances);
       propNetO.crystalize(masterInfoSet, firstBasePropIndex, masterLegalMoveSet, maxInstances);
       goalsNet.crystalize(masterInfoSet, firstBasePropIndex, masterLegalMoveSet, maxInstances);
+      terminalityNet.crystalize(masterInfoSet, firstBasePropIndex, masterLegalMoveSet, maxInstances);
 
       for(ForwardDeadReckonPropositionInfo info : masterInfoSet)
       {
@@ -2042,6 +2052,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         crInfo.oNetPropId = crInfo.oNetProp.id;
       }
 
+      terminalityNet.reset(true);
       goalsNet.reset(true);
       //	Force calculation of the goal set while we're single threaded
       goalsNet.getGoalPropositions();
@@ -2090,18 +2101,25 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           .getBasePropositions().get(e.getKey());
       ForwardDeadReckonProposition goalsProp = (ForwardDeadReckonProposition)goalsNet
           .getBasePropositions().get(e.getKey());
+      ForwardDeadReckonProposition terminalityProp = (ForwardDeadReckonProposition)terminalityNet
+          .getBasePropositions().get(e.getKey());
       ForwardDeadReckonProposition fullNetPropFdr = (ForwardDeadReckonProposition)e.getValue();
       ForwardDeadReckonPropositionCrossReferenceInfo info = (ForwardDeadReckonPropositionCrossReferenceInfo)fullNetPropFdr.getInfo();
 
       info.xNetProp = xProp;
       info.oNetProp = oProp;
       info.goalsNetProp = goalsProp;
+      info.terminalityNetProp = terminalityProp;
 
       xProp.setInfo(info);
       oProp.setInfo(info);
       if (goalsProp != null)
       {
         goalsProp.setInfo(info);
+      }
+      if (terminalityProp != null)
+      {
+        terminalityProp.setInfo(info);
       }
 
       if (e.getKey().equals(XSentence))
@@ -2157,6 +2175,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       ForwardDeadReckonProposition oProp = (ForwardDeadReckonProposition)propNetO.getTerminalProposition();
       ForwardDeadReckonProposition xProp = (ForwardDeadReckonProposition)propNetX.getTerminalProposition();
       ForwardDeadReckonProposition goalsProp = (ForwardDeadReckonProposition)goalsNet.getTerminalProposition();
+      ForwardDeadReckonProposition terminalityProp = (ForwardDeadReckonProposition)terminalityNet.getTerminalProposition();
       ForwardDeadReckonPropositionCrossReferenceInfo info = (ForwardDeadReckonPropositionCrossReferenceInfo)prop.getInfo();
 
       assert(info != null);
@@ -2164,10 +2183,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       info.oNetProp = oProp;
       info.xNetProp = xProp;
       info.goalsNetProp = goalsProp;
+      info.terminalityNetProp = terminalityProp;
 
       oProp.setInfo(info);
       xProp.setInfo(info);
       goalsProp.setInfo(info);
+      terminalityProp.setInfo(info);
     }
   }
 
@@ -2679,6 +2700,18 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     setBasePropositionsFromState(state);
 
     return isTerminal();
+  }
+
+  public boolean isTerminalDedicated(ForwardDeadReckonInternalMachineState state)
+  {
+    if ( factors != null )
+    {
+      return isTerminal(state);
+    }
+
+    setTerminalityNetBasePropsFromState(state);
+
+    return terminalityNet.getActiveBaseProps(instanceId).contains(((ForwardDeadReckonProposition)fullPropNet.getTerminalProposition()).getInfo());
   }
 
   public boolean isTerminal()
@@ -4555,6 +4588,89 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
 
       lastGoalState = new ForwardDeadReckonInternalMachineState(state);
+    }
+  }
+
+  private ForwardDeadReckonInternalMachineState lastTerminalityNetState = null;
+
+  private void setTerminalityNetBasePropsFromState(ForwardDeadReckonInternalMachineState state)
+  {
+    InternalMachineStateIterator lIterator = mStateIterator;
+    ForwardDeadReckonPropnetFastAnimator.InstanceInfo instanceInfo = terminalityNet.animator.getInstanceInfo(instanceId);
+
+    if (lastTerminalityNetState != null)
+    {
+      if (!lastTerminalityNetState.equals(state))
+      {
+        lastTerminalityNetState.xor(state);
+
+        if ( removeOldBasePropsBeforeAddingNew )
+        {
+          lIterator.reset(lastTerminalityNetState);
+          while (lIterator.hasNext())
+          {
+            ForwardDeadReckonPropositionInfo info = lIterator.next();
+            ForwardDeadReckonPropositionCrossReferenceInfo infoCr = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
+            if ( infoCr.terminalityNetProp != null && infoCr.terminalityNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId && !state.contains(info) )
+            {
+              instanceInfo.changeComponentValueTo(infoCr.terminalityNetProp.id, false);
+            }
+          }
+          lIterator.reset(lastTerminalityNetState);
+          while (lIterator.hasNext())
+          {
+            ForwardDeadReckonPropositionInfo info = lIterator.next();
+            ForwardDeadReckonPropositionCrossReferenceInfo infoCr = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
+            if ( infoCr.terminalityNetProp != null && infoCr.terminalityNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId && state.contains(info) )
+            {
+              instanceInfo.changeComponentValueTo(infoCr.terminalityNetProp.id, true);
+            }
+          }
+        }
+        else
+        {
+          lIterator.reset(lastTerminalityNetState);
+          while (lIterator.hasNext())
+          {
+            ForwardDeadReckonPropositionInfo info = lIterator.next();
+            ForwardDeadReckonPropositionCrossReferenceInfo infoCr = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
+            if ( infoCr.terminalityNetProp != null && infoCr.terminalityNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId && state.contains(info) )
+            {
+              instanceInfo.changeComponentValueTo(infoCr.terminalityNetProp.id, true);
+            }
+          }
+          lIterator.reset(lastTerminalityNetState);
+          while (lIterator.hasNext())
+          {
+            ForwardDeadReckonPropositionInfo info = lIterator.next();
+            ForwardDeadReckonPropositionCrossReferenceInfo infoCr = (ForwardDeadReckonPropositionCrossReferenceInfo)info;
+            if ( infoCr.terminalityNetProp != null && infoCr.terminalityNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId && !state.contains(info) )
+            {
+              instanceInfo.changeComponentValueTo(infoCr.terminalityNetProp.id, false);
+            }
+          }
+        }
+
+        lastTerminalityNetState.copy(state);
+      }
+    }
+    else
+    {
+      lIterator.reset(state);
+      while (lIterator.hasNext())
+      {
+        ForwardDeadReckonPropositionInfo s = lIterator.next();
+        ForwardDeadReckonPropositionCrossReferenceInfo sCr = (ForwardDeadReckonPropositionCrossReferenceInfo)s;
+        if (sCr.terminalityNetProp != null && sCr.terminalityNetProp.id != ForwardDeadReckonPropnetFastAnimator.notNeededComponentId)
+        {
+          if (state.contains(sCr))
+          {
+            instanceInfo.changeComponentValueTo(sCr.terminalityNetProp.id, true);
+          }
+        }
+      }
+
+      lastTerminalityNetState = new ForwardDeadReckonInternalMachineState(state);
     }
   }
 

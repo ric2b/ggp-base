@@ -752,6 +752,15 @@ public class PolymorphicPropNet
   }
 
   /**
+   * Remove things we do not need to support terminality determination
+   */
+  public void RemoveAllButTerminal()
+  {
+    RemoveInits();
+    OptimizingPolymorphicPropNetFactory.removeAllButTerminalProposition(this);
+  }
+
+  /**
    * Getter method.
    *
    * @return References to every InputProposition in the PropNet, indexed by

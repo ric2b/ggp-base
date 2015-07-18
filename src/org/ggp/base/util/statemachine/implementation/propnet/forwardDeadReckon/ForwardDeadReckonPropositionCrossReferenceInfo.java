@@ -9,6 +9,7 @@ public class ForwardDeadReckonPropositionCrossReferenceInfo extends ForwardDeadR
   public ForwardDeadReckonProposition xNetProp;
   public ForwardDeadReckonProposition oNetProp;
   public ForwardDeadReckonProposition goalsNetProp;
+  public ForwardDeadReckonProposition terminalityNetProp;
   public Factor                       factor = null;
   //  We store the proposition ids directly for use with the fast statemachine
   //  animator.  In future this is a necessary step to alow us to free the

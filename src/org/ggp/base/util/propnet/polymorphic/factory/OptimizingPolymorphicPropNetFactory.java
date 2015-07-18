@@ -3760,6 +3760,102 @@ public class OptimizingPolymorphicPropNetFactory
     return false;
   }
 
+  /**
+   * Remove things we do not need to support terminality determination
+   * Also may remove components needed to determine legals unless it appears beneficial
+   * to use the reduced network in preference for that purpose
+   * @param propNet
+   */
+  public static void removeAllButTerminalProposition(PolymorphicPropNet propNet)
+  {
+    List<PolymorphicComponent> removedComponents = new LinkedList<>();
+
+    for (PolymorphicComponent c : propNet.getComponents())
+    {
+      boolean remove = false;
+
+      if (c instanceof PolymorphicProposition)
+      {
+        GdlConstant name = ((PolymorphicProposition)c).getName().getName();
+
+        if (name != GdlPool.TRUE &&
+            name != GdlPool.BASE &&
+            name != GdlPool.TERMINAL)
+        {
+          remove = true;
+        }
+      }
+      else if (c instanceof PolymorphicTransition)
+      {
+        remove = true;
+      }
+
+      if (remove)
+      {
+        if (c.getInputs().size() > 0)
+        {
+          c.getSingleInput().removeOutput(c);
+        }
+        for (PolymorphicComponent output : c.getOutputs())
+        {
+          output.removeInput(c);
+        }
+
+        removedComponents.add(c);
+      }
+    }
+
+    for (PolymorphicComponent c : removedComponents)
+    {
+      propNet.removeComponent(c);
+    }
+
+    removedComponents.clear();
+
+    int numStartComponents;
+    int numEndComponents;
+
+    do
+    {
+      numStartComponents = propNet.getComponents().size();
+
+      OptimizingPolymorphicPropNetFactory
+          .removeRedundantConstantsAndGates(propNet);
+
+      numEndComponents = propNet.getComponents().size();
+    }
+    while (numEndComponents != numStartComponents);
+
+    //  Now we can trim any base props which don't feed into other logic
+    for (PolymorphicComponent c : propNet.getComponents())
+    {
+      if (c instanceof PolymorphicProposition)
+      {
+        GdlConstant name = ((PolymorphicProposition)c).getName().getName();
+
+        if ((name == GdlPool.TRUE || name == GdlPool.BASE) && c.getOutputs().isEmpty())
+        {
+          removedComponents.add(c);
+        }
+      }
+    }
+
+    for (PolymorphicComponent c : removedComponents)
+    {
+      propNet.removeComponent(c);
+    }
+
+    do
+    {
+      numStartComponents = propNet.getComponents().size();
+
+      OptimizingPolymorphicPropNetFactory
+          .removeRedundantConstantsAndGates(propNet);
+
+      numEndComponents = propNet.getComponents().size();
+    }
+    while (numEndComponents != numStartComponents);
+  }
 
   public static void fixBaseProposition(PolymorphicPropNet propNet,
                                         GdlSentence propName,

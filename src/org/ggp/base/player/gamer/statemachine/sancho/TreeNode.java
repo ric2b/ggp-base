@@ -26,6 +26,7 @@ import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.NullStateMachineFilter;
 
 /**
  * A node in an MCTS "tree" (actually a DAG).
@@ -2374,7 +2375,7 @@ public class TreeNode
     result.isTerminal = false;
 
     // Check if the goal value is latched.
-    if (/*tree.numRoles == 1 &&*/ mTree.mUnderlyingStateMachine.scoresAreLatched(theState))
+    if (mTree.mUnderlyingStateMachine.scoresAreLatched(theState))
     {
       result.isTerminal = true;
 
@@ -2386,13 +2387,24 @@ public class TreeNode
         result.terminalScore[lii] = mTree.mLatchedScoreRangeBuffer[0];
       }
     }
-    else if (mTree.mSearchFilter.isFilteredTerminal(theState, mTree.mUnderlyingStateMachine))
+    else
     {
-      result.isTerminal = true;
-
-      for (int lii = 0; lii < mTree.mNumRoles; lii++)
+      if (mTree.mUnderlyingStateMachine.getBaseFilter() instanceof NullStateMachineFilter)
       {
-        result.terminalScore[lii] = mTree.mUnderlyingStateMachine.getGoal(theState, mTree.mRoleOrdering.roleIndexToRole(lii));
+        result.isTerminal = mTree.mUnderlyingStateMachine.isTerminalDedicated(theState);
+        assert(result.isTerminal == mTree.mSearchFilter.isFilteredTerminal(theState, mTree.mUnderlyingStateMachine));
+      }
+      else
+      {
+        result.isTerminal = mTree.mSearchFilter.isFilteredTerminal(theState, mTree.mUnderlyingStateMachine);
+      }
+
+      if ( result.isTerminal )
+      {
+        for (int lii = 0; lii < mTree.mNumRoles; lii++)
+        {
+          result.terminalScore[lii] = mTree.mUnderlyingStateMachine.getGoal(theState, mTree.mRoleOrdering.roleIndexToRole(lii));
+        }
       }
     }
 
