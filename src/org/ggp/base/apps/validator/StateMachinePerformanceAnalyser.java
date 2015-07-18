@@ -106,6 +106,7 @@ public class StateMachinePerformanceAnalyser
     Map<String,PerformanceInfo> gamesList = new HashMap<>();
     boolean testDirectStateMachine = false;
     boolean testSanchoGameSearcher = false;
+    boolean useLocalRepository = false;
 
     for(String arg : args)
     {
@@ -118,6 +119,9 @@ public class StateMachinePerformanceAnalyser
             break;
           case "-gamesearcher":
             testSanchoGameSearcher = true;
+            break;
+          case "-local":
+            useLocalRepository = true;
             break;
           default:
             if ( arg.toLowerCase().startsWith("-time"))
@@ -141,7 +145,7 @@ public class StateMachinePerformanceAnalyser
     GameRepository theRepository = null;
     try
     {
-      theRepository = GameRepository.getDefaultRepository();
+      theRepository = (useLocalRepository ? new LocalGameRepository() : GameRepository.getDefaultRepository());
 
       if ( testDirectStateMachine )
       {
@@ -155,17 +159,20 @@ public class StateMachinePerformanceAnalyser
 
       for(Entry<String, PerformanceInfo> e : gamesList.entrySet())
       {
-        System.out.println("Game " + e.getKey() + ":");
-        if ( testDirectStateMachine )
+        if ( e.getValue() != null )
         {
-          System.out.println("  Direct state machine rollouts per second: " + e.getValue().stateMachineDirectRolloutsPerSecond);
-        }
-        if ( testSanchoGameSearcher )
-        {
-          System.out.println("  GameSearcher rollouts per second: " + e.getValue().rolloutsPerSecond);
-          System.out.println("  GameSearcher node expansions per second: " + e.getValue().expansionsPerSecond);
-          System.out.println("  GameSearcher highest pipeline latency(micro seconds): " + e.getValue().highestLatency/1000);
-          System.out.println("  GameSearcher average pipeline latency(micro seconds): " + e.getValue().averageLatency/1000);
+          System.out.println("Game " + e.getKey() + ":");
+          if ( testDirectStateMachine )
+          {
+            System.out.println("  Direct state machine rollouts per second: " + e.getValue().stateMachineDirectRolloutsPerSecond);
+          }
+          if ( testSanchoGameSearcher )
+          {
+            System.out.println("  GameSearcher rollouts per second: " + e.getValue().rolloutsPerSecond);
+            System.out.println("  GameSearcher node expansions per second: " + e.getValue().expansionsPerSecond);
+            System.out.println("  GameSearcher highest pipeline latency(micro seconds): " + e.getValue().highestLatency/1000);
+            System.out.println("  GameSearcher average pipeline latency(micro seconds): " + e.getValue().averageLatency/1000);
+          }
         }
       }
 
