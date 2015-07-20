@@ -931,7 +931,7 @@ public class PieceHeuristic implements Heuristic
 
       for(int i = 0; i < numRoles; i++)
       {
-        if ( !pieceSets[i].equals(pieceSets[0]))
+        if ( pieceSets[i] != null && !pieceSets[i].equals(pieceSets[0]))
         {
           pieceSetsMatchForAllRoles = false;
           break;
