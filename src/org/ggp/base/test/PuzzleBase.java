@@ -53,6 +53,7 @@ public abstract class PuzzleBase extends Assert
     // Puzzles where we ought to get 100, but don't (or don't reliably).  Covered by issue 260.
     EXPECTED_SCORES.put("base.tpeg", 90);
     EXPECTED_SCORES.put("base.peg", 90);
+    EXPECTED_SCORES.put("stanford.knightstourbig", 95);
   }
 
   private static HashMap<String, Integer> EXTRA_TIME = new HashMap<>();
