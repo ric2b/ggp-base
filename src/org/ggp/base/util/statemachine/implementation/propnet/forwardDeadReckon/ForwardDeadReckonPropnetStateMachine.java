@@ -1535,7 +1535,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     propNetOWithoutGoals = master.propNetOWithoutGoals;
     enableGreedyRollouts = master.enableGreedyRollouts;
     goalsNet = master.goalsNet;
-    useGoalNetForTerminalAndLegal = false;  //  Only ever on instance 0
     terminalityNet = master.terminalityNet;
     XSentence = master.XSentence;
     XSentenceInfo = master.XSentenceInfo;
@@ -2024,7 +2023,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       propNetOWithoutGoals.renderToFile("propnet_080_OWithoutGoals.dot");
 
       terminalityNet.RemoveAllButTerminal();
-      //useGoalNetForTerminalAndLegal = goalsNet.RemoveAllButGoals();
       goalsNet.RemoveAllButGoals();
 
       goalsNet.renderToFile("propnet_090_GoalsReduced.dot");
@@ -2684,18 +2682,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   public boolean isTerminal(ForwardDeadReckonInternalMachineState state)
   {
-    if ( useGoalNetForTerminalAndLegal )
-    {
-      setGoalNetBasePropsFromState(state);
-
-      if ( factors != null && !hasAvailableMoveForAllRoles(goalsNet) )
-      {
-        return true;
-      }
-
-      return goalsNet.getActiveBaseProps(instanceId).contains(((ForwardDeadReckonProposition)fullPropNet.getTerminalProposition()).getInfo());
-    }
-
     setPropNetUsage(state);
     setBasePropositionsFromState(state);
 
@@ -2728,7 +2714,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   {
     boolean result = propNet.getActiveBaseProps(instanceId).contains(((ForwardDeadReckonProposition)fullPropNet.getTerminalProposition()).getInfo());
 
-    assert(!useGoalNetForTerminalAndLegal || result == isTerminal(lastInternalSetState));
     if (validationMachine != null)
     {
       if (validationMachine.isTerminal(validationState) != result)
@@ -2822,17 +2807,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
    */
   public ForwardDeadReckonLegalMoveSet getLegalMoveSet(ForwardDeadReckonInternalMachineState state)
   {
-    if ( useGoalNetForTerminalAndLegal )
-    {
-      assert(instanceId == 0);
-      setGoalNetBasePropsFromState(state);
-
-      return goalsNet.getActiveLegalProps(instanceId);
-    }
-
     setPropNetUsage(state);
     setBasePropositionsFromState(state);
-     return propNet.getActiveLegalProps(instanceId);
+    return propNet.getActiveLegalProps(instanceId);
   }
 
   /**
@@ -2970,7 +2947,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     for (ForwardDeadReckonLegalMoveInfo move : moves)
     {
-      ForwardDeadReckonProposition moveProp = move.mIsPseudoNoOp ? null : (useGoalNetForTerminalAndLegal ? propNet.getActiveLegalProps(instanceId).getMasterList()[move.mMasterIndex].mInputProposition : move.mInputProposition);
+      ForwardDeadReckonProposition moveProp = move.mIsPseudoNoOp ? null : move.mInputProposition;
       moveProps[movesCount++] = moveProp;
       if ( moveProp != null )
       {
@@ -4088,7 +4065,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           chosenMoves[index] = chosen.mMove;
         }
-        ForwardDeadReckonProposition chosenMoveProp = chosen.mIsPseudoNoOp ? null : (useGoalNetForTerminalAndLegal ? propNet.getActiveLegalProps(instanceId).getMasterList()[chosen.mMasterIndex].mInputProposition : chosen.mInputProposition);
+        ForwardDeadReckonProposition chosenMoveProp = chosen.mIsPseudoNoOp ? null : chosen.mInputProposition;
         chosenJointMoveProps[index++] = chosenMoveProp;
         if (playedMoves != null &&
             (numChoices > 1 ||

@@ -3547,63 +3547,61 @@ public class OptimizingPolymorphicPropNetFactory
     }
   }
 
-  private static boolean componentInputDependsOnLegal(PolymorphicComponent c,
-                                                      Set<PolymorphicComponent> inputClosure)
+  private static void removeDependencyOnLegalsAndTerminal(PolymorphicComponent c,
+                                                          Set<PolymorphicComponent> inputClosure)
   {
     if (inputClosure == null)
     {
       inputClosure = new HashSet<>();
     }
 
+    Set<PolymorphicComponent> toRewire = new HashSet<>();
     for (PolymorphicComponent input : c.getInputs())
     {
       if (!inputClosure.contains(input))
       {
-        inputClosure.add(input);
-
         if (input instanceof PolymorphicProposition)
         {
           GdlConstant name = ((PolymorphicProposition)input).getName()
               .getName();
 
-          if (name == GdlPool.LEGAL)
+          if (name == GdlPool.LEGAL || name == GdlPool.TERMINAL)
           {
-            return true;
+            toRewire.add(input);
           }
-          else if (name == GdlPool.TERMINAL)
+          else
           {
-            if (componentInputDependsOnLegal(input, inputClosure))
-            {
-              return true;
-            }
+            inputClosure.add(input);
           }
         }
-        else if (!(input instanceof PolymorphicTransition))
+        else
         {
-          if (componentInputDependsOnLegal(input, inputClosure))
+          inputClosure.add(input);
+          if (!(input instanceof PolymorphicTransition))
           {
-            return true;
+            removeDependencyOnLegalsAndTerminal(input, inputClosure);
           }
         }
       }
     }
 
-    return false;
+    for(PolymorphicComponent input : toRewire)
+    {
+      c.removeInput(input);
+      input.removeOutput(c);
+      input.getSingleInput().addOutput(c);
+      c.addInput(input.getSingleInput());
+    }
   }
 
   /**
-   * Remove things we do not need to support goal and terminality determination
-   * Also may remove components needed to determine legals unless it appears beneficial
-   * to use the reduced network in preference for that purpose
+   * Remove things we do not need to support goal determination
    * @param propNet
-   * @return true if legal determination is supported on the resulting network
    */
-  public static boolean removeAllButGoalPropositions(PolymorphicPropNet propNet)
+  public static void removeAllButGoalPropositions(PolymorphicPropNet propNet)
   {
-    int fullPropnetSize = propNet.getComponents().size();
-    List<PolymorphicComponent> removedComponents = new LinkedList<>();
+    Set<PolymorphicComponent> removedComponents = new HashSet<>();
 
-    boolean goalsRequireLegals = false;
     for (PolymorphicComponent c : propNet.getComponents())
     {
       if (c instanceof PolymorphicProposition)
@@ -3612,11 +3610,7 @@ public class OptimizingPolymorphicPropNetFactory
 
         if (name == GdlPool.GOAL)
         {
-          if (componentInputDependsOnLegal(c, null))
-          {
-            goalsRequireLegals = true;
-            break;
-          }
+          removeDependencyOnLegalsAndTerminal(c, null);
         }
       }
     }
@@ -3629,11 +3623,16 @@ public class OptimizingPolymorphicPropNetFactory
       {
         GdlConstant name = ((PolymorphicProposition)c).getName().getName();
 
-        if (name != GdlPool.TRUE &&
-            name != GdlPool.BASE &&
-            name != GdlPool.GOAL &&
-            name != GdlPool.TERMINAL &&
-            name != GdlPool.LEGAL)
+        //  We're not actually allowed to remove TERMINAL so just remove its input
+        //  so, there is never any trigger cost
+        if ( name == GdlPool.TERMINAL )
+        {
+          c.getSingleInput().removeOutput(c);
+          c.removeAllInputs();
+        }
+        else if (name != GdlPool.TRUE &&
+                 name != GdlPool.BASE &&
+                 name != GdlPool.GOAL )
         {
           remove = true;
         }
@@ -3658,153 +3657,11 @@ public class OptimizingPolymorphicPropNetFactory
       }
     }
 
-    for (PolymorphicComponent c : removedComponents)
-    {
-      propNet.removeComponent(c);
-    }
-
-    removedComponents.clear();
-
-    int numStartComponents;
-    int numEndComponents;
-
-    do
-    {
-      numStartComponents = propNet.getComponents().size();
-
-      OptimizingPolymorphicPropNetFactory
-          .removeRedundantConstantsAndGates(propNet);
-
-      numEndComponents = propNet.getComponents().size();
-    }
-    while (numEndComponents != numStartComponents);
-
-    //	Now we can trim any base props which don't feed into other logic
-    for (PolymorphicComponent c : propNet.getComponents())
-    {
-      if (c instanceof PolymorphicProposition)
-      {
-        GdlConstant name = ((PolymorphicProposition)c).getName().getName();
-
-        if ((name == GdlPool.TRUE || name == GdlPool.BASE) && c.getOutputs().isEmpty())
-        {
-          removedComponents.add(c);
-        }
-      }
-    }
-
-    for (PolymorphicComponent c : removedComponents)
-    {
-      propNet.removeComponent(c);
-    }
-
-    do
-    {
-      numStartComponents = propNet.getComponents().size();
-
-      OptimizingPolymorphicPropNetFactory
-          .removeRedundantConstantsAndGates(propNet);
-
-      numEndComponents = propNet.getComponents().size();
-    }
-    while (numEndComponents != numStartComponents);
-
-    //  If the result is significantly smaller than the full net then we'll use it to
-    //  evaluate terminality and legals also, else remove the legals too (if we can)
-    if ( numEndComponents < fullPropnetSize/ 5 )
-    {
-      return true;
-    }
-
-    if ( !goalsRequireLegals )
-    {
-      for (PolymorphicComponent c : propNet.getComponents())
-      {
-        if (c instanceof PolymorphicProposition)
-        {
-          GdlConstant name = ((PolymorphicProposition)c).getName().getName();
-
-          if (name == GdlPool.LEGAL)
-          {
-            if (c.getInputs().size() > 0)
-            {
-              c.getSingleInput().removeOutput(c);
-            }
-            for (PolymorphicComponent output : c.getOutputs())
-            {
-              output.removeInput(c);
-            }
-
-            removedComponents.add(c);
-          }
-        }
-      }
-
-      for (PolymorphicComponent c : removedComponents)
-      {
-        propNet.removeComponent(c);
-      }
-
-      do
-      {
-        numStartComponents = propNet.getComponents().size();
-
-        OptimizingPolymorphicPropNetFactory
-            .removeRedundantConstantsAndGates(propNet);
-
-        numEndComponents = propNet.getComponents().size();
-      }
-      while (numEndComponents != numStartComponents);
-    }
-
-    return false;
+    removeComponentsAndMinimize(propNet, removedComponents);
   }
 
-  /**
-   * Remove things we do not need to support terminality determination
-   * Also may remove components needed to determine legals unless it appears beneficial
-   * to use the reduced network in preference for that purpose
-   * @param propNet
-   */
-  public static void removeAllButTerminalProposition(PolymorphicPropNet propNet)
+  private static void removeComponentsAndMinimize(PolymorphicPropNet propNet, Set<PolymorphicComponent> removedComponents)
   {
-    List<PolymorphicComponent> removedComponents = new LinkedList<>();
-
-    for (PolymorphicComponent c : propNet.getComponents())
-    {
-      boolean remove = false;
-
-      if (c instanceof PolymorphicProposition)
-      {
-        GdlConstant name = ((PolymorphicProposition)c).getName().getName();
-
-        if (name != GdlPool.TRUE &&
-            name != GdlPool.BASE &&
-            name != GdlPool.TERMINAL)
-        {
-          remove = true;
-        }
-      }
-      else if (c instanceof PolymorphicTransition)
-      {
-        remove = true;
-      }
-
-      if (remove)
-      {
-        if (c.getInputs().size() > 0)
-        {
-          c.getSingleInput().removeOutput(c);
-        }
-        for (PolymorphicComponent output : c.getOutputs())
-        {
-          output.removeInput(c);
-        }
-
-        removedComponents.add(c);
-      }
-    }
-
     for (PolymorphicComponent c : removedComponents)
     {
       propNet.removeComponent(c);
@@ -3855,6 +3712,54 @@ public class OptimizingPolymorphicPropNetFactory
       numEndComponents = propNet.getComponents().size();
     }
     while (numEndComponents != numStartComponents);
+  }
+
+  /**
+   * Remove things we do not need to support terminality determination
+   * Also may remove components needed to determine legals unless it appears beneficial
+   * to use the reduced network in preference for that purpose
+   * @param propNet
+   */
+  public static void removeAllButTerminalProposition(PolymorphicPropNet propNet)
+  {
+    Set<PolymorphicComponent> removedComponents = new HashSet<>();
+
+    for (PolymorphicComponent c : propNet.getComponents())
+    {
+      boolean remove = false;
+
+      if (c instanceof PolymorphicProposition)
+      {
+        GdlConstant name = ((PolymorphicProposition)c).getName().getName();
+
+        if (name != GdlPool.TRUE &&
+            name != GdlPool.BASE &&
+            name != GdlPool.TERMINAL)
+        {
+          remove = true;
+        }
+      }
+      else if (c instanceof PolymorphicTransition)
+      {
+        remove = true;
+      }
+
+      if (remove)
+      {
+        if (c.getInputs().size() > 0)
+        {
+          c.getSingleInput().removeOutput(c);
+        }
+        for (PolymorphicComponent output : c.getOutputs())
+        {
+          output.removeInput(c);
+        }
+
+        removedComponents.add(c);
+      }
+    }
+
+    removeComponentsAndMinimize(propNet, removedComponents);
   }
 
   public static void fixBaseProposition(PolymorphicPropNet propNet,
