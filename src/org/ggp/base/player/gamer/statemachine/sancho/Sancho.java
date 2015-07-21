@@ -931,6 +931,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     mGameCharacteristics.setLongDrawsProportion(((double)numLongDraws)/(double)numLongGames);
     mGameCharacteristics.setAverageHyperSequenceLength(averageHyperSequenceLength);
     mGameCharacteristics.setVarianceHyperSequenceLength(varianceHyperSequenceLength);
+    mGameCharacteristics.setAverageBranchingFactor(averageBranchingFactor);
 
     mGameCharacteristics.setEarliestCompletionDepth(mNumRoles*minNumTurns);
     if (maxNumTurns == minNumTurns)
@@ -1005,6 +1006,10 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
                   mUnderlyingStateMachine.numRolloutDecisionNodeExpansions);
       LOGGER.info("Num terminal props seen: " + mUnderlyingStateMachine.getNumTerminatingMoveProps() +
                   " out of " + mUnderlyingStateMachine.getBasePropositions().size());
+
+      //  Greedy rollout effectiveness divided by the branching factor is a reasonable approximation
+      //  of terminality density (will do for now)
+      mGameCharacteristics.setTerminalityDensity(mUnderlyingStateMachine.greedyRolloutEffectiveness/(mUnderlyingStateMachine.numRolloutDecisionNodeExpansions*averageBranchingFactor));
     }
 
     if (simulationsPerformed > 100)

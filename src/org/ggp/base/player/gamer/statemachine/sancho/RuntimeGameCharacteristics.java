@@ -47,6 +47,8 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   final double                competitivenessBonus    = 2;
   private boolean             isFixedMoveCount        = false;
   private boolean             isFixedSum              = false;
+  private double              mTerminalityDensity     = 0;
+  private double              mAverageBranchingFactor = 1;
   private int                 earliestCompletion      = 0;
   final private int           fixedSampleSize         = MachineSpecificConfiguration.getCfgInt(CfgItem.FIXED_SAMPLE_SIZE);
   private String              mPlan                   = null;
@@ -264,6 +266,26 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   public boolean getIsFixedSum()
   {
     return isFixedSum;
+  }
+
+  public void setTerminalityDensity(double value)
+  {
+    mTerminalityDensity = value;
+  }
+
+  public double getTerminalityDensity()
+  {
+    return mTerminalityDensity;
+  }
+
+  public void setAverageBranchingFactor(double value)
+  {
+    mAverageBranchingFactor = value;
+  }
+
+  public double getAverageBranchingFactor()
+  {
+    return mAverageBranchingFactor;
   }
 
   public void setEarliestCompletionDepth(int value)

@@ -94,6 +94,7 @@ public class MCTSTree
   final int                                            mWeightDecayKneeDepth;
   final double                                         mWeightDecayScaleFactor;
   final int                                            mWeightDecayCutoffDepth;
+  private final int                                    mExpandAfterVisitThreshold;
   final Pool<TreeNode>                                 mNodePool;
   final ScoreVectorPool                                mScoreVectorPool;
   final Pool<TreeEdge>                                 mEdgePool;
@@ -281,6 +282,25 @@ public class MCTSTree
 
       LOGGER.info("Weight decay disabled");
     }
+
+    if ( xiGameCharacteristics.getAverageBranchingFactor() > 20 && xiGameCharacteristics.getTerminalityDensity() > 0 )
+    {
+      //  Empirical formula set from Majorities and Hex and currently only used for high branching factor games
+      //  Limit how extreme this can get in case of exceptional games outside current tuning (to a max of 8 for now)
+      //  Motivation is that inn high BF games expansion is expansive, so we want to not bother on nodes that
+      //  never get much played through anyway.  Conversely if it would have turned out that a child of such an
+      //  expansion were terminal we would gain a lot of rapid pruning, so we want to do this less in games with a high
+      //  density of terminal states throughout the state space.
+      //  Prior to IGGP2015 only really tuned for Hex and Majorities, so disabled entirely for anything with low-medium
+      //  branching factor
+      mExpandAfterVisitThreshold = Math.min(8, (int)(xiGameCharacteristics.getAverageBranchingFactor()*0.16 + 0.006/xiGameCharacteristics.getTerminalityDensity()));
+    }
+    else
+    {
+      mExpandAfterVisitThreshold = 0;
+    }
+
+    LOGGER.info("Expand-after-visits threshold set to " + mExpandAfterVisitThreshold);
 
     //  We do not normalize puzzles as this seems to be detrimental.  Normalization is helpful when initial convergence
     //  is misleading (i.e. - non-monotonic), which is probably much rarer in puzzles (where there is no agent acting
@@ -1059,7 +1079,7 @@ public class MCTSTree
 
     long lExpandStartTime = System.nanoTime();
     TreeNode newNode;
-    if (!cur.mComplete)
+    if (!cur.mComplete && cur.mNumVisits >= mExpandAfterVisitThreshold)
     {
       assert(selected == null || cur == selected.getChildNode());
       assert(selected == null || cur.mParents.contains(selected.getParentNode()));
