@@ -970,9 +970,15 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     heuristic.evaluateSimplicity();
 
     //  Don't use RAVE with heuristics that use simple application as it will swamp them
+    //  Also restrict approximately to marking games (has some latched base props and has unique
+    //  moves within the length of at least an average game (allows some leeway for things like Go where
+    //  captures can extend the game and cause moves to be played multiple times)
     boolean useRAVE = (MachineSpecificConfiguration.getCfgBool(CfgItem.ALLOW_RAVE) &&
                        !mGameCharacteristics.isSimultaneousMove &&
                        mNumRoles == 2 &&
+                       mUnderlyingStateMachine.getFullPropNet().getLegalPropositions().get(mOurRole).length >= mGameCharacteristics.getMaxLength() &&
+                       ((mUnderlyingStateMachine.getPositiveBaseLatches() != null && mUnderlyingStateMachine.getPositiveBaseLatches().size() > 2) ||
+                        (mUnderlyingStateMachine.getNegativeBaseLatches() != null && mUnderlyingStateMachine.getNegativeBaseLatches().size() > 2)) &&
                        (!pieceHeuristic.isEnabled() || !pieceHeuristic.applyAsSimpleHeuristic()));
     double explorationBias = 15 / (averageNumTurns + ((maxNumTurns + minNumTurns) / 2 - averageNumTurns) *
                                               stdDevNumTurns / averageNumTurns) + 0.4;
