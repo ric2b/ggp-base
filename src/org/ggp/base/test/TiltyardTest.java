@@ -230,7 +230,7 @@ public class TiltyardTest extends Assert
     String[] lAcceptableMoves = xiAcceptable.split(",");
     for (String lAcceptableMove : lAcceptableMoves)
     {
-      if (lAcceptableMove.equals(xiMove))
+      if (lAcceptableMove.trim().equals(xiMove))
       {
         assertTrue("Move played (" + xiMove + ") was on the unacceptable list: " + xiAcceptable, lListOfAcceptable);
         return;
