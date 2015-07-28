@@ -231,6 +231,8 @@ public class TreeNode
   //  child indexes as the corresponding edge
   private RAVEStats                     mRAVEStats = null;
 
+  double                                mBestDecidingScore = 0;
+
   /**
    * Create a tree node.
    *
@@ -1895,6 +1897,11 @@ public class TreeNode
     assert(-EPSILON<=value);
     assert(100+EPSILON>=value);
     mTree.mScoreVectorPool.setAverageScore(mInstanceID, roleIndex, value);
+
+    if ( mTree.mMixiMaxBias > 0 && roleIndex == (mDecidingRoleIndex+1)%mTree.mNumRoles && value > mBestDecidingScore )
+    {
+      mBestDecidingScore = value;
+    }
   }
 
   public double getAverageSquaredScore(int roleIndex)
@@ -4312,6 +4319,10 @@ public class TreeNode
       return getAverageCousinMoveValue(inboundEdge, roleIndex)/100;
     }
 
+    if ( mTree.mMixiMaxBias > 0 )
+    {
+      return (lInboundChild.getAverageScore(roleIndex)*inboundEdge.getNumChildVisits() + mTree.mMixiMaxBias*lInboundChild.mBestDecidingScore)/(100*(inboundEdge.getNumChildVisits()+mTree.mMixiMaxBias));
+    }
     double result = lInboundChild.getAverageScore(roleIndex) / 100;// + heuristicValue() / Math.log(numVisits+2);// + averageSquaredScore/20000;
 
     return result;
@@ -4346,7 +4357,7 @@ public class TreeNode
     }
 
     //  Else use standard MCTS very high values for unplayed
-    return 1000 + mTree.mRandom.nextDouble() * EPSILON + (edge == null ? 0 : edge.explorationAmplifier);
+    return 10 + mTree.mRandom.nextDouble() * EPSILON + (edge == null ? 0 : edge.explorationAmplifier);
   }
 
   private void normalizeScores(boolean bTrace)
@@ -4804,6 +4815,11 @@ public class TreeNode
                   //  move (at root level) if we play in another factor
                   if (mTree.mRoot == this || !edge.mPartialMove.mIsPseudoNoOp)
                   {
+                    if ( mTree.mMixiMaxBias > 0 && c.getAverageScore(roleIndex) > mBestDecidingScore )
+                    {
+                      mBestDecidingScore = c.getAverageScore(roleIndex);
+                    }
+
                     //  Don't preferentially explore paths once they are known to have complete results
                     uctValue = getSelectionValue(lii, c, roleIndex);
 

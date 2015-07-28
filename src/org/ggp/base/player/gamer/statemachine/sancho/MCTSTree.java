@@ -82,6 +82,11 @@ public class MCTSTree
 
   static final short  MAX_HYPER_RECURSION_DEPTH = 3;
 
+  /**
+   * MixMax bias to use in this game.  0 turns it off entirely
+   */
+  double mMixiMaxBias = 5;
+
   private long maxSelectTime = 0;
   private long maxExpandTime = 0;
   public int   maxChildrenSeen = 0;
@@ -337,6 +342,24 @@ public class MCTSTree
     else
     {
       LOGGER.info("Early cutoff depth: " + mWeightDecayCutoffDepth);
+    }
+
+    //  Currently enable use of MixMax selection only in very specific cases.  This is because there
+    //  has not been sufficient time to set up tuning parameters, so we are just going for a couple of cases
+    //  we know it works well in
+    if ( xiGameCharacteristics.getIsFixedSum() && mNumRoles == 2 &&
+         ((mWeightDecayCutoffDepth < 1000 && !xiGameSearcher.mUseRAVE && xiGameCharacteristics.getAverageBranchingFactor() < 10) ||  // TTCC4-like
+          (xiGameSearcher.mUseRAVE && xiGameCharacteristics.getAverageBranchingFactor() < 10 && xiGameCharacteristics.getChoicesHighWaterMark(0) > 50)) ) // NBTTT-like
+    {
+      mMixiMaxBias = 5;
+
+      LOGGER.info("Using Mixi-max bias of " + mMixiMaxBias);
+    }
+    else
+    {
+      mMixiMaxBias = 0;
+
+      LOGGER.info("Mixi-max selection disabled");
     }
 
     mRoleOrdering = xiRoleOrdering;
