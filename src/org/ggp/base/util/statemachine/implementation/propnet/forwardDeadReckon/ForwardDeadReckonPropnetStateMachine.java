@@ -4495,6 +4495,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     mPlayoutPolicy = playoutPolicy;
   }
 
+  public IPlayoutPolicy getPlayoutPolicy()
+  {
+    return mPlayoutPolicy;
+  }
+
   private void setGoalNetBasePropsFromState(ForwardDeadReckonInternalMachineState state)
   {
     InternalMachineStateIterator lIterator = mStateIterator;

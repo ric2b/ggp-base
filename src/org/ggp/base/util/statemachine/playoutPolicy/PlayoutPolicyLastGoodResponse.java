@@ -20,7 +20,7 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
   private static final Logger LOGGER = LogManager.getLogger();
 
   private static final double EPSILON_GREEDY_THRESHOLD = 0.7;
-  private final boolean traceStats = false;
+  private final boolean traceStats = true;
 
   private final ForwardDeadReckonPropnetStateMachine stateMachine;
   private final float[][]  bestResponseScores;
