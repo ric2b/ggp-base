@@ -965,7 +965,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
              mGameCharacteristics.getIsFixedSum() &&
              mGameCharacteristics.numRoles == 2)
     {
-      underlyingStateMachine.setPlayoutPolicy(new PlayoutPolicyCriticalResponse(underlyingStateMachine));
+      mUnderlyingStateMachine.setPlayoutPolicy(new PlayoutPolicyCriticalResponse(mUnderlyingStateMachine));
       //underlyingStateMachine.setPlayoutPolicy(new PlayoutPolicyLastGoodResponse(underlyingStateMachine));
     }
 

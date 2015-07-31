@@ -1016,7 +1016,7 @@ public class MCTSTree
     int choosingRawRoleIndex = mUnderlyingStateMachine.getRoleOrdering().roleIndexToRawRoleIndex((rootNode.mDecidingRoleIndex+1)%mNumRoles);
     for(int i = 0; i < mResponseMoveMasterIndex.length; i++)
     {
-      if ( masterMoveList[i].roleIndex == choosingRawRoleIndex )
+      if ( masterMoveList[i].mRoleIndex == choosingRawRoleIndex )
       {
         mResponseMoveMasterIndex[i] = -1;
       }
@@ -1034,7 +1034,7 @@ public class MCTSTree
         if ( child != null )
         {
           Map<Move, Double> moveMap = new HashMap<>();
-          criticalMoveMap.put(((TreeEdge)choice).mPartialMove.move, moveMap);
+          criticalMoveMap.put(((TreeEdge)choice).mPartialMove.mMove, moveMap);
           //LOGGER.info("Critical responses to " + ((TreeEdge)choice).mPartialMove.move + ":");
 
           double scoreAccumulator = 0;
@@ -1075,7 +1075,7 @@ public class MCTSTree
                 {
                   double score = grandChild.getAverageScore(grandChild.mDecidingRoleIndex);
 
-                  moveMap.put(((TreeEdge)childChoice).mPartialMove.move, (score - scoreAccumulator)/stdDevScore);
+                  moveMap.put(((TreeEdge)childChoice).mPartialMove.mMove, (score - scoreAccumulator)/stdDevScore);
 //                  if ( score > scoreAccumulator + stdDevScore )
 //                  {
 //                    LOGGER.info("    " + ((TreeEdge)childChoice).mPartialMove.move + "scores " + score);
@@ -1094,11 +1094,11 @@ public class MCTSTree
 
       if ( choice instanceof TreeEdge )
       {
-        Move move = ((TreeEdge)choice).mPartialMove.move;
+        Move move = ((TreeEdge)choice).mPartialMove.mMove;
         Map<Move,Double> moveMap = criticalMoveMap.get(move);
         double bestResponseScore = 0;
         Move bestResponse = null;
-        assert(((TreeEdge)choice).mPartialMove.roleIndex == choosingRawRoleIndex);
+        assert(((TreeEdge)choice).mPartialMove.mRoleIndex == choosingRawRoleIndex);
 
         for(Move response : moveMap.keySet())
         {
@@ -1128,13 +1128,13 @@ public class MCTSTree
           int responseIndex = -1;
           for(int j = 0; j < masterMoveList.length; j++)
           {
-            if ( masterMoveList[j].roleIndex != choosingRawRoleIndex && masterMoveList[j].move.equals(bestResponse))
+            if ( masterMoveList[j].mRoleIndex != choosingRawRoleIndex && masterMoveList[j].mMove.equals(bestResponse))
             {
               responseIndex = j;
               break;
             }
           }
-          mResponseMoveMasterIndex[((TreeEdge)choice).mPartialMove.masterIndex] = responseIndex;
+          mResponseMoveMasterIndex[((TreeEdge)choice).mPartialMove.mMasterIndex] = responseIndex;
           //LOGGER.info("Best response to " + move + " is " + bestResponse + " with criticality score " + bestResponseScore);
         }
       }
@@ -1144,7 +1144,7 @@ public class MCTSTree
     {
       if ( mResponseMoveMasterIndex[j] != -1 )
       {
-        LOGGER.info("Best response to " + masterMoveList[j].inputProposition + " is " + masterMoveList[mResponseMoveMasterIndex[j]].inputProposition);
+        LOGGER.info("Best response to " + masterMoveList[j].mInputProposition + " is " + masterMoveList[mResponseMoveMasterIndex[j]].mInputProposition);
       }
     }
   }

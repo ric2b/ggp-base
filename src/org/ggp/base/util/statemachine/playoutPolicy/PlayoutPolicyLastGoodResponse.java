@@ -55,7 +55,7 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
         if (i != j &&
             stateMachine.getFullPropNet().getMasterMoveList()[i] != null &&
             stateMachine.getFullPropNet().getMasterMoveList()[j] != null &&
-            stateMachine.getFullPropNet().getMasterMoveList()[i].move.equals(stateMachine.getFullPropNet().getMasterMoveList()[j].move))
+            stateMachine.getFullPropNet().getMasterMoveList()[i].mMove.equals(stateMachine.getFullPropNet().getMasterMoveList()[j].mMove))
         {
           opponentEquivalent[i] = j;
           break;
@@ -134,8 +134,8 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
         ForwardDeadReckonLegalMoveInfo move = xiMoves[i];
         if ( prev != null )
         {
-          responseSampleSize[prev.masterIndex][move.masterIndex]++;
-          if ( (move.roleIndex == ourRoleIndex) == isWin )
+          responseSampleSize[prev.mMasterIndex][move.mMasterIndex]++;
+          if ( (move.mRoleIndex == ourRoleIndex) == isWin )
           {
             bestResponseScores[prev.mMasterIndex][move.mMasterIndex]++;
           }
@@ -143,10 +143,10 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
 
         if ( prevPrev != null )
         {
-          responseSampleSize[prevPrev.masterIndex][move.masterIndex]++;
-          if ( (move.roleIndex == ourRoleIndex) == isWin )
+          responseSampleSize[prevPrev.mMasterIndex][move.mMasterIndex]++;
+          if ( (move.mRoleIndex == ourRoleIndex) == isWin )
           {
-            bestResponseScores[prevPrev.masterIndex][move.masterIndex]++;
+            bestResponseScores[prevPrev.mMasterIndex][move.mMasterIndex]++;
           }
         }
 
@@ -165,16 +165,16 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
     }
 
     ForwardDeadReckonLegalMoveInfo bestResponse = null;
-    float[] moveResponseScores = bestResponseScores[playoutMoves[currentMoveIndex-1].masterIndex];
-    float[] moveResponseSamples = responseSampleSize[playoutMoves[currentMoveIndex-1].masterIndex];
-    float[] moveFollowOnScores = (currentMoveIndex > 1 ? bestResponseScores[playoutMoves[currentMoveIndex-2].masterIndex] : null);
-    float[] moveFollowOnSamples = (currentMoveIndex > 1 ? responseSampleSize[playoutMoves[currentMoveIndex-2].masterIndex] : null);
+    float[] moveResponseScores = bestResponseScores[playoutMoves[currentMoveIndex-1].mMasterIndex];
+    float[] moveResponseSamples = responseSampleSize[playoutMoves[currentMoveIndex-1].mMasterIndex];
+    float[] moveFollowOnScores = (currentMoveIndex > 1 ? bestResponseScores[playoutMoves[currentMoveIndex-2].mMasterIndex] : null);
+    float[] moveFollowOnSamples = (currentMoveIndex > 1 ? responseSampleSize[playoutMoves[currentMoveIndex-2].mMasterIndex] : null);
     float best = -Float.MAX_VALUE;
     for(int i = 0; i < moveResponseScores.length; i++)
     {
       ForwardDeadReckonLegalMoveInfo response = stateMachine.getFullPropNet().getMasterMoveList()[i];
 
-      if ( response.roleIndex == xiRoleIndex )
+      if ( response.mRoleIndex == xiRoleIndex )
       {
         float score = 1;
         boolean valid = false;
@@ -193,7 +193,7 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
         {
           if ( availableMoves.getContents(xiRoleIndex).contains(response) )
           {
-            bestResponse = availableMoves.getMasterList()[response.masterIndex];
+            bestResponse = availableMoves.getMasterList()[response.mMasterIndex];
             best = score;
           }
         }
@@ -250,7 +250,7 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
           if ( responseSampleSize[i][j] > 0 )
           {
             float score = bestResponseScores[i][j]/responseSampleSize[i][j];
-            if ( masterList[i].roleIndex != masterList[j].roleIndex)
+            if ( masterList[i].mRoleIndex != masterList[j].mRoleIndex)
             {
               if ( score > best )
               {
@@ -269,12 +269,12 @@ public class PlayoutPolicyLastGoodResponse implements IPlayoutPolicy
           }
         }
 
-        LOGGER.info("Best response to " + masterList[i].inputProposition + ": " + (bestIndex == -1 ? "NONE" : masterList[bestIndex].inputProposition + " (" + (100*best) + "% [" + responseSampleSize[i][bestIndex] + "] )"));
-        LOGGER.info("Best follow-on to " + masterList[i].inputProposition + ": " + (bestFollowIndex == -1 ? "NONE" : masterList[bestFollowIndex].inputProposition + " (" + (100*bestFollow) + "% [" + responseSampleSize[i][bestFollowIndex] + "] )"));
+        LOGGER.info("Best response to " + masterList[i].mInputProposition + ": " + (bestIndex == -1 ? "NONE" : masterList[bestIndex].mInputProposition + " (" + (100*best) + "% [" + responseSampleSize[i][bestIndex] + "] )"));
+        LOGGER.info("Best follow-on to " + masterList[i].mInputProposition + ": " + (bestFollowIndex == -1 ? "NONE" : masterList[bestFollowIndex].mInputProposition + " (" + (100*bestFollow) + "% [" + responseSampleSize[i][bestFollowIndex] + "] )"));
         if ( bestIndex != -1 && opponentEquivalent[bestIndex] != bestFollowIndex )
         {
           int bestDeny = opponentEquivalent[bestIndex];
-          LOGGER.info("Best denial to " + masterList[i].inputProposition + ": " + (bestDeny == -1 ? "NONE" : masterList[bestDeny].inputProposition + " (" + (100*(bestResponseScores[i][bestDeny]/responseSampleSize[i][bestDeny])) + "% [" + responseSampleSize[i][bestDeny] + "] )"));
+          LOGGER.info("Best denial to " + masterList[i].mInputProposition + ": " + (bestDeny == -1 ? "NONE" : masterList[bestDeny].mInputProposition + " (" + (100*(bestResponseScores[i][bestDeny]/responseSampleSize[i][bestDeny])) + "% [" + responseSampleSize[i][bestDeny] + "] )"));
         }
       }
     }
