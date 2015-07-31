@@ -44,7 +44,6 @@ import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.Factor;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine.PlayoutInfo;
-import org.ggp.base.util.statemachine.playoutPolicy.PlayoutPolicyCriticalResponse;
 import org.ggp.base.util.statemachine.playoutPolicy.PlayoutPolicyGoalGreedyWithPop;
 import org.ggp.base.util.symbol.grammar.SymbolPool;
 
@@ -965,7 +964,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
              mGameCharacteristics.getIsFixedSum() &&
              mGameCharacteristics.numRoles == 2)
     {
-      mUnderlyingStateMachine.setPlayoutPolicy(new PlayoutPolicyCriticalResponse(mUnderlyingStateMachine));
+      //mUnderlyingStateMachine.setPlayoutPolicy(new PlayoutPolicyCriticalResponse(mUnderlyingStateMachine));
       //underlyingStateMachine.setPlayoutPolicy(new PlayoutPolicyLastGoodResponse(underlyingStateMachine));
     }
 
