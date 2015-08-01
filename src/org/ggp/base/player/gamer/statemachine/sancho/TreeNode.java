@@ -2938,7 +2938,7 @@ public class TreeNode
     int roleIndex = (mDecidingRoleIndex + 1) % mTree.mNumRoles;
 
     //  Don't bother evaluating terminality of children above the earliest completion depth
-    boolean evaluateTerminalOnNodeCreation = (mTree.mEvaluateTerminalOnNodeCreation && (mDepth >= mTree.mShallowestCompletionDepth || mTree.mHeuristic.isEnabled() || mTree.mGameSearcher.mUseGoalGreedy));
+    boolean evaluateTerminalOnNodeCreation = (mTree.mEvaluateTerminalOnNodeCreation && (mDepth >= mTree.mShallowestCompletionDepth-mTree.mNumRoles || mTree.mHeuristic.isEnabled() || mTree.mGameSearcher.mUseGoalGreedy));
 
     //  Don't evaluate terminality on the root since it cannot be (and latched score states
     //  might indicate it should be treated as such, but this is never correct for the root)
@@ -2952,7 +2952,7 @@ public class TreeNode
         //  we repeat the test here (it's cheap since we are running the state anyway to obtain legal moves)
         boolean parentEvaluatedTerminalOnNodeCreation = (mTree.mEvaluateTerminalOnNodeCreation &&
                                                          !isRecursiveExpansion &&
-                                                         parentDepth >= mTree.mGameCharacteristics.getEarliestCompletionDepth());
+                                                         parentDepth >= mTree.mGameCharacteristics.getEarliestCompletionDepth() - mTree.mNumRoles);
         if (!parentEvaluatedTerminalOnNodeCreation && mNumChildren == 0)
         {
           StateInfo info = calculateTerminalityAndAutoExpansion(mState);
@@ -4568,7 +4568,7 @@ public class TreeNode
 
   private double getRAVEExplorationValue(TreeEdge edge)
   {
-    if (edge.getNumChildVisits() == 0)
+    if (edge == null || edge.getNumChildVisits() == 0)
     {
       return 0.5;
     }
@@ -4589,21 +4589,22 @@ public class TreeNode
 
   private double getRAVESelectionValue(int edgeIndex)
   {
-    return getRAVEExplorationValue((TreeEdge)mChildren[edgeIndex]) + (mRAVEStats == null ? 0 : mRAVEStats.mScores[edgeIndex] / 100);
+    return getRAVEExplorationValue(mChildren[edgeIndex] instanceof TreeEdge ? (TreeEdge)mChildren[edgeIndex] : null) + (mRAVEStats == null ? 0 : mRAVEStats.mScores[edgeIndex] / 100);
   }
 
   private double getSelectionValue(int edgeIndex, TreeNode c, int roleIndex)
   {
-    TreeEdge edge = (TreeEdge)mChildren[edgeIndex];
-    double UCTValue = getUCTSelectionValue(edge, c, roleIndex);
+    TreeEdge edge = (mChildren[edgeIndex] instanceof TreeEdge ? (TreeEdge)mChildren[edgeIndex] : null);
+    double UCTValue = (c == null ? unexpandedChildUCTValue(roleIndex, edge) : getUCTSelectionValue(edge, c, roleIndex));
     double result;
 
-    if (mTree.mGameSearcher.mUseRAVE && !c.mComplete)
+    if (mTree.mGameSearcher.mUseRAVE && (c == null || !c.mComplete))
     {
+      int numChildVisits = (edge == null ? 0 : edge.getNumChildVisits());
       double lRAVEValue = getRAVESelectionValue(edgeIndex);
       int lRAVECount = (mRAVEStats == null) ? 0 : mRAVEStats.mCounts[edgeIndex];
       double lRAVEWeight = (lRAVECount) /
-                          (lRAVECount + edge.getNumChildVisits() + RAVE_BIAS * edge.getNumChildVisits() * lRAVECount + 1);
+                          (lRAVECount + numChildVisits + RAVE_BIAS * numChildVisits * lRAVECount + 1);
 
       result = (1 - lRAVEWeight) * UCTValue + lRAVEWeight * lRAVEValue;
     }
@@ -4612,21 +4613,24 @@ public class TreeNode
       result = UCTValue;
     }
 
-    //  A local known search status strongly impacts the choice.  Basically this establishes a hierarchy
-    //  to all intents and purposes that means local search wins will essentially always be selected
-    //  over anything but complete wins, and local search losses will almost never be selected
-    //  However, crucially if ALL choices are local search losses normal selection ordering will result
-    switch(c.mLocalSearchStatus)
+    if ( c != null )
     {
-      case LOCAL_SEARCH_LOSS:
-        result /= 10;
-        break;
-      case LOCAL_SEARCH_WIN:
-        result *= 10;
-        break;
-        //$CASES-OMITTED$
-      default:
-        break;
+      //  A local known search status strongly impacts the choice.  Basically this establishes a hierarchy
+      //  to all intents and purposes that means local search wins will essentially always be selected
+      //  over anything but complete wins, and local search losses will almost never be selected
+      //  However, crucially if ALL choices are local search losses normal selection ordering will result
+      switch(c.mLocalSearchStatus)
+      {
+        case LOCAL_SEARCH_LOSS:
+          result /= 10;
+          break;
+        case LOCAL_SEARCH_WIN:
+          result *= 10;
+          break;
+          //$CASES-OMITTED$
+        default:
+          break;
+      }
     }
 
     return result;
@@ -4860,7 +4864,8 @@ public class TreeNode
 
                   //  A null child ref in an extant edge is a not-yet selected through
                   //  path which is asserted to be non-terminal and unvisited
-                  uctValue = unexpandedChildUCTValue(roleIndex, edge);
+                  uctValue = getSelectionValue(lii, null, roleIndex);
+                  //uctValue = unexpandedChildUCTValue(roleIndex, edge);
 
                   if (uctValue > bestValue)
                   {
