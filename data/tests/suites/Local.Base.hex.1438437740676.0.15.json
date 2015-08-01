@@ -1,0 +1,30 @@
+{
+  "cases" : [
+    {
+      "case" : "Bug #353, Local.Base.hex.1438437740676, player 0, move 15",
+      "repo" : "games.ggp.org/base",
+      "game" : "hex",
+      "start" : "60",
+      "play" : "15",
+      "limit" : 15,
+      "players" : [
+        {
+          "type" : "Sancho",
+          "args" : [
+            "plan=place d 5,noop,place d 6,noop,place e 4,noop,place f 3,noop,place e 7,noop,place c 8,noop,place d 9,noop"
+          ]
+        },
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "noop,place e 5,noop,place e 6,noop,place f 4,noop,place g 3,noop,place d 7,noop,place d 8,noop,place c 9,noop"
+          ]
+        }
+      ],
+      "check" : {
+        "player" : "0",
+        "acceptable" : "place h 1"
+      }
+    }
+  ]
+}
