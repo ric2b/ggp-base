@@ -4410,7 +4410,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           break;
         }
       }
-      assert(rolloutDepth>0);
 
       if ( mPlayoutPolicy != null )
       {

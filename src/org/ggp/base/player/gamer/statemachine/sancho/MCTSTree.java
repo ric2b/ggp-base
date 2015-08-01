@@ -39,7 +39,7 @@ public class MCTSTree
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  public static final boolean                          FREE_COMPLETED_NODE_CHILDREN                = false;//true;
+  public static final boolean                          FREE_COMPLETED_NODE_CHILDREN                = true;
   public static final boolean                          KEEP_BEST_COMPLETION_PATHS                  = true;
   public static final boolean                          DISABLE_ONE_LEVEL_MINIMAX                   = true;
   private static final boolean                         SUPPORT_TRANSITIONS                         = true;
@@ -1274,7 +1274,7 @@ public class MCTSTree
 
     long lExpandStartTime = System.nanoTime();
     TreeNode newNode;
-    if (!cur.mComplete && cur.mNumVisits >= mExpandAfterVisitThreshold)
+    if (!cur.mComplete && (cur.mNumVisits >= mExpandAfterVisitThreshold || cur.getDepth() >= mShallowestCompletionDepth - mNumRoles))
     {
       assert(selected == null || cur == selected.getChildNode());
       assert(selected == null || cur.mParents.contains(selected.getParentNode()));
