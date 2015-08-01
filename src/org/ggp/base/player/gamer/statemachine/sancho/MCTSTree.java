@@ -987,83 +987,58 @@ public class MCTSTree
 
   private void calculateCriticalResponses()
   {
-    ForwardDeadReckonLegalMoveInfo[] masterMoveList = mUnderlyingStateMachine.getFullPropNet().getMasterMoveList();
-    if ( mResponseMoveMasterIndex == null )
+    IPlayoutPolicy playoutPolicy = mUnderlyingStateMachine.getPlayoutPolicy();
+    if ( playoutPolicy != null && playoutPolicy instanceof PlayoutPolicyCriticalResponse)
     {
-      mResponseMoveMasterIndex = new int[masterMoveList.length];
-      for(int i = 0; i < mResponseMoveMasterIndex.length; i++)
+      ForwardDeadReckonLegalMoveInfo[] masterMoveList = mUnderlyingStateMachine.getFullPropNet().getMasterMoveList();
+      if ( mResponseMoveMasterIndex == null )
       {
-        mResponseMoveMasterIndex[i] = -1;
-      }
+        mResponseMoveMasterIndex = new int[masterMoveList.length];
+        for(int i = 0; i < mResponseMoveMasterIndex.length; i++)
+        {
+          mResponseMoveMasterIndex[i] = -1;
+        }
 
-      IPlayoutPolicy playoutPolicy = mUnderlyingStateMachine.getPlayoutPolicy();
-      if ( playoutPolicy != null && playoutPolicy instanceof PlayoutPolicyCriticalResponse)
-      {
         ((PlayoutPolicyCriticalResponse)playoutPolicy).setReponseMap(mResponseMoveMasterIndex);
       }
-    }
 
-    TreeNode rootNode = mRoot;
-    while(rootNode.mNumChildren == 1)
-    {
-      if ( !(rootNode.mChildren[0] instanceof TreeEdge) )
+      TreeNode rootNode = mRoot;
+      while(rootNode.mNumChildren == 1)
       {
-        return;
-      }
-      rootNode = rootNode.get(((TreeEdge)rootNode.mChildren[0]).getChildRef());
-    }
-
-    int choosingRawRoleIndex = mUnderlyingStateMachine.getRoleOrdering().roleIndexToRawRoleIndex((rootNode.mDecidingRoleIndex+1)%mNumRoles);
-    for(int i = 0; i < mResponseMoveMasterIndex.length; i++)
-    {
-      if ( masterMoveList[i].mRoleIndex == choosingRawRoleIndex )
-      {
-        mResponseMoveMasterIndex[i] = -1;
-      }
-    }
-
-    Map<Move,Map<Move,Double> > criticalMoveMap = new HashMap<>();
-
-    for(int i = 0; i < rootNode.mNumChildren; i++)
-    {
-      Object choice = rootNode.mChildren[i];
-
-      if ( choice instanceof TreeEdge && ((TreeEdge)choice).getChildRef() != TreeNode.NULL_REF)
-      {
-        TreeNode child = rootNode.get(((TreeEdge)choice).getChildRef());
-        if ( child != null )
+        if ( !(rootNode.mChildren[0] instanceof TreeEdge) )
         {
-          Map<Move, Double> moveMap = new HashMap<>();
-          criticalMoveMap.put(((TreeEdge)choice).mPartialMove.mMove, moveMap);
-          //LOGGER.info("Critical responses to " + ((TreeEdge)choice).mPartialMove.move + ":");
+          return;
+        }
+        rootNode = rootNode.get(((TreeEdge)rootNode.mChildren[0]).getChildRef());
+      }
 
-          double scoreAccumulator = 0;
-          double scoreSquareAccumulator = 0;
-          int count = 0;
+      int choosingRawRoleIndex = mUnderlyingStateMachine.getRoleOrdering().roleIndexToRawRoleIndex((rootNode.mDecidingRoleIndex+1)%mNumRoles);
+      for(int i = 0; i < mResponseMoveMasterIndex.length; i++)
+      {
+        if ( masterMoveList[i].mRoleIndex == choosingRawRoleIndex )
+        {
+          mResponseMoveMasterIndex[i] = -1;
+        }
+      }
 
-          for(int j = 0; j < child.mNumChildren; j++)
+      Map<Move,Map<Move,Double> > criticalMoveMap = new HashMap<>();
+
+      for(int i = 0; i < rootNode.mNumChildren; i++)
+      {
+        Object choice = rootNode.mChildren[i];
+
+        if ( choice instanceof TreeEdge && ((TreeEdge)choice).getChildRef() != TreeNode.NULL_REF)
+        {
+          TreeNode child = rootNode.get(((TreeEdge)choice).getChildRef());
+          if ( child != null )
           {
-            Object childChoice = child.mChildren[j];
-            if ( childChoice instanceof TreeEdge && ((TreeEdge)childChoice).getChildRef() != TreeNode.NULL_REF)
-            {
-              TreeNode grandChild = rootNode.get(((TreeEdge)childChoice).getChildRef());
-              if ( grandChild != null )
-              {
-                double score = grandChild.getAverageScore(grandChild.mDecidingRoleIndex);
-                scoreAccumulator += score;
-                scoreSquareAccumulator += score*score;
-                count++;
-              }
-            }
-          }
+            Map<Move, Double> moveMap = new HashMap<>();
+            criticalMoveMap.put(((TreeEdge)choice).mPartialMove.mMove, moveMap);
+            //LOGGER.info("Critical responses to " + ((TreeEdge)choice).mPartialMove.move + ":");
 
-          //LOGGER.info("Calculating critical choices with consider count of " + count);
-          if ( count > 0 )
-          {
-            scoreAccumulator /= count;
-            scoreSquareAccumulator /= count;
-
-            double stdDevScore = Math.sqrt(scoreSquareAccumulator - scoreAccumulator*scoreAccumulator);
+            double scoreAccumulator = 0;
+            double scoreSquareAccumulator = 0;
+            int count = 0;
 
             for(int j = 0; j < child.mNumChildren; j++)
             {
@@ -1071,80 +1046,105 @@ public class MCTSTree
               if ( childChoice instanceof TreeEdge && ((TreeEdge)childChoice).getChildRef() != TreeNode.NULL_REF)
               {
                 TreeNode grandChild = rootNode.get(((TreeEdge)childChoice).getChildRef());
-                if ( grandChild != null && (grandChild.mNumVisits > 10 || grandChild.mComplete) )
+                if ( grandChild != null )
                 {
                   double score = grandChild.getAverageScore(grandChild.mDecidingRoleIndex);
-
-                  moveMap.put(((TreeEdge)childChoice).mPartialMove.mMove, (score - scoreAccumulator)/stdDevScore);
-//                  if ( score > scoreAccumulator + stdDevScore )
-//                  {
-//                    LOGGER.info("    " + ((TreeEdge)childChoice).mPartialMove.move + "scores " + score);
-//                  }
+                  scoreAccumulator += score;
+                  scoreSquareAccumulator += score*score;
+                  count++;
                 }
               }
             }
-          }
-        }
-      }
-    }
 
-    for(int i = 0; i < rootNode.mNumChildren; i++)
-    {
-      Object choice = rootNode.mChildren[i];
-
-      if ( choice instanceof TreeEdge )
-      {
-        Move move = ((TreeEdge)choice).mPartialMove.mMove;
-        Map<Move,Double> moveMap = criticalMoveMap.get(move);
-        double bestResponseScore = 0;
-        Move bestResponse = null;
-        assert(((TreeEdge)choice).mPartialMove.mRoleIndex == choosingRawRoleIndex);
-
-        for(Move response : moveMap.keySet())
-        {
-          Double score = moveMap.get(response);
-
-          if ( score != null && score > 0.9 )
-          {
-            Map<Move,Double> responseMoveMap = criticalMoveMap.get(response);
-            if ( responseMoveMap != null )
+            //LOGGER.info("Calculating critical choices with consider count of " + count);
+            if ( count > 0 )
             {
-              Double swapScore = responseMoveMap.get(move);
-              if ( swapScore != null && swapScore > 0.98 )
+              scoreAccumulator /= count;
+              scoreSquareAccumulator /= count;
+
+              double stdDevScore = Math.sqrt(scoreSquareAccumulator - scoreAccumulator*scoreAccumulator);
+
+              for(int j = 0; j < child.mNumChildren; j++)
               {
-                double aggregateScore = score + swapScore;
-                if ( aggregateScore > bestResponseScore )
+                Object childChoice = child.mChildren[j];
+                if ( childChoice instanceof TreeEdge && ((TreeEdge)childChoice).getChildRef() != TreeNode.NULL_REF)
                 {
-                  bestResponseScore = aggregateScore;
-                  bestResponse = response;
+                  TreeNode grandChild = rootNode.get(((TreeEdge)childChoice).getChildRef());
+                  if ( grandChild != null && (grandChild.mNumVisits > 10 || grandChild.mComplete) )
+                  {
+                    double score = grandChild.getAverageScore(grandChild.mDecidingRoleIndex);
+
+                    moveMap.put(((TreeEdge)childChoice).mPartialMove.mMove, (score - scoreAccumulator)/stdDevScore);
+  //                  if ( score > scoreAccumulator + stdDevScore )
+  //                  {
+  //                    LOGGER.info("    " + ((TreeEdge)childChoice).mPartialMove.move + "scores " + score);
+  //                  }
+                  }
                 }
               }
             }
           }
         }
+      }
 
-        if ( bestResponse != null && bestResponseScore > 2 )
+      for(int i = 0; i < rootNode.mNumChildren; i++)
+      {
+        Object choice = rootNode.mChildren[i];
+
+        if ( choice instanceof TreeEdge )
         {
-          int responseIndex = -1;
-          for(int j = 0; j < masterMoveList.length; j++)
+          Move move = ((TreeEdge)choice).mPartialMove.mMove;
+          Map<Move,Double> moveMap = criticalMoveMap.get(move);
+          double bestResponseScore = 0;
+          Move bestResponse = null;
+          assert(((TreeEdge)choice).mPartialMove.mRoleIndex == choosingRawRoleIndex);
+
+          for(Move response : moveMap.keySet())
           {
-            if ( masterMoveList[j].mRoleIndex != choosingRawRoleIndex && masterMoveList[j].mMove.equals(bestResponse))
+            Double score = moveMap.get(response);
+
+            if ( score != null && score > 0.9 )
             {
-              responseIndex = j;
-              break;
+              Map<Move,Double> responseMoveMap = criticalMoveMap.get(response);
+              if ( responseMoveMap != null )
+              {
+                Double swapScore = responseMoveMap.get(move);
+                if ( swapScore != null && swapScore > 0.98 )
+                {
+                  double aggregateScore = score + swapScore;
+                  if ( aggregateScore > bestResponseScore )
+                  {
+                    bestResponseScore = aggregateScore;
+                    bestResponse = response;
+                  }
+                }
+              }
             }
           }
-          mResponseMoveMasterIndex[((TreeEdge)choice).mPartialMove.mMasterIndex] = responseIndex;
-          //LOGGER.info("Best response to " + move + " is " + bestResponse + " with criticality score " + bestResponseScore);
+
+          if ( bestResponse != null && bestResponseScore > 2 )
+          {
+            int responseIndex = -1;
+            for(int j = 0; j < masterMoveList.length; j++)
+            {
+              if ( masterMoveList[j].mRoleIndex != choosingRawRoleIndex && masterMoveList[j].mMove.equals(bestResponse))
+              {
+                responseIndex = j;
+                break;
+              }
+            }
+            mResponseMoveMasterIndex[((TreeEdge)choice).mPartialMove.mMasterIndex] = responseIndex;
+            //LOGGER.info("Best response to " + move + " is " + bestResponse + " with criticality score " + bestResponseScore);
+          }
         }
       }
-    }
 
-    for(int j = 0; j < masterMoveList.length; j++)
-    {
-      if ( mResponseMoveMasterIndex[j] != -1 )
+      for(int j = 0; j < masterMoveList.length; j++)
       {
-        LOGGER.info("Best response to " + masterMoveList[j].mInputProposition + " is " + masterMoveList[mResponseMoveMasterIndex[j]].mInputProposition);
+        if ( mResponseMoveMasterIndex[j] != -1 )
+        {
+          LOGGER.info("Best response to " + masterMoveList[j].mInputProposition + " is " + masterMoveList[mResponseMoveMasterIndex[j]].mInputProposition);
+        }
       }
     }
   }
