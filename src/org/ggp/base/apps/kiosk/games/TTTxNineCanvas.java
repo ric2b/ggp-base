@@ -118,10 +118,6 @@ public class TTTxNineCanvas extends GameCanvas_SimpleGrid
       g.setColor(Color.WHITE);
       CommonGraphics.fillWithString(g, "O", 1.2);
     }
-    else
-    {
-      ;
-    }
 
     Set<String> theMoves = gameStateHasLegalMovesMatching("\\( play " +
                                                           xBoard + " " +

@@ -1,6 +1,11 @@
 
 package org.ggp.base.util.gdl.grammar;
 
+/**
+ * A <i>distinct</i> is a declaration that two <i>terms</i> are distinct (i.e. not the same).
+ *
+ * See {@link Gdl} for a complete description of the GDL hierarchy.
+ */
 @SuppressWarnings("serial")
 public final class GdlDistinct extends GdlLiteral
 {

@@ -46,17 +46,6 @@ import com.google.common.collect.SetMultimap;
 
 public class StaticValidator implements GameValidator
 {
-  private static final GdlConstant ROLE     = GdlPool.getConstant("role");
-  private static final GdlConstant TERMINAL = GdlPool.getConstant("terminal");
-  private static final GdlConstant GOAL     = GdlPool.getConstant("goal");
-  private static final GdlConstant LEGAL    = GdlPool.getConstant("legal");
-  private static final GdlConstant DOES     = GdlPool.getConstant("does");
-  private static final GdlConstant INIT     = GdlPool.getConstant("init");
-  private static final GdlConstant TRUE     = GdlPool.getConstant("true");
-  private static final GdlConstant NEXT     = GdlPool.getConstant("next");
-  private static final GdlConstant BASE     = GdlPool.getConstant("base");
-  private static final GdlConstant INPUT    = GdlPool.getConstant("input");
-
   /**
    * Validates whether a GDL description follows the rules of GDL, to the
    * extent that it can be determined. If the description is invalid, throws an
@@ -64,7 +53,7 @@ public class StaticValidator implements GameValidator
    * finitism and monotonicity can't be definitively determined with a static
    * analysis; these are left to the other validator. (See GdlValidator and the
    * ValidatorPanel in apps.validator.)
-   * 
+   *
    * @param description
    *          A parsed GDL game description.
    * @throws ValidatorException
@@ -101,8 +90,8 @@ public class StaticValidator implements GameValidator
      * http://games.stanford.edu/language/spec/gdl_spec_2008_03.pdf
      */
 
-    List<GdlRelation> relations = new ArrayList<GdlRelation>();
-    List<GdlRule> rules = new ArrayList<GdlRule>();
+    List<GdlRelation> relations = new ArrayList<>();
+    List<GdlRule> rules = new ArrayList<>();
     //1) Are all objects in the description rules or relations?
     for (Gdl gdl : description)
     {
@@ -139,8 +128,8 @@ public class StaticValidator implements GameValidator
       }
     }
     //4) Are the arities of all relations and all functions fixed?
-    Map<GdlConstant, Integer> sentenceArities = new HashMap<GdlConstant, Integer>();
-    Map<GdlConstant, Integer> functionArities = new HashMap<GdlConstant, Integer>();
+    Map<GdlConstant, Integer> sentenceArities = new HashMap<>();
+    Map<GdlConstant, Integer> functionArities = new HashMap<>();
     for (GdlRelation relation : relations)
     {
       addSentenceArity(relation, sentenceArities);
@@ -241,7 +230,7 @@ public class StaticValidator implements GameValidator
    * Tests whether the parentheses in a given file match correctly. If the
    * parentheses are unbalanced, gives the line number of an unmatched
    * parenthesis.
-   * 
+   *
    * @param file
    *          The .kif file to test.
    * @throws ValidatorException
@@ -250,7 +239,7 @@ public class StaticValidator implements GameValidator
    */
   public static void matchParentheses(File file) throws ValidatorException
   {
-    List<String> lines = new ArrayList<String>();
+    List<String> lines = new ArrayList<>();
     try
     {
       String line;
@@ -275,7 +264,7 @@ public class StaticValidator implements GameValidator
       throws ValidatorException
   {
     int lineNumber = 1;
-    Stack<Integer> linesStack = new Stack<Integer>();
+    Stack<Integer> linesStack = new Stack<>();
 
     for (String line : lines)
     {
@@ -322,8 +311,8 @@ public class StaticValidator implements GameValidator
     //Look at all the terms in each positive relation in the rule that
     // is in a cycle with the head.
     GdlConstant head = rule.getHead().getName();
-    Set<GdlRelation> cyclicRelations = new HashSet<GdlRelation>();
-    Set<GdlRelation> acyclicRelations = new HashSet<GdlRelation>();
+    Set<GdlRelation> cyclicRelations = new HashSet<>();
+    Set<GdlRelation> acyclicRelations = new HashSet<>();
     for (GdlLiteral literal : rule.getBody())
     {
       //Is it a relation?
@@ -411,31 +400,31 @@ public class StaticValidator implements GameValidator
   }
 
   private static final ImmutableSet<GdlConstant>  NEVER_IN_RULE_BODIES   = ImmutableSet
-                                                                             .of(INIT,
-                                                                                 NEXT,
-                                                                                 BASE,
-                                                                                 INPUT);
+                                                                             .of(GdlPool.INIT,
+                                                                                 GdlPool.NEXT,
+                                                                                 GdlPool.BASE,
+                                                                                 GdlPool.INPUT);
   private static final ImmutableList<GdlConstant> NEVER_TURN_DEPENDENT   = ImmutableList
-                                                                             .of(INIT,
-                                                                                 BASE,
-                                                                                 INPUT);
+                                                                             .of(GdlPool.INIT,
+                                                                                 GdlPool.BASE,
+                                                                                 GdlPool.INPUT);
   private static final ImmutableList<GdlConstant> NEVER_ACTION_DEPENDENT = ImmutableList
-                                                                             .of(TERMINAL,
-                                                                                 LEGAL,
-                                                                                 GOAL);
+                                                                             .of(GdlPool.TERMINAL,
+                                                                                 GdlPool.LEGAL,
+                                                                                 GdlPool.GOAL);
 
   private static void checkKeywordLocations(SetMultimap<GdlConstant, GdlConstant> dependencyGraph,
                                             Set<GdlConstant> allSentenceNames)
       throws ValidatorException
   {
     //- Role relations must be ground sentences, not in rules
-    if (!dependencyGraph.get(ROLE).isEmpty())
+    if (!dependencyGraph.get(GdlPool.ROLE).isEmpty())
       throw new ValidatorException("The role relation should be defined by ground statements, not by rules.");
     //- Trues only in bodies of rules, not heads
-    if (!dependencyGraph.get(TRUE).isEmpty())
+    if (!dependencyGraph.get(GdlPool.TRUE).isEmpty())
       throw new ValidatorException("The true relation should never be in the head of a rule.");
     //- Does only in bodies of rules
-    if (!dependencyGraph.get(DOES).isEmpty())
+    if (!dependencyGraph.get(GdlPool.DOES).isEmpty())
       throw new ValidatorException("The does relation should never be in the head of a rule.");
 
     //- Inits only in heads of rules; not in same CC as true, does, next, legal, goal, terminal
@@ -452,12 +441,12 @@ public class StaticValidator implements GameValidator
     ImmutableSet<GdlConstant> turnDependentSentenceNames = DependencyGraphs
         .getMatchingAndDownstream(allSentenceNames,
                                   dependencyGraph,
-                                  Predicates.in(ImmutableSet.of(TRUE,
-                                                                DOES,
-                                                                NEXT,
-                                                                LEGAL,
-                                                                GOAL,
-                                                                TERMINAL)));
+                                  Predicates.in(ImmutableSet.of(GdlPool.TRUE,
+                                                                GdlPool.DOES,
+                                                                GdlPool.NEXT,
+                                                                GdlPool.LEGAL,
+                                                                GdlPool.GOAL,
+                                                                GdlPool.TERMINAL)));
     for (GdlConstant keyword : NEVER_TURN_DEPENDENT)
     {
       if (turnDependentSentenceNames.contains(keyword))
@@ -472,7 +461,7 @@ public class StaticValidator implements GameValidator
     ImmutableSet<GdlConstant> actionDependentSentenceNames = DependencyGraphs
         .getMatchingAndDownstream(allSentenceNames,
                                   dependencyGraph,
-                                  Predicates.equalTo(DOES));
+                                  Predicates.equalTo(GdlPool.DOES));
     for (GdlConstant keyword : NEVER_ACTION_DEPENDENT)
     {
       if (actionDependentSentenceNames.contains(keyword))
@@ -565,7 +554,7 @@ public class StaticValidator implements GameValidator
 
   private static void testRuleSafety(GdlRule rule) throws ValidatorException
   {
-    List<GdlVariable> unsupportedVariables = new ArrayList<GdlVariable>();
+    List<GdlVariable> unsupportedVariables = new ArrayList<>();
     if (rule.getHead() instanceof GdlRelation)
       getVariablesInBody(rule.getHead().getBody(), unsupportedVariables);
     for (GdlLiteral literal : rule.getBody())
@@ -573,7 +562,7 @@ public class StaticValidator implements GameValidator
       getUnsupportedVariablesInLiteral(literal, unsupportedVariables);
     }
     //Supported variables are those in a positive relation in the body
-    Set<GdlVariable> supportedVariables = new HashSet<GdlVariable>();
+    Set<GdlVariable> supportedVariables = new HashSet<>();
     for (GdlLiteral literal : rule.getBody())
     {
       getSupportedVariablesInLiteral(literal, supportedVariables);
@@ -609,7 +598,7 @@ public class StaticValidator implements GameValidator
     else if (literal instanceof GdlDistinct)
     {
       GdlDistinct distinct = (GdlDistinct)literal;
-      List<GdlTerm> pair = new ArrayList<GdlTerm>(2); //Easy way to parse functions
+      List<GdlTerm> pair = new ArrayList<>(2); //Easy way to parse functions
       pair.add(distinct.getArg1());
       pair.add(distinct.getArg2());
       getVariablesInBody(pair, unsupportedVariables);
@@ -628,11 +617,11 @@ public class StaticValidator implements GameValidator
       GdlOr or = (GdlOr)literal;
       if (or.arity() == 0)
         return;
-      LinkedList<GdlVariable> vars = new LinkedList<GdlVariable>();
+      LinkedList<GdlVariable> vars = new LinkedList<>();
       getSupportedVariablesInLiteral(or.get(0), vars);
       for (int i = 1; i < or.arity(); i++)
       {
-        Set<GdlVariable> newVars = new HashSet<GdlVariable>();
+        Set<GdlVariable> newVars = new HashSet<>();
         getSupportedVariablesInLiteral(or.get(i), newVars);
         vars.retainAll(newVars);
       }
@@ -661,65 +650,65 @@ public class StaticValidator implements GameValidator
                                             Map<GdlConstant, Integer> functionArities)
       throws ValidatorException
   {
-    if (!sentenceArities.containsKey(ROLE))
+    if (!sentenceArities.containsKey(GdlPool.ROLE))
     {
       throw new ValidatorException("No role relations found in the game description");
     }
-    else if (sentenceArities.get(ROLE) != 1)
+    else if (sentenceArities.get(GdlPool.ROLE) != 1)
     {
       throw new ValidatorException("The role relation should have arity 1 (argument: the player name)");
     }
-    else if (!sentenceArities.containsKey(TERMINAL))
+    else if (!sentenceArities.containsKey(GdlPool.TERMINAL))
     {
       throw new ValidatorException("No terminal proposition found in the game description");
     }
-    else if (sentenceArities.get(TERMINAL) != 0)
+    else if (sentenceArities.get(GdlPool.TERMINAL) != 0)
     {
       throw new ValidatorException("'terminal' should be a proposition, not a relation");
     }
-    else if (!sentenceArities.containsKey(GOAL))
+    else if (!sentenceArities.containsKey(GdlPool.GOAL))
     {
       throw new ValidatorException("No goal relations found in the game description");
     }
-    else if (sentenceArities.get(GOAL) != 2)
+    else if (sentenceArities.get(GdlPool.GOAL) != 2)
     {
       throw new ValidatorException("The goal relation should have arity 2 (first argument: the player, second argument: integer from 0 to 100)");
     }
-    else if (!sentenceArities.containsKey(LEGAL))
+    else if (!sentenceArities.containsKey(GdlPool.LEGAL))
     {
       throw new ValidatorException("No legal relations found in the game description");
     }
-    else if (sentenceArities.get(LEGAL) != 2)
+    else if (sentenceArities.get(GdlPool.LEGAL) != 2)
     {
       throw new ValidatorException("The legal relation should have arity 2 (first argument: the player, second argument: the move)");
     }
-    else if (sentenceArities.containsKey(DOES) &&
-             sentenceArities.get(DOES) != 2)
+    else if (sentenceArities.containsKey(GdlPool.DOES) &&
+             sentenceArities.get(GdlPool.DOES) != 2)
     {
       throw new ValidatorException("The does relation should have arity 2 (first argument: the player, second argument: the move)");
     }
-    else if (sentenceArities.containsKey(INIT) &&
-             sentenceArities.get(INIT) != 1)
+    else if (sentenceArities.containsKey(GdlPool.INIT) &&
+             sentenceArities.get(GdlPool.INIT) != 1)
     {
       throw new ValidatorException("The init relation should have arity 1 (argument: the base truth)");
     }
-    else if (sentenceArities.containsKey(TRUE) &&
-             sentenceArities.get(TRUE) != 1)
+    else if (sentenceArities.containsKey(GdlPool.TRUE) &&
+             sentenceArities.get(GdlPool.TRUE) != 1)
     {
       throw new ValidatorException("The true relation should have arity 1 (argument: the base truth)");
     }
-    else if (sentenceArities.containsKey(NEXT) &&
-             sentenceArities.get(NEXT) != 1)
+    else if (sentenceArities.containsKey(GdlPool.NEXT) &&
+             sentenceArities.get(GdlPool.NEXT) != 1)
     {
       throw new ValidatorException("The next relation should have arity 1 (argument: the base truth)");
     }
-    else if (sentenceArities.containsKey(BASE) &&
-             sentenceArities.get(BASE) != 1)
+    else if (sentenceArities.containsKey(GdlPool.BASE) &&
+             sentenceArities.get(GdlPool.BASE) != 1)
     {
       throw new ValidatorException("The base relation should have arity 1 (argument: the base truth)");
     }
-    else if (sentenceArities.containsKey(INPUT) &&
-             sentenceArities.get(INPUT) != 2)
+    else if (sentenceArities.containsKey(GdlPool.INPUT) &&
+             sentenceArities.get(GdlPool.INPUT) != 2)
     {
       throw new ValidatorException("The input relation should have arity 2 (first argument: the player, second argument: the move)");
     }
@@ -778,7 +767,7 @@ public class StaticValidator implements GameValidator
 
   private static List<GdlSentence> getSentencesInRule(GdlRule rule)
   {
-    List<GdlSentence> sentences = new ArrayList<GdlSentence>();
+    List<GdlSentence> sentences = new ArrayList<>();
     sentences.add(rule.getHead());
     for (GdlLiteral literal : rule.getBody())
     {
@@ -810,7 +799,7 @@ public class StaticValidator implements GameValidator
 
   private static List<GdlFunction> getFunctionsInSentence(GdlSentence sentence)
   {
-    List<GdlFunction> functions = new ArrayList<GdlFunction>();
+    List<GdlFunction> functions = new ArrayList<>();
     if (sentence instanceof GdlProposition)
       return functions; //Propositions have no body
     addFunctionsInBody(sentence.getBody(), functions);

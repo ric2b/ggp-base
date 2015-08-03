@@ -55,8 +55,8 @@ public final class PropNetConverter
    */
   public PropNet convert(Role[] roles, List<GdlRule> description)
   {
-    propositions = new HashMap<GdlSentence, Proposition>();
-    components = new HashSet<Component>();
+    propositions = new HashMap<>();
+    components = new HashSet<>();
 
     for (GdlRule rule : description)
     {
@@ -82,7 +82,7 @@ public final class PropNetConverter
    */
   private void addMissingInputs()
   {
-    List<Proposition> addList = new ArrayList<Proposition>();
+    List<Proposition> addList = new ArrayList<>();
     for (Proposition proposition : propositions.values())
     {
       if (proposition.getName() instanceof GdlRelation)
@@ -98,8 +98,7 @@ public final class PropNetConverter
     for (Proposition addItem : addList)
     {
       GdlRelation relation = (GdlRelation)addItem.getName();
-      components.add(getProposition(GdlPool.getRelation(GdlPool
-          .getConstant("does"), relation.getBody())));
+      components.add(getProposition(GdlPool.getRelation(GdlPool.DOES, relation.getBody())));
     }
   }
 
@@ -117,8 +116,7 @@ public final class PropNetConverter
     {
       GdlDistinct distinct = (GdlDistinct)literal;
 
-      Proposition proposition = new Proposition(GdlPool.getProposition(GdlPool
-          .getConstant("anon")));
+      Proposition proposition = new Proposition(GdlPool.getProposition(GdlPool.getConstant("anon")));
       Constant constant = new Constant(!distinct.getArg1()
           .equals(distinct.getArg2()));
 
@@ -135,8 +133,7 @@ public final class PropNetConverter
 
       Proposition input = convertConjunct(not.getBody());
       Not no = new Not();
-      Proposition output = new Proposition(GdlPool.getProposition(GdlPool
-          .getConstant("anon")));
+      Proposition output = new Proposition(GdlPool.getProposition(GdlPool.getConstant("anon")));
 
       link(input, no);
       link(no, output);
@@ -170,11 +167,9 @@ public final class PropNetConverter
   {
     if (sentence.getName().getValue().equals("next"))
     {
-      Proposition head = getProposition(GdlPool.getRelation(GdlPool
-          .getConstant("true"), sentence.getBody()));
+      Proposition head = getProposition(GdlPool.getRelation(GdlPool.TRUE, sentence.getBody()));
       Transition transition = new Transition();
-      Proposition preTransition = new Proposition(GdlPool.getProposition(GdlPool
-          .getConstant("anon")));
+      Proposition preTransition = new Proposition(GdlPool.getProposition(GdlPool.getConstant("anon")));
 
       link(preTransition, transition);
       link(transition, head);
@@ -227,11 +222,9 @@ public final class PropNetConverter
   {
     if (sentence.getName().getValue().equals("init"))
     {
-      Proposition init = getProposition(GdlPool.getProposition(GdlPool
-          .getConstant("INIT")));
+      Proposition init = getProposition(GdlPool.getProposition(GdlPool.getConstant("INIT")));
       Transition transition = new Transition();
-      Proposition proposition = getProposition(GdlPool.getRelation(GdlPool
-          .getConstant("true"), sentence.getBody()));
+      Proposition proposition = getProposition(GdlPool.getRelation(GdlPool.TRUE, sentence.getBody()));
 
       link(init, transition);
       link(transition, proposition);
@@ -256,7 +249,7 @@ public final class PropNetConverter
    */
   private void fixDisjunctions()
   {
-    List<Proposition> fixList = new ArrayList<Proposition>();
+    List<Proposition> fixList = new ArrayList<>();
     for (Proposition proposition : propositions.values())
     {
       if (proposition.getInputs().size() > 1)

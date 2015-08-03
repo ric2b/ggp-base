@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+  <entry key="num_roles">1</entry>
+  <entry key="simultaneous">false</entry>
+  <entry key="pseudo_simultaneous">false</entry>
+  <entry key="iterated">false</entry>
+  <entry key="max_factor_failure_time">0</entry>
+  <entry key="num_factors">1</entry>
+  <entry key="moves_in_multiple_factors">false</entry>
+  <entry key="max_branching_factor">6</entry>
+  <entry key="fixed_length">true</entry>
+  <entry key="plan">flip p4,flip p2,flip p6,flip p4,flip p3,flip p2,flip p5</entry>
+  <entry key="control_mask">( ( true ( flipcount s17 ) ), ( true ( flipcount s32 ) ), ( true ( flipcount s2 ) ), ( true ( flipcount s15 ) ), ( true ( flipcount s34 ) ), ( true ( flipcount s13 ) ), ( true ( flipcount s10 ) ), ( true ( flipcount s36 ) ), ( true ( flipcount s5 ) ), ( true ( flipcount s21 ) ), ( true ( flipcount s30 ) ), ( true ( flipcount s24 ) ), ( true ( flipcount s12 ) ), ( true ( flipcount s22 ) ), ( true ( flipcount s25 ) ), ( true ( flipcount s1 ) ), ( true ( flipcount s26 ) ), ( true ( flipcount s19 ) ), ( true ( flipcount s0 ) ), ( true ( flipcount s4 ) ), ( true ( flipcount s9 ) ), ( true ( flipcount s35 ) ), ( true ( flipcount s8 ) ), ( true ( flipcount s38 ) ), ( true ( flipcount s40 ) ), ( true ( flipcount s27 ) ), ( true ( flipcount s14 ) ), ( true ( flipcount s16 ) ), ( true ( flipcount s28 ) ), ( true ( flipcount s37 ) ), ( true ( flipcount s23 ) ), ( true ( flipcount s18 ) ), ( true ( flipcount s20 ) ), ( true ( flipcount s31 ) ), ( true ( flipcount s39 ) ), ( true ( flipcount s6 ) ), ( true ( flipcount s29 ) ), ( true ( flipcount s3 ) ), ( true ( flipcount s7 ) ), ( true ( flipcount s11 ) ), ( true ( flipcount s33 ) ) )</entry>
+  <entry key="factors"></entry>
+</properties>

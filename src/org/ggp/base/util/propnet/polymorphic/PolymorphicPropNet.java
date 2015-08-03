@@ -1,9 +1,12 @@
 
 package org.ggp.base.util.propnet.polymorphic;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -42,6 +45,8 @@ import org.ggp.base.util.statemachine.Role;
 
 public class PolymorphicPropNet
 {
+  private static final String TEMP_DIR = System.getProperty("java.io.tmpdir");
+
   /** References to every component in the PropNet. */
   private final Set<PolymorphicComponent>                           components;
 
@@ -215,7 +220,6 @@ public class PolymorphicPropNet
       }
     }
 
-    assert(false) : "No INIT proposition";
     return null;
   }
 
@@ -619,7 +623,8 @@ public class PolymorphicPropNet
 
   /**
    * Get the list of roles involved in the game for which this propnet implements the statemachine.
-   * @return list of roles
+   *
+   * @return list of roles, in the order that they appear in the GDL.
    */
   public Role[] getRoles()
   {
@@ -735,12 +740,21 @@ public class PolymorphicPropNet
   }
 
   /**
-   * Cut the network down to the minimum needed to JUST calculate goals
+   * Remove things we do not need to support goal determination
    */
   public void RemoveAllButGoals()
   {
     RemoveInits();
     OptimizingPolymorphicPropNetFactory.removeAllButGoalPropositions(this);
+  }
+
+  /**
+   * Remove things we do not need to support terminality determination
+   */
+  public void RemoveAllButTerminal()
+  {
+    RemoveInits();
+    OptimizingPolymorphicPropNetFactory.removeAllButTerminalProposition(this);
   }
 
   /**
@@ -803,26 +817,6 @@ public class PolymorphicPropNet
   }
 
   /**
-   * Returns a representation of the PropNet in .dot format.
-   *
-   * @see java.lang.Object#toString()
-   */
-  @Override
-  public String toString()
-  {
-    StringBuilder sb = new StringBuilder();
-
-    sb.append("digraph propNet\n{\n");
-    for (PolymorphicComponent component : components)
-    {
-      sb.append("\t" + component.toString() + "\n");
-    }
-    sb.append("}");
-
-    return sb.toString();
-  }
-
-  /**
    * Outputs the propnet in .dot format to a particular file. This can be
    * viewed with tools like Graphviz and ZGRViewer.
    *
@@ -833,12 +827,12 @@ public class PolymorphicPropNet
   {
     try
     {
-      File f = new File(filename);
+      File f = new File(TEMP_DIR, filename);
       try(FileOutputStream fos = new FileOutputStream(f))
       {
-        try(OutputStreamWriter fout = new OutputStreamWriter(fos, "UTF-8"))
+        try(BufferedWriter fout = new BufferedWriter(new OutputStreamWriter(fos, "UTF-8")))
         {
-          fout.write(toString());
+          renderAsDot(fout);
         }
       }
     }
@@ -846,6 +840,18 @@ public class PolymorphicPropNet
     {
       GamerLogger.logStackTrace("StateMachine", e);
     }
+  }
+
+  private void renderAsDot(Writer xiOutput) throws IOException
+  {
+    xiOutput.write("digraph propNet\n{\n");
+    for (PolymorphicComponent component : components)
+    {
+      xiOutput.write('\t');
+      component.renderAsDot(xiOutput);
+      xiOutput.write('\n');
+    }
+    xiOutput.write('}');
   }
 
   /**
@@ -879,7 +885,7 @@ public class PolymorphicPropNet
           legalInputMap.remove(p);
         }
       }
-      else if (name == GdlPool.getProposition(GdlPool.getConstant("terminal")))
+      else if (name == GdlPool.getProposition(GdlPool.TERMINAL))
       {
         throw new RuntimeException("The terminal component cannot be removed.");
       }

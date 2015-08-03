@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.symbol.grammar.Symbol;
@@ -27,8 +28,8 @@ public class GDLTranslator
 
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private static final String LEARNING_DIR = "data\\games";
-  private static final String GDL_FILE = "gdl.txt";
+  private static final File LEARNING_DIR   = new File("data", "games");
+  private static final String GDL_FILENAME = "gdl.txt";
 
   private final Map<SymbolAtom, SymbolAtom> mInternalToNetwork;
   private final Map<SymbolAtom, SymbolAtom> mNetworkToInternal;
@@ -42,8 +43,7 @@ public class GDLTranslator
    */
   public GDLTranslator(SymbolList xiRulesheet)
   {
-    // Produce a rule mapping from the internal (saved) form to the network
-    //(current) form.
+    // Produce a rule mapping from the internal (saved) form to the network(current) form.
     mInternalToNetwork = findMapping(xiRulesheet);
 
     // Produce the reverse mapping.
@@ -144,10 +144,8 @@ public class GDLTranslator
 
     try
     {
-      // Iterate over all the games that we've previously played, checking
-      // if any of them are equivalent to the current game.
-      final File lLearningDir = new File(LEARNING_DIR);
-      final File lGameDirs[] = lLearningDir.listFiles();
+      // Iterate over all the games we know, checking if any of them are equivalent to the current game.
+      final File lGameDirs[] = LEARNING_DIR.listFiles();
 
       for (final File lGameDir : lGameDirs)
       {
@@ -177,8 +175,7 @@ public class GDLTranslator
       lEx.printStackTrace();
     }
 
-    // If we didn't get a mapping, save the GDL so we'll be able to find one
-    // next time.
+    // If we didn't get a mapping, save the GDL so we'll be able to find one next time.
     if (lMapping == null)
     {
       saveGDL(lFlatGDL);
@@ -236,7 +233,7 @@ public class GDLTranslator
     final String lGameName = xiGameDir.getName();
 
     // Load the GDL from disk.
-    final String lGDL = readStringFromFile(new File(xiGameDir, GDL_FILE));
+    final String lGDL = readStringFromFile(new File(xiGameDir, GDL_FILENAME));
     if (lGDL == null)
     {
       return null;
@@ -248,7 +245,7 @@ public class GDLTranslator
 
     if (xiFlatGDL.size() != lStoredAtoms.length)
     {
-      LOGGER.debug("Not " + lGameName + ": GDL has wrong number of terms");
+      LOGGER.trace("Not " + lGameName + ": GDL has wrong number of terms");
       return null;
     }
 
@@ -262,11 +259,18 @@ public class GDLTranslator
     {
       final SymbolAtom lGDLAtom = xiFlatGDL.get(lii);
       final SymbolAtom lStoredAtom = SymbolPool.getAtom(lStoredAtoms[lii]);
+
+      // Don't map numerics - this is what caused us to recognize Amazons as being the same as Amazons Suicide!
+      if (StringUtils.isNumeric(lGDLAtom.toString()) && !lGDLAtom.equals(lStoredAtom))
+      {
+        LOGGER.trace("Not " + lGameName + ":  Numeric constants differ");
+        return null;
+      }
       if (lMapping.containsKey(lStoredAtom))
       {
         if (!lMapping.get(lStoredAtom).equals(lGDLAtom))
         {
-          LOGGER.debug("Not " + lGameName + ":  Already had " + lStoredAtom + " -> " + lMapping.get(lStoredAtom) + " but now have " + lStoredAtom + " -> " + lGDLAtom);
+          LOGGER.trace("Not " + lGameName + ":  Already had " + lStoredAtom + " -> " + lMapping.get(lStoredAtom) + " but now have " + lStoredAtom + " -> " + lGDLAtom);
           return null;
         }
       }
@@ -289,15 +293,14 @@ public class GDLTranslator
   private void saveGDL(List<SymbolAtom> xiFlatGDL)
   {
     // Create a directory for this game.
-    final String lDirName = LEARNING_DIR + "\\" + System.currentTimeMillis();
-    final File lDir = new File(lDirName);
+    final File lDir = new File(LEARNING_DIR, "" + System.currentTimeMillis());
     lDir.mkdirs();
 
-    LOGGER.warn("Unrecognised game.  Created new game directory: " + lDirName);
+    LOGGER.warn("Unrecognised game.  Created new game directory: " + lDir.getAbsolutePath());
 
     if (xiFlatGDL.size() > MAX_GDL_SIZE)
     {
-      LOGGER.warn("Not saving GDL because it's too big");
+      LOGGER.warn("Not saving GDL because it's too big (" + xiFlatGDL.size() + " atoms)");
     }
 
     // Convert the GDL to a string.
@@ -309,7 +312,7 @@ public class GDLTranslator
     }
 
     // Save the GDL to disk.
-    writeStringToFile(lGDLBuffer.toString(), new File(lDir, GDL_FILE));
+    writeStringToFile(lGDLBuffer.toString(), new File(lDir, GDL_FILENAME));
 
     mGameDir = lDir;
   }
@@ -341,8 +344,7 @@ public class GDLTranslator
   private static String readStringFromFile(File xiFile)
   {
     String lResult = null;
-    try (final BufferedReader lReader =
-                                    new BufferedReader(new FileReader(xiFile)))
+    try (final BufferedReader lReader = new BufferedReader(new FileReader(xiFile)))
     {
       lResult = lReader.readLine();
     }

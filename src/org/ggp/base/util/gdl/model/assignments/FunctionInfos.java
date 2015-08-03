@@ -24,11 +24,11 @@ public class FunctionInfos
     List<GdlTerm> tuple = GdlUtils.getTupleFromSentence(sentence);
     List<Boolean> dependentSlots = functionInfo.getDependentSlots();
 
-    Set<GdlVariable> candidateVars = new HashSet<GdlVariable>();
+    Set<GdlVariable> candidateVars = new HashSet<>();
     //Variables that appear multiple times go into multipleVars
-    Set<GdlVariable> multipleVars = new HashSet<GdlVariable>();
+    Set<GdlVariable> multipleVars = new HashSet<>();
     //...which, of course, means we have to spot non-candidate vars
-    Set<GdlVariable> nonCandidateVars = new HashSet<GdlVariable>();
+    Set<GdlVariable> nonCandidateVars = new HashSet<>();
 
     for (int i = 0; i < tuple.size(); i++)
     {

@@ -66,7 +66,7 @@ public final class Substituter
     }
     GdlConstant name = substituteConstant(function.getName(), theta);
 
-    List<GdlTerm> body = new ArrayList<GdlTerm>();
+    List<GdlTerm> body = new ArrayList<>();
     for (int i = 0; i < function.arity(); i++)
     {
       body.add(substituteTerm(function.get(i), theta));
@@ -112,7 +112,7 @@ public final class Substituter
     {
       return or;
     }
-    List<GdlLiteral> disjuncts = new ArrayList<GdlLiteral>();
+    List<GdlLiteral> disjuncts = new ArrayList<>();
     for (int i = 0; i < or.arity(); i++)
     {
       disjuncts.add(substituteLiteral(or.get(i), theta));
@@ -136,7 +136,7 @@ public final class Substituter
     }
     GdlConstant name = substituteConstant(relation.getName(), theta);
 
-    List<GdlTerm> body = new ArrayList<GdlTerm>();
+    List<GdlTerm> body = new ArrayList<>();
     for (int i = 0; i < relation.arity(); i++)
     {
       body.add(substituteTerm(relation.get(i), theta));
@@ -194,7 +194,7 @@ public final class Substituter
   {
     GdlSentence head = substitute(rule.getHead(), theta);
 
-    List<GdlLiteral> body = new ArrayList<GdlLiteral>();
+    List<GdlLiteral> body = new ArrayList<>();
     for (GdlLiteral literal : rule.getBody())
     {
       body.add(substituteLiteral(literal, theta));

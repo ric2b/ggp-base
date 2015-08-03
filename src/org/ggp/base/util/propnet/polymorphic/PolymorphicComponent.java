@@ -1,10 +1,11 @@
 
 package org.ggp.base.util.propnet.polymorphic;
 
+import java.io.IOException;
+import java.io.Writer;
 import java.util.Collection;
 
 /**
- * @author steve
  * The root class of the PolymorphicComponent hierarchy, which is designed to
  * represent nodes in a PropNet. The general contract of derived classes is to
  * override all methods. This mirrors the class Component in the basic propnet
@@ -68,12 +69,13 @@ public interface PolymorphicComponent
   public abstract boolean getValue();
 
   /**
-   * Returns a representation of the Component in .dot format.
+   * Write a string representation of the Component in .dot format.
    *
-   * @see java.lang.Object#toString()
+   * @param xiOutput - the output stream to write to.
+   *
+   * @throws IOException if there was a problem writing the component.
    */
-  @Override
-  public abstract String toString();
+  public abstract void renderAsDot(Writer xiOutput) throws IOException;
 
   /**
    * Remove a specified input.  Valid only before crystalize() is called
@@ -117,5 +119,4 @@ public abstract void removeAllOutputs();
    * @return component's signature value
    */
   public abstract long getSignature();
-
 }

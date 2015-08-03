@@ -22,7 +22,7 @@ public final class ProverResultParser
 
   public List<Move> toMoves(Set<GdlSentence> results)
   {
-    List<Move> moves = new ArrayList<Move>();
+    List<Move> moves = new ArrayList<>();
     for (GdlSentence result : results)
     {
       moves.add(new Move(result.get(1)));
@@ -33,7 +33,7 @@ public final class ProverResultParser
 
   public List<Role> toRoles(List<GdlSentence> results)
   {
-    List<Role> roles = new ArrayList<Role>();
+    List<Role> roles = new ArrayList<>();
     for (GdlSentence result : results)
     {
       GdlConstant name = (GdlConstant)result.get(0);
@@ -45,7 +45,7 @@ public final class ProverResultParser
 
   public MachineState toState(Set<GdlSentence> results)
   {
-    Set<GdlSentence> trues = new HashSet<GdlSentence>();
+    Set<GdlSentence> trues = new HashSet<>();
     for (GdlSentence result : results)
     {
       trues.add(GdlPool.getRelation(TRUE, new GdlTerm[] {result.get(0)}));

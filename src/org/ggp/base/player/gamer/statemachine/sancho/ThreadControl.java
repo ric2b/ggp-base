@@ -37,43 +37,57 @@ public class ThreadControl
   public static final boolean RUN_SYNCHRONOUSLY = false;
 
   /**
-   * System-specific parameter to reduce the system load.
-   */
-  public static final boolean HALF_STRENGTH = false;
-
-  /**
    * The number of CPU-intensive threads.
    *
    * Unless configured otherwise, use half the available vCPUs.
    */
-  public static final int CPU_INTENSIVE_THREADS = RUN_SYNCHRONOUSLY ?
-               1 :
-               MachineSpecificConfiguration.getCfgVal(CfgItem.CPU_INTENSIVE_THREADS,
-                                                      HALF_STRENGTH ? ((((NUM_CPUS + 1) / 2) + 1) / 2) : ((NUM_CPUS + 1) / 2));
+  public static final int CPU_INTENSIVE_THREADS;
+  static
+  {
+    if (RUN_SYNCHRONOUSLY)
+    {
+      // When running synchronously, there's just the 1 CPU-intensive thread.
+      CPU_INTENSIVE_THREADS = 1;
+    }
+    else
+    {
+      // Get the configured value.
+      int lConfiguredValue = MachineSpecificConfiguration.getCfgInt(CfgItem.CPU_INTENSIVE_THREADS);
+      if (lConfiguredValue == -1)
+      {
+        // No configured value - calculate a default.  Use the half the available vCPUs.
+        CPU_INTENSIVE_THREADS = (NUM_CPUS + 1) / 2;
+      }
+      else
+      {
+        // Use the configured value.
+        CPU_INTENSIVE_THREADS = lConfiguredValue;
+      }
+    }
+  }
 
   /**
-   * Whether to pin the CPU intensive threads to fixed cores to prevent core thrashing
-   */
-  private static final boolean USE_AFFINITY_MAPPING =
-                                                     MachineSpecificConfiguration.getCfgVal(CfgItem.USE_AFFINITY, true);
-
-  /**
-   * On hyper-threaded CPUs we get far better performance allocating every other logical core
-   * and so placing our threads on separate physical cores - always do this if we're only using half the
-   * logical cores anyway
-   */
-  private static final int CPU_STRIPE_STRIDE = ((NUM_CPUS + 1) / 2 >= CPU_INTENSIVE_THREADS) ? 2 : 1;
-
-  /**
-   * The number of rollout threads.
+   * The number of rollout threads.  There's 1 for the GameSearcher thread and the rest are for rollouts.
    */
   public static final int ROLLOUT_THREADS = CPU_INTENSIVE_THREADS - 1;
 
   /**
-   * A parity which influences whether logical CPU striping is done on odd or even
-   * parity CPU ids
+   * Whether to pin the CPU intensive threads to fixed cores to prevent core thrashing.
    */
-  public static boolean CPUIdParity = false;
+  private static final boolean USE_AFFINITY_MAPPING = MachineSpecificConfiguration.getCfgBool(CfgItem.USE_AFFINITY);
+
+  /**
+   * On hyper-threaded CPUs we get far better performance allocating every other logical core
+   * and so placing our threads on separate physical cores - always do this if we're only using half the
+   * logical cores anyway.
+   */
+  private static final int CPU_STRIPE_STRIDE = ((NUM_CPUS + 1) / 2 >= CPU_INTENSIVE_THREADS) ? 2 : 1;
+
+  /**
+   * A parity which influences whether logical CPU striping is done on odd or even parity CPU IDs.  Particularly useful
+   * when running more than 1 instance for test purposes.  Based on the port number of the player instance.
+   */
+  public static boolean sCPUIdParity = false;
 
   /**
    * vCPU index of the last registered search thread.  (Wraps at NUM_CPUS.)
@@ -85,6 +99,8 @@ public class ThreadControl
    */
   private static int sNextRolloutThreadCPUIndex = CPU_STRIPE_STRIDE;
 
+  private static volatile Thread sTreeOwner;
+
   private ThreadControl()
   {
     // Private default constructor.
@@ -92,12 +108,20 @@ public class ThreadControl
 
   /**
    * Reset the allocation cursors for CPU id to original values - should be used
-   * when destroying the current consuming threads
+   * when destroying the current consuming threads.
    */
   public static void reset()
   {
-    sNextSearchThreadCPUIndex = (CPUIdParity ? 1 : 0);
-    sNextRolloutThreadCPUIndex = (CPU_STRIPE_STRIDE + (CPUIdParity ? 1 : 0)) % NUM_CPUS;
+    sNextSearchThreadCPUIndex = (sCPUIdParity ? 1 : 0);
+    sNextRolloutThreadCPUIndex = (CPU_STRIPE_STRIDE + (sCPUIdParity ? 1 : 0)) % NUM_CPUS;
+  }
+
+  /**
+   * Free resources at the end of a game to make them eligible for GC.
+   */
+  public static void tidyUp()
+  {
+    sTreeOwner = null;
   }
 
   /**
@@ -117,9 +141,9 @@ public class ThreadControl
         // If we're striping rollout threads with a stride greater than 1 then
         // then we can interleave the searchers.  If the rollout stride is 1 anyway
         // anything will clash so this is still as good a policy as any
-        if (sNextSearchThreadCPUIndex == (CPUIdParity ? 1 : 0))
+        if (sNextSearchThreadCPUIndex == (sCPUIdParity ? 1 : 0))
         {
-          sNextSearchThreadCPUIndex = CPU_STRIPE_STRIDE + 1 + (CPUIdParity ? 1 : 0);
+          sNextSearchThreadCPUIndex = CPU_STRIPE_STRIDE + 1 + (sCPUIdParity ? 1 : 0);
         }
         else
         {
@@ -128,6 +152,59 @@ public class ThreadControl
         sNextSearchThreadCPUIndex = sNextSearchThreadCPUIndex % NUM_CPUS;
       }
     }
+  }
+
+  /**
+   * Take ownership of the tree.  Only permitted when no other thread owns the tree.
+   *
+   * @return true, always.
+   */
+  public static boolean takeTreeOwnership()
+  {
+    assert(sTreeOwner == null) :
+          Thread.currentThread().getName() + " can't take tree ownership because it's owned by " + sTreeOwner.getName();
+    sTreeOwner = Thread.currentThread();
+    return true;
+  }
+
+  /**
+   * Release tree ownership.  Can only be called by the current tree owner.
+   *
+   * @return true, always.
+   */
+  public static boolean releaseTreeOwnership()
+  {
+    assert(sTreeOwner == Thread.currentThread()) :
+       Thread.currentThread().getName() + " can't release tree ownership because it's owned by " + sTreeOwner.getName();
+    sTreeOwner = null;
+    return true;
+  }
+
+  /**
+   * Check that the calling thread is the tree owner.
+   *
+   * @return true, always.
+   */
+  public static boolean checkTreeOwnership()
+  {
+    assert(sTreeOwner == Thread.currentThread()) :
+                  Thread.currentThread().getName() + " can't modify tree because it's owned by " + sTreeOwner.getName();
+    return true;
+  }
+
+  /**
+   * Release tree ownership.  Must only be called when there's a problem (e.g. when ownership state is unknown
+   * following an exception).
+   *
+   * @return true, always.
+   */
+  public static boolean abortTreeOwnership()
+  {
+    if (sTreeOwner == Thread.currentThread())
+    {
+      sTreeOwner = null;
+    }
+    return true;
   }
 
   /**
@@ -145,9 +222,9 @@ public class ThreadControl
 
         // Calculate the next available virtual CPU for rollout threads, wrapping as required and leaving a gap for the
         // search thread if required.
-        if (sNextRolloutThreadCPUIndex == (CPUIdParity ? 1 : 0))
+        if (sNextRolloutThreadCPUIndex == (sCPUIdParity ? 1 : 0))
         {
-          sNextRolloutThreadCPUIndex = CPU_STRIPE_STRIDE + (CPUIdParity ? 1 : 0);
+          sNextRolloutThreadCPUIndex = CPU_STRIPE_STRIDE + (sCPUIdParity ? 1 : 0);
         }
         else
         {
@@ -180,9 +257,10 @@ public class ThreadControl
     {
       Kernel32Library.INSTANCE.SetThreadAffinityMask(Kernel32Library.INSTANCE.GetCurrentThread(), lAffinityMask);
     }
-    catch (LastErrorException lEx)
+    catch (Throwable lEx)
     {
-      throw new IllegalStateException("Failed to set thread affinity: err=" + lEx.getErrorCode(), lEx);
+      // On non-Windows platforms, we'll never manage to load the library.  For now, just log an error.
+      LOGGER.error("Failed to set thread affinity: err=", lEx);
     }
   }
 }

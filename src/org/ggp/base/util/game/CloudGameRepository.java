@@ -34,7 +34,7 @@ import external.JSON.JSONObject;
  * stored locally, in a directory managed by this class. These files are
  * compressed, to decrease their footprint on the local disk. GGP Base has its
  * SVN rules set up so that these caches are ignored by SVN.
- * 
+ *
  * @author Sam
  */
 public final class CloudGameRepository extends GameRepository
@@ -93,10 +93,7 @@ public final class CloudGameRepository extends GameRepository
         {
           refreshThread.join();
         }
-        catch (InterruptedException e)
-        {
-          ;
-        }
+        catch (InterruptedException e) { /* Do nothing */ }
       }
       theCacheDirectory.setLastModified(System.currentTimeMillis());
       needsRefresh = false;
@@ -106,7 +103,7 @@ public final class CloudGameRepository extends GameRepository
   @Override
   protected Set<String> getUncachedGameKeys()
   {
-    Set<String> theKeys = new HashSet<String>();
+    Set<String> theKeys = new HashSet<>();
     for (File game : theCacheDirectory.listFiles())
     {
       theKeys.add(game.getName().replace(".zip", ""));
@@ -122,7 +119,12 @@ public final class CloudGameRepository extends GameRepository
     {
       return cachedGame;
     }
+
     // Request the game directly on a cache miss.
+    if (theRepoURL.contains("gamemaster"))
+    {
+      return new GamemasterGameRepository(theRepoURL).getGame(theKey);
+    }
     return new RemoteGameRepository(theRepoURL).getGame(theKey);
   }
 
@@ -146,12 +148,10 @@ public final class CloudGameRepository extends GameRepository
       try
       {
         String theGameURL = theRepository.getGameURL(theKey);
-        JSONObject theMetadata = RemoteGameRepository
-            .getGameMetadataFromRepository(theGameURL);
+        JSONObject theMetadata = theRepository.getGameMetadataFromRepository(theGameURL);
 
         int repoVersion = theMetadata.getInt("version");
-        String versionedRepoURL = RemoteGameRepository
-            .addVersionToGameURL(theGameURL, repoVersion);
+        String versionedRepoURL = theRepository.addVersionToGameURL(theGameURL, repoVersion);
 
         Game myGameVersion = loadGameFromCache(theKey);
         String myVersionedRepoURL = "";
@@ -162,8 +162,7 @@ public final class CloudGameRepository extends GameRepository
         {
           // Cache miss: we don't have the current version for
           // this game, and so we need to load it from the web.
-          Game theGame = RemoteGameRepository
-              .loadSingleGameFromMetadata(theKey, theGameURL, theMetadata);
+          Game theGame = theRepository.loadSingleGameFromMetadata(theKey, theGameURL, theMetadata);
           saveGameToCache(theKey, theGame);
         }
       }
@@ -174,7 +173,7 @@ public final class CloudGameRepository extends GameRepository
     }
   }
 
-  class RefreshCacheThread extends Thread
+  private class RefreshCacheThread extends Thread
   {
     String theRepoURL;
 
@@ -198,7 +197,15 @@ public final class CloudGameRepository extends GameRepository
         return;
       }
 
-      RemoteGameRepository remoteRepository = new RemoteGameRepository(theRepoURL);
+      RemoteGameRepository remoteRepository;
+      if (theRepoURL.contains("gamemaster"))
+      {
+        remoteRepository = new GamemasterGameRepository(theRepoURL);
+      }
+      else
+      {
+        remoteRepository = new RemoteGameRepository(theRepoURL);
+      }
 
       System.out.println("Updating the game cache...");
       long beginTime = System.currentTimeMillis();
@@ -215,7 +222,7 @@ public final class CloudGameRepository extends GameRepository
       JSONObject bundledMetadata = remoteRepository.getBundledMetadata();
       if (bundledMetadata != null)
       {
-        Set<String> unchangedKeys = new HashSet<String>();
+        Set<String> unchangedKeys = new HashSet<>();
         for (String theKey : theGameKeys)
         {
           try
@@ -227,13 +234,11 @@ public final class CloudGameRepository extends GameRepository
             String remoteGameURL = remoteRepository.getGameURL(theKey);
             int remoteVersion = bundledMetadata.getJSONObject(theKey)
                 .getInt("version");
-            String remoteVersionedGameURL = RemoteGameRepository
-                .addVersionToGameURL(remoteGameURL, remoteVersion);
+            String remoteVersionedGameURL = remoteRepository.addVersionToGameURL(remoteGameURL, remoteVersion);
 
             // Skip updating the game cache entry if the version is the same
             // and the cache entry was written less than a week ago.
-            if (myGameVersion.getRepositoryURL()
-                .equals(remoteVersionedGameURL) &&
+            if (myGameVersion.getRepositoryURL().equals(remoteVersionedGameURL) &&
                 getCacheEntryAge(theKey) < 604800000)
             {
               unchangedKeys.add(theKey);
@@ -249,7 +254,7 @@ public final class CloudGameRepository extends GameRepository
 
       // Start threads to update every entry in the cache (or at least verify
       // that the entry doesn't need to be updated).
-      Set<Thread> theThreads = new HashSet<Thread>();
+      Set<Thread> theThreads = new HashSet<>();
       for (String gameKey : theGameKeys)
       {
         Thread t = new RefreshCacheForGameThread(remoteRepository, gameKey);
@@ -264,10 +269,7 @@ public final class CloudGameRepository extends GameRepository
         {
           t.join();
         }
-        catch (InterruptedException e)
-        {
-          ;
-        }
+        catch (InterruptedException e) { /* Do nothing */ }
       }
 
       long endTime = System.currentTimeMillis();
@@ -276,7 +278,7 @@ public final class CloudGameRepository extends GameRepository
     }
   }
 
-  // ================================================================    
+  // ================================================================
 
   private synchronized void saveGameToCache(String theKey, Game theGame)
   {
@@ -318,10 +320,7 @@ public final class CloudGameRepository extends GameRepository
       gIn.close();
       fIn.close();
     }
-    catch (Exception e)
-    {
-      ;
-    }
+    catch (Exception e) { /* Do nothing */ }
 
     if (theLine == null)
       return null;
@@ -346,7 +345,7 @@ public final class CloudGameRepository extends GameRepository
 
     long beginTime = System.currentTimeMillis();
 
-    Map<String, Game> theGames = new HashMap<String, Game>();
+    Map<String, Game> theGames = new HashMap<>();
     for (String gameKey : theRepository.getGameKeys())
     {
       theGames.put(gameKey, theRepository.getGame(gameKey));

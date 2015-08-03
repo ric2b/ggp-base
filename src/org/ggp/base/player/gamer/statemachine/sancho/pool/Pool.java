@@ -53,16 +53,10 @@ public interface Pool<ItemType>
    *
    * The pool promises to call resetObject() for any freed items before re-use.
    *
-   * @param xiItem - the item.
+   * @param xiItem  - the item.
+   * @param xiIndex - index of the item being freed.
    */
-  public void free(ItemType xiItem);
-
-  /**
-   * @return whether the pool is (nearly) full.
-   *
-   * When full, the caller needs to free() some items to ensure that subsequently allocations will continue to succeed.
-   */
-  public boolean isFull();
+  public void free(ItemType xiItem, int xiIndex);
 
  /**
    * Clear the pool - resetting all items that are still allocated.
@@ -73,7 +67,43 @@ public interface Pool<ItemType>
   public void clear(ObjectAllocator<ItemType> xiAllocator, boolean xiFilter);
 
   /**
+   * Optional method to get the pool capacity.
+   *
+   * @return the capacity of the pool.
+   */
+  public int getCapacity();
+
+  /**
+   * @return whether the pool is (nearly) full.
+   *
+   * When full, the caller needs to free() some items to ensure that subsequently allocations will continue to succeed.
+   */
+  public boolean isFull();
+
+  /**
+   * Set a minimum free node requirement to report non-full.
+   *
+   * @param xiThreshold - the threshold.
+   */
+  public void setNonFreeThreshold(int xiThreshold);
+
+  /**
+   * @return the number of items currently in use.
+   */
+  public int getNumItemsInUse();
+
+  /**
    * @return the percentage of this pool that is in use.
    */
   public int getPoolUsage();
+
+  /**
+   * Optional method to retrieve by index an item that has already been allocated.
+   *
+   * @param xiIndex - the index
+   *
+   * @return the item.
+   *
+   */
+  public ItemType get(int xiNodeRef);
 }

@@ -3,7 +3,6 @@ package org.ggp.base.util.match;
 
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -11,9 +10,6 @@ import java.util.Set;
 import org.ggp.base.util.crypto.BaseCryptography.EncodedKeyPair;
 import org.ggp.base.util.crypto.SignableJSON;
 import org.ggp.base.util.game.Game;
-import org.ggp.base.util.game.RemoteGameRepository;
-import org.ggp.base.util.gdl.factory.GdlFactory;
-import org.ggp.base.util.gdl.factory.exceptions.GdlFormatException;
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlFunction;
@@ -25,9 +21,6 @@ import org.ggp.base.util.gdl.scrambler.MappingGdlScrambler;
 import org.ggp.base.util.gdl.scrambler.NoOpGdlScrambler;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
-import org.ggp.base.util.symbol.factory.SymbolFactory;
-import org.ggp.base.util.symbol.factory.exceptions.SymbolFormatException;
-import org.ggp.base.util.symbol.grammar.SymbolList;
 
 import external.JSON.JSONArray;
 import external.JSON.JSONException;
@@ -97,148 +90,12 @@ public final class Match
 
     this.numRoles = Role.computeRoles(theGame.getRules()).length;
 
-    this.moveHistory = new ArrayList<List<GdlTerm>>();
-    this.stateHistory = new ArrayList<Set<GdlSentence>>();
-    this.stateTimeHistory = new ArrayList<Date>();
-    this.errorHistory = new ArrayList<List<String>>();
+    this.moveHistory = new ArrayList<>();
+    this.stateHistory = new ArrayList<>();
+    this.stateTimeHistory = new ArrayList<>();
+    this.errorHistory = new ArrayList<>();
 
-    this.goalValues = new ArrayList<Integer>();
-  }
-
-  public Match(String theJSON, Game theGame, String authToken)
-      throws JSONException, SymbolFormatException, GdlFormatException
-  {
-    JSONObject theMatchObject = new JSONObject(theJSON);
-
-    this.matchId = theMatchObject.getString("matchId");
-    this.startClock = theMatchObject.getInt("startClock");
-    this.playClock = theMatchObject.getInt("playClock");
-    this.moveLimit = 0;
-    if (theGame == null)
-    {
-      this.theGame = RemoteGameRepository.loadSingleGame(theMatchObject
-          .getString("gameMetaURL"));
-      if (this.theGame == null)
-      {
-        throw new RuntimeException("Could not find metadata for game referenced in Match object: " +
-                                   theMatchObject.getString("gameMetaURL"));
-      }
-    }
-    else
-    {
-      this.theGame = theGame;
-    }
-
-    if (theMatchObject.has("previewClock"))
-    {
-      this.previewClock = theMatchObject.getInt("previewClock");
-    }
-    else
-    {
-      this.previewClock = -1;
-    }
-
-    this.startTime = new Date(theMatchObject.getLong("startTime"));
-    this.randomToken = theMatchObject.getString("randomToken");
-    this.spectatorAuthToken = authToken;
-    this.isCompleted = theMatchObject.getBoolean("isCompleted");
-    if (theMatchObject.has("isAborted"))
-    {
-      this.isAborted = theMatchObject.getBoolean("isAborted");
-    }
-    else
-    {
-      this.isAborted = false;
-    }
-
-    this.numRoles = Role.computeRoles(this.theGame.getRules()).length;
-
-    this.moveHistory = new ArrayList<List<GdlTerm>>();
-    this.stateHistory = new ArrayList<Set<GdlSentence>>();
-    this.stateTimeHistory = new ArrayList<Date>();
-    this.errorHistory = new ArrayList<List<String>>();
-
-    JSONArray theMoves = theMatchObject.getJSONArray("moves");
-    for (int i = 0; i < theMoves.length(); i++)
-    {
-      List<GdlTerm> theMove = new ArrayList<GdlTerm>();
-      JSONArray moveElements = theMoves.getJSONArray(i);
-      for (int j = 0; j < moveElements.length(); j++)
-      {
-        theMove.add(GdlFactory.createTerm(moveElements.getString(j)));
-      }
-      moveHistory.add(theMove);
-    }
-    JSONArray theStates = theMatchObject.getJSONArray("states");
-    for (int i = 0; i < theStates.length(); i++)
-    {
-      Set<GdlSentence> theState = new HashSet<GdlSentence>();
-      SymbolList stateElements = (SymbolList)SymbolFactory.create(theStates
-          .getString(i));
-      for (int j = 0; j < stateElements.size(); j++)
-      {
-        theState.add((GdlSentence)GdlFactory.create("( true " +
-                                                    stateElements.get(j)
-                                                        .toString() + " )"));
-      }
-      stateHistory.add(theState);
-    }
-    JSONArray theStateTimes = theMatchObject.getJSONArray("stateTimes");
-    for (int i = 0; i < theStateTimes.length(); i++)
-    {
-      this.stateTimeHistory.add(new Date(theStateTimes.getLong(i)));
-    }
-    if (theMatchObject.has("errors"))
-    {
-      JSONArray theErrors = theMatchObject.getJSONArray("errors");
-      for (int i = 0; i < theErrors.length(); i++)
-      {
-        List<String> theMoveErrors = new ArrayList<String>();
-        JSONArray errorElements = theErrors.getJSONArray(i);
-        for (int j = 0; j < errorElements.length(); j++)
-        {
-          theMoveErrors.add(errorElements.getString(j));
-        }
-        errorHistory.add(theMoveErrors);
-      }
-    }
-
-    this.goalValues = new ArrayList<Integer>();
-    try
-    {
-      JSONArray theGoalValues = theMatchObject.getJSONArray("goalValues");
-      for (int i = 0; i < theGoalValues.length(); i++)
-      {
-        this.goalValues.add(theGoalValues.getInt(i));
-      }
-    }
-    catch (JSONException e)
-    {
-    }
-
-    // TODO: Add a way to recover cryptographic public keys and signatures.
-    // Or, perhaps loading a match into memory for editing should strip those?
-
-    if (theMatchObject.has("playerNamesFromHost"))
-    {
-      thePlayerNamesFromHost = new ArrayList<String>();
-      JSONArray thePlayerNames = theMatchObject
-          .getJSONArray("playerNamesFromHost");
-      for (int i = 0; i < thePlayerNames.length(); i++)
-      {
-        thePlayerNamesFromHost.add(thePlayerNames.getString(i));
-      }
-    }
-    if (theMatchObject.has("isPlayerHuman"))
-    {
-      isPlayerHuman = new ArrayList<Boolean>();
-      JSONArray isPlayerHumanArray = theMatchObject
-          .getJSONArray("isPlayerHuman");
-      for (int i = 0; i < isPlayerHumanArray.length(); i++)
-      {
-        isPlayerHuman.add(isPlayerHumanArray.getBoolean(i));
-      }
-    }
+    this.goalValues = new ArrayList<>();
   }
 
   /* Mutators */
@@ -282,7 +139,7 @@ public final class Match
     // NOTE: This is appendMoves2 because it Java can't handle two
     // appendMove methods that both take List objects with different
     // templatized parameters.
-    List<GdlTerm> theMoves = new ArrayList<GdlTerm>();
+    List<GdlTerm> theMoves = new ArrayList<>();
     for (Move m : moves)
     {
       theMoves.add(m.getContents());
@@ -303,7 +160,7 @@ public final class Match
 
   public void appendNoErrors()
   {
-    List<String> theNoErrors = new ArrayList<String>();
+    List<String> theNoErrors = new ArrayList<>();
     for (int i = 0; i < this.numRoles; i++)
     {
       theNoErrors.add("");
@@ -607,7 +464,7 @@ public final class Match
 
   private static final List<String> renderStateHistory(List<Set<GdlSentence>> stateHistory)
   {
-    List<String> renderedStates = new ArrayList<String>();
+    List<String> renderedStates = new ArrayList<>();
     for (Set<GdlSentence> aState : stateHistory)
     {
       renderedStates.add(renderStateAsSymbolList(aState));
@@ -617,7 +474,7 @@ public final class Match
 
   private static final List<String> renderMoveHistory(List<List<GdlTerm>> moveHistory)
   {
-    List<String> renderedMoves = new ArrayList<String>();
+    List<String> renderedMoves = new ArrayList<>();
     for (List<GdlTerm> aMove : moveHistory)
     {
       renderedMoves.add(renderArrayAsJSON(aMove, true));
@@ -627,7 +484,7 @@ public final class Match
 
   private static final List<String> renderErrorHistory(List<List<String>> errorHistory)
   {
-    List<String> renderedErrors = new ArrayList<String>();
+    List<String> renderedErrors = new ArrayList<>();
     for (List<String> anError : errorHistory)
     {
       renderedErrors.add(renderArrayAsJSON(anError, true));

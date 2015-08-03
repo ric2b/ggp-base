@@ -1,0 +1,30 @@
+{
+  "cases" : [
+    {
+      "case" : "Bug #224, Tiltyard.7f3a2ddbed886a56a44bc3419a71477f6fcd5174, player 0, move 109",
+      "repo" : "games.ggp.org/base",
+      "game" : "kalaha6x2x4",
+      "start" : "160",
+      "play" : "35",
+      "limit" : 109,
+      "players" : [
+        {
+          "type" : "Sancho",
+          "args" : [
+            "plan=pick p12,put pwinnorth,put p1,put p2,put p3,noop,noop,noop,noop,noop,noop,noop,noop,noop,noop,noop,noop,pick p9,put p10,put p11,put p12,put pwinnorth,pick p12,put pwinnorth,pick p10,put p11,put p12,put pwinnorth,put p1,put p2,noop,noop,pick p12,put pwinnorth,pick p8,put p9,put p10,put p11,put p12,noop,noop,noop,noop,noop,noop,noop,noop,pick p9,put p10,put p11,noop,noop,noop,noop,noop,noop,noop,noop,pick p7,put p8,put p9,put p10,put p11,put p12,put pwinnorth,pick p12,put pwinnorth,pick p9,put p10,put p11,noop,noop,noop,noop,noop,noop,noop,noop,pick p10,put p11,put p12,put pwinnorth,put p1,put p2,put p3,noop,noop,noop,noop,noop,noop,noop,noop,noop,noop,pick p8,put p9,put p10,put p11,put p12,put pwinnorth,pick p10,put p11,put p12,noop,noop,pick p12,put pwinnorth"
+          ]
+        },
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "noop,noop,noop,noop,noop,pick p2,put p3,put p4,put p5,put p6,put pwinsouth,pick p1,put p2,put p3,put p4,put p5,put p6,noop,noop,noop,noop,noop,noop,noop,noop,noop,noop,noop,noop,noop,pick p1,put p2,noop,noop,noop,noop,noop,noop,noop,pick p3,put p4,put p5,put p6,put pwinsouth,put p7,put p8,put p9,noop,noop,noop,pick p5,put p6,put pwinsouth,put p7,put p8,put p9,put p10,put p11,noop,noop,noop,noop,noop,noop,noop,noop,noop,noop,noop,noop,pick p4,put p5,put p6,put pwinsouth,put p7,put p8,put p9,put p10,noop,noop,noop,noop,noop,noop,noop,pick p6,put pwinsouth,put p7,put p8,put p9,put p10,put p11,put p12,put p1,put p2,noop,noop,noop,noop,noop,noop,noop,noop,noop,pick p3,put p4,noop,noop,noop"
+          ]
+        }
+      ],
+      "check" : {
+        "player" : "0",
+        "acceptable" : "put p1"
+      }
+    }
+  ]
+}

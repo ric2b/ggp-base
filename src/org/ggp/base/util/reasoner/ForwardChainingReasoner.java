@@ -2,8 +2,6 @@
 package org.ggp.base.util.reasoner;
 
 import org.ggp.base.util.gdl.model.SentenceDomainModel;
-import org.ggp.base.util.gdl.transforms.VariableConstrainer;
-import org.ggp.base.util.reasoner.gdl.GdlChainingReasoner;
 
 /**
  * An interface for a forward-chaining reasoner. The interface is parameterized

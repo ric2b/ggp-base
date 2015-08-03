@@ -83,10 +83,12 @@ public class TreePath
     {
       mParentRef = xiParent.getRef();
       mEdge      = xiEdge;
-      mChildRef  = mEdge.mChildRef;
+      mChildRef  = mEdge.getChildRef();
 
+      assert(mParentRef != mChildRef) : "Parent and child mustn't be the same";
+      assert(mParentRef == xiEdge.mParentRef) : "Edge must come from the parent";
       assert(getNode(mChildRef) != null) : "Can't add invalid node ref to path";
-      assert(xiEdge.getNumChildVisits() <= getNode(mChildRef).numVisits) : "Edge has more visits than child";
+      assert(xiEdge.getNumChildVisits() <= getNode(mChildRef).mNumVisits) : "Edge has more visits than child";
     }
 
     /**
@@ -97,11 +99,11 @@ public class TreePath
      */
     public void setScoreOverrides(TreeNode overridingNode)
     {
-      scoreOverrides = new double[mTree.numRoles]; // !! ARR Just store a node ref and get the scores on demand, but be
+      scoreOverrides = new double[mTree.mNumRoles]; // !! ARR Just store a node ref and get the scores on demand, but be
                                                    // !! ARR careful because the array returned by getScoreOverrides()
                                                    // !! ARR is subsequently modified.
 
-      for (int i = 0; i < mTree.numRoles; i++)
+      for (int i = 0; i < mTree.mNumRoles; i++)
       {
         scoreOverrides[i] = overridingNode.getAverageScore(i);
       }
@@ -124,7 +126,21 @@ public class TreePath
      */
     public TreeNode getChildNode()
     {
+      // !! ARR We only ever call this function in cases where we already know the child reference is valid.  Better to
+      // !! ARR store the child (as well as it's ref) at creation time and then just return directly.  Should also
+      // !! ARR rename this method to getChildNodeUnsafe at that point, to indicate that the caller is responsible for
+      // !! ARR knowing that the child reference is still valid.
       return getNode(mChildRef);
+    }
+
+    /**
+     * Retrieve the node this path element leads from (upwards).
+     *
+     * @return the parent node, or null if it has been freed.
+     */
+    public TreeNode getParentNode()
+    {
+      return getNode(mParentRef);
     }
 
     /**
@@ -136,7 +152,7 @@ public class TreePath
       // Check that the edge is still valid before returning it.
       if ((getNode(mParentRef) == null) ||
           (getNode(mChildRef) == null)  ||
-          (mEdge.mChildRef != mChildRef) ||
+          (mEdge.getChildRef() != mChildRef) ||
           (mEdge.mParentRef != mParentRef))
       {
         return null;
@@ -144,9 +160,21 @@ public class TreePath
       return mEdge;
     }
 
+    /**
+     * WARNING: It is the caller's responsibility to ensure that this edge is still valid.  Typically the caller already
+     *          knows that it is valid because it has just validated the entire path (with {@link TreePath#isFreed()}).
+     *
+     * @return the edge this element encapsulates.
+     */
+    public TreeEdge getEdgeUnsafe()
+    {
+      //assert(getEdge() != null);
+      return mEdge;
+    }
+
     private TreeNode getNode(long xiNodeRef)
     {
-      return TreeNode.get(mTree.nodePool, xiNodeRef);
+      return TreeNode.get(mTree.mNodePool, xiNodeRef);
     }
 
     /**
@@ -205,6 +233,14 @@ public class TreePath
   }
 
   /**
+   * Pop the leaf element off the path
+   */
+  public void pop()
+  {
+    mCursor = --mNumElements;
+  }
+
+  /**
    * Reset enumeration cursor to the leaf of the path
    */
   public void resetCursor()
@@ -236,7 +272,43 @@ public class TreePath
       TreeNode node = element.getChildNode();
       return node;
     }
-    return mTree.root;
+    return mTree.mRoot;
+  }
+
+  /**
+   * Trim elements from the tail of the path until at most one
+   * leaf element is complete
+   */
+  public void trimToCompleteLeaf()
+  {
+    while(mNumElements > 1)
+    {
+      TreePathElement element = mElements[mNumElements - 2];
+      TreeNode node = element.getChildNode();
+
+      if ( node == null || node.mComplete )
+      {
+        mNumElements--;
+      }
+      else
+      {
+        break;
+      }
+    }
+
+    resetCursor();
+  }
+
+  /**
+   * @return the tail path element.
+   */
+  public TreePathElement getTailElement()
+  {
+    if (mNumElements == 0)
+    {
+      return null;
+    }
+    return mElements[mNumElements-1];
   }
 
   /**
@@ -305,11 +377,37 @@ public class TreePath
       // The edge can't have been visited more often than its child.  (The converse isn't true because children can
       // have multiple parents.)
       assert(getCurrentElement().getChildNode() != null) : "Child is null even after edge validated";
-      assert(lEdge.getNumChildVisits() <= getCurrentElement().getChildNode().numVisits) :
+      assert(lEdge.getNumChildVisits() <= getCurrentElement().getChildNode().mNumVisits) :
         "Edge " + lEdge + " has been visited " + lEdge.getNumChildVisits() + " times, but the child (" +
-        getCurrentElement().getChildNode() + ") only has " + getCurrentElement().getChildNode().numVisits + " visits!";
+        getCurrentElement().getChildNode() + ") only has " + getCurrentElement().getChildNode().mNumVisits + " visits!";
     }
     resetCursor();
     return true;
+  }
+
+  @Override
+  public String toString()
+  {
+    String result = "";
+
+    for (int lii = 0; lii < mNumElements; lii++)
+    {
+      TreeEdge edge = mElements[lii].getEdge();
+      if (edge != null)
+      {
+        if ( !result.isEmpty())
+        {
+          result += ", ";
+        }
+        result += edge.mPartialMove;
+      }
+      else
+      {
+        result += "XXX";
+        break;
+      }
+    }
+
+    return result;
   }
 }

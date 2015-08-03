@@ -1,0 +1,36 @@
+{
+  "cases" : [
+    {
+      "case" : "Bug #253, Tiltyard.12eecdd60a20307304136c49d3631bb24cf2d8b2, player 0, move 28",
+      "repo" : "games.ggp.org/base",
+      "game" : "chineseCheckers3",
+      "start" : "60",
+      "play" : "60",
+      "limit" : 28,
+      "players" : [
+        {
+          "type" : "Sancho",
+          "args" : [
+            "plan=move a1 c3,noop,noop,move b2 c4,noop,noop,move b1 f3,noop,noop,move c4 d3,noop,noop,move d3 f2,noop,noop,move f2 g3,noop,noop,move c3 d3,noop,noop,move f3 g4,noop,noop,move d3 e3,noop,noop"
+          ]
+        },
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "noop,move g7 g5,noop,noop,move f6 f5,noop,noop,move g6 e4,noop,noop,move f5 d2,noop,noop,move d2 c2,noop,noop,move g5 f4,noop,noop,move f4 f2,noop,noop,noop,noop,noop,move f2 e1,noop,noop"
+          ]
+        },
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "noop,noop,move g1 e1,noop,noop,move e1 e2,noop,noop,move g2 g3,noop,noop,move g3 e3,noop,noop,move f1 e1,noop,noop,move e1 d2,noop,noop,move d2 d4,noop,noop,move e3 c5,noop,noop,move c5 c6,noop"
+          ]
+        }
+      ],
+      "check" : {
+        "player" : "0",
+        "acceptable" : "move e3 f3,move e3 f4"
+      }
+    }
+  ]
+}

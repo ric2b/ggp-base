@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+  <entry key="num_roles">1</entry>
+  <entry key="simultaneous">false</entry>
+  <entry key="pseudo_simultaneous">false</entry>
+  <entry key="iterated">false</entry>
+  <entry key="max_factor_failure_time">0</entry>
+  <entry key="num_factors">1</entry>
+  <entry key="moves_in_multiple_factors">false</entry>
+  <entry key="max_branching_factor">4</entry>
+  <entry key="fixed_length">false</entry>
+  <entry key="plan">move c2,move c1,move c4,move c4,move c4,move c3,move c2,move c4,move c3</entry>
+  <entry key="control_mask">( ( true ( depth level5 ) ), ( true ( depth level4 ) ), ( true ( depth level7 ) ), ( true ( depth level9 ) ), ( true ( depth level1 ) ), ( true ( depth level6 ) ), ( true ( depth level10 ) ), ( true ( depth level8 ) ), ( true ( depth level2 ) ), ( true ( depth level3 ) ) )</entry>
+  <entry key="factors"></entry>
+</properties>

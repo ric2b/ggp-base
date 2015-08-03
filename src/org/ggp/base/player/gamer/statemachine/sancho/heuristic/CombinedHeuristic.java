@@ -10,7 +10,6 @@ import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
-import org.w3c.tidy.MutableInteger;
 
 /**
  * Heuristic whose value comes from combining other heuristics.
@@ -24,6 +23,8 @@ public class CombinedHeuristic implements Heuristic
   private final List<Heuristic> mTuningHeuristics;
   private Heuristic[] mRuntimeHeuristics;
   private int mNumRoles;
+  private HeuristicInfo mInfo = null;
+  private boolean mApplyAsSimpleHeuristic = false;
 
   /**
    * Create a combined heuristic.
@@ -49,7 +50,9 @@ public class CombinedHeuristic implements Heuristic
       mTuningHeuristics.add(lHeuristic.createIndependentInstance());
     }
     mRuntimeHeuristics = mTuningHeuristics.toArray(new Heuristic[mTuningHeuristics.size()]);
-  }
+    mInfo = new HeuristicInfo(mNumRoles);
+    mApplyAsSimpleHeuristic = copyFrom.mApplyAsSimpleHeuristic;
+}
 
   /**
    * Remove all underlying heuristics
@@ -75,6 +78,7 @@ public class CombinedHeuristic implements Heuristic
 
     // Remember the number of roles.
     mNumRoles = xiStateMachine.getRoles().length;
+    mInfo = new HeuristicInfo(mNumRoles);
 
     return result;
   }
@@ -129,6 +133,7 @@ public class CombinedHeuristic implements Heuristic
     {
       LOGGER.info("No heuristics enabled");
     }
+
     while (lIterator.hasNext())
     {
       Heuristic lHeuristic = lIterator.next();
@@ -137,6 +142,47 @@ public class CombinedHeuristic implements Heuristic
 
     // Convert the heuristics into an array (to avoid list iteration overheads during game-play).
     mRuntimeHeuristics = mTuningHeuristics.toArray(new Heuristic[mTuningHeuristics.size()]);
+  }
+
+  /**
+   * Evaluate (based on the enabled constituents) whether the combined heuristic
+   * should be applied simply or in advanced mode
+   */
+  public void evaluateSimplicity()
+  {
+    Iterator<Heuristic> lIterator = mTuningHeuristics.iterator();
+    boolean foundAdvancedHeuristic = false;
+    while (lIterator.hasNext())
+    {
+      Heuristic lHeuristic = lIterator.next();
+      if ( lHeuristic.applyAsSimpleHeuristic() )
+      {
+        mApplyAsSimpleHeuristic = true;
+      }
+      else
+      {
+        foundAdvancedHeuristic = true;
+      }
+    }
+
+    //  A mixture of constituents that want to be handled simply and in advanced
+    //  mode is problematic.  Just warn for now - we plan to do a major rework of
+    //  heuristics at some point anyway
+    if ( foundAdvancedHeuristic && mApplyAsSimpleHeuristic )
+    {
+      LOGGER.warn("Combined heuristic contains both advanced and simple elements - application mechanism will be simple");
+    }
+    else
+    {
+      if ( mApplyAsSimpleHeuristic )
+      {
+        LOGGER.info("Using simplified heuristic mechanism");
+      }
+      else
+      {
+        LOGGER.info("Using advanced heuristic mechanism");
+      }
+    }
   }
 
   /**
@@ -173,38 +219,53 @@ public class CombinedHeuristic implements Heuristic
     }
   }
 
+  /**
+   * Get the heuristic value for the specified state.
+   *
+   * @param xiState           - the state (never a terminal state).
+   * @param xiPreviousState   - the previous state (can be null).
+   * @param xiReferenceState  - state with which to compare to determine heuristic values
+   */
   @Override
   public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
                                 ForwardDeadReckonInternalMachineState xiPreviousState,
-                                double[] xoHeuristicValue,
-                                MutableInteger xoHeuristicWeight)
+                                ForwardDeadReckonInternalMachineState xiReferenceState,
+                                HeuristicInfo resultInfo)
   {
-    int lTotalWeight = 0;
-    int lMaxWeight = 0;
-    xoHeuristicWeight.value = 0;
+    double lTotalWeight = 0;
+    double lMaxWeight = 0;
+
+    resultInfo.treatAsSequenceStep = false;
+    resultInfo.heuristicWeight = 0;
+    for(int i = 0; i < resultInfo.heuristicValue.length; i++)
+    {
+      resultInfo.heuristicValue[i] = 0;
+    }
 
     // Combine the values from the underlying heuristics by taking a weighted average.
     for (Heuristic lHeuristic : mRuntimeHeuristics)
     {
-      double[] lNewValues = new double[xoHeuristicValue.length];
-      lHeuristic.getHeuristicValue(xiState, xiPreviousState, lNewValues, xoHeuristicWeight);
-      lTotalWeight += xoHeuristicWeight.value;
-      for (int lii = 0; lii < xoHeuristicValue.length; lii++)
+      lHeuristic.getHeuristicValue(xiState, xiPreviousState, xiReferenceState, mInfo);
+
+      lTotalWeight += mInfo.heuristicWeight;
+      for (int lii = 0; lii < mInfo.heuristicValue.length; lii++)
       {
-        xoHeuristicValue[lii] += (lNewValues[lii] * xoHeuristicWeight.value);
+        resultInfo.heuristicValue[lii] += (mInfo.heuristicValue[lii] * mInfo.heuristicWeight);
       }
 
-      if (xoHeuristicWeight.value > lMaxWeight)
+      if (mInfo.heuristicWeight > lMaxWeight)
       {
-        lMaxWeight = xoHeuristicWeight.value;
+        lMaxWeight = mInfo.heuristicWeight;
       }
+
+      resultInfo.treatAsSequenceStep |= mInfo.treatAsSequenceStep;
     }
 
     if (lTotalWeight > 0)
     {
-      for (int lii = 0; lii < xoHeuristicValue.length; lii++)
+      for (int lii = 0; lii < resultInfo.heuristicValue.length; lii++)
       {
-        xoHeuristicValue[lii] /= lTotalWeight;
+        resultInfo.heuristicValue[lii] /= lTotalWeight;
       }
     }
 
@@ -213,7 +274,7 @@ public class CombinedHeuristic implements Heuristic
     // We could do something more clever, whereby if all the heuristics were pointing in the same direction, we
     // increased the weight and if they were all pulling if different directions, we decreased the weight.
     // But hopefully this is good enough for now.
-    xoHeuristicWeight.value = lMaxWeight;
+    resultInfo.heuristicWeight = lMaxWeight;
   }
 
   /**
@@ -238,5 +299,11 @@ public class CombinedHeuristic implements Heuristic
   {
     //  Return a suitable clone
     return new CombinedHeuristic(this);
+  }
+
+  @Override
+  public boolean applyAsSimpleHeuristic()
+  {
+    return mApplyAsSimpleHeuristic;
   }
 }

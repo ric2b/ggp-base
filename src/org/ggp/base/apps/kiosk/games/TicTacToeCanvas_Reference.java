@@ -16,7 +16,7 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 /**
  * A reference implementation of Tic-Tac-Toe based purely on GameCanvas, not
  * using any of the standard templates. Comes to just under 150 lines.
- * 
+ *
  * @author Sam Schreiber
  */
 public class TicTacToeCanvas_Reference extends GameCanvas
@@ -76,11 +76,7 @@ public class TicTacToeCanvas_Reference extends GameCanvas
 
         g.setColor(Color.BLACK);
         final int BORDER_SIZE = 35;
-        if (mark == 'b')
-        {
-          ;
-        }
-        else if (mark == 'x')
+        if (mark == 'x')
         {
           g.drawLine(xSpot + BORDER_SIZE,
                      ySpot + BORDER_SIZE,
@@ -147,17 +143,11 @@ public class TicTacToeCanvas_Reference extends GameCanvas
         }
       }
     }
-    catch (MoveDefinitionException e)
-    {
-      ;
-    }
+    catch (MoveDefinitionException e) { /* Do nothing */ }
   }
 
   @Override
-  protected void handleDragEvent(int dx, int dy)
-  {
-    ;
-  }
+  protected void handleDragEvent(int dx, int dy) { /* Do nothing */ }
 
   private int xSelectedCell, ySelectedCell;
 
@@ -188,10 +178,7 @@ public class TicTacToeCanvas_Reference extends GameCanvas
         }
       }
     }
-    catch (Exception e)
-    {
-      ;
-    }
+    catch (Exception e) { /* Do nothing */ }
   }
 
   @Override

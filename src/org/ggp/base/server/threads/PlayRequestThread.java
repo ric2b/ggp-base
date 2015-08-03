@@ -65,7 +65,7 @@ public class PlayRequestThread extends RequestThread
       Move candidateMove = gameServer.getStateMachine()
           .getMoveFromTerm(GdlFactory.createTerm(match.getGdlScrambler()
               .unscramble(response).toString()));
-      if (new HashSet<Move>(legalMoves).contains(candidateMove))
+      if (new HashSet<>(legalMoves).contains(candidateMove))
       {
         move = candidateMove;
       }

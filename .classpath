@@ -8,7 +8,6 @@
 	<classpathentry kind="lib" path="src/external/JTidy/Tidy.jar"/>
 	<classpathentry kind="lib" path="src/external/JGoodiesForms/forms-1.2.1.jar"/>
 	<classpathentry kind="lib" path="src/external/Clojure/clojure.jar"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
 	<classpathentry kind="lib" path="src/external/JFreeChart/jcommon-1.0.17.jar"/>
 	<classpathentry kind="lib" path="src/external/JFreeChart/jfreechart-1.0.14.jar"/>
 	<classpathentry kind="lib" path="src/external/Guava/guava-14.0.1.jar"/>
@@ -50,5 +49,8 @@
 			<attribute name="javadoc_location" value="jar:platform:/resource/GGP/src/external/Commons/commons-logging-1.1.3/commons-logging-1.1.3-javadoc.jar!/"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="src/external/JUnit/hamcrest-core-1.3.jar"/>
+	<classpathentry kind="lib" path="src/external/JUnit/junit-4.11.jar"/>
+	<classpathentry kind="lib" path="src/external/Trove/trove-3.1a1.jar" sourcepath="src/external/Trove/trove-3.1a1-src.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

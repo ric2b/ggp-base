@@ -129,8 +129,8 @@ public final class Server extends JPanel implements ActionListener
     super(new GridBagLayout());
 
     runButton = new JButton(runButtonMethod());
-    startClockSpinner = new JSpinner(new SpinnerNumberModel(30, 5, 600, 1));
-    playClockSpinner = new JSpinner(new SpinnerNumberModel(15, 5, 300, 1));
+    startClockSpinner = new JSpinner(new SpinnerNumberModel(30, 1, 600, 1));
+    playClockSpinner = new JSpinner(new SpinnerNumberModel(15, 1, 300, 1));
     repetitionsSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 1000, 1));
     moveLimitSpinner = new JSpinner(new SpinnerNumberModel(0, 0, 1000, 1));
     matchesTabbedPane = new JTabbedPane();

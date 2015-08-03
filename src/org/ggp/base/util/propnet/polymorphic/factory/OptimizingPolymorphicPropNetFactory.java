@@ -1,4 +1,3 @@
-
 package org.ggp.base.util.propnet.polymorphic.factory;
 
 import java.util.ArrayList;
@@ -68,86 +67,84 @@ import org.ggp.base.util.statemachine.Role;
 
 import com.google.common.collect.Multimap;
 
-
-/*
- * A propnet factory meant to optimize the propnet before it's even built,
- * mostly through transforming the GDL. (The transformations identify certain
- * classes of rules that have poor performance and replace them with equivalent
- * rules that have better performance, with performance measured by the size of
- * the propnet.) Known issues: - Does not work on games with many advanced
- * forms of recursion. These include: - Anything that breaks the SentenceModel
- * - Multiple sentence forms which reference one another in rules - Not 100%
- * confirmed to work on games where recursive rules have multiple recursive
- * conjuncts - Currently runs some of the transformations multiple times. A
- * Description object containing information about the description and its
- * properties would alleviate this. - Its current solution to the
- * "unaffected piece rule" problem is somewhat clumsy and ungeneralized,
- * relying on the combined behaviors of CrudeSplitter and CondensationIsolator.
- * - The mutex finder in particular is very ungeneralized. It should be
- * replaced with a more general mutex finder. - Actually, the referenced
- * solution is not even enabled at the moment. It may not be working even with
- * the proper options set. - Depending on the settings and the situation, the
- * behavior of the CondensationIsolator can be either too aggressive or not
- * aggressive enough. Both result in excessively large games. A more
- * sophisticated version of the CondensationIsolator could solve these
- * problems. A stopgap alternative is to try both settings and use the smaller
- * propnet (or the first to be created, if multithreading).
+/**
+ * A propnet factory meant to optimize the propnet before it's even built, mostly through transforming the GDL.
+ * (The transformations identify certain classes of rules that have poor performance and replace them with equivalent
+ * rules that have better performance, with performance measured by the size of the propnet.)
+ *
+ * Known issues:
+ *
+ * <ol>
+ *
+ * <li> Does not work on games with many advanced forms of recursion. These include:<ol>
+ *   <li> Anything that breaks the SentenceModel
+ *   <li> Multiple sentence forms which reference one another in rules
+ *   <li> Not 100% confirmed to work on games where recursive rules have multiple recursive conjuncts</ol>
+ *
+ * <li> Currently runs some of the transformations multiple times. A Description object containing information about the
+ *      description and its properties would alleviate this.
+ *
+ * <li> Its current solution to the "unaffected piece rule" problem is somewhat clumsy and ungeneralized, relying on the
+ *      combined behaviors of CrudeSplitter and CondensationIsolator.
+ *
+ * <li> The mutex finder in particular is very ungeneralized. It should be replaced with a more general mutex finder.
+ *
+ * <li> Actually, the referenced solution is not even enabled at the moment. It may not be working even with the proper
+ *      options set.
+ *
+ * <li> Depending on the settings and the situation, the behavior of the CondensationIsolator can be either too
+ *      aggressive or not aggressive enough.  Both result in excessively large games.  A more sophisticated version of
+ *      the CondensationIsolator could solve these problems.  A stopgap alternative is to try both settings and use the
+ *      smaller propnet (or the first to be created, if multithreading).
+ *
+ * Adapted from OptimizingPropNetFactory as supplied upstream.
  */
 public class OptimizingPolymorphicPropNetFactory
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  static final private GdlConstant    LEGAL     = GdlPool.getConstant("legal");
-  static final private GdlConstant    NEXT      = GdlPool.getConstant("next");
-  static final private GdlConstant    TRUE      = GdlPool.getConstant("true");
-  static final private GdlConstant    DOES      = GdlPool.getConstant("does");
-  static final private GdlConstant    GOAL      = GdlPool.getConstant("goal");
-  static final private GdlConstant    INIT      = GdlPool.getConstant("init");
   //TODO: This currently doesn't actually give a different constant from INIT
   static final private GdlConstant    INIT_CAPS = GdlPool.getConstant("INIT");
-  static final private GdlConstant    TERMINAL  = GdlPool
-                                                    .getConstant("terminal");
-  static final private GdlConstant    BASE      = GdlPool.getConstant("base");
-  static final private GdlConstant    INPUT     = GdlPool.getConstant("input");
-  static final private GdlProposition TEMP      = GdlPool
-                                                    .getProposition(GdlPool
-                                                        .getConstant("TEMP"));
+  static final private GdlProposition TEMP      = GdlPool.getProposition(GdlPool.getConstant("TEMP"));
 
   /**
-   * Creates a PropNet for the game with the given description.
+   * @return a PropNet for the game with the given description.
+   *
+   * @param xiDescription      - the GDL description of the game.
+   * @param xiComponentFactory - a factory for creating individual propnet components.
    *
    * @throws InterruptedException
    *           if the thread is interrupted during PropNet creation.
    */
-  public static PolymorphicPropNet create(List<Gdl> description,
-                                          PolymorphicComponentFactory componentFactory)
+  public static PolymorphicPropNet create(List<Gdl> xiDescription,
+                                          PolymorphicComponentFactory xiComponentFactory)
       throws InterruptedException
   {
     LOGGER.debug("Building propnet");
 
-    long startTime = System.currentTimeMillis();
+    // Perform transformations of the GDL.  Note that some of the later transformations re-run the earlier
+    // transformations.  This is deliberate and is required because some later simplifications allow the earlier
+    // simplifications to be applied again.
+    xiDescription = GdlCleaner.run(xiDescription);
+    xiDescription = DeORer.run(xiDescription);
+    xiDescription = VariableConstrainer.replaceFunctionValuedVariables(xiDescription);
+    xiDescription = Relationizer.run(xiDescription);
+    xiDescription = CondensationIsolator.run(xiDescription);
 
-    description = GdlCleaner.run(description);
-    description = DeORer.run(description);
-    description = VariableConstrainer
-        .replaceFunctionValuedVariables(description);
-    description = Relationizer.run(description);
-
-    description = CondensationIsolator.run(description);
-
-
-    for (Gdl gdl : description)
+    // Trace out the final GDL.
+    for (Gdl gdl : xiDescription)
     {
-      LOGGER.trace(gdl);
+      LOGGER.trace(gdl.getClass().getSimpleName() + ": " + gdl);
     }
 
-    //We want to start with a rule graph and follow the rule graph.
-    //Start by finding general information about the game
-    SentenceDomainModel model = SentenceDomainModelFactory
-        .createWithCartesianDomains(description);
-    //Restrict domains to values that could actually come up in rules.
-    //See chinesecheckers4's "count" relation for an example of why this
-    //could be useful.
+    // We want to start with a rule graph and follow the rule graph.  Start by finding general information about the
+    // game.
+    SentenceDomainModel model = SentenceDomainModelFactory.createWithCartesianDomains(xiDescription);
+
+    // Restrict domains to values that could actually come up in rules.  See the "toCount" relation in
+    // base.chinesecheckers4 for an example of why this could be useful.  When used in the body of rules as
+    // {@code (toCount ?player ?x ?y ?z)}, this relation has 4 * 37 * 37 * 37 (i.e. 202,612) possible sets of arguments.
+    // However, of those, only 4 can ever be true!
     model = SentenceDomainModelOptimizer.restrictDomainsToUsefulValues(model);
 
     LOGGER.trace("Setting constants...");
@@ -160,10 +157,10 @@ public class OptimizingPolymorphicPropNetFactory
     boolean usingInput = sentenceFormNames.contains("input");
 
 
-    //For now, we're going to build this to work on those with a
-    //particular restriction on the dependency graph:
-    //Recursive loops may only contain one sentence form.
-    //This describes most games, but not all legal games.
+    // For now, we're going to build this to work on those with a particular restriction on the dependency graph:
+    //   Recursive loops may only contain one sentence form.
+    //
+    // This describes most games, but not all legal games.
     Multimap<SentenceForm, SentenceForm> dependencyGraph = model.getDependencyGraph();
     LOGGER.trace("Computing topological ordering... ");
     ConcurrencyUtils.checkForInterruption();
@@ -171,86 +168,89 @@ public class OptimizingPolymorphicPropNetFactory
                                                                     dependencyGraph,
                                                                     usingBase,
                                                                     usingInput);
-    LOGGER.trace("done");
+    LOGGER.trace("Done computing topological ordering");
 
-    Role[] roles = Role.computeRoles(description);
-    Map<GdlSentence, PolymorphicComponent> components = new HashMap<GdlSentence, PolymorphicComponent>();
-    Map<GdlSentence, PolymorphicComponent> negations = new HashMap<GdlSentence, PolymorphicComponent>();
-    PolymorphicConstant trueComponent = componentFactory.createConstant(-1,
-                                                                        true);
-    PolymorphicConstant falseComponent = componentFactory
-        .createConstant(-1, false);
-    Map<SentenceForm, FunctionInfo> functionInfoMap = new HashMap<SentenceForm, FunctionInfo>();
-    Map<SentenceForm, Collection<GdlSentence>> completedSentenceFormValues = new HashMap<SentenceForm, Collection<GdlSentence>>();
+    Role[] roles = Role.computeRoles(xiDescription);
+    Map<GdlSentence, PolymorphicComponent> components = new HashMap<>();
+    Map<GdlSentence, PolymorphicComponent> negations = new HashMap<>();
+    PolymorphicConstant trueComponent = xiComponentFactory.createConstant(-1, true);
+    PolymorphicConstant falseComponent = xiComponentFactory.createConstant(-1, false);
+    Map<SentenceForm, FunctionInfo> functionInfoMap = new HashMap<>();
+    Map<SentenceForm, Collection<GdlSentence>> completedSentenceFormValues = new HashMap<>();
     for (SentenceForm form : topologicalOrdering)
     {
       ConcurrencyUtils.checkForInterruption();
 
-      LOGGER.trace("Adding sentence form " + form);
+      LOGGER.trace("Adding sentence form: " + form);
+
       if (constantChecker.isConstantForm(form))
       {
-        LOGGER.trace(" (constant)");
-        //Only add it if it's important
-        if (form.getName().equals(LEGAL) || form.getName().equals(GOAL) ||
-            form.getName().equals(INIT))
+        // We only add sentence in constant form if they are important.
+        if (form.getName().equals(GdlPool.LEGAL) ||
+            form.getName().equals(GdlPool.GOAL) ||
+            form.getName().equals(GdlPool.INIT) ||
+            form.getName().equals(GdlPool.NEXT) ||
+            form.getName().equals(GdlPool.TERMINAL))
         {
-          //Add it
-          for (GdlSentence trueSentence : constantChecker
-              .getTrueSentences(form))
+          for (GdlSentence trueSentence : constantChecker.getTrueSentences(form))
           {
-            PolymorphicProposition trueProp = componentFactory
-                .createProposition(-1, trueSentence);
+            // Create the proposition and wire it up to the 'true' constant.
+            PolymorphicProposition trueProp = xiComponentFactory.createProposition(-1, trueSentence);
             trueProp.addInput(trueComponent);
             trueComponent.addOutput(trueProp);
             components.put(trueSentence, trueComponent);
           }
         }
 
-        LOGGER.trace("Checking whether " + form + " is a functional constant...");
         addConstantsToFunctionInfo(form, constantChecker, functionInfoMap);
         addFormToCompletedValues(form,
                                  completedSentenceFormValues,
                                  constantChecker);
-
-        continue;
       }
-      //TODO: Adjust "recursive forms" appropriately
-      //Add a temporary sentence form thingy? ...
-      Map<GdlSentence, PolymorphicComponent> temporaryComponents = new HashMap<GdlSentence, PolymorphicComponent>();
-      Map<GdlSentence, PolymorphicComponent> temporaryNegations = new HashMap<GdlSentence, PolymorphicComponent>();
-      addSentenceForm(form,
-                      model,
-                      components,
-                      negations,
-                      trueComponent,
-                      falseComponent,
-                      usingBase,
-                      usingInput,
-                      Collections.singleton(form),
-                      temporaryComponents,
-                      temporaryNegations,
-                      functionInfoMap,
-                      constantChecker,
-                      completedSentenceFormValues,
-                      componentFactory);
-      //TODO: Pass these over groups of multiple sentence forms
-      LOGGER.trace("Processing temporary components...");
-      processTemporaryComponents(temporaryComponents,
-                                 temporaryNegations,
-                                 components,
-                                 negations,
-                                 trueComponent,
-                                 falseComponent);
-      addFormToCompletedValues(form, completedSentenceFormValues, components);
-      //if(verbose)
-      //TODO: Add this, but with the correct total number of components (not just Propositions)
+      else
+      {
+        //TODO: Adjust "recursive forms" appropriately
+        //Add a temporary sentence form thingy? ...
+        Map<GdlSentence, PolymorphicComponent> temporaryComponents = new HashMap<>();
+        Map<GdlSentence, PolymorphicComponent> temporaryNegations = new HashMap<>();
+        addSentenceForm(form,
+                        model,
+                        components,
+                        negations,
+                        trueComponent,
+                        falseComponent,
+                        usingBase,
+                        usingInput,
+                        Collections.singleton(form),
+                        temporaryComponents,
+                        temporaryNegations,
+                        functionInfoMap,
+                        constantChecker,
+                        completedSentenceFormValues,
+                        xiComponentFactory);
+        //TODO: Pass these over groups of multiple sentence forms
+        processTemporaryComponents(temporaryComponents,
+                                   temporaryNegations,
+                                   components,
+                                   negations,
+                                   trueComponent,
+                                   falseComponent);
+        addFormToCompletedValues(form, completedSentenceFormValues, components);
+      }
     }
+
+    LOGGER.trace("Final function info");
+    for (FunctionInfo lInfo : functionInfoMap.values())
+    {
+      LOGGER.trace(lInfo.toString());
+    }
+
     //Connect "next" to "true"
     LOGGER.trace("Adding transitions...");
-    addTransitions(components, componentFactory);
+    addTransitions(components, xiComponentFactory);
     //Set up "init" proposition
     LOGGER.trace("Setting up 'init' proposition...");
-    setUpInit(components, trueComponent, falseComponent, componentFactory);
+    setUpInit(components, trueComponent, falseComponent, xiComponentFactory);
     //Now we can safely...
     LOGGER.trace("Num components before useless removed: " + components.size());
 
@@ -260,7 +260,7 @@ public class OptimizingPolymorphicPropNetFactory
                                   falseComponent);
     LOGGER.trace("Num components after useless removed: " + components.size());
     LOGGER.trace("Creating component set...");
-    Set<PolymorphicComponent> componentSet = new HashSet<PolymorphicComponent>(components.values());
+    Set<PolymorphicComponent> componentSet = new HashSet<>(components.values());
     //Try saving some memory here...
     components = null;
     negations = null;
@@ -270,7 +270,10 @@ public class OptimizingPolymorphicPropNetFactory
     //Make it look the same as the PropNetFactory results, until we decide
     //how we want it to look
     normalizePropositions(componentSet);
-    PolymorphicPropNet propnet = componentFactory.createPropNet(roles, componentSet);
+    PolymorphicPropNet propnet = xiComponentFactory.createPropNet(roles, componentSet);
+
+    LOGGER.trace("Num components at end of propnet construction (pre-optimization): " + componentSet.size());
+
     return propnet;
   }
 
@@ -284,7 +287,7 @@ public class OptimizingPolymorphicPropNetFactory
     boolean changedSomething = false;
     for (Entry<GdlSentence, PolymorphicComponent> entry : components.entrySet())
     {
-      if (entry.getKey().getName() == TRUE)
+      if (entry.getKey().getName() == GdlPool.TRUE)
       {
         PolymorphicComponent comp = entry.getValue();
         if (comp.getInputs().size() == 0)
@@ -323,7 +326,7 @@ public class OptimizingPolymorphicPropNetFactory
         if (sentence instanceof GdlRelation)
         {
           GdlRelation relation = (GdlRelation)sentence;
-          if (relation.getName().equals(NEXT))
+          if (relation.getName().equals(GdlPool.NEXT))
           {
             p.setName(GdlPool.getProposition(GdlPool.getConstant("anon")));
           }
@@ -336,7 +339,7 @@ public class OptimizingPolymorphicPropNetFactory
                                                Map<SentenceForm, Collection<GdlSentence>> completedSentenceFormValues,
                                                ConstantChecker constantChecker)
   {
-    List<GdlSentence> sentences = new ArrayList<GdlSentence>();
+    List<GdlSentence> sentences = new ArrayList<>();
     sentences.addAll(constantChecker.getTrueSentences(form));
 
     completedSentenceFormValues.put(form, sentences);
@@ -351,7 +354,7 @@ public class OptimizingPolymorphicPropNetFactory
     //Kind of inefficient. Could do better by collecting these as we go,
     //then adding them back into the CSFV map once the sentence forms are complete.
     //completedSentenceFormValues.put(form, new ArrayList<GdlSentence>());
-    List<GdlSentence> sentences = new ArrayList<GdlSentence>();
+    List<GdlSentence> sentences = new ArrayList<>();
     for (GdlSentence sentence : components.keySet())
     {
       ConcurrencyUtils.checkForInterruption();
@@ -473,7 +476,7 @@ public class OptimizingPolymorphicPropNetFactory
   private static Set<PolymorphicComponent> findImmediatelyNonEssentialChildren(PolymorphicComponent parent,
                                                                                boolean forFalse)
   {
-    Set<PolymorphicComponent> result = new HashSet<PolymorphicComponent>();
+    Set<PolymorphicComponent> result = new HashSet<>();
 
     for (PolymorphicComponent c : parent.getOutputs())
     {
@@ -786,15 +789,15 @@ public class OptimizingPolymorphicPropNetFactory
     PolymorphicProposition prop = (PolymorphicProposition)component;
     GdlConstant name = prop.getName().getName();
 
-    return (name.equals(LEGAL) && !forFalse) /* || name.equals(NEXT) */||
-           name.equals(GOAL) || name.equals(INIT) || name.equals(TERMINAL);
+    return (name.equals(GdlPool.LEGAL) && !forFalse) /* || name.equals(NEXT) */||
+           name.equals(GdlPool.GOAL) || name.equals(GdlPool.INIT) || name.equals(GdlPool.TERMINAL);
   }
 
 
   private static void completeComponentSet(Set<PolymorphicComponent> componentSet)
   {
-    Set<PolymorphicComponent> newComponents = new HashSet<PolymorphicComponent>();
-    Set<PolymorphicComponent> componentsToTry = new HashSet<PolymorphicComponent>(componentSet);
+    Set<PolymorphicComponent> newComponents = new HashSet<>();
+    Set<PolymorphicComponent> componentsToTry = new HashSet<>(componentSet);
     while (!componentsToTry.isEmpty())
     {
       for (PolymorphicComponent c : componentsToTry)
@@ -812,7 +815,7 @@ public class OptimizingPolymorphicPropNetFactory
       }
       componentSet.addAll(newComponents);
       componentsToTry = newComponents;
-      newComponents = new HashSet<PolymorphicComponent>();
+      newComponents = new HashSet<>();
     }
   }
 
@@ -825,11 +828,10 @@ public class OptimizingPolymorphicPropNetFactory
     {
       GdlSentence sentence = entry.getKey();
 
-      if (sentence.getName().equals(NEXT))
+      if (sentence.getName().equals(GdlPool.NEXT))
       {
         //connect to true
-        GdlSentence trueSentence = GdlPool.getRelation(TRUE,
-                                                       sentence.getBody());
+        GdlSentence trueSentence = GdlPool.getRelation(GdlPool.TRUE, sentence.getBody());
         PolymorphicComponent nextComponent = entry.getValue();
         PolymorphicComponent trueComponent = components.get(trueSentence);
         //There might be no true component (for example, because the bases
@@ -863,10 +865,10 @@ public class OptimizingPolymorphicPropNetFactory
       //Is this something that will be true?
       if (entry.getValue() == trueComponent)
       {
-        if (entry.getKey().getName().equals(INIT))
+        if (entry.getKey().getName().equals(GdlPool.INIT))
         {
           //Find the corresponding true sentence
-          GdlSentence trueSentence = GdlPool.getRelation(TRUE, entry.getKey().getBody());
+          GdlSentence trueSentence = GdlPool.getRelation(GdlPool.TRUE, entry.getKey().getBody());
           PolymorphicComponent trueSentenceComponent = components.get(trueSentence);
           if (trueSentenceComponent.getInputs().isEmpty())
           {
@@ -891,7 +893,7 @@ public class OptimizingPolymorphicPropNetFactory
             //input and init go into or, or goes into transition
             input.removeOutput(transition);
             transition.removeInput(input);
-            List<PolymorphicComponent> orInputs = new ArrayList<PolymorphicComponent>(2);
+            List<PolymorphicComponent> orInputs = new ArrayList<>(2);
             orInputs.add(input);
             orInputs.add(initProposition);
             orify(orInputs, transition, falseComponent, componentFactory);
@@ -971,9 +973,9 @@ public class OptimizingPolymorphicPropNetFactory
   {
     //We want each form as a key of the dependency graph to
     //follow all the forms in the dependency graph, except maybe itself
-    Queue<SentenceForm> queue = new LinkedList<SentenceForm>(forms);
-    List<SentenceForm> ordering = new ArrayList<SentenceForm>(forms.size());
-    Set<SentenceForm> alreadyOrdered = new HashSet<SentenceForm>();
+    Queue<SentenceForm> queue = new LinkedList<>(forms);
+    List<SentenceForm> ordering = new ArrayList<>(forms.size());
+    Set<SentenceForm> alreadyOrdered = new HashSet<>();
 
     int processingSequence = 0;
     int lastProcessedSequence = 0;
@@ -995,11 +997,11 @@ public class OptimizingPolymorphicPropNetFactory
       }
       //Don't add if it's true/next/legal/does and we're waiting for base/input
       if (usingBase &&
-          (curForm.getName().equals(TRUE) || curForm.getName().equals(NEXT) || curForm
-              .getName().equals(INIT)))
+          (curForm.getName().equals(GdlPool.TRUE) || curForm.getName().equals(GdlPool.NEXT) || curForm
+              .getName().equals(GdlPool.INIT)))
       {
         //Have we added the corresponding base sf yet?
-        SentenceForm baseForm = curForm.withName(BASE);
+        SentenceForm baseForm = curForm.withName(GdlPool.BASE);
         if (!alreadyOrdered.contains(baseForm))
         {
           //  If we're looping here it's probably a GDL issue - flag up where we're failing
@@ -1015,9 +1017,9 @@ public class OptimizingPolymorphicPropNetFactory
         }
       }
       if (usingInput &&
-          (curForm.getName().equals(DOES) || curForm.getName().equals(LEGAL)))
+          (curForm.getName().equals(GdlPool.DOES) || curForm.getName().equals(GdlPool.LEGAL)))
       {
-        SentenceForm inputForm = curForm.withName(INPUT);
+        SentenceForm inputForm = curForm.withName(GdlPool.INPUT);
         if (!alreadyOrdered.contains(inputForm))
         {
           if ( looping )
@@ -1079,12 +1081,11 @@ public class OptimizingPolymorphicPropNetFactory
     for (GdlSentence alwaysTrueSentence : alwaysTrueSentences)
     {
       //We add the sentence as a constant
-      if (alwaysTrueSentence.getName().equals(LEGAL) ||
-          alwaysTrueSentence.getName().equals(NEXT) ||
-          alwaysTrueSentence.getName().equals(GOAL))
+      if (alwaysTrueSentence.getName().equals(GdlPool.LEGAL) ||
+          alwaysTrueSentence.getName().equals(GdlPool.NEXT) ||
+          alwaysTrueSentence.getName().equals(GdlPool.GOAL))
       {
-        PolymorphicProposition prop = componentFactory
-            .createProposition(-1, alwaysTrueSentence);
+        PolymorphicProposition prop = componentFactory.createProposition(-1, alwaysTrueSentence);
         //Attach to true
         trueComponent.addOutput(prop);
         prop.addInput(trueComponent);
@@ -1098,29 +1099,26 @@ public class OptimizingPolymorphicPropNetFactory
     }
 
     //For does/true, make nodes based on input/base, if available
-    if (usingInput && form.getName().equals(DOES))
+    if (usingInput && form.getName().equals(GdlPool.DOES))
     {
       //Add only those propositions for which there is a corresponding INPUT
-      SentenceForm inputForm = form.withName(INPUT);
+      SentenceForm inputForm = form.withName(GdlPool.INPUT);
       for (GdlSentence inputSentence : constantChecker
           .getTrueSentences(inputForm))
       {
-        GdlSentence doesSentence = GdlPool
-            .getRelation(DOES, inputSentence.getBody());
-        PolymorphicProposition prop = componentFactory
-            .createProposition(-1, doesSentence);
+        GdlSentence doesSentence = GdlPool.getRelation(GdlPool.DOES, inputSentence.getBody());
+        PolymorphicProposition prop = componentFactory.createProposition(-1, doesSentence);
         components.put(doesSentence, prop);
       }
       return;
     }
-    if (usingBase && form.getName().equals(TRUE))
+    if (usingBase && form.getName().equals(GdlPool.TRUE))
     {
-      SentenceForm baseForm = form.withName(BASE);
+      SentenceForm baseForm = form.withName(GdlPool.BASE);
       for (GdlSentence baseSentence : constantChecker
           .getTrueSentences(baseForm))
       {
-        GdlSentence trueSentence = GdlPool.getRelation(TRUE,
-                                                       baseSentence.getBody());
+        GdlSentence trueSentence = GdlPool.getRelation(GdlPool.TRUE, baseSentence.getBody());
         PolymorphicProposition prop = componentFactory
             .createProposition(-1, trueSentence);
         components.put(trueSentence, prop);
@@ -1128,7 +1126,7 @@ public class OptimizingPolymorphicPropNetFactory
       return;
     }
 
-    Map<GdlSentence, Set<PolymorphicComponent>> inputsToOr = new HashMap<GdlSentence, Set<PolymorphicComponent>>();
+    Map<GdlSentence, Set<PolymorphicComponent>> inputsToOr = new HashMap<>();
     for (GdlRule rule : rules)
     {
       Assignments assignments = AssignmentsFactory
@@ -1142,7 +1140,7 @@ public class OptimizingPolymorphicPropNetFactory
                                                                     constantChecker
                                                                         .getConstantSentenceForms());
       varsInLiveConjuncts.addAll(GdlUtils.getVariables(rule.getHead()));
-      Set<GdlVariable> varsInRule = new HashSet<GdlVariable>(GdlUtils.getVariables(rule));
+      Set<GdlVariable> varsInRule = new HashSet<>(GdlUtils.getVariables(rule));
       boolean preventDuplicatesFromConstants = (varsInRule.size() > varsInLiveConjuncts
           .size());
 
@@ -1160,7 +1158,7 @@ public class OptimizingPolymorphicPropNetFactory
             .getHead(), assignment);
 
         //Now we go through the conjuncts as before, but we wait to hook them up.
-        List<PolymorphicComponent> componentsToConnect = new ArrayList<PolymorphicComponent>(rule
+        List<PolymorphicComponent> componentsToConnect = new ArrayList<>(rule
             .arity());
         for (GdlLiteral literal : rule.getBody())
         {
@@ -1355,7 +1353,7 @@ public class OptimizingPolymorphicPropNetFactory
 
       GdlSentence sentence = entry.getKey();
       Set<PolymorphicComponent> inputs = entry.getValue();
-      Set<PolymorphicComponent> realInputs = new HashSet<PolymorphicComponent>();
+      Set<PolymorphicComponent> realInputs = new HashSet<>();
       for (PolymorphicComponent input : inputs)
       {
         if (input instanceof PolymorphicConstant ||
@@ -1380,7 +1378,7 @@ public class OptimizingPolymorphicPropNetFactory
     //True/does sentences will have none of these rules, but
     //still need to exist/"float"
     //We'll do this if we haven't used base/input as a basis
-    if (form.getName().equals(TRUE) || form.getName().equals(DOES))
+    if (form.getName().equals(GdlPool.TRUE) || form.getName().equals(GdlPool.DOES))
     {
       for (GdlSentence sentence : model.getDomain(form))
       {
@@ -1398,7 +1396,7 @@ public class OptimizingPolymorphicPropNetFactory
   private static Set<GdlVariable> getVarsInLiveConjuncts(GdlRule rule,
                                                          Set<SentenceForm> constantSentenceForms)
   {
-    Set<GdlVariable> result = new HashSet<GdlVariable>();
+    Set<GdlVariable> result = new HashSet<>();
     for (GdlLiteral literal : rule.getBody())
     {
       if (literal instanceof GdlRelation)
@@ -1534,7 +1532,7 @@ public class OptimizingPolymorphicPropNetFactory
 
   static class ReEvaulationSet implements Iterable<PolymorphicComponent>
   {
-    private Set<PolymorphicComponent>       contents = new LinkedHashSet<PolymorphicComponent>();
+    private Set<PolymorphicComponent>       contents = new LinkedHashSet<>();
     private Map<PolymorphicComponent, Type> reachability;
 
     public ReEvaulationSet(Map<PolymorphicComponent, Type> reachability)
@@ -1587,7 +1585,7 @@ public class OptimizingPolymorphicPropNetFactory
   }
 
   /**
-   * Remove bases and inputs that are not relevant to our play.  May also reduce
+   * Remove bases that are not relevant to our play.  May also reduce
    * opponent roles to effective null roles (single psuedo-noop each turn) in
    * games which our result depends only on our play unconditionally on any choices
    * such an opponent might make
@@ -1602,21 +1600,35 @@ public class OptimizingPolymorphicPropNetFactory
   {
     boolean isPseudoPuzzle = false;
 
-    //  Any bases and inputs that cannot be reached by tracing back from either the terminal
+    //  Any bases that cannot be reached by tracing back from either the terminal
     //  or a goal proposition are irrelevant (transiting through a virtual does->legal back-link)
+    //  Note - this may leave some does props essentially unconnected, so this routine indirectly
+    //  removes them also via subsequent trimming of then unconnected components, but this is
+    //  not necessary explicitly here (and attempting to do so explicitly is actually somewhat
+    //  tricky due to fairly common constructs involving distincts of move props)
     Set<PolymorphicComponent> reachableComponents = new HashSet<>();
-    recursiveFindReachable(pn, pn.getTerminalProposition(), reachableComponents);
+    recursiveFindReachable(pn, pn.getTerminalProposition(), reachableComponents, null );
 
     //  Initially just mark the components on which OUR goals depend if we have been given our role
     //  Don't try this if we only have a single goal value anyway - this is some stupid test game not
     //  a real game!
-    if ( ourRole != null && pn.getGoalPropositions().get(ourRole).length > 1 )
+    PolymorphicProposition[] lOurGoals = null;
+    if (ourRole != null)
+    {
+      lOurGoals = pn.getGoalPropositions().get(ourRole);
+      if (lOurGoals == null)
+      {
+        LOGGER.error("Invalid GDL.  No goals defined for our role (" + ourRole + ")!  We will crash.");
+      }
+    }
+
+    if ((ourRole != null) && (lOurGoals.length > 1))
     {
       Set<PolymorphicComponent> coreReachableComponents = new HashSet<>();
 
       for( PolymorphicProposition c : pn.getGoalPropositions().get(ourRole))
       {
-        recursiveFindReachable(pn, c, reachableComponents);
+        recursiveFindReachable(pn, c, reachableComponents, null );
       }
 
       //  The core reachable components are those relevant directly to our goals
@@ -1647,9 +1659,9 @@ public class OptimizingPolymorphicPropNetFactory
         //  for at least our role
         for( PolymorphicProposition c : pn.getLegalPropositions().get(ourRole))
         {
-          recursiveFindReachable(pn, c, reachableComponents);
+          recursiveFindReachable(pn, c, reachableComponents, null );
 
-          //  If a legal is no within the core reachable set it has no impact on anything
+          //  If a legal is not within the core reachable set it has no impact on anything
           //  that influences our goals and is therefore only relevant as a possible source of
           //  what amounts to a noop (in the subset of relevant components)
           if ( !coreReachableComponents.contains(c) )
@@ -1694,11 +1706,11 @@ public class OptimizingPolymorphicPropNetFactory
             //  Add in this role's goals and legals
             for( PolymorphicProposition c : pn.getGoalPropositions().get(role))
             {
-              recursiveFindReachable(pn, c, reachableComponents);
+              recursiveFindReachable(pn, c, reachableComponents, null );
             }
             for( PolymorphicProposition c : pn.getLegalPropositions().get(role))
             {
-              recursiveFindReachable(pn, c, reachableComponents);
+              recursiveFindReachable(pn, c, reachableComponents, null );
 
               //  If a legal is no within the core reachable set it has no impact on anything
               //  that influences our goals and is therefore only relevant as a possible source of
@@ -1766,7 +1778,7 @@ public class OptimizingPolymorphicPropNetFactory
       {
         for(PolymorphicProposition c : goals)
         {
-          recursiveFindReachable(pn, c, reachableComponents);
+          recursiveFindReachable(pn, c, reachableComponents, null );
         }
       }
 
@@ -1774,54 +1786,65 @@ public class OptimizingPolymorphicPropNetFactory
       {
         for(PolymorphicProposition c : legals)
         {
-          recursiveFindReachable(pn, c, reachableComponents);
+          recursiveFindReachable(pn, c, reachableComponents, null );
         }
       }
     }
 
-    //  What can we eliminate?
-    Set<PolymorphicComponent> unreachable = new HashSet<>();
-    int removalCount = 0;
-    for(PolymorphicProposition c : pn.getBasePropositions().values())
+    //  Anything potentially removable?
+    boolean anyGoalsPotentiallyDiscardable = false;
+
+    for(Role role : pn.getRoles())
     {
-      if ( !reachableComponents.contains(c))
+      for(PolymorphicProposition goalProp : pn.getGoalPropositions().get(role))
       {
-        unreachable.add(c);
-      }
-    }
-    for(PolymorphicProposition c : pn.getInputPropositions().values())
-    {
-      //  Don't lop no-ops off the network
-      if ( c.getOutputs().isEmpty() )
-      {
-        //  Or its corresponding legal
-        PolymorphicComponent noopLegal = pn.getLegalInputMap().get(c);
-        if ( noopLegal != null )
+        if ( !reachableComponents.contains(goalProp))
         {
-          reachableComponents.add(noopLegal);
+          anyGoalsPotentiallyDiscardable = true;
+          break;
         }
       }
-      else if ( !reachableComponents.contains(c) )
-      {
-        unreachable.add(c);
-      }
     }
-    for(PolymorphicProposition[] goals : pn.getGoalPropositions().values())
+    if ( !reachableComponents.containsAll(pn.getBasePropositions().values()) ||
+         !reachableComponents.containsAll(pn.getInputPropositions().values()) ||
+         anyGoalsPotentiallyDiscardable)
     {
-      for(PolymorphicProposition c : goals)
+      //  Add in also any base props implied by definitely included does props
+      //  which can impact included legals or other included base props
+      Set<PolymorphicComponent> definatelyReachableDoesProps = new HashSet<>();
+      for(PolymorphicComponent c : reachableComponents)
+      {
+        if (pn.getInputPropositions().values().contains(c))
+        {
+          definatelyReachableDoesProps.add(c);
+        }
+      }
+      boolean anythingAdded;
+
+      do
+      {
+        anythingAdded = false;
+
+        for(PolymorphicComponent c : definatelyReachableDoesProps)
+        {
+          anythingAdded |= addImpliedRequiredBaseProps(pn, c, reachableComponents);
+        }
+      } while(anythingAdded);
+
+      //  What can we eliminate?
+      Set<PolymorphicComponent> unreachable = new HashSet<>();
+      int removalCount = 0;
+      for(PolymorphicProposition c : pn.getBasePropositions().values())
       {
         if ( !reachableComponents.contains(c))
         {
           unreachable.add(c);
         }
       }
-    }
 
-    if ( pn.getRoles().length > 1 )
-    {
-      for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
+      for(PolymorphicProposition[] goals : pn.getGoalPropositions().values())
       {
-        for( PolymorphicProposition c : legals)
+        for(PolymorphicProposition c : goals)
         {
           if ( !reachableComponents.contains(c))
           {
@@ -1829,36 +1852,135 @@ public class OptimizingPolymorphicPropNetFactory
           }
         }
       }
-    }
 
-    for(PolymorphicComponent c : unreachable)
-    {
-      pn.removeComponent(c);
-      removalCount++;
-    }
+      if ( pn.getRoles().length > 1 )
+      {
+        for( PolymorphicProposition[] legals : pn.getLegalPropositions().values())
+        {
+          for( PolymorphicProposition c : legals)
+          {
+            if ( !reachableComponents.contains(c))
+            {
+              unreachable.add(c);
+            }
+          }
+        }
+      }
 
-    LOGGER.debug("Removed " + removalCount + " irrelevant propositions");
+      if ( !unreachable.isEmpty() )
+      {
+        PolymorphicConstant falseConst = pn.getComponentFactory().createConstant(-1, false);
+        pn.addComponent(falseConst);
+
+        for(PolymorphicComponent c : unreachable)
+        {
+          assert(c instanceof PolymorphicProposition);
+
+          //  Replace with FALSE
+          for(PolymorphicComponent output : c.getOutputs())
+          {
+            output.addInput(falseConst);
+            falseConst.addOutput(output);
+          }
+          pn.removeComponent(c);
+          removalCount++;
+        }
+      }
+
+      LOGGER.debug("Removed " + removalCount + " irrelevant propositions");
+    }
 
     return isPseudoPuzzle;
   }
 
-  private static void recursiveFindReachable(PolymorphicPropNet pn, PolymorphicComponent from, Set<PolymorphicComponent> reachableComponents)
+  private static boolean addImpliedRequiredBaseProps(PolymorphicPropNet pn, PolymorphicComponent c, Set<PolymorphicComponent> reachableComponents)
   {
-    if ( reachableComponents.contains(from))
+    boolean result = false;
+
+    if ( pn.getBasePropositions().values().contains(c) )
+    {
+      if ( !reachableComponents.contains(c))
+      {
+        if ( supportsRequiredComponent(c, reachableComponents) )
+        {
+          reachableComponents.add(c);
+          result = true;
+        }
+      }
+    }
+    else
+    {
+      for(PolymorphicComponent output : c.getOutputs())
+      {
+        result |= addImpliedRequiredBaseProps(pn, output, reachableComponents);
+      }
+    }
+
+    return result;
+  }
+
+  private static boolean supportsRequiredComponent(PolymorphicComponent c, Set<PolymorphicComponent> reachableComponents)
+  {
+    for(PolymorphicComponent output : c.getOutputs())
+    {
+      if ( supportsRequiredComponentInternal(output, reachableComponents))
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private static boolean supportsRequiredComponentInternal(PolymorphicComponent c, Set<PolymorphicComponent> reachableComponents)
+  {
+    if ( c instanceof PolymorphicProposition )
+    {
+      //  Legal or base - if already included return true else false
+      return reachableComponents.contains(c);
+    }
+
+    for(PolymorphicComponent output : c.getOutputs())
+    {
+      if ( supportsRequiredComponentInternal(output, reachableComponents))
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private static void recursiveFindReachable(PolymorphicPropNet pn, PolymorphicComponent from, Set<PolymorphicComponent> reachableComponents, PolymorphicProposition viaBaseProp)
+  {
+    if ( reachableComponents.contains(from) )
     {
       return;
     }
 
     reachableComponents.add(from);
 
-    if ( pn.getLegalInputMap().containsKey(from) )
+    if ( pn.getBasePropositions().values().contains(from))
     {
-      recursiveFindReachable(pn, pn.getLegalInputMap().get(from), reachableComponents );
+      viaBaseProp = (PolymorphicProposition)from;
+    }
+    else if ( pn.getLegalInputMap().containsKey(from) )
+    {
+      recursiveFindReachable(pn, pn.getLegalInputMap().get(from), reachableComponents, null );
+    }
+    else if ( viaBaseProp != null && (from instanceof PolymorphicAnd) )
+    {
+      //  Don't traverse conditions that just preserve an already set base prop, since
+      //  such a path cannot CAUSE it to become set
+      if (from.getInputs().contains(viaBaseProp))
+      {
+        return;
+      }
     }
 
     for(PolymorphicComponent c : from.getInputs())
     {
-      recursiveFindReachable(pn, c, reachableComponents );
+      recursiveFindReachable(pn, c, reachableComponents, viaBaseProp );
     }
   }
 
@@ -1873,8 +1995,8 @@ public class OptimizingPolymorphicPropNetFactory
     PolymorphicComponentFactory componentFactory = pn.getComponentFactory();
     //This actually might remove more than bases and inputs
     //We flow through the game graph to see what can be true (and what can be false?)...
-    Map<PolymorphicComponent, Type> reachability = new HashMap<PolymorphicComponent, Type>();
-    Set<GdlTerm> initted = new HashSet<GdlTerm>();
+    Map<PolymorphicComponent, Type> reachability = new HashMap<>();
+    Set<GdlTerm> initted = new HashSet<>();
     for (PolymorphicComponent c : pn.getComponents())
     {
       reachability.put(c, Type.STAR);
@@ -1884,7 +2006,7 @@ public class OptimizingPolymorphicPropNetFactory
         if (p.getName() instanceof GdlRelation)
         {
           GdlRelation r = (GdlRelation)p.getName();
-          if (r.getName().equals(INIT))
+          if (r.getName().equals(GdlPool.INIT))
           {
             //Add the base
             initted.add(r.get(0));
@@ -1899,7 +2021,7 @@ public class OptimizingPolymorphicPropNetFactory
 
     //Set<Component> toReevaluate = new LinkedHashSet<Component>();
     ReEvaulationSet toReevaluate = new ReEvaulationSet(reachability);
-    Set<PolymorphicComponent> explicitlyInitedBases = new HashSet<PolymorphicComponent>();
+    Set<PolymorphicComponent> explicitlyInitedBases = new HashSet<>();
 
     for (PolymorphicComponent c : pn.getComponents())
     {
@@ -2016,7 +2138,7 @@ public class OptimizingPolymorphicPropNetFactory
         {
           //All parents must be capable of being true
           boolean allCanBeTrue = true;
-          Set<PolymorphicComponent> starParents = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> starParents = new HashSet<>();
           for (PolymorphicComponent parent : parents)
           {
             Type parentType = reachability.get(parent);
@@ -2046,7 +2168,7 @@ public class OptimizingPolymorphicPropNetFactory
         if (checkFalse)
         {
           //Some parent must be capable of being false
-          Set<PolymorphicComponent> starParents = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> starParents = new HashSet<>();
           for (PolymorphicComponent parent : parents)
           {
             Type parentType = reachability.get(parent);
@@ -2078,7 +2200,7 @@ public class OptimizingPolymorphicPropNetFactory
         if (checkTrue)
         {
           //Some parent must be capable of being true
-          Set<PolymorphicComponent> starParents = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> starParents = new HashSet<>();
           for (PolymorphicComponent parent : parents)
           {
             Type parentType = reachability.get(parent);
@@ -2108,7 +2230,7 @@ public class OptimizingPolymorphicPropNetFactory
         {
           //All parents must be capable of being false
           boolean allCanBeFalse = true;
-          Set<PolymorphicComponent> starParents = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> starParents = new HashSet<>();
           for (PolymorphicComponent parent : parents)
           {
             Type parentType = reachability.get(parent);
@@ -2179,7 +2301,7 @@ public class OptimizingPolymorphicPropNetFactory
         if (pn.getLegalInputMap().containsKey(curComp))
         {
           GdlRelation r = (GdlRelation)p.getName();
-          if (r.getName().equals(DOES))
+          if (r.getName().equals(GdlPool.DOES))
           {
             //The legal prop. is a pseudo-parent
             PolymorphicComponent legal = pn.getLegalInputMap().get(curComp);
@@ -2349,9 +2471,9 @@ public class OptimizingPolymorphicPropNetFactory
   {
     //Approach: Collect useful propositions based on a backwards
     //search from goal/legal/terminal (passing through transitions)
-    Set<Component> usefulComponents = new HashSet<Component>();
+    Set<Component> usefulComponents = new HashSet<>();
     //TODO: Also try with queue?
-    Stack<Component> toAdd = new Stack<Component>();
+    Stack<Component> toAdd = new Stack<>();
     toAdd.add(pn.getTerminalProposition());
     usefulComponents.add(pn.getInitProposition()); //Can't remove it...
     for (Set<Proposition> goalProps : pn.getGoalPropositions().values())
@@ -2369,7 +2491,7 @@ public class OptimizingPolymorphicPropNetFactory
     }
 
     //Remove the components not marked as useful
-    List<Component> allComponents = new ArrayList<Component>(pn.getComponents());
+    List<Component> allComponents = new ArrayList<>(pn.getComponents());
     for (Component c : allComponents)
     {
       if (!usefulComponents.contains(c))
@@ -2385,13 +2507,13 @@ public class OptimizingPolymorphicPropNetFactory
    */
   public static void removeInits(PropNet pn)
   {
-    List<Proposition> toRemove = new ArrayList<Proposition>();
+    List<Proposition> toRemove = new ArrayList<>();
     for (Proposition p : pn.getPropositions())
     {
       if (p.getName() instanceof GdlRelation)
       {
         GdlRelation relation = (GdlRelation)p.getName();
-        if (relation.getName() == INIT)
+        if (relation.getName() == GdlPool.INIT)
         {
           toRemove.add(p);
         }
@@ -2413,62 +2535,104 @@ public class OptimizingPolymorphicPropNetFactory
                                                       boolean allowRemovalOfInputProps)
   {
     //	What about constants other than true and false props?
-    Set<PolymorphicComponent> redundantComponents = new HashSet<PolymorphicComponent>();
+    Set<PolymorphicComponent> redundantComponents = new HashSet<>();
     int removedRedundantComponentCount = 0;
 
-    PolymorphicComponent trueConst = null;
-    PolymorphicComponent falseConst = null;
+    PolymorphicComponent trueConst = pn.getComponentFactory().createConstant(-1, true);
+    PolymorphicComponent falseConst = pn.getComponentFactory().createConstant(-1, false);
+
+    assert(trueConst != null);
+    assert(falseConst != null);
+
+    pn.addComponent(trueConst);
+    pn.addComponent(falseConst);
 
     do
     {
       redundantComponents.clear();
 
+      //  First eliminate logic hard-gated by constant inputs
       for (PolymorphicComponent c : pn.getComponents())
       {
-        if (c instanceof PolymorphicConstant && c != trueConst &&
-            c != falseConst)
+        if ( c instanceof PolymorphicConstant )
         {
-          if (trueConst == null && c.getValue())
+          boolean isTrue = c.getValue();
+
+          Set<PolymorphicComponent> newOutputs = new HashSet<>();
+          for(PolymorphicComponent output : c.getOutputs())
           {
-            trueConst = c;
+            if ( (!isTrue && (output instanceof PolymorphicAnd)) ||
+                 (isTrue && (output instanceof PolymorphicOr)) )
+            {
+              //  Remove all input to the following component apart from the constant
+              //  the next stage will then remove it as redundant
+              for(PolymorphicComponent input : output.getInputs())
+              {
+                if ( input != c )
+                {
+                  input.removeOutput(output);
+                }
+              }
+
+              output.removeAllInputs();output.addInput(c);
+            }
+            else if ( output instanceof PolymorphicProposition )
+            {
+              //  Fixed value proposition - needed, but its outputs can be connected
+              //  directly to the source constant rather than the prop, and hence may be eliminatable
+              newOutputs.addAll(output.getOutputs());
+              for(PolymorphicComponent downstream : output.getOutputs())
+              {
+                downstream.removeInput(output);
+                newOutputs.add(downstream);
+              }
+              output.removeAllOutputs();
+            }
           }
-          else if (falseConst == null && !c.getValue())
+
+          for(PolymorphicComponent downstream : newOutputs)
           {
-            falseConst = c;
+            c.addOutput(downstream);
+            downstream.addInput(c);
           }
-          else
+        }
+      }
+
+      for (PolymorphicComponent c : pn.getComponents())
+      {
+        if (c instanceof PolymorphicConstant)
+        {
+          if (c != trueConst &&
+              c != falseConst)
           {
             redundantComponents.add(c);
           }
         }
-        else
+        else if (c instanceof PolymorphicAnd)
         {
-          if (c instanceof PolymorphicAnd)
+          if (c.getInputs().size() < 2 ||
+              c.getOutputs().isEmpty() ||
+              (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicAnd))
           {
-            if (c.getInputs().isEmpty() ||
-                c.getOutputs().isEmpty() ||
-                (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicAnd))
-            {
-              redundantComponents.add(c);
-            }
+            redundantComponents.add(c);
           }
-          else if (c instanceof PolymorphicOr)
+        }
+        else if (c instanceof PolymorphicOr)
+        {
+          if (c.getInputs().size() < 2 ||
+              c.getOutputs().isEmpty() ||
+              (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicOr))
           {
-            if (c.getInputs().isEmpty() ||
-                c.getOutputs().isEmpty() ||
-                (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicOr))
-            {
-              redundantComponents.add(c);
-            }
+            redundantComponents.add(c);
           }
-          else if (c instanceof PolymorphicNot)
+        }
+        else if (c instanceof PolymorphicNot)
+        {
+          if (c.getInputs().isEmpty() ||
+              c.getOutputs().isEmpty() ||
+              (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicNot))
           {
-            if (c.getInputs().isEmpty() ||
-                c.getOutputs().isEmpty() ||
-                (c.getOutputs().size() == 1 && c.getSingleOutput() instanceof PolymorphicNot))
-            {
-              redundantComponents.add(c);
-            }
+            redundantComponents.add(c);
           }
         }
       }
@@ -2499,15 +2663,31 @@ public class OptimizingPolymorphicPropNetFactory
         }
         else if ((c instanceof PolymorphicAnd) || (c instanceof PolymorphicOr))
         {
-          PolymorphicComponent output = c.getSingleOutput();
-
-          output.removeInput(c);
-
-          for (PolymorphicComponent input : c.getInputs())
+          if ( c.getInputs().size() == 1 )
           {
+            PolymorphicComponent input = c.getSingleInput();
+
             input.removeOutput(c);
-            input.addOutput(output);
-            output.addInput(input);
+
+            for (PolymorphicComponent output : c.getOutputs())
+            {
+              output.removeInput(c);
+              input.addOutput(output);
+              output.addInput(input);
+            }
+          }
+          else
+          {
+            PolymorphicComponent output = c.getSingleOutput();
+
+            output.removeInput(c);
+
+            for (PolymorphicComponent input : c.getInputs())
+            {
+              input.removeOutput(c);
+              input.addOutput(output);
+              output.addInput(input);
+            }
           }
         }
         else if (c instanceof PolymorphicNot)
@@ -2535,19 +2715,19 @@ public class OptimizingPolymorphicPropNetFactory
     while (redundantComponents.size() > 0);
 
     //	Eliminate TRUE inputs to ANDs and FALSE inputs to ORs.  Also eliminate single input ANDs/ORs
-    List<PolymorphicComponent> eliminations = new LinkedList<PolymorphicComponent>();
+    List<PolymorphicComponent> eliminations = new LinkedList<>();
 
     do
     {
       eliminations.clear();
 
-      if (trueConst != null)
+      if (!trueConst.getOutputs().isEmpty())
       {
-        List<PolymorphicComponent> disconnected = new LinkedList<PolymorphicComponent>();
+        List<PolymorphicComponent> disconnected = new LinkedList<>();
 
         for (PolymorphicComponent c : trueConst.getOutputs())
         {
-          if (c instanceof PolymorphicAnd)
+          if (c instanceof PolymorphicAnd && c.getInputs().size() > 1)
           {
             c.removeInput(trueConst);
             disconnected.add(c);
@@ -2559,13 +2739,13 @@ public class OptimizingPolymorphicPropNetFactory
         }
       }
 
-      if (falseConst != null)
+      if (!falseConst.getOutputs().isEmpty())
       {
-        List<PolymorphicComponent> disconnected = new LinkedList<PolymorphicComponent>();
+        List<PolymorphicComponent> disconnected = new LinkedList<>();
 
         for (PolymorphicComponent c : falseConst.getOutputs())
         {
-          if (c instanceof PolymorphicOr)
+          if (c instanceof PolymorphicOr && c.getInputs().size() > 1)
           {
             c.removeInput(falseConst);
             disconnected.add(c);
@@ -2642,8 +2822,8 @@ public class OptimizingPolymorphicPropNetFactory
 
   public static void refactorLargeGates(PolymorphicPropNet pn)
   {
-    Set<PolymorphicComponent> newComponents = new HashSet<PolymorphicComponent>();
-    Set<PolymorphicComponent> removedComponents = new HashSet<PolymorphicComponent>();
+    Set<PolymorphicComponent> newComponents = new HashSet<>();
+    Set<PolymorphicComponent> removedComponents = new HashSet<>();
     int inputToOutputFactorizationRemovedCount = 0;
     int inputToOutputFactorizationAddedCount = 0;
 
@@ -2654,7 +2834,7 @@ public class OptimizingPolymorphicPropNetFactory
         if ((c instanceof PolymorphicOr))
         {
           //	Can we find a common factor across input ANDs?
-          Set<PolymorphicComponent> inputANDinputs = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> inputANDinputs = new HashSet<>();
           boolean nonAndsPresent = false;
           int numFactorInstances = 0;
           int numPotentiallyRemovableComponents = 0;
@@ -2723,8 +2903,8 @@ public class OptimizingPolymorphicPropNetFactory
               factoredOr = c;
             }
 
-            Set<PolymorphicComponent> removedOrInputs = new HashSet<PolymorphicComponent>();
-            Set<PolymorphicComponent> addedOrInputs = new HashSet<PolymorphicComponent>();
+            Set<PolymorphicComponent> removedOrInputs = new HashSet<>();
+            Set<PolymorphicComponent> addedOrInputs = new HashSet<>();
 
             //	We have one or more common factors - move them past the OR
             for (PolymorphicComponent input : c.getInputs())
@@ -2819,7 +2999,7 @@ public class OptimizingPolymorphicPropNetFactory
         else if ((c instanceof PolymorphicAnd))
         {
           //	Can we find a common factor across input ORs?
-          Set<PolymorphicComponent> inputORinputs = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> inputORinputs = new HashSet<>();
           boolean nonOrsPresent = false;
           int numFactorInstances = 0;
           int numPotentiallyRemovableComponents = 0;
@@ -2888,8 +3068,8 @@ public class OptimizingPolymorphicPropNetFactory
               factoredAnd = c;
             }
 
-            Set<PolymorphicComponent> removedAndInputs = new HashSet<PolymorphicComponent>();
-            Set<PolymorphicComponent> addedAndInputs = new HashSet<PolymorphicComponent>();
+            Set<PolymorphicComponent> removedAndInputs = new HashSet<>();
+            Set<PolymorphicComponent> addedAndInputs = new HashSet<>();
 
             //	We have one or more common factors - move them past the OR
             for (PolymorphicComponent input : c.getInputs())
@@ -3005,8 +3185,8 @@ public class OptimizingPolymorphicPropNetFactory
 
   public static void refactorLargeFanouts(PolymorphicPropNet pn)
   {
-    Set<PolymorphicComponent> newComponents = new HashSet<PolymorphicComponent>();
-    Set<PolymorphicComponent> removedComponents = new HashSet<PolymorphicComponent>();
+    Set<PolymorphicComponent> newComponents = new HashSet<>();
+    Set<PolymorphicComponent> removedComponents = new HashSet<>();
     int outputFanoutFactorizationRemovedCount = 0;
     int outputFanoutFactorizationAddedCount = 0;
     int outputFactorizationFanoutReduction = 0;
@@ -3018,7 +3198,7 @@ public class OptimizingPolymorphicPropNetFactory
         if ((c instanceof PolymorphicOr))
         {
           //	Can we find a common factor across output ANDs?
-          Set<PolymorphicComponent> outputANDinputs = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> outputANDinputs = new HashSet<>();
 
           for (PolymorphicComponent output : c.getOutputs())
           {
@@ -3069,7 +3249,7 @@ public class OptimizingPolymorphicPropNetFactory
             }
 
             //	Remove the factors from the outputs
-            Set<PolymorphicComponent> outputs = new HashSet<PolymorphicComponent>(c
+            Set<PolymorphicComponent> outputs = new HashSet<>(c
                 .getOutputs());
             for (PolymorphicComponent output : outputs)
             {
@@ -3111,7 +3291,7 @@ public class OptimizingPolymorphicPropNetFactory
         else if ((c instanceof PolymorphicAnd))
         {
           //	Can we find a common factor across output ORs?
-          Set<PolymorphicComponent> outputORinputs = new HashSet<PolymorphicComponent>();
+          Set<PolymorphicComponent> outputORinputs = new HashSet<>();
 
           for (PolymorphicComponent output : c.getOutputs())
           {
@@ -3162,7 +3342,7 @@ public class OptimizingPolymorphicPropNetFactory
             }
 
             //	Remove the factors from the outputs
-            Set<PolymorphicComponent> outputs = new HashSet<PolymorphicComponent>(c
+            Set<PolymorphicComponent> outputs = new HashSet<>(c
                 .getOutputs());
             for (PolymorphicComponent output : outputs)
             {
@@ -3231,8 +3411,8 @@ public class OptimizingPolymorphicPropNetFactory
    */
   public static void removeAnonymousPropositions(PolymorphicPropNet pn)
   {
-    List<PolymorphicProposition> toSplice = new ArrayList<PolymorphicProposition>();
-    List<PolymorphicProposition> toReplaceWithFalse = new ArrayList<PolymorphicProposition>();
+    List<PolymorphicProposition> toSplice = new ArrayList<>();
+    List<PolymorphicProposition> toReplaceWithFalse = new ArrayList<>();
     for (PolymorphicProposition p : pn.getPropositions())
     {
       //If it's important, continue to the next proposition
@@ -3243,14 +3423,14 @@ public class OptimizingPolymorphicPropNetFactory
       GdlSentence sentence = p.getName();
       if (sentence instanceof GdlProposition)
       {
-        if (sentence.getName() == TERMINAL || sentence.getName() == INIT_CAPS)
+        if (sentence.getName() == GdlPool.TERMINAL || sentence.getName() == INIT_CAPS)
           continue;
       }
       else
       {
         GdlRelation relation = (GdlRelation)sentence;
         GdlConstant name = relation.getName();
-        if (name == LEGAL || name == GOAL || name == DOES || name == INIT)
+        if (name == GdlPool.LEGAL || name == GdlPool.GOAL || name == GdlPool.DOES || name == GdlPool.INIT)
           continue;
       }
       if (p.getInputs().size() < 1)
@@ -3296,7 +3476,7 @@ public class OptimizingPolymorphicPropNetFactory
 
   public static void removeInitPropositions(PolymorphicPropNet propNet)
   {
-    List<PolymorphicComponent> removedComponents = new LinkedList<PolymorphicComponent>();
+    List<PolymorphicComponent> removedComponents = new LinkedList<>();
 
     for (PolymorphicComponent c : propNet.getComponents())
     {
@@ -3304,7 +3484,7 @@ public class OptimizingPolymorphicPropNetFactory
       {
         GdlConstant name = ((PolymorphicProposition)c).getName().getName();
 
-        if (name == INIT)
+        if (name == GdlPool.INIT)
         {
           if (c.getInputs().size() > 0)
           {
@@ -3339,7 +3519,7 @@ public class OptimizingPolymorphicPropNetFactory
         GdlConstant name = ((PolymorphicProposition)output).getName()
             .getName();
 
-        if (name != GOAL)
+        if (name != GdlPool.GOAL)
         {
           return false;
         }
@@ -3355,10 +3535,7 @@ public class OptimizingPolymorphicPropNetFactory
 
   public static void removeGoalPropositions(PolymorphicPropNet propNet)
   {
-    List<PolymorphicComponent> removedComponents = new LinkedList<PolymorphicComponent>();
-
-    for (PolymorphicProposition[] roleGoals : propNet.getGoalPropositions()
-        .values())
+    for (PolymorphicProposition[] roleGoals : propNet.getGoalPropositions().values())
     {
       for (PolymorphicProposition c : roleGoals)
       {
@@ -3370,68 +3547,70 @@ public class OptimizingPolymorphicPropNetFactory
     }
   }
 
-  private static boolean componentInputDependsOnLegal(PolymorphicComponent c,
-                                                      Set<PolymorphicComponent> inputClosure)
+  private static void removeDependencyOnLegalsAndTerminal(PolymorphicComponent c,
+                                                          Set<PolymorphicComponent> inputClosure)
   {
     if (inputClosure == null)
     {
-      inputClosure = new HashSet<PolymorphicComponent>();
+      inputClosure = new HashSet<>();
     }
 
+    Set<PolymorphicComponent> toRewire = new HashSet<>();
     for (PolymorphicComponent input : c.getInputs())
     {
       if (!inputClosure.contains(input))
       {
-        inputClosure.add(input);
-
         if (input instanceof PolymorphicProposition)
         {
           GdlConstant name = ((PolymorphicProposition)input).getName()
               .getName();
 
-          if (name == LEGAL)
+          if (name == GdlPool.LEGAL || name == GdlPool.TERMINAL)
           {
-            return true;
+            toRewire.add(input);
           }
-          else if (name == TERMINAL)
+          else
           {
-            if (componentInputDependsOnLegal(input, inputClosure))
-            {
-              return true;
-            }
+            inputClosure.add(input);
           }
         }
-        else if (!(input instanceof PolymorphicTransition))
+        else
         {
-          if (componentInputDependsOnLegal(input, inputClosure))
+          inputClosure.add(input);
+          if (!(input instanceof PolymorphicTransition))
           {
-            return true;
+            removeDependencyOnLegalsAndTerminal(input, inputClosure);
           }
         }
       }
     }
 
-    return false;
+    for(PolymorphicComponent input : toRewire)
+    {
+      c.removeInput(input);
+      input.removeOutput(c);
+      input.getSingleInput().addOutput(c);
+      c.addInput(input.getSingleInput());
+    }
   }
 
+  /**
+   * Remove things we do not need to support goal determination
+   * @param propNet
+   */
   public static void removeAllButGoalPropositions(PolymorphicPropNet propNet)
   {
-    List<PolymorphicComponent> removedComponents = new LinkedList<PolymorphicComponent>();
+    Set<PolymorphicComponent> removedComponents = new HashSet<>();
 
-    boolean goalsRequireLegals = false;
     for (PolymorphicComponent c : propNet.getComponents())
     {
       if (c instanceof PolymorphicProposition)
       {
         GdlConstant name = ((PolymorphicProposition)c).getName().getName();
 
-        if (name == GOAL)
+        if (name == GdlPool.GOAL)
         {
-          if (componentInputDependsOnLegal(c, null))
-          {
-            goalsRequireLegals = true;
-            break;
-          }
+          removeDependencyOnLegalsAndTerminal(c, null);
         }
       }
     }
@@ -3444,8 +3623,16 @@ public class OptimizingPolymorphicPropNetFactory
       {
         GdlConstant name = ((PolymorphicProposition)c).getName().getName();
 
-        if (name != TRUE && name != BASE && name != GOAL && name != TERMINAL &&
-            (name != LEGAL || !goalsRequireLegals))
+        //  We're not actually allowed to remove TERMINAL so just remove its input
+        //  so, there is never any trigger cost
+        if ( name == GdlPool.TERMINAL )
+        {
+          c.getSingleInput().removeOutput(c);
+          c.removeAllInputs();
+        }
+        else if (name != GdlPool.TRUE &&
+                 name != GdlPool.BASE &&
+                 name != GdlPool.GOAL )
         {
           remove = true;
         }
@@ -3470,6 +3657,11 @@ public class OptimizingPolymorphicPropNetFactory
       }
     }
 
+    removeComponentsAndMinimize(propNet, removedComponents);
+  }
+
+  private static void removeComponentsAndMinimize(PolymorphicPropNet propNet, Set<PolymorphicComponent> removedComponents)
+  {
     for (PolymorphicComponent c : removedComponents)
     {
       propNet.removeComponent(c);
@@ -3491,14 +3683,14 @@ public class OptimizingPolymorphicPropNetFactory
     }
     while (numEndComponents != numStartComponents);
 
-    //	Now we can trim any base props which don't feed into other logic
+    //  Now we can trim any base props which don't feed into other logic
     for (PolymorphicComponent c : propNet.getComponents())
     {
       if (c instanceof PolymorphicProposition)
       {
         GdlConstant name = ((PolymorphicProposition)c).getName().getName();
 
-        if ((name == TRUE || name == BASE) && c.getOutputs().isEmpty())
+        if ((name == GdlPool.TRUE || name == GdlPool.BASE) && c.getOutputs().isEmpty())
         {
           removedComponents.add(c);
         }
@@ -3514,7 +3706,6 @@ public class OptimizingPolymorphicPropNetFactory
     {
       numStartComponents = propNet.getComponents().size();
 
-      //OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(propNet, true);
       OptimizingPolymorphicPropNetFactory
           .removeRedundantConstantsAndGates(propNet);
 
@@ -3523,6 +3714,53 @@ public class OptimizingPolymorphicPropNetFactory
     while (numEndComponents != numStartComponents);
   }
 
+  /**
+   * Remove things we do not need to support terminality determination
+   * Also may remove components needed to determine legals unless it appears beneficial
+   * to use the reduced network in preference for that purpose
+   * @param propNet
+   */
+  public static void removeAllButTerminalProposition(PolymorphicPropNet propNet)
+  {
+    Set<PolymorphicComponent> removedComponents = new HashSet<>();
+
+    for (PolymorphicComponent c : propNet.getComponents())
+    {
+      boolean remove = false;
+
+      if (c instanceof PolymorphicProposition)
+      {
+        GdlConstant name = ((PolymorphicProposition)c).getName().getName();
+
+        if (name != GdlPool.TRUE &&
+            name != GdlPool.BASE &&
+            name != GdlPool.TERMINAL)
+        {
+          remove = true;
+        }
+      }
+      else if (c instanceof PolymorphicTransition)
+      {
+        remove = true;
+      }
+
+      if (remove)
+      {
+        if (c.getInputs().size() > 0)
+        {
+          c.getSingleInput().removeOutput(c);
+        }
+        for (PolymorphicComponent output : c.getOutputs())
+        {
+          output.removeInput(c);
+        }
+
+        removedComponents.add(c);
+      }
+    }
+
+    removeComponentsAndMinimize(propNet, removedComponents);
+  }
 
   public static void fixBaseProposition(PolymorphicPropNet propNet,
                                         GdlSentence propName,
@@ -3566,10 +3804,13 @@ public class OptimizingPolymorphicPropNetFactory
     while (numEndComponents != numStartComponents);
   }
 
+  private static boolean loopsFound;
+
   public static void removeDuplicateLogic(PolymorphicPropNet pn)
   {
-    Map<Long, List<PolymorphicComponent>> componentSignatureMap = new HashMap<Long, List<PolymorphicComponent>>();
+    Map<Long, List<PolymorphicComponent>> componentSignatureMap = new HashMap<>();
 
+    loopsFound = false;
     for (PolymorphicComponent c : pn.getComponents())
     {
       calculateSignature(c, componentSignatureMap);
@@ -3614,13 +3855,17 @@ public class OptimizingPolymorphicPropNetFactory
     LOGGER.debug("Removed " + duplicateCount + " duplicate components");
   }
 
-  private static Map<Class<?>, Long> componentTypeBaseSignatures = new HashMap<Class<?>, Long>();
+  private static Map<Class<?>, Long> componentTypeBaseSignatures = new HashMap<>();
 
   private static class FastHasher
   {
     private final long m       = ((long)0x880355f2) << 32 + 0x1e6d1965;
     private final long mixMult = ((long)0x2127599b) << 32 + 0xf4325c37;
     private long       h       = m;
+
+    public FastHasher()
+    {
+    }
 
     private long mix(long x)
     {
@@ -3671,8 +3916,19 @@ public class OptimizingPolymorphicPropNetFactory
       {
         if (!(input instanceof PolymorphicTransition))
         {
+          long inputSig = calculateSignature(input, componentSignatureMap);
+
+          if ( inputSig == 2 )
+          {
+            if ( !loopsFound )
+            {
+              loopsFound = true;
+              LOGGER.warn("Propnet loops detected - unable to check for duplicate logic amongst components fed from such loops");
+            }
+            return 2;
+          }
           numNonTransitionalInputs++;
-          inputsSig += calculateSignature(input, componentSignatureMap);
+          inputsSig += inputSig;
         }
       }
 
@@ -3696,7 +3952,7 @@ public class OptimizingPolymorphicPropNetFactory
             .getSignature());
         if (sigMatchList == null)
         {
-          sigMatchList = new LinkedList<PolymorphicComponent>();
+          sigMatchList = new LinkedList<>();
           componentSignatureMap.put(c.getSignature(), sigMatchList);
         }
         else
@@ -3770,10 +4026,6 @@ public class OptimizingPolymorphicPropNetFactory
         sigMatchList.add(c);
       }
     }
-    else if (c.getSignature() == 2)
-    {
-      LOGGER.warn("LOOP!!!");
-    }
 
     return c.getSignature();
   }
@@ -3804,7 +4056,7 @@ public class OptimizingPolymorphicPropNetFactory
   public static void optimizeInputSets(PolymorphicPropNet pn)
   {
     //	First find the input proposition sets for each role
-    Map<Role, Set<PolymorphicProposition>> roleInputMap = new HashMap<Role, Set<PolymorphicProposition>>();
+    Map<Role, Set<PolymorphicProposition>> roleInputMap = new HashMap<>();
 
     for (Role role : pn.getRoles())
     {
@@ -3845,8 +4097,8 @@ public class OptimizingPolymorphicPropNetFactory
     //	Now we know that at least one input prop must be activated by each role each turn
     //	so search for large conjuncts or disjuncts of input props and consider replacing
     //	them by their complements
-    int possibleSavings = 0;
-
+//    int possibleSavings = 0;
+//
 //    for (PolymorphicComponent c : pn.getComponents())
 //    {
 //      if ((c instanceof PolymorphicAnd || c instanceof PolymorphicOr) &&
@@ -4119,10 +4371,10 @@ public class OptimizingPolymorphicPropNetFactory
     return false;
   }
 
-  public static void OptimizeInvertedInputs(PolymorphicPropNet pn)
+  public static void optimizeInvertedInputs(PolymorphicPropNet pn)
   {
-    Set<PolymorphicComponent> refactoredComponents = new HashSet<PolymorphicComponent>();
-    Set<PolymorphicComponent> newComponents = new HashSet<PolymorphicComponent>();
+    Set<PolymorphicComponent> refactoredComponents = new HashSet<>();
+    Set<PolymorphicComponent> newComponents = new HashSet<>();
 
     for (PolymorphicComponent c : pn.getComponents())
     {
@@ -4175,7 +4427,7 @@ public class OptimizingPolymorphicPropNetFactory
         newOr.addOutput(newNot);
         newNot.addInput(newOr);
 
-        Set<PolymorphicComponent> removedNots = new HashSet<PolymorphicComponent>();
+        Set<PolymorphicComponent> removedNots = new HashSet<>();
 
         for (PolymorphicComponent inputNot : c.getInputs())
         {
@@ -4217,7 +4469,7 @@ public class OptimizingPolymorphicPropNetFactory
         newAnd.addOutput(newNot);
         newNot.addInput(newAnd);
 
-        Set<PolymorphicComponent> removedNots = new HashSet<PolymorphicComponent>();
+        Set<PolymorphicComponent> removedNots = new HashSet<>();
 
         for (PolymorphicComponent inputNot : c.getInputs())
         {

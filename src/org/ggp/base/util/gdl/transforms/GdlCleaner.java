@@ -1,4 +1,3 @@
-
 package org.ggp.base.util.gdl.transforms;
 
 import java.util.ArrayList;
@@ -19,16 +18,25 @@ import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
 import org.ggp.base.util.gdl.grammar.GdlVariable;
 
-
-// Cleans up various issues with games to make them more standardized.
+/**
+ * Static utility class for cleaning up various issues with games to make them more standardised.
+ *
+ * The only public interface to this class in the {@link #run} method.
+ */
 public class GdlCleaner
 {
   private final static int         MAX_ITERATIONS = 100;
-  private final static GdlConstant BASE           = GdlPool
-                                                      .getConstant("base");
 
+  /**
+   * Run the GDL cleaner to standardize the GDL.
+   *
+   * @param description - unclean GDL input.
+   * @return Clean GDL output.
+   */
   public static List<Gdl> run(List<Gdl> description)
   {
+    // Each time the GDL is cleaned, it may make further optimisations possible.  Continue until either there is no
+    // change or until we hit the limit of the number of iterations we're prepared to do.
     for (int i = 0; i < MAX_ITERATIONS; i++)
     {
       List<Gdl> newDescription = runOnce(description);
@@ -43,7 +51,7 @@ public class GdlCleaner
 
   private static List<Gdl> runOnce(List<Gdl> description)
   {
-    List<Gdl> newDescription = new ArrayList<Gdl>();
+    List<Gdl> newDescription = new ArrayList<>();
 
     //First: Clean up all rules with zero-element bodies
     for (Gdl gdl : description)
@@ -71,7 +79,7 @@ public class GdlCleaner
     //variable
     //Get rid of "extra parentheses", i.e. zero-arity functions
     description = newDescription;
-    newDescription = new ArrayList<Gdl>();
+    newDescription = new ArrayList<>();
     for (Gdl gdl : description)
     {
       if (gdl instanceof GdlRelation)
@@ -92,7 +100,7 @@ public class GdlCleaner
     //Get rid of (not (distinct _ _)) literals in rules
     //TODO: Expand to functions
     description = newDescription;
-    newDescription = new ArrayList<Gdl>();
+    newDescription = new ArrayList<>();
     for (Gdl gdl : description)
     {
       if (gdl instanceof GdlRule)
@@ -110,14 +118,14 @@ public class GdlCleaner
     //Get rid of the old style of "base" sentences (with arity more than 1, not in rules)
     //See e.g. current version of Qyshinsu on the Dresden server
     description = newDescription;
-    newDescription = new ArrayList<Gdl>();
+    newDescription = new ArrayList<>();
     boolean removeBaseSentences = false;
     for (Gdl gdl : description)
     {
       if (gdl instanceof GdlRelation)
       {
         GdlRelation relation = (GdlRelation)gdl;
-        if (relation.getName() == BASE && relation.arity() != 1)
+        if (relation.getName() == GdlPool.BASE && relation.arity() != 1)
         {
           removeBaseSentences = true;
           break;
@@ -131,7 +139,7 @@ public class GdlCleaner
       if (gdl instanceof GdlRelation)
       {
         GdlRelation relation = (GdlRelation)gdl;
-        if (removeBaseSentences && relation.getName() == BASE)
+        if (removeBaseSentences && relation.getName() == GdlPool.BASE)
         {
           //Leave out the relation
         }
@@ -194,7 +202,7 @@ public class GdlCleaner
     if (arg1 == arg2)
     {
       //Just remove that literal
-      List<GdlLiteral> newBody = new ArrayList<GdlLiteral>();
+      List<GdlLiteral> newBody = new ArrayList<>();
       newBody.addAll(rule.getBody());
       newBody.remove(notDistinctLiteral);
       return GdlPool.getRule(rule.getHead(), newBody);
@@ -225,7 +233,7 @@ public class GdlCleaner
   private static GdlRule cleanParentheses(GdlRule rule)
   {
     GdlSentence cleanedHead = cleanParentheses(rule.getHead());
-    List<GdlLiteral> cleanedBody = new ArrayList<GdlLiteral>();
+    List<GdlLiteral> cleanedBody = new ArrayList<>();
     for (GdlLiteral literal : rule.getBody())
       cleanedBody.add(cleanParentheses(literal));
     return GdlPool.getRule(cleanedHead, cleanedBody);
@@ -252,7 +260,7 @@ public class GdlCleaner
     else if (literal instanceof GdlOr)
     {
       GdlOr or = (GdlOr)literal;
-      List<GdlLiteral> disjuncts = new ArrayList<GdlLiteral>();
+      List<GdlLiteral> disjuncts = new ArrayList<>();
       for (int i = 0; i < or.arity(); i++)
         disjuncts.add(cleanParentheses(or.get(i)));
       return GdlPool.getOr(disjuncts);
@@ -264,7 +272,7 @@ public class GdlCleaner
   {
     if (sentence instanceof GdlProposition)
       return sentence;
-    List<GdlTerm> cleanedBody = new ArrayList<GdlTerm>();
+    List<GdlTerm> cleanedBody = new ArrayList<>();
     for (GdlTerm term : sentence.getBody())
       cleanedBody.add(cleanParentheses(term));
     if (cleanedBody.size() == 0)
@@ -284,7 +292,7 @@ public class GdlCleaner
       //The whole point of the function
       if (function.arity() == 0)
         return function.getName();
-      List<GdlTerm> cleanedBody = new ArrayList<GdlTerm>();
+      List<GdlTerm> cleanedBody = new ArrayList<>();
       for (GdlTerm functionTerm : function.getBody())
         cleanedBody.add(cleanParentheses(functionTerm));
       return GdlPool.getFunction(function.getName(), cleanedBody);

@@ -57,13 +57,13 @@ public class AssignmentsFactory
     //Look for the literal(s) in the rule with the sentence form of the
     //recursive input. This can be tricky if there are multiple matching
     //literals.
-    List<GdlSentence> matchingLiterals = new ArrayList<GdlSentence>();
+    List<GdlSentence> matchingLiterals = new ArrayList<>();
     for (GdlLiteral literal : rule.getBody())
       if (literal instanceof GdlSentence)
         if (form.matches((GdlSentence)literal))
           matchingLiterals.add((GdlSentence)literal);
 
-    List<Assignments> assignmentsList = new ArrayList<Assignments>();
+    List<Assignments> assignmentsList = new ArrayList<>();
     for (GdlSentence matchingLiteral : matchingLiterals)
     {
       //left has the variables, right has the constants

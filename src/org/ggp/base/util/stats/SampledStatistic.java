@@ -16,11 +16,10 @@ public class SampledStatistic
    *
    * @param xiValue - the sample value.
    */
-  public void sample(int xiValue)
+  public void sample(double xiValue)
   {
     mSum += xiValue;
-    //  Convert to double to avoid overflow from very high sampling rate
-    mSumOfSquares += ((double)xiValue * (double)xiValue);
+    mSumOfSquares += xiValue*xiValue;
     mNumSamples++;
   }
 

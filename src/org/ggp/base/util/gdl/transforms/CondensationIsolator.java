@@ -118,8 +118,8 @@ public class CondensationIsolator
      * rule and don't include the ?c. So, what kind of algorithm can we find to
      * solve this task?
      */
-    List<Gdl> newDescription = new ArrayList<Gdl>();
-    Queue<GdlRule> rulesToAdd = new LinkedList<GdlRule>();
+    List<Gdl> newDescription = new ArrayList<>();
+    Queue<GdlRule> rulesToAdd = new LinkedList<>();
 
     for (Gdl gdl : description)
     {
@@ -277,17 +277,17 @@ public class CondensationIsolator
                                                  UnusedSentenceNameSource sentenceNameSource)
   {
 
-    Set<GdlVariable> varsInCondensationSet = new HashSet<GdlVariable>();
+    Set<GdlVariable> varsInCondensationSet = new HashSet<>();
     for (GdlLiteral literal : condensationSet)
       varsInCondensationSet.addAll(GdlUtils.getVariables(literal));
-    Set<GdlVariable> varsToKeep = new HashSet<GdlVariable>();
+    Set<GdlVariable> varsToKeep = new HashSet<>();
     //Which vars do we "keep" (put in our new condensed literal)?
     //Vars that are both:
     //1) In the condensation set, in a non-mutex literal
     //2) Either in the head or somewhere else outside the condensation set
     for (GdlLiteral literal : condensationSet)
       varsToKeep.addAll(GdlUtils.getVariables(literal));
-    Set<GdlVariable> varsToKeep2 = new HashSet<GdlVariable>();
+    Set<GdlVariable> varsToKeep2 = new HashSet<>();
     varsToKeep2.addAll(GdlUtils.getVariables(rule.getHead()));
     for (GdlLiteral literal : rule.getBody())
       if (!condensationSet.contains(literal))
@@ -309,11 +309,11 @@ public class CondensationIsolator
     {
       condenserHead = GdlPool.getRelation(condenserName, orderedVars);
     }
-    List<GdlLiteral> condenserBody = new ArrayList<GdlLiteral>(condensationSet);
+    List<GdlLiteral> condenserBody = new ArrayList<>(condensationSet);
     GdlRule condenserRule = GdlPool.getRule(condenserHead, condenserBody);
     //TODO: Look for existing rules matching the new one
 
-    List<GdlLiteral> remainingLiterals = new ArrayList<GdlLiteral>();
+    List<GdlLiteral> remainingLiterals = new ArrayList<>();
     for (GdlLiteral literal : rule.getBody())
       if (!condensationSet.contains(literal))
         remainingLiterals.add(literal);
@@ -321,7 +321,7 @@ public class CondensationIsolator
     remainingLiterals.add(condenserHead);
     GdlRule modifiedRule = GdlPool.getRule(rule.getHead(), remainingLiterals);
 
-    List<GdlRule> newRules = new ArrayList<GdlRule>(2);
+    List<GdlRule> newRules = new ArrayList<>(2);
     newRules.add(condenserRule);
     newRules.add(modifiedRule);
     return newRules;
@@ -336,22 +336,22 @@ public class CondensationIsolator
     //We use each variable as a starting point
     List<GdlVariable> varsInRule = GdlUtils.getVariables(rule);
     List<GdlVariable> varsInHead = GdlUtils.getVariables(rule.getHead());
-    List<GdlVariable> varsNotInHead = new ArrayList<GdlVariable>(varsInRule);
+    List<GdlVariable> varsNotInHead = new ArrayList<>(varsInRule);
     varsNotInHead.removeAll(varsInHead);
 
     for (GdlVariable var : varsNotInHead)
     {
       ConcurrencyUtils.checkForInterruption();
 
-      Set<GdlLiteral> minSet = new HashSet<GdlLiteral>();
+      Set<GdlLiteral> minSet = new HashSet<>();
       for (GdlLiteral literal : rule.getBody())
         if (GdlUtils.getVariables(literal).contains(var))
           minSet.add(literal);
 
       //#1 is already done
       //Now we try #2
-      Set<GdlVariable> varsNeeded = new HashSet<GdlVariable>();
-      Set<GdlVariable> varsSupplied = new HashSet<GdlVariable>();
+      Set<GdlVariable> varsNeeded = new HashSet<>();
+      Set<GdlVariable> varsSupplied = new HashSet<>();
       for (GdlLiteral literal : minSet)
         if (literal instanceof GdlRelation)
           varsSupplied.addAll(GdlUtils.getVariables(literal));
@@ -361,10 +361,10 @@ public class CondensationIsolator
       if (!varsNeeded.isEmpty())
         continue;
 
-      List<Set<GdlLiteral>> candidateSuppliersList = new ArrayList<Set<GdlLiteral>>();
+      List<Set<GdlLiteral>> candidateSuppliersList = new ArrayList<>();
       for (GdlVariable varNeeded : varsNeeded)
       {
-        Set<GdlLiteral> suppliers = new HashSet<GdlLiteral>();
+        Set<GdlLiteral> suppliers = new HashSet<>();
         for (GdlLiteral literal : rule.getBody())
           if (literal instanceof GdlRelation)
             if (GdlUtils.getVariables(literal).contains(varNeeded))
@@ -377,7 +377,7 @@ public class CondensationIsolator
       //Right now, I don't have time to worry about optimization
       //Currently, we pick one at random
       //TODO: Optimize this
-      Set<GdlLiteral> literalsToAdd = new HashSet<GdlLiteral>();
+      Set<GdlLiteral> literalsToAdd = new HashSet<>();
       for (Set<GdlLiteral> suppliers : candidateSuppliersList)
         if (Collections.disjoint(suppliers, literalsToAdd))
           literalsToAdd.add(suppliers.iterator().next());

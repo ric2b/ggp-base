@@ -1,11 +1,9 @@
 
 package org.ggp.base.util.propnet.polymorphic.runtimeOptimized;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
+import java.io.IOException;
+import java.io.Writer;
 
-import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicOr;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
@@ -27,7 +25,7 @@ public final class RuntimeOptimizedOr extends RuntimeOptimizedComponent
 
   /**
    * Returns true if and only if at least one of the inputs to the or is true.
-   * 
+   *
    * @see org.ggp.base.util.propnet.architecture.Component#getValueInternal()
    */
   @Override
@@ -137,12 +135,15 @@ public final class RuntimeOptimizedOr extends RuntimeOptimizedComponent
     setDirty(false, source);
   }
 
-  /**
-   * @see org.ggp.base.util.propnet.architecture.Component#toString()
-   */
   @Override
   public String toString()
   {
-    return toDot("ellipse", "grey", "OR");
+    return "OR";
+  }
+
+  @Override
+  public void renderAsDot(Writer xiOutput) throws IOException
+  {
+    renderAsDot(xiOutput, "ellipse", "grey", "OR");
   }
 }

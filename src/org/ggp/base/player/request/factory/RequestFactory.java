@@ -3,6 +3,7 @@ package org.ggp.base.player.request.factory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map.Entry;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -23,6 +24,7 @@ import org.ggp.base.util.game.Game;
 import org.ggp.base.util.gdl.factory.GdlFactory;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
+import org.ggp.base.util.http.HttpReader.GGPRequest;
 import org.ggp.base.util.logging.GamerLogger;
 import org.ggp.base.util.symbol.factory.SymbolFactory;
 import org.ggp.base.util.symbol.grammar.Symbol;
@@ -33,12 +35,12 @@ public final class RequestFactory
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  public Request create(Gamer gamer, String source)
+  public Request create(Gamer gamer, GGPRequest xiSource)
       throws RequestFormatException
   {
     try
     {
-      SymbolList list = (SymbolList)SymbolFactory.create(source);
+      SymbolList list = (SymbolList)SymbolFactory.create(xiSource.mRequest);
       SymbolAtom head = (SymbolAtom)list.get(0);
 
       String type = head.getValue().toLowerCase();
@@ -48,7 +50,6 @@ public final class RequestFactory
       }
       else if (type.equals("preview"))
       {
-        // !! ARR "preview" no longer used?  Can be removed?
         return createPreview(gamer, list);
       }
       else if (type.equals("start"))
@@ -73,6 +74,8 @@ public final class RequestFactory
           LOGGER.info("Logs available at:  http://localhost:9199/localview/" + lMatchID);
         }
 
+        logHeaders(xiSource);
+
         // This is the first we've seen of the GDL.  Create a translator between the network and internal formats.
         gamer.setGDLTranslator(new GDLTranslator((SymbolList)list.get(3)));
 
@@ -80,6 +83,7 @@ public final class RequestFactory
       }
       else if ( type.equals("play") || type.equals("stop") || type.equals("abort") )
       {
+        logHeaders(xiSource);
         if ( gamer.getMatch() == null )
         {
           String matchId = ((SymbolAtom)list.get(1)).getValue();
@@ -110,12 +114,13 @@ public final class RequestFactory
       }
       else
       {
+        logHeaders(xiSource);
         throw new IllegalArgumentException("Unrecognized request type!");
       }
     }
     catch (Exception e)
     {
-      throw new RequestFormatException(source, e);
+      throw new RequestFormatException(xiSource.mRequest, e);
     }
   }
 
@@ -233,7 +238,7 @@ public final class RequestFactory
     {
       return null;
     }
-    List<GdlTerm> moves = new ArrayList<GdlTerm>();
+    List<GdlTerm> moves = new ArrayList<>();
     SymbolList list = (SymbolList)symbol;
 
     for (int i = 0; i < list.size(); i++)
@@ -242,5 +247,18 @@ public final class RequestFactory
     }
 
     return moves;
+  }
+
+  /**
+   * Log the headers for a GGP request.
+   *
+   * Only call this method once the log context has been established.
+   */
+  private void logHeaders(GGPRequest xiRequest)
+  {
+    for (Entry<String, String> lEntry : xiRequest.mHeaders.entrySet())
+    {
+      LOGGER.debug(lEntry.getKey() + ": " + lEntry.getValue());
+    }
   }
 }

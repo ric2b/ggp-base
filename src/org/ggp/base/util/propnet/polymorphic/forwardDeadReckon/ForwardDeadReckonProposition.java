@@ -1,6 +1,9 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
+import java.io.IOException;
+import java.io.Writer;
+
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.statemachine.Role;
@@ -173,13 +176,16 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
     }
   }
 
-  /**
-   * @see org.ggp.base.util.propnet.architecture.Component#toString()
-   */
   @Override
   public String toString()
   {
-    return toDot("circle", (state[0] & cachedStateMask) != 0 ? "red" : "white", name.toString());
+    return name.toString() + "(" + ((state[0] & cachedStateMask) != 0) + ")";
+  }
+
+  @Override
+  public void renderAsDot(Writer xiOutput) throws IOException
+  {
+    renderAsDot(xiOutput, "circle", ((state[0] & cachedStateMask) != 0) ? "red" : "white", name.toString());
   }
 
   @Override

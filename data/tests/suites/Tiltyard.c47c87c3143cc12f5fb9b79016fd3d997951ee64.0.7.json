@@ -1,0 +1,30 @@
+{
+  "cases" : [
+    {
+      "case" : "Bug #326, Tiltyard.c47c87c3143cc12f5fb9b79016fd3d997951ee64, player 0, move 7",
+      "repo" : "games.ggp.org/base",
+      "game" : "hexPie",
+      "start" : "60",
+      "play" : "40",
+      "limit" : 7,
+      "players" : [
+        {
+          "type" : "Sancho",
+          "args" : [
+            "plan=place e 7,noop,place b 6,noop,place d 6,noop"
+          ]
+        },
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "noop,swap,noop,place b 7,noop,place d 7,noop"
+          ]
+        }
+      ],
+      "check" : {
+        "player" : "0",
+        "acceptable" : "place c 7"
+      }
+    }
+  ]
+}

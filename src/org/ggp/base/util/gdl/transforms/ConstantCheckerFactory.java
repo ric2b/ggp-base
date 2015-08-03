@@ -123,8 +123,7 @@ public class ConstantCheckerFactory
   public static ImmutableConstantChecker createWithProver(SentenceFormModel model)
       throws InterruptedException
   {
-    Multimap<SentenceForm, GdlSentence> sentencesByForm = HashMultimap
-        .create();
+    Multimap<SentenceForm, GdlSentence> sentencesByForm = HashMultimap.create();
     addSentencesTrueByRules(sentencesByForm, model);
     return ImmutableConstantChecker.create(model, sentencesByForm);
   }

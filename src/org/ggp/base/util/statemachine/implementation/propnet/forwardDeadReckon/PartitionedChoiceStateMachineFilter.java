@@ -25,9 +25,8 @@ public class PartitionedChoiceStateMachineFilter implements StateMachineFilter
   private final List<PartitionInfo> partitions = new ArrayList<>();
   private ForwardDeadReckonLegalMoveSet activePartition = null;
   private ForwardDeadReckonLegalMoveSet activeMoveSet = null;
-  private final ForwardDeadReckonLegalMoveSet activePartitionBuffer;;
+  private final ForwardDeadReckonLegalMoveSet activePartitionBuffer;
   private final ForwardDeadReckonInternalMachineState activeState;
-  private final ForwardDeadReckonPropnetStateMachine stateMachine;
 
   private class PartitionInfo
   {
@@ -57,10 +56,9 @@ public class PartitionedChoiceStateMachineFilter implements StateMachineFilter
    */
   public PartitionedChoiceStateMachineFilter(ForwardDeadReckonPropnetStateMachine xiMachine)
   {
-    activeState = new ForwardDeadReckonInternalMachineState(xiMachine.getInfoSet());
+    activeState = xiMachine.createEmptyInternalState();
     activePartitionBuffer = new ForwardDeadReckonLegalMoveSet(xiMachine.getFullPropNet().getActiveLegalProps(0));
     activeMoveSet = new ForwardDeadReckonLegalMoveSet(xiMachine.getFullPropNet().getActiveLegalProps(0));
-    stateMachine = xiMachine;
 
     //  We only support this on puzzles currently
     assert(xiMachine.getRoles().length==1);
@@ -114,13 +112,14 @@ public class PartitionedChoiceStateMachineFilter implements StateMachineFilter
   }
 
   @Override
-  public boolean isFilteredTerminal(ForwardDeadReckonInternalMachineState xiState)
+  public boolean isFilteredTerminal(ForwardDeadReckonInternalMachineState xiState,
+                                    ForwardDeadReckonPropnetStateMachine xiStateMachine)
   {
     //  If this is not the state we have cached the active set for then calculate it
     if ( !activeState.equals(xiState))
     {
       activeState.copy(xiState);
-      activeMoveSet.copy(stateMachine.getLegalMoveSet(xiState));
+      activeMoveSet.copy(xiStateMachine.getLegalMoveSet(xiState));
 
       determineActiveMoveSet(xiState);
     }
@@ -132,7 +131,7 @@ public class PartitionedChoiceStateMachineFilter implements StateMachineFilter
       return true;
     }
 
-    return stateMachine.isTerminal(xiState);
+    return xiStateMachine.isTerminal(xiState);
   }
 
   @Override

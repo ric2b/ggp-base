@@ -14,8 +14,6 @@ import org.ggp.base.util.match.Match;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 
-import clojure.main;
-
 /**
  * GameServerRunner is a utility program that lets you start up a match
  * directly from the command line.
@@ -72,9 +70,9 @@ public final class GameServerRunner
     {
       throw new RuntimeException("Invalid number of player arguments of the form host/port/name.");
     }
-    List<String> hostNames = new ArrayList<String>();
-    List<String> playerNames = new ArrayList<String>();
-    List<Integer> portNumbers = new ArrayList<Integer>();
+    List<String> hostNames = new ArrayList<>();
+    List<String> playerNames = new ArrayList<>();
+    List<Integer> portNumbers = new ArrayList<>();
     String matchName = tourneyName + "." + gameKey + "." +
                        System.currentTimeMillis();
     for (int i = NUM_FIXED_ARGS; i < args.length; i += 3)

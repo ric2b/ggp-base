@@ -23,7 +23,7 @@ public final class ValidatorThread extends Thread implements Subject
   {
     this.theGame = theGame;
     this.theValidator = theValidator;
-    this.observers = new ArrayList<Observer>();
+    this.observers = new ArrayList<>();
   }
 
   @Override
@@ -52,6 +52,7 @@ public final class ValidatorThread extends Thread implements Subject
     }
     catch (ValidatorException ve)
     {
+      System.err.println(ve);
       notifyObservers(new ValidatorFailureEvent(theValidator.getClass()
           .getSimpleName(), ve));
     }

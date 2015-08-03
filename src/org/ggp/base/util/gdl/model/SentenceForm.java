@@ -3,7 +3,6 @@ package org.ggp.base.util.gdl.model;
 
 import java.util.List;
 
-import org.ggp.base.util.gdl.GdlUtils;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
@@ -11,8 +10,8 @@ import org.ggp.base.util.gdl.grammar.GdlTerm;
 /**
  * A sentence form captures the structure of a group of possible GdlSentences.
  * Two sentences have the same form if they have the same name and include the
- * same functions in the same place Implementations of SentenceForm should be
- * immutable. They should extend {@link AbstractSentenceForm} for
+ * same functions in the same place.  Implementations of SentenceForm should be
+ * immutable.  They should extend {@link AbstractSentenceForm} for
  * implementations of hashCode and equals that will be compatible with other
  * SentenceForms, as well as a recommended implementation of toString.
  */

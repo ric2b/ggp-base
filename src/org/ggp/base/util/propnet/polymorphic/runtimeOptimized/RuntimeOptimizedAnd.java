@@ -1,13 +1,9 @@
 
 package org.ggp.base.util.propnet.polymorphic.runtimeOptimized;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Set;
+import java.io.IOException;
+import java.io.Writer;
 
-import org.ggp.base.util.propnet.architecture.Component;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
@@ -17,9 +13,7 @@ import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.Bidirectio
  * The And class is designed to represent logical AND gates.
  */
 @SuppressWarnings("serial")
-public final class RuntimeOptimizedAnd extends RuntimeOptimizedComponent
-                                                                        implements
-                                                                        PolymorphicAnd
+public final class RuntimeOptimizedAnd extends RuntimeOptimizedComponent implements PolymorphicAnd
 {
   private PolymorphicComponent knownFalseInput = null;
 
@@ -30,7 +24,7 @@ public final class RuntimeOptimizedAnd extends RuntimeOptimizedComponent
 
   /**
    * Returns true if and only if every input to the and is true.
-   * 
+   *
    * @see org.ggp.base.util.propnet.architecture.Component#getValueInternal()
    */
   @Override
@@ -140,13 +134,15 @@ public final class RuntimeOptimizedAnd extends RuntimeOptimizedComponent
     setDirty(true, source);
   }
 
-  /**
-   * @see org.ggp.base.util.propnet.architecture.Component#toString()
-   */
   @Override
   public String toString()
   {
-    return toDot("invhouse", "grey", "AND");
+    return "AND";
   }
 
+  @Override
+  public void renderAsDot(Writer xiOutput) throws IOException
+  {
+    renderAsDot(xiOutput, "invhouse", "grey", "AND");
+  }
 }

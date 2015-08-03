@@ -5,6 +5,8 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.apps.player.config.ConfigPanel;
 import org.ggp.base.apps.player.config.EmptyConfigPanel;
 import org.ggp.base.apps.player.detail.DetailPanel;
@@ -14,6 +16,7 @@ import org.ggp.base.player.gamer.exception.GamePreviewException;
 import org.ggp.base.player.gamer.exception.MetaGamingException;
 import org.ggp.base.player.gamer.exception.MoveSelectionException;
 import org.ggp.base.player.gamer.exception.StoppingException;
+import org.ggp.base.player.gamer.statemachine.sancho.RuntimeGameCharacteristics;
 import org.ggp.base.util.game.GDLTranslator;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
@@ -32,14 +35,17 @@ import org.ggp.base.util.symbol.grammar.Symbol;
  */
 public abstract class Gamer implements Subject
 {
-  private Match       match;
-  private GdlConstant roleName;
-  private GDLTranslator mGDLTranslator;
-  private int         port;
+  private static final Logger LOGGER = LogManager.getLogger();
+
+  private   Match                      match;
+  private   GdlConstant                roleName;
+  private   int                        port;
+  private   GDLTranslator              mGDLTranslator;
+  protected RuntimeGameCharacteristics mGameCharacteristics;
 
   public Gamer()
   {
-    observers = new ArrayList<Observer>();
+    observers = new ArrayList<>();
 
     // When not playing a match, the variables 'match'
     // and 'roleName' should be NULL. This indicates that
@@ -159,6 +165,22 @@ public abstract class Gamer implements Subject
   public void setGDLTranslator(GDLTranslator xiGDLTranslator)
   {
     mGDLTranslator = xiGDLTranslator;
+
+    if (xiGDLTranslator != null)
+    {
+      // Abort games that would cause us to hang.
+      File lPoison = new File(mGDLTranslator.getGameDir(), "poison");
+      if (lPoison.exists())
+      {
+        LOGGER.error("Aborting poisoned game: " + lPoison.getPath());
+        throw new RuntimeException("Aborting poisoned game: " + lPoison.getPath());
+      }
+      mGameCharacteristics = new RuntimeGameCharacteristics(mGDLTranslator.getGameDir());
+    }
+    else
+    {
+      mGameCharacteristics = null;
+    }
   }
 
   public Symbol networkToInternal(Symbol xiNetworkSymbol)
@@ -171,13 +193,9 @@ public abstract class Gamer implements Subject
     return mGDLTranslator.internalToNetwork(xiInternalSymbol);
   }
 
-  /**
-   * @return a directory for storing information about the current <b>game</b>
-   * (not the current match).
-   */
-  public File getGameDir()
+  public String getGameName()
   {
-    return mGDLTranslator.getGameDir();
+    return mGDLTranslator.getGameDir().getName();
   }
 
   // ==== Observer Stuff ====

@@ -1,27 +1,30 @@
 package org.ggp.base.apps.validator;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Random;
 
 import org.ggp.base.player.gamer.statemachine.sancho.GameSearcher;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.RuntimeGameCharacteristics;
 import org.ggp.base.player.gamer.statemachine.sancho.ThreadControl;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.CombinedHeuristic;
+import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.game.GameRepository;
 import org.ggp.base.util.game.LocalGameRepository;
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.logging.GamerLogger;
-import org.ggp.base.util.profile.ProfilerContext;
-import org.ggp.base.util.profile.ProfilerSampleSetSimple;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
-import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
+
+import sun.misc.Unsafe;
 
 /**
  * @author steve
@@ -30,6 +33,50 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
  */
 public class StateMachinePerformanceAnalyser
 {
+  public class UnsafeArray
+  {
+    private final static long INT_SIZE_IN_BYTES = 4;
+
+    private final Unsafe unsafe;
+    private final long base;
+
+    public UnsafeArray(int size)
+    {
+      Constructor<Unsafe> unsafeConstructor;
+      Unsafe _unsafe = null;
+      try
+      {
+        unsafeConstructor = Unsafe.class.getDeclaredConstructor();
+        unsafeConstructor.setAccessible(true);
+        _unsafe = unsafeConstructor.newInstance();
+      }
+      catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e)
+      {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+
+      unsafe = _unsafe;
+      base = unsafe.allocateMemory(size * INT_SIZE_IN_BYTES);
+    }
+
+    public void setValue(long index, int value) {
+      unsafe.putInt(index(index), value);
+    }
+
+    public int getValue(long index) {
+      return unsafe.getInt(index(index));
+    }
+
+    private long index(long offset) {
+      return base + offset * INT_SIZE_IN_BYTES;
+    }
+
+    public void destroy() {
+      unsafe.freeMemory(base);
+    }
+  }
+
   /**
    * Number of seconds to run each test
    */
@@ -59,6 +106,7 @@ public class StateMachinePerformanceAnalyser
     Map<String,PerformanceInfo> gamesList = new HashMap<>();
     boolean testDirectStateMachine = false;
     boolean testSanchoGameSearcher = false;
+    boolean useLocalRepository = false;
 
     for(String arg : args)
     {
@@ -71,6 +119,9 @@ public class StateMachinePerformanceAnalyser
             break;
           case "-gamesearcher":
             testSanchoGameSearcher = true;
+            break;
+          case "-local":
+            useLocalRepository = true;
             break;
           default:
             if ( arg.toLowerCase().startsWith("-time"))
@@ -94,7 +145,7 @@ public class StateMachinePerformanceAnalyser
     GameRepository theRepository = null;
     try
     {
-      theRepository = GameRepository.getDefaultRepository();
+      theRepository = (useLocalRepository ? new LocalGameRepository() : GameRepository.getDefaultRepository());
 
       if ( testDirectStateMachine )
       {
@@ -108,18 +159,29 @@ public class StateMachinePerformanceAnalyser
 
       for(Entry<String, PerformanceInfo> e : gamesList.entrySet())
       {
-        System.out.println("Game " + e.getKey() + ":");
-        if ( testDirectStateMachine )
+        if ( e.getValue() != null )
         {
-          System.out.println("  Direct state machine rollouts per second: " + e.getValue().stateMachineDirectRolloutsPerSecond);
+          System.out.println("Game " + e.getKey() + ":");
+          if ( testDirectStateMachine )
+          {
+            System.out.println("  Direct state machine rollouts per second: " + e.getValue().stateMachineDirectRolloutsPerSecond);
+          }
+          if ( testSanchoGameSearcher )
+          {
+            System.out.println("  GameSearcher rollouts per second: " + e.getValue().rolloutsPerSecond);
+            System.out.println("  GameSearcher node expansions per second: " + e.getValue().expansionsPerSecond);
+            System.out.println("  GameSearcher highest pipeline latency(micro seconds): " + e.getValue().highestLatency/1000);
+            System.out.println("  GameSearcher average pipeline latency(micro seconds): " + e.getValue().averageLatency/1000);
+          }
         }
-        if ( testSanchoGameSearcher )
-        {
-          System.out.println("  GameSearcher rollouts per second: " + e.getValue().rolloutsPerSecond);
-          System.out.println("  GameSearcher node expansions per second: " + e.getValue().expansionsPerSecond);
-          System.out.println("  GameSearcher highest pipeline latency(micro seconds): " + e.getValue().highestLatency/1000);
-          System.out.println("  GameSearcher average pipeline latency(micro seconds): " + e.getValue().averageLatency/1000);
-        }
+      }
+
+      if ( gamesList.isEmpty())
+      {
+        miscTest1();
+        miscTest2();
+        miscTest3();
+        miscTest4(new StateMachinePerformanceAnalyser());
       }
     }
     finally
@@ -132,6 +194,154 @@ public class StateMachinePerformanceAnalyser
         ((LocalGameRepository)theRepository).cleanUp();
       }
     }
+  }
+
+  private static final int maskMiddle = 0x00020000;
+  private static final int maskSign = 0x80000000;
+
+  private static void miscTest1()
+  {
+    int a = 48756;
+    int b = 1234567893;
+    int c = 0;
+
+    long startTime = System.nanoTime();
+    for(int i = 0; i < 100000000; i++)
+    {
+      a += b;
+      if ( (a & maskMiddle) != 0 )
+      {
+        c++;
+      }
+    }
+    long durationMiddle = System.nanoTime() - startTime;
+
+    startTime = System.nanoTime();
+    for(int i = 0; i < 100000000; i++)
+    {
+      a += b;
+      if ( (a & maskSign) != 0 )
+      {
+        c++;
+      }
+    }
+    long durationSignBit = System.nanoTime() - startTime;
+
+    startTime = System.nanoTime();
+    for(int i = 0; i < 100000000; i++)
+    {
+      a += b;
+      if ( a < 0 )
+      {
+        c++;
+      }
+    }
+    long durationTestSign = System.nanoTime() - startTime;
+
+    System.out.println("Time for middle bit mask: " + durationMiddle);
+    System.out.println("Time for sign bit mask: " + durationSignBit);
+    System.out.println("Time for sign test: " + durationTestSign);
+    System.out.println("Dummy: " + c);
+  }
+
+  private static void miscTest2()
+  {
+    int a = 48756;
+    int b = 1234567893;
+    int c = 0;
+    int d = 0;
+
+    long startTime = System.nanoTime();
+    for(int i = 0; i < 100000000; i++)
+    {
+      a += b;
+      if ( (a & 0x7FFFFFFF) != 0 )
+      {
+        c++;
+      }
+    }
+    long durationMask = System.nanoTime() - startTime;
+
+    startTime = System.nanoTime();
+    for(int i = 0; i < 100000000; i++)
+    {
+      a += b;
+      if ( a<<1 != 0 )
+      {
+        d++;
+      }
+    }
+    long durationShiftAndTest = System.nanoTime() - startTime;
+
+    System.out.println("Time for 0x7FFFFFFF mask: " + durationMask);
+    System.out.println("Time for shift and test: " + durationShiftAndTest);
+    System.out.println("Sigs: " + c + " and " + d);
+  }
+
+  private static void miscTest3()
+  {
+    int a = 48756;
+    int b = 1234567893;
+    int c = 0;
+
+    long startTime = System.nanoTime();
+    for(int i = 0; i < 100000000; i++)
+    {
+      a += b;
+      if ( (a & 0x7FFFFFFF) == 0x7FFFFFFF )
+      {
+        c++;
+      }
+    }
+    long durationMask = System.nanoTime() - startTime;
+
+    startTime = System.nanoTime();
+    for(int i = 0; i < 100000000; i++)
+    {
+      a += b;
+      if ( (a+1)<<1 != 0 )
+      {
+        c++;
+      }
+    }
+    long durationShiftAndTest = System.nanoTime() - startTime;
+
+    System.out.println("Time for 0x7FFFFFFF mask: " + durationMask);
+    System.out.println("Time for shift and test: " + durationShiftAndTest);
+    System.out.println("Dummy: " + c);
+  }
+
+  private static void miscTest4(StateMachinePerformanceAnalyser parent)
+  {
+    int[] array = new int[10000];
+    UnsafeArray unsafeArray = parent.new UnsafeArray(10000);
+    Random rand = new Random();
+
+    for(int i = 0; i < 10000; i++)
+    {
+      array[i] = rand.nextInt(10000);
+      unsafeArray.setValue(i, array[i]);
+    }
+
+    int a = 0;
+
+    long startTime = System.nanoTime();
+    for(int i = 0; i < 2000000000; i++)
+    {
+      a = array[a];
+    }
+    long durationMask = System.nanoTime() - startTime;
+
+    int b = 0;
+    startTime = System.nanoTime();
+    for(int i = 0; i < 2000000000; i++)
+    {
+      b = unsafeArray.getValue(b);
+    }
+    long durationShiftAndTest = System.nanoTime() - startTime;
+
+    System.out.println("Time for regular array: " + durationMask + " (final value " + a + ")");
+    System.out.println("Time for unsafe array: " + durationShiftAndTest + " (final value " + b + ")");
   }
 
   private void testDirectStateMachine(GameRepository theRepository, Map<String,PerformanceInfo> gamesList)
@@ -148,20 +358,23 @@ public class StateMachinePerformanceAnalyser
 
         List<Gdl> description = theRepository.getGame(gameKey).getRules();
         theMachine.initialize(description);
-        theMachine.disableGreedyRollouts();
+        theMachine.enableGreedyRollouts(false, true);
+
+        theMachine.optimizeStateTransitionMechanism(System.currentTimeMillis()+5000);
 
         ForwardDeadReckonInternalMachineState initialState = theMachine.createInternalState(theMachine.getInitialState());
-        Role ourRole = theMachine.getRoles()[0];
 
-        ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
         try
         {
           long startTime = System.currentTimeMillis();
           int numDepthCharges = 0;
+          ForwardDeadReckonPropnetStateMachine.PlayoutInfo playoutInfo = theMachine.new PlayoutInfo(-1);
+          playoutInfo.factor = null;
+          playoutInfo.cutoffDepth = 1000;
 
           while(System.currentTimeMillis() < startTime + 1000*numSeconds)
           {
-            theMachine.getDepthChargeResult(initialState, null, ourRole, null, null, null);
+            theMachine.getDepthChargeResult(initialState, playoutInfo);
             numDepthCharges++;
           }
 
@@ -192,17 +405,26 @@ public class StateMachinePerformanceAnalyser
 
   private void testGameSearcher(GameRepository theRepository, Map<String,PerformanceInfo> gamesList)
   {
-    for(String gameKey : gamesList.keySet())
+    for (String gameKey : gamesList.keySet())
     {
-      if ( theRepository.getGameKeys().contains(gameKey))
+      if (theRepository.getGameKeys().contains(gameKey))
       {
-        ForwardDeadReckonPropnetStateMachine theMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,25000,null);
-        GameSearcher gameSearcher = new GameSearcher(1000000, theMachine.getRoles().length, "PerfTest");
-
         System.out.println("Measure game " + gameKey + " state machine performance.");
 
+        RuntimeGameCharacteristics gameCharacteristics = new RuntimeGameCharacteristics(null);
+        ForwardDeadReckonPropnetStateMachine theMachine =
+                                           new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
+                                                                                    25000,
+                                                                                    null,
+                                                                                    gameCharacteristics);
         List<Gdl> description = theRepository.getGame(gameKey).getRules();
         theMachine.initialize(description);
+        theMachine.enableGreedyRollouts(false, true);
+        gameCharacteristics.setRolloutSampleSize(1);
+
+        theMachine.optimizeStateTransitionMechanism(System.currentTimeMillis()+5000);
+
+        GameSearcher gameSearcher = new GameSearcher(1000000, theMachine.getRoles().length, "PerfTest");
 
         long endTime;
         ForwardDeadReckonInternalMachineState initialState = theMachine.createInternalState(theMachine.getInitialState());
@@ -216,16 +438,20 @@ public class StateMachinePerformanceAnalyser
             lSearchProcessorThread.start();
           }
 
+          Heuristic lHeuristic = new CombinedHeuristic();
+          lHeuristic.tuningComplete();
+
           gameSearcher.setup(theMachine,
                              initialState,
                              new RoleOrdering(theMachine, theMachine.getRoles()[0]),
-                             new RuntimeGameCharacteristics(theMachine.getRoles().length, null),
+                             gameCharacteristics,
                              true,
-                             new CombinedHeuristic(),
+                             lHeuristic,
+                             null,
                              null);
 
           endTime = System.currentTimeMillis() + numSeconds*1000;
-          gameSearcher.startSearch(endTime, initialState, (short)0);
+          gameSearcher.startSearch(endTime, initialState, (short)0, null);
 
           if (ThreadControl.RUN_SYNCHRONOUSLY)
           {

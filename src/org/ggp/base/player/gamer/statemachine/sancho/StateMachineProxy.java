@@ -19,10 +19,7 @@ interface ActivityController
 
 class StateMachineProxy extends StateMachine
 {
-  /**
-   *
-   */
-  final private StateMachine machineToProxy;
+  private final StateMachine machineToProxy;
   private ActivityController controller = null;
 
   public StateMachineProxy(StateMachine proxyTo)

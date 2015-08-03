@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+  <entry key="num_roles">1</entry>
+  <entry key="simultaneous">false</entry>
+  <entry key="pseudo_simultaneous">false</entry>
+  <entry key="iterated">false</entry>
+  <entry key="max_factor_failure_time">0</entry>
+  <entry key="num_factors">1</entry>
+  <entry key="moves_in_multiple_factors">false</entry>
+  <entry key="max_branching_factor">3</entry>
+  <entry key="fixed_length">false</entry>
+  <entry key="plan">puton disc1 pillar3,puton disc2 pillar2,puton disc1 disc2,puton disc3 pillar3,puton disc1 disc4,puton disc2 disc3,puton disc1 disc2,puton disc4 pillar2,puton disc1 disc4,puton disc2 disc5,puton disc1 disc2,puton disc3 disc4,puton disc1 pillar3,puton disc2 disc3,puton disc1 disc2,puton disc5 pillar3,puton disc1 pillar1,puton disc2 disc5,puton disc1 disc2,puton disc3 pillar1,puton disc1 disc4,puton disc2 disc3,puton disc1 disc2,puton disc4 disc5,puton disc1 disc4,puton disc2 pillar2,puton disc1 disc2,puton disc3 disc4,puton disc1 pillar1,puton disc2 disc3,puton disc1 disc2</entry>
+  <entry key="control_mask">( ( true ( step s23 ) ), ( true ( step s16 ) ), ( true ( step s9 ) ), ( true ( step s18 ) ), ( true ( clear disc1 ) ), ( true ( step s17 ) ), ( true ( step s3 ) ), ( true ( step s6 ) ), ( true ( step s27 ) ), ( true ( step s24 ) ), ( true ( step s19 ) ), ( true ( step s30 ) ), ( true ( step s15 ) ), ( true ( step s13 ) ), ( true ( step s12 ) ), ( true ( step s14 ) ), ( true ( step s0 ) ), ( true ( step s31 ) ), ( true ( step s29 ) ), ( true ( step s8 ) ), ( true ( step s7 ) ), ( true ( step s5 ) ), ( true ( step s28 ) ), ( true ( step s20 ) ), ( true ( step s2 ) ), ( true ( step s10 ) ), ( true ( step s11 ) ), ( true ( step s26 ) ), ( true ( step s21 ) ), ( true ( step s1 ) ), ( true ( step s22 ) ), ( true ( step s4 ) ), ( true ( step s25 ) ) )</entry>
+  <entry key="factors"></entry>
+</properties>

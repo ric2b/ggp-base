@@ -49,9 +49,9 @@ public final class Scheduler implements Observer
     this.schedulingPanel = schedulingPanel;
     this.leaderboardPanel = leaderboardPanel;
     this.matchesTabbedPane = matchesTabbedPane;
-    schedulingQueue = new ArrayList<PendingMatch>();
-    activePlayers = new HashSet<String>();
-    gameServers = new HashMap<String, WeakReference<GameServer>>();
+    schedulingQueue = new ArrayList<>();
+    activePlayers = new HashSet<>();
+    gameServers = new HashMap<>();
   }
 
   public void start()
@@ -111,9 +111,9 @@ public final class Scheduler implements Observer
                               spec.moveLimit,
                               spec.theGame);
 
-      List<String> hosts = new ArrayList<String>(spec.thePlayers.size());
-      List<Integer> ports = new ArrayList<Integer>(spec.thePlayers.size());
-      List<String> playerNames = new ArrayList<String>(spec.thePlayers.size());
+      List<String> hosts = new ArrayList<>(spec.thePlayers.size());
+      List<Integer> ports = new ArrayList<>(spec.thePlayers.size());
+      List<String> playerNames = new ArrayList<>(spec.thePlayers.size());
       for (PlayerPresence player : spec.thePlayers)
       {
         hosts.add(player.getHost());
@@ -181,7 +181,7 @@ public final class Scheduler implements Observer
         }
       }
 
-      gameServers.put(spec.matchID, new WeakReference<GameServer>(gameServer));
+      gameServers.put(spec.matchID, new WeakReference<>(gameServer));
       schedulingQueue.remove(spec);
     }
     catch (Exception e)
@@ -232,10 +232,8 @@ public final class Scheduler implements Observer
         {
           Thread.sleep(100);
         }
-        catch (InterruptedException ie)
-        {
-          ;
-        }
+        catch (InterruptedException ie) { /* Do nothing */ }
+
         PendingMatch matchToSchedule = null;
         for (PendingMatch spec : schedulingQueue)
         {

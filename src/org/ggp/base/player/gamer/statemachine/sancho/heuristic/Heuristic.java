@@ -4,7 +4,6 @@ import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.TreeNode;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
-import org.w3c.tidy.MutableInteger;
 
 /**
  * Interface for heuristics.
@@ -48,6 +47,53 @@ import org.w3c.tidy.MutableInteger;
  */
 public interface Heuristic
 {
+  /**
+   * Class containing output information from heuristic evaluation
+   * @author steve
+   *
+   */
+  public class HeuristicInfo
+  {
+    /**
+     * Whether this progression (from previous to current state as supplied to
+     * the heuristic evaluation) should be regarded as a step in a heuristic sequence
+     * if either the previous or next step in the election path is also so flagged.
+     * Heuristic sequences will be treated as if they were single logical steps, with
+     * the heuristic bias applied on exit from the sequence.  As such a heuristic should
+     * avoid flagging all or most transitions in this manner.  It should also avoid
+     * very strong heuristic values in conjunction with sequence flagging since the
+     * update values propagated up through sequence exit points in th tree will be adjusted
+     * towards 0 or 100 (depending on the heuristic weight being < or > 50) by an amount
+     * dependent on that weight - a weight of 0 or 100 implies certainty and will force
+     * all propagations to reflect that value, which will usually be incorrect when used
+     * in this manner.
+     * A heuristic need not flag anything as bing part of a sequence (in which case the heuristic
+     * value will have a much more localized impact, and cause more/less initial exploration
+     * as well as higher/lower initial estimates for a node's value.  Without sequence flagging
+     * the effect of the heuristic on a node will decay as samples are added.
+     */
+    public boolean  treatAsSequenceStep;
+    /**
+     * Weight to apply the heuristic with
+     */
+    public double   heuristicWeight;
+    /**
+     * Role-indexed array of heuristic values.  These should reflect the degree to which
+     * the current state is better (for each role) than the reference state (as presented to
+     * the heuristic evaluator).  A value of 50 indicates equivalence, and the range is [0-100]
+     */
+    public double[] heuristicValue;
+
+    /**
+     * Constructor
+     * @param numRoles
+     */
+    public HeuristicInfo(int numRoles)
+    {
+      heuristicValue = new double[numRoles];
+    }
+  }
+
   /**
    * Initialise the heuristic and prepare for tuning.
    *
@@ -100,19 +146,23 @@ public interface Heuristic
    *
    * @param xiState           - the state (never a terminal state).
    * @param xiPreviousState   - the previous state (can be null).
-   * @param xoHeuristicValue  - array of per-role heuristic values.  All zeros on entry.  Heuristic value (0-100) on
-   *                            exit.
-   * @param xoHeuristicWeight - the certainty in the heuristic values, range 0-10.  Undefined on entry.  Set on exit.
+   * @param xiReferenceState  - state with which to compare to determine heuristic values
    */
   public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                ForwardDeadReckonInternalMachineState xiPreviousState,
-                                double[] xoHeuristicValue,
-                                MutableInteger xoHeuristicWeight);
+                                  ForwardDeadReckonInternalMachineState xiPreviousState,
+                                  ForwardDeadReckonInternalMachineState xiReferenceState,
+                                  HeuristicInfo resultInfo);
 
   /**
    * @return whether the heuristic should be used.
    */
   public boolean isEnabled();
+
+  /**
+   * @return whether to apply using just initial value weights, as opposed to with
+   * ongoing bias applied through update propagation
+   */
+  public boolean applyAsSimpleHeuristic();
 
   /**
    * @return an instance of the heuristic that can be used independently of existing instances on different game trees

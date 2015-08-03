@@ -45,7 +45,7 @@ public abstract class StateMachineGamer extends Gamer
   /**
    * Defines which state machine this gamer will use.
    *
-   * @return
+   * @return the state machine.
    */
   public abstract StateMachine getInitialStateMachine();
 
@@ -90,13 +90,16 @@ public abstract class StateMachineGamer extends Gamer
   // Next, methods which can be used by subclasses to get information about
   // the current state of the game, and tweak the state machine on the fly.
 
+  /**
+   * @return the meta-gaming timeout (in milliseconds).
+   */
   public final long getMetaGamingTimeout()
   {
     return metaGamingTimeout;
   }
 
   /**
-   * Returns the current state of the game.
+   * @return the current state of the game.
    */
   public final MachineState getCurrentState()
   {
@@ -104,7 +107,7 @@ public abstract class StateMachineGamer extends Gamer
   }
 
   /**
-   * Returns the role that this gamer is playing as in the game.
+   * @return the role that this gamer is playing as in the game.
    */
   public final Role getRole()
   {
@@ -112,9 +115,8 @@ public abstract class StateMachineGamer extends Gamer
   }
 
   /**
-   * Returns the state machine. This is used for calculating the next state and
-   * other operations, such as computing the legal moves for all players,
-   * whether states are terminal, and the goal values of terminal states.
+   * @return the state machine. This is used for calculating the next state and other operations, such as computing
+   * the legal moves for all players, whether states are terminal, and the goal values of terminal states.
    */
   public final StateMachine getStateMachine()
   {
@@ -132,6 +134,7 @@ public abstract class StateMachineGamer extends Gamer
     role = null;
     currentState = null;
     stateMachine = null;
+    mGameCharacteristics = null;
     setMatch(null);
     setRoleName(null);
   }
@@ -157,7 +160,7 @@ public abstract class StateMachineGamer extends Gamer
       List<List<GdlTerm>> theMoveHistory = getMatch().getMoveHistory();
       for (List<GdlTerm> nextMove : theMoveHistory)
       {
-        List<Move> theJointMove = new ArrayList<Move>();
+        List<Move> theJointMove = new ArrayList<>();
         for (GdlTerm theSentence : nextMove)
           theJointMove.add(newStateMachine.getMoveFromTerm(theSentence));
         newCurrentState = newStateMachine
@@ -204,15 +207,15 @@ public abstract class StateMachineGamer extends Gamer
 
       stateMachineMetaGame(timeout);
     }
-    catch (Exception e)
+    catch (Exception lEx)
     {
-      LOGGER.error("Exception in player", e);
-      GamerLogger.logStackTrace("GamePlayer", e);
-      throw new MetaGamingException(e);
+      LOGGER.error("Exception in player during meta-gaming", lEx);
+      GamerLogger.logStackTrace("GamePlayer", lEx);
+      throw new MetaGamingException(lEx);
     }
     catch (AssertionError lEx)
     {
-      LOGGER.error("AssertionError: " + lEx);
+      LOGGER.error("AssertionError during meta-gaming", lEx);
       throw new AssertionError("Rethrown AssertionError", lEx);
     }
   }
@@ -244,15 +247,15 @@ public abstract class StateMachineGamer extends Gamer
 
       return stateMachineSelectMove(timeout).getContents();
     }
-    catch (Exception e)
+    catch (Exception lEx)
     {
-      LOGGER.error("Exception in player", e);
-      GamerLogger.logStackTrace("GamePlayer", e);
-      throw new MoveSelectionException(e);
+      LOGGER.error("Exception in player during move selection", lEx);
+      GamerLogger.logStackTrace("GamePlayer", lEx);
+      throw new MoveSelectionException(lEx);
     }
     catch (AssertionError lEx)
     {
-      LOGGER.error("AssertionError: " + lEx);
+      LOGGER.error("AssertionError during move selection", lEx);
       throw new AssertionError("Rethrown AssertionError", lEx);
     }
   }
@@ -267,7 +270,7 @@ public abstract class StateMachineGamer extends Gamer
       List<GdlTerm> lastMoves = getMatch().getMostRecentMoves();
       if (lastMoves != null)
       {
-        List<Move> moves = new ArrayList<Move>();
+        List<Move> moves = new ArrayList<>();
         for (GdlTerm sentence : lastMoves)
         {
           moves.add(stateMachine.getMoveFromTerm(sentence));
@@ -280,15 +283,15 @@ public abstract class StateMachineGamer extends Gamer
 
       stateMachineStop();
     }
-    catch (Exception e)
+    catch (Exception lEx)
     {
-      LOGGER.error("Exception in player", e);
-      GamerLogger.logStackTrace("GamePlayer", e);
-      throw new StoppingException(e);
+      LOGGER.error("Exception in player whilst stopping", lEx);
+      GamerLogger.logStackTrace("GamePlayer", lEx);
+      throw new StoppingException(lEx);
     }
     catch (AssertionError lEx)
     {
-      LOGGER.error("AssertionError: " + lEx);
+      LOGGER.error("AssertionError whilst stopping", lEx);
       throw new AssertionError("Rethrown AssertionError", lEx);
     }
   }
@@ -300,15 +303,15 @@ public abstract class StateMachineGamer extends Gamer
     {
       stateMachineAbort();
     }
-    catch (Exception e)
+    catch (Exception lEx)
     {
-      LOGGER.error("Exception in player", e);
-      GamerLogger.logStackTrace("GamePlayer", e);
-      throw new AbortingException(e);
+      LOGGER.error("Exception in player whilst aborting", lEx);
+      GamerLogger.logStackTrace("GamePlayer", lEx);
+      throw new AbortingException(lEx);
     }
     catch (AssertionError lEx)
     {
-      LOGGER.error("AssertionError: " + lEx);
+      LOGGER.error("AssertionError whilst aborting", lEx);
       throw new AssertionError("Rethrown AssertionError", lEx);
     }
   }

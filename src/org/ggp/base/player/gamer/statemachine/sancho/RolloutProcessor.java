@@ -62,7 +62,7 @@ class RolloutProcessor implements Runnable
    */
   public void disableGreedyRollouts()
   {
-    mStateMachine.disableGreedyRollouts();
+    mStateMachine.enableGreedyRollouts(false, true);
   }
 
   /**

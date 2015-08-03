@@ -134,9 +134,9 @@ public final class PropNet
 
   private Map<Proposition, Proposition> makeLegalInputMap()
   {
-    Map<Proposition, Proposition> legalInputMap = new HashMap<Proposition, Proposition>();
+    Map<Proposition, Proposition> legalInputMap = new HashMap<>();
     // Create a mapping from Body->Input.
-    Map<List<GdlTerm>, Proposition> inputPropsByBody = new HashMap<List<GdlTerm>, Proposition>();
+    Map<List<GdlTerm>, Proposition> inputPropsByBody = new HashMap<>();
     for (Proposition inputProp : inputPropositions.values())
     {
       List<GdlTerm> inputPropBody = (inputProp.getName()).getBody();
@@ -298,7 +298,7 @@ public final class PropNet
    */
   private Map<GdlSentence, Proposition> recordBasePropositions()
   {
-    Map<GdlSentence, Proposition> basePropositions = new HashMap<GdlSentence, Proposition>();
+    Map<GdlSentence, Proposition> basePropositions = new HashMap<>();
     for (Proposition proposition : propositions)
     {
       // Skip all propositions without exactly one input.
@@ -326,7 +326,7 @@ public final class PropNet
    */
   private Map<Role, Set<Proposition>> recordGoalPropositions()
   {
-    Map<Role, Set<Proposition>> goalPropositions = new HashMap<Role, Set<Proposition>>();
+    Map<Role, Set<Proposition>> goalPropositions = new HashMap<>();
     for (Proposition proposition : propositions)
     {
       // Skip all propositions that aren't GdlRelations.
@@ -377,7 +377,7 @@ public final class PropNet
    */
   private Map<GdlSentence, Proposition> recordInputPropositions()
   {
-    Map<GdlSentence, Proposition> inputPropositions = new HashMap<GdlSentence, Proposition>();
+    Map<GdlSentence, Proposition> inputPropositions = new HashMap<>();
     for (Proposition proposition : propositions)
     {
       // Skip all propositions that aren't GdlFunctions.
@@ -401,7 +401,7 @@ public final class PropNet
    */
   private Map<Role, Set<Proposition>> recordLegalPropositions()
   {
-    Map<Role, Set<Proposition>> legalPropositions = new HashMap<Role, Set<Proposition>>();
+    Map<Role, Set<Proposition>> legalPropositions = new HashMap<>();
     for (Proposition proposition : propositions)
     {
       // Skip all propositions that aren't GdlRelations.
@@ -431,7 +431,7 @@ public final class PropNet
    */
   private Set<Proposition> recordPropositions()
   {
-    Set<Proposition> propositions = new HashSet<Proposition>();
+    Set<Proposition> propositions = new HashSet<>();
     for (Component component : components)
     {
       if (component instanceof Proposition)
@@ -548,7 +548,7 @@ public final class PropNet
       {
         throw new RuntimeException("The INIT component cannot be removed. Consider leaving it and ignoring it.");
       }
-      else if (name == GdlPool.getProposition(GdlPool.getConstant("terminal")))
+      else if (name == GdlPool.getProposition(GdlPool.TERMINAL))
       {
         throw new RuntimeException("The terminal component cannot be removed.");
       }

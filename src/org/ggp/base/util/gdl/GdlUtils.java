@@ -26,11 +26,11 @@ import org.ggp.base.util.gdl.grammar.GdlVariable;
 
 public class GdlUtils
 {
-  //TODO (AL): Check if we can switch over to just having this return a set. 
+  //TODO (AL): Check if we can switch over to just having this return a set.
   public static List<GdlVariable> getVariables(Gdl gdl)
   {
-    final List<GdlVariable> variablesList = new ArrayList<GdlVariable>();
-    final Set<GdlVariable> variables = new HashSet<GdlVariable>();
+    final List<GdlVariable> variablesList = new ArrayList<>();
+    final Set<GdlVariable> variables = new HashSet<>();
     GdlVisitors.visitAll(gdl, new GdlVisitor()
     {
       @Override
@@ -46,10 +46,24 @@ public class GdlUtils
     return variablesList;
   }
 
+  public static Set<GdlVariable> getVariablesSet(Gdl gdl)
+  {
+    final Set<GdlVariable> variables = new HashSet<>();
+    GdlVisitors.visitAll(gdl, new GdlVisitor()
+    {
+      @Override
+      public void visitVariable(GdlVariable variable)
+      {
+        variables.add(variable);
+      }
+    });
+    return variables;
+  }
+
   public static List<String> getVariableNames(Gdl gdl)
   {
     List<GdlVariable> variables = getVariables(gdl);
-    List<String> variableNames = new ArrayList<String>();
+    List<String> variableNames = new ArrayList<>();
     for (GdlVariable variable : variables)
     {
       variableNames.add(variable.getName());
@@ -59,7 +73,7 @@ public class GdlUtils
 
   public static List<GdlSentence> getSentencesInRuleBody(GdlRule rule)
   {
-    List<GdlSentence> result = new ArrayList<GdlSentence>();
+    List<GdlSentence> result = new ArrayList<>();
     for (GdlLiteral literal : rule.getBody())
     {
       addSentencesInLiteral(literal, result);
@@ -98,7 +112,7 @@ public class GdlUtils
       return Collections.emptyList();
 
     //A simple crawl through the sentence.
-    List<GdlTerm> tuple = new ArrayList<GdlTerm>();
+    List<GdlTerm> tuple = new ArrayList<>();
     try
     {
       addBodyToTuple(sentence.getBody(), tuple);
@@ -140,7 +154,7 @@ public class GdlUtils
       return Collections.emptyList();
 
     //A simple crawl through the sentence.
-    List<GdlConstant> tuple = new ArrayList<GdlConstant>();
+    List<GdlConstant> tuple = new ArrayList<>();
     try
     {
       addBodyToGroundTuple(sentence.getBody(), tuple);
@@ -180,7 +194,7 @@ public class GdlUtils
   public static Map<GdlVariable, GdlConstant> getAssignmentMakingLeftIntoRight(GdlSentence left,
                                                                                GdlSentence right)
   {
-    Map<GdlVariable, GdlConstant> assignment = new HashMap<GdlVariable, GdlConstant>();
+    Map<GdlVariable, GdlConstant> assignment = new HashMap<>();
     if (!left.getName().equals(right.getName()))
       return null;
     if (left.arity() != right.arity())

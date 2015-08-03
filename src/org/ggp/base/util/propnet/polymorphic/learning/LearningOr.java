@@ -1,6 +1,8 @@
 
 package org.ggp.base.util.propnet.polymorphic.learning;
 
+import java.io.IOException;
+import java.io.Writer;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -13,8 +15,7 @@ import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.Bidirectio
  * The Or class is designed to represent logical OR gates.
  */
 @SuppressWarnings("serial")
-public final class LearningOr extends LearningComponent implements
-                                                       PolymorphicOr
+public final class LearningOr extends LearningComponent implements PolymorphicOr
 {
   PolymorphicComponent                       knownTrueInput     = null;
 
@@ -34,7 +35,7 @@ public final class LearningOr extends LearningComponent implements
   {
     if (successSearchCount == null)
     {
-      successSearchCount = new HashMap<PolymorphicComponent, Integer>();
+      successSearchCount = new HashMap<>();
     }
 
     for (LearningComponent component : inputs)
@@ -160,7 +161,7 @@ public final class LearningOr extends LearningComponent implements
   {
     if (successSearchCount != null)
     {
-      LinkedList<LearningComponent> newInputs = new LinkedList<LearningComponent>();
+      LinkedList<LearningComponent> newInputs = new LinkedList<>();
 
       for (LearningComponent c : inputs)
       {
@@ -251,12 +252,15 @@ public final class LearningOr extends LearningComponent implements
     }
   }
 
-  /**
-   * @see org.ggp.base.util.propnet.architecture.Component#toString()
-   */
   @Override
   public String toString()
   {
-    return toDot("ellipse", "grey", "OR");
+    return "OR";
+  }
+
+  @Override
+  public void renderAsDot(Writer xiOutput) throws IOException
+  {
+    renderAsDot(xiOutput, "ellipse", "grey", "OR");
   }
 }

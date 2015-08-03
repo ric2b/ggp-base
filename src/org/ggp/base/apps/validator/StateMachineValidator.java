@@ -23,7 +23,7 @@ public class StateMachineValidator
 {
   public static void main(String args[])
   {
-    Set<String> exceptedGames = new HashSet<String>();
+    Set<String> exceptedGames = new HashSet<>();
 
     // Set of games to omit from tests - e.g. - due to known GDL issues
     exceptedGames.add("merrills");
@@ -50,14 +50,15 @@ public class StateMachineValidator
     exceptedGames.add("wallmaze");
     exceptedGames.add("slidingpieces");
     exceptedGames.add("ad_game_2x2");
+    exceptedGames.add("gt_two_thirds_6p");
     exceptedGames.add("ticTacHeavenFC");//  Allows both players to noop at once which we don't currently handle
 
-    String startGame = "sheepAndWolf"; // Game to begin with if desired
-    boolean foundStartGame = true; // Set to true to just start at the beginning
+    String startGame = "ttcc4_2player"; // Game to begin with if desired
+    boolean foundStartGame = false; // Set to true to just start at the beginning
     boolean stopOnError = true; // Whether to stop on first failing game or continue
     final int REPS_PER_GAME = 1;  //  Set to repeat each game multiple times
 
-    Set<String> failureCases = new HashSet<String>();
+    Set<String> failureCases = new HashSet<>();
 
     // Usually we'll want the default repository but local can be useful
     //GameRepository theRepository = new LocalGameRepository();
@@ -96,7 +97,7 @@ public class StateMachineValidator
           try
           {
             theMachine.initialize(description);
-            theMachine.disableGreedyRollouts();
+            theMachine.enableGreedyRollouts(false, true);
 
             result = StateMachineVerifier.checkMachineConsistency(theReference,
                                                                   theMachine,

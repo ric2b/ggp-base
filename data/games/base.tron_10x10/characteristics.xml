@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+  <entry key="num_roles">2</entry>
+  <entry key="simultaneous">true</entry>
+  <entry key="pseudo_simultaneous">true</entry>
+  <entry key="iterated">false</entry>
+  <entry key="max_factor_failure_time">0</entry>
+  <entry key="num_factors">1</entry>
+  <entry key="moves_in_multiple_factors">false</entry>
+  <entry key="max_branching_factor">4</entry>
+  <entry key="fixed_length">false</entry>
+  <entry key="control_mask">( ( true ( cell 11 3 v ) ), ( true ( cell 0 6 v ) ), ( true ( cell 11 8 v ) ), ( true ( cell 9 0 v ) ), ( true ( cell 4 0 v ) ), ( true ( cell 11 7 v ) ), ( true ( cell 3 11 v ) ), ( true ( cell 8 11 v ) ), ( true ( cell 0 3 v ) ), ( true ( cell 4 11 v ) ), ( true ( cell 0 9 v ) ), ( true ( cell 11 1 v ) ), ( true ( cell 3 0 v ) ), ( true ( cell 2 0 v ) ), ( true ( cell 11 10 v ) ), ( true ( cell 1 11 v ) ), ( true ( cell 0 7 v ) ), ( true ( cell 5 11 v ) ), ( true ( cell 0 10 v ) ), ( true ( cell 7 11 v ) ), ( true ( cell 1 0 v ) ), ( true ( cell 6 0 v ) ), ( true ( cell 11 2 v ) ), ( true ( cell 11 4 v ) ), ( true ( cell 11 0 v ) ), ( true ( cell 11 5 v ) ), ( true ( cell 0 5 v ) ), ( true ( cell 7 0 v ) ), ( true ( cell 9 11 v ) ), ( true ( cell 8 0 v ) ), ( true ( cell 5 0 v ) ), ( true ( cell 11 11 v ) ), ( true ( cell 0 8 v ) ), ( true ( cell 10 11 v ) ), ( true ( cell 6 11 v ) ), ( true ( cell 0 0 v ) ), ( true ( cell 10 0 v ) ), ( true ( cell 0 4 v ) ), ( true ( cell 0 1 v ) ), ( true ( cell 2 11 v ) ), ( true ( cell 0 11 v ) ), ( true ( cell 11 9 v ) ), ( true ( cell 11 6 v ) ), ( true ( cell 0 2 v ) ) )</entry>
+  <entry key="factors"></entry>
+</properties>

@@ -65,7 +65,7 @@ public class Role implements Serializable
    */
   public static Role[] computeRoles(List<? extends Gdl> description)
   {
-    List<Role> roles = new ArrayList<Role>();
+    List<Role> roles = new ArrayList<>();
     for (Gdl gdl : description)
     {
       if (gdl instanceof GdlRelation)

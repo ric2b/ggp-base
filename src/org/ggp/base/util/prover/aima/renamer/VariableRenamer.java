@@ -69,7 +69,7 @@ public class VariableRenamer
     }
     GdlConstant name = renameConstant(function.getName(), renamings);
 
-    List<GdlTerm> body = new ArrayList<GdlTerm>();
+    List<GdlTerm> body = new ArrayList<>();
     for (int i = 0; i < function.arity(); i++)
     {
       body.add(renameTerm(function.get(i), renamings));
@@ -115,7 +115,7 @@ public class VariableRenamer
     {
       return or;
     }
-    List<GdlLiteral> disjuncts = new ArrayList<GdlLiteral>();
+    List<GdlLiteral> disjuncts = new ArrayList<>();
     for (int i = 0; i < or.arity(); i++)
     {
       disjuncts.add(renameLiteral(or.get(i), renamings));
@@ -139,7 +139,7 @@ public class VariableRenamer
     }
     GdlConstant name = renameConstant(relation.getName(), renamings);
 
-    List<GdlTerm> body = new ArrayList<GdlTerm>();
+    List<GdlTerm> body = new ArrayList<>();
     for (int i = 0; i < relation.arity(); i++)
     {
       body.add(renameTerm(relation.get(i), renamings));
@@ -157,7 +157,7 @@ public class VariableRenamer
     }
     GdlSentence head = renameSentence(rule.getHead(), renamings);
 
-    List<GdlLiteral> body = new ArrayList<GdlLiteral>();
+    List<GdlLiteral> body = new ArrayList<>();
     for (int i = 0; i < rule.arity(); i++)
     {
       body.add(renameLiteral(rule.get(i), renamings));

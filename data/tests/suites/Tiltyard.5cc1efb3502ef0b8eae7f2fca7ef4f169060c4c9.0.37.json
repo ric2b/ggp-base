@@ -1,0 +1,30 @@
+{
+  "cases" : [
+    {
+      "case" : "Bug #327, Tiltyard.5cc1efb3502ef0b8eae7f2fca7ef4f169060c4c9, player 0, move 37",
+      "repo" : "games.ggp.org/base",
+      "game" : "breakthroughWalls",
+      "start" : "30",
+      "play" : "30",
+      "limit" : 37,
+      "players" : [
+        {
+          "type" : "Sancho",
+          "args" : [
+            "plan=move 6 2 7 3,noop,move 7 3 8 4,noop,move 1 2 2 3,noop,move 4 2 3 3,noop,move 3 3 2 4,noop,move 2 3 3 4,noop,move 7 2 6 3,noop,move 6 1 6 2,noop,move 6 2 5 3,noop,move 5 3 5 4,noop,move 3 2 3 3,noop,move 7 1 6 2,noop,move 6 2 5 3,noop,move 8 2 8 3,noop,move 5 3 6 4,noop,move 6 4 7 5,noop,move 5 4 5 5,noop,move 2 2 1 3,noop"
+          ]
+        },
+        {
+          "type" : "ScriptedPlayer",
+          "args" : [
+            "noop,move 2 7 2 6,noop,move 2 6 3 5,noop,move 3 5 2 4,noop,move 5 7 5 6,noop,move 5 6 6 5,noop,move 6 5 5 4,noop,move 5 4 5 3,noop,move 6 7 7 6,noop,move 7 6 6 5,noop,move 6 5 6 4,noop,move 6 4 5 3,noop,move 8 7 8 6,noop,move 8 6 8 5,noop,move 7 7 7 6,noop,move 7 8 6 7,noop,move 6 8 7 7,noop,move 7 6 6 5,noop,move 6 5 6 4,noop"
+          ]
+        }
+      ],
+      "check" : {
+        "player" : "0",
+        "acceptable" : "move 5 5 5 6,move 5 5 6 6,move 7 5 6 6,move 7 5 7 6,move 8 1 8 2,move 5 1 6 2,move 7 5 8 6"
+      }
+    }
+  ]
+}

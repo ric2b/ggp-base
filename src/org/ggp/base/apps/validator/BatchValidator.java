@@ -5,7 +5,7 @@ import org.ggp.base.util.game.CloudGameRepository;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.game.GameRepository;
 import org.ggp.base.validator.BasesInputsValidator;
-import org.ggp.base.validator.OPNFValidator;
+import org.ggp.base.validator.OPPNFValidator;
 import org.ggp.base.validator.SimulationValidator;
 import org.ggp.base.validator.StaticValidator;
 import org.ggp.base.validator.GameValidator;
@@ -34,7 +34,7 @@ public final class BatchValidator
       Game game = repo.getGame(gameKey);
       GameValidator[] theValidators = new GameValidator[] {
           new StaticValidator(), new BasesInputsValidator(3000),
-          new SimulationValidator(300, 10), new OPNFValidator(),};
+          new SimulationValidator(300, 10), new OPPNFValidator(),};
       System.out.print(gameKey + " ... ");
       System.out.flush();
       boolean isValid = true;

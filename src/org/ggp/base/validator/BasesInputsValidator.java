@@ -10,7 +10,6 @@ import java.util.Set;
 import org.ggp.base.util.game.CloudGameRepository;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.game.GameRepository;
-import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
@@ -27,10 +26,6 @@ import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 
 public class BasesInputsValidator implements GameValidator
 {
-  private static final GdlConstant BASE  = GdlPool.getConstant("base");
-  private static final GdlConstant INPUT = GdlPool.getConstant("input");
-  private static final GdlConstant TRUE  = GdlPool.getConstant("true");
-  private static final GdlConstant LEGAL = GdlPool.getConstant("legal");
   private static final GdlVariable X     = GdlPool.getVariable("?x");
   private static final GdlVariable Y     = GdlPool.getVariable("?y");
 
@@ -50,22 +45,19 @@ public class BasesInputsValidator implements GameValidator
       sm.initialize(theGame.getRules());
 
       AimaProver prover = new AimaProver(theGame.getRules());
-      GdlSentence basesQuery = GdlPool.getRelation(BASE, new GdlTerm[] {X});
-      Set<GdlSentence> bases = prover.askAll(basesQuery, Collections
-          .<GdlSentence> emptySet());
-      GdlSentence inputsQuery = GdlPool.getRelation(INPUT,
-                                                    new GdlTerm[] {X, Y});
-      Set<GdlSentence> inputs = prover.askAll(inputsQuery, Collections
-          .<GdlSentence> emptySet());
-      Set<GdlSentence> truesFromBases = new HashSet<GdlSentence>();
+      GdlSentence basesQuery = GdlPool.getRelation(GdlPool.BASE, new GdlTerm[] {X});
+      Set<GdlSentence> bases = prover.askAll(basesQuery, Collections.<GdlSentence> emptySet());
+      GdlSentence inputsQuery = GdlPool.getRelation(GdlPool.INPUT, new GdlTerm[] {X, Y});
+      Set<GdlSentence> inputs = prover.askAll(inputsQuery, Collections.<GdlSentence> emptySet());
+      Set<GdlSentence> truesFromBases = new HashSet<>();
       for (GdlSentence base : bases)
       {
-        truesFromBases.add(GdlPool.getRelation(TRUE, base.getBody()));
+        truesFromBases.add(GdlPool.getRelation(GdlPool.TRUE, base.getBody()));
       }
-      Set<GdlSentence> legalsFromInputs = new HashSet<GdlSentence>();
+      Set<GdlSentence> legalsFromInputs = new HashSet<>();
       for (GdlSentence input : inputs)
       {
-        legalsFromInputs.add(GdlPool.getRelation(LEGAL, input.getBody()));
+        legalsFromInputs.add(GdlPool.getRelation(GdlPool.LEGAL, input.getBody()));
       }
 
       if (truesFromBases.isEmpty() && legalsFromInputs.isEmpty())
@@ -83,7 +75,7 @@ public class BasesInputsValidator implements GameValidator
         {
           if (!truesFromBases.containsAll(state.getContents()))
           {
-            Set<GdlSentence> missingBases = new HashSet<GdlSentence>();
+            Set<GdlSentence> missingBases = new HashSet<>();
             missingBases.addAll(state.getContents());
             missingBases.removeAll(truesFromBases);
             throw new ValidatorException("Found missing bases: " +
@@ -93,23 +85,22 @@ public class BasesInputsValidator implements GameValidator
 
         if (!legalsFromInputs.isEmpty())
         {
-          List<GdlSentence> legalSentences = new ArrayList<GdlSentence>();
+          List<GdlSentence> legalSentences = new ArrayList<>();
           for (Role role : sm.getRoles())
           {
             List<Move> legalMoves = sm.getLegalMoves(state, role);
             for (Move move : legalMoves)
             {
-              legalSentences.add(GdlPool.getRelation(LEGAL, new GdlTerm[] {
+              legalSentences.add(GdlPool.getRelation(GdlPool.LEGAL, new GdlTerm[] {
                   role.getName(), move.getContents()}));
             }
           }
           if (!legalsFromInputs.containsAll(legalSentences))
           {
-            Set<GdlSentence> missingInputs = new HashSet<GdlSentence>();
+            Set<GdlSentence> missingInputs = new HashSet<>();
             missingInputs.addAll(legalSentences);
             missingInputs.removeAll(legalsFromInputs);
-            throw new ValidatorException("Found missing inputs: " +
-                                         missingInputs);
+            throw new ValidatorException("Found missing inputs: " + missingInputs);
           }
         }
 
@@ -122,23 +113,19 @@ public class BasesInputsValidator implements GameValidator
     }
     catch (MoveDefinitionException mde)
     {
-      throw new ValidatorException("Could not find legal moves while simulating: " +
-                                   mde);
+      throw new ValidatorException("Could not find legal moves while simulating: " + mde);
     }
     catch (TransitionDefinitionException tde)
     {
-      throw new ValidatorException("Could not find transition definition while simulating: " +
-                                   tde);
+      throw new ValidatorException("Could not find transition definition while simulating: " + tde);
     }
     catch (RuntimeException e)
     {
-      throw new ValidatorException("Ran into a runtime exception while simulating: " +
-                                   e);
+      throw new ValidatorException("Ran into a runtime exception while simulating: " + e);
     }
     catch (StackOverflowError e)
     {
-      throw new ValidatorException("Ran into a stack overflow while simulating: " +
-                                   e);
+      throw new ValidatorException("Ran into a stack overflow while simulating: " + e);
     }
     catch (OutOfMemoryError e)
     {
@@ -155,21 +142,17 @@ public class BasesInputsValidator implements GameValidator
 
     for (String gameKey : gameRepo.getGameKeys())
     {
-      if (!gameKey.equals("amazons") //Skip games that currently result in out-of-memory errors
-          &&
+      if (!gameKey.equals("amazons") && //Skip games that currently result in out-of-memory errors
           !gameKey.equals("alexChess"))
       {
         try
         {
-          new BasesInputsValidator(20000).checkValidity(gameRepo
-              .getGame(gameKey));
-          System.out.println("Game " + gameKey +
-                             " has valid base/input propositions.");
+          new BasesInputsValidator(20000).checkValidity(gameRepo.getGame(gameKey));
+          System.out.println("Game " + gameKey + " has valid base/input propositions.");
         }
         catch (ValidatorException ve)
         {
-          System.out.println("Game " + gameKey + " is invalid: " +
-                             ve.getMessage());
+          System.out.println("Game " + gameKey + " is invalid: " + ve.getMessage());
         }
       }
     }

@@ -4,13 +4,18 @@ package org.ggp.base.util.gdl.grammar;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * A <i>proposition</i> is a <i>sentence</i> with no body.  (Note that this is different from the sense of "proposition"
+ * used in propositional network, which is equivalent to a <i>sentence</i> in GDL terminology.)
+ *
+ * See {@link Gdl} for a complete description of the GDL hierarchy.
+ */
 @SuppressWarnings("serial")
 public final class GdlProposition extends GdlSentence
 {
-
   private final GdlConstant name;
 
-  GdlProposition(GdlConstant name)
+  protected GdlProposition(GdlConstant name)
   {
     this.name = name;
   }

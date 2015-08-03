@@ -1,6 +1,9 @@
 
 package org.ggp.base.util.propnet.polymorphic.learning;
 
+import java.io.IOException;
+import java.io.Writer;
+
 import org.ggp.base.util.propnet.polymorphic.PolymorphicNot;
 import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.BidirectionalPropagationComponent;
 
@@ -8,8 +11,7 @@ import org.ggp.base.util.propnet.polymorphic.bidirectionalPropagation.Bidirectio
  * The Not class is designed to represent logical NOT gates.
  */
 @SuppressWarnings("serial")
-public final class LearningNot extends LearningComponent implements
-                                                        PolymorphicNot
+public final class LearningNot extends LearningComponent implements PolymorphicNot
 {
   /**
    * Returns the inverse of the input to the not.
@@ -59,13 +61,15 @@ public final class LearningNot extends LearningComponent implements
     }
   }
 
-
-  /**
-   * @see org.ggp.base.util.propnet.architecture.Component#toString()
-   */
   @Override
   public String toString()
   {
-    return toDot("invtriangle", "grey", "NOT");
+    return "NOT";
+  }
+
+  @Override
+  public void renderAsDot(Writer xiOutput) throws IOException
+  {
+    renderAsDot(xiOutput, "invtriangle", "grey", "NOT");
   }
 }

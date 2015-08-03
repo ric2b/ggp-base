@@ -1,3 +1,3 @@
 @echo off
-del c:\temp\propnet*.dot.png
-for %%i in (c:\temp\propnet*.dot) do ((echo Rendering %%i) & (call render %%i))
+del %TEMP%\propnet*.dot.png
+for %%i in (%TEMP%\propnet*.dot) do ((echo Rendering %%i) & (call render %%i))

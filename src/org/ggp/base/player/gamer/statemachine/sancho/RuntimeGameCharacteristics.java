@@ -31,33 +31,60 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private static final String PSEUDO_SIMULTANEOUS_KEY       = "pseudo_simultaneous";
   private static final String ITERATED_KEY                  = "iterated";
   private static final String NUM_FACTORS_KEY               = "num_factors";
+  private static final String FACTORS_KEY                   = "factors";
+  private static final String MAX_FACTOR_FAILURE_TIME       = "max_factor_failure_time";
   private static final String MOVES_IN_MULTIPLE_FACTORS_KEY = "moves_in_multiple_factors";
   private static final String MAX_BRANCHING_FACTOR_KEY      = "max_branching_factor";
   private static final String FIXED_LENGTH_KEY              = "fixed_length";
+  private static final String CONTROL_MASK                  = "control_mask";
 
   private final XMLPropertiesConfiguration mConfigFile;
+  private boolean             mLoadedConfig;
   private double              explorationBias         = 1.0;
-  private double              mExactRolloutSampleSize = 4;
+  private double              mExactRolloutSampleSize = 1;
   private volatile int        mRolloutSampleSize;
   private int                 mMaxObservedChoices;
   final double                competitivenessBonus    = 2;
   private boolean             isFixedMoveCount        = false;
+  private boolean             isFixedSum              = false;
+  private double              mTerminalityDensity     = 0;
+  private double              mAverageBranchingFactor = 1;
   private int                 earliestCompletion      = 0;
-  final private int           fixedSampleSize         = MachineSpecificConfiguration.getCfgVal(CfgItem.FIXED_SAMPLE_SIZE, -1);
+  final private int           fixedSampleSize         = MachineSpecificConfiguration.getCfgInt(CfgItem.FIXED_SAMPLE_SIZE);
   private String              mPlan                   = null;
-  private int                 mNumFactors             = 1;
+  private int                 mNumFactors             = 0;
+  private String              mFactors                = null;
+  private int                 mMinLength              = 0;
+  private int                 mMaxLength              = -1;
+  private double              mAverageLength          = -1;
+  private double              mStdDeviationLength     = 0;
+  private double              mAverageNonDrawLength   = 0;
+  private int                 mMinNonDrawLength       = 0;
+  private double              mGoalsStability         = 0;
+  private double              mLongDrawsProportion    = 0;
+  private double              mAverageHyperSequenceLength = 0;
+  private double              mVarianceHyperSequenceLength = 0;
+  private long                mMaxFactorFailureTime   = 0;
+  private String              mControlMask            = null;
 
   /**
    * Create game characteristics, loading any state from previous games.
    *
-   * @param xiNumRoles      - the number of roles in the game.
    * @param xiGameDirectory - the directory to load from.
    */
-  public RuntimeGameCharacteristics(int xiNumRoles, File xiGameDirectory)
+  public RuntimeGameCharacteristics(File xiGameDirectory)
   {
-    super(xiNumRoles);
-    setRolloutSampleSize(4);
-    mConfigFile = loadConfig(xiGameDirectory);
+    super();
+    setRolloutSampleSize(1);
+
+    if ( xiGameDirectory != null )
+    {
+      mConfigFile = loadConfig(xiGameDirectory);
+    }
+    else
+    {
+      mConfigFile = null;
+    }
   }
 
   /**
@@ -69,7 +96,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
    */
   private XMLPropertiesConfiguration loadConfig(File xiGameDirectory)
   {
-    if (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_LEARNING, false))
+    if (MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_LEARNING))
     {
       LOGGER.debug("Learning disabled - not loading configuration");
       return null;
@@ -85,11 +112,35 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
       try
       {
         lConfigFile = new XMLPropertiesConfiguration(lPropsFile);
-        mPlan = lConfigFile.getString(PLAN_KEY);
+
+        numRoles  = lConfigFile.getInt(NUM_ROLES_KEY, 0);
+        mLoadedConfig = (numRoles != 0);
+
+        if (mLoadedConfig)
+        {
+          isSimultaneousMove             = lConfigFile.getBoolean(SIMULTANEOUS_KEY, false);
+          isIteratedGame                 = lConfigFile.getBoolean(ITERATED_KEY, false);
+          mNumFactors                    = lConfigFile.getInt(NUM_FACTORS_KEY, 0);
+          mFactors                       = lConfigFile.getString(FACTORS_KEY, null);
+          mMaxFactorFailureTime          = lConfigFile.getLong(MAX_FACTOR_FAILURE_TIME, 0);
+          moveChoicesFromMultipleFactors = lConfigFile.getBoolean(MOVES_IN_MULTIPLE_FACTORS_KEY, false);
+          mMaxObservedChoices            = lConfigFile.getInt(MAX_BRANCHING_FACTOR_KEY, 1);
+          isFixedMoveCount               = lConfigFile.getBoolean(FIXED_LENGTH_KEY, false);
+          if ( !MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_SAVED_PLANS) )
+          {
+            mPlan                        = lConfigFile.getString(PLAN_KEY, null);
+          }
+          else
+          {
+            LOGGER.debug("Persisted plans disbaled - not loading a plan");
+          }
+          mControlMask                   = lConfigFile.getString(CONTROL_MASK, null);
+        }
       }
       catch (ConfigurationException lEx)
       {
         LOGGER.warn("Corrupt configuration file: " + lEx);
+        mLoadedConfig = false;
       }
     }
 
@@ -97,13 +148,20 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   }
 
   /**
-   * Save game characteristics to disk.
-   *
-   * @param xiGameDirectory - the directory to load from.
+   * @return true if the game characteristics have been loaded from file or false if they're just default
+   * characteristics.
    */
-  public void saveConfig(File xiGameDirectory)
+  public boolean isConfigLoaded()
   {
-    if (MachineSpecificConfiguration.getCfgVal(CfgItem.DISABLE_LEARNING, false))
+    return mLoadedConfig;
+  }
+
+  /**
+   * Save game characteristics to disk.
+   */
+  public void saveConfig()
+  {
+    if (MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_LEARNING))
     {
       LOGGER.debug("Learning disabled - not saving configuration");
       return;
@@ -121,14 +179,14 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     mConfigFile.setProperty(SIMULTANEOUS_KEY,              isSimultaneousMove);
     mConfigFile.setProperty(PSEUDO_SIMULTANEOUS_KEY,       isPseudoSimultaneousMove);
     mConfigFile.setProperty(ITERATED_KEY,                  isIteratedGame);
+    mConfigFile.setProperty(MAX_FACTOR_FAILURE_TIME,       mMaxFactorFailureTime);
     mConfigFile.setProperty(NUM_FACTORS_KEY,               mNumFactors);
     mConfigFile.setProperty(MOVES_IN_MULTIPLE_FACTORS_KEY, moveChoicesFromMultipleFactors);
     mConfigFile.setProperty(MAX_BRANCHING_FACTOR_KEY,      mMaxObservedChoices);
     mConfigFile.setProperty(FIXED_LENGTH_KEY,              isFixedMoveCount);
-    if (mPlan != null)
-    {
-      mConfigFile.setProperty(PLAN_KEY, mPlan);
-    }
+    if (mPlan        != null) {mConfigFile.setProperty(PLAN_KEY,     mPlan);}
+    if (mControlMask != null) {mConfigFile.setProperty(CONTROL_MASK, mControlMask);}
+    if (mFactors     != null) {mConfigFile.setProperty(FACTORS_KEY, mFactors);}
 
     try
     {
@@ -147,6 +205,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
 
   public void setExplorationBias(double value)
   {
+    assert(value >= 0 && value <= 5);
     explorationBias = value;
   }
 
@@ -199,6 +258,36 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     return isFixedMoveCount;
   }
 
+  public void setIsFixedSum()
+  {
+    isFixedSum = true;
+  }
+
+  public boolean getIsFixedSum()
+  {
+    return isFixedSum;
+  }
+
+  public void setTerminalityDensity(double value)
+  {
+    mTerminalityDensity = value;
+  }
+
+  public double getTerminalityDensity()
+  {
+    return mTerminalityDensity;
+  }
+
+  public void setAverageBranchingFactor(double value)
+  {
+    mAverageBranchingFactor = value;
+  }
+
+  public double getAverageBranchingFactor()
+  {
+    return mAverageBranchingFactor;
+  }
+
   public void setEarliestCompletionDepth(int value)
   {
     earliestCompletion = value;
@@ -248,14 +337,219 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
    */
   public void setFactors(Set<Factor> xiFactors)
   {
-    // For now, just record the number of factors.
-    if (xiFactors == null)
+    assert(xiFactors != null) : "Don't call this method if factors are unknown";
+
+    mNumFactors = xiFactors.size();
+
+    if (mNumFactors == 1)
     {
-      mNumFactors = 1;
+      mFactors = "";
     }
     else
     {
-      mNumFactors = xiFactors.size();
+      StringBuilder lBuilder = new StringBuilder();
+      for (Factor lFactor : xiFactors)
+      {
+        LOGGER.info("Factor: " + lFactor.toPersistentString());
+        lBuilder.append(lFactor.toPersistentString());
+        lBuilder.append(";");
+      }
+      lBuilder.setLength(lBuilder.length() - 1);
+      mFactors = lBuilder.toString();
     }
+  }
+
+  /**
+   * @return the number of factors or 0 if the number is unknown.  (Returns 1 if the game is know not to split into
+   * multiple factors.)
+   */
+  public int getNumFactors()
+  {
+    return mNumFactors;
+  }
+
+  /**
+   * @return a string representation of all the factors.
+   */
+  public String getFactors()
+  {
+    return mFactors;
+  }
+
+  public int getMaxLength()
+  {
+    return mMaxLength;
+  }
+
+  public void setMaxLength(int xiMaxLength)
+  {
+    mMaxLength = xiMaxLength;
+  }
+
+  public double getAverageLength()
+  {
+    return mAverageLength;
+  }
+
+  public void setAverageLength(double xiAverageNumTurns)
+  {
+    mAverageLength = xiAverageNumTurns;
+  }
+
+  public double getStdDeviationLength()
+  {
+    return mStdDeviationLength;
+  }
+
+  public void setStdDeviationLength(double xiStdDeviationLength)
+  {
+    mStdDeviationLength = xiStdDeviationLength;
+  }
+
+  public int getMinLength()
+  {
+    return mMinLength;
+  }
+
+  public void setMinLength(int xiMinLength)
+  {
+    mMinLength = xiMinLength;
+  }
+
+  public double getAverageNonDrawLength()
+  {
+    return mAverageNonDrawLength;
+  }
+
+  public void setAverageNonDrawLength(double xiAverageNonDrawLength)
+  {
+    mAverageNonDrawLength = xiAverageNonDrawLength;
+  }
+
+  public int getMinNonDrawLength()
+  {
+    return mMinNonDrawLength;
+  }
+
+  public void setMinNonDrawLength(int xiMinNonDrawLength)
+  {
+    mMinNonDrawLength = xiMinNonDrawLength;
+  }
+
+  @Override
+  public void report()
+  {
+    super.report();
+
+    LOGGER.info("Statistical characteristics");
+    LOGGER.info("  Range of lengths of sample games seen:          [" + getMinLength() + "," + getMaxLength() + "]");
+    LOGGER.info("  Average num turns:                              " + getAverageLength());
+    LOGGER.info("  Std deviation num turns:                        " + getStdDeviationLength());
+    LOGGER.info("  Average num turns for non-drawn result:         " + getAverageNonDrawLength());
+    LOGGER.info("  Average hyper-sequence length:                  " + getAverageHyperSequenceLength());
+    LOGGER.info("  Variance in hyper-sequence length:              " + getVarianceHyperSequenceLength());
+    LOGGER.info("  Goals stability:                                " + getGoalsStability());
+    LOGGER.info("  Proportion of max length games ending in draws: " + getLongDrawsProportion());
+    LOGGER.info("  Num factors:                                    " + getNumFactors());
+    LOGGER.info("  Max factor failure time (ms)                    " + getMaxFactorFailureTime());
+    LOGGER.info("  IsFixedSum                                      " + getIsFixedSum());
+  }
+
+  /**
+   * @return goal stability factor (how well goals in non-terminal states predict the end result)
+   */
+  public double getGoalsStability()
+  {
+    return mGoalsStability;
+  }
+
+  /**
+   * @param xiGoalsStability - goal stability factor (how well goals in non-terminal states predict the end result)
+   */
+  public void setGoalsStability(double xiGoalsStability)
+  {
+    mGoalsStability = xiGoalsStability;
+  }
+
+  /**
+   * @return proportion of long games that were draws
+   */
+  public double getLongDrawsProportion()
+  {
+    return mLongDrawsProportion;
+  }
+
+  /**
+   * Setter for proportion of long games that were draws
+   * @param xiLongDrawProportion
+   */
+  public void setLongDrawsProportion(double xiLongDrawProportion)
+  {
+    mLongDrawsProportion = xiLongDrawProportion;
+  }
+
+  /**
+   * @return average length of hyper-sequences observed
+   */
+  public double getAverageHyperSequenceLength()
+  {
+    return mAverageHyperSequenceLength;
+  }
+
+  /**
+   * Setter for average length of hyper-sequences observed
+   * @param xiAverageHyperSequenceLength
+   */
+  public void setAverageHyperSequenceLength(double xiAverageHyperSequenceLength)
+  {
+    mAverageHyperSequenceLength = xiAverageHyperSequenceLength;
+  }
+
+  /**
+   * @return variance in length of hyper-sequences observed
+   */
+  public double getVarianceHyperSequenceLength()
+  {
+    return mVarianceHyperSequenceLength;
+  }
+
+  /**
+   * Setter for variance in length of hyper-sequences observed
+   * @param xiVarianceHyperSequenceLength
+   */
+  public void setVarianceHyperSequenceLength(double xiVarianceHyperSequenceLength)
+  {
+    mVarianceHyperSequenceLength = xiVarianceHyperSequenceLength;
+  }
+
+  /**
+   * @return the maximum time, in milliseconds, that we've tried but failed to factor the game in.
+   */
+  public long getMaxFactorFailureTime()
+  {
+    return mMaxFactorFailureTime;
+  }
+
+  /**
+   * Record a failure to factor the game in the specified time.
+   *
+   * @param xiFailureTime - the time in milliseconds.
+   */
+  public void factoringFailedAfter(long xiFailureTime)
+  {
+    if (xiFailureTime > mMaxFactorFailureTime)
+    {
+      mMaxFactorFailureTime = xiFailureTime;
+    }
+  }
+
+  public void setControlMask(String xiMask)
+  {
+    mControlMask = xiMask;
+  }
+
+  public String getControlMask()
+  {
+    return mControlMask;
   }
 }

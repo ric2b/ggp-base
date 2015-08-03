@@ -1,6 +1,9 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
+import java.io.IOException;
+import java.io.Writer;
+
 import org.ggp.base.util.propnet.polymorphic.PolymorphicNot;
 
 /**
@@ -59,12 +62,15 @@ public final class ForwardDeadReckonNot extends ForwardDeadReckonComponent
     }
   }
 
-  /**
-   * @see org.ggp.base.util.propnet.architecture.Component#toString()
-   */
   @Override
   public String toString()
   {
-    return toDot("invtriangle", "grey", "NOT");
+    return "NOT";
+  }
+
+  @Override
+  public void renderAsDot(Writer xiOutput) throws IOException
+  {
+    renderAsDot(xiOutput, "invtriangle", "grey", "NOT");
   }
 }

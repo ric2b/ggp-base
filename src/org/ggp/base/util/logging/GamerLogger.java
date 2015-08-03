@@ -121,7 +121,7 @@ public class GamerLogger
   private static boolean           writeLogsToFile    = false;
 
   private static final Random      theRandom          = new Random();
-  private static final Set<String> filesToSkip        = new HashSet<String>();
+  private static final Set<String> filesToSkip        = new HashSet<>();
   private static final long        maximumLogfileSize = 25 * 1024 * 1024;
 
   private static void logEntry(PrintStream ordinaryOutput,
@@ -205,7 +205,7 @@ public class GamerLogger
   }
 
   private static String          myDirectory;
-  private static HashSet<String> filesToDisplay    = new HashSet<String>();
+  private static HashSet<String> filesToDisplay    = new HashSet<>();
   private static int             minLevelToDisplay = Integer.MAX_VALUE;
   private static boolean         suppressLoggerOutput;
   private static String          spilloverLogfile;

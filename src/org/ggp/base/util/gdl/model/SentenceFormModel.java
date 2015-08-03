@@ -7,8 +7,6 @@ import java.util.Set;
 import org.ggp.base.util.gdl.grammar.Gdl;
 import org.ggp.base.util.gdl.grammar.GdlRule;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.gdl.transforms.ConstantChecker;
-
 import com.google.common.collect.Multimap;
 
 /**

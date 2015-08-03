@@ -1,7 +1,9 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
+import java.io.IOException;
 import java.io.Serializable;
+import java.io.Writer;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -222,6 +224,8 @@ public abstract class ForwardDeadReckonComponent implements
   @Override
   public void addInput(PolymorphicComponent input)
   {
+    assert(input != null);
+
     if (inputsArray == null)
     {
       inputsList.add((ForwardDeadReckonComponent)input);
@@ -434,30 +438,38 @@ public abstract class ForwardDeadReckonComponent implements
   }
 
   /**
-   * Returns a configurable representation of the Component in .dot format.
+   * Write a representation of the Component in .dot format.
    *
+   * @param xiOutput - the output stream.
    * @param shape
    *          The value to use as the <tt>shape</tt> attribute.
    * @param fillcolor
    *          The value to use as the <tt>fillcolor</tt> attribute.
    * @param label
    *          The value to use as the <tt>label</tt> attribute.
-   * @return A representation of the Component in .dot format.
+   *
+   * @throws IOException if there was a problem.
    */
-  protected String toDot(String shape, String fillcolor, String label)
+  protected void renderAsDot(Writer xiOutput, String shape, String fillcolor, String label) throws IOException
   {
-    StringBuilder sb = new StringBuilder();
+    xiOutput.write("\"@");
+    xiOutput.write(Integer.toHexString(hashCode()));
+    xiOutput.write("\"[shape=");
+    xiOutput.write(shape);
+    xiOutput.write(", style= filled, fillcolor=");
+    xiOutput.write(fillcolor);
+    xiOutput.write(", label=\"");
+    xiOutput.write(label);
+    xiOutput.write("\"]; ");
 
-    sb.append("\"@" + Integer.toHexString(hashCode()) + "\"[shape=" + shape +
-              ", style= filled, fillcolor=" + fillcolor + ", label=\"" +
-              label + "\"]; ");
     for (PolymorphicComponent component : getOutputs())
     {
-      sb.append("\"@" + Integer.toHexString(hashCode()) + "\"->" + "\"@" +
-                Integer.toHexString(component.hashCode()) + "\"; ");
+      xiOutput.write("\"@");
+      xiOutput.write(Integer.toHexString(hashCode()));
+      xiOutput.write("\"->\"@");
+      xiOutput.write(Integer.toHexString(component.hashCode()));
+      xiOutput.write("\"; ");
     }
-
-    return sb.toString();
   }
 
   @Override

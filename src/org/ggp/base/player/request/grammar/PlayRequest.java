@@ -9,6 +9,7 @@ import org.ggp.base.player.gamer.event.GamerUnrecognizedMatchEvent;
 import org.ggp.base.player.gamer.exception.MoveSelectionException;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
 import org.ggp.base.util.logging.GamerLogger;
+import org.ggp.base.util.match.Match;
 import org.ggp.base.util.symbol.factory.SymbolFactory;
 import org.ggp.base.util.symbol.factory.exceptions.SymbolFormatException;
 
@@ -37,30 +38,25 @@ public final class PlayRequest extends Request
     // First, check to ensure that this play request is for the match
     // we're currently playing. If we're not playing a match, or we're
     // playing a different match, send back "busy".
-    if (gamer.getMatch() == null ||
-        !gamer.getMatch().getMatchId().equals(matchId))
+    Match lMatch = gamer.getMatch();
+    if (lMatch == null || !lMatch.getMatchId().equals(matchId))
     {
       gamer.notifyObservers(new GamerUnrecognizedMatchEvent(matchId));
-      GamerLogger
-          .logError("GamePlayer",
-                    "Got play message not intended for current game: ignoring.");
+      GamerLogger.logError("GamePlayer", "Ignoring play message for " + matchId +
+                           " because the current match is " + lMatch.getMatchId());
       return "busy";
     }
 
     if (moves != null)
     {
-      gamer.getMatch().appendMoves(moves);
+      lMatch.appendMoves(moves);
     }
 
     try
     {
-      gamer.notifyObservers(new PlayerTimeEvent(gamer.getMatch()
-          .getPlayClock() * 1000));
-      String lInternalMove =
-                      gamer.selectMove(gamer.getMatch().getPlayClock() * 1000 +
-                                       receptionTime).toString();
-      String lNetworkMove = gamer.internalToNetwork(
-                               SymbolFactory.create(lInternalMove)).toString();
+      gamer.notifyObservers(new PlayerTimeEvent(lMatch.getPlayClock() * 1000));
+      String lInternalMove = gamer.selectMove(lMatch.getPlayClock() * 1000 + receptionTime).toString();
+      String lNetworkMove = gamer.internalToNetwork(SymbolFactory.create(lInternalMove)).toString();
       return lNetworkMove;
     }
     catch (SymbolFormatException|MoveSelectionException lEx)

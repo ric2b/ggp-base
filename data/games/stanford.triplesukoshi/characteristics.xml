@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+  <entry key="num_roles">3</entry>
+  <entry key="simultaneous">false</entry>
+  <entry key="pseudo_simultaneous">false</entry>
+  <entry key="iterated">false</entry>
+  <entry key="max_factor_failure_time">0</entry>
+  <entry key="num_factors">2</entry>
+  <entry key="moves_in_multiple_factors">false</entry>
+  <entry key="max_branching_factor">13</entry>
+  <entry key="fixed_length">true</entry>
+  <entry key="control_mask">( ( true ( cell red 2 2 2 ) ), ( true ( cell red 3 2 1 ) ), ( true ( cell red 2 1 3 ) ), ( true ( cell red 1 3 1 ) ), ( true ( cell red 3 1 2 ) ), ( true ( cell red 1 2 x ) ), ( true ( cell red 1 2 2 ) ), ( true ( cell red 1 2 3 ) ), ( true ( cell red 2 1 x ) ), ( true ( cell green 2 3 b ) ), ( true ( cell red 1 1 1 ) ), ( true ( cell red 2 2 1 ) ), ( true ( cell red 2 3 2 ) ), ( true ( cell red 1 1 2 ) ), ( true ( cell red 2 1 1 ) ), ( true ( cell blue 2 1 b ) ) )</entry>
+  <entry key="factors">v1~( true ( cell green 2 1 b ) ),( true ( cell green 3 3 b ) ),( true ( cell green 3 1 b ) ),( true ( cell green 2 3 b ) ),( true ( cell green 1 3 b ) ),( true ( cell green 3 2 b ) )~Role 1 ( mark 1 1 x );v1~( true ( cell blue 3 1 b ) ),( true ( cell blue 1 1 b ) ),( true ( cell blue 1 2 b ) ),( true ( cell blue 3 2 b ) ),( true ( cell blue 2 3 b ) ),( true ( cell blue 2 2 b ) )~Role 2 ( mark 2 1 3 )</entry>
+</properties>

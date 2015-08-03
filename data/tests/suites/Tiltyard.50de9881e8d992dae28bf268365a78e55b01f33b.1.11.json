@@ -2,10 +2,12 @@
   "cases" : [
     {
       "case" : "Tiltyard 50de9881e8d992dae28bf268365a78e55b01f33b, player 1, move 11",
+      "cmnt" : "Not completely clear that we should block the red win, if we expect the other player to do it for us",
+      "skip" : true,
       "repo" : "games.ggp.org/base",
       "game" : "3pConnectFour",
-      "start" : 160,
-      "play" : 15,
+      "start" : 80,
+      "play" : 30,
       "limit" : 11,
       "players" : [
         {

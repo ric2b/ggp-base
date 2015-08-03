@@ -108,7 +108,7 @@ public final class LeaderboardPanel extends JPanel implements Observer
       }
     }
 
-    Set<String> playersToAdd = new HashSet<String>(players);
+    Set<String> playersToAdd = new HashSet<>(players);
     DefaultTableModel model = (DefaultTableModel)leaderTable.getModel();
     for (int i = 0; i < model.getRowCount(); i++)
     {
@@ -134,7 +134,7 @@ public final class LeaderboardPanel extends JPanel implements Observer
 
   public static List<Integer> getErrorCounts(List<List<String>> errorHistory)
   {
-    List<Integer> errorCounts = new ArrayList<Integer>();
+    List<Integer> errorCounts = new ArrayList<>();
     for (int i = 0; i < errorHistory.get(0).size(); i++)
     {
       errorCounts.add(0);

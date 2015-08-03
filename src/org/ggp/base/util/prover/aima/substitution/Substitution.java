@@ -15,7 +15,7 @@ public final class Substitution
 
   public Substitution()
   {
-    contents = new HashMap<GdlVariable, GdlTerm>();
+    contents = new HashMap<>();
   }
 
   public Substitution compose(Substitution thetaPrime)

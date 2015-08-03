@@ -22,8 +22,6 @@ import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.gdl.grammar.GdlTerm;
 import org.ggp.base.util.gdl.grammar.GdlVariable;
 import org.ggp.base.util.gdl.model.SentenceDomainModels.VarDomainOpts;
-import org.ggp.base.util.gdl.transforms.VariableConstrainer;
-
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;

@@ -21,24 +21,22 @@ public class LogSummaryGenerator
 {
   private static final File LOGS_DIRECTORY = new File("logs");
 
-  // Dumping of logs is disabled because they're too big for Tiltyard.
-  private static final boolean DUMP_LOGS = true;
+  private static final long MAX_LOG_SIZE = 980 * 1024;
 
   /**
    * @return the logs for the specified match.
    *
    * @param xiMatchID - the match.
    */
-  public synchronized String getLogSummary(String xiMatchID)
+  public synchronized String getLogSummary(final String xiMatchID)
   {
-    System.out.println("Generating logs for " + xiMatchID + " at " + System.currentTimeMillis());
-    final String lFilePrefix = xiMatchID + "-9147";
     FilenameFilter lFilter = new FilenameFilter()
     {
       @Override
       public boolean accept(File xiDir, String xiName)
       {
-        return xiName.startsWith(lFilePrefix);
+        return xiName.startsWith(xiMatchID + "-9147") ||
+               xiName.startsWith(xiMatchID + "-0");
       }
     };
     String[] lLogFiles = LOGS_DIRECTORY.list(lFilter);
@@ -49,12 +47,17 @@ public class LogSummaryGenerator
       return "No logs for match: " + xiMatchID;
     }
 
-    String lSummary = getSummaryFromLogsDirectory(lLogFiles);
-    System.out.println("Finished generating " + lSummary.length() + " bytes of logs for " + xiMatchID + " at " + System.currentTimeMillis());
+    String lSummary = getSummaryFromLogsDirectory(lLogFiles, true);
+    if (lSummary.length() > MAX_LOG_SIZE)
+    {
+      // Likely to exceed the Tiltyard archive limit.  Try again, omitting the logs and just including the graphs.
+      System.out.println("Omitting logs because they're too large");
+      lSummary = getSummaryFromLogsDirectory(lLogFiles, false);
+    }
     return lSummary;
   }
 
-  private static String getSummaryFromLogsDirectory(String[] xiLogFiles)
+  private static String getSummaryFromLogsDirectory(String[] xiLogFiles, boolean xiIncludeLogs)
   {
     StringBuffer lBuffer = new StringBuffer(1024 * 1024);
 
@@ -73,7 +76,7 @@ public class LogSummaryGenerator
         // This is the regular log file
         lBuffer.append("\"compressed_logs\":\"");
 
-        if (DUMP_LOGS)
+        if (xiIncludeLogs)
         {
           try (ByteArrayOutputStream lBOS = new ByteArrayOutputStream();
                Base64OutputStream lB64OS = new Base64OutputStream(lBOS);

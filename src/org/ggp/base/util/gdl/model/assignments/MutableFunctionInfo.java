@@ -29,7 +29,7 @@ import com.google.common.collect.Maps;
 public class MutableFunctionInfo implements AddibleFunctionInfo
 {
   private final SentenceForm                                       form;
-  private final List<Boolean>                                      dependentSlots = new ArrayList<Boolean>();
+  private final List<Boolean>                                      dependentSlots = new ArrayList<>();
   private final List<Map<ImmutableList<GdlConstant>, GdlConstant>> valueMaps      = Lists
                                                                                       .newArrayList();
 

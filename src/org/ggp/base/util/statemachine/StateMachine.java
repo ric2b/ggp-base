@@ -140,10 +140,7 @@ public abstract class StateMachine
   // This constraint can be used to optimize certain state machine implementations.
   // CONTRACT: After calling this method, the state machine never deals with a state that
   //           is not "theState" or one of its descendants in the game tree.
-  public void updateRoot(MachineState theState)
-  {
-    ;
-  }
+  public void updateRoot(MachineState theState) { /* Do nothing */ }
 
   // ============================================
   //   Implementations of convenience methods
@@ -157,13 +154,13 @@ public abstract class StateMachine
   public List<List<Move>> getLegalJointMoves(MachineState state)
       throws MoveDefinitionException
   {
-    List<List<Move>> legals = new ArrayList<List<Move>>();
+    List<List<Move>> legals = new ArrayList<>();
     for (Role role : getRoles())
     {
       legals.add(getLegalMoves(state, role));
     }
 
-    List<List<Move>> crossProduct = new ArrayList<List<Move>>();
+    List<List<Move>> crossProduct = new ArrayList<>();
     crossProductLegalMoves(legals, crossProduct, new LinkedList<Move>());
 
     return crossProduct;
@@ -174,12 +171,12 @@ public abstract class StateMachine
                                              Move move)
       throws MoveDefinitionException
   {
-    List<List<Move>> legals = new ArrayList<List<Move>>();
+    List<List<Move>> legals = new ArrayList<>();
     for (Role r : getRoles())
     {
       if (r.equals(role))
       {
-        List<Move> m = new ArrayList<Move>();
+        List<Move> m = new ArrayList<>();
         m.add(move);
         legals.add(m);
       }
@@ -189,7 +186,7 @@ public abstract class StateMachine
       }
     }
 
-    List<List<Move>> crossProduct = new ArrayList<List<Move>>();
+    List<List<Move>> crossProduct = new ArrayList<>();
     crossProductLegalMoves(legals, crossProduct, new LinkedList<Move>());
 
     return crossProduct;
@@ -198,7 +195,7 @@ public abstract class StateMachine
   public List<MachineState> getNextStates(MachineState state)
       throws MoveDefinitionException, TransitionDefinitionException
   {
-    List<MachineState> nextStates = new ArrayList<MachineState>();
+    List<MachineState> nextStates = new ArrayList<>();
     for (List<Move> move : getLegalJointMoves(state))
     {
       nextStates.add(getNextState(state, move));
@@ -211,7 +208,7 @@ public abstract class StateMachine
                                                      Role role)
       throws MoveDefinitionException, TransitionDefinitionException
   {
-    Map<Move, List<MachineState>> nextStates = new HashMap<Move, List<MachineState>>();
+    Map<Move, List<MachineState>> nextStates = new HashMap<>();
     Map<Role, Integer> roleIndices = getRoleIndices();
     for (List<Move> moves : getLegalJointMoves(state))
     {
@@ -232,7 +229,7 @@ public abstract class StateMachine
   {
     if (partial.size() == legals.size())
     {
-      crossProduct.add(new ArrayList<Move>(partial));
+      crossProduct.add(new ArrayList<>(partial));
     }
     else
     {
@@ -251,7 +248,7 @@ public abstract class StateMachine
   {
     if (roleIndices == null)
     {
-      roleIndices = new HashMap<Role, Integer>();
+      roleIndices = new HashMap<>();
       Role[] roles = getRoles();
       for (int i = 0; i < roles.length; i++)
       {
@@ -265,7 +262,7 @@ public abstract class StateMachine
   public List<Integer> getGoals(MachineState state)
       throws GoalDefinitionException
   {
-    List<Integer> theGoals = new ArrayList<Integer>();
+    List<Integer> theGoals = new ArrayList<>();
     for (Role r : getRoles())
     {
       theGoals.add(getGoal(state, r));
@@ -276,7 +273,7 @@ public abstract class StateMachine
   public List<Move> getRandomJointMove(MachineState state)
       throws MoveDefinitionException
   {
-    List<Move> random = new ArrayList<Move>();
+    List<Move> random = new ArrayList<>();
     for (Role role : getRoles())
     {
       random.add(getRandomMove(state, role));
@@ -288,7 +285,7 @@ public abstract class StateMachine
   public List<Move> getRandomJointMove(MachineState state, Role role, Move move)
       throws MoveDefinitionException
   {
-    List<Move> random = new ArrayList<Move>();
+    List<Move> random = new ArrayList<>();
     for (Role r : getRoles())
     {
       if (r.equals(role))

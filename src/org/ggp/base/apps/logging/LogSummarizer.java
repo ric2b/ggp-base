@@ -50,14 +50,14 @@ public class LogSummarizer
     @Override
     public void run()
     {
+      long lStartTime = System.currentTimeMillis();
       try
       {
-        String lRequest = HttpReader.readAsServer(mConnection);
+        String lRequest = HttpReader.readRequestAsServer(mConnection);
         String lResponse;
         String lContentType;
 
-        if (lRequest.equals("viz.html") ||
-            lRequest.endsWith(".js"))
+        if (lRequest.equals("viz.html") || lRequest.endsWith(".js"))
         {
           lContentType = "text/html";
           StringBuffer lBuffer = new StringBuffer();
@@ -81,19 +81,38 @@ public class LogSummarizer
           }
           lResponse = lBuffer.toString();
         }
+        else if (lRequest.equals("favicon.ico"))
+        {
+          // Ignore requests for favicon.
+          lContentType = "text/html";
+          lResponse = "";
+        }
         else
         {
+          System.out.println(System.currentTimeMillis() + ": Got request for logs for " + lRequest);
           lContentType = "text/acl";
           lResponse = SUMMARY_GENERATOR.getLogSummary(lRequest);
+          System.out.println(System.currentTimeMillis() + ": Got " + lResponse.length() + " bytes of logs for " + lRequest);
+          long lDuration = System.currentTimeMillis() - lStartTime;
+          System.out.println(System.currentTimeMillis() + ": Took " + lDuration + "ms to generate the logs");
         }
 
         HttpWriter.writeAsServer(mConnection, lResponse, lContentType);
         mConnection.close();
+        System.out.println(System.currentTimeMillis() + ": Successfully replied to log request for " + lRequest);
       }
       catch (IOException e)
       {
         e.printStackTrace();
         throw new RuntimeException(e);
+      }
+
+      // Prompt the JVM to do garbage collection.
+      long lEndGCTime = System.currentTimeMillis() + 3000;
+      for (int ii = 0; ii < 1000 && System.currentTimeMillis() < lEndGCTime; ii++)
+      {
+        System.gc();
+        try {Thread.sleep(1);} catch (InterruptedException lEx) {/* Whatever */}
       }
     }
   }

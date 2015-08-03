@@ -57,7 +57,7 @@ import org.ggp.base.util.statemachine.MachineState;
  * grid cell with a green border. This grid visualization will be done by
  * default. If you want to disable it, override the "useGridVisualization"
  * function so that it returns false.
- * 
+ *
  * @author Sam Schreiber
  */
 public abstract class GameCanvas_FancyGrid extends GameCanvas_SimpleGrid
@@ -68,24 +68,16 @@ public abstract class GameCanvas_FancyGrid extends GameCanvas_SimpleGrid
 
   protected abstract Set<String> getLegalMovesForCell(int xCell, int yCell);
 
-  protected void renderCellBackground(Graphics g, int xCell, int yCell)
-  {
-  };
+  protected void renderCellBackground(Graphics g, int xCell, int yCell) { /* Do nothing */ }
 
-  protected void renderCellForeground(Graphics g, int xCell, int yCell)
-  {
-  };
+  protected void renderCellForeground(Graphics g, int xCell, int yCell) { /* Do nothing */ }
 
   protected void renderMoveSelectionForCell(Graphics g,
                                             int xCell,
                                             int yCell,
-                                            String theMove)
-  {
-  };
+                                            String theMove) { /* Do nothing */ }
 
-  protected void renderCellContent(Graphics g, String theFact)
-  {
-  };
+  protected void renderCellContent(Graphics g, String theFact) { /* Do nothing */ }
 
   protected void renderCellContent(Graphics g, Set<String> theFacts)
   {
@@ -125,7 +117,7 @@ public abstract class GameCanvas_FancyGrid extends GameCanvas_SimpleGrid
     if (selectedRow != yCell || selectedColumn != xCell ||
         !possibleSelectedMoves.hasNext())
     {
-      SortedSet<String> theMoves = new TreeSet<String>(getLegalMovesForCell(xCell,
+      SortedSet<String> theMoves = new TreeSet<>(getLegalMovesForCell(xCell,
                                                                             yCell));
       if (theMoves.size() == 0)
         return;
@@ -141,7 +133,7 @@ public abstract class GameCanvas_FancyGrid extends GameCanvas_SimpleGrid
 
   // Cache all of the facts about cells that we compute, since they should not
   // change unless the game state changes.
-  private Map<Integer, Set<String>> factsCache = new HashMap<Integer, Set<String>>();
+  private Map<Integer, Set<String>> factsCache = new HashMap<>();
 
   protected Set<String> getCachedFactsAboutCell(int xCell, int yCell)
   {

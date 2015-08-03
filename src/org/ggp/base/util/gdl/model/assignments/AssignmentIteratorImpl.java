@@ -22,8 +22,8 @@ public class AssignmentIteratorImpl implements AssignmentIterator
   private List<Integer>                 sourceTupleIndices = null;
   //This time we just have integers to deal with
   private List<Integer>                 valueIndices       = null;
-  private List<GdlConstant>             nextAssignment     = new ArrayList<GdlConstant>();
-  private Map<GdlVariable, GdlConstant> assignmentMap      = new HashMap<GdlVariable, GdlConstant>();
+  private List<GdlConstant>             nextAssignment     = new ArrayList<>();
+  private Map<GdlVariable, GdlConstant> assignmentMap      = new HashMap<>();
 
   private boolean                       headOnly           = false;
   private boolean                       done               = false;
@@ -40,14 +40,14 @@ public class AssignmentIteratorImpl implements AssignmentIterator
     }
 
     //Set up source tuple...
-    sourceTupleIndices = new ArrayList<Integer>(plan.getTuplesBySource()
+    sourceTupleIndices = new ArrayList<>(plan.getTuplesBySource()
         .size());
     for (int i = 0; i < plan.getTuplesBySource().size(); i++)
     {
       sourceTupleIndices.add(0);
     }
     //Set up...
-    valueIndices = new ArrayList<Integer>(plan.getVarsToAssign().size());
+    valueIndices = new ArrayList<>(plan.getVarsToAssign().size());
     for (int i = 0; i < plan.getVarsToAssign().size(); i++)
     {
       valueIndices.add(0);
@@ -85,7 +85,7 @@ public class AssignmentIteratorImpl implements AssignmentIterator
 
     //Find all the unsatisfied distincts
     //Find the pair with the earliest var. that needs to be changed
-    List<GdlVariable> varsToChange = new ArrayList<GdlVariable>();
+    List<GdlVariable> varsToChange = new ArrayList<>();
     for (int d = 0; d < plan.getDistincts().size(); d++)
     {
       GdlDistinct distinct = plan.getDistincts().get(d);

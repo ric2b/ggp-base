@@ -12,7 +12,6 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 import org.ggp.base.util.stats.PearsonCorrelation;
-import org.w3c.tidy.MutableInteger;
 
 /**
  * Heuristic which assumes that it's better to have more choices of move (greater "mobility").
@@ -134,11 +133,18 @@ public class MobilityHeuristic implements Heuristic
     // We don't do anything relative to the current root, so there's nothing to store here.
   }
 
+  /**
+   * Get the heuristic value for the specified state.
+   *
+   * @param xiState           - the state (never a terminal state).
+   * @param xiPreviousState   - the previous state (can be null).
+   * @param xiReferenceState  - state with which to compare to determine heuristic values
+   */
   @Override
   public void getHeuristicValue(ForwardDeadReckonInternalMachineState xiState,
-                                ForwardDeadReckonInternalMachineState xiPreviousState,
-                                double[] xoHeuristicValue,
-                                MutableInteger xoHeuristicWeight)
+                                  ForwardDeadReckonInternalMachineState xiPreviousState,
+                                  ForwardDeadReckonInternalMachineState xiReferenceState,
+                                  HeuristicInfo resultInfo)
   {
     // Get the total mobility data from the previous state.
     MobilityData lMobilityData = ((MobilityData)(xiPreviousState.getHeuristicData(this)));
@@ -192,7 +198,7 @@ public class MobilityHeuristic implements Heuristic
       if (lMobilityData.mMovesWithChoiceForRole[lii] == 0)
       {
         // This role hasn't had any moves where it can make a choice yet.  Assume it'll get an average result.
-        xoHeuristicValue[lii] = 50;
+        resultInfo.heuristicValue[lii] = 50;
       }
       else
       {
@@ -200,11 +206,12 @@ public class MobilityHeuristic implements Heuristic
         double lRoleAverage = (double)lMobilityData.mTotalChoicesForRole[lii] /
                               (double)lMobilityData.mMovesWithChoiceForRole[lii];
         double lDeviation = (lRoleAverage - lAverageMobilityPerTurn) / lAverageMobilityPerTurn;
-        xoHeuristicValue[lii] = 100 / (1 + Math.exp(-lDeviation));
+        resultInfo.heuristicValue[lii] = 100 / (1 + Math.exp(-lDeviation));
       }
     }
 
-    xoHeuristicWeight.value = mWeight;
+    resultInfo.heuristicWeight = mWeight;
+    resultInfo.treatAsSequenceStep = false;
   }
 
   @Override
@@ -258,5 +265,11 @@ public class MobilityHeuristic implements Heuristic
   {
     // TODO Auto-generated method stub
 
+  }
+
+  @Override
+  public boolean applyAsSimpleHeuristic()
+  {
+    return false;
   }
 }

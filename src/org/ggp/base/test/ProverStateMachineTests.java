@@ -41,8 +41,7 @@ public class ProverStateMachineTests extends Assert
     GdlConstant O_PLAYER = GdlPool.getConstant("oplayer");
     Role xRole = new Role(X_PLAYER);
     Role oRole = new Role(O_PLAYER);
-    List<Role> roles = Arrays.asList(xRole, oRole);
-    assertEquals(roles, sm.getRoles());
+    assertTrue(Arrays.equals(sm.getRoles(), new Role[] {xRole, oRole}));
 
     assertEquals(9, sm.getLegalJointMoves(state).size());
     assertEquals(9, sm.getLegalMoves(state, xRole).size());
@@ -172,13 +171,44 @@ public class ProverStateMachineTests extends Assert
     assertEquals(Collections.singletonList(100), sm.getGoals(state));
   }
 
+  @Test
+  public void testCase5D() throws Exception
+  {
+    List<Gdl> desc = new TestGameRepository().getGame("test_case_5d").getRules();
+    sm.initialize(desc);
+    MachineState state = sm.getInitialState();
+    Role you = new Role(GdlPool.getConstant("you"));
+    assertFalse(sm.isTerminal(state));
+    assertEquals(1, sm.getLegalMoves(state, you).size());
+    assertEquals(move("proceed"), sm.getLegalMoves(state, you).get(0));
+    state = sm.getNextState(state, Collections.singletonList(move("proceed")));
+    assertTrue(sm.isTerminal(state));
+    assertEquals(100, sm.getGoal(state, you));
+    assertEquals(Collections.singletonList(100), sm.getGoals(state));
+  }
+
+  @Test
+  public void testDistinctAtBeginningOfRule() throws Exception
+  {
+    List<Gdl> desc = new TestGameRepository().getGame("test_distinct_beginning_rule").getRules();
+    sm.initialize(desc);
+    MachineState state = sm.getInitialState();
+    Role you = new Role(GdlPool.getConstant("you"));
+    assertFalse(sm.isTerminal(state));
+    assertEquals(2, sm.getLegalMoves(state, you).size());
+    state = sm.getNextState(state, Collections.singletonList(move("do a b")));
+    assertTrue(sm.isTerminal(state));
+    assertEquals(100, sm.getGoal(state, you));
+    assertEquals(Collections.singletonList(100), sm.getGoals(state));
+  }
+
   protected Move move(String description)
   {
     String[] parts = description.split(" ");
     GdlConstant head = GdlPool.getConstant(parts[0]);
     if (parts.length == 1)
       return new Move(head);
-    List<GdlTerm> body = new ArrayList<GdlTerm>();
+    List<GdlTerm> body = new ArrayList<>();
     for (int i = 1; i < parts.length; i++)
     {
       body.add(GdlPool.getConstant(parts[i]));

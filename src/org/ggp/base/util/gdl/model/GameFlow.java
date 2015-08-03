@@ -44,15 +44,8 @@ import com.google.common.collect.Multimap;
  */
 public class GameFlow
 {
-  private static final GdlConstant INIT                = GdlPool
-                                                           .getConstant("init");
-  private static final GdlConstant TRUE                = GdlPool
-                                                           .getConstant("true");
-  private static final GdlConstant NEXT                = GdlPool
-                                                           .getConstant("next");
-
   private int                      turnAfterLast;                                          //We end with a loop
-  private List<Set<GdlSentence>>   sentencesTrueByTurn = new ArrayList<Set<GdlSentence>>(); //The non-constant ones
+  private List<Set<GdlSentence>>   sentencesTrueByTurn = new ArrayList<>(); //The non-constant ones
   private Set<SentenceForm>        formsControlledByFlow;
   private Set<SentenceForm>        constantForms;
   private ConstantChecker          constantChecker;
@@ -67,7 +60,7 @@ public class GameFlow
     //First we use a sentence model to get the relevant sentence forms
     SentenceDomainModel model = SentenceDomainModelFactory
         .createWithCartesianDomains(description);
-    formsControlledByFlow = new HashSet<SentenceForm>();
+    formsControlledByFlow = new HashSet<>();
     formsControlledByFlow.addAll(model.getIndependentSentenceForms());
     formsControlledByFlow.removeAll(model.getConstantSentenceForms());
     constantForms = model.getConstantSentenceForms();
@@ -88,7 +81,7 @@ public class GameFlow
     ordering.retainAll(formsControlledByFlow);
 
     //Let's add function info to the consideration...
-    Map<SentenceForm, FunctionInfo> functionInfoMap = new HashMap<SentenceForm, FunctionInfo>();
+    Map<SentenceForm, FunctionInfo> functionInfoMap = new HashMap<>();
     for (SentenceForm form : constantForms)
     {
       functionInfoMap
@@ -97,15 +90,14 @@ public class GameFlow
 
     //First we set the "true" values, then we get the forms controlled by the flow...
     //Use "init" values
-    Set<GdlSentence> trueFlowSentences = new HashSet<GdlSentence>();
+    Set<GdlSentence> trueFlowSentences = new HashSet<>();
     for (SentenceForm form : constantForms)
     {
-      if (form.getName().equals(INIT))
+      if (form.getName().equals(GdlPool.INIT))
       {
         for (GdlSentence initSentence : constantChecker.getTrueSentences(form))
         {
-          GdlSentence trueSentence = GdlPool.getRelation(TRUE, initSentence
-              .getBody());
+          GdlSentence trueSentence = GdlPool.getRelation(GdlPool.TRUE, initSentence.getBody());
           trueFlowSentences.add(trueSentence);
         }
       }
@@ -118,13 +110,12 @@ public class GameFlow
     {
       //Now we use the "next" values from the previous turn
       Set<GdlSentence> sentencesPreviouslyTrue = trueFlowSentences;
-      trueFlowSentences = new HashSet<GdlSentence>();
+      trueFlowSentences = new HashSet<>();
       for (GdlSentence sentence : sentencesPreviouslyTrue)
       {
-        if (sentence.getName().equals(NEXT))
+        if (sentence.getName().equals(GdlPool.NEXT))
         {
-          GdlSentence trueSentence = GdlPool.getRelation(TRUE,
-                                                         sentence.getBody());
+          GdlSentence trueSentence = GdlPool.getRelation(GdlPool.TRUE, sentence.getBody());
           trueFlowSentences.add(trueSentence);
         }
       }
@@ -268,9 +259,9 @@ public class GameFlow
   {
     //We want each form as a key of the dependency graph to
     //follow all the forms in the dependency graph, except maybe itself
-    Queue<SentenceForm> queue = new LinkedList<SentenceForm>(forms);
-    List<SentenceForm> ordering = new ArrayList<SentenceForm>(forms.size());
-    Set<SentenceForm> alreadyOrdered = new HashSet<SentenceForm>();
+    Queue<SentenceForm> queue = new LinkedList<>(forms);
+    List<SentenceForm> ordering = new ArrayList<>(forms.size());
+    Set<SentenceForm> alreadyOrdered = new HashSet<>();
     while (!queue.isEmpty())
     {
       SentenceForm curForm = queue.remove();
@@ -306,7 +297,7 @@ public class GameFlow
   {
     //We want to identify the conjuncts that are used by the
     //game flow.
-    List<GdlLiteral> relevantLiterals = new ArrayList<GdlLiteral>();
+    List<GdlLiteral> relevantLiterals = new ArrayList<>();
     for (GdlLiteral literal : body)
     {
       if (literal instanceof GdlSentence)
@@ -330,13 +321,13 @@ public class GameFlow
     //happen on any turn.
     //if(relevantLiterals.isEmpty())
     //return getCompleteTurnSet();
-    Set<Integer> turnsPossible = new HashSet<Integer>(getCompleteTurnSet());
+    Set<Integer> turnsPossible = new HashSet<>(getCompleteTurnSet());
 
     //For each of the relevant literals, we need to see if there are assignments
     //such that
     for (GdlLiteral literal : relevantLiterals)
     {
-      List<Integer> turns = new ArrayList<Integer>();
+      List<Integer> turns = new ArrayList<>();
       if (literal instanceof GdlSentence)
       {
         for (int t = 0; t < getNumTurns(); t++)
@@ -391,7 +382,7 @@ public class GameFlow
   {
     if (completeTurnSet == null)
     {
-      completeTurnSet = new HashSet<Integer>();
+      completeTurnSet = new HashSet<>();
       for (int i = 0; i < getNumTurns(); i++)
       {
         completeTurnSet.add(i);

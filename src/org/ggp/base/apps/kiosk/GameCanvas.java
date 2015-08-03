@@ -35,7 +35,7 @@ public abstract class GameCanvas extends JPanel implements Subject
   protected MachineState   gameState;
   protected Role           myRole;
 
-  // Cache the location of the last click 
+  // Cache the location of the last click
   private int              lastClickX;
   private int              lastClickY;
 
@@ -47,7 +47,7 @@ public abstract class GameCanvas extends JPanel implements Subject
     super();
     setFocusable(true);
 
-    // Fiddle with Mouse Settings       
+    // Fiddle with Mouse Settings
     addMouseListener(new MouseAdapter()
     {
       @Override
@@ -131,7 +131,7 @@ public abstract class GameCanvas extends JPanel implements Subject
   }
 
   // Subject boilerplate
-  private Set<Observer> theObservers = new HashSet<Observer>();
+  private Set<Observer> theObservers = new HashSet<>();
 
   @Override
   public void addObserver(Observer observer)
@@ -208,7 +208,7 @@ public abstract class GameCanvas extends JPanel implements Subject
   {
     Pattern pattern = Pattern.compile("\\( true " + ptrn + " \\)");
 
-    Set<String> theMatches = new HashSet<String>();
+    Set<String> theMatches = new HashSet<>();
     for (GdlSentence theFact : gameState.getContents())
     {
       Matcher matcher = pattern.matcher(theFact.toString());
@@ -244,7 +244,7 @@ public abstract class GameCanvas extends JPanel implements Subject
   {
     Pattern pattern = Pattern.compile(ptrn);
 
-    Set<String> theMatches = new HashSet<String>();
+    Set<String> theMatches = new HashSet<>();
     try
     {
       List<Move> legalMoves = stateMachine.getLegalMoves(gameState, myRole);
@@ -264,7 +264,7 @@ public abstract class GameCanvas extends JPanel implements Subject
       // This can happen in games where the terminal state
       // has no legal moves defined for a player.
       //e.printStackTrace();
-      return new HashSet<String>();
+      return new HashSet<>();
     }
   }
 
@@ -308,15 +308,9 @@ public abstract class GameCanvas extends JPanel implements Subject
     paintGameDefault(g, "paintGame not implemented");
   }
 
-  protected void handleDragEvent(int dx, int dy)
-  {
-    ;
-  }
+  protected void handleDragEvent(int dx, int dy) { /* Do nothing */ }
 
-  protected void handleClickEvent(int x, int y)
-  {
-    ;
-  }
+  protected void handleClickEvent(int x, int y) { /* Do nothing */ }
 
   public abstract void clearMoveSelection();
 }

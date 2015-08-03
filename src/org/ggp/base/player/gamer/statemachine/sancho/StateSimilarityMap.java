@@ -1,6 +1,6 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-import org.ggp.base.player.gamer.statemachine.sancho.pool.CappedPool;
+import org.ggp.base.player.gamer.statemachine.sancho.pool.Pool;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
@@ -38,7 +38,7 @@ public class StateSimilarityMap
         TreeNode lNodeToAdd = getNode(xiNodeRef);
         assert(lNodeToAdd != null);
 
-        double highestEvictionMeasure = -Math.log(lNodeToAdd.numVisits + 1);
+        double highestEvictionMeasure = -Math.log(lNodeToAdd.mNumVisits + 1);
 
         for (int i = 0; i < capacity; i++)
         {
@@ -50,7 +50,7 @@ public class StateSimilarityMap
             break;
           }
 
-          double evictionMeasure = -Math.log(lNode.numVisits + 1);
+          double evictionMeasure = -Math.log(lNode.mNumVisits + 1);
 
           if ( evictionMeasure > highestEvictionMeasure )
           {
@@ -76,10 +76,10 @@ public class StateSimilarityMap
   private final double[] moveWeightBuffer = new double[maxMovesConsidered];
   private final double[] topValues = new double[maxMovesConsidered];
   private final double[] topWeights = new double[maxMovesConsidered];
-  private final CappedPool<TreeNode> mNodePool;
+  private final Pool<TreeNode> mNodePool;
   private int numMovesBuffered;
 
-  public StateSimilarityMap(ForwardDeadReckonPropNet propNet, CappedPool<TreeNode> xiNodePool)
+  public StateSimilarityMap(ForwardDeadReckonPropNet propNet, Pool<TreeNode> xiNodePool)
   {
     hashGenerator = new StateSimilarityHashGenerator(propNet);
     buckets = new StateSimilarityBucket[1<<StateSimilarityHashGenerator.hashSize];
@@ -88,7 +88,7 @@ public class StateSimilarityMap
 
   public void add(TreeNode xiNode)
   {
-    int hash = hashGenerator.getHash(xiNode.state);
+    int hash = hashGenerator.getHash(xiNode.mState);
 
     if (buckets[hash] == null)
     {
@@ -115,10 +115,10 @@ public class StateSimilarityMap
       {
         TreeNode lNode = getNode(bucket.refs[i]);
 
-        if (lNode != null && lNode.numVisits > 0 && state != lNode.state)
+        if (lNode != null && lNode.mNumVisits > 0 && state != lNode.mState)
         {
-          double distanceWeight = (1 - state.distance(lNode.state));
-          double weight = distanceWeight*distanceWeight*Math.log(lNode.numVisits+1);
+          double distanceWeight = (1 - state.distance(lNode.mState));
+          double weight = distanceWeight*distanceWeight*Math.log(lNode.mNumVisits+1);
 
           for(int j = 0; j < result.length; j++)
           {
@@ -164,7 +164,7 @@ public class StateSimilarityMap
       boolean childFound = false;
       for (int lii = 0; lii < moveRoot.mNumChildren; lii++)
       {
-        Object child = moveRoot.children[lii];
+        Object child = moveRoot.mChildren[lii];
         ForwardDeadReckonLegalMoveInfo targetPartialMove = partialJointMove[index];
         TreeEdge childEdge = (child instanceof TreeEdge ? (TreeEdge)child : null);
         if ( child == targetPartialMove || (childEdge != null && childEdge.mPartialMove == targetPartialMove))
@@ -172,11 +172,11 @@ public class StateSimilarityMap
           childFound = true;
 
           if (childEdge != null &&
-              childEdge.mChildRef != TreeNode.NULL_REF &&
-              getNode(childEdge.mChildRef) != null &&
-              getNode(childEdge.mChildRef).mNumChildren != 0)
+              childEdge.getChildRef() != TreeNode.NULL_REF &&
+              getNode(childEdge.getChildRef()) != null &&
+              getNode(childEdge.getChildRef()).mNumChildren != 0)
           {
-            result = getNode(childEdge.mChildRef);
+            result = getNode(childEdge.getChildRef());
             moveRoot = result;
             index++;
             break;
@@ -234,28 +234,28 @@ public class StateSimilarityMap
         {
           TreeNode lNode = getNode(bucket.refs[i]);
 
-          if (lNode != null && lNode.numVisits > 0 && state != lNode.state)
+          if (lNode != null && lNode.mNumVisits > 0 && state != lNode.mState)
           {
-            double distanceWeight = (1 - state.distance(lNode.state));
-            double weight = distanceWeight*distanceWeight*Math.log10(lNode.numVisits + 1);
+            double distanceWeight = (1 - state.distance(lNode.mState));
+            double weight = distanceWeight*distanceWeight*Math.log10(lNode.mNumVisits + 1);
 
             TreeNode node = getJointMoveParent(lNode, partialJointMove);
             if (node != null && node.mNumChildren != 0)
             {
               for (int lii = 0; lii < node.mNumChildren; lii++)
               {
-                Object child = node.children[lii];
+                Object child = node.mChildren[lii];
                 TreeEdge childEdge = (child instanceof TreeEdge ? (TreeEdge)child : null);
                 if ( childEdge != null &&
-                     childEdge.mChildRef != TreeNode.NULL_REF &&
-                     getNode(childEdge.mChildRef) != null &&
-                     getNode(childEdge.mChildRef).numVisits > 0)
+                     childEdge.getChildRef() != TreeNode.NULL_REF &&
+                     getNode(childEdge.getChildRef()) != null &&
+                     getNode(childEdge.getChildRef()).mNumVisits > 0)
                 {
-                  TreeNode lChild = getNode(childEdge.mChildRef);
+                  TreeNode lChild = getNode(childEdge.getChildRef());
                   ForwardDeadReckonLegalMoveInfo move = childEdge.mPartialMove;
                   int moveSlotIndex = getMoveSlot(move);
 
-                  double moveVal = weight*(lChild.getAverageScore(lChild.decidingRoleIndex));
+                  double moveVal = weight*(lChild.getAverageScore(lChild.mDecidingRoleIndex));
 
                   moveValueBuffer[moveSlotIndex] = (moveValueBuffer[moveSlotIndex]*moveWeightBuffer[moveSlotIndex] + moveVal)/(moveWeightBuffer[moveSlotIndex] + weight);
                   moveWeightBuffer[moveSlotIndex] += weight;
@@ -268,66 +268,64 @@ public class StateSimilarityMap
         //  We look at all hashes within a Hamming distance of 1 from the original
         hammingCloseHash = hash ^ (1<<nearbyHashIndex);
       }
-
-      int numTopMoves = 0;
-      for(int i = 0; i < numMovesBuffered; i++)
-      {
-        int index = numTopMoves - 1;
-
-        while( index >= 0 && moveValueBuffer[i] > topValues[index] )
-        {
-          index--;
-        }
-
-        if ( ++index < result.length )
-        {
-          for(int j = numTopMoves-1; j > index; j--)
-          {
-            topValues[j] = topValues[j-1];
-            topWeights[j] = topWeights[j-1];
-
-            result[j] = result[j-1];
-          }
-
-          topValues[index] = moveValueBuffer[i];
-          topWeights[index] = moveWeightBuffer[i];
-          result[index] = moveBuffer[i];
-
-          if ( index == numTopMoves )
-          {
-            numTopMoves = index+1;
-          }
-        }
-      }
-
-      int i;
-      double totalWeight = 0;
-      double bestScore = topValues[0];
-      final double ratioToBestCutoff = 0.8;
-
-      for(i = 0; i < numTopMoves; i++)
-      {
-        if ( topValues[i] < ratioToBestCutoff*bestScore )
-        {
-          numTopMoves = i;
-          break;
-        }
-        totalWeight += topWeights[i];
-      }
-      while(i < result.length)
-      {
-        result[i++] = null;
-      }
-
-      if ( numTopMoves > 0 )
-      {
-        totalWeight /= numTopMoves;
-      }
-
-      return (int)(totalWeight);
     }
 
-    return 0;
+    int numTopMoves = 0;
+    for(int i = 0; i < numMovesBuffered; i++)
+    {
+      int index = numTopMoves - 1;
+
+      while( index >= 0 && moveValueBuffer[i] > topValues[index] )
+      {
+        index--;
+      }
+
+      if ( ++index < result.length )
+      {
+        for(int j = numTopMoves-1; j > index; j--)
+        {
+          topValues[j] = topValues[j-1];
+          topWeights[j] = topWeights[j-1];
+
+          result[j] = result[j-1];
+        }
+
+        topValues[index] = moveValueBuffer[i];
+        topWeights[index] = moveWeightBuffer[i];
+        result[index] = moveBuffer[i];
+
+        if ( index == numTopMoves )
+        {
+          numTopMoves = index+1;
+        }
+      }
+    }
+
+    int i;
+    double totalWeight = 0;
+    double bestScore = topValues[0];
+    final double ratioToBestCutoff = 0.8;
+
+    for(i = 0; i < numTopMoves; i++)
+    {
+      if ( topValues[i] < ratioToBestCutoff*bestScore )
+      {
+        numTopMoves = i;
+        break;
+      }
+      totalWeight += topWeights[i];
+    }
+    while(i < result.length)
+    {
+      result[i++] = null;
+    }
+
+    if ( numTopMoves > 0 )
+    {
+      totalWeight /= numTopMoves;
+    }
+
+    return (int)(totalWeight);
   }
 
   private TreeNode getNode(long xiNodeRef)

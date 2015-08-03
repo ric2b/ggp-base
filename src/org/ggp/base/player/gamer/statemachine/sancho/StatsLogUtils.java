@@ -174,7 +174,7 @@ public class StatsLogUtils
     /**
      * Node expansions.
      */
-    TRANSITION_RATE (Graph.NODE,  1, SeriesType.RAW, false, "Transition rate"),
+    TRANSITION_RATE (Graph.NODE,  1, SeriesType.RAW, false, "Transposition rate"),
 
     /**
      * The current turn (0 during meta-gaming).
@@ -377,6 +377,8 @@ public class StatsLogUtils
     {
       mXValues.clear();
       mYValues.clear();
+      mXValues.trimToSize();
+      mYValues.trimToSize();
       mLastXValue = 0;
       mLastYValue = 0;
 

@@ -27,9 +27,8 @@ public class FunctionInfoImpl implements FunctionInfo
   private SentenceForm                                       form;
 
   //True iff the slot has at most one value given the other slots' values
-  private List<Boolean>                                      dependentSlots = new ArrayList<Boolean>();
-  private List<Map<ImmutableList<GdlConstant>, GdlConstant>> valueMaps      = Lists
-                                                                                .newArrayList();
+  private List<Boolean>                                      dependentSlots = new ArrayList<>();
+  private List<Map<ImmutableList<GdlConstant>, GdlConstant>> valueMaps      = Lists.newArrayList();
 
   public FunctionInfoImpl(SentenceForm form, Set<GdlSentence> trueSentences)
       throws InterruptedException
@@ -41,16 +40,13 @@ public class FunctionInfoImpl implements FunctionInfo
     for (int i = 0; i < numSlots; i++)
     {
       //We want to establish whether or not this is a constant...
-      Map<ImmutableList<GdlConstant>, GdlConstant> functionMap = Maps
-          .newHashMap();
+      Map<ImmutableList<GdlConstant>, GdlConstant> functionMap = Maps.newHashMap();
       boolean functional = true;
       for (GdlSentence sentence : trueSentences)
       {
         ConcurrencyUtils.checkForInterruption();
-        List<GdlConstant> tuple = GdlUtils
-            .getTupleFromGroundSentence(sentence);
-        List<GdlConstant> tuplePart = Lists.newArrayListWithCapacity(tuple
-            .size() - 1);
+        List<GdlConstant> tuple = GdlUtils.getTupleFromGroundSentence(sentence);
+        List<GdlConstant> tuplePart = Lists.newArrayListWithCapacity(tuple.size() - 1);
         tuplePart.addAll(tuple.subList(0, i));
         tuplePart.addAll(tuple.subList(i + 1, tuple.size()));
         if (functionMap.containsKey(tuplePart))
@@ -105,11 +101,11 @@ public class FunctionInfoImpl implements FunctionInfo
                                  " does not match constant form");
     List<GdlTerm> tuple = GdlUtils.getTupleFromSentence(sentence);
 
-    Set<GdlVariable> candidateVars = new HashSet<GdlVariable>();
+    Set<GdlVariable> candidateVars = new HashSet<>();
     //Variables that appear multiple times go into multipleVars
-    Set<GdlVariable> multipleVars = new HashSet<GdlVariable>();
+    Set<GdlVariable> multipleVars = new HashSet<>();
     //...which, of course, means we have to spot non-candidate vars
-    Set<GdlVariable> nonCandidateVars = new HashSet<GdlVariable>();
+    Set<GdlVariable> nonCandidateVars = new HashSet<>();
 
     for (int i = 0; i < tuple.size(); i++)
     {
@@ -137,12 +133,10 @@ public class FunctionInfoImpl implements FunctionInfo
 
   }
 
-  public static FunctionInfo create(SentenceForm form,
-                                    ConstantChecker constantChecker)
+  public static FunctionInfo create(SentenceForm form, ConstantChecker constantChecker)
       throws InterruptedException
   {
-    return new FunctionInfoImpl(form, ImmutableSet.copyOf(constantChecker
-        .getTrueSentences(form)));
+    return new FunctionInfoImpl(form, ImmutableSet.copyOf(constantChecker.getTrueSentences(form)));
   }
 
   public static FunctionInfo create(SentenceForm form, Set<GdlSentence> set)
@@ -160,7 +154,6 @@ public class FunctionInfoImpl implements FunctionInfo
   @Override
   public String toString()
   {
-    return "FunctionInfoImpl [form=" + form + ", dependentSlots=" +
-           dependentSlots + ", valueMaps=" + valueMaps + "]";
+    return "FunctionInfoImpl [form=" + form + ", dependentSlots=" + dependentSlots + ", valueMaps=" + valueMaps + "]";
   }
 }

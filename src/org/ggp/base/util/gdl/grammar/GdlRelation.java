@@ -3,6 +3,11 @@ package org.ggp.base.util.gdl.grammar;
 
 import java.util.List;
 
+/**
+ * A <i>relation</i> is a <i>sentence</i> with a body.
+ *
+ * See {@link Gdl} for a complete description of the GDL hierarchy.
+ */
 @SuppressWarnings("serial")
 public final class GdlRelation extends GdlSentence
 {

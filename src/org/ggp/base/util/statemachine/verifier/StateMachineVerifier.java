@@ -49,7 +49,7 @@ public class StateMachineVerifier
                              theReference.getClass().getName() +
                              " as a reference.");
 
-    List<StateMachine> theMachines = new ArrayList<StateMachine>();
+    List<StateMachine> theMachines = new ArrayList<>();
     theMachines.add(theReference);
     theMachines.add(theSubject);
 

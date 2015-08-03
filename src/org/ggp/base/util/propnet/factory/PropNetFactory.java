@@ -24,7 +24,7 @@ public final class PropNetFactory
    * <li>Flattens the game description to remove variables.</li>
    * <li>Converts the flattened description into an equivalent PropNet.</li>
    * </ol>
-   * 
+   *
    * @param description
    *          A game description.
    * @return An equivalent PropNet.
@@ -33,11 +33,9 @@ public final class PropNetFactory
   {
     try
     {
-      List<GdlRule> flatDescription = new PropNetFlattener(description)
-          .flatten();
+      List<GdlRule> flatDescription = new PropNetFlattener(description).flatten();
       GamerLogger.log("StateMachine", "Converting...");
-      return new PropNetConverter().convert(Role.computeRoles(description),
-                                            flatDescription);
+      return new PropNetConverter().convert(Role.computeRoles(description), flatDescription);
     }
     catch (Exception e)
     {

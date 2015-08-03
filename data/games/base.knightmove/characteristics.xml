@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+  <entry key="num_roles">1</entry>
+  <entry key="simultaneous">false</entry>
+  <entry key="pseudo_simultaneous">false</entry>
+  <entry key="iterated">false</entry>
+  <entry key="max_factor_failure_time">0</entry>
+  <entry key="num_factors">0</entry>
+  <entry key="moves_in_multiple_factors">false</entry>
+  <entry key="max_branching_factor">7</entry>
+  <entry key="fixed_length">false</entry>
+  <entry key="plan">move b 3,move c 1,move a 2,move b 4,move a 6,move b 8,move d 7,move f 8,move h 7,move g 5,move h 3,move g 1,move e 2,move c 3,move b 5,move a 7,move c 8,move d 6,move f 5,move e 3,move d 5,move f 6,move e 4,move c 5,move a 4,move b 6,move a 8,move c 7,move e 8,move g 7,move h 5,move g 3,move h 1,move f 2,move d 3,move f 4,move g 2,move h 4,move f 3,move e 1,move c 2,move d 4,move e 6,move d 8,move b 7,move a 5,move c 6,move e 5,move f 7,move h 8,move g 6,move e 7,move g 8,move h 6,move g 4,move h 2,move f 1,move d 2,move b 1,move a 3,move c 4,move b 2,move d 1</entry>
+</properties>

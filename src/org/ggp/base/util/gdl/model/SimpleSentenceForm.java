@@ -18,14 +18,17 @@ import com.google.common.collect.Maps;
 public class SimpleSentenceForm extends AbstractSentenceForm
 {
   private final GdlConstant                               name;
-  //The arity is the same as the arity of the GdlSentence object, i.e.
-  //how many terms there are at the first level (including functions).
+
+  // The arity is the same as the arity of the GdlSentence object, i.e. how many terms there are at the first level
+  // (including functions).
   private final int                                       arity;
-  //We cheat a little by reusing sentence forms as function forms.
-  //Map from the index (< arity) to the function definition.
+
+  // We cheat a little by reusing sentence forms as function forms.  Map from the index (< arity) to the function
+  // definition.
   private final ImmutableMap<Integer, SimpleSentenceForm> functions;
-  //The tuple size is the total number of constants and/or variables
-  //within the entire sentence, including inside functions.
+
+  // The tuple size is the total number of constants and/or variables within the entire sentence, including inside
+  // functions.
   private final int                                       tupleSize;
 
   public static SimpleSentenceForm create(GdlSentence sentence)

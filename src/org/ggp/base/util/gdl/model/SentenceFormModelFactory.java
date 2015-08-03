@@ -13,9 +13,6 @@ import org.ggp.base.util.gdl.grammar.GdlLiteral;
 import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.gdl.grammar.GdlRule;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.gdl.transforms.GdlCleaner;
-import org.ggp.base.util.gdl.transforms.VariableConstrainer;
-
 import com.google.common.base.Predicates;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -139,7 +136,7 @@ public class SentenceFormModelFactory
   private static Set<SentenceForm> getSentenceFormsInBody(GdlLiteral bodyLiteral,
                                                           final ImmutableSet<SentenceForm> sentenceForms)
   {
-    final Set<SentenceForm> forms = new HashSet<SentenceForm>();
+    final Set<SentenceForm> forms = new HashSet<>();
     GdlVisitors.visitAll(bodyLiteral, new GdlVisitor()
     {
       @Override

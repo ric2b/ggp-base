@@ -5,8 +5,6 @@ import java.util.List;
 
 import org.ggp.base.player.gamer.event.GamerSelectedMoveEvent;
 import org.ggp.base.util.logging.GamerLogger;
-import org.ggp.base.util.profile.ProfilerContext;
-import org.ggp.base.util.profile.ProfilerSampleSetSimple;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
@@ -19,13 +17,12 @@ public class BaselineTestGamer extends SampleGamer
   @Override
   public StateMachine getInitialStateMachine()
   {
-    ProfilerContext.setProfiler(new ProfilerSampleSetSimple());
     //return new CachedStateMachine(new NormalizingProverStateMachine());
     return new ProverStateMachine();
   }
 
   /**
-   * This function is called at the start of each round You are required to
+   * This function is called at the start of each round.  You are required to
    * return the Move your player will play before the timeout.
    */
   @Override
@@ -37,8 +34,6 @@ public class BaselineTestGamer extends SampleGamer
     long finishBy = timeout - 1000;
     long numSamples = 0;
     List<Move> moves = null;
-
-    ProfilerContext.resetStats();
 
     /**
      * We put in memory the list of legal moves from the current state. The
@@ -59,8 +54,6 @@ public class BaselineTestGamer extends SampleGamer
     long stop = System.currentTimeMillis();
 
     GamerLogger.log("GamePlayer", "Num legal move generations: " + numSamples);
-    GamerLogger.log("GamePlayer", "Profile stats: \n" +
-                                  ProfilerContext.getContext().toString());
 
     /**
      * These are functions used by other parts of the GGP codebase You

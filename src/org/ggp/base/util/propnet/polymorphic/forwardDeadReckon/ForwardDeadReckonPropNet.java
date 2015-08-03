@@ -12,9 +12,9 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicComponentFactory;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
-import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropositionCrossReferenceInfo;
 
 /**
  * @author steve
@@ -27,13 +27,9 @@ public class ForwardDeadReckonPropNet extends PolymorphicPropNet
   private ForwardDeadReckonInternalMachineState[] activeBasePropositions;
   private ForwardDeadReckonInternalMachineState   alwaysTrueBasePropositions;
   private int                                     numInstances;
+
   /**
-   * Whether to use the fast animator to animate the propnet at runtime.
-   * This should make no functional difference, but should have higher performance
-   */
-  public static final boolean                     useFastAnimator = true;
-  /**
-   * Fast animator instance for use with this propNet
+   * Fast animator instance for use with this propNet.
    */
   public ForwardDeadReckonPropnetFastAnimator     animator = null;
 
@@ -77,7 +73,8 @@ public ForwardDeadReckonPropNet(Role[] roles,
   }
 
   @SuppressWarnings("unchecked")
-  private void setUpActivePropositionSets(ForwardDeadReckonPropositionInfo[] masterInfoSet,
+  private void setUpActivePropositionSets(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet,
+                                          int firstBasePropIndex,
                                           ForwardDeadReckonLegalMoveInfo[]   masterMoveList)
   {
     activeLegalMoves = new ForwardDeadReckonLegalMoveSet[numInstances];
@@ -104,7 +101,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
 
       for(ForwardDeadReckonLegalMoveInfo moveInfo : masterMoveList)
       {
-        masterMoveIndexMap[moveInfo.roleIndex].put(moveInfo.move, moveInfo.masterIndex);
+        masterMoveIndexMap[moveInfo.mRoleIndex].put(moveInfo.mMove, moveInfo.mMasterIndex);
       }
     }
     else
@@ -121,25 +118,25 @@ public ForwardDeadReckonPropNet(Role[] roles,
         ForwardDeadReckonProposition pfdr = (ForwardDeadReckonProposition)p;
         ForwardDeadReckonLegalMoveInfo info = new ForwardDeadReckonLegalMoveInfo();
 
-        info.move = new Move(pfdr.getName().getBody().get(1));
-        info.inputProposition = (ForwardDeadReckonProposition)getLegalInputMap().get(p);
-        info.roleIndex = roleIndex;
-        assert(masterMoveIndexMap == null || masterMoveIndexMap[info.roleIndex].containsKey(info.move));
-        info.masterIndex = alwaysTrueLegalMoves.resolveId(info, masterMoveIndexMap == null ? -1 : masterMoveIndexMap[info.roleIndex].get(info.move));
+        info.mMove = new Move(pfdr.getName().getBody().get(1));
+        info.mInputProposition = (ForwardDeadReckonProposition)getLegalInputMap().get(p);
+        info.mRoleIndex = roleIndex;
+        assert(masterMoveIndexMap == null || masterMoveIndexMap[info.mRoleIndex].containsKey(info.mMove));
+        info.mMasterIndex = alwaysTrueLegalMoves.resolveId(info, masterMoveIndexMap == null ? -1 : masterMoveIndexMap[info.mRoleIndex].get(info.mMove));
 
         PolymorphicComponent propInput = p.getSingleInput();
         if (propInput instanceof PolymorphicConstant)
         {
           if (((PolymorphicConstant)propInput).getValue())
           {
-            alwaysTrueLegalMoves.add(info);
+            alwaysTrueLegalMoves.addAlwaysLegal(info);
           }
         }
         else
         {
           for (int instanceId = 0; instanceId < numInstances; instanceId++)
           {
-            pfdr.setTransitionSet(info.masterIndex,
+            pfdr.setTransitionSet(info.mMasterIndex,
                                   instanceId,
                                   activeLegalMoves[instanceId]);
           }
@@ -149,7 +146,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
         ForwardDeadReckonPropositionInfo propInfo = new ForwardDeadReckonPropositionInfo();
 
         propInfo.sentence = p.getName();
-        propInfo.index = info.masterIndex;
+        propInfo.index = info.mMasterIndex;
 
         pfdr.setInfo(propInfo);
       }
@@ -165,11 +162,11 @@ public ForwardDeadReckonPropNet(Role[] roles,
     }
 
     activeBasePropositions = new ForwardDeadReckonInternalMachineState[numInstances];
-    alwaysTrueBasePropositions = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+    alwaysTrueBasePropositions = new ForwardDeadReckonInternalMachineState(masterInfoSet, firstBasePropIndex);
 
     for (int instanceId = 0; instanceId < numInstances; instanceId++)
     {
-      activeBasePropositions[instanceId] = new ForwardDeadReckonInternalMachineState(masterInfoSet);
+      activeBasePropositions[instanceId] = new ForwardDeadReckonInternalMachineState(masterInfoSet, firstBasePropIndex);
 
       for (PolymorphicProposition p : getBasePropositions().values())
       {
@@ -202,7 +199,8 @@ public ForwardDeadReckonPropNet(Role[] roles,
    * @param masterInfoSet set of base propositions in some defined order
    * @param masterMoveList master list of moves - may be null to generate
    */
-  private void crystalize(ForwardDeadReckonPropositionInfo[] masterInfoSet,
+  private void crystalize(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet,
+                          int firstBasePropIndex,
                           ForwardDeadReckonLegalMoveInfo[]   masterMoveList)
   {
     for (PolymorphicComponent c : getComponents())
@@ -213,7 +211,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
       fdrc.setPropnet(this);
     }
 
-    setUpActivePropositionSets(masterInfoSet, masterMoveList);
+    setUpActivePropositionSets(masterInfoSet, firstBasePropIndex, masterMoveList);
 
     // Calculate useful goal information.
     for (Role lRole : getRoles())
@@ -226,11 +224,8 @@ public ForwardDeadReckonPropNet(Role[] roles,
       }
     }
 
-    if ( useFastAnimator )
-    {
-      animator = new ForwardDeadReckonPropnetFastAnimator(this);
-      animator.crystalize(numInstances);
-    }
+    animator = new ForwardDeadReckonPropnetFastAnimator(this);
+    animator.crystalize(numInstances);
   }
 
   /**
@@ -242,13 +237,14 @@ public ForwardDeadReckonPropNet(Role[] roles,
    * @param masterMoveList master list of moves - may be null to generate
    * @param theNumInstances Number of independent instances to support
    */
-  public void crystalize(ForwardDeadReckonPropositionInfo[] masterInfoSet,
+  public void crystalize(ForwardDeadReckonPropositionCrossReferenceInfo[] masterInfoSet,
+                         int firstBasePropIndex,
                          ForwardDeadReckonLegalMoveInfo[]   masterMoveList,
                          int theNumInstances)
   {
     numInstances = theNumInstances;
 
-    crystalize(masterInfoSet, masterMoveList);
+    crystalize(masterInfoSet, firstBasePropIndex, masterMoveList);
   }
 
   /**
@@ -281,42 +277,6 @@ public ForwardDeadReckonPropNet(Role[] roles,
   }
 
   /**
-   * Set a specified proposition to a specified value
-   * @param instanceId Instance within which to set the proposition
-   * @param p Proposition to set
-   * @param value New value to set
-   */
-  public void setProposition(int instanceId, ForwardDeadReckonProposition p, boolean value)
-  {
-    if ( useFastAnimator )
-    {
-      animator.setComponentValue(instanceId, p.id, value);
-    }
-    else
-    {
-      p.setValue(value, instanceId);
-    }
-  }
-
-  /**
-   * Retrieve the current state of a specified component.  Should only
-   * be called on transitions or propositions
-   * @param instanceId Instance from which to retrieve the component state
-   * @param component Components to retrieve the state of
-   * @return the current state of the specified component
-   */
-  public boolean getComponentValue(int instanceId, ForwardDeadReckonComponent component)
-  {
-    assert( (component instanceof PolymorphicProposition) || (component instanceof PolymorphicTransition) );
-    if ( useFastAnimator )
-    {
-      return animator.getComponentValue(instanceId, component.id);
-    }
-
-    return component.getValue(instanceId);
-  }
-
-  /**
    * Reset the state of the propNet (to the all inputs of all components
    * assumed to be FALSE state).  Optionally then propagate any components with TRUE
    * outputs to achieve a globally consistent network state
@@ -335,25 +295,7 @@ public ForwardDeadReckonPropNet(Role[] roles,
         activeLegalMoves[instanceId].merge(alwaysTrueLegalMoves);
       }
 
-      if ( useFastAnimator )
-      {
-        animator.reset(instanceId, fullEquilibrium);
-      }
-      else
-      {
-        for (PolymorphicComponent c : getComponents())
-        {
-          ((ForwardDeadReckonComponent)c).reset(instanceId);
-        }
-        //	Establish full reset state if required
-        if (fullEquilibrium)
-        {
-          for (PolymorphicComponent c : getComponents())
-          {
-            ((ForwardDeadReckonComponent)c).propagate(instanceId);
-          }
-        }
-      }
+      animator.reset(instanceId, fullEquilibrium);
     }
   }
 

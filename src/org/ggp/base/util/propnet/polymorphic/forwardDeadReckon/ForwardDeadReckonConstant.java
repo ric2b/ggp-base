@@ -1,16 +1,16 @@
 
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
+import java.io.IOException;
+import java.io.Writer;
+
 import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
 
 /**
  * The Constant class is designed to represent nodes with fixed logical values.
  */
 @SuppressWarnings("serial")
-public final class ForwardDeadReckonConstant extends
-                                            ForwardDeadReckonComponent
-                                                                      implements
-                                                                      PolymorphicConstant
+public final class ForwardDeadReckonConstant extends ForwardDeadReckonComponent implements PolymorphicConstant
 {
   /** The value of the constant. */
   private final boolean value;
@@ -63,12 +63,15 @@ public final class ForwardDeadReckonConstant extends
     }
   }
 
-  /**
-   * @see org.ggp.base.util.propnet.architecture.Component#toString()
-   */
   @Override
   public String toString()
   {
-    return toDot("doublecircle", "grey", Boolean.toString(value).toUpperCase());
+    return Boolean.toString(value).toUpperCase();
+  }
+
+  @Override
+  public void renderAsDot(Writer xiOutput) throws IOException
+  {
+    renderAsDot(xiOutput, "doublecircle", "grey", Boolean.toString(value).toUpperCase());
   }
 }

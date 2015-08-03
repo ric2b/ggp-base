@@ -12,10 +12,9 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.Lists;
 
 /**
- * Defines the hashCode, equals, and toString methods for SentenceForms so
- * different SentenceForms can be compatible in terms of how they treat these
- * methods. SentenceForm implementations should extend this class and should
- * not reimplement hashCode, equals, or toString.
+ * Defines the hashCode, equals, and toString methods for SentenceForms so different SentenceForms can be compatible in
+ * terms of how they treat these methods.  (SentenceForm implementations should extend this class and cannot reimplement
+ * hashCode, equals, or toString.)
  */
 public abstract class AbstractSentenceForm implements SentenceForm
 {
@@ -31,7 +30,7 @@ public abstract class AbstractSentenceForm implements SentenceForm
                                                              });
 
   @Override
-  public boolean equals(Object obj)
+  public final boolean equals(Object obj)
   {
     if (obj == null)
     {
@@ -67,7 +66,7 @@ public abstract class AbstractSentenceForm implements SentenceForm
   private volatile int hashCode = 0;
 
   @Override
-  public int hashCode()
+  public final int hashCode()
   {
     if (hashCode == 0)
     {
@@ -77,7 +76,7 @@ public abstract class AbstractSentenceForm implements SentenceForm
   }
 
   @Override
-  public String toString()
+  public final String toString()
   {
     return underscoreSentence.get().toString();
   }
