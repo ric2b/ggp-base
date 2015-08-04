@@ -7,23 +7,39 @@ import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
+import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 /**
- * A very basic depth-first searcher.
+ * A very basic depth-first searcher with alpha-beta pruning.
  *
- * - Restricted to 2-player games.
- * - Restricted to fixed-sum games.
- * - Doesn't do alpha-beta pruning (yet).
+ * - Only works for non-simultaneous play games (although strict alternation is not required.)
+ * - Only really useful for 2-player, fixed-sum games.
+ *   - For 3+ players, assumes that they collaborate against us.
+ *   - For non-fixed sum games, assumes that our opponent simply wants to give us the smallest score.
+ *
+ * TODO
+ *
+ * - Identify the set of best-scoring moves and return them with the score
+ * - Multi-threading
+ * - Interruptible (for restarting if no solution is found before the end of the turn)
+ * - Ordering hints for early moves, taken from MCTS/RAVE (which can massively cut down the work required)
+ * - Consider other algorithms (e.g. SCOUT, Negacount & MTD-f) along with heuristics and iterative deepending (IDDFS).
  */
 public class DepthFirstSearcher
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
+  private static final int MIN_VALUE = 0;
+  private static final int MAX_VALUE = 100;
+
   private final ForwardDeadReckonPropnetStateMachine mStateMachine;
+  private final Role mRole;
+  private final int mNumRoles;
 
   private int mStatesConsidered;
   private int mTerminalStatesConsidered;
+  private int mBestCompleteDepth;
 
   /**
    * Per-stack-frame variables that are created as members to avoid object allocation during recursion.
@@ -39,17 +55,18 @@ public class DepthFirstSearcher
    * Create a depth-first searcher.
    *
    * @param xiStateMachine - the state machine to use.
+   * @param xiRole - our role.
    */
-  public DepthFirstSearcher(ForwardDeadReckonPropnetStateMachine xiStateMachine)
+  public DepthFirstSearcher(ForwardDeadReckonPropnetStateMachine xiStateMachine, Role xiRole)
   {
     mStateMachine = xiStateMachine;
+    mRole = xiRole;
+    mNumRoles = xiStateMachine.getRoles().length;
 
-    int lNumRoles = mStateMachine.getRoles().length;
-    assert(lNumRoles == 2) : "DFS only suitable for 2-player games";
     for (int lii = 0; lii < MCTSTree.MAX_SUPPORTED_TREE_DEPTH; lii++)
     {
       mStackState[lii]     = mStateMachine.createEmptyInternalState();
-      mStackJointMove[lii] = new ForwardDeadReckonLegalMoveInfo[lNumRoles];
+      mStackJointMove[lii] = new ForwardDeadReckonLegalMoveInfo[mNumRoles];
       mStackLegals[lii]    = new ForwardDeadReckonLegalMoveInfo[MCTSTree.MAX_SUPPORTED_BRANCHING_FACTOR];
     }
   }
@@ -62,11 +79,15 @@ public class DepthFirstSearcher
   public void search(ForwardDeadReckonInternalMachineState xiState)
   {
     LOGGER.info("Starting DFS");
-    mStackState[0] = xiState;
+
     mStatesConsidered = 0;
     mTerminalStatesConsidered = 0;
-    search(0);
-    LOGGER.info("DFS complete after " + mStatesConsidered + " states of which " + mTerminalStatesConsidered + " were terminal");
+    mBestCompleteDepth = MCTSTree.MAX_SUPPORTED_TREE_DEPTH;
+
+    mStackState[0] = xiState;
+    int lValue = search(0, MIN_VALUE, MAX_VALUE);
+    LOGGER.info("DFS complete with value " + lValue +
+                " after " + mStatesConsidered + " states of which " + mTerminalStatesConsidered + " were terminal");
   }
 
   /**
@@ -75,22 +96,27 @@ public class DepthFirstSearcher
    * @param xiDepth - the current depth below the requested search root.  Also defines the explicit stack variables to
    *                  use.
    */
-  private void search(int xiDepth)
+  private int search(int xiDepth, int xiAlpha, int xiBeta)
   {
     mStatesConsidered++;
-    int lNumRoles = mStateMachine.getRoles().length;
 
     if (mStateMachine.isTerminal(mStackState[xiDepth]))
     {
-      // !! ARR: mStateMachine.getGoal(lRole);
       mTerminalStatesConsidered++;
-      return;
+
+      if (xiDepth < mBestCompleteDepth)
+      {
+        mBestCompleteDepth = xiDepth;
+        report();
+      }
+
+      return mStateMachine.getGoal(mRole);
     }
 
     ForwardDeadReckonLegalMoveSet lLegals = mStateMachine.getLegalMoveSet(mStackState[xiDepth]);
     int lRoleWithChoice = -1;
     int lNumChoices = -1;
-    for (int lii = 0; lii < lNumRoles; lii++)
+    for (int lii = 0; lii < mNumRoles; lii++)
     {
       // Store a legal move for this role.  For all roles but one, this will be the only move.  For the role with a
       // choice, this will be the first legal move.
@@ -114,13 +140,17 @@ public class DepthFirstSearcher
 
     if (lRoleWithChoice == -1)
     {
-      // No role had a choice.  Get the next state and recurse.
+      // No role had a choice.  Return the value of the only child.
       mStateMachine.getNextState(mStackState[xiDepth], null, mStackJointMove[xiDepth], mStackState[xiDepth + 1]);
-      search(xiDepth + 1);
+      return search(xiDepth + 1, xiAlpha, xiBeta);
     }
-    else
+
+    // A role had a choice.  If it was us, return the maximum value of all children.  If it wasn't, return the minimum.
+    int lValue;
+    if (lRoleWithChoice == 0)
     {
-      // Role had a choice.  Iterate over all legal moves.
+      // Our choice.
+      lValue = MIN_VALUE;
       for (int lii = 0; lii < lNumChoices; lii++)
       {
         // Set the move for the role with a choice.  (All the others are set already.)
@@ -128,8 +158,39 @@ public class DepthFirstSearcher
 
         // Get the next state and do a recursive (depth-first) search.
         mStateMachine.getNextState(mStackState[xiDepth], null, mStackJointMove[xiDepth], mStackState[xiDepth + 1]);
-        search(xiDepth + 1);
+        lValue = Math.max(lValue, search(xiDepth + 1, xiAlpha, xiBeta));
+        xiAlpha = Math.max(xiAlpha, lValue);
+        if (xiBeta <= xiAlpha) break; // Beta-cut
       }
     }
+    else
+    {
+      // Their choice.
+      lValue = MAX_VALUE;
+      for (int lii = 0; lii < lNumChoices; lii++)
+      {
+        // Set the move for the role with a choice.  (All the others are set already.)
+        mStackJointMove[xiDepth][lRoleWithChoice] = mStackLegals[xiDepth][lii];
+
+        // Get the next state and do a recursive (depth-first) search.
+        mStateMachine.getNextState(mStackState[xiDepth], null, mStackJointMove[xiDepth], mStackState[xiDepth + 1]);
+        lValue = Math.min(lValue, search(xiDepth + 1, xiAlpha, xiBeta));
+        xiBeta = Math.min(xiBeta, lValue);
+        if (xiBeta <= xiAlpha) break; // Alpha-cut
+      }
+    }
+
+    if (xiDepth <= mBestCompleteDepth)
+    {
+      mBestCompleteDepth = xiDepth;
+      report();
+    }
+
+    return lValue;
+  }
+
+  private void report()
+  {
+    LOGGER.info("DFS has best completion depth of " + mBestCompleteDepth + " after " + mStatesConsidered + " states");
   }
 }
