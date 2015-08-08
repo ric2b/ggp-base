@@ -131,7 +131,7 @@ public class MachineSpecificConfiguration
     DEAD_MATCH_INTERVAL((int)TimeUnit.MINUTES.toMillis(10)),
 
     /**
-     * The tlk.io channel to log to.
+     * The tlk.io channel to log to.  Set to "NONE" to disable logging to tlk.io.
      */
     TLKIO_CHANNEL("sanchoggp"),
 
