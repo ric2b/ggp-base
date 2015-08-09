@@ -69,4 +69,15 @@ public class SampledStatistic
 
     return lStdDev;
   }
+
+  @Override
+  public String toString()
+  {
+    if (mNumSamples == 0)
+    {
+      return "<No samples>";
+    }
+
+    return (long)getMean() + " +/- " + (long)getStdDev();
+  }
 }
