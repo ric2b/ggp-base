@@ -2751,6 +2751,7 @@ public class OptimizingPolymorphicPropNetFactory
             disconnected.add(c);
           }
           else if (c instanceof PolymorphicProposition &&
+                   !isGoalProp((PolymorphicProposition)c) &&
                    c.getOutputs().size() == 0)
           {
             c.removeInput(falseConst);
@@ -2816,6 +2817,18 @@ public class OptimizingPolymorphicPropNetFactory
     while (eliminations.size() > 0);
 
     LOGGER.debug("Removed " + removedRedundantComponentCount + " redundant components");
+  }
+
+  private static boolean isGoalProp(PolymorphicProposition p)
+  {
+    GdlSentence s = p.getName();
+
+    if ( s instanceof GdlRelation )
+    {
+      return s.getName().equals(GdlPool.GOAL);
+    }
+
+    return false;
   }
 
   private static final int largeGateThreshold = 5;
