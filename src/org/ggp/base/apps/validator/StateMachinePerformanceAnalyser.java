@@ -109,7 +109,9 @@ public class StateMachinePerformanceAnalyser
    * @param args app commandline args, as follows:
    *  [-statemachine] - includes direct state machine rollout tests
    *  [-gamesearcher] - includes tests of the higher-level game searcher
-   *  [-time<num seconds>] - specify how long to run each test for
+   *  [-time<num seconds>] - specify how long to run each test for (default 10s)
+   *  [-repeat<num repeats>] - specify how many times to run each test (to get a variance measure, default 5)
+   *  [-varythreads] - to repeat the tests, varying the number of CPU intensive threads
    *  <remaining params, of arbitrary number, each of which is a game name to test>
    */
   public static void main(String[] args)
@@ -118,6 +120,9 @@ public class StateMachinePerformanceAnalyser
     boolean testDirectStateMachine = false;
     boolean testSanchoGameSearcher = false;
     boolean useLocalRepository = false;
+
+    int lMinThreads = ThreadControl.CPU_INTENSIVE_THREADS;
+    int lMaxThreads = ThreadControl.CPU_INTENSIVE_THREADS;
 
     for(String arg : args)
     {
@@ -137,6 +142,10 @@ public class StateMachinePerformanceAnalyser
             useLocalRepository = true;
             break;
 
+          case "-varythreads":
+            lMinThreads = Math.min(2, lMaxThreads);
+            break;
+
           default:
             if (arg.toLowerCase().startsWith("-time"))
             {
@@ -148,7 +157,7 @@ public class StateMachinePerformanceAnalyser
             }
             else
             {
-              System.out.println("Parameter usage: [-statemachine] [-gamesearcher] [-time<numSeconds>] [-repeat<numRepeats>] <gameName> [<gameName>...]");
+              System.out.println("Parameter usage: [-statemachine] [-gamesearcher] [-time<numSeconds>] [-repeat<numRepeats>] [-varythreads] <gameName> [<gameName>...]");
               System.exit(1);
             }
         }
@@ -159,59 +168,74 @@ public class StateMachinePerformanceAnalyser
       }
     }
 
-    StateMachinePerformanceAnalyser analyser = new StateMachinePerformanceAnalyser();
-    GameRepository theRepository = null;
-    try
+    for (int lNumThreads = lMinThreads; lNumThreads <= lMaxThreads; lNumThreads++)
     {
-      theRepository = (useLocalRepository ? new LocalGameRepository() : GameRepository.getDefaultRepository());
-
-      if (testDirectStateMachine)
+      System.out.println("Testing with " + lNumThreads + " threads");
+      if (lMinThreads != lMaxThreads)
       {
-        analyser.testDirectStateMachine(theRepository, gamesList);
+        ThreadControl.utOverrideCPUIntensiveThreads(lNumThreads);
       }
 
-      if (testSanchoGameSearcher)
+      for(Entry<String, PerformanceInfo> lEntry : gamesList.entrySet())
       {
-        analyser.testGameSearcher(theRepository, gamesList);
+        lEntry.setValue(null);
       }
 
-      for(Entry<String, PerformanceInfo> e : gamesList.entrySet())
+      StateMachinePerformanceAnalyser analyser = new StateMachinePerformanceAnalyser();
+      GameRepository theRepository = null;
+      try
       {
-        if (e.getValue() != null)
+        theRepository = (useLocalRepository ? new LocalGameRepository() : GameRepository.getDefaultRepository());
+
+        if (testDirectStateMachine)
         {
-          System.out.println("Game " + e.getKey() + ":");
-          PerformanceInfo lPerfInfo = e.getValue();
+          analyser.testDirectStateMachine(theRepository, gamesList);
+        }
 
-          if (testDirectStateMachine)
+        if (testSanchoGameSearcher)
+        {
+          analyser.testGameSearcher(theRepository, gamesList);
+        }
+
+        System.out.println("==== With " + lNumThreads + " threads ====\n");
+        for(Entry<String, PerformanceInfo> e : gamesList.entrySet())
+        {
+          if (e.getValue() != null)
           {
-            System.out.println("  Direct state machine rollouts per second: " + lPerfInfo.stateMachineDirectRolloutsPerSecond);
-          }
-          if (testSanchoGameSearcher)
-          {
-            System.out.println("  GameSearcher rollouts per second: " + lPerfInfo.rolloutsPerSecond);
-            System.out.println("  GameSearcher node expansions per second: " + lPerfInfo.expansionsPerSecond);
-            System.out.println("  GameSearcher highest pipeline latency(micro seconds): " + lPerfInfo.highestLatency);
-            System.out.println("  GameSearcher average pipeline latency(micro seconds): " + lPerfInfo.averageLatency);
+            System.out.println("Game " + e.getKey() + ":");
+            PerformanceInfo lPerfInfo = e.getValue();
+
+            if (testDirectStateMachine)
+            {
+              System.out.println("  Direct state machine rollouts per second: " + lPerfInfo.stateMachineDirectRolloutsPerSecond);
+            }
+            if (testSanchoGameSearcher)
+            {
+              System.out.println("  GameSearcher rollouts per second: " + lPerfInfo.rolloutsPerSecond);
+              System.out.println("  GameSearcher node expansions per second: " + lPerfInfo.expansionsPerSecond);
+              System.out.println("  GameSearcher highest pipeline latency(micro seconds): " + lPerfInfo.highestLatency);
+              System.out.println("  GameSearcher average pipeline latency(micro seconds): " + lPerfInfo.averageLatency);
+            }
           }
         }
-      }
 
-      if (gamesList.isEmpty())
-      {
-        miscTest1();
-        miscTest2();
-        miscTest3();
-        miscTest4(new StateMachinePerformanceAnalyser());
+        if (gamesList.isEmpty())
+        {
+          miscTest1();
+          miscTest2();
+          miscTest3();
+          miscTest4(new StateMachinePerformanceAnalyser());
+        }
       }
-    }
-    finally
-    {
-      // The local repository suffers from a lack of releasing its port binding
-      // under certain execution conditions (debug under Eclipse), so do it
-      // explicitly to leave things in a clean state
-      if (theRepository instanceof LocalGameRepository)
+      finally
       {
-        ((LocalGameRepository)theRepository).cleanUp();
+        // The local repository suffers from a lack of releasing its port binding
+        // under certain execution conditions (debug under Eclipse), so do it
+        // explicitly to leave things in a clean state
+        if (theRepository instanceof LocalGameRepository)
+        {
+          ((LocalGameRepository)theRepository).cleanUp();
+        }
       }
     }
   }
@@ -438,10 +462,10 @@ public class StateMachinePerformanceAnalyser
 
           RuntimeGameCharacteristics gameCharacteristics = new RuntimeGameCharacteristics(null);
           ForwardDeadReckonPropnetStateMachine theMachine =
-                                             new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
-                                                                                      25000,
-                                                                                      null,
-                                                                                      gameCharacteristics);
+                                           new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
+                                                                                    25000,
+                                                                                    null,
+                                                                                    gameCharacteristics);
           List<Gdl> description = theRepository.getGame(gameKey).getRules();
           theMachine.initialize(description);
           theMachine.enableGreedyRollouts(false, true);
@@ -450,7 +474,8 @@ public class StateMachinePerformanceAnalyser
           theMachine.optimizeStateTransitionMechanism(System.currentTimeMillis()+5000);
 
           long endTime;
-          ForwardDeadReckonInternalMachineState initialState = theMachine.createInternalState(theMachine.getInitialState());
+          ForwardDeadReckonInternalMachineState initialState =
+                                                           theMachine.createInternalState(theMachine.getInitialState());
           try
           {
             GameSearcher gameSearcher = new GameSearcher(1000000, theMachine.getRoles().length, "PerfTest");

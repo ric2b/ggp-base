@@ -1,5 +1,8 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
@@ -55,7 +58,7 @@ public class ThreadControl
       int lConfiguredValue = MachineSpecificConfiguration.getCfgInt(CfgItem.CPU_INTENSIVE_THREADS);
       if (lConfiguredValue == -1)
       {
-        // No configured value - calculate a default.  Use the half the available vCPUs.
+        // No configured value - calculate a default.  Use half the available vCPUs.
         CPU_INTENSIVE_THREADS = (NUM_CPUS + 1) / 2;
       }
       else
@@ -263,4 +266,30 @@ public class ThreadControl
       LOGGER.error("Failed to set thread affinity: err=", lEx);
     }
   }
+
+  public static void utOverrideCPUIntensiveThreads(int xiNumThreads)
+  {
+    try
+    {
+      setFinalStatic(ThreadControl.class.getField("CPU_INTENSIVE_THREADS"), xiNumThreads);
+      setFinalStatic(ThreadControl.class.getField("ROLLOUT_THREADS"),       xiNumThreads - 1);
+      setFinalStatic(ThreadControl.class.getDeclaredField("USE_AFFINITY_MAPPING"),  false);
+    }
+    catch (NoSuchFieldException | SecurityException | IllegalAccessException lEx)
+    {
+      System.err.println("Failed to set num CPU-intensive threads: " + lEx);
+    }
+  }
+
+  private static void setFinalStatic(Field xiField, Object xiNewValue)
+    throws NoSuchFieldException, SecurityException, IllegalAccessException
+  {
+    xiField.setAccessible(true);
+
+    Field modifiersField = Field.class.getDeclaredField("modifiers");
+    modifiersField.setAccessible(true);
+    modifiersField.setInt(xiField, xiField.getModifiers() & ~Modifier.FINAL);
+
+    xiField.set(null, xiNewValue);
+   }
 }

@@ -482,7 +482,7 @@ public class ForwardDeadReckonPropnetFastAnimator
     //  state table.  These are the does props and the base props, which are all inputs to the network rather
     //  than really part of its state
     numStatefulComponents = nextComponentBaseId;
-    LOGGER.info("Animator instance state vector size: " + numStatefulComponents);
+    LOGGER.debug("Animator instance state vector size: " + numStatefulComponents);
 
     componentDataTable = new int[(nextComponentBaseId+nextDeferredComponentId)*4];
 
