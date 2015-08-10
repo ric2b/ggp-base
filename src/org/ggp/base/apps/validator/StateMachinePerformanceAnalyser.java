@@ -85,12 +85,12 @@ public class StateMachinePerformanceAnalyser
   /**
    * Number of seconds to run each test
    */
-  static int numSeconds = 10;
+  static int numSeconds = 20;
 
   /**
    * Number of repeats of each test to run.
    */
-  static int numRepeats = 5;
+  static int numRepeats = 3;
 
   private class PerformanceInfo
   {
@@ -104,6 +104,8 @@ public class StateMachinePerformanceAnalyser
     public long highestLatency;
     public final SampledStatistic averageLatency = new SampledStatistic();
   }
+
+  private static final StringBuilder OUTPUT_BUFFER = new StringBuilder();
 
   /**
    * @param args app commandline args, as follows:
@@ -197,24 +199,24 @@ public class StateMachinePerformanceAnalyser
           analyser.testGameSearcher(theRepository, gamesList);
         }
 
-        System.out.println("==== With " + lNumThreads + " threads ====\n");
+        interimReport("\n==== With " + lNumThreads + " threads ====\n");
         for(Entry<String, PerformanceInfo> e : gamesList.entrySet())
         {
           if (e.getValue() != null)
           {
-            System.out.println("Game " + e.getKey() + ":");
+            interimReport("Game " + e.getKey() + ":");
             PerformanceInfo lPerfInfo = e.getValue();
 
             if (testDirectStateMachine)
             {
-              System.out.println("  Direct state machine rollouts per second: " + lPerfInfo.stateMachineDirectRolloutsPerSecond);
+              interimReport("  Direct state machine rollouts per second: " + lPerfInfo.stateMachineDirectRolloutsPerSecond);
             }
             if (testSanchoGameSearcher)
             {
-              System.out.println("  GameSearcher rollouts per second: " + lPerfInfo.rolloutsPerSecond);
-              System.out.println("  GameSearcher node expansions per second: " + lPerfInfo.expansionsPerSecond);
-              System.out.println("  GameSearcher highest pipeline latency(micro seconds): " + lPerfInfo.highestLatency);
-              System.out.println("  GameSearcher average pipeline latency(micro seconds): " + lPerfInfo.averageLatency);
+              interimReport("  GameSearcher rollouts per second: " + lPerfInfo.rolloutsPerSecond);
+              interimReport("  GameSearcher node expansions per second: " + lPerfInfo.expansionsPerSecond);
+              interimReport("  GameSearcher highest pipeline latency(micro seconds): " + lPerfInfo.highestLatency);
+              interimReport("  GameSearcher average pipeline latency(micro seconds): " + lPerfInfo.averageLatency);
             }
           }
         }
@@ -238,6 +240,24 @@ public class StateMachinePerformanceAnalyser
         }
       }
     }
+
+    finalReport();
+  }
+
+  private static void interimReport(String xiLine)
+  {
+    System.out.println(xiLine);
+    OUTPUT_BUFFER.append(xiLine);
+    OUTPUT_BUFFER.append('\n');
+  }
+
+  private static void finalReport()
+  {
+    System.out.println("\n");
+    System.out.println("******************************");
+    System.out.println("******** Final Report ********");
+    System.out.println("******************************");
+    System.out.println(OUTPUT_BUFFER.toString());
   }
 
   private static final int maskMiddle = 0x00020000;
@@ -536,6 +556,7 @@ public class StateMachinePerformanceAnalyser
             perfInfo.averageLatency.sample(gameSearcher.averageLatency / 1000);
 
             gameSearcher.terminate();
+            Thread.sleep(2000);
           }
           catch (GoalDefinitionException e1)
           {

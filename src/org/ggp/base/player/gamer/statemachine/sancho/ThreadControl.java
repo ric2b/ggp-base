@@ -1,8 +1,5 @@
 package org.ggp.base.player.gamer.statemachine.sancho;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
@@ -44,7 +41,7 @@ public class ThreadControl
    *
    * Unless configured otherwise, use half the available vCPUs.
    */
-  public static final int CPU_INTENSIVE_THREADS;
+  public static int CPU_INTENSIVE_THREADS;
   static
   {
     if (RUN_SYNCHRONOUSLY)
@@ -72,19 +69,19 @@ public class ThreadControl
   /**
    * The number of rollout threads.  There's 1 for the GameSearcher thread and the rest are for rollouts.
    */
-  public static final int ROLLOUT_THREADS = CPU_INTENSIVE_THREADS - 1;
+  public static int ROLLOUT_THREADS = CPU_INTENSIVE_THREADS - 1;
 
   /**
    * Whether to pin the CPU intensive threads to fixed cores to prevent core thrashing.
    */
-  private static final boolean USE_AFFINITY_MAPPING = MachineSpecificConfiguration.getCfgBool(CfgItem.USE_AFFINITY);
+  private static boolean USE_AFFINITY_MAPPING = MachineSpecificConfiguration.getCfgBool(CfgItem.USE_AFFINITY);
 
   /**
    * On hyper-threaded CPUs we get far better performance allocating every other logical core
    * and so placing our threads on separate physical cores - always do this if we're only using half the
    * logical cores anyway.
    */
-  private static final int CPU_STRIPE_STRIDE = ((NUM_CPUS + 1) / 2 >= CPU_INTENSIVE_THREADS) ? 2 : 1;
+  private static int CPU_STRIPE_STRIDE = ((NUM_CPUS + 1) / 2 >= CPU_INTENSIVE_THREADS) ? 2 : 1;
 
   /**
    * A parity which influences whether logical CPU striping is done on odd or even parity CPU IDs.  Particularly useful
@@ -267,29 +264,15 @@ public class ThreadControl
     }
   }
 
+  /**
+   * Override thread-counts that should normally be considered final.  For use in UT only.
+   *
+   * @param xiNumThreads - the number of CPU-intensive threads.
+   */
   public static void utOverrideCPUIntensiveThreads(int xiNumThreads)
   {
-    try
-    {
-      setFinalStatic(ThreadControl.class.getField("CPU_INTENSIVE_THREADS"), xiNumThreads);
-      setFinalStatic(ThreadControl.class.getField("ROLLOUT_THREADS"),       xiNumThreads - 1);
-      setFinalStatic(ThreadControl.class.getDeclaredField("USE_AFFINITY_MAPPING"),  false);
-    }
-    catch (NoSuchFieldException | SecurityException | IllegalAccessException lEx)
-    {
-      System.err.println("Failed to set num CPU-intensive threads: " + lEx);
-    }
+    CPU_INTENSIVE_THREADS = xiNumThreads;
+    ROLLOUT_THREADS = CPU_INTENSIVE_THREADS - 1;
+    USE_AFFINITY_MAPPING = false;
   }
-
-  private static void setFinalStatic(Field xiField, Object xiNewValue)
-    throws NoSuchFieldException, SecurityException, IllegalAccessException
-  {
-    xiField.setAccessible(true);
-
-    Field modifiersField = Field.class.getDeclaredField("modifiers");
-    modifiersField.setAccessible(true);
-    modifiersField.setInt(xiField, xiField.getModifiers() & ~Modifier.FINAL);
-
-    xiField.set(null, xiNewValue);
-   }
 }
