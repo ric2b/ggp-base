@@ -1,7 +1,0 @@
-{
-  "gameName": "Modified-Tic-Tac-Toe2",  
-  "rulesheet": "Modified-ticTacToe2.kif",
-  "stylesheet": "Modified-ticTacToe2.xsl",
-  "description": "Modified-ticTacToe2.txt",
-  "user_interface": "Modified-ticTacToe2.js"
-}
