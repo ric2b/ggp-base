@@ -1,0 +1,199 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Graph Colouring.
+;;;
+;;; Colour the graph with as few colours as possible.  No node may be the same
+;;; colour as an adjacent node.
+;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(role robot)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Each node may have a colour or be blank.  Initially, all nodes are blank.
+
+(<= (base (node ?n ?c))
+    (index ?n)
+    (colour ?c))
+
+(<= (base (node ?n blank))
+    (index ?n))
+
+(<= (init (node ?n blank))
+    (index ?n))
+
+; Keep a record of the next colour to use.  Initially 0.  It usually keeps its
+; value, but increases by 1 when used.
+
+(<= (base (nextColour ?c))
+    (colour ?c))
+
+(init (nextColour 0))
+ 
+(<= (next (nextColour ?c))
+    (true (nextColour ?c))
+    (does robot (setColour ?n ?c2))
+    (distinct ?c ?c2))
+
+(<= (next (nextColour ?c2))
+    (true (nextColour ?c))
+    (does robot (setColour ?n ?c))
+    (succ ?c ?c2))
+
+; A turn consists of assigning a colour to a node.  Node n can only be assigned
+; colour c if...
+;
+; - Node n does not already have a colour.
+; - c is either a colour already used or the 1st unused colour.
+; - There is no colour clash.
+
+(<= (input robot (setColour ?n ?c)) 
+    (index ?n)
+    (colour ?c))
+
+(<= (legal robot (setColour ?n ?c)) 
+    (true (node ?n blank))
+    (true (nextColour ?nextCol))
+    (leq ?c ?nextCol)
+    (not (clash ?n ?c)))
+
+(<= (next (node ?n ?c))
+    (does robot (setColour ?n ?c)))
+
+; There is a colour clash if 2 adjacent nodes have the same colour.
+
+(<= (clash ?n ?c)
+    (adjacent ?n ?n2)
+    (true (node ?n2 ?c)))
+
+; Nodes retain their colour, except when blank nodes are played on.
+
+(<= (next (node ?n ?c))
+    (true (node ?n ?c))
+    (colour ?c))
+
+(<= (next (node ?n blank))
+    (true (node ?n blank))
+    (does robot (setColour ?n2 ?c))
+    (distinct ?n ?n2))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= terminal 
+    (not anyBlank))
+
+(<= anyBlank
+    (true (node ?n blank))
+    (index ?n))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (goal robot ?g)
+    (true (nextColour ?c))
+    (score ?c ?g))
+    
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(index 0)
+(index 1)
+(index 2)
+(index 3)
+(index 4)
+(index 5)
+(index 6)
+(index 7)
+(index 8)
+(index 9)
+(index 10)
+(index 11)
+(index 12)
+(index 13)
+(index 14)
+(index 15)
+(index 16)
+(index 17)
+(index 18)
+(index 19)
+
+(<= (colour ?c)
+    (index ?c))
+(colour 20)
+
+(adj 0 16)
+(adj 1 2)
+(adj 1 6)
+(adj 1 7)
+(adj 1 8)
+(adj 2 11)
+(adj 2 16)
+(adj 2 17)
+(adj 3 14)
+(adj 3 16)
+(adj 3 17)
+(adj 4 7)
+(adj 4 13)
+(adj 4 17)
+(adj 5 6)
+(adj 5 11)
+(adj 6 18)
+(adj 9 12)
+(adj 10 13)
+(adj 11 17)
+(adj 13 15)
+(adj 15 17)
+(adj 16 19)
+
+(<= (adjacent ?n1 ?n2)
+    (adj ?n1 ?n2))
+
+(<= (adjacent ?n1 ?n2)
+    (adj ?n2 ?n1))
+
+(succ  0  1)
+(succ  1  2)
+(succ  2  3)
+(succ  3  4)
+(succ  4  5)
+(succ  5  6)
+(succ  6  7)
+(succ  7  8)
+(succ  8  9)
+(succ  9 10)
+(succ 10 11)
+(succ 11 12)
+(succ 12 13)
+(succ 13 14)
+(succ 14 15)
+(succ 15 16)
+(succ 16 17)
+(succ 17 18)
+(succ 18 19)
+
+(leq ?a ?a)
+
+(<= (leq ?a ?c)
+    (succ ?a ?b)
+    (leq ?b ?c))
+
+(score  0 100)
+(score  1 100)
+(score  2 100)
+(score  3 100)
+(score  4  80)
+(score  5  75)
+(score  6  70)
+(score  7  65)
+(score  8  60)
+(score  9  55)
+(score 10  50)
+(score 11  45)
+(score 12  40)
+(score 13  35)
+(score 14  30)
+(score 15  25)
+(score 16  20)
+(score 17  15)
+(score 18  10)
+(score 19   5)
+(score 20   0)

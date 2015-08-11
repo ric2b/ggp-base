@@ -1,0 +1,7 @@
+{
+  "gameName"    : "Graph Colouring 1",
+  "rulesheet"   : "graphColouring1.kif",
+  "stylesheet"  : "graphColouring1.xsl",
+  "description" : "graphColouring1.txt",
+  "curator"     : "arr"
+}
