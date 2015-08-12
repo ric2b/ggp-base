@@ -1,7 +1,0 @@
-{
-  "gameName":    "Majorities",
-  "rulesheet":   "majorities.kif",
-  "description": "majorities.txt",
-  "stylesheet":  "majorities.xsl",
-  "curator":     "arr"
-}
