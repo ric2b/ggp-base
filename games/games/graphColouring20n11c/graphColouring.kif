@@ -1,0 +1,374 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Graph Colouring.
+;;;
+;;; Colour the graph of N nodes with as few colours as possible.  No node may be
+;;; the same colour as an adjacent node.
+;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(role robot)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Base propositions.
+;
+; - Each node is "blank" or has a colour.
+;   - Nodes are numbered 0 -> (N - 1).
+;   - Colours are also numbered 0 -> (N - 1).
+;     - This is always sufficient.  You could give each node its own colour.
+;     - N is defined as a colour for goal calculation purposes only.  It can't
+;       actually be used in practise.
+; - We store the next colour that hasn't been used yet.  This makes it easy to
+;   count the number of colours used and therefore determine the goal value.
+;   (The rules prevent colour c+1 being used before colour c.)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (base (node ?n blank))
+    (index ?n))
+
+(<= (base (node ?n ?c))
+    (index ?n)
+    (colour ?c))
+
+(<= (base (nextColour ?c))
+    (colour ?c))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Inputs.
+;
+; - Each turn consists of assigning a colour to a node.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (input robot (setColour ?n ?c))
+    (index ?n)
+    (colour ?c))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Initial state.
+;
+; - All nodes are blank.
+; - The next colour to use is 0.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (init (node ?n blank))
+    (index ?n))
+
+(init (nextColour 0))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Legal moves.
+;
+; Node n can be assigned colour c iff...
+;
+; - Node n is currently blank.
+; - c is either a colour already used or the first unused colour.
+; - Colouring node n with colour c doesn't introduce a colour clash.
+;
+; It is a clash to colour node n with colour c if any node adjacent to n is
+; coloured c - i.e. if two adjacent nodes have the same colour.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (legal robot (setColour ?n ?c))
+    (true (node ?n blank))
+    (true (nextColour ?nextCol))
+    (leq ?c ?nextCol)
+    (not (clash ?n ?c)))
+
+(<= (clash ?n ?c)
+    (adjacent ?n ?n2)
+    (true (node ?n2 ?c)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Next state calculations.
+;
+; - Node colour
+;   - A blank node stays blank if a different node was coloured this turn.
+;   - Node n gains colour c if it was coloured with c this turn.
+;   - Once a node has a colour, it keeps it (forever).
+; - Next unused colour
+;   - Stays the same if a different (smaller) colour was played this turn.
+;   - Increments by 1 if the unused colour has just been played.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (next (node ?n blank))
+    (true (node ?n blank))
+    (does robot (setColour ?n2 ?c))
+    (distinct ?n ?n2))
+
+(<= (next (node ?n ?c))
+    (does robot (setColour ?n ?c)))
+
+(<= (next (node ?n ?c))
+    (true (node ?n ?c))
+    (colour ?c))
+
+(<= (next (nextColour ?c))
+    (true (nextColour ?c))
+    (does robot (setColour ?n ?c2))
+    (distinct ?c ?c2))
+
+(<= (next (nextColour ?c2))
+    (true (nextColour ?c))
+    (does robot (setColour ?n ?c))
+    (succ ?c ?c2))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Terminality.
+;
+; The game is terminal when there are no blank nodes.  (This will always be
+; after N turns.)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= terminal
+    (not anyBlank))
+
+(<= anyBlank
+    (true (node ?n blank))
+    (index ?n))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Goal.
+;
+; The goal depends on the number of colours used.  The score map appears in the
+; instance-specific section below.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (goal robot ?g)
+    (true (nextColour ?c))
+    (score ?c ?g))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Functions (common to all instances of the graph colouring problem).
+;
+; - Node indicies are all the numbers appearing on the left side of the
+;   successor relation.
+; - All node indexes are also colours.
+; - Node adjacency is symmetric.
+; - Less-than-or-equal.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(<= (index ?n)
+    (succ ?n ?m))
+
+(<= (colour ?c)
+    (index ?c))
+
+(<= (adjacent ?n1 ?n2)
+    (adj ?n1 ?n2))
+
+(<= (adjacent ?n1 ?n2)
+    (adj ?n2 ?n1))
+
+(<= (leq ?a ?a)
+    (colour ?a))
+
+(<= (leq ?a ?c)
+    (succ ?a ?b)
+    (leq ?b ?c))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Data specific to this instance of the graph colouring problem.
+;
+; - 20 nodes (0 - 19).
+; - Extra "next" colour value - for ease of counting, see above.
+; - Node adjacency information.
+; - Score map.  11-colouring is the best possible for this instance.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(succ  0  1)
+(succ  1  2)
+(succ  2  3)
+(succ  3  4)
+(succ  4  5)
+(succ  5  6)
+(succ  6  7)
+(succ  7  8)
+(succ  8  9)
+(succ  9 10)
+(succ 10 11)
+(succ 11 12)
+(succ 12 13)
+(succ 13 14)
+(succ 14 15)
+(succ 15 16)
+(succ 16 17)
+(succ 17 18)
+(succ 18 19)
+(succ 19 20)
+
+(colour 20)
+
+(adj 0 1)
+(adj 0 2)
+(adj 0 3)
+(adj 0 5)
+(adj 0 6)
+(adj 0 7)
+(adj 0 8)
+(adj 0 9)
+(adj 0 10)
+(adj 0 11)
+(adj 0 12)
+(adj 0 13)
+(adj 0 14)
+(adj 0 15)
+(adj 0 16)
+(adj 0 17)
+(adj 0 18)
+(adj 0 19)
+(adj 1 2)
+(adj 1 3)
+(adj 1 4)
+(adj 1 5)
+(adj 1 6)
+(adj 1 7)
+(adj 1 8)
+(adj 1 9)
+(adj 1 10)
+(adj 1 11)
+(adj 1 12)
+(adj 1 13)
+(adj 1 14)
+(adj 1 15)
+(adj 1 18)
+(adj 1 19)
+(adj 2 3)
+(adj 2 4)
+(adj 2 5)
+(adj 2 6)
+(adj 2 7)
+(adj 2 8)
+(adj 2 9)
+(adj 2 10)
+(adj 2 11)
+(adj 2 12)
+(adj 2 13)
+(adj 2 14)
+(adj 2 15)
+(adj 2 16)
+(adj 2 17)
+(adj 2 19)
+(adj 3 4)
+(adj 3 5)
+(adj 3 6)
+(adj 3 7)
+(adj 3 8)
+(adj 3 10)
+(adj 3 11)
+(adj 3 12)
+(adj 3 13)
+(adj 3 14)
+(adj 3 15)
+(adj 3 17)
+(adj 3 18)
+(adj 3 19)
+(adj 4 5)
+(adj 4 6)
+(adj 4 7)
+(adj 4 9)
+(adj 4 10)
+(adj 4 11)
+(adj 4 13)
+(adj 4 14)
+(adj 4 15)
+(adj 4 16)
+(adj 4 17)
+(adj 4 18)
+(adj 4 19)
+(adj 5 6)
+(adj 5 7)
+(adj 5 9)
+(adj 5 10)
+(adj 5 11)
+(adj 5 12)
+(adj 5 13)
+(adj 5 14)
+(adj 5 16)
+(adj 5 17)
+(adj 5 18)
+(adj 5 19)
+(adj 6 7)
+(adj 6 8)
+(adj 6 10)
+(adj 6 11)
+(adj 6 12)
+(adj 6 13)
+(adj 6 14)
+(adj 6 15)
+(adj 6 16)
+(adj 6 17)
+(adj 6 18)
+(adj 6 19)
+(adj 7 8)
+(adj 7 9)
+(adj 7 10)
+(adj 7 11)
+(adj 7 12)
+(adj 7 13)
+(adj 7 15)
+(adj 7 17)
+(adj 7 18)
+(adj 7 19)
+(adj 8 9)
+(adj 8 10)
+(adj 8 11)
+(adj 8 12)
+(adj 8 13)
+(adj 8 14)
+(adj 8 15)
+(adj 8 16)
+(adj 8 17)
+(adj 8 18)
+(adj 8 19)
+(adj 9 11)
+(adj 9 12)
+(adj 9 13)
+(adj 9 14)
+(adj 9 15)
+(adj 9 16)
+(adj 9 17)
+(adj 9 18)
+(adj 9 19)
+(adj 10 11)
+(adj 10 12)
+(adj 10 14)
+(adj 10 15)
+(adj 10 16)
+(adj 10 17)
+(adj 10 19)
+(adj 11 12)
+(adj 11 13)
+(adj 11 14)
+(adj 11 15)
+(adj 11 16)
+(adj 11 17)
+(adj 11 18)
+(adj 11 19)
+(adj 12 14)
+(adj 12 17)
+(adj 12 18)
+(adj 12 19)
+(adj 13 14)
+(adj 13 15)
+(adj 13 16)
+(adj 13 17)
+(adj 13 18)
+(adj 14 17)
+(adj 14 18)
+(adj 14 19)
+(adj 15 16)
+(adj 15 19)
+(adj 16 18)
+(adj 17 18)
+(adj 17 19)
+(adj 18 19)
+
+(score 11  100)
+(score 12  80)
+(score 13  70)
+(score 14  60)
+(score 15  50)
+(score 16  40)
+(score 17  30)
+(score 18  20)
+(score 19  10)
+(score 20   0)

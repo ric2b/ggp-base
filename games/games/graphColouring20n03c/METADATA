@@ -1,0 +1,7 @@
+{
+  "gameName"    : "Graph Colouring (20x3)",
+  "rulesheet"   : "graphColouring.kif",
+  "stylesheet"  : "graphColouring.xsl",
+  "description" : "graphColouring.txt",
+  "curator"     : "arr"
+}
