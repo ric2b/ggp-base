@@ -1,0 +1,211 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Hitori.
+;;;
+;;; Remove cells such that no number appears more than once in the same row or
+;;; column.  Removed cells may not be vertically or horizontally adjacent.
+;;; Cells which aren't removed must remain connected.
+;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(role robot)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Base propositions.
+;
+; - Each node is "blank" or has a colour.
+;   - Nodes are numbered 0 -> (N - 1).
+;   - Colours are also numbered 0 -> (N - 1).
+;     - This is always sufficient.  You could give each node its own colour.
+;     - N is defined as a colour for goal calculation purposes only.  It can't
+;       actually be used in practise.
+; - We store the next colour that hasn't been used yet.  This makes it easy to
+;   count the number of colours used and therefore determine the goal value.
+;   (The rules prevent colour c+1 being used before colour c.)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (base (cell ?x ?y in))
+    (index ?x)
+    (index ?y))
+
+(<= (base (cell ?x ?y out))
+    (index ?x)
+    (index ?y))
+
+(base finished)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Inputs.
+;
+; - Each turn consists of removing a node from the game.
+; - When done, say so.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (input robot (remove ?x ?y))
+    (index ?x)
+    (index ?y))
+
+(input robot done)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Initial state.
+;
+; - All cells are in.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (init (cell ?x ?y in))
+    (index ?x)
+    (index ?y))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Legal moves.
+;
+; A cell can be removed iff...           
+;
+; - It has not already been removed.
+; - No (vertically or horizontally) adjacent cells have been removed.
+; - The grid would remain connected afterwards.                       
+;   - It is sufficient for the top to be connected to the bottom and the left
+;     to be connected to the right.
+;   - This check has to be performed excluding connectivity using the cell
+;     itself.  !! ARR Not implemented.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(legal robot done)
+
+(<= (legal robot (remove ?x1 ?y1))
+    (true (cell ?x1  ?y1  in))
+    (succ ?x0 ?x1)
+    (succ ?x1 ?x2)
+    (succ ?y0 ?y1)
+    (succ ?y1 ?y2)
+    (true (cell ?x0 ?y1 in))
+    (true (cell ?x2 ?y1 in))
+    (true (cell ?x1 ?y0 in))
+    (true (cell ?x1 ?y2 in))
+    (connected ?x0 ?y1 ?x2 ?y1)
+    (connected ?x1 ?y0 ?x1 ?y2))
+
+(<= (connected ?x1 ?y1 ?x2 ?y2)
+    (adjacent ?x1 ?y1 ?x2 ?y2))
+
+(<= (connected ?x1 ?y1 ?x2 ?y2)
+    (adjacent ?x1 ?y1 ?x3 ?y3)
+    (connected ?x3 ?y3 ?x2 ?y2))
+
+(<= (adjacent ?x1 ?y ?x2 ?y)
+    (succ ?x1 ?x2)
+    (index ?y))
+
+(<= (adjacent ?x1 ?y ?x2 ?y)
+    (succ ?x2 ?x1)
+    (index ?y))
+
+(<= (adjacent ?x ?y1 ?x ?y2)
+    (succ ?y1 ?y2)
+    (index ?x))
+
+(<= (adjacent ?x ?y1 ?x ?y2)
+    (succ ?y2 ?y1)
+    (index ?x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Next state calculations.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (next (cell ?x ?y out))
+    (true (cell ?x ?y out)))
+
+(<= (next (cell ?x ?y out))
+    (does robot (remove ?x ?y)))
+
+(<= (next (cell ?x ?y in))
+    (true (cell ?x ?y out))
+    (does robot (remove ?x2 ?y2))
+    (distinct ?x ?x2))
+
+(<= (next (cell ?x ?y in))
+    (true (cell ?x ?y out))
+    (does robot (remove ?x2 ?y2))
+    (distinct ?y ?y2))
+
+(<= (next finished)
+    (does robot done))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Terminality.
+;
+; The game is over when the player says its over.  This is bound to happen
+; eventually because, at some point, it will be the only legal move. 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= terminal
+    (true finished))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Goal.
+;
+; - If a number appears twice in any row or column, score 0.
+; - Otherwise score 100.  (The other requirements are always met because of the
+;   legals.)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (goal robot 0)
+    (num ?x1 ?y ?n)
+    (num ?x2 ?y ?n)
+    (distinct ?x1 ?x2))
+
+(<= (goal robot 0)
+    (num ?x ?y1 ?n)
+    (num ?x ?y2 ?n)
+    (distinct ?y1 ?y2))
+
+(<= (goal robot 100)
+    (not (goal robot 0)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Data specific to this instance of the problem.
+;
+; 5 5 5 2 3
+; 5 4 2 3 2
+; 4 5 3 1 2
+; 2 3 3 5 3
+; 4 2 5 4 1
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(index  1)
+(index  2)
+(index  3)
+(index  4)
+(index  5)
+
+(succ  1  2)
+(succ  2  3)
+(succ  3  4)
+(succ  4  5)
+
+(num 1 1 5)
+(num 2 1 5)
+(num 3 1 5)
+(num 4 1 2)
+(num 5 1 3)
+(num 1 2 5)
+(num 2 2 4)
+(num 3 2 2)
+(num 4 2 3)
+(num 5 2 2)
+(num 1 3 4)
+(num 2 3 5)
+(num 3 3 3)
+(num 4 3 1)
+(num 5 3 2)
+(num 1 4 2)
+(num 2 4 3)
+(num 3 4 3)
+(num 4 4 5)
+(num 5 4 3)
+(num 1 5 4)
+(num 2 5 2)
+(num 3 5 5)
+(num 4 5 4)
+(num 5 5 1)

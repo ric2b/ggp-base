@@ -1,0 +1,1 @@
+The classic graph colouring problem.  Colour the nodes in as few colours as possible, such that no two adjacent nodes are the same colour.
