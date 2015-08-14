@@ -6,6 +6,16 @@
 ;;; column.  Removed cells may not be vertically or horizontally adjacent.
 ;;; Cells which aren't removed must remain connected.
 ;;;
+;;;   (1,1)           (5,1)           (1,1)           (5,1)
+;;;        \         /                     \         /     
+;;;         5 5 5 2 3                         5   2 3      
+;;;         5 4 2 3 2                       5 4 2 3        
+;;;         4 5 3 1 2        ------>        4   3 1 2      
+;;;         2 3 3 5 3                       2 3   5        
+;;;         4 2 5 4 1                         2 5 4 1      
+;;;        /         \                     /         \     
+;;;   (1,5)           (5,5)           (1,5)           (5,5)
+;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (role robot)
@@ -74,24 +84,43 @@
 (legal robot done)
 
 (<= (legal robot (remove ?x1 ?y1))
-    (true (cell ?x1  ?y1  in))
+    (true (cell ?x1 ?y1 in))
     (succ ?x0 ?x1)
     (succ ?x1 ?x2)
     (succ ?y0 ?y1)
     (succ ?y1 ?y2)
-    (true (cell ?x0 ?y1 in))
-    (true (cell ?x2 ?y1 in))
-    (true (cell ?x1 ?y0 in))
-    (true (cell ?x1 ?y2 in))
-    (connected ?x0 ?y1 ?x2 ?y1)
+    (not (true (cell ?x0 ?y1 out)))
+    (not (true (cell ?x2 ?y1 out)))
+    (not (true (cell ?x1 ?y0 out)))
+    (not (true (cell ?x1 ?y2 out)))
+    (left_right_okay ?x0 ?x2 ?y1)
+    (up_down_okay ?x1 ?y0 ?y2))
+
+(<= (left_right_okay ?x0 ?x2 ?y1)
+    (connected ?x0 ?y1 ?x2 ?y1))
+
+(<= (left_right_okay 0 2 ?y)
+    (index ?y))
+
+(<= (left_right_okay 4 6 ?y)
+    (index ?y))
+
+(<= (up_down_okay ?x1 ?y0 ?y2)
     (connected ?x1 ?y0 ?x1 ?y2))
+
+(<= (up_down_okay ?x 0 2)
+    (index ?x))
+
+(<= (up_down_okay ?x 4 6)
+    (index ?x))
 
 (<= (connected ?x1 ?y1 ?x2 ?y2)
     (adjacent ?x1 ?y1 ?x2 ?y2))
 
-(<= (connected ?x1 ?y1 ?x2 ?y2)
-    (adjacent ?x1 ?y1 ?x3 ?y3)
-    (connected ?x3 ?y3 ?x2 ?y2))
+(<= (connected ?x1 ?y1 ?x3 ?y3)
+    (true (cell ?x3 ?y3 in))
+    (connected ?x1 ?y1 ?x2 ?y2)
+    (adjacent ?x2 ?y2 ?x3 ?y3))
 
 (<= (adjacent ?x1 ?y ?x2 ?y)
     (succ ?x1 ?x2)
@@ -120,14 +149,18 @@
     (does robot (remove ?x ?y)))
 
 (<= (next (cell ?x ?y in))
-    (true (cell ?x ?y out))
+    (true (cell ?x ?y in))
     (does robot (remove ?x2 ?y2))
     (distinct ?x ?x2))
 
 (<= (next (cell ?x ?y in))
-    (true (cell ?x ?y out))
+    (true (cell ?x ?y in))
     (does robot (remove ?x2 ?y2))
     (distinct ?y ?y2))
+
+(<= (next (cell ?x ?y in))
+    (true (cell ?x ?y in))
+    (does robot done))
 
 (<= (next finished)
     (does robot done))
@@ -153,24 +186,22 @@
 (<= (goal robot 0)
     (num ?x1 ?y ?n)
     (num ?x2 ?y ?n)
-    (distinct ?x1 ?x2))
+    (distinct ?x1 ?x2)
+    (true (cell ?x1 ?y in))
+    (true (cell ?x2 ?y in)))
 
 (<= (goal robot 0)
     (num ?x ?y1 ?n)
     (num ?x ?y2 ?n)
-    (distinct ?y1 ?y2))
+    (distinct ?y1 ?y2)
+    (true (cell ?x ?y1 in))
+    (true (cell ?x ?y2 in)))
 
 (<= (goal robot 100)
     (not (goal robot 0)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Data specific to this instance of the problem.
-;
-; 5 5 5 2 3
-; 5 4 2 3 2
-; 4 5 3 1 2
-; 2 3 3 5 3
-; 4 2 5 4 1
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (index  1)
@@ -179,10 +210,12 @@
 (index  4)
 (index  5)
 
+(succ  0  1)
 (succ  1  2)
 (succ  2  3)
 (succ  3  4)
 (succ  4  5)
+(succ  5  6)
 
 (num 1 1 5)
 (num 2 1 5)
