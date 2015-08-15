@@ -1094,9 +1094,14 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   private class AntecedantCursor
   {
-    public Set<PolymorphicProposition> positiveProps;
-    public Set<PolymorphicProposition> negativeProps;
-    public boolean                     isPositive;
+    //  Note that a cursor represents which (ultimately) feeding propositions of a single
+    //  component need to be positive and which need to be negative to satisfy some query
+    //  (which is not recorded by the cursor), and whether the component itself need be
+    //  positive or negative
+    public Set<PolymorphicProposition> positiveProps; //Props that must be positive for a root query to be true
+    public Set<PolymorphicProposition> negativeProps; //Props that must be negative for a root query to be true
+    public boolean                     isPositive;    //Whether the component this cursor is recursively expanding need
+                                                      //itself be positive (else it needs to be negative)
 
     public AntecedantCursor()
     {
@@ -1114,66 +1119,32 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     public boolean compatibleWith(AntecedantCursor other)
     {
-      if (isPositive == other.isPositive)
+      for (PolymorphicProposition p : positiveProps)
       {
-        for (PolymorphicProposition p : positiveProps)
+        if (other.negativeProps.contains(p))
         {
-          if (other.negativeProps.contains(p))
-          {
-            return false;
-          }
-        }
-        for (PolymorphicProposition p : other.positiveProps)
-        {
-          if (negativeProps.contains(p))
-          {
-            return false;
-          }
-        }
-        for (PolymorphicProposition p : negativeProps)
-        {
-          if (other.positiveProps.contains(p))
-          {
-            return false;
-          }
-        }
-        for (PolymorphicProposition p : other.negativeProps)
-        {
-          if (positiveProps.contains(p))
-          {
-            return false;
-          }
+          return false;
         }
       }
-      else
+      for (PolymorphicProposition p : other.positiveProps)
       {
-        for (PolymorphicProposition p : positiveProps)
+        if (negativeProps.contains(p))
         {
-          if (other.positiveProps.contains(p))
-          {
-            return false;
-          }
+          return false;
         }
-        for (PolymorphicProposition p : other.positiveProps)
+      }
+      for (PolymorphicProposition p : negativeProps)
+      {
+        if (other.positiveProps.contains(p))
         {
-          if (positiveProps.contains(p))
-          {
-            return false;
-          }
+          return false;
         }
-        for (PolymorphicProposition p : negativeProps)
+      }
+      for (PolymorphicProposition p : other.negativeProps)
+      {
+        if (positiveProps.contains(p))
         {
-          if (other.negativeProps.contains(p))
-          {
-            return false;
-          }
-        }
-        for (PolymorphicProposition p : other.negativeProps)
-        {
-          if (negativeProps.contains(p))
-          {
-            return false;
-          }
+          return false;
         }
       }
 
@@ -1195,16 +1166,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     public void unionInto(AntecedantCursor c)
     {
-      if (c.isPositive == isPositive)
-      {
-        c.positiveProps.addAll(positiveProps);
-        c.negativeProps.addAll(negativeProps);
-      }
-      else
-      {
-        c.positiveProps.addAll(negativeProps);
-        c.negativeProps.addAll(positiveProps);
-      }
+      c.positiveProps.addAll(positiveProps);
+      c.negativeProps.addAll(negativeProps);
     }
 
     public void unionInto(Set<AntecedantCursor> set)
@@ -1497,14 +1460,21 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         for (AntecedantCursor c : cursorSet)
         {
-          MachineState satisfyingState = new MachineState(new HashSet<GdlSentence>());
-
-          for (PolymorphicProposition prop : c.positiveProps)
+          //  We currently only look for states that have positive requirements (some set
+          //  or true propositions is enough to satisfy regardless of state of other
+          //  propositions).  This could be readily expanded to a required plus a required-not
+          //  set as the AntecedantCursor contains this information
+          if ( c.negativeProps.isEmpty() )
           {
-            satisfyingState.getContents().add(prop.getName());
-          }
+            MachineState satisfyingState = new MachineState(new HashSet<GdlSentence>());
 
-          result.add(satisfyingState);
+            for (PolymorphicProposition prop : c.positiveProps)
+            {
+              satisfyingState.getContents().add(prop.getName());
+            }
+
+            result.add(satisfyingState);
+          }
         }
       }
     }
