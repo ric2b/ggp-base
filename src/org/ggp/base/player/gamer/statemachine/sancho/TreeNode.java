@@ -5041,11 +5041,7 @@ public class TreeNode
     //  If the node that should have been selected through was complete
     //  note that in the path, so that on application of the update
     //  the propagation upward from this node can be corrected
-    //  HACK - we disable this, at least for now, in puzzles because of MaxKnights
-    //  which happens to do well from the distorted stats you get without it.  This
-    //  is due to the particular circumstance in MaxKnights that scores can only
-    //  go up!
-    if (bestCompleteNode != null && bestCompleteValue > bestValue && mTree.mGameCharacteristics.numRoles != 1)
+    if (bestCompleteNode != null && bestCompleteValue > bestValue )
     {
       assert(mChildren[bestSelectedIndex] instanceof TreeEdge);
       TreeEdge bestSelectedEdge = (TreeEdge)mChildren[bestSelectedIndex];
