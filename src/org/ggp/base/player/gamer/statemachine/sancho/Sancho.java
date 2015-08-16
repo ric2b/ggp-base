@@ -1064,7 +1064,8 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     if ((!MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_A_STAR)) &&
         (mGameCharacteristics.numRoles == 1) &&
         (observedMaxNetScore < 100) &&
-        (factors == null))
+        (factors == null) &&
+        (mPlan == null || mPlan.isEmpty()))
     {
       tryAStar(initialState, timeout);
 
@@ -1249,7 +1250,6 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     // 8-puzzle type stuff.
     LOGGER.info("Puzzle with no observed solution");
 
-    MachineState lTerminalState;
     Set<MachineState> lGoalStates = mUnderlyingStateMachine.findGoalStates(getRole(), 90, 500, 20);
     Set<MachineState> lCleanedStates = new HashSet<>();
 
@@ -1283,13 +1283,11 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       lCleanedStates.add(lCleaned);
     }
 
-    if (!lCleanedStates.isEmpty())
+    for(MachineState targetState : lCleanedStates)
     {
-      lTerminalState = lCleanedStates.iterator().next();
+      LOGGER.info("Found possible target state: " + targetState);
 
-      LOGGER.info("Found target state: " + lTerminalState);
-
-      int lTargetStateSize = lTerminalState.getContents().size();
+      int lTargetStateSize = targetState.getContents().size();
 
       if (lTargetStateSize < Math.max(2, xiInitialState.size() / 2))
       {
@@ -1298,7 +1296,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       else
       {
         Collection<Move> lSolution = new TargetedSolutionStatePlayer(mUnderlyingStateMachine,
-                                                                     lTerminalState,
+                                                                     targetState,
                                                                      this).attemptAStarSolve(99,
                                                                                              xiTimeout - SAFETY_MARGIN);
         if (lSolution != null)
@@ -1306,6 +1304,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
           mPlan.considerPlan(lSolution);
           LOGGER.info("Solved by A*");
         }
+        break;
       }
     }
   }
