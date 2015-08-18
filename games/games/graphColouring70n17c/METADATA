@@ -1,7 +1,6 @@
 {
   "gameName"    : "Graph Colouring (70x17)",
   "rulesheet"   : "graphColouring.kif",
-  "stylesheet"  : "graphColouring.xsl",
   "description" : "graphColouring.txt",
   "curator"     : "arr"
 }

@@ -1,7 +1,6 @@
 {
   "gameName"    : "Hitori (5x5)",
   "rulesheet"   : "hitori.kif",
-  "stylesheet"  : "hitori.xsl",
   "description" : "hitori.txt",
   "curator"     : "arr"
 }
