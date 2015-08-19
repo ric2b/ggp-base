@@ -23,15 +23,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Base propositions.
 ;
-; - Each node is "blank" or has a colour.
-;   - Nodes are numbered 0 -> (N - 1).
-;   - Colours are also numbered 0 -> (N - 1).
-;     - This is always sufficient.  You could give each node its own colour.
-;     - N is defined as a colour for goal calculation purposes only.  It can't
-;       actually be used in practise.
-; - We store the next colour that hasn't been used yet.  This makes it easy to
-;   count the number of colours used and therefore determine the goal value.
-;   (The rules prevent colour c+1 being used before colour c.)
+; - Each cell can be "in" or "out".
+; - The in cells can have become "disconnected".
+; - The player can have declared that it is "finished".
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (<= (base (cell ?x ?y in))
@@ -42,13 +36,17 @@
     (index ?x)
     (index ?y))
 
+(<= (base (last ?x ?y))
+    (index ?x)
+    (index ?y))
+
 (base finished)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Inputs.
 ;
-; - Each turn consists of removing a node from the game.
-; - When done, say so.
+; - Each turn consists of removing a node from the board.
+; - The player can declare that it is done.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (<= (input robot (remove ?x ?y))
@@ -61,6 +59,8 @@
 ; Initial state.
 ;
 ; - All cells are in.
+; - The board isn't disconnected.
+; - The match isn't finished.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (<= (init (cell ?x ?y in))
@@ -74,11 +74,6 @@
 ;
 ; - It has not already been removed.
 ; - No (vertically or horizontally) adjacent cells have been removed.
-; - The grid would remain connected afterwards.                       
-;   - It is sufficient for the top to be connected to the bottom and the left
-;     to be connected to the right.
-;   - This check has to be performed excluding connectivity using the cell
-;     itself.  !! ARR Not implemented.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (legal robot done)
@@ -92,54 +87,10 @@
     (not (true (cell ?x0 ?y1 out)))
     (not (true (cell ?x2 ?y1 out)))
     (not (true (cell ?x1 ?y0 out)))
-    (not (true (cell ?x1 ?y2 out)))
-    (left_right_okay ?x0 ?x2 ?y1)
-    (up_down_okay ?x1 ?y0 ?y2))
-
-(<= (left_right_okay ?x0 ?x2 ?y1)
-    (connected ?x0 ?y1 ?x2 ?y1))
-
-(<= (left_right_okay 0 2 ?y)
-    (index ?y))
-
-(<= (left_right_okay 4 6 ?y)
-    (index ?y))
-
-(<= (up_down_okay ?x1 ?y0 ?y2)
-    (connected ?x1 ?y0 ?x1 ?y2))
-
-(<= (up_down_okay ?x 0 2)
-    (index ?x))
-
-(<= (up_down_okay ?x 4 6)
-    (index ?x))
-
-(<= (connected ?x1 ?y1 ?x2 ?y2)
-    (adjacent ?x1 ?y1 ?x2 ?y2))
-
-(<= (connected ?x1 ?y1 ?x3 ?y3)
-    (true (cell ?x3 ?y3 in))
-    (connected ?x1 ?y1 ?x2 ?y2)
-    (adjacent ?x2 ?y2 ?x3 ?y3))
-
-(<= (adjacent ?x1 ?y ?x2 ?y)
-    (succ ?x1 ?x2)
-    (index ?y))
-
-(<= (adjacent ?x1 ?y ?x2 ?y)
-    (succ ?x2 ?x1)
-    (index ?y))
-
-(<= (adjacent ?x ?y1 ?x ?y2)
-    (succ ?y1 ?y2)
-    (index ?x))
-
-(<= (adjacent ?x ?y1 ?x ?y2)
-    (succ ?y2 ?y1)
-    (index ?x))
+    (not (true (cell ?x1 ?y2 out))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Next state calculations.
+; Basic next state calculations.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (<= (next (cell ?x ?y out))
@@ -165,12 +116,85 @@
 (<= (next finished)
     (does robot done))
 
+(<= (next (last ?x ?y))
+    (does robot (remove ?x ?y)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Determine whether the "in" cells are still connected.
+;
+; It is sufficient to look at the cell just removed and then check that the top
+; (i.e. the cell above) is connected to the bottom and the left is connected to
+; the right.
+;
+; - Cells on the top or bottom rows don't need the top-bottom check.
+; - Cells on the left or right columns don't need the left-right check.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= disconnected
+    (not still_connected))
+
+(<= still_connected
+    (true (last ?x1 ?y1))
+    (succ ?x0 ?x1)
+    (succ ?x1 ?x2)
+    (succ ?y0 ?y1)
+    (succ ?y1 ?y2)
+    (left_right_okay ?x0 ?x2 ?y1)
+    (up_down_okay ?x1 ?y0 ?y2))
+
+(<= (left_right_okay ?x0 ?x2 ?y1)
+    (connected ?x0 ?y1 ?x2 ?y1))
+
+(<= (left_right_okay 0 2 ?y)
+    (index ?y))
+
+(<= (left_right_okay 4 6 ?y)
+    (index ?y))
+
+(<= (up_down_okay ?x1 ?y0 ?y2)
+    (connected ?x1 ?y0 ?x1 ?y2))
+
+(<= (up_down_okay ?x 0 2)
+    (index ?x))
+
+(<= (up_down_okay ?x 4 6)
+    (index ?x))
+
+(<= (connected ?x1 ?y1 ?x2 ?y2)
+    (adjacent ?x1 ?y1 ?x2 ?y2))
+
+(<= (connected ?x1 ?y1 ?x3 ?y3)
+    (true (cell ?x2 ?y2 in))
+    (connected ?x1 ?y1 ?x2 ?y2)
+    (adjacent ?x2 ?y2 ?x3 ?y3))
+
+(<= (adjacent ?x1 ?y ?x2 ?y)
+    (succ ?x1 ?x2)
+    (index ?y))
+
+(<= (adjacent ?x1 ?y ?x2 ?y)
+    (succ ?x2 ?x1)
+    (index ?y))
+
+(<= (adjacent ?x ?y1 ?x ?y2)
+    (succ ?y1 ?y2)
+    (index ?x))
+
+(<= (adjacent ?x ?y1 ?x ?y2)
+    (succ ?y2 ?y1)
+    (index ?x))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Terminality.
 ;
-; The game is over when the player says its over.  This is bound to happen
-; eventually because, at some point, it will be the only legal move. 
+; The match is over when the player says its over.  This is bound to happen
+; eventually because, at some point, it will be the only legal move.
+;
+; Additionally, the match is over if the player disconnects the "in" cells.  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= terminal
+    disconnected)
 
 (<= terminal
     (true finished))
@@ -196,6 +220,9 @@
     (distinct ?y1 ?y2)
     (true (cell ?x ?y1 in))
     (true (cell ?x ?y2 in)))
+
+(<= (goal robot 0)
+    disconnected)
 
 (<= (goal robot 100)
     (not (goal robot 0)))
