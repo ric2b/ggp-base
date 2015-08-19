@@ -129,8 +129,8 @@
     (does robot (place ?c2 ?n))
     (distinct ?c1 ?c2))
 
-(<= (next (cell ?c1 blank))
-    (true (cell ?c1 blank))
+(<= (next (cell ?c blank))
+    (true (cell ?c blank))
     (does robot quit))
 
 (<= (next (cell ?c ?n))
