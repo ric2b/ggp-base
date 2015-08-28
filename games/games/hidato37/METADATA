@@ -1,0 +1,6 @@
+{
+  "gameName"    : "Hidato (37 hexes)",
+  "rulesheet"   : "hidato.kif",
+  "description" : "hidato.txt",
+  "curator"     : "arr"
+}
