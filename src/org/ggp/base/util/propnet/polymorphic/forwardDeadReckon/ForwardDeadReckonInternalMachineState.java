@@ -424,11 +424,47 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   {
     if ( !hashCached )
     {
-      cachedHashCode = contents.hashCode();
+      // cachedHashCode = contents.hashCode();
+      cachedHashCode = edsBetterHashCode();
       hashCached = true;
     }
 
     return cachedHashCode;
+  }
+
+  /**
+   * With thanks to Ed Holland (a.k.a. SteadyEddie).
+   *
+   * @return a well-distributed hash code for the state.
+   */
+  private int edsBetterHashCode()
+  {
+     // So it very much looks like the hashcode for OpenBitSet
+     // isn't that great for the kinds of data we are giving it.
+     // Instead, roll my own.
+     //
+     // If I'm honest, I have no idea if this is really any better
+     // except for the fact that in a bit of testing, using Connect 4
+     // the number of collisions is vastly reduced, and the number
+     // of hashes before a collision is in the 2^16 kind of ballpark,
+     // as opposed to the ~15 ballpark.
+     //
+     // I've copied the source from OpenBit, and then hacked around
+     // with it.
+     int hashcode = 0;
+     long[] bits = contents.getBits();
+
+     long h = 0;
+     for (int i = 0; i<bits.length; i++)
+     {
+         h ^= (bits[i]*(i + 1676676768798769L)) ^
+          (Long.lowestOneBit(bits[i])*987198767) ^
+          (Long.rotateRight(bits[i], 9) * 8987671618787L);
+     }
+
+     // fold leftmost bits into right and add a constant to prevent
+     // empty sets from returning 0, which is too common.
+     return (int)((h>>32) ^ h) + 0x7;
   }
 
   @Override
