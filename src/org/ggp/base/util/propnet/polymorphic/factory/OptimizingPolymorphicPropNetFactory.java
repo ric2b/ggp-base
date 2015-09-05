@@ -1825,9 +1825,11 @@ public class OptimizingPolymorphicPropNetFactory
       {
         anythingAdded = false;
 
+        Set<PolymorphicComponent> downstreamReachable = new HashSet<>();
+
         for(PolymorphicComponent c : definatelyReachableDoesProps)
         {
-          anythingAdded |= addImpliedRequiredBaseProps(pn, c, reachableComponents);
+          anythingAdded |= addImpliedRequiredBaseProps(pn, c, reachableComponents, downstreamReachable);
         }
       } while(anythingAdded);
 
@@ -1893,26 +1895,31 @@ public class OptimizingPolymorphicPropNetFactory
     return isPseudoPuzzle;
   }
 
-  private static boolean addImpliedRequiredBaseProps(PolymorphicPropNet pn, PolymorphicComponent c, Set<PolymorphicComponent> reachableComponents)
+  private static boolean addImpliedRequiredBaseProps(PolymorphicPropNet pn, PolymorphicComponent c, Set<PolymorphicComponent> reachableComponents, Set<PolymorphicComponent> newlyReachableComponents)
   {
     boolean result = false;
 
-    if ( pn.getBasePropositions().values().contains(c) )
+    if ( !newlyReachableComponents.contains(c))
     {
-      if ( !reachableComponents.contains(c))
+      newlyReachableComponents.add(c);
+
+      if ( pn.getBasePropositions().values().contains(c) )
       {
-        if ( supportsRequiredComponent(c, reachableComponents) )
+        if ( !reachableComponents.contains(c))
         {
-          reachableComponents.add(c);
-          result = true;
+          if ( supportsRequiredComponent(c, reachableComponents) )
+          {
+            reachableComponents.add(c);
+            result = true;
+          }
         }
       }
-    }
-    else
-    {
-      for(PolymorphicComponent output : c.getOutputs())
+      else
       {
-        result |= addImpliedRequiredBaseProps(pn, output, reachableComponents);
+        for(PolymorphicComponent output : c.getOutputs())
+        {
+          result |= addImpliedRequiredBaseProps(pn, output, reachableComponents, newlyReachableComponents);
+        }
       }
     }
 
