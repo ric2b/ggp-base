@@ -27,8 +27,8 @@
 (minemarking dot)
 (minemarking star)
 
+(input sweeper noop)
 (<= (input sweeper (move ?d)) (direction ?d))
-(<= (input sweeper (noop)))
 (<= (input sweeper (fire ?f)) (firepattern ?f))
 
 ;;;; initial state
@@ -65,7 +65,7 @@
     (true (controlallow fire))
     (firepattern ?p))
 
-(<= (legal sweeper noop))
+(legal sweeper noop)
 
 ;;;; torpedo pattern alpha
 (<= (removed ?x ?y)
