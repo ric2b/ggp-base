@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+  <entry key="num_roles">2</entry>
+  <entry key="simultaneous">false</entry>
+  <entry key="pseudo_simultaneous">false</entry>
+  <entry key="iterated">false</entry>
+  <entry key="max_factor_failure_time">0</entry>
+  <entry key="num_factors">4</entry>
+  <entry key="moves_in_multiple_factors">true</entry>
+  <entry key="max_branching_factor">4</entry>
+  <entry key="fixed_length">false</entry>
+  <entry key="control_mask">( ( true ( control random ) ), ( true ( control robot ) ), ( true ( step 4 ) ), ( true ( step 2 ) ), ( true ( step 1 ) ), ( true ( step 3 ) ), ( true ( step 5 ) ) )</entry>
+  <entry key="factors">v1~( true ( prevcolors red red ) ),( true ( actualcolors red red ) )~Role 1 ( guesscolors red red ),Role 0 ( setcolors red red );v1~( true ( actualcolors blue blue ) ),( true ( prevcolors blue blue ) )~Role 1 ( guesscolors blue blue ),Role 0 ( setcolors blue blue );v1~( true ( prevcolors blue red ) ),( true ( actualcolors blue red ) )~Role 0 ( setcolors blue red ),Role 1 ( guesscolors blue red );v1~( true ( actualcolors red blue ) ),( true ( prevcolors red blue ) )~Role 0 ( setcolors red blue ),Role 1 ( guesscolors red blue )</entry>
+</properties>
