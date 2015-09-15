@@ -175,11 +175,7 @@
 (succ 3 4)
 (succ 4 5)
 (succ 5 6)
-(succ 6 7)
-(succ 7 8)
 
-(ext_succ m8 m7)
-(ext_succ m7 m6)
 (ext_succ m6 m5)
 (ext_succ m5 m4)
 (ext_succ m4 m3)
@@ -198,7 +194,4 @@
 (ext_succ  9 10)
 (ext_succ 10 11)
 (ext_succ 11 12)
-(ext_succ 12 13)
-(ext_succ 13 14)
-(ext_succ 14 15)
-(ext_succ 15 16)
+

@@ -216,7 +216,9 @@
 (succ 27 28)
 (succ 28 29)
 (succ 29 30)
+(succ 30 31)
 
+(ext_succ m31 m30)
 (ext_succ m30 m29)
 (ext_succ m29 m28)
 (ext_succ m28 m27)
@@ -307,3 +309,6 @@
 (ext_succ  57  58)
 (ext_succ  58  59)
 (ext_succ  59  60)
+(ext_succ  60  61)
+(ext_succ  61  62)
+

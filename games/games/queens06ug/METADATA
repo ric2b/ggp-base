@@ -1,5 +1,5 @@
 {
-  "gameName"    : "30 Queens Puzzle - Legal Guided",
+  "gameName"    : "6 Queens Puzzle - Unguided",
   "rulesheet"   : "queens.kif",
   "stylesheet"  : "queens.xsl",
   "description" : "queens.txt",
