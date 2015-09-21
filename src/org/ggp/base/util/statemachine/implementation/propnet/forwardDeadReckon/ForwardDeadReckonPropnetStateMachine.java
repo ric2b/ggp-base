@@ -47,6 +47,7 @@ import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.FactorAnalyser.FactorInfo;
+import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBuilder;
 import org.ggp.base.util.statemachine.playoutPolicy.IPlayoutPolicy;
 import org.ggp.base.util.stats.Stats;
@@ -1602,6 +1603,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       //validationMachine = new ProverStateMachine();
       //validationMachine.initialize(description);
 
+      ProverStateMachine lProver = new ProverStateMachine();
+      lProver.initialize(description);
+      MachineState lInitialState = lProver.getInitialState();
+
       fullPropNet = (ForwardDeadReckonPropNet)OptimizingPolymorphicPropNetFactory.create(
                                                                                description,
                                                                                new ForwardDeadReckonComponentFactory());
@@ -1614,7 +1619,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(fullPropNet);
       fullPropNet.renderToFile("propnet_014_UnreachablesRemoved.dot");
 
-      isPseudoPuzzle = OptimizingPolymorphicPropNetFactory.removeIrrelevantBasesAndInputs(fullPropNet, ourRole, mFillerMoves);
+      isPseudoPuzzle = OptimizingPolymorphicPropNetFactory.removeIrrelevantBasesAndInputs(fullPropNet,
+                                                                                          ourRole,
+                                                                                          mFillerMoves,
+                                                                                          lInitialState);
       fullPropNet.renderToFile("propnet_016_IrrelevantRemoved.dot");
       LOGGER.debug("Num components after unreachable removal: " + fullPropNet.getComponents().size());
 

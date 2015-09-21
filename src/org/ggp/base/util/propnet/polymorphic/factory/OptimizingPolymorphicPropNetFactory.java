@@ -63,6 +63,7 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicOr;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicTransition;
+import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Role;
 
 import com.google.common.collect.Multimap;
@@ -1596,7 +1597,10 @@ public class OptimizingPolymorphicPropNetFactory
    *                         will have their GDL sentences added
    * @return true if the game can be treated as a puzzle (has no dependence on any other role's moves)
    */
-  public static boolean removeIrrelevantBasesAndInputs(PolymorphicPropNet pn, Role ourRole, Set<GdlSentence> fillerMoveSet)
+  public static boolean removeIrrelevantBasesAndInputs(PolymorphicPropNet pn,
+                                                       Role ourRole,
+                                                       Set<GdlSentence> fillerMoveSet,
+                                                       MachineState xiInitialState)
   {
     boolean isPseudoPuzzle = false;
 
@@ -1607,7 +1611,7 @@ public class OptimizingPolymorphicPropNetFactory
     //  not necessary explicitly here (and attempting to do so explicitly is actually somewhat
     //  tricky due to fairly common constructs involving distincts of move props)
     Set<PolymorphicComponent> reachableComponents = new HashSet<>();
-    recursiveFindReachable(pn, pn.getTerminalProposition(), reachableComponents, null );
+    recursiveFindReachable(pn, pn.getTerminalProposition(), reachableComponents, null, xiInitialState);
 
     //  Initially just mark the components on which OUR goals depend if we have been given our role
     //  Don't try this if we only have a single goal value anyway - this is some stupid test game not
@@ -1628,7 +1632,7 @@ public class OptimizingPolymorphicPropNetFactory
 
       for( PolymorphicProposition c : pn.getGoalPropositions().get(ourRole))
       {
-        recursiveFindReachable(pn, c, reachableComponents, null );
+        recursiveFindReachable(pn, c, reachableComponents, null, xiInitialState);
       }
 
       //  The core reachable components are those relevant directly to our goals
@@ -1659,7 +1663,7 @@ public class OptimizingPolymorphicPropNetFactory
         //  for at least our role
         for( PolymorphicProposition c : pn.getLegalPropositions().get(ourRole))
         {
-          recursiveFindReachable(pn, c, reachableComponents, null );
+          recursiveFindReachable(pn, c, reachableComponents, null, xiInitialState);
 
           //  If a legal is not within the core reachable set it has no impact on anything
           //  that influences our goals and is therefore only relevant as a possible source of
@@ -1706,11 +1710,11 @@ public class OptimizingPolymorphicPropNetFactory
             //  Add in this role's goals and legals
             for( PolymorphicProposition c : pn.getGoalPropositions().get(role))
             {
-              recursiveFindReachable(pn, c, reachableComponents, null );
+              recursiveFindReachable(pn, c, reachableComponents, null, xiInitialState);
             }
             for( PolymorphicProposition c : pn.getLegalPropositions().get(role))
             {
-              recursiveFindReachable(pn, c, reachableComponents, null );
+              recursiveFindReachable(pn, c, reachableComponents, null, xiInitialState);
 
               //  If a legal is no within the core reachable set it has no impact on anything
               //  that influences our goals and is therefore only relevant as a possible source of
@@ -1778,7 +1782,7 @@ public class OptimizingPolymorphicPropNetFactory
       {
         for(PolymorphicProposition c : goals)
         {
-          recursiveFindReachable(pn, c, reachableComponents, null );
+          recursiveFindReachable(pn, c, reachableComponents, null, xiInitialState);
         }
       }
 
@@ -1786,7 +1790,7 @@ public class OptimizingPolymorphicPropNetFactory
       {
         for(PolymorphicProposition c : legals)
         {
-          recursiveFindReachable(pn, c, reachableComponents, null );
+          recursiveFindReachable(pn, c, reachableComponents, null, xiInitialState);
         }
       }
     }
@@ -1958,24 +1962,43 @@ public class OptimizingPolymorphicPropNetFactory
     return false;
   }
 
-  private static void recursiveFindReachable(PolymorphicPropNet pn, PolymorphicComponent from, Set<PolymorphicComponent> reachableComponents, PolymorphicProposition viaBaseProp)
+  private static void recursiveFindReachable(PolymorphicPropNet pn,
+                                             PolymorphicComponent from,
+                                             Set<PolymorphicComponent> reachableComponents,
+                                             PolymorphicProposition viaBaseProp,
+                                             MachineState xiInitialState)
   {
-    if ( reachableComponents.contains(from) )
+    if (reachableComponents.contains(from))
     {
       return;
     }
 
     reachableComponents.add(from);
 
-    if ( pn.getBasePropositions().values().contains(from))
+    if (pn.getBasePropositions().values().contains(from))
     {
       viaBaseProp = (PolymorphicProposition)from;
+
+      // viaBaseProp is used to prune parts of the network which can't possibly cause a proposition to become true.
+      // However, if the proposition is initially true, we should avoid that pruning.  Unless...
+      //
+      // An initially true goal proposition is a special case.  When an initially true goal proposition becomes false,
+      // another must become true (*) so we'll pick up the relevant logic when examining that goal.  We're therefore
+      // free to exclude the feeder logic at this point.
+      //
+      // (*) That isn't strictly true.  The GDL could be formulated such that all the goals are initially true and are
+      // then bumped off as the game progresses.  However, we're not aware of any games like that.
+      if (xiInitialState.getContents().contains(viaBaseProp.getName()))
+      {
+        // !! ARR "Unless" logic not implemented.
+        viaBaseProp = null;
+      }
     }
     else if ( pn.getLegalInputMap().containsKey(from) )
     {
-      recursiveFindReachable(pn, pn.getLegalInputMap().get(from), reachableComponents, null );
+      recursiveFindReachable(pn, pn.getLegalInputMap().get(from), reachableComponents, null, xiInitialState);
     }
-    else if ( viaBaseProp != null && (from instanceof PolymorphicAnd) )
+    else if ((viaBaseProp != null) && (from instanceof PolymorphicAnd))
     {
       //  Don't traverse conditions that just preserve an already set base prop, since
       //  such a path cannot CAUSE it to become set
@@ -1987,7 +2010,7 @@ public class OptimizingPolymorphicPropNetFactory
 
     for(PolymorphicComponent c : from.getInputs())
     {
-      recursiveFindReachable(pn, c, reachableComponents, viaBaseProp );
+      recursiveFindReachable(pn, c, reachableComponents, viaBaseProp, xiInitialState);
     }
   }
 
