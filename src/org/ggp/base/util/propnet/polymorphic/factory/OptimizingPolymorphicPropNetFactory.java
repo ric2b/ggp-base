@@ -2533,11 +2533,12 @@ public class OptimizingPolymorphicPropNetFactory
     }
   }
 
-  public static void removeRedundantConstantsAndGates(PolymorphicPropNet pn)
-  {
-    removeRedundantConstantsAndGates(pn, true);
-  }
-
+  /**
+   * Simplify the network by removal of constants and gates which are redundant.
+   *
+   * @param pn - the propnet to modify.
+   * @param allowRemovalOfInputProps - whether input propositions can be removed (if found to be redundant).
+   */
   public static void removeRedundantConstantsAndGates(PolymorphicPropNet pn,
                                                       boolean allowRemovalOfInputProps)
   {
@@ -2581,7 +2582,8 @@ public class OptimizingPolymorphicPropNetFactory
                 }
               }
 
-              output.removeAllInputs();output.addInput(c);
+              output.removeAllInputs();
+              output.addInput(c);
             }
             else if ( output instanceof PolymorphicProposition )
             {
@@ -2592,6 +2594,17 @@ public class OptimizingPolymorphicPropNetFactory
               {
                 downstream.removeInput(output);
                 newOutputs.add(downstream);
+              }
+              output.removeAllOutputs();
+            }
+            else if (output instanceof PolymorphicNot)
+            {
+              // Replace TRUE -> NOT with FALSE for all downstream components.
+              // Replace FALSE -> NOT with TRUE for all downstream components.
+              for(PolymorphicComponent downstream : output.getOutputs())
+              {
+                downstream.removeInput(output);
+                downstream.addInput(isTrue ? falseConst : trueConst);
               }
               output.removeAllOutputs();
             }
@@ -2721,7 +2734,10 @@ public class OptimizingPolymorphicPropNetFactory
     }
     while (redundantComponents.size() > 0);
 
-    //	Eliminate TRUE inputs to ANDs and FALSE inputs to ORs.  Also eliminate single input ANDs/ORs
+    // Remove the following redundant inputs.
+    // - TRUE inputs to ANDs
+    // - FALSE inputs to ORs
+    // - Single input ANDs/ORs
     List<PolymorphicComponent> eliminations = new LinkedList<>();
 
     do
@@ -3695,10 +3711,7 @@ public class OptimizingPolymorphicPropNetFactory
     do
     {
       numStartComponents = propNet.getComponents().size();
-
-      OptimizingPolymorphicPropNetFactory
-          .removeRedundantConstantsAndGates(propNet);
-
+      OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(propNet, true);
       numEndComponents = propNet.getComponents().size();
     }
     while (numEndComponents != numStartComponents);
@@ -3725,10 +3738,7 @@ public class OptimizingPolymorphicPropNetFactory
     do
     {
       numStartComponents = propNet.getComponents().size();
-
-      OptimizingPolymorphicPropNetFactory
-          .removeRedundantConstantsAndGates(propNet);
-
+      OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(propNet, true);
       numEndComponents = propNet.getComponents().size();
     }
     while (numEndComponents != numStartComponents);
@@ -3813,12 +3823,8 @@ public class OptimizingPolymorphicPropNetFactory
     do
     {
       numStartComponents = propNet.getComponents().size();
-
-      OptimizingPolymorphicPropNetFactory
-          .removeUnreachableBasesAndInputs(propNet, true);
-      OptimizingPolymorphicPropNetFactory
-          .removeRedundantConstantsAndGates(propNet);
-
+      OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(propNet, true);
+      OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(propNet, true);
       numEndComponents = propNet.getComponents().size();
     }
     while (numEndComponents != numStartComponents);

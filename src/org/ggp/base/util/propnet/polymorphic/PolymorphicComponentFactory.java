@@ -63,7 +63,7 @@ public abstract class PolymorphicComponentFactory
   /**
    * Create a new Constant component
    * @param numOutputs Number of outputs - may be -1 to specify an uncrystalized initial state
-   * @param value whether the constanht is true of false
+   * @param value whether the constant is true or false
    * @return new component
    */
   public abstract PolymorphicConstant createConstant(int numOutputs,
