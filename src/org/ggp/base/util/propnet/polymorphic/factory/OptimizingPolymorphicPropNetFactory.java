@@ -2777,8 +2777,10 @@ public class OptimizingPolymorphicPropNetFactory
               // Replace FALSE -> NOT with TRUE for all downstream components.
               for(PolymorphicComponent downstream : output.getOutputs())
               {
+                PolymorphicComponent replacement = isTrue ? falseConst : trueConst;
                 downstream.removeInput(output);
-                downstream.addInput(isTrue ? falseConst : trueConst);
+                downstream.addInput(replacement);
+                replacement.addOutput(downstream);
               }
               output.removeAllOutputs();
             }
@@ -4002,6 +4004,8 @@ public class OptimizingPolymorphicPropNetFactory
       numEndComponents = propNet.getComponents().size();
     }
     while (numEndComponents != numStartComponents);
+
+    assert(propNet.validateClosure());
   }
 
   private static boolean loopsFound;

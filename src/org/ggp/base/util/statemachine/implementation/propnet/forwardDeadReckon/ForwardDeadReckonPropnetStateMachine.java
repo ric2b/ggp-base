@@ -1603,50 +1603,62 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                                                                description,
                                                                                new ForwardDeadReckonComponentFactory());
       fullPropNet.renderToFile("propnet_001.dot");
+      assert(fullPropNet.validateClosure());
 
       OptimizingPolymorphicPropNetFactory.removeAnonymousPropositions(fullPropNet);
       fullPropNet.renderToFile("propnet_012_AnonRemoved.dot");
       LOGGER.debug("Num components after anon prop removal: " + fullPropNet.getComponents().size());
+      assert(fullPropNet.validateClosure());
 
       OptimizingPolymorphicPropNetFactory.removeUnreachableBasesAndInputs(fullPropNet);
       fullPropNet.renderToFile("propnet_014_UnreachablesRemoved.dot");
+      assert(fullPropNet.validateClosure());
 
       isPseudoPuzzle = OptimizingPolymorphicPropNetFactory.removeIrrelevantBasesAndInputs(fullPropNet,
                                                                                           ourRole,
                                                                                           mFillerMoves);
       fullPropNet.renderToFile("propnet_016_IrrelevantRemoved.dot");
       LOGGER.debug("Num components after unreachable removal: " + fullPropNet.getComponents().size());
+      assert(fullPropNet.validateClosure());
 
       OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(fullPropNet, false);
       fullPropNet.renderToFile("propnet_018_RedundantRemoved.dot");
       LOGGER.debug("Num components after first pass redundant components removal: " +
                    fullPropNet.getComponents().size());
+      assert(fullPropNet.validateClosure());
 
       OptimizingPolymorphicPropNetFactory.refactorLargeGates(fullPropNet);
       fullPropNet.renderToFile("propnet_020_BeforeLargeFanout.dot");
+      assert(fullPropNet.validateClosure());
 
       OptimizingPolymorphicPropNetFactory.refactorLargeFanouts(fullPropNet);
       fullPropNet.renderToFile("propnet_030_AfterLargeFanout.dot");
       LOGGER.debug("Num components after large gate refactoring: " + fullPropNet.getComponents().size());
+      assert(fullPropNet.validateClosure());
 
       OptimizingPolymorphicPropNetFactory.removeDuplicateLogic(fullPropNet);
       LOGGER.debug("Num components after duplicate removal: " + fullPropNet.getComponents().size());
+      assert(fullPropNet.validateClosure());
 
       OptimizingPolymorphicPropNetFactory.optimizeInputSets(fullPropNet);
       LOGGER.debug("Num components after input set optimization: " + fullPropNet.getComponents().size());
+      assert(fullPropNet.validateClosure());
 
       OptimizingPolymorphicPropNetFactory.optimizeInvertedInputs(fullPropNet);
       LOGGER.debug("Num components after inverted input optimization: " + fullPropNet.getComponents().size());
+      assert(fullPropNet.validateClosure());
 
       OptimizingPolymorphicPropNetFactory.removeRedundantConstantsAndGates(fullPropNet, true);
       LOGGER.debug("Num components after further removal of redundant components: " +
                    fullPropNet.getComponents().size());
+      assert(fullPropNet.validateClosure());
 
       // Ensure that no propositions apart from strict input props (base, does, init) have any outputs, as this is
       // assumed by the fast animator.  Accordingly we re-wire slightly such that if any such do exist we replace their
       // output connection by one from their input (which they anyway just directly forward, so this also removes a
       // small propagation step).
       OptimizingPolymorphicPropNetFactory.removeNonBaseOrDoesPropositionOutputs(fullPropNet);
+      assert(fullPropNet.validateClosure());
 
       fullPropNet.renderToFile("propnet_040_Reduced.dot");
       roles = fullPropNet.getRoles();
@@ -1864,6 +1876,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       terminalityNet = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
       propNetX.RemoveInits();
       propNetO.RemoveInits();
+      assert(propNetX.validateClosure());
 
       if (XSentence != null)
       {
@@ -1871,6 +1884,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
         LOGGER.info("Reducing with respect to XSentence: " + XSentence);
         OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, XSentence, true);
+        assert(propNetX.validateClosure());
 
         //	If the reduced net always transitions it's own hard-wired sentence into the opposite state
         //	it may be part of a pivot whereby control passes between alternating propositions.  Check this
@@ -1943,6 +1957,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                 if (OSentence != null)
                 {
                   OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, OSentence, false);
+                  assert(propNetX.validateClosure());
 
                   PolymorphicProposition XSentenceInFirstNet = propNetX.getBasePropositions().get(XSentence);
                   if (XSentenceInFirstNet != null)

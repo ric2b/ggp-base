@@ -960,4 +960,24 @@ public class PolymorphicPropNet
       c.crystalize();
     }
   }
+
+  //  Validate that the propnet is closed under component connectivity
+  //  Note - returns true if ok, else will assert - intended usage is
+  //  within an assert to make costless when running without assertions
+  public Boolean validateClosure()
+  {
+    for (PolymorphicComponent c : components)
+    {
+      for(PolymorphicComponent input: c.getInputs())
+      {
+        assert(components.contains(input));
+      }
+      for(PolymorphicComponent output: c.getOutputs())
+      {
+        assert(components.contains(output));
+      }
+    }
+
+    return true;
+  }
 }
