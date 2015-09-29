@@ -24,7 +24,7 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
  * - Multi-threading
  * - Interruptible (for restarting if no solution is found before the end of the turn)
  * - Ordering hints for early moves, taken from MCTS/RAVE (which can massively cut down the work required)
- * - Consider other algorithms (e.g. SCOUT, Negacount & MTD-f) along with heuristics and iterative deepending (IDDFS).
+ * - Consider other algorithms (e.g. SCOUT, NegaScout & MTD-f) along with heuristics and iterative deepening (IDDFS).
  */
 public class DepthFirstSearcher
 {

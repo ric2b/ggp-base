@@ -4,6 +4,11 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 
 public class TristateAnd extends TristateComponent implements PolymorphicAnd
 {
+  public TristateAnd(TristatePropNet xiNetwork)
+  {
+    super(xiNetwork);
+  }
+
   @Override
   public void changeInput(Tristate xiNewValue)
   {

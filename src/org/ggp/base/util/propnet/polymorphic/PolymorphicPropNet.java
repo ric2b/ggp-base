@@ -485,6 +485,7 @@ public class PolymorphicPropNet
                             PolymorphicComponentFactory theComponentFactory)
   {
     componentFactory = theComponentFactory;
+    componentFactory.setNetwork(this);
 
     Map<PolymorphicComponent, PolymorphicComponent> sourceToTargetMap = new HashMap<>();
     components = new HashSet<>();

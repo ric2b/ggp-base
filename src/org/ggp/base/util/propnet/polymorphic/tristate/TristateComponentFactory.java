@@ -16,6 +16,13 @@ import org.ggp.base.util.statemachine.Role;
 
 public class TristateComponentFactory extends PolymorphicComponentFactory
 {
+  private TristatePropNet mNetwork;
+
+  @Override
+  public void setNetwork(PolymorphicPropNet xiNetwork)
+  {
+    mNetwork = (TristatePropNet)xiNetwork;
+  }
 
   @Override
   public PolymorphicPropNet createPropNet(Role[] xiRoles,
@@ -27,36 +34,36 @@ public class TristateComponentFactory extends PolymorphicComponentFactory
   @Override
   public PolymorphicAnd createAnd(int xiNumInputs, int xiNumOutputs)
   {
-    return new TristateAnd();
+    return new TristateAnd(mNetwork);
   }
 
   @Override
   public PolymorphicOr createOr(int xiNumInputs, int xiNumOutputs)
   {
-    return new TristateOr();
+    return new TristateOr(mNetwork);
   }
 
   @Override
   public PolymorphicNot createNot(int xiNumOutputs)
   {
-    return new TristateNot();
+    return new TristateNot(mNetwork);
   }
 
   @Override
   public PolymorphicConstant createConstant(int xiNumOutputs, boolean xiValue)
   {
-    return new TristateConstant(xiValue);
+    return new TristateConstant(mNetwork, xiValue);
   }
 
   @Override
   public PolymorphicProposition createProposition(int xiNumOutputs, GdlSentence xiName)
   {
-    return new TristateProposition();
+    return new TristateProposition(mNetwork, xiName);
   }
 
   @Override
   public PolymorphicTransition createTransition(int xiNumOutputs)
   {
-    return new TristateTransition();
+    return new TristateTransition(mNetwork);
   }
 }

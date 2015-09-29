@@ -4,6 +4,11 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicNot;
 
 public class TristateNot extends TristateComponent implements PolymorphicNot
 {
+  public TristateNot(TristatePropNet xiNetwork)
+  {
+    super(xiNetwork);
+  }
+
   @Override
   public void changeInput(Tristate xiNewValue)
   {

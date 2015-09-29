@@ -4,6 +4,11 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicOr;
 
 public class TristateOr extends TristateComponent implements PolymorphicOr
 {
+  public TristateOr(TristatePropNet xiNetwork)
+  {
+    super(xiNetwork);
+  }
+
   @Override
   public void changeInput(Tristate xiNewValue)
   {

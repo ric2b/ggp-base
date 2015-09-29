@@ -508,6 +508,23 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     mNegativeBasePropLatches = new HashSet<>();
     HashSet<PolymorphicComponent> lAllBasePropLatches = new HashSet<>();
 
+    // Do bi-drectional tri-state analysis on the full propnet to find latches.
+    boolean lDoTristateLatchDetection = false;
+    if (lDoTristateLatchDetection)
+    {
+      TristatePropNet lTristateNet = new TristatePropNet(fullPropNet);
+      Map<PolymorphicComponent, PolymorphicComponent> lSourceToTarget = PolymorphicPropNet.sLastSourceToTargetMap;
+      for (PolymorphicComponent lSourceComp1 : fullPropNet.getBasePropositionsArray())
+      {
+        TristateProposition lTargetComp1 = (TristateProposition)lSourceToTarget.get(lSourceComp1);
+        LOGGER.info("Checking whether " + lTargetComp1.getName() + " is a latch");
+        lTristateNet.reset();
+        lTargetComp1.setValue(false);
+        lTristateNet.reset();
+        lTargetComp1.setValue(true);
+      }
+    }
+
     for (PolymorphicProposition lGoals[] : fullPropNet.getGoalPropositions().values())
     {
       for (PolymorphicProposition lGoal : lGoals)
@@ -579,33 +596,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           mNegativeBasePropLatches.add(lBaseProp);
           lAllBasePropLatches.add(lBaseProp);
           LOGGER.debug("Latch(-ve): " + lBaseProp);
-        }
-      }
-    }
-
-    // Create a tri-state goal network to test for latch combinations.
-    boolean lDoTristateLatchDetection = false;
-    if (lDoTristateLatchDetection)
-    {
-      TristatePropNet lTristateNet = new TristatePropNet(goalsNet);
-      Map<PolymorphicComponent, PolymorphicComponent> lSourceToTarget = PolymorphicPropNet.sLastSourceToTargetMap;
-      for (PolymorphicComponent lSourceComp1 : lAllBasePropLatches)
-      {
-        TristateProposition lTargetComp1 = (TristateProposition)lSourceToTarget.get(lSourceComp1);
-        if (lTargetComp1 == null)
-        {
-          LOGGER.warn("No analysis prop. matching " + ((PolymorphicProposition)lSourceComp1).getName());
-        }
-        else
-        {
-          for (PolymorphicComponent lSourceComp2 : lAllBasePropLatches)
-          {
-            TristateProposition lTargetComp2 = (TristateProposition)lSourceToTarget.get(lSourceComp2);
-            lTristateNet.reset();
-            LOGGER.info("Checking " + lTargetComp1.getName() + " + " + lTargetComp2.getName());
-            lTargetComp1.setValue(mPositiveBasePropLatches.contains(lSourceComp1));
-            lTargetComp2.setValue(mPositiveBasePropLatches.contains(lSourceComp2));
-          }
         }
       }
     }

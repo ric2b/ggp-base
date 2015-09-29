@@ -4,8 +4,9 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicConstant;
 
 public class TristateConstant extends TristateComponent implements PolymorphicConstant
 {
-  public TristateConstant(boolean xiValue)
+  public TristateConstant(TristatePropNet xiNetwork, boolean xiValue)
   {
+    super(xiNetwork);
   }
 
   @Override

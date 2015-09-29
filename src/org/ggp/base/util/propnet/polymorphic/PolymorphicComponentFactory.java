@@ -14,6 +14,16 @@ import org.ggp.base.util.statemachine.Role;
 public abstract class PolymorphicComponentFactory
 {
   /**
+   * Set the propnet for which the factory is creating components.
+   *
+   * @param xiNetwork - the propnet.
+   */
+  public void setNetwork(PolymorphicPropNet xiNetwork)
+  {
+    // Do nothing.
+  }
+
+ /**
    * Create a new PolymorphicPropnet
    * @param roles The roles of the game the propnet forms a statemachine for
    * @param components The components (already wired together) comprising the propnet

@@ -16,6 +16,8 @@ public abstract class TristateComponent implements PolymorphicComponent
     UNKNOWN;
   }
 
+  protected final TristatePropNet mParent;
+
   private final Set<TristateComponent> mInputs = new HashSet<>();
   private final Set<TristateComponent> mOutputs = new HashSet<>();
 
@@ -53,6 +55,11 @@ public abstract class TristateComponent implements PolymorphicComponent
   //////////////////////////////////////////////////
   // Network construction methods.
   //////////////////////////////////////////////////
+  protected TristateComponent(TristatePropNet xiNetwork)
+  {
+    mParent = xiNetwork;
+  }
+
   @Override
   public void addInput(PolymorphicComponent xiInput)
   {
