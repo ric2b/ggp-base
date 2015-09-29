@@ -4,7 +4,6 @@ package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.propnet.architecture.PropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicAnd;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponentFactory;
@@ -29,18 +28,6 @@ public class ForwardDeadReckonComponentFactory extends
    */
   public ForwardDeadReckonComponentFactory()
   {
-  }
-
-  @Override
-  public PolymorphicPropNet createPropNet(PropNet basicPropNet)
-  {
-    return new ForwardDeadReckonPropNet(basicPropNet, this);
-  }
-
-  @Override
-  public PolymorphicPropNet createPropNet(PolymorphicPropNet propNet)
-  {
-    return new ForwardDeadReckonPropNet(propNet, this);
   }
 
   @Override

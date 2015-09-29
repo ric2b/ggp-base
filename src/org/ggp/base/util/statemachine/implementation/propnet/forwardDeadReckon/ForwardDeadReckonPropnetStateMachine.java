@@ -39,7 +39,8 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropnetFastAnimator;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
-import org.ggp.base.util.propnet.polymorphic.learning.LearningComponent;
+import org.ggp.base.util.propnet.polymorphic.tristate.TristatePropNet;
+import org.ggp.base.util.propnet.polymorphic.tristate.TristateProposition;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
@@ -505,6 +506,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     mNegativeGoalLatches = new HashMap<>();
     mPositiveBasePropLatches = new HashSet<>();
     mNegativeBasePropLatches = new HashSet<>();
+    HashSet<PolymorphicComponent> lAllBasePropLatches = new HashSet<>();
 
     for (PolymorphicProposition lGoals[] : fullPropNet.getGoalPropositions().values())
     {
@@ -538,6 +540,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         if (lPositivelyLatched.contains(lBaseProp))
         {
           mPositiveBasePropLatches.add(lBaseProp);
+          lAllBasePropLatches.add(lBaseProp);
           LOGGER.debug("Latch(+ve): " + lBaseProp);
 
           // If we've just latched any goal props, remember it.
@@ -574,7 +577,35 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         if (lNegativelyLatched.contains(lBaseProp))
         {
           mNegativeBasePropLatches.add(lBaseProp);
+          lAllBasePropLatches.add(lBaseProp);
           LOGGER.debug("Latch(-ve): " + lBaseProp);
+        }
+      }
+    }
+
+    // Create a tri-state goal network to test for latch combinations.
+    boolean lDoTristateLatchDetection = false;
+    if (lDoTristateLatchDetection)
+    {
+      TristatePropNet lTristateNet = new TristatePropNet(goalsNet);
+      Map<PolymorphicComponent, PolymorphicComponent> lSourceToTarget = PolymorphicPropNet.sLastSourceToTargetMap;
+      for (PolymorphicComponent lSourceComp1 : lAllBasePropLatches)
+      {
+        TristateProposition lTargetComp1 = (TristateProposition)lSourceToTarget.get(lSourceComp1);
+        if (lTargetComp1 == null)
+        {
+          LOGGER.warn("No analysis prop. matching " + ((PolymorphicProposition)lSourceComp1).getName());
+        }
+        else
+        {
+          for (PolymorphicComponent lSourceComp2 : lAllBasePropLatches)
+          {
+            TristateProposition lTargetComp2 = (TristateProposition)lSourceToTarget.get(lSourceComp2);
+            lTristateNet.reset();
+            LOGGER.info("Checking " + lTargetComp1.getName() + " + " + lTargetComp2.getName());
+            lTargetComp1.setValue(mPositiveBasePropLatches.contains(lSourceComp1));
+            lTargetComp2.setValue(mPositiveBasePropLatches.contains(lSourceComp2));
+          }
         }
       }
     }
@@ -757,29 +788,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
     }
   }
-
-  /**
-   * @return the latched score for the specified state, or null if there isn't one.
-   *
-   * @param xiState - the state.
-   *
-   * !! ARR 1P latches?
-   */
-//  public Integer getLatchedScore(ForwardDeadReckonInternalMachineState xiState)
-//  {
-//    if (mPositiveGoalLatches != null)
-//    {
-//      for (Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry : mPositiveGoalLatches.entrySet())
-//      {
-//        if (xiState.intersects(lEntry.getValue()))
-//        {
-//          return Integer.parseInt(lEntry.getKey().getName().getBody().get(1).toString());
-//        }
-//      }
-//    }
-//
-//    return null;
-//  }
 
   /**
    * @param xiState - state to test for latched score in
@@ -1874,8 +1882,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       propNetO = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
       goalsNet = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
       terminalityNet = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
-      propNetX.RemoveInits();
-      propNetO.RemoveInits();
+      propNetX.removeInits();
+      propNetO.removeInits();
       assert(propNetX.validateClosure());
 
       if (XSentence != null)
@@ -1993,8 +2001,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           //	Failed - best we can do is simply drive the XSentence to true in one network
           propNetX = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
           propNetO = new ForwardDeadReckonPropNet(fullPropNet, new ForwardDeadReckonComponentFactory());
-          propNetX.RemoveInits();
-          propNetO.RemoveInits();
+          propNetX.removeInits();
+          propNetO.removeInits();
           OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetX, XSentence, true);
           OptimizingPolymorphicPropNetFactory.fixBaseProposition(propNetO, XSentence, false);
         }
@@ -2007,15 +2015,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
       propNetXWithoutGoals = new ForwardDeadReckonPropNet(propNetX, new ForwardDeadReckonComponentFactory());
       propNetOWithoutGoals = new ForwardDeadReckonPropNet(propNetO, new ForwardDeadReckonComponentFactory());
-      propNetXWithoutGoals.RemoveGoals();
-      propNetOWithoutGoals.RemoveGoals();
+      propNetXWithoutGoals.removeGoals();
+      propNetOWithoutGoals.removeGoals();
       OptimizingPolymorphicPropNetFactory.minimizeNetwork(propNetXWithoutGoals);
       OptimizingPolymorphicPropNetFactory.minimizeNetwork(propNetOWithoutGoals);
       propNetXWithoutGoals.renderToFile("propnet_070_XWithoutGoals.dot");
       propNetOWithoutGoals.renderToFile("propnet_080_OWithoutGoals.dot");
 
-      terminalityNet.RemoveAllButTerminal();
-      goalsNet.RemoveAllButGoals();
+      terminalityNet.removeAllButTerminal();
+      goalsNet.removeAllButGoals();
 
       goalsNet.renderToFile("propnet_090_GoalsReduced.dot");
 
@@ -2078,6 +2086,8 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     {
       // TODO: handle exception
     }
+
+    PolymorphicPropNet.sLastSourceToTargetMap = null;
   }
 
   private void finalizePropositionCrossReferenceInfo()
@@ -2279,14 +2289,6 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       {
         info.mFactor = null;
       }
-    }
-  }
-
-  public void Optimize()
-  {
-    for (PolymorphicComponent c : propNet.getComponents())
-    {
-      ((LearningComponent)c).Optimize();
     }
   }
 

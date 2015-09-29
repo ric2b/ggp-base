@@ -1,5 +1,3 @@
-// C4StateMachine.java
-// (C) COPYRIGHT METASWITCH NETWORKS 2015
 package org.ggp.base.apps.validator;
 
 import java.util.Arrays;

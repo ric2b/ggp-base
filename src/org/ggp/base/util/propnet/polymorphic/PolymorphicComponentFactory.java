@@ -4,7 +4,6 @@ package org.ggp.base.util.propnet.polymorphic;
 import java.util.Set;
 
 import org.ggp.base.util.gdl.grammar.GdlSentence;
-import org.ggp.base.util.propnet.architecture.PropNet;
 import org.ggp.base.util.statemachine.Role;
 
 /**
@@ -14,20 +13,6 @@ import org.ggp.base.util.statemachine.Role;
  */
 public abstract class PolymorphicComponentFactory
 {
-  /**
-   * Create a new PolymorphicPropnet
-   * @param basicPropNet ggp-base propnet to topologically clone
-   * @return PolymorphicPropNet with topology matching the input
-   */
-  public abstract PolymorphicPropNet createPropNet(PropNet basicPropNet);
-
-  /**
-   * Create a new PolymorphicPropnet
-   * @param propNet Polymorphic propnet (not necessarily of the same concrete implementation class) to topologically clone
-   * @return PolymorphicPropNet with topology matching the input
-   */
-  public abstract PolymorphicPropNet createPropNet(PolymorphicPropNet propNet);
-
   /**
    * Create a new PolymorphicPropnet
    * @param roles The roles of the game the propnet forms a statemachine for

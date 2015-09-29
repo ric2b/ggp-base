@@ -82,6 +82,9 @@ public class PolymorphicPropNet
 
   private PolymorphicComponentFactory                               componentFactory;
 
+  /** After cloning a propnet, this holds to source to target component map. */
+  public static Map<PolymorphicComponent, PolymorphicComponent> sLastSourceToTargetMap;
+
   /**
    * Creates a new PropNet from a list of Components, along with indices over
    * those components.
@@ -505,8 +508,7 @@ public class PolymorphicPropNet
       }
       else if (old instanceof PolymorphicProposition)
       {
-        newComp = componentFactory
-            .createProposition(-1, ((PolymorphicProposition)old).getName());
+        newComp = componentFactory.createProposition(-1, ((PolymorphicProposition)old).getName());
       }
       else if (old instanceof PolymorphicTransition)
       {
@@ -514,9 +516,7 @@ public class PolymorphicPropNet
       }
       else if (old instanceof PolymorphicConstant)
       {
-        newComp = componentFactory.createConstant(-1,
-                                                  ((PolymorphicConstant)old)
-                                                      .getValue());
+        newComp = componentFactory.createConstant(-1, ((PolymorphicConstant)old).getValue());
       }
       else
       {
@@ -535,14 +535,12 @@ public class PolymorphicPropNet
       for (PolymorphicComponent oldInput : old.getInputs())
       {
         PolymorphicComponent newInput = sourceToTargetMap.get(oldInput);
-
         newComp.addInput(newInput);
       }
 
       for (PolymorphicComponent oldOutput : old.getOutputs())
       {
         PolymorphicComponent newOutput = sourceToTargetMap.get(oldOutput);
-
         newComp.addOutput(newOutput);
       }
     }
@@ -551,41 +549,30 @@ public class PolymorphicPropNet
     propositions = new HashSet<>();
     for (PolymorphicProposition oldProp : sourcePropnet.getPropositions())
     {
-      PolymorphicProposition newProp = (PolymorphicProposition)sourceToTargetMap
-          .get(oldProp);
-
+      PolymorphicProposition newProp = (PolymorphicProposition)sourceToTargetMap.get(oldProp);
       propositions.add(newProp);
     }
     basePropositions = new HashMap<>();
-    for (Entry<GdlSentence, PolymorphicProposition> oldEntry : sourcePropnet
-        .getBasePropositions().entrySet())
+    for (Entry<GdlSentence, PolymorphicProposition> oldEntry : sourcePropnet.getBasePropositions().entrySet())
     {
-      PolymorphicProposition newProp = (PolymorphicProposition)sourceToTargetMap
-          .get(oldEntry.getValue());
-
+      PolymorphicProposition newProp = (PolymorphicProposition)sourceToTargetMap.get(oldEntry.getValue());
       basePropositions.put(oldEntry.getKey(), newProp);
     }
     inputPropositions = new HashMap<>();
-    for (Entry<GdlSentence, PolymorphicProposition> oldEntry : sourcePropnet
-        .getInputPropositions().entrySet())
+    for (Entry<GdlSentence, PolymorphicProposition> oldEntry : sourcePropnet.getInputPropositions().entrySet())
     {
-      PolymorphicProposition newProp = (PolymorphicProposition)sourceToTargetMap
-          .get(oldEntry.getValue());
-
+      PolymorphicProposition newProp = (PolymorphicProposition)sourceToTargetMap.get(oldEntry.getValue());
       inputPropositions.put(oldEntry.getKey(), newProp);
     }
     legalPropositions = null;
     legalPropositionsMutable = new HashMap<>();
-    for (Entry<Role, PolymorphicProposition[]> oldEntry : sourcePropnet
-        .getLegalPropositions().entrySet())
+    for (Entry<Role, PolymorphicProposition[]> oldEntry : sourcePropnet.getLegalPropositions().entrySet())
     {
       Set<PolymorphicProposition> newProps = new HashSet<>();
 
       for (PolymorphicProposition oldProp : oldEntry.getValue())
       {
-        PolymorphicProposition newProp = (PolymorphicProposition)sourceToTargetMap
-            .get(oldProp);
-
+        PolymorphicProposition newProp = (PolymorphicProposition)sourceToTargetMap.get(oldProp);
         newProps.add(newProp);
       }
 
@@ -593,16 +580,13 @@ public class PolymorphicPropNet
     }
     goalPropositions = null;
     goalPropositionsMutable = new HashMap<>();
-    for (Entry<Role, PolymorphicProposition[]> oldEntry : sourcePropnet
-        .getGoalPropositions().entrySet())
+    for (Entry<Role, PolymorphicProposition[]> oldEntry : sourcePropnet.getGoalPropositions().entrySet())
     {
       Set<PolymorphicProposition> newProps = new HashSet<>();
 
       for (PolymorphicProposition oldProp : oldEntry.getValue())
       {
-        PolymorphicProposition newProp = (PolymorphicProposition)sourceToTargetMap
-            .get(oldProp);
-
+        PolymorphicProposition newProp = (PolymorphicProposition)sourceToTargetMap.get(oldProp);
         newProps.add(newProp);
       }
 
@@ -619,6 +603,8 @@ public class PolymorphicPropNet
     }
 
     roles = sourcePropnet.getRoles();
+
+    sLastSourceToTargetMap = sourceToTargetMap;
   }
 
   /**
@@ -722,7 +708,7 @@ public class PolymorphicPropNet
   /**
    * Remove init propositions from the network
    */
-  public void RemoveInits()
+  public void removeInits()
   {
     OptimizingPolymorphicPropNetFactory.removeInitPropositions(this);
 
@@ -734,7 +720,7 @@ public class PolymorphicPropNet
    * Note that this will not remove goal props that are required
    * for the calculation of non-goal outputs
    */
-  public void RemoveGoals()
+  public void removeGoals()
   {
     OptimizingPolymorphicPropNetFactory.removeGoalPropositions(this);
   }
@@ -742,18 +728,18 @@ public class PolymorphicPropNet
   /**
    * Remove things we do not need to support goal determination
    */
-  public void RemoveAllButGoals()
+  public void removeAllButGoals()
   {
-    RemoveInits();
+    removeInits();
     OptimizingPolymorphicPropNetFactory.removeAllButGoalPropositions(this);
   }
 
   /**
    * Remove things we do not need to support terminality determination
    */
-  public void RemoveAllButTerminal()
+  public void removeAllButTerminal()
   {
-    RemoveInits();
+    removeInits();
     OptimizingPolymorphicPropNetFactory.removeAllButTerminalProposition(this);
   }
 
@@ -947,19 +933,6 @@ public class PolymorphicPropNet
     return componentFactory;
   }
 
-  /**
-   * Crystalize the propNet into an optimally runtime efficient
-   * form.  Once this is done no further changes may be made to the
-   * propNet's topology (changing connections or adding/removing
-   * components)
-   */
-  public void crystalize()
-  {
-    for (PolymorphicComponent c : components)
-    {
-      c.crystalize();
-    }
-  }
 
   //  Validate that the propnet is closed under component connectivity
   //  Note - returns true if ok, else will assert - intended usage is

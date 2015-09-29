@@ -1,5 +1,3 @@
-// MobilityHeuristic.java
-// (C) COPYRIGHT METASWITCH NETWORKS 2014
 package org.ggp.base.player.gamer.statemachine.sancho.heuristic;
 
 import java.util.Arrays;
