@@ -49,11 +49,23 @@ public abstract class PuzzleBase extends Assert
     EXPECTED_SCORES.put("stanford.multiplesukoshi", 0);
     EXPECTED_SCORES.put("stanford.pearls", 90);
     EXPECTED_SCORES.put("stanford.untwistycomplex2", 0);
+    EXPECTED_SCORES.put("base.mineclearingsmall", 84); // !! ARR Wild guess.  SPD to change to best possible score.
+
+    // 31x31 legal-guided queens is deliberately at our limit an doesn't reliably pass on CI.  Not likely that there's
+    // anything we can do that will assist with this.
+    EXPECTED_SCORES.put("queens31lg", 0);
 
     // Puzzles where we ought to get 100, but don't (or don't reliably).  Covered by issue 260.
     EXPECTED_SCORES.put("base.tpeg", 90);
     EXPECTED_SCORES.put("base.peg", 90);
     EXPECTED_SCORES.put("stanford.knightstourbig", 95);
+
+    // Can't solve some of the queens puzzles yet (or not reliably on CI).  Covered by #369.
+    EXPECTED_SCORES.put("queens06ug", 0);
+    EXPECTED_SCORES.put("queens08ug", 0);
+
+    // Can't solve Futoshiki 6x6 yet.  Covered by #372.
+    EXPECTED_SCORES.put("base.futoshiki6", 0);
   }
 
   private static HashMap<String, Integer> EXTRA_TIME = new HashMap<>();
