@@ -7,48 +7,106 @@ import java.util.Set;
 
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 
+/**
+ * The abstract parent of all tri-state components.
+ */
 public abstract class TristateComponent implements PolymorphicComponent
 {
+  /**
+   * Possible values of a tri-state component.
+   */
   public enum Tristate
   {
+    /**
+     * Componnent is known to be true.
+     */
     TRUE,
+
+    /**
+     * Component is known to be false.
+     */
     FALSE,
+
+    /**
+     * Component value is unknown.
+     */
     UNKNOWN;
   }
 
+  /**
+   * The state of a component on any given turn.
+   */
+  protected static class State
+  {
+    /**
+     * The component's value - one of true/false/unknown.
+     */
+    protected Tristate mValue;
+
+    /**
+     * The number of input values that are unknown.
+     */
+    protected int mNumUnknownInputs;
+  }
+
+  /**
+   * The propnet of which this component is a part.
+   */
   protected final TristatePropNet mParent;
 
+  /**
+   * The input and output components connected to this one.
+   */
   private final Set<TristateComponent> mInputs = new HashSet<>();
   private final Set<TristateComponent> mOutputs = new HashSet<>();
 
-  protected Tristate mValue;
-  protected int mNumUnknownInputs;
+  /**
+   * The state on the specified turn.  Turn 1 is the turn under consideration.  Turn 0 is the turn before and turn 2 is
+   * the turn after.
+   */
+  protected State[] mState = new State[3];
+  {
+    mState[0] = new State();
+    mState[1] = new State();
+    mState[2] = new State();
+  }
 
   //////////////////////////////////////////////////
   // Network use methods.
   //////////////////////////////////////////////////
+
+  /**
+   * Reset the component to its default state.
+   */
   public void reset()
   {
-    mValue = Tristate.UNKNOWN;
-    mNumUnknownInputs = mInputs.size();
+    for (int ii = 0; ii < 3; ii++)
+    {
+      mState[ii].mValue = Tristate.UNKNOWN;
+      mState[ii].mNumUnknownInputs = mInputs.size();
+    }
   }
 
   /**
    * Inform a component that one of its inputs has changed (from UNKNOWN to the value specified here).
    *
    * @param xiNewValue - the new value, either TRUE or FALSE.
+   * @param xiTurn - the turn (0 for previous, 1 for current, 2 for next).
    */
-  public abstract void changeInput(Tristate xiNewValue);
+  public abstract void changeInput(Tristate xiNewValue, int xiTurn);
 
   /**
    * Propagate a change in output state through the network.  Components MUST NOT call this method unless their output
    * has actually changed.  Components must set mValue before calling this method.
+   *
+   * @param xiTurn - the turn for the component doing the propagation.
+   * @param xiIncrement - whether to increment the turn for the next component(s).
    */
-  protected void changeOutput()
+  protected void changeOutput(int xiTurn, boolean xiIncrement)
   {
     for (TristateComponent lOutput : mOutputs)
     {
-      lOutput.changeInput(mValue);
+      lOutput.changeInput(mState[xiTurn].mValue, xiTurn + (xiIncrement ? 1 : 0));
     }
   }
 
@@ -100,11 +158,6 @@ public abstract class TristateComponent implements PolymorphicComponent
   public boolean getValue()
   {
     throw new RuntimeException("Can't call getValue() on tri-state component - use getTristateValue");
-  }
-
-  public Tristate getTristateValue()
-  {
-    return mValue;
   }
 
   @Override

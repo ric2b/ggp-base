@@ -10,19 +10,19 @@ public class TristateNot extends TristateComponent implements PolymorphicNot
   }
 
   @Override
-  public void changeInput(Tristate xiNewValue)
+  public void changeInput(Tristate xiNewValue, int xiTurn)
   {
-    if (mValue == Tristate.UNKNOWN)
+    if (mState[xiTurn].mValue == Tristate.UNKNOWN)
     {
       if (xiNewValue == Tristate.FALSE)
       {
-        mValue = Tristate.TRUE;
+        mState[xiTurn].mValue = Tristate.TRUE;
       }
       else
       {
-        mValue = Tristate.FALSE;
+        mState[xiTurn].mValue = Tristate.FALSE;
       }
-      changeOutput();
+      changeOutput(xiTurn, false);
     }
   }
 }

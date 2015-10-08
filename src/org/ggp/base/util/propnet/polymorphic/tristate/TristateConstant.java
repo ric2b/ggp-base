@@ -10,7 +10,7 @@ public class TristateConstant extends TristateComponent implements PolymorphicCo
   }
 
   @Override
-  public void changeInput(Tristate xiNewValue)
+  public void changeInput(Tristate xiNewValue, int xiTransitionCount)
   {
     throw new RuntimeException("Constants don't have inputs!");
   }

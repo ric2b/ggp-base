@@ -10,19 +10,19 @@ public class TristateAnd extends TristateComponent implements PolymorphicAnd
   }
 
   @Override
-  public void changeInput(Tristate xiNewValue)
+  public void changeInput(Tristate xiNewValue, int xiTurn)
   {
-    if (mValue == Tristate.UNKNOWN)
+    if (mState[xiTurn].mValue == Tristate.UNKNOWN)
     {
       if (xiNewValue == Tristate.FALSE)
       {
-        mValue = Tristate.FALSE;
-        changeOutput();
+        mState[xiTurn].mValue = Tristate.FALSE;
+        changeOutput(xiTurn, false);
       }
-      else if (--mNumUnknownInputs == 0)
+      else if (--(mState[xiTurn].mNumUnknownInputs) == 0)
       {
-        mValue = Tristate.TRUE;
-        changeOutput();
+        mState[xiTurn].mValue = Tristate.TRUE;
+        changeOutput(xiTurn, false);
       }
     }
   }

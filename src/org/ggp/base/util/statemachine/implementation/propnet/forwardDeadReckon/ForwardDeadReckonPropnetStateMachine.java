@@ -519,9 +519,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         TristateProposition lTargetComp1 = (TristateProposition)lSourceToTarget.get(lSourceComp1);
         LOGGER.info("Checking whether " + lTargetComp1.getName() + " is a latch");
         lTristateNet.reset();
-        lTargetComp1.setValue(false);
+        if (lTargetComp1.isLatch(false))
+        {
+          LOGGER.info("  Yes - it's a negative latch");
+        }
         lTristateNet.reset();
-        lTargetComp1.setValue(true);
+        if (lTargetComp1.isLatch(true))
+        {
+          LOGGER.info("  Yes - it's a positive latch");
+        }
       }
     }
 

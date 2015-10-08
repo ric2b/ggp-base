@@ -10,12 +10,14 @@ public class TristateTransition extends TristateComponent implements Polymorphic
   }
 
   @Override
-  public void changeInput(Tristate xiNewValue)
+  public void changeInput(Tristate xiNewValue, int xiTurn)
   {
-    if (mValue != Tristate.UNKNOWN)
+    // Only propagate through a transition if we haven't done so already.  We're only interested in the immediate
+    // consequences of assuming some input proposition(s).
+    if ((mState[xiTurn].mValue == Tristate.UNKNOWN) && (xiTurn < 2))
     {
-      mValue = xiNewValue;
-      changeOutput();
+      mState[xiTurn].mValue = xiNewValue;
+      changeOutput(xiTurn, true);
     }
   }
 }
