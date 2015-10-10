@@ -22,7 +22,27 @@ public class TristateNot extends TristateComponent implements PolymorphicNot
       {
         mState[xiTurn].mValue = Tristate.FALSE;
       }
-      changeOutput(xiTurn, false);
+      propagateOutput(xiTurn, false);
     }
   }
+
+  @Override
+  public void changeOutput(Tristate xiNewValue, int xiTurn)
+  {
+    assert(xiNewValue != Tristate.UNKNOWN);
+
+    if (mState[xiTurn].mValue == Tristate.UNKNOWN)
+    {
+      // We've learned our output value from downstream.
+      mState[xiTurn].mValue = xiNewValue;
+
+      // Tell any other downstream components.
+      propagateOutput(xiTurn, false);
+
+      // Tell our single upstream component.
+      assert(getSingleInput().mState[xiTurn].mValue != xiNewValue);
+      getSingleInput().changeOutput(xiNewValue == Tristate.TRUE ? Tristate.FALSE : Tristate.TRUE, xiTurn);
+    }
+  }
+
 }

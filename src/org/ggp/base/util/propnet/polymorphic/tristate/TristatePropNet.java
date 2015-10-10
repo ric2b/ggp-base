@@ -33,7 +33,7 @@ public class TristatePropNet extends PolymorphicPropNet
     for (int lii = 0; lii < 3; lii++)
     {
       lInitProp.mState[lii].mValue = Tristate.FALSE;
-      lInitProp.changeOutput(lii, false);
+      lInitProp.propagateOutput(lii, false);
     }
   }
 }

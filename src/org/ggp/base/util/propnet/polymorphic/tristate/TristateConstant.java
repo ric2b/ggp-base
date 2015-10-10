@@ -14,4 +14,13 @@ public class TristateConstant extends TristateComponent implements PolymorphicCo
   {
     throw new RuntimeException("Constants don't have inputs!");
   }
+
+  @Override
+  public void changeOutput(Tristate xiNewValue, int xiTurn)
+  {
+    assert(xiNewValue != Tristate.UNKNOWN);
+
+    // Constants can't learn a new value!
+  }
+
 }

@@ -96,13 +96,21 @@ public abstract class TristateComponent implements PolymorphicComponent
   public abstract void changeInput(Tristate xiNewValue, int xiTurn);
 
   /**
+   * Inform a component that its output value has changed - i.e. back propagation.
+   *
+   * @param xiNewValue - the new value, either TRUE or FALSE.
+   * @param xiTurn - the turn (0 for previous, 1 for current, 2 for next).
+   */
+  public abstract void changeOutput(Tristate xiNewValue, int xiTurn);
+
+  /**
    * Propagate a change in output state through the network.  Components MUST NOT call this method unless their output
    * has actually changed.  Components must set mValue before calling this method.
    *
    * @param xiTurn - the turn for the component doing the propagation.
    * @param xiIncrement - whether to increment the turn for the next component(s).
    */
-  protected void changeOutput(int xiTurn, boolean xiIncrement)
+  protected void propagateOutput(int xiTurn, boolean xiIncrement)
   {
     for (TristateComponent lOutput : mOutputs)
     {
@@ -131,25 +139,25 @@ public abstract class TristateComponent implements PolymorphicComponent
   }
 
   @Override
-  public Collection<? extends PolymorphicComponent> getInputs()
+  public Collection<? extends TristateComponent> getInputs()
   {
     return mInputs;
   }
 
   @Override
-  public PolymorphicComponent getSingleInput()
+  public TristateComponent getSingleInput()
   {
     return mInputs.iterator().next();
   }
 
   @Override
-  public Collection<? extends PolymorphicComponent> getOutputs()
+  public Collection<? extends TristateComponent> getOutputs()
   {
     return mOutputs;
   }
 
   @Override
-  public PolymorphicComponent getSingleOutput()
+  public TristateComponent getSingleOutput()
   {
     return mOutputs.iterator().next();
   }

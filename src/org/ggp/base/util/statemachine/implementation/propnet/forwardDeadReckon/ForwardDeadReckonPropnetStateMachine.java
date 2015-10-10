@@ -508,7 +508,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     mNegativeBasePropLatches = new HashSet<>();
     HashSet<PolymorphicComponent> lAllBasePropLatches = new HashSet<>();
 
-    // Do bi-drectional tri-state analysis on the full propnet to find latches.
+    // Do bi-directional tri-state analysis on the full propnet to find latches.
     boolean lDoTristateLatchDetection = false;
     if (lDoTristateLatchDetection)
     {

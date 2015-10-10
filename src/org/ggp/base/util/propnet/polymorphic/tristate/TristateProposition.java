@@ -64,7 +64,11 @@ public class TristateProposition extends TristateComponent implements Polymorphi
     boolean lLatch = false;
     try
     {
-      changeOutput(1, false);
+      // Do forward propagation.
+      propagateOutput(1, false);
+
+      // Do backward propagation.
+      getSingleInput().changeOutput(mState[1].mValue, 1);
     }
     catch (LatchFoundException lEx)
     {
@@ -87,16 +91,40 @@ public class TristateProposition extends TristateComponent implements Polymorphi
       throw new LatchFoundException(xiNewValue == Tristate.TRUE);
     }
 
-    mState[xiTurn].mValue = xiNewValue;
-    changeOutput(xiTurn, false);
-
-    // If this is a LEGAL prop and it has become FALSE, set the corresponding DOES prop to FALSE in the next turn.
-    if (mState[xiTurn].mValue == Tristate.FALSE)
+    if (mState[xiTurn].mValue == Tristate.UNKNOWN)
     {
-      TristateProposition lDoes = (TristateProposition)mParent.getLegalInputMap().get(this);
-      if ((lDoes != null) && (xiTurn < 2))
+      mState[xiTurn].mValue = xiNewValue;
+      propagateOutput(xiTurn, false);
+
+      // If this is a LEGAL prop and it has become FALSE, set the corresponding DOES prop to FALSE in the next turn.
+      if (mState[xiTurn].mValue == Tristate.FALSE)
       {
-        lDoes.changeInput(Tristate.FALSE, xiTurn + 1);
+        TristateProposition lDoes = (TristateProposition)mParent.getLegalInputMap().get(this);
+        if ((lDoes != null) && (xiTurn < 2))
+        {
+          lDoes.changeInput(Tristate.FALSE, xiTurn + 1);
+        }
+      }
+    }
+  }
+
+  @Override
+  public void changeOutput(Tristate xiNewValue, int xiTurn)
+  {
+    assert(xiNewValue != Tristate.UNKNOWN);
+
+    if (mState[xiTurn].mValue == Tristate.UNKNOWN)
+    {
+      // We've learned our output value from downstream.
+      mState[xiTurn].mValue = xiNewValue;
+
+      // Tell any other downstream components.
+      propagateOutput(xiTurn, false);
+
+      // Tell the (single) upstream component (if any - DOES propositions don't have inputs).
+      if (getInputs().size() == 1)
+      {
+        getSingleInput().changeOutput(xiNewValue, xiTurn);
       }
     }
   }

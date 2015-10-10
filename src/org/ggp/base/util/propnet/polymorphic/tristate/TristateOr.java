@@ -17,12 +17,37 @@ public class TristateOr extends TristateComponent implements PolymorphicOr
       if (xiNewValue == Tristate.TRUE)
       {
         mState[xiTurn].mValue = Tristate.TRUE;
-        changeOutput(xiTurn, false);
+        propagateOutput(xiTurn, false);
       }
       else if (--(mState[xiTurn].mNumUnknownInputs) == 0)
       {
         mState[xiTurn].mValue = Tristate.FALSE;
-        changeOutput(xiTurn, false);
+        propagateOutput(xiTurn, false);
+      }
+    }
+  }
+
+  @Override
+  public void changeOutput(Tristate xiNewValue, int xiTurn)
+  {
+    assert(xiNewValue != Tristate.UNKNOWN);
+
+    if (mState[xiTurn].mValue == Tristate.UNKNOWN)
+    {
+      // We've learned our output value from downstream.
+      mState[xiTurn].mValue = xiNewValue;
+
+      // Tell any other downstream components.
+      propagateOutput(xiTurn, false);
+
+      // If FALSE, all the upstream components must be FALSE.  (This is an OR gate.)
+      if (xiNewValue == Tristate.FALSE)
+      {
+        for (TristateComponent lInput : getInputs())
+        {
+          assert(lInput.mState[xiTurn].mValue != Tristate.TRUE);
+          lInput.changeOutput(Tristate.FALSE, xiTurn);
+        }
       }
     }
   }
