@@ -59,15 +59,18 @@ public class TristateProposition extends TristateComponent implements Polymorphi
     }
 
     mTesting = true;
+    // mState[0].mValue = (xiValue ? Tristate.FALSE : Tristate.TRUE);
     mState[1].mValue = (xiValue ? Tristate.TRUE : Tristate.FALSE);
 
     boolean lLatch = false;
     try
     {
       // Do forward propagation.
+      // !! ARR Not working propagateOutput(0, false);
       propagateOutput(1, false);
 
       // Do backward propagation.
+      // !! ARR Not working.  getSingleInput().changeOutput(mState[0].mValue, 0);
       getSingleInput().changeOutput(mState[1].mValue, 1);
     }
     catch (LatchFoundException lEx)

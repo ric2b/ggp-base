@@ -12,6 +12,15 @@ public class TristateOr extends TristateComponent implements PolymorphicOr
   @Override
   public void changeInput(Tristate xiNewValue, int xiTurn)
   {
+    if (xiNewValue == Tristate.TRUE)
+    {
+      mState[xiTurn].mNumTrueInputs++;
+    }
+    else
+    {
+      mState[xiTurn].mNumFalseInputs++;
+    }
+
     if (mState[xiTurn].mValue == Tristate.UNKNOWN)
     {
       if (xiNewValue == Tristate.TRUE)
@@ -25,6 +34,8 @@ public class TristateOr extends TristateComponent implements PolymorphicOr
         propagateOutput(xiTurn, false);
       }
     }
+
+    checkReverseInference(xiTurn);
   }
 
   @Override
@@ -49,6 +60,29 @@ public class TristateOr extends TristateComponent implements PolymorphicOr
           lInput.changeOutput(Tristate.FALSE, xiTurn);
         }
       }
+
+      checkReverseInference(xiTurn);
     }
   }
+
+  private void checkReverseInference(int xiTurn)
+  {
+    // If the output of this OR gate is known to be TRUE, at least 1 input must be TRUE.  If there's exactly 1
+    // UNKNOWN input and all the others are FALSE, the 1 remaining input must be TRUE.
+    if ((mState[xiTurn].mValue == Tristate.TRUE) &&
+        (mState[xiTurn].mNumUnknownInputs == 1) &&
+        (mState[xiTurn].mNumTrueInputs == 0))
+    {
+      // Find the input component with UNKNOWN value.
+      for (TristateComponent lInput : getInputs())
+      {
+        if (lInput.mState[xiTurn].mValue != Tristate.UNKNOWN)
+        {
+          // Back-propagate that this component must be TRUE.
+          lInput.changeOutput(Tristate.TRUE, xiTurn);
+        }
+      }
+    }
+  }
+
 }

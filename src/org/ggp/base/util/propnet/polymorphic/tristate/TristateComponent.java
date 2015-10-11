@@ -44,9 +44,21 @@ public abstract class TristateComponent implements PolymorphicComponent
     protected Tristate mValue;
 
     /**
-     * The number of input values that are unknown.
+     * The number of input values that are UNKNOWN.
      */
     protected int mNumUnknownInputs;
+
+    /**
+     * The number of input values that are known to be TRUE.  (Only tracked for AND/OR which are the only multi-input
+     * components.)
+     */
+    protected int mNumTrueInputs;
+
+    /**
+     * The number of input values that are known to be FALSE.  (Only tracked for AND/OR which are the only multi-input
+     * components.)
+     */
+    protected int mNumFalseInputs;
   }
 
   /**
