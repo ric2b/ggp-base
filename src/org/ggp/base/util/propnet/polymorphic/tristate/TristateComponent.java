@@ -96,6 +96,8 @@ public abstract class TristateComponent implements PolymorphicComponent
     {
       mState[ii].mValue = Tristate.UNKNOWN;
       mState[ii].mNumUnknownInputs = mInputs.size();
+      mState[ii].mNumTrueInputs = 0;
+      mState[ii].mNumFalseInputs = 0;
     }
   }
 
