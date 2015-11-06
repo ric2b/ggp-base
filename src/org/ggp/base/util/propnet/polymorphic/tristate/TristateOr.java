@@ -76,7 +76,7 @@ public class TristateOr extends TristateComponent implements PolymorphicOr
       // Find the input component with UNKNOWN value.
       for (TristateComponent lInput : getInputs())
       {
-        if (lInput.mState[xiTurn].mValue != Tristate.UNKNOWN)
+        if (lInput.mState[xiTurn].mValue == Tristate.UNKNOWN)
         {
           // Back-propagate that this component must be TRUE.
           lInput.changeOutput(Tristate.TRUE, xiTurn);
