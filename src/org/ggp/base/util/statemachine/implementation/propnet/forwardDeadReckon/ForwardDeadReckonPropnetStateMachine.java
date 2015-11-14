@@ -15,6 +15,8 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration;
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.player.gamer.statemachine.sancho.RuntimeGameCharacteristics;
 import org.ggp.base.player.gamer.statemachine.sancho.TreePath;
@@ -509,24 +511,24 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     HashSet<PolymorphicComponent> lAllBasePropLatches = new HashSet<>();
 
     // Do bi-directional tri-state analysis on the full propnet to find latches.
-    boolean lDoTristateLatchDetection = false;
-    if (lDoTristateLatchDetection)
+    if (MachineSpecificConfiguration.getCfgBool(CfgItem.TRISTATE_LATCH_ANALYSIS))
     {
       TristatePropNet lTristateNet = new TristatePropNet(fullPropNet);
       Map<PolymorphicComponent, PolymorphicComponent> lSourceToTarget = PolymorphicPropNet.sLastSourceToTargetMap;
       for (PolymorphicComponent lSourceComp1 : fullPropNet.getBasePropositionsArray())
       {
         TristateProposition lTargetComp1 = (TristateProposition)lSourceToTarget.get(lSourceComp1);
-        LOGGER.info("Checking whether " + lTargetComp1.getName() + " is a latch");
-        lTristateNet.reset();
-        if (lTargetComp1.isLatch(false))
-        {
-          LOGGER.info("  Yes - it's a negative latch");
-        }
+
         lTristateNet.reset();
         if (lTargetComp1.isLatch(true))
         {
           LOGGER.info("  Yes - it's a positive latch");
+        }
+
+        lTristateNet.reset();
+        if (lTargetComp1.isLatch(false))
+        {
+          LOGGER.info("  Yes - it's a negative latch");
         }
       }
     }

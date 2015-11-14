@@ -1,10 +1,14 @@
 package org.ggp.base.util.propnet.polymorphic.tristate;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 
 public class TristateProposition extends TristateComponent implements PolymorphicProposition
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   private GdlSentence mName;
   private boolean mTesting;
 
@@ -47,6 +51,8 @@ public class TristateProposition extends TristateComponent implements Polymorphi
    */
   public boolean isLatch(boolean xiValue)
   {
+    LOGGER.info("Checking whether " + getName() + " is a " + (xiValue ? "+" : "-") + "ve latch");
+
     assert(!mTesting) : "Can't set value of a proposition that has already been set - use 'reset' on the parent network";
 
     // If the value has already been set, it must have been set as part of assuming that init is false.  (Often this
@@ -59,18 +65,18 @@ public class TristateProposition extends TristateComponent implements Polymorphi
     }
 
     mTesting = true;
-    // mState[0].mValue = (xiValue ? Tristate.FALSE : Tristate.TRUE);
+    mState[0].mValue = (xiValue ? Tristate.FALSE : Tristate.TRUE);
     mState[1].mValue = (xiValue ? Tristate.TRUE : Tristate.FALSE);
 
     boolean lLatch = false;
     try
     {
       // Do forward propagation.
-      // !! ARR Not working propagateOutput(0, false);
+      propagateOutput(0, false);
       propagateOutput(1, false);
 
       // Do backward propagation.
-      // !! ARR Not working.  getSingleInput().changeOutput(mState[0].mValue, 0);
+      getSingleInput().changeOutput(mState[0].mValue, 0);
       getSingleInput().changeOutput(mState[1].mValue, 1);
     }
     catch (LatchFoundException lEx)
@@ -96,6 +102,8 @@ public class TristateProposition extends TristateComponent implements Polymorphi
 
     if (mState[xiTurn].mValue == Tristate.UNKNOWN)
     {
+      LOGGER.info(mName + "has become " + xiNewValue + " in turn " + xiTurn + " by forward prop");
+
       mState[xiTurn].mValue = xiNewValue;
       propagateOutput(xiTurn, false);
 
@@ -118,6 +126,8 @@ public class TristateProposition extends TristateComponent implements Polymorphi
 
     if (mState[xiTurn].mValue == Tristate.UNKNOWN)
     {
+      LOGGER.info(mName + "has become " + xiNewValue + " in turn " + xiTurn + " by backward prop");
+
       // We've learned our output value from downstream.
       mState[xiTurn].mValue = xiNewValue;
 

@@ -141,6 +141,11 @@ public class MachineSpecificConfiguration
     TREE_DUMP(null),
 
     /**
+     * Full path of file to dump tree to after each move
+     */
+    TRISTATE_LATCH_ANALYSIS(false),
+
+    /**
      * Limit on number of MCTS expansions to perform per turn (for testing)
      */
     MAX_ITERATIONS_PER_TURN(-1);
