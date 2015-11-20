@@ -58,4 +58,14 @@ public abstract class SearchTree
   {
     return root.getBestMove();
   }
+
+  /**
+   * Dump the scores of the immediate children of the root.
+   *
+   * @param xiDumpHeadings - whether to dump table headings.
+   */
+  public void dumpRootData(boolean xiDumpHeadings)
+  {
+    root.dumpChildScores(xiDumpHeadings);
+  }
 }

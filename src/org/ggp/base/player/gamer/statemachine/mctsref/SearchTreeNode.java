@@ -3,6 +3,8 @@ package org.ggp.base.player.gamer.statemachine.mctsref;
 import java.util.Collection;
 import java.util.Random;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
@@ -11,6 +13,8 @@ import org.ggp.base.util.statemachine.Role;
 
 public abstract class SearchTreeNode<TreeType extends SearchTree>
 {
+  private static final Logger LOGGER = LogManager.getLogger();
+
   protected static final double EPSILON = 0.001;
   private static final Random RAND = new Random();
 
@@ -49,7 +53,7 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
 
     for(int i = 0; i < children.length; i++)
     {
-      System.out.println("Move " + childMoves[i].mMove + " scores: " + children[i].scoreVector[choosingRole] + " after " + children[i].numVisits + " visits");
+      LOGGER.info("Move " + childMoves[i].mMove + " scores: " + children[i].scoreVector[choosingRole] + " after " + children[i].numVisits + " visits");
       if ( children[i].scoreVector[choosingRole] > bestScore || (children[i].scoreVector[choosingRole] == bestScore && children[i].complete) )
       {
         bestScore = children[i].scoreVector[choosingRole];
@@ -58,6 +62,27 @@ public abstract class SearchTreeNode<TreeType extends SearchTree>
     }
 
     return result;
+  }
+
+  public void dumpChildScores(boolean xiDumpHeadings)
+  {
+    StringBuilder lHeading = new StringBuilder("Iterations");
+    StringBuilder lRow = new StringBuilder("" + numVisits);
+
+    for(int i = 0; i < children.length; i++)
+    {
+      lHeading.append(',');
+      lHeading.append(childMoves[i].mMove);
+
+      lRow.append(',');
+      lRow.append(children[i].scoreVector[choosingRole]);
+    }
+
+    if (xiDumpHeadings)
+    {
+      LOGGER.info(lHeading.toString());
+    }
+    LOGGER.info(lRow.toString());
   }
 
   @SuppressWarnings("unchecked")

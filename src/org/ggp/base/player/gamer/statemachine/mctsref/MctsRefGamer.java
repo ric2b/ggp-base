@@ -1,5 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.mctsref;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.exception.GamePreviewException;
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.ThreadControl;
@@ -14,23 +16,25 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 
 public class MctsRefGamer extends StateMachineGamer
 {
-  private final long                            SAFETY_MARGIN = 2500;
+  private static final Logger LOGGER = LogManager.getLogger();
 
-  private ForwardDeadReckonPropnetStateMachine  underlyingStateMachine = null;
-  private SearchTree                            tree = null;
-  private                                       int turnCount = 0;
+  private static final long                     SAFETY_MARGIN = 2500;
+
+  private ForwardDeadReckonPropnetStateMachine  mUnderlyingStateMachine = null;
+  private SearchTree                            mTree = null;
+  private int                                   mTurnCount = 0;
 
   @Override
   public StateMachine getInitialStateMachine()
   {
-    underlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
+    mUnderlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
                                                                       getMetaGamingTimeout(),
                                                                       getRole(),
                                                                       mGameCharacteristics);
 
     System.gc();
 
-    return underlyingStateMachine;
+    return mUnderlyingStateMachine;
   }
 
   @Override
@@ -38,9 +42,9 @@ public class MctsRefGamer extends StateMachineGamer
       throws TransitionDefinitionException, MoveDefinitionException,
       GoalDefinitionException
   {
-    underlyingStateMachine.enableGreedyRollouts(false, true);
-    tree = new BasicMCTSSearchTree(underlyingStateMachine);
-    turnCount = 1;
+    mUnderlyingStateMachine.enableGreedyRollouts(false, true);
+    mTree = new BasicMCTSSearchTree(mUnderlyingStateMachine);
+    mTurnCount = 0;
   }
 
   @Override
@@ -48,24 +52,32 @@ public class MctsRefGamer extends StateMachineGamer
       throws TransitionDefinitionException, MoveDefinitionException,
       GoalDefinitionException
   {
-    long finishBy = xiTimeout - SAFETY_MARGIN;// + 100000000;
+    long finishBy = xiTimeout - SAFETY_MARGIN;
     int iterations = 0;
+    boolean lFirstDump = true;
 
-    System.out.println("Starting turn " + turnCount++);
+    System.out.println("Starting turn " + ++mTurnCount);
 
     //  Convert to internal rep
-    ForwardDeadReckonInternalMachineState currentState = underlyingStateMachine.createInternalState(getCurrentState());
+    ForwardDeadReckonInternalMachineState currentState = mUnderlyingStateMachine.createInternalState(getCurrentState());
 
     //  For now reset the tree every turn
-    tree.clear(currentState);
+    mTree.clear(currentState);
 
-    while(System.currentTimeMillis() < finishBy && !tree.isSolved())
+    while(System.currentTimeMillis() < finishBy && !mTree.isSolved())
     {
       iterations++;
-      tree.grow();
+      mTree.grow();
+
+      // Dump data to allow us to plot learning curves.
+      if ((iterations % 5000) == 0)
+      {
+        mTree.dumpRootData(lFirstDump);
+        lFirstDump = false;
+      }
     }
 
-    Move bestMove = tree.getBestMove();
+    Move bestMove = mTree.getBestMove();
     System.out.println("Processed " + iterations + " iterations, and playing: " + bestMove);
     return bestMove;
   }

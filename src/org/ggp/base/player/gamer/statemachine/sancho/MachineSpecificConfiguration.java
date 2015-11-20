@@ -148,7 +148,12 @@ public class MachineSpecificConfiguration
     /**
      * Limit on number of MCTS expansions to perform per turn (for testing)
      */
-    MAX_ITERATIONS_PER_TURN(-1);
+    MAX_ITERATIONS_PER_TURN(-1),
+
+    /**
+     * Reference player uses an exponential moving average during updates.
+     */
+    REF_USES_MOVING_AVERAGE(false);
 
 
     /**
