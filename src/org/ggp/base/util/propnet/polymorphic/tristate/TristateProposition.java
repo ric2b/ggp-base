@@ -102,7 +102,7 @@ public class TristateProposition extends TristateComponent implements Polymorphi
 
     if (mState[xiTurn].mValue == Tristate.UNKNOWN)
     {
-      LOGGER.info(mName + "has become " + xiNewValue + " in turn " + xiTurn + " by forward prop");
+      LOGGER.info(mName + " has become " + xiNewValue + " in turn " + xiTurn + " by forward inference");
 
       mState[xiTurn].mValue = xiNewValue;
       propagateOutput(xiTurn, false);
@@ -126,7 +126,7 @@ public class TristateProposition extends TristateComponent implements Polymorphi
 
     if (mState[xiTurn].mValue == Tristate.UNKNOWN)
     {
-      LOGGER.info(mName + "has become " + xiNewValue + " in turn " + xiTurn + " by backward prop");
+      LOGGER.info(mName + " has become " + xiNewValue + " in turn " + xiTurn + " by backward inference");
 
       // We've learned our output value from downstream.
       mState[xiTurn].mValue = xiNewValue;
