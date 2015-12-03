@@ -6,7 +6,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 /**
- * Test all the Stanford puzzles.
+ * Test the 1st half of the puzzles in the Base repository.
  */
 @RunWith(Parameterized.class)
 public class BasePuzzleTest1 extends PuzzleBase
