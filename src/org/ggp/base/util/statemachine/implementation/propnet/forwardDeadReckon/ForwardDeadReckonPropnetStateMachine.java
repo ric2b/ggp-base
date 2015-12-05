@@ -3928,9 +3928,19 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return true;
   }
 
+  /**
+   * Select a random joint move, according to the policy (if any), and execute it.  Record the played moves in the
+   * provided array.
+   *
+   * @param factor         - the filter for the factor being played in (or null for the only factor).
+   * @param playedMoves    - array to fill in with the chosen moves.
+   * @param statesVisited
+   *
+   * @return the maximum number of choices of any role.
+   */
   private int transitionToRandomJointMove(StateMachineFilter factor,
-                                    ForwardDeadReckonLegalMoveInfo[] playedMoves,
-                                    ForwardDeadReckonInternalMachineState[] statesVisited)
+                                          ForwardDeadReckonLegalMoveInfo[] playedMoves,
+                                          ForwardDeadReckonInternalMachineState[] statesVisited)
   {
 		int result = 0;
     int numChoices;
@@ -3941,12 +3951,15 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     ForwardDeadReckonLegalMoveSet activeLegalMoves = getLegalMoveSet(lastInternalSetState);
     int startingDepth = rolloutDepth;
     boolean subtreeFullySearched = false;
+    boolean lSimultaneousChoices = false;
 
     if ( mPlayoutPolicy != null )
     {
       mPlayoutPolicy.noteCurrentState(statesVisited == null ? lastInternalSetState : statesVisited[rolloutDepth], activeLegalMoves, factor, rolloutDepth, playedMoves, statesVisited);
     }
 
+    // When playing with a non-default policy, we might need to chose moves multiple times (if there was stack-popping
+    // involved).
     do
     {
       int index = 0;
@@ -3954,6 +3967,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       ForwardDeadReckonLegalMoveInfo chooserChoice = null;
       boolean policySelectedMove = false;
 
+      // Choose a move for every role.
       for (int roleIndex = 0; roleIndex < numRoles; roleIndex++)
       {
         ForwardDeadReckonLegalMoveSet moves = activeLegalMoves;
@@ -3965,17 +3979,18 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           chosen = mPlayoutPolicy.selectMove(roleIndex);
         }
 
-        if ( chosen == null )
+        if (chosen == null)
         {
-          if ( factor == null )
+          if (factor == null)
           {
+            // In the default case, we'll just select between all legal moves.
             numChoices = moves.getNumChoices(roleIndex);
             itr = moves.getContents(roleIndex).iterator();
           }
           else
           {
-            //  In a factored game the terminal logic can sometimes span the factors in a way we don't
-            //  cleanly cater for currently, so use lack of legal moves as a proxy for terminality.
+            // In a factored game the terminal logic can sometimes span the factors in a way we don't cleanly cater for
+            // currently, so use lack of legal moves as a proxy for terminality.
             if (moves.getNumChoices(roleIndex) == 0)
             {
               return 0;
@@ -3986,33 +4001,36 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
             itr = moves.getContents(roleIndex).iterator();
           }
 
+          // Keep a high-water mark of the number of choices for any role.  We'll return this to the caller.
           if (numChoices > result)
           {
             result = numChoices;
           }
 
           int moveIndex;
-          if ( numChoices > 1 )
+          if (numChoices > 1)
           {
-            if ( choosingRole != -1 && choosingRole != roleIndex )
+            if ((choosingRole != -1 && choosingRole != roleIndex) || (lSimultaneousChoices))
             {
-              //  Multiple roles have choices so this must be a simultaneous move game
-              //  which we do not currently support playout policies in, and for which we
-              //  must independently select moves for each role
+              // Multiple roles have choices so this must be a simultaneous move game which we do not currently support
+              // playout policies in, and for which we must independently select moves for each role.
               choosingRole = -1;
               choiceIndex = -1;
+              lSimultaneousChoices = true;
             }
             else
             {
+              // We've found a role with a choice.  Assume, for now, that it's the only role with a choice.  (If another
+              // role turns out to have a choice, we'll go through the branch above and clear the choosingRole index.)
               choosingRole = roleIndex;
               numChooserChoices = numChoices;
             }
 
-            if ( choiceIndex == -1 )
+            if (choiceIndex == -1)
             {
               choiceIndex = getRandom(numChoices);
 
-              if ( playoutStackMoveInitialChoiceIndex != null )
+              if (playoutStackMoveInitialChoiceIndex != null)
               {
                 playoutStackMoveInitialChoiceIndex[rolloutDepth] = choiceIndex;
               }
@@ -4024,6 +4042,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           }
           else
           {
+            // Select the only available move.
             moveIndex = 0;
           }
 
