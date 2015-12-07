@@ -32,7 +32,7 @@ public class TrainedEvaluationFunction
     // - Hidden layer is 2/3 of the input size.
     // - Output layer is a single node.
     mSize = xiSize;
-    mNetwork = new MultiLayerPerceptron(TransferFunctionType.SIGMOID, mSize, mSize * 3 / 2, 1);
+    mNetwork = new MultiLayerPerceptron(TransferFunctionType.SIGMOID, mSize, mSize * 3, 1);
     double lRange = 1 / Math.sqrt(xiSize);
     mNetwork.randomizeWeights(-lRange, lRange);
 
@@ -42,7 +42,7 @@ public class TrainedEvaluationFunction
     // Create a learning rule for a single update.
     mLearningRule = new BackPropagation();
     mLearningRule.setMaxIterations(1);
-    mLearningRule.setMaxError(0);
+    mLearningRule.setLearningRate(0.05);
     mLearningRule.setNeuralNetwork(mNetwork);
   }
 
@@ -87,6 +87,6 @@ public class TrainedEvaluationFunction
 
   public void train()
   {
-    mLearningRule.doLearningEpoch(mTrainingSet);
+    mLearningRule.doOneLearningIteration(mTrainingSet);
   }
 }

@@ -58,19 +58,16 @@ public class LearningGamer extends StateMachineGamer
         // Build a depth-limited game tree, by minimax, using the position evaluation function at the non-terminal
         // leaf nodes.
         LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, getRole());
-        LOGGER.info("Initially, learned value is " + mEvalFunc.evaluate(mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState())));
-        double lValue = lTree.search(mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState()));
-        lTree.report();
+        lTree.search(mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState()));
 
         for (int lii = 0; lii < 10000; lii++)
         {
-          mEvalFunc.train();
-
-          if (lii % 100 == 0)
+          if ((Integer.bitCount(lii) == 1) || (lii % 100 == 0))
           {
-            LOGGER.info("After " + lii + " iterations, learned value is " + mEvalFunc.evaluate(mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState())));
-            lTree.report();
+            LOGGER.info("After " + lii + " iterations, average error = " + lTree.getAverageError() + ", wrong moves = " + lTree.getWrongMoves());
           }
+
+          mEvalFunc.train();
         }
       }
     }
