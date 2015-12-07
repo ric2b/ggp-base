@@ -215,6 +215,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      *
      * @return the number of elements in this list
      */
+    @Override
     public int size() {
         return size;
     }
@@ -224,6 +225,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      *
      * @return <tt>true</tt> if this list contains no elements
      */
+    @Override
     public boolean isEmpty() {
         return size == 0;
     }
@@ -237,6 +239,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      * @param o element whose presence in this list is to be tested
      * @return <tt>true</tt> if this list contains the specified element
      */
+    @Override
     public boolean contains(Object o) {
         return indexOf(o) >= 0;
     }
@@ -248,6 +251,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      * <tt>(o==null&nbsp;?&nbsp;get(i)==null&nbsp;:&nbsp;o.equals(get(i)))</tt>,
      * or -1 if there is no such index.
      */
+    @Override
     public int indexOf(Object o) {
         if (o == null) {
             for (int i = 0; i < size; i++)
@@ -268,6 +272,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      * <tt>(o==null&nbsp;?&nbsp;get(i)==null&nbsp;:&nbsp;o.equals(get(i)))</tt>,
      * or -1 if there is no such index.
      */
+    @Override
     public int lastIndexOf(Object o) {
         if (o == null) {
             for (int i = size-1; i >= 0; i--)
@@ -287,6 +292,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      *
      * @return a clone of this <tt>ArrayList</tt> instance
      */
+    @Override
     public Object clone() {
         try {
             @SuppressWarnings("unchecked")
@@ -314,6 +320,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      * @return an array containing all of the elements in this list in
      *         proper sequence
      */
+    @Override
     public Object[] toArray() {
         return Arrays.copyOf(elementData, size);
     }
@@ -346,6 +353,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      *         this list
      * @throws NullPointerException if the specified array is null
      */
+    @Override
     @SuppressWarnings("unchecked")
     public <T> T[] toArray(T[] a) {
         if (a.length < size)
@@ -370,6 +378,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      * @return the element at the specified position in this list
      * @throws IndexOutOfBoundsException {@inheritDoc}
      */
+    @Override
     public E get(int index) {
         // rangeCheck(index); // save one method call here - it will throw exception anyway
 
@@ -385,6 +394,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      * @return the element previously at the specified position
      * @throws IndexOutOfBoundsException {@inheritDoc}
      */
+    @Override
     public E set(int index, E element) {
         rangeCheck(index);
 
@@ -399,6 +409,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      * @param e element to be appended to this list
      * @return <tt>true</tt> (as specified by {@link Collection#add})
      */
+    @Override
     public boolean add(E e) {
         ensureCapacityInternal(size + 1);  // Increments modCount!!
         elementData[size++] = e;
@@ -414,6 +425,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      * @param element element to be inserted
      * @throws IndexOutOfBoundsException {@inheritDoc}
      */
+    @Override
     public void add(int index, E element) {
         rangeCheckForAdd(index);
 
@@ -433,6 +445,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      * @return the element that was removed from the list
      * @throws IndexOutOfBoundsException {@inheritDoc}
      */
+    @Override
     public E remove(int index) {
         rangeCheck(index);
 
@@ -461,6 +474,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      * @param o element to be removed from this list, if present
      * @return <tt>true</tt> if this list contained the specified element
      */
+    @Override
     public boolean remove(Object o) {
         if (o == null) {
             for (int index = 0; index < size; index++)
@@ -495,6 +509,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      * Removes all of the elements from this list.  The list will
      * be empty after this call returns.
      */
+    @Override
     public void clear() {
         modCount++;
 
@@ -518,6 +533,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      * @return <tt>true</tt> if this list changed as a result of the call
      * @throws NullPointerException if the specified collection is null
      */
+    @Override
     public boolean addAll(Collection<? extends E> c) {
         Object[] a = c.toArray();
         int numNew = a.length;
@@ -550,6 +566,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      * @throws IndexOutOfBoundsException {@inheritDoc}
      * @throws NullPointerException if the specified collection is null
      */
+    @Override
     public boolean addAll(int index, Collection<? extends E> c) {
         rangeCheckForAdd(index);
 
@@ -581,6 +598,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      *          toIndex > size() ||
      *          toIndex < fromIndex})
      */
+    @Override
     protected void removeRange(int fromIndex, int toIndex) {
         modCount++;
         int numMoved = size - toIndex;
@@ -637,6 +655,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      *         or if the specified collection is null
      * @see Collection#contains(Object)
      */
+    @Override
     public boolean removeAll(Collection<?> c) {
         return batchRemove(c, false);
     }
@@ -657,6 +676,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      *         or if the specified collection is null
      * @see Collection#contains(Object)
      */
+    @Override
     public boolean retainAll(Collection<?> c) {
         return batchRemove(c, true);
     }
@@ -746,6 +766,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      *
      * @throws IndexOutOfBoundsException {@inheritDoc}
      */
+    @Override
     public ListIterator<E> listIterator(int index) {
         if (index < 0 || index > size)
             throw new IndexOutOfBoundsException("Index: "+index);
@@ -760,6 +781,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      *
      * @see #listIterator(int)
      */
+    @Override
     public ListIterator<E> listIterator() {
         return new ListItr(0);
     }
@@ -771,6 +793,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
      *
      * @return an iterator over the elements in this list in proper sequence
      */
+    @Override
     public Iterator<E> iterator() {
         return new Itr();
     }
@@ -783,10 +806,12 @@ public class NeurophArrayList<E> extends AbstractList<E>
         int lastRet = -1; // index of last element returned; -1 if no such
         int expectedModCount = modCount;
 
+        @Override
         public boolean hasNext() {
             return cursor != size;
         }
 
+        @Override
         @SuppressWarnings("unchecked")
         public E next() {
             checkForComodification();
@@ -800,6 +825,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
             return elementData[lastRet = i];
         }
 
+        @Override
         public void remove() {
             if (lastRet < 0)
                 throw new IllegalStateException();
@@ -830,18 +856,22 @@ public class NeurophArrayList<E> extends AbstractList<E>
             cursor = index;
         }
 
+        @Override
         public boolean hasPrevious() {
             return cursor != 0;
         }
 
+        @Override
         public int nextIndex() {
             return cursor;
         }
 
+        @Override
         public int previousIndex() {
             return cursor - 1;
         }
 
+        @Override
         @SuppressWarnings("unchecked")
         public E previous() {
             checkForComodification();
@@ -855,6 +885,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
             return elementData[lastRet = i];
         }
 
+        @Override
         public void set(E e) {
             if (lastRet < 0)
                 throw new IllegalStateException();
@@ -867,6 +898,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
             }
         }
 
+        @Override
         public void add(E e) {
             checkForComodification();
 

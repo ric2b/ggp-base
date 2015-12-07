@@ -11,6 +11,7 @@ public class RectifiedLinear extends TransferFunction {
     }
 
 
+    @Override
     public double getDerivative(double net) {
         if (net > Double.MIN_VALUE)
             return 1;

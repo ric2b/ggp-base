@@ -52,7 +52,8 @@ public class HopfieldLearning extends LearningRule {
 	 * @param trainingSet
 	 *            training set to learn
 	 */
-	public void learn(DataSet trainingSet) {
+	@Override
+  public void learn(DataSet trainingSet) {
 		int M = trainingSet.size();
 		int N = neuralNetwork.getLayerAt(0).getNeuronsCount();
 		Layer hopfieldLayer = neuralNetwork.getLayerAt(0);

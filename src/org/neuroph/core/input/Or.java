@@ -35,7 +35,8 @@ public class Or extends InputFunction implements Serializable {
 	/**
 	 * @param inputVector Input values >= 0.5d are considered true, otherwise false.
 	 */
-	public double getOutput(Connection[] inputConnections) {
+	@Override
+  public double getOutput(Connection[] inputConnections) {
               if (inputConnections.length == 0) return 0d;
 
 		boolean output = false;

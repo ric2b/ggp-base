@@ -93,6 +93,7 @@ public class BenchmarkTaskResults {
         this.standardDeviation = Math.sqrt(sqrSum / (double)timesCounter);
     }
     
+    @Override
     public String toString() {
         String results = "Test iterations: " + testIterations  + "\n" +
                "Min time: " + minTestTime  + " ms\n" +

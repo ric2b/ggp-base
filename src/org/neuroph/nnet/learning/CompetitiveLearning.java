@@ -62,7 +62,8 @@ public class CompetitiveLearning extends UnsupervisedLearning {
 	/**
 	 * Adjusts weights for the winning neuron
 	 */
-	protected void updateNetworkWeights() {
+	@Override
+  protected void updateNetworkWeights() {
 		// find active neuron in output layer
 		// TODO : change idx, in general case not 1
 		CompetitiveNeuron winningNeuron = ((CompetitiveLayer) neuralNetwork
