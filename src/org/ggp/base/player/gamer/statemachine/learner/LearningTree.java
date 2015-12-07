@@ -59,13 +59,12 @@ public class LearningTree
    * Perform a depth-first search from the specified state.
    *
    * @param xiState - the state.
+   * @param xiCutOff - cut-off depth.
    */
-  public double search(ForwardDeadReckonInternalMachineState xiState)
+  public double search(ForwardDeadReckonInternalMachineState xiState, int xiCutOff)
   {
-    LOGGER.info("Learning during DFS");
-
-    mStackState[0] = xiState;
-    return search(0, 9);
+    mStackState[0] = new ForwardDeadReckonInternalMachineState(xiState);
+    return search(0, xiCutOff);
   }
 
   /**
@@ -86,8 +85,8 @@ public class LearningTree
     if (mStateMachine.isTerminal(mStackState[xiDepth]))
     {
       double lValue = mStateMachine.getGoal(mRole);
-      mEvalFunc.sample(mStackState[xiDepth], lValue);
-      mScoreMap.put(new ForwardDeadReckonInternalMachineState(mStackState[xiDepth]), lValue);
+      // mEvalFunc.sample(mStackState[xiDepth], lValue);
+      // mScoreMap.put(new ForwardDeadReckonInternalMachineState(mStackState[xiDepth]), lValue);
       return lValue;
     }
 
@@ -95,7 +94,6 @@ public class LearningTree
     // evaluation function at this point - it would just blindly reinforce the current beliefs.)
     if (xiDepth >= xiCutOff)
     {
-      LOGGER.error("Not currently expecting cut-offs");
       return mEvalFunc.evaluate(mStackState[xiDepth]);
     }
 
@@ -292,5 +290,98 @@ public class LearningTree
       // LOGGER.warn(lError);
     }
     return lRight;
+  }
+
+  public ForwardDeadReckonInternalMachineState greedySelection(ForwardDeadReckonInternalMachineState xiState)
+  {
+    int lDepth = 0;
+    mStackState[lDepth] = xiState;
+
+    // Iterate over all the children.
+    ForwardDeadReckonLegalMoveSet lLegals = mStateMachine.getLegalMoveSet(mStackState[lDepth]);
+    int lRoleWithChoice = -1;
+    int lNumChoices = -1;
+    for (int lii = 0; lii < mNumRoles; lii++)
+    {
+      // Store a legal move for this role.  For all roles but one, this will be the only move.  For the role with a
+      // choice, this will be the first legal move.
+      mStackJointMove[lDepth][lii] = lLegals.getContents(lii).iterator().next();
+
+      // Check if this is the role with a choice.
+      if (lLegals.getNumChoices(lii) > 1)
+      {
+        assert(lRoleWithChoice == -1) : "More than 1 role has a choice";
+        lRoleWithChoice = lii;
+        lNumChoices = 0;
+
+        // Copy out the legals before they're destroyed.
+        Iterator<ForwardDeadReckonLegalMoveInfo> lIterator = lLegals.getContents(lii).iterator();
+        while (lIterator.hasNext())
+        {
+          mStackLegals[lDepth][lNumChoices++] = lIterator.next();
+        }
+      }
+    }
+
+    if (lRoleWithChoice == -1)
+    {
+      // No role had a choice.
+      mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
+      return new ForwardDeadReckonInternalMachineState(mStackState[lDepth + 1]);
+    }
+
+    // A role had a choice.  If it was us, return the maximum-valued child.  If it wasn't, return the minimum.
+    if (lRoleWithChoice == 0)
+    {
+      // Our choice.
+      double lBestValue = -1;
+      int lBestMoveIndex = -1;
+      for (int lii = 0; lii < lNumChoices; lii++)
+      {
+        // Set the move for the role with a choice.  (All the others are set already.)
+        mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][lii];
+
+        // Get the next state.
+        mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
+        double lValue = mEvalFunc.evaluate(mStackState[lDepth + 1]);
+        if (lValue > lBestValue)
+        {
+          // We'd chose this move.
+          lBestValue = lValue;
+          lBestMoveIndex =  lii;
+        }
+      }
+
+      // Get the state for the best move.
+      mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][lBestMoveIndex];
+      mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
+    }
+    else
+    {
+      // Their choice.
+      double lBestValue = 101;
+      int lBestMoveIndex = -1;
+      for (int lii = 0; lii < lNumChoices; lii++)
+      {
+        // Set the move for the role with a choice.  (All the others are set already.)
+        mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][lii];
+
+        // Get the next state.
+        mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
+        double lValue = mEvalFunc.evaluate(mStackState[lDepth + 1]);
+        if (lValue < lBestValue)
+        {
+          // They'd chose this move.
+          lBestValue = lValue;
+          lBestMoveIndex =  lii;
+        }
+      }
+
+      // Get the state for the best move.
+      mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][lBestMoveIndex];
+      mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
+    }
+
+    return new ForwardDeadReckonInternalMachineState(mStackState[lDepth + 1]);
   }
 }

@@ -17,6 +17,7 @@ public class TrainedEvaluationFunction
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
+  private final int mNumTrainingIterations = 1;
   private final int mSize;
   private final NeuralNetwork<BackPropagation> mNetwork;
   BackPropagation mLearningRule;
@@ -42,7 +43,7 @@ public class TrainedEvaluationFunction
     // Create a learning rule for a single update.
     mLearningRule = new BackPropagation();
     mLearningRule.setMaxIterations(1);
-    mLearningRule.setLearningRate(0.05);
+    mLearningRule.setLearningRate(0.1);
     mLearningRule.setNeuralNetwork(mNetwork);
   }
 
@@ -74,6 +75,11 @@ public class TrainedEvaluationFunction
     mTrainingSet.addRow(lInputs, new double[] {xiValue / 100});
   }
 
+  public void clearSamples()
+  {
+    mTrainingSet.clear();
+  }
+
   private double[] convertStateToInputs(ForwardDeadReckonInternalMachineState xiState)
   {
     double[] lInputs = new double[mSize];
@@ -87,6 +93,9 @@ public class TrainedEvaluationFunction
 
   public void train()
   {
-    mLearningRule.doOneLearningIteration(mTrainingSet);
+    for (int lii = 0; lii < mNumTrainingIterations; lii++)
+    {
+      mLearningRule.doOneLearningIteration(mTrainingSet);
+    }
   }
 }

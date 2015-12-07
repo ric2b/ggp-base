@@ -7,7 +7,6 @@ import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
 import org.ggp.base.player.gamer.statemachine.sancho.ThreadControl;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
-import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
@@ -49,29 +48,49 @@ public class LearningGamer extends StateMachineGamer
 
   private void treeStrap(long xiTimeout)
   {
-    while (System.currentTimeMillis() < xiTimeout)
+    int lIterations = 0;
+
+    // Create a reference tree for test purposes.
+    LearningTree lReferenceTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, getRole());
+    lReferenceTree.search(mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState()), 9);
+    int lFewestWrongMoves = 9999;
+
+    while (true /* System.currentTimeMillis() < xiTimeout */)
     {
       // Do sample playouts through the tree, from the root state, learning as we go.
-      MachineState lState = mUnderlyingStateMachine.getInitialState();
+      ForwardDeadReckonInternalMachineState lState =
+                                 mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState());
+
+      int lWrongMoves = lReferenceTree.getWrongMoves();
+      if (lWrongMoves < lFewestWrongMoves)
+      {
+        lFewestWrongMoves = lWrongMoves;
+      }
+
+      if (lIterations % 100 == 0)
+      {
+        LOGGER.info("After " + lIterations + " iterations, average error = " + lReferenceTree.getAverageError() + ", wrong moves = " + lWrongMoves + ", low-water mark = " + lFewestWrongMoves);
+      }
+
       while (!mUnderlyingStateMachine.isTerminal(lState))
       {
+        // Clear the training set.
+        mEvalFunc.clearSamples();
+
         // Build a depth-limited game tree, by minimax, using the position evaluation function at the non-terminal
-        // leaf nodes.
+        // leaf nodes.  Builds the training set in the process.
         LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, getRole());
-        lTree.search(mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState()));
+        lTree.search(lState, 2);
 
-        for (int lii = 0; lii < 10000; lii++)
-        {
-          if ((Integer.bitCount(lii) == 1) || (lii % 100 == 0))
-          {
-            LOGGER.info("After " + lii + " iterations, average error = " + lTree.getAverageError() + ", wrong moves = " + lTree.getWrongMoves());
-          }
+        // Train the evaluation function on the (partial) minimax tree.
+        mEvalFunc.train();
 
-          mEvalFunc.train();
-        }
+        // Pick the next move greedily.
+        lState = lTree.greedySelection(lState);
       }
-    }
 
+      lIterations++;
+    }
   }
 
   @Override
