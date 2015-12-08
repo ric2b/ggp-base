@@ -61,10 +61,16 @@ public class LearningGamer extends StateMachineGamer
       ForwardDeadReckonInternalMachineState lState =
                                  mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState());
 
-      int lWrongMoves = lReferenceTree.getWrongMoves();
+      int lWrongMoves = lReferenceTree.getWrongMoves(false);
       if (lWrongMoves < lFewestWrongMoves)
       {
         lFewestWrongMoves = lWrongMoves;
+        if (lWrongMoves < 50)
+        {
+          // Dump the states in which we get wrong moves.
+          LOGGER.info("--- Dumping " + lWrongMoves + " bad states");
+          lReferenceTree.getWrongMoves(true);
+        }
       }
 
       if (lIterations % 100 == 0)
@@ -80,7 +86,7 @@ public class LearningGamer extends StateMachineGamer
         // Build a depth-limited game tree, by minimax, using the position evaluation function at the non-terminal
         // leaf nodes.  Builds the training set in the process.
         LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, getRole());
-        lTree.search(lState, 2);
+        lTree.search(lState, 9);
 
         // Train the evaluation function on the (partial) minimax tree.
         mEvalFunc.train();

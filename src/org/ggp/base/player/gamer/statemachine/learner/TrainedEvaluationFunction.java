@@ -43,7 +43,7 @@ public class TrainedEvaluationFunction
     // Create a learning rule for a single update.
     mLearningRule = new BackPropagation();
     mLearningRule.setMaxIterations(1);
-    mLearningRule.setLearningRate(0.1);
+    mLearningRule.setLearningRate(0.02);
     mLearningRule.setNeuralNetwork(mNetwork);
   }
 

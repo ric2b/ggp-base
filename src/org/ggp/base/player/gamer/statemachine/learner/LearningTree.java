@@ -179,12 +179,12 @@ public class LearningTree
     return lTotalError / mScoreMap.size();
   }
 
-  public int getWrongMoves()
+  public int getWrongMoves(boolean xiDump)
   {
     int lBadStates = 0;
     for (Object lState : mScoreMap.keys())
     {
-      if (!checkState((ForwardDeadReckonInternalMachineState)lState))
+      if (!checkState((ForwardDeadReckonInternalMachineState)lState, xiDump))
       {
         lBadStates++;
       }
@@ -192,7 +192,7 @@ public class LearningTree
     return lBadStates;
   }
 
-  private boolean checkState(ForwardDeadReckonInternalMachineState xiState)
+  private boolean checkState(ForwardDeadReckonInternalMachineState xiState, boolean xiDump)
   {
     // There are no moves to make in a terminal state, so we can't select the wrong one.
     if (mStateMachine.isTerminal(xiState))
@@ -257,7 +257,10 @@ public class LearningTree
           lRight = mScoreMap.get(mStackState[lDepth + 1]) >= mScoreMap.get(mStackState[lDepth]);
           lError = "  Our choice, score fell from " + mScoreMap.get(mStackState[lDepth]) +
                    " to " + mScoreMap.get(mStackState[lDepth + 1]) +
-                   " because we thought the afterstate had value " + lValue;
+                   " because we thought the afterstate had value " + lValue +
+                   " when playing " + mStackJointMove[lDepth][0] +
+                   " in state " + mStackState[lDepth] +
+                   " giving afterstate " + mStackState[lDepth + 1];
         }
       }
     }
@@ -280,14 +283,17 @@ public class LearningTree
           lRight = mScoreMap.get(mStackState[lDepth + 1]) <= mScoreMap.get(mStackState[lDepth]);
           lError = "  Their choice, score rose from " + mScoreMap.get(mStackState[lDepth]) +
                    " to " + mScoreMap.get(mStackState[lDepth + 1]) +
-                   " because we thought the afterstate had value " + lValue;
+                   " because we thought the afterstate had value " + lValue +
+                   " when playing " + mStackJointMove[lDepth][1] +
+                   " in state " + mStackState[lDepth] +
+                   " giving afterstate " + mStackState[lDepth + 1];
         }
       }
     }
 
     if (!lRight)
     {
-      // LOGGER.warn(lError);
+      LOGGER.warn(lError);
     }
     return lRight;
   }
