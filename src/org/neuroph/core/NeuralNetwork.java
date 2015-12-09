@@ -589,6 +589,23 @@ public class NeuralNetwork<L extends LearningRule> implements Serializable {
         }
     }
 
+    /**
+     * Sets network weights from the specified Double array
+     *
+     * @param weights array of weights to set
+     */
+    public void setWeights(Double[] weights) {
+        int i = 0;
+        for (Layer layer : layers) {
+            for (Neuron neuron : layer.getNeurons()) {
+                for (Connection conn : neuron.getInputConnections()) {
+                    conn.getWeight().setValue(weights[i]);
+                    i++;
+                }
+            }
+        }
+    }
+
     public boolean isEmpty() {
         return layers.isEmpty();
     }

@@ -1,5 +1,8 @@
 package org.ggp.base.player.gamer.statemachine.learner;
 
+import gnu.trove.map.hash.TObjectDoubleHashMap;
+import gnu.trove.map.hash.TObjectIntHashMap;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.OpenBitSet;
@@ -17,11 +20,13 @@ public class TrainedEvaluationFunction
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private final int mNumTrainingIterations = 1;
   private final int mSize;
   private final NeuralNetwork<BackPropagation> mNetwork;
   BackPropagation mLearningRule;
+
   private final DataSet mTrainingSet;
+  TObjectDoubleHashMap<ForwardDeadReckonInternalMachineState> mTrainingData = new TObjectDoubleHashMap<>();
+  TObjectIntHashMap<ForwardDeadReckonInternalMachineState> mTrainingCount = new TObjectIntHashMap<>();
 
   public TrainedEvaluationFunction(int xiSize)
   {
@@ -29,11 +34,12 @@ public class TrainedEvaluationFunction
 
     // Create a neural network.
     //
-    // - Input layer is the same size as the number of base propositions.
-    // - Hidden layer is 2/3 of the input size.
-    // - Output layer is a single node.
     mSize = xiSize;
-    mNetwork = new MultiLayerPerceptron(TransferFunctionType.SIGMOID, mSize, mSize * 3, 1);
+    mNetwork = new MultiLayerPerceptron(TransferFunctionType.SIGMOID,
+                                        mSize,          // Input layer, 1 neuron per base proposition
+                                        mSize * 2,      // Hidden layer(s)
+                                        mSize / 2,
+                                        1);             // Output layer, 1 neuron
     double lRange = 1 / Math.sqrt(xiSize);
     mNetwork.randomizeWeights(-lRange, lRange);
 
@@ -42,8 +48,9 @@ public class TrainedEvaluationFunction
 
     // Create a learning rule for a single update.
     mLearningRule = new BackPropagation();
+    // mLearningRule.setErrorFunction(new MeanCubedError());
     mLearningRule.setMaxIterations(1);
-    mLearningRule.setLearningRate(0.02);
+    mLearningRule.setLearningRate(0.05);
     mLearningRule.setNeuralNetwork(mNetwork);
   }
 
@@ -70,14 +77,27 @@ public class TrainedEvaluationFunction
    */
   public void sample(ForwardDeadReckonInternalMachineState xiState, double xiValue)
   {
-    // Create an additional training row.
-    double[] lInputs = convertStateToInputs(xiState);
-    mTrainingSet.addRow(lInputs, new double[] {xiValue / 100});
+    // Copy the state.  The one we've been passed will be reused.
+    ForwardDeadReckonInternalMachineState lState = new ForwardDeadReckonInternalMachineState(xiState);
+
+    // Storing the training example.  Later samples (for the same state) override earlier ones.
+    mTrainingData.put(lState, xiValue);
+
+    // Increment the count.
+    if (mTrainingCount.containsKey(lState))
+    {
+      mTrainingCount.put(lState, mTrainingCount.get(lState) + 1);
+    }
+    else
+    {
+      mTrainingCount.put(lState, 1);
+    }
   }
 
   public void clearSamples()
   {
-    mTrainingSet.clear();
+    mTrainingData.clear();
+    mTrainingCount.clear();
   }
 
   private double[] convertStateToInputs(ForwardDeadReckonInternalMachineState xiState)
@@ -93,9 +113,33 @@ public class TrainedEvaluationFunction
 
   public void train()
   {
-    for (int lii = 0; lii < mNumTrainingIterations; lii++)
+    // Convert the training data into the form required by Neuroph.
+    mTrainingSet.clear();
+    for (Object lStateObj : mTrainingData.keys())
     {
-      mLearningRule.doOneLearningIteration(mTrainingSet);
+      ForwardDeadReckonInternalMachineState lState = (ForwardDeadReckonInternalMachineState)lStateObj;
+      double[] lInputs = convertStateToInputs(lState);
+
+      // Add additional weight to states that have been seen often.
+      for (int lii = 0; lii < mTrainingCount.get(lState); lii++)
+      {
+        mTrainingSet.addRow(lInputs, new double[] {mTrainingData.get(lState) / 100});
+      }
     }
+
+    // Train the network.
+    // LOGGER.info("Training with " + mTrainingSet.size() + " samples");
+    mLearningRule.doOneLearningIteration(mTrainingSet);
+  }
+
+  public void replaceWith(TrainedEvaluationFunction xiSource)
+  {
+    mNetwork.setWeights(xiSource.mNetwork.getWeights());
+  }
+
+  public void cool()
+  {
+    mLearningRule.setLearningRate(mLearningRule.getLearningRate() * 0.999);
+    LOGGER.info("Reduced learning rate to " + mLearningRule.getLearningRate());
   }
 }

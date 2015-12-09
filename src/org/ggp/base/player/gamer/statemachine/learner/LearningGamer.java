@@ -17,6 +17,7 @@ public class LearningGamer extends StateMachineGamer
   private static final long SAFETY_MARGIN = 2500;
 
   private TrainedEvaluationFunction             mEvalFunc;
+  private TrainedEvaluationFunction             mFrozenEvalFunc;
   private ForwardDeadReckonPropnetStateMachine  mUnderlyingStateMachine = null;
   private int                                   mTurn = 0;
 
@@ -41,6 +42,7 @@ public class LearningGamer extends StateMachineGamer
 
     // Create and initialise a heuristic evaluation function.
     mEvalFunc = new TrainedEvaluationFunction(mUnderlyingStateMachine.getBasePropositions().size());
+    mFrozenEvalFunc = new TrainedEvaluationFunction(mUnderlyingStateMachine.getBasePropositions().size());
 
     // Use TreeStrap to train the evaluation function.
     treeStrap(xiTimeout);
@@ -51,7 +53,7 @@ public class LearningGamer extends StateMachineGamer
     int lIterations = 0;
 
     // Create a reference tree for test purposes.
-    LearningTree lReferenceTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc);
+    LearningTree lReferenceTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, mFrozenEvalFunc);
     lReferenceTree.search(mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState()), 9);
     int lFewestWrongMoves = 9999;
 
@@ -61,13 +63,20 @@ public class LearningGamer extends StateMachineGamer
       ForwardDeadReckonInternalMachineState lState =
                                  mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState());
 
-      if (lIterations % 500 == 0)
+      // Every so often, update the frozen (target) evaluation function from the training one.  This is necessary for
+      // stability.
+      if (lIterations % 100 == 0)
+      {
+        mFrozenEvalFunc.replaceWith(mEvalFunc);
+      }
+
+      if (lIterations % 100 == 0)
       {
         int lWrongMoves = lReferenceTree.getWrongMoves(false);
         if (lWrongMoves < lFewestWrongMoves)
         {
           lFewestWrongMoves = lWrongMoves;
-          if (lWrongMoves < 50)
+          if (lWrongMoves < 10)
           {
             // Dump the states in which we get wrong moves.
             LOGGER.info("--- Dumping " + lWrongMoves + " bad states");
@@ -76,24 +85,26 @@ public class LearningGamer extends StateMachineGamer
         }
 
         LOGGER.info("After " + lIterations + " iterations, average error = " + lReferenceTree.getAverageError() + ", wrong moves = " + lWrongMoves + ", low-water mark = " + lFewestWrongMoves);
+        mEvalFunc.cool();
       }
 
+      // Clear the training set.
+      mEvalFunc.clearSamples();
+
+      // Do a rollout with n-ply lookahead at each step.
       while (!mUnderlyingStateMachine.isTerminal(lState))
       {
-        // Clear the training set.
-        mEvalFunc.clearSamples();
-
         // Build a depth-limited game tree, by minimax, using the position evaluation function at the non-terminal
         // leaf nodes.  Builds the training set in the process.
-        LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc);
+        LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, mFrozenEvalFunc);
         lTree.search(lState, 4);
 
-        // Train the evaluation function on the (partial) minimax tree.
-        mEvalFunc.train();
-
         // Pick the next move greedily.
-        lState = lTree.greedySelection(lState);
+        lState = lTree.epsilonGreedySelection(lState);
       }
+
+      // Train the evaluation function on all the samples gathered during the rollout.
+      mEvalFunc.train();
 
       lIterations++;
     }

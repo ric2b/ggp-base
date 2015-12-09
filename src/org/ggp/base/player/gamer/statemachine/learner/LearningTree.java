@@ -3,6 +3,7 @@ package org.ggp.base.player.gamer.statemachine.learner;
 import gnu.trove.map.hash.TObjectDoubleHashMap;
 
 import java.util.Iterator;
+import java.util.Random;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -25,10 +26,12 @@ public class LearningTree
   private final TObjectDoubleHashMap<ForwardDeadReckonInternalMachineState> mScoreMap;
   private final ForwardDeadReckonPropnetStateMachine mStateMachine;
   private final TrainedEvaluationFunction mEvalFunc;
+  private final TrainedEvaluationFunction mFrozenEvalFunc;
   private final Role mRole;
   private final int mRoleIndex;
   private final int mNumRoles;
   private final RoleOrdering mRoleOrdering;
+  private final Random mRandom = new Random();
 
   /**
    * Per-stack-frame variables that are created as members to avoid object allocation during recursion.
@@ -41,10 +44,12 @@ public class LearningTree
                                                 new ForwardDeadReckonLegalMoveInfo[MCTSTree.MAX_SUPPORTED_TREE_DEPTH][];
 
   public LearningTree(ForwardDeadReckonPropnetStateMachine xiStateMachine,
-                      TrainedEvaluationFunction xiEvalFunc)
+                      TrainedEvaluationFunction xiEvalFunc,
+                      TrainedEvaluationFunction xiFrozenEvalFunc)
   {
     mStateMachine = xiStateMachine;
     mEvalFunc = xiEvalFunc;
+    mFrozenEvalFunc = xiFrozenEvalFunc;
 
     mRoleOrdering = xiStateMachine.getRoleOrdering();
     mRole = mRoleOrdering.getOurRole();
@@ -88,7 +93,7 @@ public class LearningTree
     }
 
     // If the state is already terminal, train the evaluation function on this value and return it.  Although we'll
-    // never ask the evaluation function about terminal states, it *massively* helps to train then them on it.
+    // never ask the evaluation function about terminal states, it *massively* helps to train them on it.
     if (mStateMachine.isTerminal(mStackState[xiDepth]))
     {
       double lValue = mStateMachine.getGoal(mRole);
@@ -101,7 +106,7 @@ public class LearningTree
     // evaluation function at this point - it would just blindly reinforce the current beliefs.)
     if (xiDepth >= xiCutOff)
     {
-      return mEvalFunc.evaluate(mStackState[xiDepth]);
+      return mFrozenEvalFunc.evaluate(mStackState[xiDepth]);
     }
 
     // Iterate over all the children, recursing.
@@ -306,7 +311,7 @@ public class LearningTree
     return lRight;
   }
 
-  public ForwardDeadReckonInternalMachineState greedySelection(ForwardDeadReckonInternalMachineState xiState)
+  public ForwardDeadReckonInternalMachineState epsilonGreedySelection(ForwardDeadReckonInternalMachineState xiState)
   {
     int lDepth = 0;
     mStackState[lDepth] = xiState;
@@ -344,8 +349,13 @@ public class LearningTree
       return new ForwardDeadReckonInternalMachineState(mStackState[lDepth + 1]);
     }
 
-    // A role had a choice.  If it was us, return the maximum-valued child.  If it wasn't, return the minimum.
-    if (lRoleWithChoice == mRoleIndex)
+    if (mRandom.nextInt(5) == 0)
+    {
+      // Pick a random choice (20% of the time).
+      mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][mRandom.nextInt(lNumChoices)];
+      mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
+    }
+    else if (lRoleWithChoice == mRoleIndex)
     {
       // Our choice.
       double lBestValue = -1;
