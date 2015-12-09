@@ -311,7 +311,8 @@ public class LearningTree
     return lRight;
   }
 
-  public ForwardDeadReckonInternalMachineState epsilonGreedySelection(ForwardDeadReckonInternalMachineState xiState)
+  public ForwardDeadReckonInternalMachineState epsilonGreedySelection(ForwardDeadReckonInternalMachineState xiState,
+                                                                      double xiEpsilon)
   {
     int lDepth = 0;
     mStackState[lDepth] = xiState;
@@ -349,9 +350,9 @@ public class LearningTree
       return new ForwardDeadReckonInternalMachineState(mStackState[lDepth + 1]);
     }
 
-    if (mRandom.nextInt(5) == 0)
+    if (mRandom.nextDouble() < xiEpsilon)
     {
-      // Pick a random choice (20% of the time).
+      // Pick a random choice.
       mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][mRandom.nextInt(lNumChoices)];
       mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
     }

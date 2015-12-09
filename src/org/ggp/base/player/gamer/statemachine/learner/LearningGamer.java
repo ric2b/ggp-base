@@ -56,6 +56,7 @@ public class LearningGamer extends StateMachineGamer
     LearningTree lReferenceTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, mFrozenEvalFunc);
     lReferenceTree.search(mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState()), 9);
     int lFewestWrongMoves = 9999;
+    double lEpsilon = 0.2;
 
     while (true /* System.currentTimeMillis() < xiTimeout */)
     {
@@ -86,6 +87,7 @@ public class LearningGamer extends StateMachineGamer
 
         LOGGER.info("After " + lIterations + " iterations, average error = " + lReferenceTree.getAverageError() + ", wrong moves = " + lWrongMoves + ", low-water mark = " + lFewestWrongMoves);
         mEvalFunc.cool();
+        lEpsilon *= 1.01;
       }
 
       // Clear the training set.
@@ -99,8 +101,8 @@ public class LearningGamer extends StateMachineGamer
         LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, mFrozenEvalFunc);
         lTree.search(lState, 4);
 
-        // Pick the next move greedily.
-        lState = lTree.epsilonGreedySelection(lState);
+        // Pick the next move epsilon-greedily.
+        lState = lTree.epsilonGreedySelection(lState, lEpsilon);
       }
 
       // Train the evaluation function on all the samples gathered during the rollout.

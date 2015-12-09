@@ -140,6 +140,5 @@ public class TrainedEvaluationFunction
   public void cool()
   {
     mLearningRule.setLearningRate(mLearningRule.getLearningRate() * 0.999);
-    LOGGER.info("Reduced learning rate to " + mLearningRule.getLearningRate());
   }
 }
