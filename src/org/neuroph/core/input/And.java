@@ -16,22 +16,21 @@
 
 package org.neuroph.core.input;
 
-import java.io.Serializable;
 import org.neuroph.core.Connection;
 
 /**
  * Performs logic AND operation on input vector.
- * 
+ *
  * @author Zoran Sevarac <sevarac@gmail.com>
  */
-public class And extends InputFunction implements Serializable {
+public class And extends InputFunction {
 
 	/**
 	 * The class fingerprint that is set to indicate serialization
 	 * compatibility with a previous version of the class.
-	 */	
+	 */
 	private static final long serialVersionUID = 1L;
-	
+
 	/**
 	 * @param inputVector Input values >= 0.5d are considered true, otherwise false.
 	 */
@@ -41,7 +40,7 @@ public class And extends InputFunction implements Serializable {
                 if (inputConnections.length == 0) return 0d;
 
 		boolean output = true;
-		
+
 		for (Connection connection : inputConnections) {
 			output = output && (connection.getInput() >= 0.5d);
 		}

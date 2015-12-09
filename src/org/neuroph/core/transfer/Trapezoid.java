@@ -16,29 +16,28 @@
 
 package org.neuroph.core.transfer;
 
-import java.io.Serializable;
 import org.neuroph.util.Properties;
 
 /**
  * Fuzzy trapezoid neuron tranfer function.
- * 
+ *
  * @author Zoran Sevarac <sevarac@gmail.com>
  */
-public class Trapezoid extends TransferFunction implements Serializable {
-	
+public class Trapezoid extends TransferFunction {
+
 	/**
 	 * The class fingerprint that is set to indicate serialization
 	 * compatibility with a previous version of the class.
-	 */		
+	 */
 	private static final long serialVersionUID = 1L;
-	
+
 	// these are the points of trapezoid function
 	double leftLow, leftHigh, rightLow, rightHigh;
 
 
 	/**
 	 * Creates an instance of Trapezoid transfer function
-	 */	
+	 */
 	public Trapezoid() {
 		this.leftLow = 0d;
 		this.leftHigh = 1d;
@@ -49,7 +48,7 @@ public class Trapezoid extends TransferFunction implements Serializable {
 	/**
 	 * Creates an instance of Trapezoid transfer function with the specified
 	 * setting.
-	 */	
+	 */
 	public Trapezoid(double leftLow, double leftHigh, double rightLow, double rightHigh) {
 		this.leftLow = leftLow;
 		this.leftHigh = leftHigh;
@@ -60,7 +59,7 @@ public class Trapezoid extends TransferFunction implements Serializable {
 	/**
 	 * Creates an instance of Trapezoid transfer function with the specified
 	 * properties.
-	 */		
+	 */
 	public Trapezoid(Properties properties) {
 		try {
 			this.leftLow = (Double)properties.getProperty("transferFunction.leftLow");
@@ -98,7 +97,7 @@ public class Trapezoid extends TransferFunction implements Serializable {
 	/**
 	 * Sets left high point of trapezoid function
 	 * @param leftHigh left high point of trapezoid function
-	 */	
+	 */
 	public void setLeftHigh(double leftHigh) {
 		this.leftHigh = leftHigh;
 	}
@@ -106,7 +105,7 @@ public class Trapezoid extends TransferFunction implements Serializable {
 	/**
 	 * Sets right low point of trapezoid function
 	 * @param rightLow right low point of trapezoid function
-	 */	
+	 */
 	public void setRightLow(double rightLow) {
 		this.rightLow = rightLow;
 	}
@@ -114,7 +113,7 @@ public class Trapezoid extends TransferFunction implements Serializable {
 	/**
 	 * Sets right high point of trapezoid function
 	 * @param rightHigh right high point of trapezoid function
-	 */	
+	 */
 	public void setRightHigh(double rightHigh) {
 		this.rightHigh = rightHigh;
 	}
@@ -130,7 +129,7 @@ public class Trapezoid extends TransferFunction implements Serializable {
 	/**
 	 * Returns left high point of trapezoid function
 	 * @return left high point of trapezoid function
-	 */	
+	 */
 	public double getLeftHigh() {
 		return leftHigh;
 	}
@@ -138,7 +137,7 @@ public class Trapezoid extends TransferFunction implements Serializable {
 	/**
 	 * Returns right low point of trapezoid function
 	 * @return right low point of trapezoid function
-	 */	
+	 */
 	public double getRightLow() {
 		return rightLow;
 	}
@@ -146,7 +145,7 @@ public class Trapezoid extends TransferFunction implements Serializable {
 	/**
 	 * Returns right high point of trapezoid function
 	 * @return right high point of trapezoid function
-	 */		
+	 */
 	public double getRightHigh() {
 		return rightHigh;
 	}

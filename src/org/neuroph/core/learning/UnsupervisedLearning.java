@@ -16,24 +16,23 @@
 
 package org.neuroph.core.learning;
 
+import java.util.Iterator;
+
 import org.neuroph.core.data.DataSet;
 import org.neuroph.core.data.DataSetRow;
-import java.io.Serializable;
-import java.util.Iterator;
 
 
 /**
  * Base class for all unsupervised learning algorithms.
- * 
+ *
  * @author Zoran Sevarac <sevarac@gmail.com>
  */
-abstract public class UnsupervisedLearning extends IterativeLearning implements
-		Serializable {
-	
+abstract public class UnsupervisedLearning extends IterativeLearning {
+
 	/**
-	 * The class fingerprint that is set to indicate serialization 
+	 * The class fingerprint that is set to indicate serialization
 	 * compatibility with a previous version of the class
-	 */	
+	 */
 	private static final long serialVersionUID = 1L;
 
 	/**
@@ -48,7 +47,7 @@ abstract public class UnsupervisedLearning extends IterativeLearning implements
 	 * This method does one learning epoch for the unsupervised learning rules.
 	 * It iterates through the training set and trains network weights for each
 	 * element
-	 * 
+	 *
 	 * @param trainingSet
 	 *            training set for training network
 	 */
@@ -59,11 +58,11 @@ abstract public class UnsupervisedLearning extends IterativeLearning implements
 			DataSetRow trainingSetRow = iterator.next();
 			learnPattern(trainingSetRow);
 		}
-	}	
-	
+	}
+
 	/**
 	 * Trains network with the pattern from the specified training element
-	 * 
+	 *
 	 * @param DataSetItem
 	 *            unsupervised training element which contains network input
 	 */

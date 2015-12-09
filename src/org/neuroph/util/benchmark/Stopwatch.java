@@ -25,11 +25,11 @@ public class Stopwatch {
     private long startTime = -1;
     private long stopTime = -1;
     private boolean running = false;
-    
+
 
     public Stopwatch() {
     }
-    
+
 
     /**
      * Starts measuring time
@@ -47,7 +47,7 @@ public class Stopwatch {
         running = false;
     }
 
-    /** 
+    /**
      * Returns elapsed time in milliseconds between calls to start and stop methods
      * If the watch has never been started, returns zero
      */
@@ -57,11 +57,10 @@ public class Stopwatch {
         }
         if (running) {
             return System.currentTimeMillis() - startTime;
-        } else {
-            return stopTime - startTime;
         }
+        return stopTime - startTime;
     }
-    
+
     /**
      * Resets the stopwatch (clears start and stop time)
      */

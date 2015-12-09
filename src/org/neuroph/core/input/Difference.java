@@ -16,7 +16,6 @@
 
 package org.neuroph.core.input;
 
-import java.io.Serializable;
 import org.neuroph.core.Connection;
 import org.neuroph.core.Neuron;
 import org.neuroph.core.Weight;
@@ -24,17 +23,17 @@ import org.neuroph.core.Weight;
 /**
  * Performs the vector difference operation on input and
  * weight vector.
- * 
+ *
  * @author Zoran Sevarac <sevarac@gmail.com>
  */
-public class Difference extends InputFunction implements Serializable {
-	
+public class Difference extends InputFunction {
+
 	/**
 	 * The class fingerprint that is set to indicate serialization
 	 * compatibility with a previous version of the class.
-	 */		
+	 */
 	private static final long serialVersionUID =21L;
-	
+
 
     @Override
 	public double getOutput(Connection[] inputConnections) {
@@ -49,7 +48,7 @@ public class Difference extends InputFunction implements Serializable {
 		}
 
                 output = Math.sqrt(sum);
-                
+
 		return output;
 	}
 

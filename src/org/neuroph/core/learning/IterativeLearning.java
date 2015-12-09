@@ -15,9 +15,9 @@
  */
 package org.neuroph.core.learning;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+
 import org.neuroph.core.data.DataSet;
 import org.neuroph.core.events.LearningEvent;
 import org.neuroph.core.learning.stop.MaxIterationsStop;
@@ -29,8 +29,7 @@ import org.neuroph.core.learning.stop.StopCondition;
  *
  * @author Zoran Sevarac <sevarac@gmail.com>
  */
-abstract public class IterativeLearning extends LearningRule implements
-        Serializable {
+abstract public class IterativeLearning extends LearningRule{
 
     /**
      * The class fingerprint that is set to indicate serialization compatibility
@@ -52,13 +51,13 @@ abstract public class IterativeLearning extends LearningRule implements
      * backward compatibility with serialized networks?
      */
     private int maxIterations = Integer.MAX_VALUE;
-    
+
     /**
      * Flag for indicating if the training iteration number is limited
      */
     private boolean iterationsLimited = false;
-   
-    
+
+
     protected List<StopCondition> stopConditions;
     /**
      * Flag for indicating if learning thread is paused
@@ -158,7 +157,7 @@ abstract public class IterativeLearning extends LearningRule implements
     @Override
     protected void onStart() {
         super.onStart();
-        
+
         if (this.iterationsLimited) {
             this.stopConditions.add(new MaxIterationsStop(this));
         }
@@ -174,7 +173,7 @@ abstract public class IterativeLearning extends LearningRule implements
 
     @Override
     final public void learn(DataSet trainingSet) {
-        setTrainingSet(trainingSet); // set this field here su subclasses can access it 
+        setTrainingSet(trainingSet); // set this field here su subclasses can access it
         onStart();
 
         while (!isStopped()) {
@@ -244,8 +243,8 @@ abstract public class IterativeLearning extends LearningRule implements
         beforeEpoch();
         doLearningEpoch(trainingSet);
         afterEpoch();
-        // notify listeners        
-        fireLearningEvent(new LearningEvent(this, LearningEvent.Type.LEARNING_STOPPED)); 
+        // notify listeners
+        fireLearningEvent(new LearningEvent(this, LearningEvent.Type.LEARNING_STOPPED));
     }
 
     /**

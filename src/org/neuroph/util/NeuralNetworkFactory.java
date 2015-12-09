@@ -264,7 +264,7 @@ public class NeuralNetworkFactory {
 
                 Neuron[] inputNeurons = new Neuron[inputNeuronsList.size()];
                 inputNeurons = inputNeuronsList.toArray(inputNeurons);
-		Neuron[] outputNeurons = ((Layer) nnet.getLayerAt(nnet.getLayersCount()-1)).getNeurons();
+		Neuron[] outputNeurons = nnet.getLayerAt(nnet.getLayersCount()-1).getNeurons();
 
 		nnet.setInputNeurons(inputNeurons);
 		nnet.setOutputNeurons(outputNeurons); 

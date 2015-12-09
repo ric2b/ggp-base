@@ -16,13 +16,13 @@
 
 package org.neuroph.nnet.comp;
 
-import org.neuroph.nnet.comp.neuron.DelayedNeuron;
 import org.neuroph.core.Connection;
 import org.neuroph.core.Neuron;
+import org.neuroph.nnet.comp.neuron.DelayedNeuron;
 
 /**
  * Represents the connection between neurons which can delay signal.
- * 
+ *
  * @author Zoran Sevarac <sevarac@gmail.com>
  */
 public class DelayedConnection extends Connection {
@@ -30,9 +30,9 @@ public class DelayedConnection extends Connection {
 	/**
 	 * The class fingerprint that is set to indicate serialization
 	 * compatibility with a previous version of the class.
-	 */	
+	 */
 	private static final long serialVersionUID = 1L;
-	
+
 	/**
 	 * Delay factor for this conection
 	 */
@@ -75,8 +75,7 @@ public class DelayedConnection extends Connection {
 	public double getInput() {
 		if (this.fromNeuron instanceof DelayedNeuron)
 			return ((DelayedNeuron) this.fromNeuron).getOutput(delay);
-		else
-			return this.fromNeuron.getOutput();
+    return this.fromNeuron.getOutput();
 	}
 
 }

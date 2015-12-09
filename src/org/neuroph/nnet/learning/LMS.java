@@ -15,7 +15,6 @@
  */
 package org.neuroph.nnet.learning;
 
-import java.io.Serializable;
 import org.neuroph.core.Connection;
 import org.neuroph.core.Neuron;
 import org.neuroph.core.Weight;
@@ -23,10 +22,10 @@ import org.neuroph.core.learning.SupervisedLearning;
 
 /**
  * LMS learning rule for neural networks.
- * 
+ *
  * @author Zoran Sevarac <sevarac@gmail.com>
  */
-public class LMS extends SupervisedLearning implements Serializable {
+public class LMS extends SupervisedLearning {
 
     /**
      * The class fingerprint that is set to indicate serialization
@@ -37,8 +36,8 @@ public class LMS extends SupervisedLearning implements Serializable {
 
     /**
      * Creates a new LMS learning rule
-     * This learning rule is used to train Adaline neural network, 
-     * and this class is base for all LMS based learning rules like 
+     * This learning rule is used to train Adaline neural network,
+     * and this class is base for all LMS based learning rules like
      * PerceptronLearning, DeltaRule, SigmoidDeltaRule, Backpropagation etc.
      */
     public LMS() {
@@ -49,7 +48,7 @@ public class LMS extends SupervisedLearning implements Serializable {
     /**
      * This method implements the weights update procedure for the whole network
      * for the given output error vector.
-     *   
+     *
      * @param outputError
      *            output error vector for some network input- the difference between desired and actual output
      * @see SupervisedLearning#learnPattern(org.neuroph.core.data.DataSetRow)  learnPattern
@@ -59,7 +58,7 @@ public class LMS extends SupervisedLearning implements Serializable {
         int i = 0;
         // for each neuron in output layer
         for (Neuron neuron : neuralNetwork.getOutputNeurons()) {
-            neuron.setError(outputError[i]); // set the neuron error, as difference between desired and actual output 
+            neuron.setError(outputError[i]); // set the neuron error, as difference between desired and actual output
             this.updateNeuronWeights(neuron); // and update neuron weights
             i++;
         }
@@ -68,16 +67,16 @@ public class LMS extends SupervisedLearning implements Serializable {
     /**
      * This method implements weights update procedure for the single neuron
      * It iterates through all neuron's input connections, and calculates/set weight change for each weight
-     * using formula 
+     * using formula
      *      deltaWeight = learningRate * neuronError * input
-     * 
+     *
      * where neuronError is difference between desired and actual output for specific neuron
      *      neuronError = desiredOutput[i] - actualOutput[i] (see method SuprevisedLearning.calculateOutputError)
-     * 
+     *
      * @param neuron
      *            neuron to update weights
-     * 
-     * @see LMS#updateNetworkWeights(double[]) 
+     *
+     * @see LMS#updateNetworkWeights(double[])
      */
     public void updateNeuronWeights(Neuron neuron) {
         // get the error(delta) for specified neuron,
@@ -86,7 +85,7 @@ public class LMS extends SupervisedLearning implements Serializable {
         // tanh can be used to minimise the impact of big error values, which can cause network instability
         // suggested at https://sourceforge.net/tracker/?func=detail&atid=1107579&aid=3130561&group_id=238532
         // double neuronError = Math.tanh(neuron.getError());
-        
+
         // iterate through all neuron's input connections
         for (Connection connection : neuron.getInputConnections()) {
             // get the input from current connection
@@ -98,7 +97,7 @@ public class LMS extends SupervisedLearning implements Serializable {
             Weight weight = connection.getWeight();
             // if the learning is in online mode (not batch) apply the weight change immediately
             if (!this.isInBatchMode()) {
-                weight.weightChange = weightChange;                
+                weight.weightChange = weightChange;
                 weight.value += weightChange;
             } else { // otherwise its in batch mode, so sum the weight changes and apply them later, after the current epoch (see SupervisedLearning.doLearningEpoch method)
                 weight.weightChange += weightChange;

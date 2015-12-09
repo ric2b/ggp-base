@@ -15,7 +15,6 @@
  */
 package org.neuroph.core.learning;
 
-import java.io.Serializable;
 import java.util.Iterator;
 
 import org.neuroph.core.Connection;
@@ -27,7 +26,6 @@ import org.neuroph.core.data.DataSetRow;
 import org.neuroph.core.learning.error.ErrorFunction;
 import org.neuroph.core.learning.error.MeanSquaredError;
 import org.neuroph.core.learning.stop.MaxErrorStop;
-import org.neuroph.core.learning.stop.StopCondition;
 
 // TODO:  random pattern order
 
@@ -37,8 +35,7 @@ import org.neuroph.core.learning.stop.StopCondition;
  *
  * @author Zoran Sevarac <sevarac@gmail.com>
  */
-abstract public class SupervisedLearning extends IterativeLearning implements
-        Serializable {
+abstract public class SupervisedLearning extends IterativeLearning {
 
     /**
      * The class fingerprint that is set to indicate serialization
@@ -81,8 +78,8 @@ abstract public class SupervisedLearning extends IterativeLearning implements
     public SupervisedLearning() {
         super();
         this.errorFunction = new MeanSquaredError();
-        // create stop condition structure based on settings               
-        this.stopConditions.add(new MaxErrorStop(this));        
+        // create stop condition structure based on settings
+        this.stopConditions.add(new MaxErrorStop(this));
     }
 
     /**
@@ -117,7 +114,7 @@ abstract public class SupervisedLearning extends IterativeLearning implements
 
         // this is now done in constructor
 //        this.errorFunction = new MeanSquaredError();
-//        // create stop condition structure based on settings               
+//        // create stop condition structure based on settings
 //        this.stopConditions.add(new MaxErrorStop(this));
     }
 
@@ -138,7 +135,7 @@ abstract public class SupervisedLearning extends IterativeLearning implements
             this.minErrorChangeIterationsCount = 0;
         }
 
-        // if learning is performed in batch mode, apply accumulated weight changes from this epoch        
+        // if learning is performed in batch mode, apply accumulated weight changes from this epoch
         if (this.batchMode == true) {
             doBatchWeightsUpdate();
         }
@@ -167,7 +164,7 @@ abstract public class SupervisedLearning extends IterativeLearning implements
 
         // calculate total network error as MSE. Use MSE so network does not grow with bigger training sets
         //this.totalNetworkError = errorFunction.getTotalError();
-        
+
         // moved stopping condition to separate method hasReachedStopCondition() so it can be overriden / customized in subclasses
         // this condition is allready checked in IterativeLearning.learn(DataSet trainingSet)
 //        if (hasReachedStopCondition()) {
@@ -247,10 +244,10 @@ abstract public class SupervisedLearning extends IterativeLearning implements
 //    }
 
 
-//    public void addStopCondition(StopCondition stopCondition) {        
+//    public void addStopCondition(StopCondition stopCondition) {
 //        stopConditions.add(stopCondition);
 //    }
-    
+
     /**
      * Returns true if learning is performed in batch mode, false otherwise
      *

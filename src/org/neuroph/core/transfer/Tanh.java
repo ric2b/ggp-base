@@ -16,8 +16,6 @@
 
 package org.neuroph.core.transfer;
 
-import java.io.Serializable;
-
 import org.neuroph.util.Properties;
 
 /**
@@ -29,7 +27,7 @@ import org.neuroph.util.Properties;
  *
  * @author Zoran Sevarac <sevarac@gmail.com>
  */
-public class Tanh extends TransferFunction implements Serializable {
+public class Tanh extends TransferFunction {
 
     /**
      * The class fingerprint that is set to indicate serialization

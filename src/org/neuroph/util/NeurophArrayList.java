@@ -2,12 +2,10 @@ package org.neuroph.util;
 
 import java.lang.reflect.Array;
 import java.util.AbstractList;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
-import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
@@ -94,7 +92,7 @@ import java.util.RandomAccess;
  */
 
 public class NeurophArrayList<E> extends AbstractList<E>
-        implements List<E>, RandomAccess, Cloneable, java.io.Serializable
+        implements RandomAccess, Cloneable, java.io.Serializable
 {
     private static final long serialVersionUID = 1L;
 
@@ -102,15 +100,15 @@ public class NeurophArrayList<E> extends AbstractList<E>
      * The array buffer into which the elements of the ArrayList are stored.
      * The capacity of the ArrayList is the length of this array buffer.
      */
-    private transient E[] elementData;   
-    
+    private transient E[] elementData;
+
     /**
      * The size of the ArrayList (the number of elements it contains).
      *
      * @serial
      */
-    private int size;    
-    
+    private int size;
+
     /**
      * Type of elements of the array
      */
@@ -324,7 +322,7 @@ public class NeurophArrayList<E> extends AbstractList<E>
     public Object[] toArray() {
         return Arrays.copyOf(elementData, size);
     }
-    
+
     public final E[] asArray() {
         return elementData;
     }
@@ -542,14 +540,14 @@ public class NeurophArrayList<E> extends AbstractList<E>
         size += numNew;
         return numNew != 0;
     }
-    
+
     public boolean addAll(E[] a) {
         int numNew = a.length;
         ensureCapacityInternal(size + numNew);  // Increments modCount
         System.arraycopy(a, 0, elementData, size, numNew);
         size += numNew;
         return numNew != 0;
-    }    
+    }
 
     /**
      * Inserts all of the elements in the specified collection into this
@@ -812,7 +810,6 @@ public class NeurophArrayList<E> extends AbstractList<E>
         }
 
         @Override
-        @SuppressWarnings("unchecked")
         public E next() {
             checkForComodification();
             int i = cursor;
@@ -872,7 +869,6 @@ public class NeurophArrayList<E> extends AbstractList<E>
         }
 
         @Override
-        @SuppressWarnings("unchecked")
         public E previous() {
             checkForComodification();
             int i = cursor - 1;

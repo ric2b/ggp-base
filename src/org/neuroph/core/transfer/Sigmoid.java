@@ -16,24 +16,23 @@
 
 package org.neuroph.core.transfer;
 
-import java.io.Serializable;
 import org.neuroph.util.Properties;
 
 /**
  * <pre>
  * Sigmoid neuron transfer function.
- * 
+ *
  * output = 1/(1+ e^(-slope*input))
  * </pre>
  * @author Zoran Sevarac <sevarac@gmail.com>
  */
-public class Sigmoid extends TransferFunction implements Serializable {
+public class Sigmoid extends TransferFunction {
 	/**
 	 * The class fingerprint that is set to indicate serialization
 	 * compatibility with a previous version of the class.
-	 */		
+	 */
 	private static final long serialVersionUID = 2L;
-	
+
 	/**
 	 * The slope parametetar of the sigmoid function
 	 */
@@ -42,7 +41,7 @@ public class Sigmoid extends TransferFunction implements Serializable {
 	/**
 	 * Creates an instance of Sigmoid neuron transfer function with default
 	 * slope=1.
-	 */	
+	 */
 	public Sigmoid() {
 	}
 
@@ -59,7 +58,7 @@ public class Sigmoid extends TransferFunction implements Serializable {
 	 * Creates an instance of Sigmoid neuron transfer function with the
 	 * specified properties.
 	 * @param properties properties of the sigmoid function
-	 */	
+	 */
 	public Sigmoid(Properties properties) {
 		try {
 			this.slope = (Double)properties.getProperty("transferFunction.slope");
@@ -69,10 +68,10 @@ public class Sigmoid extends TransferFunction implements Serializable {
 			System.err.println("Invalid transfer function properties! Using default values.");
 		}
 	}
-	
+
 	/**
 	 * Returns the slope parametar of this function
-	 * @return  slope parametar of this function 
+	 * @return  slope parametar of this function
 	 */
 	public double getSlope() {
 		return this.slope;
@@ -97,7 +96,7 @@ public class Sigmoid extends TransferFunction implements Serializable {
 
 		double den = 1d + Math.exp(-this.slope * net);
                 this.output = (1d / den);
-                
+
 		return this.output;
 	}
 

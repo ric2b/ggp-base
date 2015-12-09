@@ -15,7 +15,6 @@
  */
 package org.neuroph.core.input;
 
-import java.io.Serializable;
 import org.neuroph.core.Connection;
 
 /**
@@ -23,7 +22,7 @@ import org.neuroph.core.Connection;
  *
  * @author Zoran Sevarac <sevarac@gmail.com>
  */
-public class Min extends InputFunction implements Serializable {
+public class Min extends InputFunction {
 
     /**
      * The class fingerprint that is set to indicate serialization compatibility
@@ -38,7 +37,7 @@ public class Min extends InputFunction implements Serializable {
         for (Connection connection : inputConnections) {
             min = Math.min(min, connection.getWeightedInput());
         }
-        
+
         return min;
     }
 }
