@@ -7,6 +7,7 @@ import java.util.Iterator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.MCTSTree;
+import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
@@ -25,7 +26,9 @@ public class LearningTree
   private final ForwardDeadReckonPropnetStateMachine mStateMachine;
   private final TrainedEvaluationFunction mEvalFunc;
   private final Role mRole;
+  private final int mRoleIndex;
   private final int mNumRoles;
+  private final RoleOrdering mRoleOrdering;
 
   /**
    * Per-stack-frame variables that are created as members to avoid object allocation during recursion.
@@ -38,13 +41,16 @@ public class LearningTree
                                                 new ForwardDeadReckonLegalMoveInfo[MCTSTree.MAX_SUPPORTED_TREE_DEPTH][];
 
   public LearningTree(ForwardDeadReckonPropnetStateMachine xiStateMachine,
-                      TrainedEvaluationFunction xiEvalFunc,
-                      Role xiRole)
+                      TrainedEvaluationFunction xiEvalFunc)
   {
     mStateMachine = xiStateMachine;
     mEvalFunc = xiEvalFunc;
-    mRole = xiRole;
+
+    mRoleOrdering = xiStateMachine.getRoleOrdering();
+    mRole = mRoleOrdering.getOurRole();
+    mRoleIndex = mRoleOrdering.getOurRawRoleIndex();
     mNumRoles = xiStateMachine.getRoles().length;
+
     mScoreMap = new TObjectDoubleHashMap<>();
 
     for (int lii = 0; lii < MCTSTree.MAX_SUPPORTED_TREE_DEPTH; lii++)
@@ -81,12 +87,13 @@ public class LearningTree
       return mScoreMap.get(mStackState[xiDepth]);
     }
 
-    // If the state is already terminal, train the evaluation function on this value and return it.
+    // If the state is already terminal, train the evaluation function on this value and return it.  Although we'll
+    // never ask the evaluation function about terminal states, it *massively* helps to train then them on it.
     if (mStateMachine.isTerminal(mStackState[xiDepth]))
     {
       double lValue = mStateMachine.getGoal(mRole);
-      // mEvalFunc.sample(mStackState[xiDepth], lValue);
-      // mScoreMap.put(new ForwardDeadReckonInternalMachineState(mStackState[xiDepth]), lValue);
+      mEvalFunc.sample(mStackState[xiDepth], lValue);
+      mScoreMap.put(new ForwardDeadReckonInternalMachineState(mStackState[xiDepth]), lValue);
       return lValue;
     }
 
@@ -125,7 +132,8 @@ public class LearningTree
 
     if (lRoleWithChoice == -1)
     {
-      // No role had a choice.  Return the value of the only child.
+      // No role had a choice.  Return the value of the only child.  Also train the evaluation function.  Although
+      // we'll never ask it about this state, it still helps to train it.
       mStateMachine.getNextState(mStackState[xiDepth], null, mStackJointMove[xiDepth], mStackState[xiDepth + 1]);
       double lValue = search(xiDepth + 1, xiCutOff);
       mEvalFunc.sample(mStackState[xiDepth], lValue);
@@ -135,7 +143,7 @@ public class LearningTree
 
     // A role had a choice.  If it was us, return the maximum value of all children.  If it wasn't, return the minimum.
     double lValue;
-    if (lRoleWithChoice == 0)
+    if (lRoleWithChoice == mRoleIndex)
     {
       // Our choice.
       lValue = 0;
@@ -238,7 +246,7 @@ public class LearningTree
     // A role had a choice.  If it was us, return the maximum value of all children.  If it wasn't, return the minimum.
     boolean lRight = false;
     String lError = "";
-    if (lRoleWithChoice == 0)
+    if (lRoleWithChoice == mRoleIndex)
     {
       // Our choice.
       double lBestValue = -1;
@@ -258,7 +266,7 @@ public class LearningTree
           lError = "  Our choice, score fell from " + mScoreMap.get(mStackState[lDepth]) +
                    " to " + mScoreMap.get(mStackState[lDepth + 1]) +
                    " because we thought the afterstate had value " + lValue +
-                   " when playing " + mStackJointMove[lDepth][0] +
+                   " when playing " + mStackJointMove[lDepth][mRoleIndex] +
                    " in state " + mStackState[lDepth] +
                    " giving afterstate " + mStackState[lDepth + 1];
         }
@@ -284,14 +292,14 @@ public class LearningTree
           lError = "  Their choice, score rose from " + mScoreMap.get(mStackState[lDepth]) +
                    " to " + mScoreMap.get(mStackState[lDepth + 1]) +
                    " because we thought the afterstate had value " + lValue +
-                   " when playing " + mStackJointMove[lDepth][1] +
+                   " when playing " + mStackJointMove[lDepth][1 - mRoleIndex] +
                    " in state " + mStackState[lDepth] +
                    " giving afterstate " + mStackState[lDepth + 1];
         }
       }
     }
 
-    if (!lRight)
+    if ((!lRight) && (xiDump))
     {
       LOGGER.warn(lError);
     }
@@ -337,7 +345,7 @@ public class LearningTree
     }
 
     // A role had a choice.  If it was us, return the maximum-valued child.  If it wasn't, return the minimum.
-    if (lRoleWithChoice == 0)
+    if (lRoleWithChoice == mRoleIndex)
     {
       // Our choice.
       double lBestValue = -1;

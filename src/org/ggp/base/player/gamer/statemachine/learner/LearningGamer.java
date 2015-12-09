@@ -51,7 +51,7 @@ public class LearningGamer extends StateMachineGamer
     int lIterations = 0;
 
     // Create a reference tree for test purposes.
-    LearningTree lReferenceTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, getRole());
+    LearningTree lReferenceTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc);
     lReferenceTree.search(mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState()), 9);
     int lFewestWrongMoves = 9999;
 
@@ -61,20 +61,20 @@ public class LearningGamer extends StateMachineGamer
       ForwardDeadReckonInternalMachineState lState =
                                  mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState());
 
-      int lWrongMoves = lReferenceTree.getWrongMoves(false);
-      if (lWrongMoves < lFewestWrongMoves)
+      if (lIterations % 500 == 0)
       {
-        lFewestWrongMoves = lWrongMoves;
-        if (lWrongMoves < 50)
+        int lWrongMoves = lReferenceTree.getWrongMoves(false);
+        if (lWrongMoves < lFewestWrongMoves)
         {
-          // Dump the states in which we get wrong moves.
-          LOGGER.info("--- Dumping " + lWrongMoves + " bad states");
-          lReferenceTree.getWrongMoves(true);
+          lFewestWrongMoves = lWrongMoves;
+          if (lWrongMoves < 50)
+          {
+            // Dump the states in which we get wrong moves.
+            LOGGER.info("--- Dumping " + lWrongMoves + " bad states");
+            lReferenceTree.getWrongMoves(true);
+          }
         }
-      }
 
-      if (lIterations % 100 == 0)
-      {
         LOGGER.info("After " + lIterations + " iterations, average error = " + lReferenceTree.getAverageError() + ", wrong moves = " + lWrongMoves + ", low-water mark = " + lFewestWrongMoves);
       }
 
@@ -85,8 +85,8 @@ public class LearningGamer extends StateMachineGamer
 
         // Build a depth-limited game tree, by minimax, using the position evaluation function at the non-terminal
         // leaf nodes.  Builds the training set in the process.
-        LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, getRole());
-        lTree.search(lState, 9);
+        LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc);
+        lTree.search(lState, 4);
 
         // Train the evaluation function on the (partial) minimax tree.
         mEvalFunc.train();
