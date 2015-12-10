@@ -83,6 +83,7 @@ public class LearningGamer extends StateMachineGamer
             LOGGER.info("--- Dumping " + lWrongMoves + " bad states");
             lReferenceTree.getWrongMoves(true);
           }
+          mEvalFunc.save();
         }
 
         LOGGER.info("After " + lIterations + " iterations, average error = " + lReferenceTree.getAverageError() + ", wrong moves = " + lWrongMoves + ", low-water mark = " + lFewestWrongMoves);
@@ -99,7 +100,7 @@ public class LearningGamer extends StateMachineGamer
         // Build a depth-limited game tree, by minimax, using the position evaluation function at the non-terminal
         // leaf nodes.  Builds the training set in the process.
         LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, mFrozenEvalFunc);
-        lTree.search(lState, 4);
+        lTree.search(lState, 2);
 
         // Pick the next move epsilon-greedily.
         lState = lTree.epsilonGreedySelection(lState, lEpsilon);

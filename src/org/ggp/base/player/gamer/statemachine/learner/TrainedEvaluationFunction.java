@@ -141,4 +141,9 @@ public class TrainedEvaluationFunction
   {
     mLearningRule.setLearningRate(mLearningRule.getLearningRate() * 0.999);
   }
+
+  public void save()
+  {
+    mNetwork.save("Game.nnet");
+  }
 }
