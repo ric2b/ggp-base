@@ -41,8 +41,18 @@ public class LearningGamer extends StateMachineGamer
     mTurn = 0;
 
     // Create and initialise a heuristic evaluation function.
-    mEvalFunc = new TrainedEvaluationFunction(mUnderlyingStateMachine.getBasePropositions().size());
-    mFrozenEvalFunc = new TrainedEvaluationFunction(mUnderlyingStateMachine.getBasePropositions().size());
+    boolean lReload = true;
+    if (lReload)
+    {
+      String lFilename = "data/games/base.tictactoe/evaluation.0.1_47.nnet";
+      mEvalFunc = new TrainedEvaluationFunction(lFilename);
+      mFrozenEvalFunc = new TrainedEvaluationFunction(lFilename);
+    }
+    else
+    {
+      mEvalFunc = new TrainedEvaluationFunction(mUnderlyingStateMachine.getBasePropositions().size());
+      mFrozenEvalFunc = new TrainedEvaluationFunction(mUnderlyingStateMachine.getBasePropositions().size());
+    }
 
     // Use TreeStrap to train the evaluation function.
     treeStrap(xiTimeout);
@@ -56,6 +66,7 @@ public class LearningGamer extends StateMachineGamer
     LearningTree lReferenceTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, mFrozenEvalFunc);
     lReferenceTree.search(mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState()), 9);
     int lFewestWrongMoves = 9999;
+    double lSmallestStateError = 100;
     double lEpsilon = 0.2;
 
     while (true /* System.currentTimeMillis() < xiTimeout */)
@@ -74,9 +85,16 @@ public class LearningGamer extends StateMachineGamer
       if (lIterations % 100 == 0)
       {
         int lWrongMoves = lReferenceTree.getWrongMoves(false);
-        if (lWrongMoves < lFewestWrongMoves)
+        double lAverageError = lReferenceTree.getAverageError();
+
+        if ((lWrongMoves < lFewestWrongMoves) ||
+            ((lWrongMoves == lFewestWrongMoves) && (lAverageError < lSmallestStateError)))
         {
           lFewestWrongMoves = lWrongMoves;
+          lSmallestStateError = lAverageError;
+
+          showSampleGame(lReferenceTree);
+
           if (lWrongMoves < 10)
           {
             // Dump the states in which we get wrong moves.
@@ -86,7 +104,7 @@ public class LearningGamer extends StateMachineGamer
           mEvalFunc.save();
         }
 
-        LOGGER.info("After " + lIterations + " iterations, average error = " + lReferenceTree.getAverageError() + ", wrong moves = " + lWrongMoves + ", low-water mark = " + lFewestWrongMoves);
+        LOGGER.info("After " + lIterations + " iterations, average error = " + lAverageError + ", wrong moves = " + lWrongMoves + ", low-water mark = " + lFewestWrongMoves);
         mEvalFunc.cool();
         lEpsilon *= 1.01;
       }
@@ -100,10 +118,10 @@ public class LearningGamer extends StateMachineGamer
         // Build a depth-limited game tree, by minimax, using the position evaluation function at the non-terminal
         // leaf nodes.  Builds the training set in the process.
         LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, mFrozenEvalFunc);
-        lTree.search(lState, 2);
+        lTree.search(lState, 4);
 
         // Pick the next move epsilon-greedily.
-        lState = lTree.epsilonGreedySelection(lState, lEpsilon);
+        lState = lTree.epsilonGreedySelection(lState, lEpsilon, false);
       }
 
       // Train the evaluation function on all the samples gathered during the rollout.
@@ -112,6 +130,18 @@ public class LearningGamer extends StateMachineGamer
       lIterations++;
     }
   }
+
+  private void showSampleGame(LearningTree xiTree)
+  {
+    LOGGER.info("--- Sample game");
+    ForwardDeadReckonInternalMachineState lState =
+                                 mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState());
+    while (!mUnderlyingStateMachine.isTerminal(lState))
+    {
+      // Pick the next move greedily.
+      lState = xiTree.epsilonGreedySelection(lState, 0, true);
+    }
+}
 
   @Override
   public Move stateMachineSelectMove(long xiTimeout)

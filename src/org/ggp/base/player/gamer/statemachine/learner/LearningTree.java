@@ -2,6 +2,7 @@ package org.ggp.base.player.gamer.statemachine.learner;
 
 import gnu.trove.map.hash.TObjectDoubleHashMap;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Random;
 
@@ -312,7 +313,8 @@ public class LearningTree
   }
 
   public ForwardDeadReckonInternalMachineState epsilonGreedySelection(ForwardDeadReckonInternalMachineState xiState,
-                                                                      double xiEpsilon)
+                                                                      double xiEpsilon,
+                                                                      boolean xiDumpMoves)
   {
     int lDepth = 0;
     mStackState[lDepth] = xiState;
@@ -346,6 +348,7 @@ public class LearningTree
     if (lRoleWithChoice == -1)
     {
       // No role had a choice.
+      if (xiDumpMoves) LOGGER.info(Arrays.toString(mStackJointMove[lDepth]));
       mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
       return new ForwardDeadReckonInternalMachineState(mStackState[lDepth + 1]);
     }
@@ -407,6 +410,7 @@ public class LearningTree
       mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
     }
 
+    if (xiDumpMoves) LOGGER.info(Arrays.toString(mStackJointMove[lDepth]));
     return new ForwardDeadReckonInternalMachineState(mStackState[lDepth + 1]);
   }
 }

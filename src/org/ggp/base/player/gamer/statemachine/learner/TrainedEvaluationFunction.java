@@ -20,6 +20,8 @@ public class TrainedEvaluationFunction
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
+  private static final double INITIAL_LEARNING_RATE = 0.05;
+
   private final int mSize;
   private final NeuralNetwork<BackPropagation> mNetwork;
   BackPropagation mLearningRule;
@@ -33,7 +35,6 @@ public class TrainedEvaluationFunction
     LOGGER.info("Creating an evaluation function with " + xiSize + " inputs");
 
     // Create a neural network.
-    //
     mSize = xiSize;
     mNetwork = new MultiLayerPerceptron(TransferFunctionType.SIGMOID,
                                         mSize,          // Input layer, 1 neuron per base proposition
@@ -46,12 +47,31 @@ public class TrainedEvaluationFunction
     // Create a training set.
     mTrainingSet = new DataSet(mSize, 1);
 
-    // Create a learning rule for a single update.
-    mLearningRule = new BackPropagation();
-    // mLearningRule.setErrorFunction(new MeanCubedError());
-    mLearningRule.setMaxIterations(1);
-    mLearningRule.setLearningRate(0.05);
-    mLearningRule.setNeuralNetwork(mNetwork);
+    // Create a learning rule..
+    mLearningRule = createLearningRule();
+  }
+
+  @SuppressWarnings("unchecked")
+  public TrainedEvaluationFunction(String xiFilename)
+  {
+    // Load the neural network from disk.
+    mNetwork = NeuralNetwork.createFromFile(xiFilename);
+    mSize = mNetwork.getInputsCount();
+
+    // Create a training set.
+    mTrainingSet = new DataSet(mSize, 1);
+
+    // Create a learning rule.
+    mLearningRule = createLearningRule();
+  }
+
+  private BackPropagation createLearningRule()
+  {
+    BackPropagation lLearningRule = new BackPropagation();
+    lLearningRule.setMaxIterations(1);
+    lLearningRule.setLearningRate(INITIAL_LEARNING_RATE);
+    lLearningRule.setNeuralNetwork(mNetwork);
+    return lLearningRule;
   }
 
   /**

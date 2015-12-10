@@ -4,6 +4,7 @@ package org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -1757,12 +1758,24 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       assert(index == numGoals+1);
       firstBasePropIndex = index;
 
-      for (Entry<GdlSentence, PolymorphicProposition> e : fullPropNet.getBasePropositions().entrySet())
+      // Ensure the base propositions always appear in the same order across multiple runs.  This is required for
+      // neural network reloading.
+      List<GdlSentence> lKeys = new ArrayList<>(fullPropNet.getBasePropositions().keySet());
+      Collections.sort(lKeys, new Comparator<GdlSentence>()
       {
-        ForwardDeadReckonProposition prop = (ForwardDeadReckonProposition)e.getValue();
+        @Override
+        public int compare(GdlSentence aa, GdlSentence bb)
+        {
+          return aa.toString().compareTo(bb.toString());
+        }
+      });
+
+      for (GdlSentence lKey : lKeys)
+      {
+        ForwardDeadReckonProposition prop = (ForwardDeadReckonProposition)fullPropNet.getBasePropositions().get(lKey);
         ForwardDeadReckonPropositionCrossReferenceInfo info = new ForwardDeadReckonPropositionCrossReferenceInfo();
 
-        info.sentence = e.getKey();
+        info.sentence = lKey;
         info.fullNetProp = prop;
         info.xNetProp = prop;
         info.oNetProp = prop;
