@@ -6,7 +6,7 @@ import org.ggp.base.util.statemachine.Role;
 /**
  * @author steve
  *  Interface through which goal calculations may be injected, bypassing the use
- *  of teh state machine
+ *  of the state machine
  */
 public interface GoalsCalculator
 {

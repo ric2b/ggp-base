@@ -1,8 +1,7 @@
 package org.ggp.base.player.gamer.statemachine.learner;
 
-import gnu.trove.map.hash.TObjectDoubleHashMap;
-
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Random;
 
@@ -24,7 +23,7 @@ public class LearningTree
 
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private final TObjectDoubleHashMap<ForwardDeadReckonInternalMachineState> mScoreMap;
+  private final HashMap<ForwardDeadReckonInternalMachineState, double[]> mScoreMap;
   private final ForwardDeadReckonPropnetStateMachine mStateMachine;
   private final TrainedEvaluationFunction mEvalFunc;
   private final TrainedEvaluationFunction mFrozenEvalFunc;
@@ -57,7 +56,7 @@ public class LearningTree
     mRoleIndex = mRoleOrdering.getOurRawRoleIndex();
     mNumRoles = xiStateMachine.getRoles().length;
 
-    mScoreMap = new TObjectDoubleHashMap<>();
+    mScoreMap = new HashMap<>();
 
     for (int lii = 0; lii < MCTSTree.MAX_SUPPORTED_TREE_DEPTH; lii++)
     {
@@ -73,7 +72,7 @@ public class LearningTree
    * @param xiState - the state.
    * @param xiCutOff - cut-off depth.
    */
-  public double search(ForwardDeadReckonInternalMachineState xiState, int xiCutOff)
+  public double[] search(ForwardDeadReckonInternalMachineState xiState, int xiCutOff)
   {
     mStackState[0] = new ForwardDeadReckonInternalMachineState(xiState);
     return search(0, xiCutOff);
@@ -86,9 +85,9 @@ public class LearningTree
    *                   use.
    * @param xiCutOff - the maximum depth to search.
    */
-  private double search(int xiDepth, int xiCutOff)
+  private double[] search(int xiDepth, int xiCutOff)
   {
-    if (mScoreMap.contains(mStackState[xiDepth]))
+    if (mScoreMap.containsKey(mStackState[xiDepth]))
     {
       return mScoreMap.get(mStackState[xiDepth]);
     }
@@ -97,10 +96,10 @@ public class LearningTree
     // never ask the evaluation function about terminal states, it *massively* helps to train them on it.
     if (mStateMachine.isTerminal(mStackState[xiDepth]))
     {
-      double lValue = mStateMachine.getGoal(mRole);
-      mEvalFunc.sample(mStackState[xiDepth], lValue);
-      mScoreMap.put(new ForwardDeadReckonInternalMachineState(mStackState[xiDepth]), lValue);
-      return lValue;
+      double[] lGoals = getGoals(mStackState[xiDepth]);
+      mEvalFunc.sample(mStackState[xiDepth], lGoals);
+      mScoreMap.put(new ForwardDeadReckonInternalMachineState(mStackState[xiDepth]), lGoals);
+      return lGoals;
     }
 
     // If we've reached the maximum search depth, just return the value from the evaluation function.  (Don't train the
@@ -141,62 +140,70 @@ public class LearningTree
       // No role had a choice.  Return the value of the only child.  Also train the evaluation function.  Although
       // we'll never ask it about this state, it still helps to train it.
       mStateMachine.getNextState(mStackState[xiDepth], null, mStackJointMove[xiDepth], mStackState[xiDepth + 1]);
-      double lValue = search(xiDepth + 1, xiCutOff);
-      mEvalFunc.sample(mStackState[xiDepth], lValue);
-      mScoreMap.put(new ForwardDeadReckonInternalMachineState(mStackState[xiDepth]), lValue);
-      return lValue;
+      double[] lGoals = search(xiDepth + 1, xiCutOff);
+      mEvalFunc.sample(mStackState[xiDepth], lGoals);
+      mScoreMap.put(new ForwardDeadReckonInternalMachineState(mStackState[xiDepth]), lGoals);
+      return lGoals;
     }
 
-    // A role had a choice.  If it was us, return the maximum value of all children.  If it wasn't, return the minimum.
-    double lValue;
-    if (lRoleWithChoice == mRoleIndex)
+    // A role had a choice.  That role is trying to maximise its value.
+    double[] lBestGoals = null;
+    for (int lii = 0; lii < lNumChoices; lii++)
     {
-      // Our choice.
-      lValue = 0;
-      for (int lii = 0; lii < lNumChoices; lii++)
-      {
-        // Set the move for the role with a choice.  (All the others are set already.)
-        mStackJointMove[xiDepth][lRoleWithChoice] = mStackLegals[xiDepth][lii];
+      // Set the move for the role with a choice.  (All the others are set already.)
+      mStackJointMove[xiDepth][lRoleWithChoice] = mStackLegals[xiDepth][lii];
 
-        // Get the next state and do a recursive (depth-first) search.
-        mStateMachine.getNextState(mStackState[xiDepth], null, mStackJointMove[xiDepth], mStackState[xiDepth + 1]);
-        lValue = Math.max(lValue, search(xiDepth + 1, xiCutOff));
-      }
-    }
-    else
-    {
-      // Their choice.
-      lValue = 100;
-      for (int lii = 0; lii < lNumChoices; lii++)
-      {
-        // Set the move for the role with a choice.  (All the others are set already.)
-        mStackJointMove[xiDepth][lRoleWithChoice] = mStackLegals[xiDepth][lii];
+      // Get the next state and do a recursive (depth-first) search.
+      mStateMachine.getNextState(mStackState[xiDepth], null, mStackJointMove[xiDepth], mStackState[xiDepth + 1]);
+      double[] lChildGoals = search(xiDepth + 1, xiCutOff);
 
-        // Get the next state and do a recursive (depth-first) search.
-        mStateMachine.getNextState(mStackState[xiDepth], null, mStackJointMove[xiDepth], mStackState[xiDepth + 1]);
-        lValue = Math.min(lValue, search(xiDepth + 1, xiCutOff));
+      if ((lBestGoals == null) || (lChildGoals[lRoleWithChoice] > lBestGoals[lRoleWithChoice]))
+      {
+        lBestGoals = lChildGoals;
       }
     }
 
-    mEvalFunc.sample(mStackState[xiDepth], lValue);
-    mScoreMap.put(new ForwardDeadReckonInternalMachineState(mStackState[xiDepth]), lValue);
-    return lValue;
+    mEvalFunc.sample(mStackState[xiDepth], lBestGoals);
+    mScoreMap.put(new ForwardDeadReckonInternalMachineState(mStackState[xiDepth]), lBestGoals);
+    return lBestGoals;
+  }
+
+  private double[] getGoals(ForwardDeadReckonInternalMachineState xiState)
+  {
+    double[] lGoals = new double[mNumRoles];
+    Role[] lRoles = mStateMachine.getRoles();
+    for (int lii = 0; lii < mNumRoles; lii++)
+    {
+      lGoals[lii] = mStateMachine.getGoal(xiState, lRoles[lii]);
+    }
+    return lGoals;
   }
 
   public double getAverageError()
   {
     double lTotalError = 0;
-    for (Object lState : mScoreMap.keys())
+    for (Object lState : mScoreMap.keySet())
     {
-      lTotalError += Math.abs(mEvalFunc.evaluate((ForwardDeadReckonInternalMachineState)lState) - mScoreMap.get(lState));
+      lTotalError += getTotalDiff(mEvalFunc.evaluate((ForwardDeadReckonInternalMachineState)lState),
+                                  mScoreMap.get(lState));
     }
     return lTotalError / mScoreMap.size();
+  }
+
+  private double getTotalDiff(double[] xiA, double[]xiB)
+  {
+    double lTotalDiff = 0;
+    for (int lii = 0; lii < xiA.length; lii++)
+    {
+      lTotalDiff += Math.abs(xiA[lii] - xiB[lii]);
+    }
+    return lTotalDiff;
   }
 
   public int getWrongMoves(boolean xiDump)
   {
     int lBadStates = 0;
-    for (Object lState : mScoreMap.keys())
+    for (Object lState : mScoreMap.keySet())
     {
       if (!checkState((ForwardDeadReckonInternalMachineState)lState, xiDump))
       {
@@ -249,59 +256,29 @@ public class LearningTree
       return true;
     }
 
-    // A role had a choice.  If it was us, return the maximum value of all children.  If it wasn't, return the minimum.
+    // A role had a choice.  That role is trying to maximise its value.
     boolean lRight = false;
     String lError = "";
-    if (lRoleWithChoice == mRoleIndex)
+    double lBestValue = -1;
+    for (int lii = 0; lii < lNumChoices; lii++)
     {
-      // Our choice.
-      double lBestValue = -1;
-      for (int lii = 0; lii < lNumChoices; lii++)
-      {
-        // Set the move for the role with a choice.  (All the others are set already.)
-        mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][lii];
+      // Set the move for the role with a choice.  (All the others are set already.)
+      mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][lii];
 
-        // Get the next state.
-        mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
-        double lValue = mEvalFunc.evaluate(mStackState[lDepth + 1]);
-        if (lValue > lBestValue)
-        {
-          // We'd chose this move.
-          lBestValue = lValue;
-          lRight = mScoreMap.get(mStackState[lDepth + 1]) >= mScoreMap.get(mStackState[lDepth]);
-          lError = "  Our choice, score fell from " + mScoreMap.get(mStackState[lDepth]) +
-                   " to " + mScoreMap.get(mStackState[lDepth + 1]) +
-                   " because we thought the afterstate had value " + lValue +
-                   " when playing " + mStackJointMove[lDepth][mRoleIndex] +
-                   " in state " + mStackState[lDepth] +
-                   " giving afterstate " + mStackState[lDepth + 1];
-        }
-      }
-    }
-    else
-    {
-      // Their choice.
-      double lBestValue = 101;
-      for (int lii = 0; lii < lNumChoices; lii++)
+      // Get the next state.
+      mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
+      double lValue = mEvalFunc.evaluate(mStackState[lDepth + 1])[lRoleWithChoice];
+      if (lValue > lBestValue)
       {
-        // Set the move for the role with a choice.  (All the others are set already.)
-        mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][lii];
-
-        // Get the next state.
-        mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
-        double lValue = mEvalFunc.evaluate(mStackState[lDepth + 1]);
-        if (lValue < lBestValue)
-        {
-          // They'd chose this move.
-          lBestValue = lValue;
-          lRight = mScoreMap.get(mStackState[lDepth + 1]) <= mScoreMap.get(mStackState[lDepth]);
-          lError = "  Their choice, score rose from " + mScoreMap.get(mStackState[lDepth]) +
-                   " to " + mScoreMap.get(mStackState[lDepth + 1]) +
-                   " because we thought the afterstate had value " + lValue +
-                   " when playing " + mStackJointMove[lDepth][1 - mRoleIndex] +
-                   " in state " + mStackState[lDepth] +
-                   " giving afterstate " + mStackState[lDepth + 1];
-        }
+        // We'd chose this move.
+        lBestValue = lValue;
+        lRight = mScoreMap.get(mStackState[lDepth + 1])[lRoleWithChoice] >= mScoreMap.get(mStackState[lDepth])[lRoleWithChoice];
+        lError = "  Choosing role score fell from " + mScoreMap.get(mStackState[lDepth])[lRoleWithChoice] +
+                 " to " + mScoreMap.get(mStackState[lDepth + 1])[lRoleWithChoice] +
+                 " because we thought the afterstate had value " + lValue +
+                 " when playing " + mStackJointMove[lDepth][lRoleWithChoice] +
+                 " in state " + mStackState[lDepth] +
+                 " giving afterstate " + mStackState[lDepth + 1];
       }
     }
 
@@ -359,9 +336,8 @@ public class LearningTree
       mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][mRandom.nextInt(lNumChoices)];
       mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
     }
-    else if (lRoleWithChoice == mRoleIndex)
+    else
     {
-      // Our choice.
       double lBestValue = -1;
       int lBestMoveIndex = -1;
       for (int lii = 0; lii < lNumChoices; lii++)
@@ -371,35 +347,10 @@ public class LearningTree
 
         // Get the next state.
         mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
-        double lValue = mEvalFunc.evaluate(mStackState[lDepth + 1]);
+        double lValue = mEvalFunc.evaluate(mStackState[lDepth + 1])[lRoleWithChoice];
         if (lValue > lBestValue)
         {
           // We'd chose this move.
-          lBestValue = lValue;
-          lBestMoveIndex =  lii;
-        }
-      }
-
-      // Get the state for the best move.
-      mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][lBestMoveIndex];
-      mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
-    }
-    else
-    {
-      // Their choice.
-      double lBestValue = 101;
-      int lBestMoveIndex = -1;
-      for (int lii = 0; lii < lNumChoices; lii++)
-      {
-        // Set the move for the role with a choice.  (All the others are set already.)
-        mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][lii];
-
-        // Get the next state.
-        mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
-        double lValue = mEvalFunc.evaluate(mStackState[lDepth + 1]);
-        if (lValue < lBestValue)
-        {
-          // They'd chose this move.
           lBestValue = lValue;
           lBestMoveIndex =  lii;
         }
