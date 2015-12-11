@@ -41,19 +41,22 @@ public class LearningGamer extends StateMachineGamer
     mTurn = 0;
 
     // Create and initialise a heuristic evaluation function.
-    boolean lReload = true;
+    boolean lReload = false;
+    boolean l2PlayerFixedSum = true;
     if (lReload)
     {
       String lFilename = "data/games/base.tictactoe/evaluation.0.5_14.nnet";
-      mEvalFunc = new TrainedEvaluationFunction(lFilename);
-      mFrozenEvalFunc = new TrainedEvaluationFunction(lFilename);
+      mEvalFunc = new TrainedEvaluationFunction(lFilename, l2PlayerFixedSum);
+      mFrozenEvalFunc = new TrainedEvaluationFunction(lFilename, l2PlayerFixedSum);
     }
     else
     {
       mEvalFunc = new TrainedEvaluationFunction(mUnderlyingStateMachine.getBasePropositions().size(),
-                                                mUnderlyingStateMachine.getRoles().length);
+                                                mUnderlyingStateMachine.getRoles().length,
+                                                l2PlayerFixedSum);
       mFrozenEvalFunc = new TrainedEvaluationFunction(mUnderlyingStateMachine.getBasePropositions().size(),
-                                                      mUnderlyingStateMachine.getRoles().length);
+                                                      mUnderlyingStateMachine.getRoles().length,
+                                                      l2PlayerFixedSum);
     }
 
     // Use TreeStrap to train the evaluation function.
@@ -83,6 +86,8 @@ public class LearningGamer extends StateMachineGamer
       {
         mFrozenEvalFunc.replaceWith(mEvalFunc);
         mEvalFunc.save();
+        mEvalFunc.cool();
+        lEpsilon *= 1.01;
       }
 
       if (lIterations % 100 == 0)
@@ -105,8 +110,6 @@ public class LearningGamer extends StateMachineGamer
         }
 
         LOGGER.info("After " + lIterations + " iterations, average error = " + lAverageError + ", wrong moves = " + lWrongMoves + ", low-water mark = " + lFewestWrongMoves);
-        mEvalFunc.cool();
-        lEpsilon *= 1.01;
 
         showSampleGame();
       }

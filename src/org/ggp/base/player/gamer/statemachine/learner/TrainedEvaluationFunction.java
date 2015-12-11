@@ -22,46 +22,53 @@ public class TrainedEvaluationFunction
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private static final double INITIAL_LEARNING_RATE = 0.01;
+  private static final double INITIAL_LEARNING_RATE = 0.05;
 
   private final int mInputSize;
   private final int mOutputSize;
+  private final boolean m2PlayerFixedSum;
   private final NeuralNetwork<BackPropagation> mNetwork;
-  BackPropagation mLearningRule;
+  private final BackPropagation mLearningRule;
 
   private final DataSet mTrainingSet;
   HashMap<ForwardDeadReckonInternalMachineState, double[]> mTrainingData = new HashMap<>();
   TObjectIntHashMap<ForwardDeadReckonInternalMachineState> mTrainingCount = new TObjectIntHashMap<>();
 
-  public TrainedEvaluationFunction(int xiInputSize, int xiOutputSize)
+  public TrainedEvaluationFunction(int xiInputSize, int xiOutputSize, boolean xi2PlayerFixedSum)
   {
-    LOGGER.info("Creating an evaluation function with " + xiInputSize + " inputs");
-
     // Create a neural network.
+    m2PlayerFixedSum = xi2PlayerFixedSum;
     mInputSize = xiInputSize;
-    mOutputSize = xiOutputSize;
+    mOutputSize = xi2PlayerFixedSum ? 1 : xiOutputSize;
+
     mNetwork = new MultiLayerPerceptron(TransferFunctionType.SIGMOID,
                                         mInputSize,     // Input layer, 1 neuron per base proposition
                                         mInputSize * 2, // Hidden layer(s)
                                         mInputSize / 2,
-                                        xiOutputSize);  // Output layer, 1 neuron per role
+                                        mOutputSize);   // Output layer, 1 neuron per role (except for fixed sum,
+                                                        // where we only need 1).
     double lRange = 1 / Math.sqrt(mInputSize);
     mNetwork.randomizeWeights(-lRange, lRange);
 
     // Create a training set.
     mTrainingSet = new DataSet(mInputSize, mOutputSize);
 
-    // Create a learning rule..
+    // Create a learning rule.
     mLearningRule = createLearningRule();
+
+    LOGGER.info("Created an evaluation function with " + mNetwork.getInputsCount() + " inputs & " +
+                mNetwork.getOutputsCount() + " outputs");
+
   }
 
   @SuppressWarnings("unchecked")
-  public TrainedEvaluationFunction(String xiFilename)
+  public TrainedEvaluationFunction(String xiFilename, boolean xi2PlayerFixedSum)
   {
     // Load the neural network from disk.
     mNetwork = NeuralNetwork.createFromFile(xiFilename);
     mInputSize = mNetwork.getInputsCount();
     mOutputSize = mNetwork.getOutputsCount();
+    m2PlayerFixedSum = xi2PlayerFixedSum;
 
     // Create a training set.
     mTrainingSet = new DataSet(mInputSize, mOutputSize);
@@ -92,10 +99,20 @@ public class TrainedEvaluationFunction
     mNetwork.setInput(lInputs);
     mNetwork.calculate();
 
-    double[] lOutputs = mNetwork.getOutput().clone();
-    for (int lii = 0; lii < mOutputSize; lii++)
+    double[] lOutputs;
+    if (m2PlayerFixedSum)
     {
-      lOutputs[lii] *= 100;
+      lOutputs = new double[2];
+      lOutputs[0] = mNetwork.getOutput()[0] * 100;
+      lOutputs[1] = 100 - lOutputs[0];
+    }
+    else
+    {
+      lOutputs = mNetwork.getOutput().clone();
+      for (int lii = 0; lii < mOutputSize; lii++)
+      {
+        lOutputs[lii] *= 100;
+      }
     }
     return lOutputs;
   }
@@ -109,7 +126,14 @@ public class TrainedEvaluationFunction
   public void sample(ForwardDeadReckonInternalMachineState xiState,
                      double[] xiGoalValues)
   {
-    assert(xiGoalValues.length == mOutputSize);
+    assert((xiGoalValues.length == mOutputSize) || (m2PlayerFixedSum));
+
+    // If this is a zero-sum game, only train from the first player's goal.  It's considerably more efficient than
+    // trying to train both.
+    if ((xiGoalValues.length == 2) && (m2PlayerFixedSum))
+    {
+      xiGoalValues = new double[] {xiGoalValues[0]};
+    }
 
     // Copy the state.  The one we've been passed will be reused.
     ForwardDeadReckonInternalMachineState lState = new ForwardDeadReckonInternalMachineState(xiState);
@@ -182,7 +206,7 @@ public class TrainedEvaluationFunction
 
   public void cool()
   {
-    mLearningRule.setLearningRate(mLearningRule.getLearningRate() * 0.999);
+    mLearningRule.setLearningRate(mLearningRule.getLearningRate() * 0.9999);
   }
 
   public void save()
