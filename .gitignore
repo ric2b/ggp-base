@@ -4,3 +4,6 @@
 /server.log
 /logs
 /junit
+target/
+.idea/
+.iml
