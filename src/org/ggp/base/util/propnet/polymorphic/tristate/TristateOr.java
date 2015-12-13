@@ -56,6 +56,10 @@ public class TristateOr extends TristateComponent implements PolymorphicOr
       {
         for (TristateComponent lInput : getInputs())
         {
+          if ( xiTurn == 0 && lInput.mState[xiTurn].mValue == Tristate.TRUE )
+          {
+            throw new TransitionAssertionContradictionException(true);
+          }
           assert(lInput.mState[xiTurn].mValue != Tristate.TRUE);
           lInput.changeOutput(Tristate.FALSE, xiTurn);
         }

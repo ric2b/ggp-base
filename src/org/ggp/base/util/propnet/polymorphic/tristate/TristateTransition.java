@@ -14,7 +14,7 @@ public class TristateTransition extends TristateComponent implements Polymorphic
   {
     // Only propagate through a transition if we haven't done so already.  We're only interested in the immediate
     // consequences of assuming some input proposition(s).
-    if ((mState[xiTurn].mValue == Tristate.UNKNOWN) && (xiTurn < 2))
+    if ((mState[xiTurn].mValue == Tristate.UNKNOWN) && xiNewValue != Tristate.UNKNOWN && (xiTurn < 2))
     {
       mState[xiTurn].mValue = xiNewValue;
       propagateOutput(xiTurn, true);

@@ -56,6 +56,10 @@ public class TristateAnd extends TristateComponent implements PolymorphicAnd
         // If TRUE, all the upstream components must be TRUE.  (This is an AND gate.)
         for (TristateComponent lInput : getInputs())
         {
+          if ( xiTurn == 0 && lInput.mState[xiTurn].mValue == Tristate.FALSE )
+          {
+            throw new TransitionAssertionContradictionException(false);
+          }
           assert(lInput.mState[xiTurn].mValue != Tristate.FALSE);
           lInput.changeOutput(Tristate.TRUE, xiTurn);
         }

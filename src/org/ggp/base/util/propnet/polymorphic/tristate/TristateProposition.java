@@ -72,13 +72,26 @@ public class TristateProposition extends TristateComponent implements Polymorphi
     try
     {
       // Do forward propagation.
-      propagateOutput(0, false);
-      propagateOutput(1, false);
+      try
+      {
+        propagateOutput(0, false);
+        propagateOutput(1, false);
+      }
+      catch(TransitionAssertionContradictionException e)
+      {
+        LOGGER.info("false->true transition of " + getName() + " generates a contradiction, so discounting as potential +ve latch");
+      }
 
       // Do backward propagation.
-      getSingleInput().changeOutput(mState[0].mValue, 0);
-      getSingleInput().changeOutput(mState[1].mValue, 1);
-    }
+      try
+      {
+        getSingleInput().changeOutput(mState[0].mValue, 0);
+        getSingleInput().changeOutput(mState[1].mValue, 1);
+      }
+      catch(TransitionAssertionContradictionException e)
+      {
+        LOGGER.info("true->false transition of " + getName() + " generates a contradiction, so discounting as potential -ve latch");
+      }    }
     catch (LatchFoundException lEx)
     {
       // Check that the sense of the latch is as exception.  If a true value in this turn forces a false value in the
@@ -107,13 +120,13 @@ public class TristateProposition extends TristateComponent implements Polymorphi
       mState[xiTurn].mValue = xiNewValue;
       propagateOutput(xiTurn, false);
 
-      // If this is a LEGAL prop and it has become FALSE, set the corresponding DOES prop to FALSE in the next turn.
+      // If this is a LEGAL prop and it has become FALSE, set the corresponding DOES prop to FALSE in the SAME turn.
       if (mState[xiTurn].mValue == Tristate.FALSE)
       {
         TristateProposition lDoes = (TristateProposition)mParent.getLegalInputMap().get(this);
         if ((lDoes != null) && (xiTurn < 2))
         {
-          lDoes.changeInput(Tristate.FALSE, xiTurn + 1);
+          lDoes.changeInput(Tristate.FALSE, xiTurn);
         }
       }
     }

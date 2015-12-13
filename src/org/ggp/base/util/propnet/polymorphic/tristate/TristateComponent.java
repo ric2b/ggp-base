@@ -229,4 +229,34 @@ public abstract class TristateComponent implements PolymorphicComponent
   {
     throw new RuntimeException("Not implemented");
   }
+
+  /**
+   * @author steve
+   *  Exception thrown when a contradiction is arrived at during latch testing,
+   *  having asserted that the proposition under test has made a particular transition
+   *  from turn 0 to turn 1
+   */
+  @SuppressWarnings("serial")
+  public class TransitionAssertionContradictionException extends RuntimeException
+  {
+    public final boolean mPositive;
+
+    /**
+     * Create a contradiction exception - this is thrown if the assertion that a proposition
+     * under test has transitioned to a putative latched state generates a contradiction at the
+     * previous turn (which it can do if the transition is impossible such as a positive latch
+     * transitioning from true to false)
+     *
+     * @param xiPositive - true if a contradiction was arrived at attempting to set the state to true.
+     */
+    TransitionAssertionContradictionException(boolean xiPositive)
+    {
+      mPositive = xiPositive;
+    }
+    @Override
+    public String toString()
+    {
+      return TristateComponent.this.toString() + " being set to " + (mPositive ? "true" : "false") + " at turn 0 generates a contradiction";
+    }
+  }
 }
