@@ -511,7 +511,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
     if (MachineSpecificConfiguration.getCfgBool(CfgItem.TRISTATE_LATCH_ANALYSIS))
     {
-      new PropNetAnalyser(fullPropNet).analyse(timeout);
+      new PropNetAnalyser(fullPropNet, this).analyse(timeout);
     }
 
     for (PolymorphicProposition lGoals[] : fullPropNet.getGoalPropositions().values())

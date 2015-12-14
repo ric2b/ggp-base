@@ -179,7 +179,12 @@ public abstract class TristateComponent implements PolymorphicComponent
   @Override
   public boolean getValue()
   {
-    throw new RuntimeException("Can't call getValue() on tri-state component - use getTristateValue");
+    throw new RuntimeException("Can't call getValue() on tri-state component");
+  }
+
+  public Tristate getValue(int xiTurn)
+  {
+    return mState[xiTurn].mValue;
   }
 
   @Override
