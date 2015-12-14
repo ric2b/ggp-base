@@ -15,6 +15,7 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonMaskedState;
 import org.ggp.base.util.propnet.polymorphic.tristate.TristateComponent;
 import org.ggp.base.util.propnet.polymorphic.tristate.TristateComponent.ContradictionException;
 import org.ggp.base.util.propnet.polymorphic.tristate.TristateComponent.Tristate;
@@ -25,22 +26,26 @@ import org.ggp.base.util.statemachine.Role;
 /**
  * Static analysis for propnets.
  */
-public class PropNetAnalyser<SourcePropType extends ForwardDeadReckonProposition>
+public class PropNetAnalyser
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
+  private final ForwardDeadReckonPropnetStateMachine mStateMachine;
   private final ForwardDeadReckonPropNet mSourceNet;
   private final TristatePropNet mTristateNet;
   private final Map<PolymorphicComponent, TristateComponent> mSourceToTarget;
-  private final Set<SourcePropType> mLatchBasePositive;
-  private final Set<SourcePropType> mLatchBaseNegative;
+  private final Set<ForwardDeadReckonProposition> mLatchBasePositive;
+  private final Set<ForwardDeadReckonProposition> mLatchBaseNegative;
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mLatchGoalPositive;
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mLatchGoalNegative;
+  private boolean mFoundGoalLatches;
 
   @SuppressWarnings("unchecked")
   public PropNetAnalyser(ForwardDeadReckonPropNet xiSourceNet,
                          ForwardDeadReckonPropnetStateMachine xiStateMachine)
   {
+    mStateMachine = xiStateMachine;
+
     // Create a tri-state network to assist with the analysis.
     mSourceNet = xiSourceNet;
     mTristateNet = new TristatePropNet(mSourceNet);
@@ -62,14 +67,13 @@ public class PropNetAnalyser<SourcePropType extends ForwardDeadReckonProposition
     {
       for (PolymorphicProposition lGoal : lGoals)
       {
-        mLatchGoalPositive.put(lGoal, xiStateMachine.createEmptyInternalState());
-        mLatchGoalNegative.put(lGoal, xiStateMachine.createEmptyInternalState());
+        mLatchGoalPositive.put(lGoal, mStateMachine.createEmptyInternalState());
+        mLatchGoalNegative.put(lGoal, mStateMachine.createEmptyInternalState());
       }
     }
 
   }
 
-  @SuppressWarnings("unchecked")
   public void analyse(long xiTimeout)
   {
     // !! ARR Need to handle timeout.
@@ -78,15 +82,11 @@ public class PropNetAnalyser<SourcePropType extends ForwardDeadReckonProposition
     for (PolymorphicComponent lSourceComp1 : mSourceNet.getBasePropositionsArray())
     {
       // Check if this proposition is a goal latch or a regular latch (or not a latch at all).
-      tryLatch((SourcePropType)lSourceComp1, true);
-      tryLatch((SourcePropType)lSourceComp1, false);
+      tryLatch((ForwardDeadReckonProposition)lSourceComp1, true);
+      tryLatch((ForwardDeadReckonProposition)lSourceComp1, false);
     }
 
-    // To assist with puzzles, if we haven't found any goal latches yet, it's worth checking to see if any pairs of
-    // base proposition latches constitute a goal latch.  Many logic puzzles contain constraints on pairs of
-    // propositions that might manifest in this way.  (Futoshiki, Hidato, Hitori, Queens Puzzles are all examples and
-    // it's particularly important for the unguided version of the latter.)
-    checkForLatchPairs();
+    tryLatchPairs();
 
     postProcessGoalLatches();
 
@@ -94,12 +94,12 @@ public class PropNetAnalyser<SourcePropType extends ForwardDeadReckonProposition
     // !! ARR: assume(Tristate.UNKNOWN, Tristate.UNKNOWN, Tristate.TRUE) for the terminal prop combined with each goal
   }
 
-  private void tryLatch(SourcePropType xiProposition, boolean xiPositive)
+  private void tryLatch(ForwardDeadReckonProposition xiProposition, boolean xiPositive)
   {
-    TristateProposition lTristateProposition = (TristateProposition)mSourceToTarget.get(xiProposition);
+    TristateProposition lTristateProposition = getProp(xiProposition);
     Tristate lTestState = xiPositive ? Tristate.TRUE : Tristate.FALSE;
     Tristate lOtherState = xiPositive ? Tristate.FALSE : Tristate.TRUE;
-    Set<SourcePropType> lLatchSet = xiPositive ? mLatchBasePositive : mLatchBaseNegative;
+    Set<ForwardDeadReckonProposition> lLatchSet = xiPositive ? mLatchBasePositive : mLatchBaseNegative;
 
     try
     {
@@ -139,8 +139,7 @@ public class PropNetAnalyser<SourcePropType extends ForwardDeadReckonProposition
    *
    * @param xiProposition - the latching proposition which MUST itself be a +ve latch.
    */
-  @SuppressWarnings("unchecked")
-  private void checkGoalLatch(SourcePropType xiProposition)
+  private void checkGoalLatch(ForwardDeadReckonProposition xiProposition)
   {
     Map<Role, PolymorphicProposition[]> lSourceGoals = mSourceNet.getGoalPropositions();
     Iterator<Entry<Role, PolymorphicProposition[]>> lIterator = lSourceGoals.entrySet().iterator();
@@ -150,21 +149,23 @@ public class PropNetAnalyser<SourcePropType extends ForwardDeadReckonProposition
       Map.Entry<Role, PolymorphicProposition[]> lEntry = lIterator.next();
       for (PolymorphicProposition lGoal : lEntry.getValue())
       {
-        Tristate lValue = ((TristateProposition)mSourceToTarget.get(lGoal)).getValue(2);
+        Tristate lValue = getProp(lGoal).getValue(2);
         if (lValue == Tristate.TRUE)
         {
-          addLatchingProposition((SourcePropType)lGoal, xiProposition, true);
+          addLatchingProposition((ForwardDeadReckonProposition)lGoal, xiProposition, true);
+          mFoundGoalLatches = true;
         }
         else if (lValue == Tristate.FALSE)
         {
-          addLatchingProposition((SourcePropType)lGoal, xiProposition, false);
+          addLatchingProposition((ForwardDeadReckonProposition)lGoal, xiProposition, false);
+          mFoundGoalLatches = true;
         }
       }
     }
   }
 
-  private void addLatchingProposition(SourcePropType xiGoal,
-                                      SourcePropType xiLatchingProposition,
+  private void addLatchingProposition(ForwardDeadReckonProposition xiGoal,
+                                      ForwardDeadReckonProposition xiLatchingProposition,
                                       boolean xiPositive)
   {
     Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lGoalMap = (xiPositive ? mLatchGoalPositive :
@@ -224,8 +225,74 @@ public class PropNetAnalyser<SourcePropType extends ForwardDeadReckonProposition
     }
   }
 
-  private void checkForLatchPairs()
+  /**
+   * Find pairs of base latches which make a goal latch.
+   */
+  private void tryLatchPairs()
   {
-    // This is expensive.  Only do it if we don't have any goal latches yet.
+    // This is expensive.  Only do it for puzzles.
+    if (mStateMachine.getRoles().length != 1) return;
+
+    // Only do it if we haven't found any goal latches so far.
+    if (mFoundGoalLatches) return;
+
+    // It's worth checking to see if any pairs of base proposition latches constitute a goal latch.  Many logic puzzles
+    // contain constraints on pairs of propositions that might manifest in this way.
+    //
+    // Only consider positive base latches, simply because there aren't any games where we need to do this for negative
+    // base latches.
+    for (ForwardDeadReckonProposition lBaseLatch1 : mLatchBasePositive)
+    {
+      for (ForwardDeadReckonProposition lBaseLatch2 : mLatchBasePositive)
+      {
+        try
+        {
+          mTristateNet.reset();
+          getProp(lBaseLatch1).assume(Tristate.FALSE, Tristate.TRUE, Tristate.UNKNOWN);
+          getProp(lBaseLatch2).assume(Tristate.FALSE, Tristate.TRUE, Tristate.UNKNOWN);
+          checkGoalLatch(lBaseLatch1, lBaseLatch2);
+        }
+        catch (ContradictionException lEx) { /* Oops */ }
+      }
+    }
+  }
+
+  /**
+   * Check whether any goals are latched in the tri-state network.  If so, add the propositions which caused it to the
+   * set of latches.
+   *
+   * @param xiProposition - the latching proposition which MUST themselves be +ve latches.
+   */
+  private void checkGoalLatch(ForwardDeadReckonProposition xiProposition1,
+                              ForwardDeadReckonProposition xiProposition2)
+  {
+    Map<Role, PolymorphicProposition[]> lSourceGoals = mSourceNet.getGoalPropositions();
+    Iterator<Entry<Role, PolymorphicProposition[]>> lIterator = lSourceGoals.entrySet().iterator();
+
+    ForwardDeadReckonMaskedState lMaskedState = new ForwardDeadReckonMaskedState(mStateMachine);
+    lMaskedState.add(xiProposition1, true);
+    lMaskedState.add(xiProposition2, true);
+
+    while (lIterator.hasNext())
+    {
+      Map.Entry<Role, PolymorphicProposition[]> lEntry = lIterator.next();
+      for (PolymorphicProposition lGoal : lEntry.getValue())
+      {
+        Tristate lValue = getProp(lGoal).getValue(2);
+        if (lValue == Tristate.TRUE)
+        {
+          LOGGER.info(xiProposition1.getName() + " & " + xiProposition2.getName() + " are a +ve pair latch for " + lGoal.getName());
+        }
+        else if (lValue == Tristate.FALSE)
+        {
+          LOGGER.info(xiProposition1.getName() + " & " + xiProposition2.getName() + " are a -ve pair latch for " + lGoal.getName());
+        }
+      }
+    }
+  }
+
+  private TristateProposition getProp(PolymorphicProposition xiSource)
+  {
+    return (TristateProposition)mSourceToTarget.get(xiSource);
   }
 }
