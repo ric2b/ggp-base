@@ -43,7 +43,6 @@ public class PropNetAnalyser
   private final List<ForwardDeadReckonMaskedState> mLatchGoalComplex;
   private boolean mFoundGoalLatches;
 
-  @SuppressWarnings("unchecked")
   public PropNetAnalyser(ForwardDeadReckonPropNet xiSourceNet,
                          ForwardDeadReckonPropnetStateMachine xiStateMachine)
   {
@@ -55,8 +54,10 @@ public class PropNetAnalyser
 
     // Clone the mapping from source to target.
     mSourceToTarget = new HashMap<>(PolymorphicPropNet.sLastSourceToTargetMap.size());
-    mSourceToTarget.putAll((Map<? extends PolymorphicComponent,
-                                ? extends TristateComponent>)PolymorphicPropNet.sLastSourceToTargetMap);
+    for (PolymorphicComponent lSource : PolymorphicPropNet.sLastSourceToTargetMap.keySet())
+    {
+      mSourceToTarget.put(lSource, (TristateComponent)PolymorphicPropNet.sLastSourceToTargetMap.get(lSource));
+    }
 
     // Create empty mappings for latched base propositions.
     mLatchBasePositive = new HashSet<>();

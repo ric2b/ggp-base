@@ -32,9 +32,14 @@
         <pathelement location="src/external/Log4J/log4j-api-2.0-rc1.jar"/>
         <pathelement location="src/external/Log4J/log4j-core-2.0-rc1.jar"/>
         <pathelement location="src/external/Lucene/lucene-core-4.8.1.jar"/>
+        <pathelement location="src/external/Neuroph/libs/ajt-2.9.jar"/>
+        <pathelement location="src/external/Neuroph/libs/android-x.x.jar"/>
+        <pathelement location="src/external/Neuroph/libs/javaml-0.1.7.jar"/>
+        <pathelement location="src/external/Neuroph/libs/slf4j-api-1.7.5.jar"/>
+        <pathelement location="src/external/Neuroph/libs/slf4j-nop-1.7.6.jar"/>
+        <pathelement location="src/external/Trove/trove-3.1a1.jar"/>
         <pathelement location="src/external/javassist/javassist.jar"/>
         <pathelement location="src/external/reflections/reflections-0.9.9-RC1.jar"/>
-        <pathelement location="src/external/Trove/trove-3.1a1.jar"/>
     </path>
     <target name="init">
         <mkdir dir="bin"/>
