@@ -1,8 +1,10 @@
 package org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -13,9 +15,9 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonMaskedState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
-import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonMaskedState;
 import org.ggp.base.util.propnet.polymorphic.tristate.TristateComponent;
 import org.ggp.base.util.propnet.polymorphic.tristate.TristateComponent.ContradictionException;
 import org.ggp.base.util.propnet.polymorphic.tristate.TristateComponent.Tristate;
@@ -38,6 +40,7 @@ public class PropNetAnalyser
   private final Set<ForwardDeadReckonProposition> mLatchBaseNegative;
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mLatchGoalPositive;
   private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mLatchGoalNegative;
+  private final List<ForwardDeadReckonMaskedState> mLatchGoalComplex;
   private boolean mFoundGoalLatches;
 
   @SuppressWarnings("unchecked")
@@ -62,6 +65,7 @@ public class PropNetAnalyser
     // Create mappings for goal latches.
     mLatchGoalPositive = new HashMap<>();
     mLatchGoalNegative = new HashMap<>();
+    mLatchGoalComplex = new ArrayList<>();
 
     for (PolymorphicProposition lGoals[] : mSourceNet.getGoalPropositions().values())
     {
@@ -243,11 +247,14 @@ public class PropNetAnalyser
     // base latches.
     for (ForwardDeadReckonProposition lBaseLatch1 : mLatchBasePositive)
     {
+      // !! ARR Do the "assume" for the first state here and then save/reload as required.
+      // !! ARR Don't do both 1/2 and 2/1.
       for (ForwardDeadReckonProposition lBaseLatch2 : mLatchBasePositive)
       {
         try
         {
           mTristateNet.reset();
+          // !! ARR Ideally only set up as a basic latch if it is a basic latch.
           getProp(lBaseLatch1).assume(Tristate.FALSE, Tristate.TRUE, Tristate.UNKNOWN);
           getProp(lBaseLatch2).assume(Tristate.FALSE, Tristate.TRUE, Tristate.UNKNOWN);
           checkGoalLatch(lBaseLatch1, lBaseLatch2);
@@ -281,12 +288,14 @@ public class PropNetAnalyser
         Tristate lValue = getProp(lGoal).getValue(2);
         if (lValue == Tristate.TRUE)
         {
-          LOGGER.info(xiProposition1.getName() + " & " + xiProposition2.getName() + " are a +ve pair latch for " + lGoal.getName());
+          LOGGER.debug(xiProposition1.getName() + " & " + xiProposition2.getName() + " are a +ve pair latch for " + lGoal.getName());
+          mLatchGoalComplex.add(lMaskedState);
         }
-        else if (lValue == Tristate.FALSE)
-        {
-          LOGGER.info(xiProposition1.getName() + " & " + xiProposition2.getName() + " are a -ve pair latch for " + lGoal.getName());
-        }
+        // We only care about +ve goal latches for now
+        //else if (lValue == Tristate.FALSE)
+        //{
+        //  LOGGER.debug(xiProposition1.getName() + " & " + xiProposition2.getName() + " are a -ve pair latch for " + lGoal.getName());
+        //}
       }
     }
   }

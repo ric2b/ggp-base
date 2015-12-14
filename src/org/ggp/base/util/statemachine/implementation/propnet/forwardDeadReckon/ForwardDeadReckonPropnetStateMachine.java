@@ -1469,6 +1469,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     return result;
   }
 
+  /**
+   * UT-only state machine constructor.
+   */
   public ForwardDeadReckonPropnetStateMachine()
   {
     maxInstances = 1;
@@ -1477,6 +1480,16 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     mMaster = this;
   }
 
+  /**
+   * Construct the master state machine, for use during meta-gaming and for cloning per-thread instance from.
+   *
+   * State machines are NOT thread-safe.
+   *
+   * @param xiMaxInstances         - the maximum number of clones that will be created.
+   * @param xiMetaGameTimeout      - meta-gaming timeout.
+   * @param xiOurRole              - our role.
+   * @param xiGameCharacteristics  - the game characteristics (read-write).
+   */
   public ForwardDeadReckonPropnetStateMachine(int xiMaxInstances,
                                               long xiMetaGameTimeout,
                                               Role xiOurRole,
@@ -1489,6 +1502,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     mMaster = this;
   }
 
+  /**
+   * Private constructor for creating per-thread state machine instances.  Called by createInstance() on the master.
+   *
+   * @param master     - the master state machine to clone.
+   * @param instanceId - the ID of this instance.
+   */
   private ForwardDeadReckonPropnetStateMachine(ForwardDeadReckonPropnetStateMachine master, int instanceId)
   {
     mMaster = master;
@@ -1557,6 +1576,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
                                              fullPropNet.getLegalPropositions().get(getRoles()[0]).length);
   }
 
+  /**
+   * @return a new state machine instance (for use by a new thread).
+   */
   public ForwardDeadReckonPropnetStateMachine createInstance()
   {
     if (numInstances >= maxInstances)
