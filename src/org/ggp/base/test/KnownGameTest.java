@@ -8,6 +8,8 @@ import java.util.HashSet;
 import java.util.LinkedList;
 
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration;
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.RuntimeGameCharacteristics;
 import org.ggp.base.player.request.factory.RequestFactory;
 import org.ggp.base.player.request.factory.exceptions.RequestFormatException;
@@ -114,6 +116,9 @@ public class KnownGameTest extends Assert
     // Create an instance of Sancho.
     mGamer = new TestGamer();
     mRequestFactory = new RequestFactory();
+
+    // Make sure that learning is enabled for this test.
+    MachineSpecificConfiguration.utOverrideCfgVal(CfgItem.DISABLE_LEARNING, false);
   }
 
   /**
