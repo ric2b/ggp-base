@@ -10,7 +10,7 @@ public class TristateAnd extends TristateComponent implements PolymorphicAnd
   }
 
   @Override
-  public void changeInput(Tristate xiNewValue, int xiTurn)
+  public void changeInput(Tristate xiNewValue, int xiTurn) throws ContradictionException
   {
     if (xiNewValue == Tristate.TRUE)
     {
@@ -39,7 +39,7 @@ public class TristateAnd extends TristateComponent implements PolymorphicAnd
   }
 
   @Override
-  public void changeOutput(Tristate xiNewValue, int xiTurn)
+  public void changeOutput(Tristate xiNewValue, int xiTurn) throws ContradictionException
   {
     assert(xiNewValue != Tristate.UNKNOWN);
 
@@ -56,9 +56,9 @@ public class TristateAnd extends TristateComponent implements PolymorphicAnd
         // If TRUE, all the upstream components must be TRUE.  (This is an AND gate.)
         for (TristateComponent lInput : getInputs())
         {
-          if ( xiTurn == 0 && lInput.mState[xiTurn].mValue == Tristate.FALSE )
+          if ((xiTurn == 0) && (lInput.mState[xiTurn].mValue == Tristate.FALSE))
           {
-            throw new TransitionAssertionContradictionException(false);
+            throw new ContradictionException();
           }
           assert(lInput.mState[xiTurn].mValue != Tristate.FALSE);
           lInput.changeOutput(Tristate.TRUE, xiTurn);
@@ -69,7 +69,7 @@ public class TristateAnd extends TristateComponent implements PolymorphicAnd
     }
   }
 
-  private void checkReverseInference(int xiTurn)
+  private void checkReverseInference(int xiTurn) throws ContradictionException
   {
     // If the output of this AND gate is known to be FALSE, at least 1 input must be FALSE.  If there's exactly 1
     // UNKNOWN input and all the others are TRUE, the 1 remaining input must be FALSE.

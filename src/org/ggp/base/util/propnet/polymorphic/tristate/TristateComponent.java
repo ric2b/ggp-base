@@ -107,7 +107,7 @@ public abstract class TristateComponent implements PolymorphicComponent
    * @param xiNewValue - the new value, either TRUE or FALSE.
    * @param xiTurn - the turn (0 for previous, 1 for current, 2 for next).
    */
-  public abstract void changeInput(Tristate xiNewValue, int xiTurn);
+  public abstract void changeInput(Tristate xiNewValue, int xiTurn) throws ContradictionException;
 
   /**
    * Inform a component that its output value has changed - i.e. back propagation.
@@ -115,7 +115,7 @@ public abstract class TristateComponent implements PolymorphicComponent
    * @param xiNewValue - the new value, either TRUE or FALSE.
    * @param xiTurn - the turn (0 for previous, 1 for current, 2 for next).
    */
-  public abstract void changeOutput(Tristate xiNewValue, int xiTurn);
+  public abstract void changeOutput(Tristate xiNewValue, int xiTurn) throws ContradictionException;
 
   /**
    * Propagate a change in output state through the network.  Components MUST NOT call this method unless their output
@@ -124,7 +124,7 @@ public abstract class TristateComponent implements PolymorphicComponent
    * @param xiTurn - the turn for the component doing the propagation.
    * @param xiIncrement - whether to increment the turn for the next component(s).
    */
-  protected void propagateOutput(int xiTurn, boolean xiIncrement)
+  protected void propagateOutput(int xiTurn, boolean xiIncrement) throws ContradictionException
   {
     for (TristateComponent lOutput : mOutputs)
     {
@@ -231,32 +231,11 @@ public abstract class TristateComponent implements PolymorphicComponent
   }
 
   /**
-   * @author steve
-   *  Exception thrown when a contradiction is arrived at during latch testing,
-   *  having asserted that the proposition under test has made a particular transition
-   *  from turn 0 to turn 1
+   *  Exception thrown when a contradiction is arrived at during latch testing.
    */
   @SuppressWarnings("serial")
-  public class TransitionAssertionContradictionException extends RuntimeException
+  public static class ContradictionException extends Exception
   {
-    public final boolean mPositive;
-
-    /**
-     * Create a contradiction exception - this is thrown if the assertion that a proposition
-     * under test has transitioned to a putative latched state generates a contradiction at the
-     * previous turn (which it can do if the transition is impossible such as a positive latch
-     * transitioning from true to false)
-     *
-     * @param xiPositive - true if a contradiction was arrived at attempting to set the state to true.
-     */
-    TransitionAssertionContradictionException(boolean xiPositive)
-    {
-      mPositive = xiPositive;
-    }
-    @Override
-    public String toString()
-    {
-      return TristateComponent.this.toString() + " being set to " + (mPositive ? "true" : "false") + " at turn 0 generates a contradiction";
-    }
+    // Just an exception.  No extra detail.
   }
 }

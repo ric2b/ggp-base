@@ -10,7 +10,7 @@ public class TristateOr extends TristateComponent implements PolymorphicOr
   }
 
   @Override
-  public void changeInput(Tristate xiNewValue, int xiTurn)
+  public void changeInput(Tristate xiNewValue, int xiTurn) throws ContradictionException
   {
     if (xiNewValue == Tristate.TRUE)
     {
@@ -39,7 +39,7 @@ public class TristateOr extends TristateComponent implements PolymorphicOr
   }
 
   @Override
-  public void changeOutput(Tristate xiNewValue, int xiTurn)
+  public void changeOutput(Tristate xiNewValue, int xiTurn) throws ContradictionException
   {
     assert(xiNewValue != Tristate.UNKNOWN);
 
@@ -56,9 +56,9 @@ public class TristateOr extends TristateComponent implements PolymorphicOr
       {
         for (TristateComponent lInput : getInputs())
         {
-          if ( xiTurn == 0 && lInput.mState[xiTurn].mValue == Tristate.TRUE )
+          if ((xiTurn == 0) && (lInput.mState[xiTurn].mValue == Tristate.TRUE))
           {
-            throw new TransitionAssertionContradictionException(true);
+            throw new ContradictionException();
           }
           assert(lInput.mState[xiTurn].mValue != Tristate.TRUE);
           lInput.changeOutput(Tristate.FALSE, xiTurn);
@@ -69,7 +69,7 @@ public class TristateOr extends TristateComponent implements PolymorphicOr
     }
   }
 
-  private void checkReverseInference(int xiTurn)
+  private void checkReverseInference(int xiTurn) throws ContradictionException
   {
     // If the output of this OR gate is known to be TRUE, at least 1 input must be TRUE.  If there's exactly 1
     // UNKNOWN input and all the others are FALSE, the 1 remaining input must be TRUE.

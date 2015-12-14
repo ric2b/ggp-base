@@ -10,7 +10,7 @@ public class TristateTransition extends TristateComponent implements Polymorphic
   }
 
   @Override
-  public void changeInput(Tristate xiNewValue, int xiTurn)
+  public void changeInput(Tristate xiNewValue, int xiTurn) throws ContradictionException
   {
     // Only propagate through a transition if we haven't done so already.  We're only interested in the immediate
     // consequences of assuming some input proposition(s).
@@ -22,7 +22,7 @@ public class TristateTransition extends TristateComponent implements Polymorphic
   }
 
   @Override
-  public void changeOutput(Tristate xiNewValue, int xiTurn)
+  public void changeOutput(Tristate xiNewValue, int xiTurn) throws ContradictionException
   {
     assert(xiNewValue != Tristate.UNKNOWN);
 

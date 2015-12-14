@@ -42,8 +42,6 @@ import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckon
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropnetFastAnimator;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropositionInfo;
-import org.ggp.base.util.propnet.polymorphic.tristate.TristatePropNet;
-import org.ggp.base.util.propnet.polymorphic.tristate.TristateProposition;
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
@@ -511,27 +509,9 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     mNegativeBasePropLatches = new HashSet<>();
     HashSet<PolymorphicComponent> lAllBasePropLatches = new HashSet<>();
 
-    // Do bi-directional tri-state analysis on the full propnet to find latches.
     if (MachineSpecificConfiguration.getCfgBool(CfgItem.TRISTATE_LATCH_ANALYSIS))
     {
-      TristatePropNet lTristateNet = new TristatePropNet(fullPropNet);
-      Map<PolymorphicComponent, PolymorphicComponent> lSourceToTarget = PolymorphicPropNet.sLastSourceToTargetMap;
-      for (PolymorphicComponent lSourceComp1 : fullPropNet.getBasePropositionsArray())
-      {
-        TristateProposition lTargetComp1 = (TristateProposition)lSourceToTarget.get(lSourceComp1);
-
-        lTristateNet.reset();
-        if (lTargetComp1.isLatch(true))
-        {
-          LOGGER.info("  Yes - it's a positive latch");
-        }
-
-        lTristateNet.reset();
-        if (lTargetComp1.isLatch(false))
-        {
-          LOGGER.info("  Yes - it's a negative latch");
-        }
-      }
+      new PropNetAnalyser(fullPropNet).analyse(timeout);
     }
 
     for (PolymorphicProposition lGoals[] : fullPropNet.getGoalPropositions().values())

@@ -10,7 +10,6 @@ public class TristateProposition extends TristateComponent implements Polymorphi
   private static final Logger LOGGER = LogManager.getLogger();
 
   private GdlSentence mName;
-  private boolean mTesting;
 
   public TristateProposition(TristatePropNet xiNetwork, GdlSentence xiName)
   {
@@ -31,91 +30,19 @@ public class TristateProposition extends TristateComponent implements Polymorphi
   }
 
   @Override
-  public void reset()
-  {
-    super.reset();
-    mTesting = false;
-  }
-
-  @Override
   public void setValue(boolean xiValue)
   {
     throw new RuntimeException("Use isLatch instead");
   }
 
-  /**
-   * Test whether this proposition is a latch proposition.
-   *
-   * @param xiValue - the value to test.
-   * @return whether the proposition is a latch (for the specified value).
-   */
-  public boolean isLatch(boolean xiValue)
-  {
-    LOGGER.info("Checking whether " + getName() + " is a " + (xiValue ? "+" : "-") + "ve latch");
-
-    assert(!mTesting) : "Can't set value of a proposition that has already been set - use 'reset' on the parent network";
-
-    // If the value has already been set, it must have been set as part of assuming that init is false.  (Often this
-    // will manifest in the first counter proposition appearing to be a negative latch.)  In that case, there's no need
-    // to propagate.  Instead, we can just read the next-turn value.
-    if (mState[1].mValue != Tristate.UNKNOWN)
-    {
-      return ((( xiValue) && mState[1].mValue == Tristate.TRUE  && mState[2].mValue == Tristate.TRUE) ||
-              ((!xiValue) && mState[1].mValue == Tristate.FALSE && mState[2].mValue == Tristate.FALSE));
-    }
-
-    mTesting = true;
-    mState[0].mValue = (xiValue ? Tristate.FALSE : Tristate.TRUE);
-    mState[1].mValue = (xiValue ? Tristate.TRUE : Tristate.FALSE);
-
-    boolean lLatch = false;
-    try
-    {
-      // Do forward propagation.
-      try
-      {
-        propagateOutput(0, false);
-        propagateOutput(1, false);
-      }
-      catch(TransitionAssertionContradictionException e)
-      {
-        LOGGER.info("false->true transition of " + getName() + " generates a contradiction, so discounting as potential +ve latch");
-      }
-
-      // Do backward propagation.
-      try
-      {
-        getSingleInput().changeOutput(mState[0].mValue, 0);
-        getSingleInput().changeOutput(mState[1].mValue, 1);
-      }
-      catch(TransitionAssertionContradictionException e)
-      {
-        LOGGER.info("true->false transition of " + getName() + " generates a contradiction, so discounting as potential -ve latch");
-      }    }
-    catch (LatchFoundException lEx)
-    {
-      // Check that the sense of the latch is as exception.  If a true value in this turn forces a false value in the
-      // next and false forces true, then this could be a turn marker, but we aren't currently interested.
-      lLatch = (xiValue == lEx.mPositive);
-    }
-
-    return lLatch;
-  }
-
   @Override
-  public void changeInput(Tristate xiNewValue, int xiTurn)
+  public void changeInput(Tristate xiNewValue, int xiTurn) throws ContradictionException
   {
     assert(xiNewValue != Tristate.UNKNOWN);
 
-    if ((mTesting) && (xiTurn == 2))
-    {
-      // This is the proposition that we were originally testing.  It now has a definite value and is therefore a latch.
-      throw new LatchFoundException(xiNewValue == Tristate.TRUE);
-    }
-
     if (mState[xiTurn].mValue == Tristate.UNKNOWN)
     {
-      LOGGER.info(mName + " has become " + xiNewValue + " in turn " + xiTurn + " by forward inference");
+      LOGGER.debug(mName + " has become " + xiNewValue + " in turn " + xiTurn + " by forward inference");
 
       mState[xiTurn].mValue = xiNewValue;
       propagateOutput(xiTurn, false);
@@ -133,13 +60,13 @@ public class TristateProposition extends TristateComponent implements Polymorphi
   }
 
   @Override
-  public void changeOutput(Tristate xiNewValue, int xiTurn)
+  public void changeOutput(Tristate xiNewValue, int xiTurn) throws ContradictionException
   {
     assert(xiNewValue != Tristate.UNKNOWN);
 
     if (mState[xiTurn].mValue == Tristate.UNKNOWN)
     {
-      LOGGER.info(mName + " has become " + xiNewValue + " in turn " + xiTurn + " by backward inference");
+      LOGGER.debug(mName + " has become " + xiNewValue + " in turn " + xiTurn + " by backward inference");
 
       // We've learned our output value from downstream.
       mState[xiTurn].mValue = xiNewValue;
@@ -155,27 +82,87 @@ public class TristateProposition extends TristateComponent implements Polymorphi
     }
   }
 
-  /**
-   * Exception thrown to indicate that a latch has been found.
-   */
-  public class LatchFoundException extends RuntimeException
+  public void assume(Tristate xiPrevious, Tristate xiCurrent, Tristate xiFuture) throws ContradictionException
   {
-    public final boolean mPositive;
+    assumeStateInTurn(xiPrevious, 0);
+    assumeStateInTurn(xiCurrent,  1);
+    assumeStateInTurn(xiFuture,   2);
+  }
 
-    /**
-     * Create a latch-found exception.
-     *
-     * @param xiPositive - true if this is a positive latch, false for a negative latch.
-     */
-    LatchFoundException(boolean xiPositive)
+  private void assumeStateInTurn(Tristate xiValue, int xiTurn) throws ContradictionException
+  {
+    boolean lPropagationRequired = false;
+
+    // Determine whether propagation is required (and whether we already have a contradiction).
+
+    if (xiValue == Tristate.TRUE)
     {
-      mPositive = xiPositive;
+      // If we already know the value is FALSE, it's a contradiction to assume it's TRUE.
+      if (mState[xiTurn].mValue == Tristate.FALSE)
+      {
+        throw new ContradictionException();
+      }
+
+      // If we already know the value is TRUE, there's nothing to propagate.  Otherwise there is.
+      lPropagationRequired = (mState[xiTurn].mValue == Tristate.UNKNOWN);
     }
 
-    @Override
-    public String toString()
+    if (xiValue == Tristate.FALSE)
     {
-      return getName() + " is a " + (mPositive ? "positive" : "negative") + " latch";
+      // If we already know the value is TRUE, it's a contradiction to assume it's FALSE.
+      if (mState[xiTurn].mValue == Tristate.TRUE)
+      {
+        throw new ContradictionException();
+      }
+
+      // If we already know the value is FALSE, there's nothing to propagate.  Otherwise there is.
+      lPropagationRequired = (mState[xiTurn].mValue == Tristate.UNKNOWN);
     }
+
+    // Propagate if required.
+    if (lPropagationRequired)
+    {
+      // Set the requested state.
+      mState[xiTurn].mValue = xiValue;
+
+      // Forwards.
+      propagateOutput(xiTurn, false);
+
+      // Backwards.
+      getSingleInput().changeOutput(mState[xiTurn].mValue, xiTurn);
+    }
+  }
+
+  /**
+   * Test whether this proposition is a latch proposition.
+   *
+   * @param xiValue - the value to test.
+   * @return whether the proposition is a latch (for the specified value).
+   */
+  public boolean isLatch(boolean xiValue)
+  {
+    LOGGER.debug("Checking whether " + getName() + " is a " + (xiValue ? "+" : "-") + "ve latch");
+
+    try
+    {
+      assume(xiValue ? Tristate.FALSE : Tristate.TRUE,
+             xiValue ? Tristate.TRUE : Tristate.FALSE,
+             Tristate.UNKNOWN);
+    }
+    catch(ContradictionException e)
+    {
+      LOGGER.debug("Contradiction in latch detection - so discounting as potential latch");
+      return false;
+    }
+
+    // Check whether a latch has been found.  We're only interested if the latch has the sense we were looking for.
+    // (If a true value in this turn forces a false value in the next and false forces true, then this could be a turn
+    // marker, but we aren't currently interested.)
+    if (mState[2].mValue == (xiValue ? Tristate.TRUE : Tristate.FALSE))
+    {
+      return true;
+    }
+
+    return false;
   }
 }

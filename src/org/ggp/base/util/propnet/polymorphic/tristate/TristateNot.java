@@ -10,7 +10,7 @@ public class TristateNot extends TristateComponent implements PolymorphicNot
   }
 
   @Override
-  public void changeInput(Tristate xiNewValue, int xiTurn)
+  public void changeInput(Tristate xiNewValue, int xiTurn) throws ContradictionException
   {
     if (mState[xiTurn].mValue == Tristate.UNKNOWN)
     {
@@ -27,7 +27,7 @@ public class TristateNot extends TristateComponent implements PolymorphicNot
   }
 
   @Override
-  public void changeOutput(Tristate xiNewValue, int xiTurn)
+  public void changeOutput(Tristate xiNewValue, int xiTurn) throws ContradictionException
   {
     assert(xiNewValue != Tristate.UNKNOWN);
 
