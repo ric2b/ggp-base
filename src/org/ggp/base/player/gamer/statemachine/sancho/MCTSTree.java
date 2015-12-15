@@ -375,7 +375,7 @@ public class MCTSTree
     //  in games with negative goal latches, which amounts to ELB.  Further testing is needed, so for
     //  now wider enablement requires an explicit config setting.
     mUseEstimatedValueForUnplayedNodes = MachineSpecificConfiguration.getCfgBool(CfgItem.ENABLE_INITIAL_NODE_ESTIMATION) |
-                                        mUnderlyingStateMachine.hasNegativelyLatchedGoals();
+                                        mUnderlyingStateMachine.mLatchAnalyser.hasNegativelyLatchedGoals();
 
     if (mUseEstimatedValueForUnplayedNodes)
     {

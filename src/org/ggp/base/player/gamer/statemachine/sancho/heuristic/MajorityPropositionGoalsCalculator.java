@@ -133,7 +133,7 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator imple
     //  If any of the propositions being counted are latches we can derive a heuristic
     for(Entry<Role, ForwardDeadReckonInternalMachineState> e : roleMasks.entrySet())
     {
-      ForwardDeadReckonInternalMachineState positiveLatchMask = stateMachine.getPositiveBaseLatches();
+      ForwardDeadReckonInternalMachineState positiveLatchMask = stateMachine.mLatchAnalyser.getPositiveBaseLatches();
       if ( positiveLatchMask != null )
       {
         ForwardDeadReckonInternalMachineState intersection = new ForwardDeadReckonInternalMachineState( positiveLatchMask );

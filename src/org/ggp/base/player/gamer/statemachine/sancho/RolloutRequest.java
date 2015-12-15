@@ -123,7 +123,9 @@ class RolloutRequest
 
           if (stateMachine.getIsPseudoPuzzle())
           {
-            stateMachine.getLatchedScoreRange(mState, xiRoleOrdering.roleIndexToRole(0), latchedScoreRangeBuffer);
+            stateMachine.getLatchedScoreRange(mState,
+                                              xiRoleOrdering.roleIndexToRole(0),
+                                              latchedScoreRangeBuffer);
 
             if ( lScore == latchedScoreRangeBuffer[1] && latchedScoreRangeBuffer[1] > latchedScoreRangeBuffer[0] )
             {

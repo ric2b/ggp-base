@@ -43,13 +43,13 @@ public class ForwardDeadReckonMaskedState
   public boolean matches(ForwardDeadReckonInternalMachineState xiState)
   {
     // Calculate the XOR of the two states.  This is all the elements that differ.
-    mState.contents.xor(xiState.contents);
+    xiState.contents.xor(mState.contents);
 
     // If any of the elements that differ are in the mask, the states don't match.  Otherwise they do.
-    boolean lMatches = !mState.contents.intersects(mMask.contents);
+    boolean lMatches = !xiState.contents.intersects(mMask.contents);
 
-    // Put the state back like it was by XORing the supplied state back out of it.
-    mState.contents.xor(xiState.contents);
+    // Put the state back like it was by XORing the mask state back out of it.
+    xiState.contents.xor(mState.contents);
 
     return lMatches;
   }

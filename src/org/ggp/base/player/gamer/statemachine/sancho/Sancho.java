@@ -978,8 +978,8 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
                        !mGameCharacteristics.isSimultaneousMove &&
                        mNumRoles == 2 &&
                        mUnderlyingStateMachine.getFullPropNet().getLegalPropositions().get(mOurRole).length >= mGameCharacteristics.getMaxLength() &&
-                       ((mUnderlyingStateMachine.getPositiveBaseLatches() != null && mUnderlyingStateMachine.getPositiveBaseLatches().size() > 2) ||
-                        (mUnderlyingStateMachine.getNegativeBaseLatches() != null && mUnderlyingStateMachine.getNegativeBaseLatches().size() > 2)) &&
+                       ((mUnderlyingStateMachine.mLatchAnalyser.getPositiveBaseLatches() != null && mUnderlyingStateMachine.mLatchAnalyser.getPositiveBaseLatches().size() > 2) ||
+                        (mUnderlyingStateMachine.mLatchAnalyser.getNegativeBaseLatches() != null && mUnderlyingStateMachine.mLatchAnalyser.getNegativeBaseLatches().size() > 2)) &&
                        (!pieceHeuristic.isEnabled() || !pieceHeuristic.applyAsSimpleHeuristic()));
     double explorationBias = 15 / (averageNumTurns + ((maxNumTurns + minNumTurns) / 2 - averageNumTurns) *
                                               stdDevNumTurns / averageNumTurns) + 0.4;
@@ -1045,8 +1045,8 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
           mUnderlyingStateMachine.greedyRolloutEffectiveness <
                                                        mUnderlyingStateMachine.numRolloutDecisionNodeExpansions / 3) &&
          (mGameCharacteristics.numRoles != 1 || mUnderlyingStateMachine.greedyRolloutEffectiveness == 0) &&
-         !mUnderlyingStateMachine.hasNegativelyLatchedGoals() &&
-         !mUnderlyingStateMachine.hasPositivelyLatchedGoals()))
+         !mUnderlyingStateMachine.mLatchAnalyser.hasNegativelyLatchedGoals() &&
+         !mUnderlyingStateMachine.mLatchAnalyser.hasPositivelyLatchedGoals()))
     {
       if (!greedyRolloutsDisabled)
       {

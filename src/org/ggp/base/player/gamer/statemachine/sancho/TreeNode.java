@@ -678,7 +678,9 @@ public class TreeNode
           //  or else we may search only on a win path that is not the pessimal win-path for us of those that are all
           //  wins for the opponent concerned (if it's our win just take it and don;t worry if we could possibly
           //  make them suffer worse-  better to converge quickly)
-          mTree.mUnderlyingStateMachine.getLatchedScoreRange(parent.mState, mTree.mRoleOrdering.roleIndexToRole(roleIndex), mTree.mLatchedScoreRangeBuffer);
+          mTree.mUnderlyingStateMachine.getLatchedScoreRange(parent.mState,
+                                                             mTree.mRoleOrdering.roleIndexToRole(roleIndex),
+                                                             mTree.mLatchedScoreRangeBuffer);
           if (mTree.mLatchedScoreRangeBuffer[1] > mTree.mLatchedScoreRangeBuffer[0] &&
               getAverageScore(roleIndex) > mTree.mLatchedScoreRangeBuffer[1] - EPSILON &&
               (choosingRoleIndex == 0 || (mTree.mGameCharacteristics.getIsFixedSum() && mTree.mNumRoles < 3)))
@@ -1266,7 +1268,9 @@ public class TreeNode
     {
       mTree.mNodeAverageScores[lii] = 0;
 
-      mTree.mUnderlyingStateMachine.getLatchedScoreRange(mState, mTree.mRoleOrdering.roleIndexToRole(lii), mTree.mLatchedScoreRangeBuffer);
+      mTree.mUnderlyingStateMachine.getLatchedScoreRange(mState,
+                                                         mTree.mRoleOrdering.roleIndexToRole(lii),
+                                                         mTree.mLatchedScoreRangeBuffer);
       mTree.mRoleMaxScoresBuffer[lii] = mTree.mLatchedScoreRangeBuffer[1];
     }
 
@@ -2388,7 +2392,9 @@ public class TreeNode
 
       for (int lii = 0; lii < mTree.mNumRoles; lii++)
       {
-        mTree.mUnderlyingStateMachine.getLatchedScoreRange(theState, mTree.mRoleOrdering.roleIndexToRole(lii), mTree.mLatchedScoreRangeBuffer);
+        mTree.mUnderlyingStateMachine.getLatchedScoreRange(theState,
+                                                           mTree.mRoleOrdering.roleIndexToRole(lii),
+                                                           mTree.mLatchedScoreRangeBuffer);
 
         assert(mTree.mLatchedScoreRangeBuffer[0] == mTree.mLatchedScoreRangeBuffer[1]);
         result.terminalScore[lii] = mTree.mLatchedScoreRangeBuffer[0];
@@ -2963,7 +2969,9 @@ public class TreeNode
           {
             if (mTree.mGameCharacteristics.isPseudoPuzzle)
             {
-              mTree.mUnderlyingStateMachine.getLatchedScoreRange(mTree.mRoot.mState, mTree.mRoleOrdering.roleIndexToRole(0), mTree.mLatchedScoreRangeBuffer);
+              mTree.mUnderlyingStateMachine.getLatchedScoreRange(mTree.mRoot.mState,
+                                                                 mTree.mRoleOrdering.roleIndexToRole(0),
+                                                                 mTree.mLatchedScoreRangeBuffer);
 
               if (info.terminalScore[0] == mTree.mLatchedScoreRangeBuffer[1])
               {
@@ -3527,7 +3535,9 @@ public class TreeNode
               {
                 if (mTree.mGameCharacteristics.isPseudoPuzzle)
                 {
-                  mTree.mUnderlyingStateMachine.getLatchedScoreRange(mTree.mRoot.mState, mTree.mRoleOrdering.roleIndexToRole(0), mTree.mLatchedScoreRangeBuffer);
+                  mTree.mUnderlyingStateMachine.getLatchedScoreRange(mTree.mRoot.mState,
+                                                                     mTree.mRoleOrdering.roleIndexToRole(0),
+                                                                     mTree.mLatchedScoreRangeBuffer);
 
                   if (info.terminalScore[0] == mTree.mLatchedScoreRangeBuffer[1])
                   {
@@ -3962,7 +3972,9 @@ public class TreeNode
                 if (!completeChildFound)
                 {
                   completeChildFound = true;
-                  mTree.mUnderlyingStateMachine.getLatchedScoreRange(mState, mTree.mRoleOrdering.roleIndexToRole(roleIndex), mTree.mLatchedScoreRangeBuffer);
+                  mTree.mUnderlyingStateMachine.getLatchedScoreRange(mState,
+                                                                     mTree.mRoleOrdering.roleIndexToRole(roleIndex),
+                                                                     mTree.mLatchedScoreRangeBuffer);
                 }
 
                 if (mTree.mLatchedScoreRangeBuffer[0] != mTree.mLatchedScoreRangeBuffer[1] && lNode.getAverageScore(roleIndex) > mTree.mLatchedScoreRangeBuffer[1] - EPSILON)
