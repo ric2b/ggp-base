@@ -3553,6 +3553,12 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           {
             // Select the only available move.
             moveIndex = 0;
+            numChooserChoices = 1;
+
+            if (playoutStackMoveInitialChoiceIndex != null)
+            {
+              playoutStackMoveInitialChoiceIndex[rolloutDepth] = 0;
+            }
           }
 
           for (int iMove = 0; iMove < numChoices; iMove++)
@@ -3662,6 +3668,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         {
           //LOGGER.info("Accept move " + chooserChoice + " at depth " + rolloutDepth);
         }
+      }
+      else
+      {
+        playoutStackMoveNextChoiceIndex[rolloutDepth] = playoutStackMoveInitialChoiceIndex[rolloutDepth];
       }
 //      if ( numRoles == 1 && statesVisited != null && getNonControlMask() != null && choiceIndex != (startingRand+result-1)%result )
 //      {
