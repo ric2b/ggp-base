@@ -103,17 +103,19 @@ public class LatchAnalyser
 
   public void analyse(long xiTimeout)
   {
-    // !! ARR Need to handle timeout.
-
     // Do per-proposition analysis on all the base propositions.
     for (PolymorphicComponent lSourceComp1 : mSourceNet.getBasePropositionsArray())
     {
+      if ( System.currentTimeMillis() > xiTimeout )
+      {
+        break;
+      }
       // Check if this proposition is a goal latch or a regular latch (or not a latch at all).
       tryLatch((ForwardDeadReckonProposition)lSourceComp1, true);
       tryLatch((ForwardDeadReckonProposition)lSourceComp1, false);
     }
 
-    tryLatchPairs();
+    tryLatchPairs(xiTimeout);
 
     postProcessLatches();
   }
@@ -300,7 +302,7 @@ public class LatchAnalyser
   /**
    * Find pairs of base latches which make a goal latch.
    */
-  private void tryLatchPairs()
+  private void tryLatchPairs(long xiTimeout)
   {
     // This is expensive.  Only do it for puzzles.
     if (mStateMachine.getRoles().length != 1) return;
@@ -316,6 +318,10 @@ public class LatchAnalyser
     LOGGER.info("Checking for latch pairs");
     for (ForwardDeadReckonProposition lBaseLatch1 : mPositiveBaseLatches)
     {
+      if ( System.currentTimeMillis() > xiTimeout )
+      {
+        break;
+      }
       // !! ARR Do the "assume" for the first state here and then save/reload as required.
       // !! ARR Don't do both 1/2 and 2/1.
       for (ForwardDeadReckonProposition lBaseLatch2 : mPositiveBaseLatches)
