@@ -469,6 +469,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     int totalHyperSequenceLength = 0;
     int totalSquaredHyperSequenceLength = 0;
     int totalHyperSequenceCount = 0;
+    int totalMoveChoices = 0;
     boolean goalsMonotonic = true;
 
     //  Slight hack, but for now we don't bother continuing to simulate for a long time after discovering we're in
@@ -505,6 +506,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
           List<ForwardDeadReckonLegalMoveInfo> legalMoves =
                   new ArrayList<>(mUnderlyingStateMachine.getLegalMoves(sampleState, mRoleOrdering.roleIndexToRole(i)));
 
+          totalMoveChoices += legalMoves.size();
           if (legalMoves.size() > 1)
           {
             if (roleControlMasks[i].size() > 0)
@@ -946,11 +948,12 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
     //  Dump the game characteristics to trace output
     mGameCharacteristics.report();
 
+    double avgMovesPerTurn = (double)totalMoveChoices/totalTurnSamples;
     LOGGER.info("Measured goal volatility is " +
-              ((double)totalGoalChangeCount/totalTurnSamples) + (goalsMonotonic ? " [monotonic]" : " [non-monotonic]"));
+              (totalGoalChangeCount*avgMovesPerTurn/totalTurnSamples) + (goalsMonotonic ? " [monotonic]" : " [non-monotonic]"));
     if (mGameCharacteristics.isPseudoPuzzle)
     {
-      if (totalGoalChangeCount >= totalTurnSamples/4 && goalsMonotonic)
+      if (totalGoalChangeCount >= totalTurnSamples/(2*avgMovesPerTurn) && goalsMonotonic)
       {
         mUnderlyingStateMachine.setPlayoutPolicy(new PlayoutPolicyGoalGreedyWithPop(mUnderlyingStateMachine));
         mSearchProcessor.mUseGoalGreedy = true;
