@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -44,6 +45,7 @@ public class LatchAnalyser
   private final Latches mLatches;
 
   private final List<MaskedStateGoalLatch> mComplexPositiveGoalLatchList;
+  private long mDeadline;
 
   /**
    * Latch analysis results.
@@ -343,19 +345,48 @@ public class LatchAnalyser
    */
   public Latches analyse(long xiDeadline)
   {
+    mDeadline = xiDeadline;
+    try
+    {
+      analyse();
+    }
+    catch (TimeoutException lEx)
+    {
+      // Timed out whilst calculating latches.  Clear all the state.  (It's better to have none than for it to be
+      // incomplete.)
+      LOGGER.warn("Timed out whilst analysing latches");
+
+      mLatches.mPositiveBaseLatches.clear();
+      mLatches.mNegativeBaseLatches.clear();
+      mLatches.mSimplePositiveGoalLatches.clear();
+      mLatches.mSimpleNegativeGoalLatches.clear();
+      mLatches.mComplexPositiveGoalLatches = new MaskedStateGoalLatch[0];
+      mLatches.mFoundPositiveBaseLatches = false;
+      mLatches.mFoundNegativeBaseLatches = false;
+      mLatches.mFoundSimplePositiveGoalLatches = false;
+      mLatches.mFoundSimpleNegativeGoalLatches = false;
+      mLatches.mFoundComplexPositiveGoalLatches = false;
+      mLatches.mAllRolesHavePositiveGoalLatches = false;
+      mLatches.mPerRolePositiveGoalLatchMasks.clear();
+      mLatches.mStaticGoalRanges.clear();
+    }
+
+    return mLatches;
+  }
+
+  private Latches analyse() throws TimeoutException
+  {
     // Do per-proposition analysis on all the base propositions.
     for (PolymorphicComponent lSourceComp1 : mSourceNet.getBasePropositionsArray())
     {
-      if (System.currentTimeMillis() > xiDeadline)
-      {
-        return null;
-      }
+      checkForTimeout();
+
       // Check if this proposition is a goal latch or a regular latch (or not a latch at all).
       tryLatch((ForwardDeadReckonProposition)lSourceComp1, true);
       tryLatch((ForwardDeadReckonProposition)lSourceComp1, false);
     }
 
-    tryLatchPairs(xiDeadline);
+    tryLatchPairs();
 
     postProcessLatches();
 
@@ -554,8 +585,10 @@ public class LatchAnalyser
 
   /**
    * Find pairs of base latches which make a goal latch.
+   *
+   * @throws TimeoutException
    */
-  private void tryLatchPairs(long xiTimeout)
+  private void tryLatchPairs() throws TimeoutException
   {
     // This is expensive.  Only do it for puzzles.
     if (mStateMachine.getRoles().length != 1) return;
@@ -574,10 +607,8 @@ public class LatchAnalyser
     LOGGER.info("Checking for latch pairs of " + mLatches.mPositiveBaseLatches.size() + " 1-proposition latches");
     for (ForwardDeadReckonProposition lBaseLatch1 : mLatches.mPositiveBaseLatches)
     {
-      if (System.currentTimeMillis() > xiTimeout)
-      {
-        break;
-      }
+      checkForTimeout();
+
       // !! ARR Do the "assume" for the first state here and then save/reload as required.
       // !! ARR Don't do both 1/2 and 2/1.
       for (ForwardDeadReckonProposition lBaseLatch2 : mLatches.mPositiveBaseLatches)
@@ -631,5 +662,13 @@ public class LatchAnalyser
   private TristateProposition getProp(PolymorphicProposition xiSource)
   {
     return (TristateProposition)mSourceToTarget.get(xiSource);
+  }
+
+  private void checkForTimeout() throws TimeoutException
+  {
+    if (System.currentTimeMillis() > mDeadline)
+    {
+      throw new TimeoutException();
+    }
   }
 }
