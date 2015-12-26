@@ -47,6 +47,7 @@ import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.FactorAnalyser.FactorInfo;
+import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.LatchAnalyser.Latches;
 import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBuilder;
 import org.ggp.base.util.statemachine.playoutPolicy.IPlayoutPolicy;
 import org.ggp.base.util.stats.Stats;
@@ -165,7 +166,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private int[]                                                        playoutStackMoveInitialChoiceIndex = null;
   private int[]                                                        playoutStackMoveNextChoiceIndex = null;
 
-  public LatchAnalyser                                                 mLatchAnalyser = null;
+  public Latches                                                       mLatches = null;
 
   /**
    * Current turn number within the overall game
@@ -491,12 +492,13 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
   /**
    * Find latches.
+   *
+   * @param xiDeadline - the (latest) time to run until.
    */
   // !! ARR Work in progress - will need to return something
-  private void findLatches(long timeout)
+  private void findLatches(long xiDeadline)
   {
-    mLatchAnalyser = new LatchAnalyser(fullPropNet, this);
-    mLatchAnalyser.analyse(timeout);
+    mLatches = new LatchAnalyser(fullPropNet, this).analyse(xiDeadline);
   }
 
   /**
@@ -513,7 +515,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
     }
 
-    return mLatchAnalyser.scoresAreLatched(xiState);
+    return mLatches.scoresAreLatched(xiState);
   }
 
   /**
@@ -537,7 +539,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       }
     }
 
-    mLatchAnalyser.getLatchedScoreRange(xiState, xiRole, xoRange);
+    mLatches.getLatchedScoreRange(xiState,
+                                  xiRole,
+                                  fullPropNet.getGoalPropositions().get(xiRole),
+                                  xoRange);
   }
 
   /**
@@ -1028,7 +1033,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     fullPropNet = master.fullPropNet;
     masterInfoSet = master.masterInfoSet;
     factors = master.factors;
-    mLatchAnalyser = master.mLatchAnalyser;
+    mLatches = master.mLatches;
     ourRole = master.ourRole;
     setRoleOrdering(master.getRoleOrdering());
     totalNumMoves = master.totalNumMoves;
@@ -2869,7 +2874,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           }
         }
       }
-      else if (!isTerminal() && !mLatchAnalyser.scoresAreLatched(lastInternalSetState))
+      else if (!isTerminal() && !mLatches.scoresAreLatched(lastInternalSetState))
       {
         if (rolloutStackDepth++ >= hintMoveDepth)
         {
@@ -3105,7 +3110,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
     else if (decisionState.chooserIndex != -1)
     {
       int choiceIndex;
-      boolean preEnumerate = mLatchAnalyser.hasNegativelyLatchedGoals();
+      boolean preEnumerate = mLatches.hasNegativelyLatchedGoals();
       int numTerminals = 0;
 
       if (decisionState.baseChoiceIndex == -1)
@@ -3198,7 +3203,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
               transitionToNextStateFromChosenMove();
 
-              if (isTerminal() || mLatchAnalyser.scoresAreLatched(lastInternalSetState))
+              if (isTerminal() || mLatches.scoresAreLatched(lastInternalSetState))
               {
                 numTerminals++;
 
@@ -3218,7 +3223,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
                 decisionState.propProcessed[i] = true;
               }
-              else if (mLatchAnalyser.hasNegativelyLatchedGoals())
+              else if (mLatches.hasNegativelyLatchedGoals())
               {
                 int newMaxAchievableOpponentScoreTotal = 0;
                 for(Role role : getRoles())
@@ -3300,7 +3305,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
 
         transitioned = true;
 
-        if (isTerminal() || mLatchAnalyser.scoresAreLatched(lastInternalSetState))
+        if (isTerminal() || mLatches.scoresAreLatched(lastInternalSetState))
         {
           numTerminals++;
 
@@ -3329,7 +3334,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           results.considerResult(decisionState.choosingRole);
           decisionState.propProcessed[choice] = true;
         }
-        else if (mLatchAnalyser.hasNegativelyLatchedGoals())
+        else if (mLatches.hasNegativelyLatchedGoals())
         {
           int newMaxAchievableOpponentScoreTotal = 0;
           for(Role role : getRoles())
@@ -3408,7 +3413,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
         assert(choicelessMoveInfo != null);
         playedMoves[moveIndex] = choicelessMoveInfo;
       }
-      if (isTerminal() || mLatchAnalyser.scoresAreLatched(lastInternalSetState))
+      if (isTerminal() || mLatches.scoresAreLatched(lastInternalSetState))
       {
         results.considerResult(decisionState.choosingRole);
       }

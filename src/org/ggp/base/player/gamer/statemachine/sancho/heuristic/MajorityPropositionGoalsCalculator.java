@@ -79,7 +79,7 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator imple
 
     for(Entry<Role, ForwardDeadReckonInternalMachineState> e : roleMasks.entrySet())
     {
-      if ( firstRole == null )
+      if (firstRole == null)
       {
         firstRole = e.getKey();
         firstMask = e.getValue();
@@ -106,7 +106,7 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator imple
   protected int getCount(ForwardDeadReckonInternalMachineState xiState,
                          Role xiRole)
   {
-    if ( stateBuffer == null )
+    if (stateBuffer == null)
     {
       stateBuffer = new ForwardDeadReckonInternalMachineState(xiState);
     }
@@ -133,20 +133,20 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator imple
     //  If any of the propositions being counted are latches we can derive a heuristic
     for(Entry<Role, ForwardDeadReckonInternalMachineState> e : roleMasks.entrySet())
     {
-      ForwardDeadReckonInternalMachineState positiveLatchMask = stateMachine.mLatchAnalyser.getPositiveBaseLatches();
-      if ( positiveLatchMask != null )
+      ForwardDeadReckonInternalMachineState positiveLatchMask = stateMachine.mLatches.getPositiveBaseLatches();
+      if (positiveLatchMask != null)
       {
-        ForwardDeadReckonInternalMachineState intersection = new ForwardDeadReckonInternalMachineState( positiveLatchMask );
+        ForwardDeadReckonInternalMachineState intersection = new ForwardDeadReckonInternalMachineState(positiveLatchMask);
 
         intersection.intersect(e.getValue());
-        if ( intersection.size() > 0 )
+        if (intersection.size() > 0)
         {
           latchedRoleMasks.put(e.getKey(), intersection);
         }
       }
     }
 
-    if ( !latchedRoleMasks.isEmpty())
+    if (!latchedRoleMasks.isEmpty())
     {
       return this;
     }
@@ -213,14 +213,14 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator imple
                                   ForwardDeadReckonInternalMachineState xiReferenceState,
                                   HeuristicInfo resultInfo)
   {
-    if ( latchedRoleMasks != null )
+    if (latchedRoleMasks != null)
     {
       int ourLatchCount = 0;
       int theirLatchCount = 0;
 
       for(Entry<Role, ForwardDeadReckonInternalMachineState> e : latchedRoleMasks.entrySet())
       {
-        if ( e.getKey().equals(ourRole) )
+        if (e.getKey().equals(ourRole))
         {
           ourLatchCount += xiState.intersectionSize(e.getValue());
           ourLatchCount -= xiPreviousState.intersectionSize(e.getValue());
@@ -232,12 +232,12 @@ public class MajorityPropositionGoalsCalculator extends MajorityCalculator imple
         }
       }
 
-      if ( ourLatchCount > theirLatchCount )
+      if (ourLatchCount > theirLatchCount)
       {
         resultInfo.heuristicValue[0] = 100;
         resultInfo.heuristicValue[1] = 0;
       }
-      else if ( ourLatchCount < theirLatchCount )
+      else if (ourLatchCount < theirLatchCount)
       {
         resultInfo.heuristicValue[0] = 0;
         resultInfo.heuristicValue[1] = 100;

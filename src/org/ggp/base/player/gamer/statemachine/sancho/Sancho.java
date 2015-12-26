@@ -981,8 +981,8 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
                        !mGameCharacteristics.isSimultaneousMove &&
                        mNumRoles == 2 &&
                        mUnderlyingStateMachine.getFullPropNet().getLegalPropositions().get(mOurRole).length >= mGameCharacteristics.getMaxLength() &&
-                       ((mUnderlyingStateMachine.mLatchAnalyser.getPositiveBaseLatches() != null && mUnderlyingStateMachine.mLatchAnalyser.getPositiveBaseLatches().size() > 2) ||
-                        (mUnderlyingStateMachine.mLatchAnalyser.getNegativeBaseLatches() != null && mUnderlyingStateMachine.mLatchAnalyser.getNegativeBaseLatches().size() > 2)) &&
+                       ((mUnderlyingStateMachine.mLatches.getNumPositiveBaseLatches() > 2) ||
+                        (mUnderlyingStateMachine.mLatches.getNumNegativeBaseLatches() > 2)) &&
                        (!pieceHeuristic.isEnabled() || !pieceHeuristic.applyAsSimpleHeuristic()));
     double explorationBias = 15 / (averageNumTurns + ((maxNumTurns + minNumTurns) / 2 - averageNumTurns) *
                                               stdDevNumTurns / averageNumTurns) + 0.4;
@@ -1048,8 +1048,8 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
           mUnderlyingStateMachine.greedyRolloutEffectiveness <
                                                        mUnderlyingStateMachine.numRolloutDecisionNodeExpansions / 3) &&
          (mGameCharacteristics.numRoles != 1 || mUnderlyingStateMachine.greedyRolloutEffectiveness == 0) &&
-         !mUnderlyingStateMachine.mLatchAnalyser.hasNegativelyLatchedGoals() &&
-         !mUnderlyingStateMachine.mLatchAnalyser.hasPositivelyLatchedGoals()))
+         !mUnderlyingStateMachine.mLatches.hasNegativelyLatchedGoals() &&
+         !mUnderlyingStateMachine.mLatches.hasPositivelyLatchedGoals()))
     {
       if (!greedyRolloutsDisabled)
       {
@@ -1440,7 +1440,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
                                                                  this,
                                                                  mGameCharacteristics.isPseudoSimultaneousMove,
                                                                  mRoleOrdering,
-                                                                 mGameCharacteristics.competitivenessBonus);
+                                                                 mGameCharacteristics.getCompetitivenessBonus());
       bestMove = iteratedPlayer.selectMove(moves, timeout);
       LOGGER.info("Playing best iterated game move: " + bestMove);
     }

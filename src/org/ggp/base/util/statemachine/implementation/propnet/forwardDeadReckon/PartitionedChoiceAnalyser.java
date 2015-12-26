@@ -74,14 +74,14 @@ public class PartitionedChoiceAnalyser
       //  Are all the required base props latches in their required values?
       for(PolymorphicProposition p : requiredPositiveBaseProps)
       {
-        if ( !stateMachine.mLatchAnalyser.isPositivelyLatchedBaseProp(p))
+        if ( !stateMachine.mLatches.isPositivelyLatchedBaseProp(p))
         {
           return null;
         }
       }
       for(PolymorphicProposition p : requiredNegativeBaseProps)
       {
-        if ( !stateMachine.mLatchAnalyser.isNegativelyLatchedBaseProp(p))
+        if ( !stateMachine.mLatches.isNegativelyLatchedBaseProp(p))
         {
           return null;
         }

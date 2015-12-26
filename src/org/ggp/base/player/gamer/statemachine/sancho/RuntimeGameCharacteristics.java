@@ -39,33 +39,34 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private static final String CONTROL_MASK                  = "control_mask";
 
   private final XMLPropertiesConfiguration mConfigFile;
-  private boolean             mLoadedConfig;
-  private double              explorationBias         = 1.0;
+  private boolean                          mLoadedConfig;
+
+  private double              mExplorationBias         = 1.0;
   private double              mExactRolloutSampleSize = 1;
   private volatile int        mRolloutSampleSize;
   private int                 mMaxObservedChoices;
-  final double                competitivenessBonus    = 2;
-  private boolean             isFixedMoveCount        = false;
-  private boolean             isFixedSum              = false;
-  private double              mTerminalityDensity     = 0;
-  private double              mAverageBranchingFactor = 1;
-  private int                 earliestCompletion      = 0;
-  final private int           fixedSampleSize         = MachineSpecificConfiguration.getCfgInt(CfgItem.FIXED_SAMPLE_SIZE);
-  private String              mPlan                   = null;
-  private int                 mNumFactors             = 0;
-  private String              mFactors                = null;
-  private int                 mMinLength              = 0;
-  private int                 mMaxLength              = -1;
-  private double              mAverageLength          = -1;
-  private double              mStdDeviationLength     = 0;
-  private double              mAverageNonDrawLength   = 0;
-  private int                 mMinNonDrawLength       = 0;
-  private double              mGoalsStability         = 0;
-  private double              mLongDrawsProportion    = 0;
-  private double              mAverageHyperSequenceLength = 0;
+  private final double        mCompetitivenessBonus        = 2;
+  private boolean             mIsFixedMoveCount            = false;
+  private boolean             mIsFixedSum                  = false;
+  private double              mTerminalityDensity          = 0;
+  private double              mAverageBranchingFactor      = 1;
+  private int                 mEarliestCompletion          = 0;
+  private final int           mFixedSampleSize = MachineSpecificConfiguration.getCfgInt(CfgItem.FIXED_SAMPLE_SIZE);
+  private String              mPlan                        = null;
+  private int                 mNumFactors                  = 0;
+  private String              mFactors                     = null;
+  private int                 mMinLength                   = 0;
+  private int                 mMaxLength                   = -1;
+  private double              mAverageLength               = -1;
+  private double              mStdDeviationLength          = 0;
+  private double              mAverageNonDrawLength        = 0;
+  private int                 mMinNonDrawLength            = 0;
+  private double              mGoalsStability              = 0;
+  private double              mLongDrawsProportion         = 0;
+  private double              mAverageHyperSequenceLength  = 0;
   private double              mVarianceHyperSequenceLength = 0;
-  private long                mMaxFactorFailureTime   = 0;
-  private String              mControlMask            = null;
+  private long                mMaxFactorFailureTime        = 0;
+  private String              mControlMask                 = null;
 
   /**
    * Create game characteristics, loading any state from previous games.
@@ -125,7 +126,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
           mMaxFactorFailureTime          = lConfigFile.getLong(MAX_FACTOR_FAILURE_TIME, 0);
           moveChoicesFromMultipleFactors = lConfigFile.getBoolean(MOVES_IN_MULTIPLE_FACTORS_KEY, false);
           mMaxObservedChoices            = lConfigFile.getInt(MAX_BRANCHING_FACTOR_KEY, 1);
-          isFixedMoveCount               = lConfigFile.getBoolean(FIXED_LENGTH_KEY, false);
+          mIsFixedMoveCount               = lConfigFile.getBoolean(FIXED_LENGTH_KEY, false);
           if ( !MachineSpecificConfiguration.getCfgBool(CfgItem.DISABLE_SAVED_PLANS) )
           {
             mPlan                        = lConfigFile.getString(PLAN_KEY, null);
@@ -183,7 +184,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     mConfigFile.setProperty(NUM_FACTORS_KEY,               mNumFactors);
     mConfigFile.setProperty(MOVES_IN_MULTIPLE_FACTORS_KEY, moveChoicesFromMultipleFactors);
     mConfigFile.setProperty(MAX_BRANCHING_FACTOR_KEY,      mMaxObservedChoices);
-    mConfigFile.setProperty(FIXED_LENGTH_KEY,              isFixedMoveCount);
+    mConfigFile.setProperty(FIXED_LENGTH_KEY,              mIsFixedMoveCount);
     if (mPlan        != null) {mConfigFile.setProperty(PLAN_KEY,     mPlan);}
     if (mControlMask != null) {mConfigFile.setProperty(CONTROL_MASK, mControlMask);}
     if (mFactors     != null) {mConfigFile.setProperty(FACTORS_KEY, mFactors);}
@@ -200,13 +201,13 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
 
   public double getExplorationBias()
   {
-    return explorationBias;
+    return mExplorationBias;
   }
 
   public void setExplorationBias(double value)
   {
     assert(value >= 0 && value <= 5);
-    explorationBias = value;
+    mExplorationBias = value;
   }
 
   public double getExactRolloutSampleSize()
@@ -223,7 +224,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   {
     int lOldSampleSize = mRolloutSampleSize;
 
-    if (fixedSampleSize <= 0)
+    if (mFixedSampleSize <= 0)
     {
       mExactRolloutSampleSize = xiExactSampleSize;
 
@@ -231,7 +232,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     }
     else
     {
-      mRolloutSampleSize = fixedSampleSize;
+      mRolloutSampleSize = mFixedSampleSize;
     }
 
     if (lOldSampleSize != mRolloutSampleSize )
@@ -245,27 +246,27 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
 
   public double getCompetitivenessBonus()
   {
-    return competitivenessBonus;
+    return mCompetitivenessBonus;
   }
 
   public void setIsFixedMoveCount()
   {
-    isFixedMoveCount = true;
+    mIsFixedMoveCount = true;
   }
 
   public boolean getIsFixedMoveCount()
   {
-    return isFixedMoveCount;
+    return mIsFixedMoveCount;
   }
 
   public void setIsFixedSum()
   {
-    isFixedSum = true;
+    mIsFixedSum = true;
   }
 
   public boolean getIsFixedSum()
   {
-    return isFixedSum;
+    return mIsFixedSum;
   }
 
   public void setTerminalityDensity(double value)
@@ -290,12 +291,12 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
 
   public void setEarliestCompletionDepth(int value)
   {
-    earliestCompletion = value;
+    mEarliestCompletion = value;
   }
 
   public int getEarliestCompletionDepth()
   {
-    return earliestCompletion;
+    return mEarliestCompletion;
   }
 
   /**
