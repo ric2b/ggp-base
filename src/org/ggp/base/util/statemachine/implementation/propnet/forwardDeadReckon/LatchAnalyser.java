@@ -15,9 +15,9 @@ import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
-import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonMaskedState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonPropNet;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonProposition;
+import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.MaskedStateGoalLatch;
 import org.ggp.base.util.propnet.polymorphic.tristate.TristateComponent;
 import org.ggp.base.util.propnet.polymorphic.tristate.TristateComponent.ContradictionException;
 import org.ggp.base.util.propnet.polymorphic.tristate.TristateComponent.Tristate;
@@ -43,6 +43,8 @@ public class LatchAnalyser
   private final Map<PolymorphicComponent, TristateComponent> mSourceToTarget;
   private final Latches mLatches;
 
+  private final List<MaskedStateGoalLatch> mComplexPositiveGoalLatchList;
+
   /**
    * Latch analysis results.
    *
@@ -56,14 +58,15 @@ public class LatchAnalyser
     private final Set<ForwardDeadReckonProposition> mNegativeBaseLatches;
     private final ForwardDeadReckonInternalMachineState mPositiveBaseLatchMask;
     private final ForwardDeadReckonInternalMachineState mNegativeBaseLatchMask;
-    private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mPositiveGoalLatches;
-    private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mNegativeGoalLatches;
-    private final List<ForwardDeadReckonMaskedState> mLatchGoalComplex;
+    private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mSimplePositiveGoalLatches;
+    private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mSimpleNegativeGoalLatches;
+    private MaskedStateGoalLatch[] mComplexPositiveGoalLatches;
     private boolean mFoundPositiveBaseLatches;
     private boolean mFoundNegativeBaseLatches;
-    private boolean mFoundPositiveGoalLatches;
-    private boolean mFoundNegativeGoalLatches;
-    private boolean mAllGoalsHavePositiveGoalLatches;
+    private boolean mFoundSimplePositiveGoalLatches;
+    private boolean mFoundSimpleNegativeGoalLatches;
+    private boolean mFoundComplexPositiveGoalLatches;
+    private boolean mAllRolesHavePositiveGoalLatches;
     private final Map<Role, ForwardDeadReckonInternalMachineState> mPerRolePositiveGoalLatchMasks;
     private final Map<Role,int[]> mStaticGoalRanges;
     private final Role[] mRoles;
@@ -84,16 +87,15 @@ public class LatchAnalyser
       mNegativeBaseLatchMask = xiStateMachine.createEmptyInternalState();
 
       // Create mappings for goal latches.
-      mPositiveGoalLatches = new HashMap<>();
-      mNegativeGoalLatches = new HashMap<>();
-      mLatchGoalComplex = new ArrayList<>();
+      mSimplePositiveGoalLatches = new HashMap<>();
+      mSimpleNegativeGoalLatches = new HashMap<>();
 
       for (PolymorphicProposition lGoals[] : xiSourceNet.getGoalPropositions().values())
       {
         for (PolymorphicProposition lGoal : lGoals)
         {
-          mPositiveGoalLatches.put(lGoal, xiStateMachine.createEmptyInternalState());
-          mNegativeGoalLatches.put(lGoal, xiStateMachine.createEmptyInternalState());
+          mSimplePositiveGoalLatches.put(lGoal, xiStateMachine.createEmptyInternalState());
+          mSimpleNegativeGoalLatches.put(lGoal, xiStateMachine.createEmptyInternalState());
         }
       }
 
@@ -109,7 +111,7 @@ public class LatchAnalyser
      */
     public boolean hasPositivelyLatchedGoals()
     {
-      return mFoundPositiveGoalLatches;
+      return mFoundSimplePositiveGoalLatches || mFoundComplexPositiveGoalLatches;
     }
 
     /**
@@ -117,7 +119,7 @@ public class LatchAnalyser
      */
     public boolean hasNegativelyLatchedGoals()
     {
-      return mFoundNegativeGoalLatches;
+      return mFoundSimpleNegativeGoalLatches;
     }
 
     /**
@@ -175,11 +177,28 @@ public class LatchAnalyser
      */
     public boolean scoresAreLatched(ForwardDeadReckonInternalMachineState xiState)
     {
-      if (!mAllGoalsHavePositiveGoalLatches)
+      if ((!mFoundComplexPositiveGoalLatches) && (!mAllRolesHavePositiveGoalLatches))
       {
         return false;
       }
 
+      // Check for pair latches.  (If there are any, it must be a single-player game.)
+      for (MaskedStateGoalLatch lMaskedState : mComplexPositiveGoalLatches)
+      {
+        if (lMaskedState.matches(xiState))
+        {
+          assert(mRoles.length == 1) : "Pair latches only used in single-player games";
+          return true;
+        }
+      }
+
+      // It's only worth checking simple latches if all roles have latches.
+      if (!mAllRolesHavePositiveGoalLatches)
+      {
+        return false;
+      }
+
+      // Check for single latches.
       for (Role lRole : mRoles)
       {
         ForwardDeadReckonInternalMachineState lRoleLatchMask = mPerRolePositiveGoalLatchMasks.get(lRole);
@@ -215,22 +234,31 @@ public class LatchAnalyser
       xoRange[1] = -Integer.MAX_VALUE;
       int[] lStaticGoalRange = null;
 
-      if ((mPositiveGoalLatches != null) ||
-          (mNegativeGoalLatches != null) ||
+      if ((mFoundSimplePositiveGoalLatches) ||
+          (mFoundSimpleNegativeGoalLatches) ||
+          (mFoundComplexPositiveGoalLatches) ||
           ((lStaticGoalRange = mStaticGoalRanges.get(xiRole)) == null))
       {
-        // Initialise to sentinel values
-        xoRange[0] = Integer.MAX_VALUE;
-        xoRange[1] = -Integer.MAX_VALUE;
+        // Check for pair latches.  (If there are any, it must be a single-player game.)
+        for (MaskedStateGoalLatch lMaskedState : mComplexPositiveGoalLatches)
+        {
+          if (lMaskedState.matches(xiState))
+          {
+            int lValue = lMaskedState.getGoalValue();
+            xoRange[0] = lValue;
+            xoRange[1] = lValue;
+            return;
+          }
+        }
 
-        for(PolymorphicProposition goalProp : xiGoals)
+        for (PolymorphicProposition goalProp : xiGoals)
         {
           ForwardDeadReckonInternalMachineState negativeMask = null;
           int latchedScore = Integer.parseInt(goalProp.getName().getBody().get(1).toString());
 
-          if (mPositiveGoalLatches != null)
+          if (mSimplePositiveGoalLatches != null)
           {
-            ForwardDeadReckonInternalMachineState positiveMask = mPositiveGoalLatches.get(goalProp);
+            ForwardDeadReckonInternalMachineState positiveMask = mSimplePositiveGoalLatches.get(goalProp);
             if (positiveMask != null && xiState.intersects(positiveMask))
             {
               xoRange[0] = latchedScore;
@@ -238,9 +266,9 @@ public class LatchAnalyser
               break;
             }
           }
-          if (mNegativeGoalLatches != null)
+          if (mSimpleNegativeGoalLatches != null)
           {
-            negativeMask = mNegativeGoalLatches.get(goalProp);
+            negativeMask = mSimpleNegativeGoalLatches.get(goalProp);
           }
           if (negativeMask == null || !xiState.intersects(negativeMask))
           {
@@ -256,8 +284,9 @@ public class LatchAnalyser
           }
         }
 
-        if ((mPositiveGoalLatches == null) && (mNegativeGoalLatches == null))
+        if ((!mFoundSimplePositiveGoalLatches) && (!mFoundSimpleNegativeGoalLatches))
         {
+          // There are no latches.  Cache the range so that we don't calculate it again.
           lStaticGoalRange = new int[2];
 
           lStaticGoalRange[0] = xoRange[0];
@@ -298,7 +327,11 @@ public class LatchAnalyser
       mSourceToTarget.put(lSource, (TristateComponent)PolymorphicPropNet.sLastSourceToTargetMap.get(lSource));
     }
 
+    // Create the temporary list of complex positive goal latches.
+    mComplexPositiveGoalLatchList = new ArrayList<>();
+
     mLatches = new Latches(mSourceNet, mStateMachine);
+
   }
 
   /**
@@ -393,12 +426,12 @@ public class LatchAnalyser
         if (lValue == Tristate.TRUE)
         {
           addLatchingProposition((ForwardDeadReckonProposition)lGoal, xiProposition, true);
-          mLatches.mFoundPositiveGoalLatches = true;
+          mLatches.mFoundSimplePositiveGoalLatches = true;
         }
         else if (lValue == Tristate.FALSE)
         {
           addLatchingProposition((ForwardDeadReckonProposition)lGoal, xiProposition, false);
-          mLatches.mFoundNegativeGoalLatches = true;
+          mLatches.mFoundSimpleNegativeGoalLatches = true;
         }
       }
     }
@@ -409,8 +442,8 @@ public class LatchAnalyser
                                       boolean xiPositive)
   {
     Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lGoalMap =
-                                                                           (xiPositive ? mLatches.mPositiveGoalLatches :
-                                                                                         mLatches.mNegativeGoalLatches);
+                                                                           (xiPositive ? mLatches.mSimplePositiveGoalLatches :
+                                                                                         mLatches.mSimpleNegativeGoalLatches);
     ForwardDeadReckonInternalMachineState lExisting = lGoalMap.get(xiGoal);
     lExisting.add(xiLatchingProposition.getInfo());
   }
@@ -432,7 +465,7 @@ public class LatchAnalyser
 
     // Post-process the goal latches to remove any goals for which no latches were found.
     Iterator<Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState>> lIterator =
-      mLatches.mPositiveGoalLatches.entrySet().iterator();
+      mLatches.mSimplePositiveGoalLatches.entrySet().iterator();
     while (lIterator.hasNext())
     {
       Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry = lIterator.next();
@@ -449,13 +482,13 @@ public class LatchAnalyser
       }
     }
 
-    if (mLatches.mPositiveGoalLatches.isEmpty())
+    if (mLatches.mSimplePositiveGoalLatches.isEmpty())
     {
-      LOGGER.info("No positive goal latches");
-      mLatches.mPositiveGoalLatches = null;
+      LOGGER.info("No simple positive goal latches");
+      mLatches.mSimplePositiveGoalLatches = null;
     }
 
-    lIterator = mLatches.mNegativeGoalLatches.entrySet().iterator();
+    lIterator = mLatches.mSimpleNegativeGoalLatches.entrySet().iterator();
     while (lIterator.hasNext())
     {
       Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry = lIterator.next();
@@ -472,17 +505,17 @@ public class LatchAnalyser
       }
     }
 
-    if (mLatches.mNegativeGoalLatches.isEmpty())
+    if (mLatches.mSimpleNegativeGoalLatches.isEmpty())
     {
-      LOGGER.info("No negative goal latches");
-      mLatches.mNegativeGoalLatches = null;
+      LOGGER.info("No simple negative goal latches");
+      mLatches.mSimpleNegativeGoalLatches = null;
     }
 
     // On a per-role basis, calculate the state masks that imply some positively latched goal for the role.
-    if (mLatches.mPositiveGoalLatches != null)
+    if (mLatches.mSimplePositiveGoalLatches != null)
     {
       // Assume that all roles have at least 1 positive latch until we learn otherwise.
-      mLatches.mAllGoalsHavePositiveGoalLatches = true;
+      mLatches.mAllRolesHavePositiveGoalLatches = true;
 
       for (Role lRole : mStateMachine.getRoles())
       {
@@ -490,7 +523,7 @@ public class LatchAnalyser
 
         for (PolymorphicProposition goalProp : mSourceNet.getGoalPropositions().get(lRole))
         {
-          ForwardDeadReckonInternalMachineState goalMask = mLatches.mPositiveGoalLatches.get(goalProp);
+          ForwardDeadReckonInternalMachineState goalMask = mLatches.mSimplePositiveGoalLatches.get(goalProp);
 
           if (goalMask != null)
           {
@@ -504,14 +537,19 @@ public class LatchAnalyser
         }
         else
         {
-          mLatches.mAllGoalsHavePositiveGoalLatches = false;
+          mLatches.mAllRolesHavePositiveGoalLatches = false;
         }
       }
     }
     else
     {
-      mLatches.mAllGoalsHavePositiveGoalLatches = false;
+      mLatches.mAllRolesHavePositiveGoalLatches = false;
     }
+
+    LOGGER.info(mComplexPositiveGoalLatchList.size() + " complex positive goal latches");
+    mLatches.mComplexPositiveGoalLatches =
+      mComplexPositiveGoalLatchList.toArray(new MaskedStateGoalLatch[mComplexPositiveGoalLatchList.size()]);
+    mLatches.mFoundComplexPositiveGoalLatches = (!mComplexPositiveGoalLatchList.isEmpty());
   }
 
   /**
@@ -523,7 +561,7 @@ public class LatchAnalyser
     if (mStateMachine.getRoles().length != 1) return;
 
     // Only do it if we haven't found any goal latches so far.
-    if (mLatches.mFoundPositiveGoalLatches || mLatches.mFoundNegativeGoalLatches) return;
+    if (mLatches.mFoundSimplePositiveGoalLatches || mLatches.mFoundSimpleNegativeGoalLatches) return;
 
     // Only do it if there are fewer than 300 base latches.
     if (mLatches.mPositiveBaseLatches.size() > 300) return;
@@ -550,7 +588,7 @@ public class LatchAnalyser
           // !! ARR Ideally only set up as a basic latch if it is a basic latch.
           getProp(lBaseLatch1).assume(Tristate.FALSE, Tristate.TRUE, Tristate.UNKNOWN);
           getProp(lBaseLatch2).assume(Tristate.FALSE, Tristate.TRUE, Tristate.UNKNOWN);
-          checkGoalLatch(lBaseLatch1, lBaseLatch2);
+          checkGoalLatchPair(lBaseLatch1, lBaseLatch2);
         }
         catch (ContradictionException lEx) { /* Oops */ }
       }
@@ -558,21 +596,16 @@ public class LatchAnalyser
   }
 
   /**
-   * Check whether any goals are latched in the tri-state network.  If so, add the propositions which caused it to the
-   * set of latches.
+   * Check whether any goals are latched by a pair of propositions.  If so, add the pair to the set of pair latches.
    *
    * @param xiProposition1 - the 1st proposition which MUST itself be a positive latch.
    * @param xiProposition1 - the 2ns proposition which MUST itself be a positive latch.
    */
-  private void checkGoalLatch(ForwardDeadReckonProposition xiProposition1,
-                              ForwardDeadReckonProposition xiProposition2)
+  private void checkGoalLatchPair(ForwardDeadReckonProposition xiProposition1,
+                                  ForwardDeadReckonProposition xiProposition2)
   {
     Map<Role, PolymorphicProposition[]> lSourceGoals = mSourceNet.getGoalPropositions();
     Iterator<Entry<Role, PolymorphicProposition[]>> lIterator = lSourceGoals.entrySet().iterator();
-
-    ForwardDeadReckonMaskedState lMaskedState = new ForwardDeadReckonMaskedState(mStateMachine);
-    lMaskedState.add(xiProposition1, true);
-    lMaskedState.add(xiProposition2, true);
 
     while (lIterator.hasNext())
     {
@@ -582,8 +615,13 @@ public class LatchAnalyser
         Tristate lValue = getProp(lGoal).getValue(2);
         if (lValue == Tristate.TRUE)
         {
-          LOGGER.info(xiProposition1.getName() + " & " + xiProposition2.getName() + " are a +ve pair latch for " + lGoal.getName());
-          mLatches.mLatchGoalComplex.add(lMaskedState);
+          LOGGER.debug(xiProposition1.getName() + " & " + xiProposition2.getName() + " are a +ve pair latch for " + lGoal.getName());
+
+          MaskedStateGoalLatch lMaskedState =
+                          new MaskedStateGoalLatch(mStateMachine, ((ForwardDeadReckonProposition)lGoal).getGoalValue());
+          lMaskedState.add(xiProposition1, true);
+          lMaskedState.add(xiProposition2, true);
+          mComplexPositiveGoalLatchList.add(lMaskedState);
         }
         // We only care about +ve goal latches for now
       }

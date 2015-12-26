@@ -5,20 +5,23 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 /**
  * A state/mask pair.
  */
-public class ForwardDeadReckonMaskedState
+public class MaskedStateGoalLatch
 {
   private final ForwardDeadReckonInternalMachineState mState;
   private final ForwardDeadReckonInternalMachineState mMask;
+  private final int mGoalValue;
 
   /**
    * Create an initially empty state/mask pair.
    *
    * @param xiStateMachine - a state machine, used to create the masked state.
+   * @param xiGoalValue - the goal value for the specified state.
    */
-  public ForwardDeadReckonMaskedState(ForwardDeadReckonPropnetStateMachine xiStateMachine)
+  public MaskedStateGoalLatch(ForwardDeadReckonPropnetStateMachine xiStateMachine, int xiGoalValue)
   {
     mState = xiStateMachine.createEmptyInternalState();
     mMask = xiStateMachine.createEmptyInternalState();
+    mGoalValue = xiGoalValue;
   }
 
   /**
@@ -52,5 +55,10 @@ public class ForwardDeadReckonMaskedState
     xiState.contents.xor(mState.contents);
 
     return lMatches;
+  }
+
+  public int getGoalValue()
+  {
+    return mGoalValue;
   }
 }
