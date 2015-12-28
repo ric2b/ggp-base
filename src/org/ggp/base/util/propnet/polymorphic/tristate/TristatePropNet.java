@@ -33,10 +33,13 @@ public class TristatePropNet extends PolymorphicPropNet
     try
     {
       TristateProposition lInitProp = ((TristateProposition)getInitProposition());
-      for (int lii = 0; lii < 3; lii++)
+      if ( lInitProp != null )
       {
-        lInitProp.mState[lii].mValue = Tristate.FALSE;
-        lInitProp.propagateOutput(lii, false);
+        for (int lii = 0; lii < 3; lii++)
+        {
+          lInitProp.mState[lii].mValue = Tristate.FALSE;
+          lInitProp.propagateOutput(lii, false);
+        }
       }
     }
     catch (ContradictionException lEx)
