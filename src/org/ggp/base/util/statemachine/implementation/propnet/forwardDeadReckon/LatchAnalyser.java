@@ -63,8 +63,8 @@ public class LatchAnalyser
     // Private variables are largely manipulated by the enclosing LatchAnalyser class.  Once an instance of this class
     // has been returned by the latch analyser, the only possible access is through the public methods of this class.
     //
-    // WARNING: This class is saved in the game characteristics file.  Take care that the saving and loading function
-    //          remains back-compatible.
+    // WARNING: This class is saved in the game characteristics file.  If adding new state to this class, take care that
+    //          the saving and loading function remains back-compatible.
     private boolean mAnalysisComplete;
     private boolean mFoundPositiveBaseLatches;
     private boolean mFoundNegativeBaseLatches;
@@ -97,16 +97,36 @@ public class LatchAnalyser
       }
 
       lStr.append(mFoundPositiveBaseLatches);
-      if (mFoundPositiveBaseLatches)
-      {
-
-      }
+      if (mFoundPositiveBaseLatches) mPositiveBaseLatchMask.toPersistentString(lStr);
 
       lStr.append(mFoundNegativeBaseLatches);
-      if (mFoundNegativeBaseLatches)
-      {
+      if (mFoundPositiveBaseLatches) mNegativeBaseLatchMask.toPersistentString(lStr);
 
+      lStr.append(mFoundSimplePositiveGoalLatches);
+      lStr.append(mSimplePositiveGoalLatches.size());
+      for (Map.Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry : mSimplePositiveGoalLatches.entrySet())
+      {
+        lStr.append(((ForwardDeadReckonProposition)(lEntry.getKey())).getInfo().index);
+        lEntry.getValue().toPersistentString(lStr);
       }
+
+      lStr.append(mFoundSimpleNegativeGoalLatches);
+      lStr.append(mSimpleNegativeGoalLatches.size());
+      for (Map.Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry : mSimpleNegativeGoalLatches.entrySet())
+      {
+        lStr.append(((ForwardDeadReckonProposition)(lEntry.getKey())).getInfo().index);
+        lEntry.getValue().toPersistentString(lStr);
+      }
+
+      lStr.append(mFoundComplexPositiveGoalLatches);
+      lStr.append(mComplexPositiveGoalLatches.length);
+      for (MaskedStateGoalLatch lLatch : mComplexPositiveGoalLatches)
+      {
+        lLatch.toPersistentString(lStr);
+      }
+
+      lStr.append(mAllRolesHavePositiveGoalLatches);
+      // !! ARR: Deal with mPerRolePositiveGoalLatchMasks
 
       return lStr.toString();
     }

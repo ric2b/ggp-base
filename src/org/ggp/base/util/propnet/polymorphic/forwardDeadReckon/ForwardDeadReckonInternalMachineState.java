@@ -535,6 +535,24 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   }
 
   /**
+   * Save the contents of this state in a persistent string.
+   *
+   * WARNING: State produced using this method is stored in game characteristic files.  Take care to ensure it remains
+   *          back-compatible.
+   *
+   * @param xoString - the output string buffer.
+   */
+  public void toPersistentString(StringBuilder xoString)
+  {
+    long[] lBits = contents.getBits();
+    xoString.append(lBits.length);
+    for (int lii = 0; lii < lBits.length; lii++)
+    {
+      xoString.append(lBits[lii]);
+    }
+  }
+
+  /**
    * Determine whether a specified other state is a subset of this state
    * @param other State to test
    * @return whether it is a subset
