@@ -3674,7 +3674,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
           //LOGGER.info("Accept move " + chooserChoice + " at depth " + rolloutDepth);
         }
       }
-      else if ( mPlayoutPolicy != null )
+      else if ( playoutStackMoveInitialChoiceIndex != null && playoutStackMoveNextChoiceIndex != null )
       {
         playoutStackMoveNextChoiceIndex[rolloutDepth] = playoutStackMoveInitialChoiceIndex[rolloutDepth];
       }
