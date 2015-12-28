@@ -38,12 +38,18 @@ public class LatchAnalyser
 
   // !! ARR Do saving and reloading of latch analysis results.
 
-  private final ForwardDeadReckonPropnetStateMachine mStateMachine;
-  private final ForwardDeadReckonPropNet mSourceNet;
-  private final TristatePropNet mTristateNet;
-  private final Map<PolymorphicComponent, TristateComponent> mSourceToTarget;
+  // Results of latch analysis.
   private final Latches mLatches;
 
+  // Temporary state, used during analysis.
+  private final ForwardDeadReckonPropnetStateMachine mStateMachine;
+  private final ForwardDeadReckonPropNet mSourceNet;
+
+  private final TristatePropNet mTristateNet;
+  private final Map<PolymorphicComponent, TristateComponent> mSourceToTarget;
+
+  private final Set<ForwardDeadReckonProposition> mPositiveBaseLatches;
+  private final Set<ForwardDeadReckonProposition> mNegativeBaseLatches;
   private final List<MaskedStateGoalLatch> mComplexPositiveGoalLatchList;
   private long mDeadline;
 
@@ -56,22 +62,54 @@ public class LatchAnalyser
   {
     // Private variables are largely manipulated by the enclosing LatchAnalyser class.  Once an instance of this class
     // has been returned by the latch analyser, the only possible access is through the public methods of this class.
-    private final Set<ForwardDeadReckonProposition> mPositiveBaseLatches;
-    private final Set<ForwardDeadReckonProposition> mNegativeBaseLatches;
-    private final ForwardDeadReckonInternalMachineState mPositiveBaseLatchMask;
-    private final ForwardDeadReckonInternalMachineState mNegativeBaseLatchMask;
-    private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mSimplePositiveGoalLatches;
-    private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mSimpleNegativeGoalLatches;
-    private MaskedStateGoalLatch[] mComplexPositiveGoalLatches;
+    //
+    // WARNING: This class is saved in the game characteristics file.  Take care that the saving and loading function
+    //          remains back-compatible.
+    private boolean mAnalysisComplete;
     private boolean mFoundPositiveBaseLatches;
     private boolean mFoundNegativeBaseLatches;
     private boolean mFoundSimplePositiveGoalLatches;
     private boolean mFoundSimpleNegativeGoalLatches;
     private boolean mFoundComplexPositiveGoalLatches;
     private boolean mAllRolesHavePositiveGoalLatches;
+    private final ForwardDeadReckonInternalMachineState mPositiveBaseLatchMask;
+    private final ForwardDeadReckonInternalMachineState mNegativeBaseLatchMask;
+    private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mSimplePositiveGoalLatches;
+    private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mSimpleNegativeGoalLatches;
+    private MaskedStateGoalLatch[] mComplexPositiveGoalLatches;
     private final Map<Role, ForwardDeadReckonInternalMachineState> mPerRolePositiveGoalLatchMasks;
     private final Map<Role,int[]> mStaticGoalRanges;
     private final Role[] mRoles;
+
+    /**
+     * @return a string representation of the latches, suitable for saving and reloading.
+     */
+    @Override
+    public String toString()
+    {
+      StringBuilder lStr = new StringBuilder();
+
+      lStr.append("v1:");
+      lStr.append(mAnalysisComplete);
+      if (!mAnalysisComplete)
+      {
+        return lStr.toString();
+      }
+
+      lStr.append(mFoundPositiveBaseLatches);
+      if (mFoundPositiveBaseLatches)
+      {
+
+      }
+
+      lStr.append(mFoundNegativeBaseLatches);
+      if (mFoundNegativeBaseLatches)
+      {
+
+      }
+
+      return lStr.toString();
+    }
 
     /**
      * Create a a set of latch analysis results.
@@ -83,8 +121,6 @@ public class LatchAnalyser
                    ForwardDeadReckonPropnetStateMachine xiStateMachine)
     {
       // Create empty mappings for latched base propositions.
-      mPositiveBaseLatches = new HashSet<>();
-      mNegativeBaseLatches = new HashSet<>();
       mPositiveBaseLatchMask = xiStateMachine.createEmptyInternalState();
       mNegativeBaseLatchMask = xiStateMachine.createEmptyInternalState();
 
@@ -131,7 +167,7 @@ public class LatchAnalyser
      */
     public boolean isPositivelyLatchedBaseProp(PolymorphicProposition xiProposition)
     {
-      return mPositiveBaseLatches.contains(xiProposition);
+      return mPositiveBaseLatchMask.contains(((ForwardDeadReckonProposition)xiProposition).getInfo());
     }
 
     /**
@@ -141,7 +177,7 @@ public class LatchAnalyser
      */
     public boolean isNegativelyLatchedBaseProp(PolymorphicProposition xiProposition)
     {
-      return mNegativeBaseLatches.contains(xiProposition);
+      return mNegativeBaseLatchMask.contains(((ForwardDeadReckonProposition)xiProposition).getInfo());
     }
 
     /**
@@ -329,7 +365,9 @@ public class LatchAnalyser
       mSourceToTarget.put(lSource, (TristateComponent)PolymorphicPropNet.sLastSourceToTargetMap.get(lSource));
     }
 
-    // Create the temporary list of complex positive goal latches.
+    // Create temporary state that is summarised in mLatches during post-processing.
+    mPositiveBaseLatches = new HashSet<>();
+    mNegativeBaseLatches = new HashSet<>();
     mComplexPositiveGoalLatchList = new ArrayList<>();
 
     mLatches = new Latches(mSourceNet, mStateMachine);
@@ -356,8 +394,10 @@ public class LatchAnalyser
       // incomplete.)
       LOGGER.warn("Timed out whilst analysing latches");
 
-      mLatches.mPositiveBaseLatches.clear();
-      mLatches.mNegativeBaseLatches.clear();
+      mPositiveBaseLatches.clear();
+      mNegativeBaseLatches.clear();
+      mComplexPositiveGoalLatchList.clear();
+
       mLatches.mSimplePositiveGoalLatches.clear();
       mLatches.mSimpleNegativeGoalLatches.clear();
       mLatches.mComplexPositiveGoalLatches = new MaskedStateGoalLatch[0];
@@ -389,6 +429,7 @@ public class LatchAnalyser
     tryLatchPairs();
 
     postProcessLatches();
+    mLatches.mAnalysisComplete = true;
 
     return mLatches;
   }
@@ -404,8 +445,7 @@ public class LatchAnalyser
     TristateProposition lTristateProposition = getProp(xiProposition);
     Tristate lTestState = xiPositive ? Tristate.TRUE : Tristate.FALSE;
     Tristate lOtherState = xiPositive ? Tristate.FALSE : Tristate.TRUE;
-    Set<ForwardDeadReckonProposition> lLatchSet = xiPositive ? mLatches.mPositiveBaseLatches :
-                                                               mLatches.mNegativeBaseLatches;
+    Set<ForwardDeadReckonProposition> lLatchSet = xiPositive ? mPositiveBaseLatches : mNegativeBaseLatches;
 
     try
     {
@@ -482,13 +522,13 @@ public class LatchAnalyser
   private void postProcessLatches()
   {
     // Post-process base latches into a state mask for fast access.
-    for (ForwardDeadReckonProposition lProp : mLatches.mPositiveBaseLatches)
+    for (ForwardDeadReckonProposition lProp : mPositiveBaseLatches)
     {
       mLatches.mFoundPositiveBaseLatches = true;
       mLatches.mPositiveBaseLatchMask.add(lProp.getInfo());
     }
 
-    for (ForwardDeadReckonProposition lProp : mLatches.mNegativeBaseLatches)
+    for (ForwardDeadReckonProposition lProp : mNegativeBaseLatches)
     {
       mLatches.mFoundNegativeBaseLatches = true;
       mLatches.mNegativeBaseLatchMask.add(lProp.getInfo());
@@ -596,22 +636,22 @@ public class LatchAnalyser
     // Only do it if we haven't found any goal latches so far.
     if (mLatches.mFoundSimplePositiveGoalLatches || mLatches.mFoundSimpleNegativeGoalLatches) return;
 
-    // Only do it if there are fewer than 300 base latches.
-    if (mLatches.mPositiveBaseLatches.size() > 300) return;
+    // Only do it if there are 300 or fewer base latches (otherwise it gets out of hand for performance).
+    if (mPositiveBaseLatches.size() > 300) return;
 
     // It's worth checking to see if any pairs of base proposition latches constitute a goal latch.  Many logic puzzles
     // contain constraints on pairs of propositions that might manifest in this way.
     //
     // Only consider positive base latches, simply because there aren't any games where we need to do this for negative
     // base latches.
-    LOGGER.info("Checking for latch pairs of " + mLatches.mPositiveBaseLatches.size() + " 1-proposition latches");
-    for (ForwardDeadReckonProposition lBaseLatch1 : mLatches.mPositiveBaseLatches)
+    LOGGER.info("Checking for latch pairs of " + mPositiveBaseLatches.size() + " 1-proposition latches");
+    for (ForwardDeadReckonProposition lBaseLatch1 : mPositiveBaseLatches)
     {
       checkForTimeout();
 
       // !! ARR Do the "assume" for the first state here and then save/reload as required.
       // !! ARR Don't do both 1/2 and 2/1.
-      for (ForwardDeadReckonProposition lBaseLatch2 : mLatches.mPositiveBaseLatches)
+      for (ForwardDeadReckonProposition lBaseLatch2 : mPositiveBaseLatches)
       {
         try
         {

@@ -45,43 +45,44 @@ public class PartitionedChoiceAnalyser
   public StateMachineFilter generatePartitionedChoiceFilter()
   {
     //  Currently only supported on puzzles
-    if ( stateMachine.getRoles().length > 1 )
+    if (stateMachine.getRoles().length > 1)
     {
       return null;
     }
 
     Set<PolymorphicProposition> requiredPositiveBaseProps = new HashSet<>();
     Set<PolymorphicProposition> requiredNegativeBaseProps = new HashSet<>();
-    if ( determineRequiredBasePropStatesForWin(requiredPositiveBaseProps, requiredNegativeBaseProps) )
+    if (determineRequiredBasePropStatesForWin(requiredPositiveBaseProps, requiredNegativeBaseProps))
     {
-      if ( !requiredPositiveBaseProps.isEmpty())
+      if (!requiredPositiveBaseProps.isEmpty())
       {
         LOGGER.debug("Found required positive base props for win:");
-        for(PolymorphicProposition p : requiredPositiveBaseProps)
+        for (PolymorphicProposition p : requiredPositiveBaseProps)
         {
           LOGGER.debug("\t" + p);
         }
       }
-      if ( !requiredNegativeBaseProps.isEmpty())
+      if (!requiredNegativeBaseProps.isEmpty())
       {
         LOGGER.debug("Found required negative base props for win");
-        for(PolymorphicProposition p : requiredNegativeBaseProps)
+        for (PolymorphicProposition p : requiredNegativeBaseProps)
         {
           LOGGER.debug("\t" + p);
         }
       }
 
       //  Are all the required base props latches in their required values?
-      for(PolymorphicProposition p : requiredPositiveBaseProps)
+      for (PolymorphicProposition lProp : requiredPositiveBaseProps)
       {
-        if ( !stateMachine.mLatches.isPositivelyLatchedBaseProp(p))
+        if (!stateMachine.mLatches.isPositivelyLatchedBaseProp(lProp))
         {
           return null;
         }
       }
-      for(PolymorphicProposition p : requiredNegativeBaseProps)
+
+      for (PolymorphicProposition lProp : requiredNegativeBaseProps)
       {
-        if ( !stateMachine.mLatches.isNegativelyLatchedBaseProp(p))
+        if (!stateMachine.mLatches.isNegativelyLatchedBaseProp(lProp))
         {
           return null;
         }
@@ -93,10 +94,10 @@ public class PartitionedChoiceAnalyser
       //  form a partitioning of the set of all input props?
       Map<PolymorphicProposition, Set<PolymorphicProposition> > requiredBasesToInputsMap = new HashMap<>();
 
-      for(PolymorphicProposition inputProp : stateMachine.getFullPropNet().getInputPropositions().values())
+      for (PolymorphicProposition inputProp : stateMachine.getFullPropNet().getInputPropositions().values())
       {
         //  Currently we don't reliably trim always-illegal inputs, so until we do ignore them here
-        if ( !stateMachine.getFullPropNet().getLegalInputMap().containsKey(inputProp))
+        if (!stateMachine.getFullPropNet().getLegalInputMap().containsKey(inputProp))
         {
           continue;
         }
@@ -108,11 +109,11 @@ public class PartitionedChoiceAnalyser
         //  Check this dependent set has no overlap with other dependent sets
         boolean foundSet = false;
 
-        for(PolymorphicProposition baseProp : dependentBaseProps)
+        for (PolymorphicProposition baseProp : dependentBaseProps)
         {
-          if ( requiredNegativeBaseProps.contains(baseProp) || requiredPositiveBaseProps.contains(baseProp))
+          if (requiredNegativeBaseProps.contains(baseProp) || requiredPositiveBaseProps.contains(baseProp))
           {
-            if ( foundSet )
+            if (foundSet)
             {
               //  This input impacts more than on of the required base props and
               //  so we do not have an equivalence relation
@@ -122,7 +123,7 @@ public class PartitionedChoiceAnalyser
             foundSet = true;
 
             Set<PolymorphicProposition> inputSet = requiredBasesToInputsMap.get(baseProp);
-            if ( inputSet == null )
+            if (inputSet == null)
             {
               inputSet = new HashSet<>();
               requiredBasesToInputsMap.put(baseProp, inputSet);
@@ -132,7 +133,7 @@ public class PartitionedChoiceAnalyser
           }
         }
 
-        if ( !foundSet )
+        if (!foundSet)
         {
           //  Input that is not in any partition - doesn't match the analysis pattern we are looking for
           return null;
@@ -143,9 +144,9 @@ public class PartitionedChoiceAnalyser
 
       //  Form a mapping of input props to move infos
       Map<PolymorphicProposition, ForwardDeadReckonLegalMoveInfo> inputToLegalInfoMap = new HashMap<>();
-      for(ForwardDeadReckonLegalMoveInfo moveInfo : stateMachine.getFullPropNet().getMasterMoveList())
+      for (ForwardDeadReckonLegalMoveInfo moveInfo : stateMachine.getFullPropNet().getMasterMoveList())
       {
-        if ( moveInfo.mInputProposition != null )
+        if (moveInfo.mInputProposition != null)
         {
           inputToLegalInfoMap.put(moveInfo.mInputProposition, moveInfo);
         }
@@ -157,11 +158,11 @@ public class PartitionedChoiceAnalyser
       LOGGER.info("Using choice partition filter for search");
 
       //  Form the sets of legals for each required positive base prop and add them as partitions to the filter
-      for(PolymorphicProposition p : requiredPositiveBaseProps)
+      for (PolymorphicProposition p : requiredPositiveBaseProps)
       {
         ForwardDeadReckonLegalMoveSet partitionMoves = new ForwardDeadReckonLegalMoveSet(stateMachine.getFullPropNet().getActiveLegalProps(0));
 
-        for(PolymorphicProposition inputProp : requiredBasesToInputsMap.get(p))
+        for (PolymorphicProposition inputProp : requiredBasesToInputsMap.get(p))
         {
           ForwardDeadReckonLegalMoveInfo moveInfo = inputToLegalInfoMap.get(inputProp);
           assert(moveInfo != null);
@@ -172,11 +173,11 @@ public class PartitionedChoiceAnalyser
       }
 
       //  Form the sets of legals for each required negative base prop and add them as partitions to the filter
-      for(PolymorphicProposition p : requiredNegativeBaseProps)
+      for (PolymorphicProposition p : requiredNegativeBaseProps)
       {
         ForwardDeadReckonLegalMoveSet partitionMoves = new ForwardDeadReckonLegalMoveSet(stateMachine.getFullPropNet().getActiveLegalProps(0));
 
-        for(PolymorphicProposition inputProp : requiredBasesToInputsMap.get(p))
+        for (PolymorphicProposition inputProp : requiredBasesToInputsMap.get(p))
         {
           ForwardDeadReckonLegalMoveInfo moveInfo = inputToLegalInfoMap.get(inputProp);
           assert(moveInfo != null);
@@ -204,10 +205,10 @@ public class PartitionedChoiceAnalyser
     int maxScore = Integer.MIN_VALUE;
     PolymorphicProposition winningGoalProp = null;
 
-    for(PolymorphicProposition goalProp : stateMachine.getFullPropNet().getGoalPropositions().get(stateMachine.getRoles()[0]))
+    for (PolymorphicProposition goalProp : stateMachine.getFullPropNet().getGoalPropositions().get(stateMachine.getRoles()[0]))
     {
       int goalValue = Integer.parseInt(goalProp.getName().getBody().get(1).toString());
-      if ( goalValue > maxScore )
+      if (goalValue > maxScore)
       {
         maxScore = goalValue;
         winningGoalProp = goalProp;
@@ -242,16 +243,16 @@ public class PartitionedChoiceAnalyser
    */
   private boolean recursiveDetermineRequiredBasePropStatesForProp(PolymorphicComponent c, boolean requiredValue, Set<PolymorphicProposition> positives, Set<PolymorphicProposition> negatives)
   {
-    if ( c instanceof PolymorphicProposition )
+    if (c instanceof PolymorphicProposition)
     {
-      if ( stateMachine.getFullPropNet().getBasePropositions().values().contains(c))
+      if (stateMachine.getFullPropNet().getBasePropositions().values().contains(c))
       {
-        if ( requiredValue && !negatives.contains(c) )
+        if (requiredValue && !negatives.contains(c))
         {
           positives.add((PolymorphicProposition)c);
           return true;
         }
-        else if ( !requiredValue && !positives.contains(c) )
+        else if (!requiredValue && !positives.contains(c))
         {
           negatives.add((PolymorphicProposition)c);
           return true;
@@ -260,21 +261,21 @@ public class PartitionedChoiceAnalyser
       //  Arriving at a dependency on a proposition other than a base prop is
       //  unexpected and we will treat it as unsuccessful supporting set identification
     }
-    else if ( c instanceof PolymorphicNot )
+    else if (c instanceof PolymorphicNot)
     {
-      return recursiveDetermineRequiredBasePropStatesForProp( c.getSingleInput(), !requiredValue, positives, negatives );
+      return recursiveDetermineRequiredBasePropStatesForProp(c.getSingleInput(), !requiredValue, positives, negatives);
     }
-    else if ( c instanceof PolymorphicOr )
+    else if (c instanceof PolymorphicOr)
     {
       //  We don't cope with cases that are not prescriptive, so alternatives do not
       //  identify a supporting set
-      if ( requiredValue )
+      if (requiredValue)
       {
         return false;
       }
-      for(PolymorphicComponent input : c.getInputs())
+      for (PolymorphicComponent input : c.getInputs())
       {
-        if ( !recursiveDetermineRequiredBasePropStatesForProp( input, false, positives, negatives) )
+        if (!recursiveDetermineRequiredBasePropStatesForProp(input, false, positives, negatives))
         {
           return false;
         }
@@ -282,17 +283,17 @@ public class PartitionedChoiceAnalyser
 
       return true;
     }
-    else if ( c instanceof PolymorphicAnd )
+    else if (c instanceof PolymorphicAnd)
     {
       //  We don't cope with cases that are not prescriptive, so alternatives do not
       //  identify a supporting set
-      if ( !requiredValue )
+      if (!requiredValue)
       {
         return false;
       }
-      for(PolymorphicComponent input : c.getInputs())
+      for (PolymorphicComponent input : c.getInputs())
       {
-        if ( !recursiveDetermineRequiredBasePropStatesForProp( input, true, positives, negatives) )
+        if (!recursiveDetermineRequiredBasePropStatesForProp(input, true, positives, negatives))
         {
           return false;
         }
@@ -311,13 +312,13 @@ public class PartitionedChoiceAnalyser
    */
   private void recursiveFindDependentBaseProps(PolymorphicComponent c, Set<PolymorphicProposition> dependentBaseProps)
   {
-    if ( c instanceof PolymorphicTransition )
+    if (c instanceof PolymorphicTransition)
     {
       dependentBaseProps.add((PolymorphicProposition)c.getSingleOutput());
     }
     else
     {
-      for(PolymorphicComponent output : c.getOutputs())
+      for (PolymorphicComponent output : c.getOutputs())
       {
         recursiveFindDependentBaseProps(output, dependentBaseProps);
       }
