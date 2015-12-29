@@ -63,17 +63,21 @@ public class MaskedStateGoalLatch
   }
 
   /**
-   * Save the contents of this latch in a persistent string.
+   * Save the contents of this latch.
    *
    * WARNING: State produced using this method is stored in game characteristic files.  Take care to ensure it remains
    *          back-compatible.
    *
-   * @param xoString - the output string buffer.
+   * @param xiOutput - the output stream.
    */
-  public void toPersistentString(StringBuilder xoString)
+  public void save(StringBuilder xiOutput)
   {
-    mState.toPersistentString(xoString);
-    mMask.toPersistentString(xoString);
-    xoString.append(mGoalValue);
+    xiOutput.append('{');
+    mState.save(xiOutput);
+    xiOutput.append(',');
+    mMask.save(xiOutput);
+    xiOutput.append(',');
+    xiOutput.append(mGoalValue);
+    xiOutput.append('}');
   }
 }

@@ -82,57 +82,7 @@ public class LatchAnalyser
     private final Role[] mRoles;
 
     /**
-     * @return a string representation of the latches, suitable for saving and reloading.
-     */
-    @Override
-    public String toString()
-    {
-      StringBuilder lStr = new StringBuilder();
-
-      lStr.append("v1:");
-      lStr.append(mAnalysisComplete);
-      if (!mAnalysisComplete)
-      {
-        return lStr.toString();
-      }
-
-      lStr.append(mFoundPositiveBaseLatches);
-      if (mFoundPositiveBaseLatches) mPositiveBaseLatchMask.toPersistentString(lStr);
-
-      lStr.append(mFoundNegativeBaseLatches);
-      if (mFoundPositiveBaseLatches) mNegativeBaseLatchMask.toPersistentString(lStr);
-
-      lStr.append(mFoundSimplePositiveGoalLatches);
-      lStr.append(mSimplePositiveGoalLatches.size());
-      for (Map.Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry : mSimplePositiveGoalLatches.entrySet())
-      {
-        lStr.append(((ForwardDeadReckonProposition)(lEntry.getKey())).getInfo().index);
-        lEntry.getValue().toPersistentString(lStr);
-      }
-
-      lStr.append(mFoundSimpleNegativeGoalLatches);
-      lStr.append(mSimpleNegativeGoalLatches.size());
-      for (Map.Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry : mSimpleNegativeGoalLatches.entrySet())
-      {
-        lStr.append(((ForwardDeadReckonProposition)(lEntry.getKey())).getInfo().index);
-        lEntry.getValue().toPersistentString(lStr);
-      }
-
-      lStr.append(mFoundComplexPositiveGoalLatches);
-      lStr.append(mComplexPositiveGoalLatches.length);
-      for (MaskedStateGoalLatch lLatch : mComplexPositiveGoalLatches)
-      {
-        lLatch.toPersistentString(lStr);
-      }
-
-      lStr.append(mAllRolesHavePositiveGoalLatches);
-      // !! ARR: Deal with mPerRolePositiveGoalLatchMasks
-
-      return lStr.toString();
-    }
-
-    /**
-     * Create a a set of latch analysis results.
+     * Create a set of latch analysis results.
      *
      * @param xiSourceNet - the source propnet.  Will NOT be referenced after the constructor returns.
      * @param xiStateMachine - the state machine.  Will NOT be referenced after the constructor returns.
@@ -358,6 +308,106 @@ public class LatchAnalyser
         xoRange[0] = lStaticGoalRange[0];
         xoRange[1] = lStaticGoalRange[1];
       }
+    }
+
+    /**
+     * @return a string representation of the latches, suitable for saving and reloading.
+     */
+    @Override
+    public String toString()
+    {
+      StringBuilder lStr = new StringBuilder();
+      save(lStr);
+      return lStr.toString();
+    }
+
+    /**
+     * Save the contents of this latch.
+     *
+     * WARNING: State produced using this method is stored in game characteristic files.  Take care to ensure it remains
+     *          back-compatible.
+     *
+     * @param xiOutput - the output stream.
+     */
+    public void save(StringBuilder xiOutput)
+    {
+      xiOutput.append("{v1,");
+      xiOutput.append(mAnalysisComplete);
+      if (!mAnalysisComplete) return;
+
+      xiOutput.append(',');
+      saveBaseLatches(xiOutput, mFoundPositiveBaseLatches, mPositiveBaseLatchMask);
+      xiOutput.append(',');
+      saveBaseLatches(xiOutput, mFoundNegativeBaseLatches, mNegativeBaseLatchMask);
+      xiOutput.append(',');
+      saveSimpleLatches(xiOutput, mFoundSimplePositiveGoalLatches, mSimplePositiveGoalLatches);
+      xiOutput.append(',');
+      saveSimpleLatches(xiOutput, mFoundSimpleNegativeGoalLatches, mSimpleNegativeGoalLatches);
+      xiOutput.append(',');
+      saveComplexLatches(xiOutput, mFoundComplexPositiveGoalLatches, mComplexPositiveGoalLatches);
+      xiOutput.append(',');
+      xiOutput.append(mAllRolesHavePositiveGoalLatches);
+      // !! ARR: Deal with mPerRolePositiveGoalLatchMasks
+
+      xiOutput.append('}');
+    }
+
+    private static void saveBaseLatches(StringBuilder xiOutput,
+                                        boolean xiFound,
+                                        ForwardDeadReckonInternalMachineState xiLatches)
+    {
+      xiOutput.append('{');
+      xiOutput.append(xiFound);
+      if (xiFound)
+      {
+        xiOutput.append(',');
+        xiLatches.save(xiOutput);
+      }
+      xiOutput.append('}');
+    }
+
+    private static void saveSimpleLatches(StringBuilder xiOutput,
+                                          boolean xiFound,
+                                          Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> xiLatches)
+    {
+      xiOutput.append('{');
+      xiOutput.append(xiFound);
+      if (xiFound)
+      {
+        xiOutput.append(',');
+        xiOutput.append(xiLatches.size());
+        xiOutput.append(',');
+        for (Map.Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry : xiLatches.entrySet())
+        {
+          xiOutput.append(((ForwardDeadReckonProposition)(lEntry.getKey())).getInfo().index);
+          xiOutput.append(',');
+          lEntry.getValue().save(xiOutput);
+          xiOutput.append(',');
+        }
+        xiOutput.setLength(xiOutput.length() - 1);
+      }
+      xiOutput.append('}');
+    }
+
+    private static void saveComplexLatches(StringBuilder xiOutput,
+                                           boolean xiFound,
+                                           MaskedStateGoalLatch[] xiLatches)
+    {
+      xiOutput.append('{');
+      xiOutput.append(xiFound);
+      if (xiFound)
+      {
+        xiOutput.append(',');
+        xiOutput.append(xiLatches.length);
+        xiOutput.append(',');
+        for (MaskedStateGoalLatch lLatch : xiLatches)
+        {
+          lLatch.save(xiOutput);
+          xiOutput.append(',');
+        }
+        xiOutput.setLength(xiOutput.length() - 1);
+      }
+      xiOutput.append('}');
     }
   }
 

@@ -499,6 +499,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private void findLatches(long xiDeadline)
   {
     mLatches = new LatchAnalyser(fullPropNet, this).analyse(xiDeadline);
+    LOGGER.warn("Latches: " + mLatches.toString());
   }
 
   /**
