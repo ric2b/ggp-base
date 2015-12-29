@@ -1219,23 +1219,22 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
       masterInfoSet = new ForwardDeadReckonPropositionCrossReferenceInfo[fullPropNet.getBasePropositions().size() + numGoals + 1];
       int index = 0;
 
-      for(PolymorphicProposition[] goals : fullPropNet.getGoalPropositions().values())
+      // Ensure the goal propositions always appear in the same order (for saving/reloading of latches, etc.).  For ease
+      // of debugging, these are ordered first by role (in GDL order) and then by increasing goal value.
+      for(PolymorphicProposition lGoalProp : fullPropNet.getOrderedGoalPropositions())
       {
-        for(PolymorphicProposition prop : goals)
-        {
-          ForwardDeadReckonPropositionCrossReferenceInfo info = new ForwardDeadReckonPropositionCrossReferenceInfo();
+        ForwardDeadReckonPropositionCrossReferenceInfo info = new ForwardDeadReckonPropositionCrossReferenceInfo();
 
-          info.sentence = prop.getName();
-          info.fullNetProp = (ForwardDeadReckonProposition)prop;
-          info.xNetProp = (ForwardDeadReckonProposition)prop;
-          info.oNetProp = (ForwardDeadReckonProposition)prop;
-          info.goalsNetProp = (ForwardDeadReckonProposition)prop;
-          info.index = index;
+        info.sentence = lGoalProp.getName();
+        info.fullNetProp = (ForwardDeadReckonProposition)lGoalProp;
+        info.xNetProp = (ForwardDeadReckonProposition)lGoalProp;
+        info.oNetProp = (ForwardDeadReckonProposition)lGoalProp;
+        info.goalsNetProp = (ForwardDeadReckonProposition)lGoalProp;
+        info.index = index;
 
-          masterInfoSet[index++] = info;
+        masterInfoSet[index++] = info;
 
-          ((ForwardDeadReckonProposition)prop).setInfo(info);
-        }
+        ((ForwardDeadReckonProposition)lGoalProp).setInfo(info);
       }
 
       {

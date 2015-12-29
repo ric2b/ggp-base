@@ -12,7 +12,9 @@ import org.ggp.base.util.statemachine.Role;
  * Named propositions.
  */
 @SuppressWarnings("serial")
-public final class ForwardDeadReckonProposition extends ForwardDeadReckonComponent implements PolymorphicProposition
+public final class ForwardDeadReckonProposition extends ForwardDeadReckonComponent
+                                                implements PolymorphicProposition,
+                                                           Comparable<ForwardDeadReckonProposition>
 {
   /** The name of the Proposition. */
   private GdlSentence                                    name;
@@ -221,5 +223,16 @@ public final class ForwardDeadReckonProposition extends ForwardDeadReckonCompone
   {
     assert(mGoalRole != null);
     return mGoalValue;
+  }
+
+  /**
+   * Sort propositions.  Only valid for goal propositions and sorts by (increasing) goal value.
+   */
+  @Override
+  public int compareTo(ForwardDeadReckonProposition xiOther)
+  {
+    // This method might be called before goal value has been cached, so parse it out of the underlying GDL.
+    return Integer.parseInt(        getName().getBody().get(1).toString()) -
+           Integer.parseInt(xiOther.getName().getBody().get(1).toString());
   }
 }

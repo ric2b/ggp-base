@@ -7,6 +7,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -77,7 +78,7 @@ public class PolymorphicPropNet
   /** A helper mapping between input/legal propositions. */
   private final Map<PolymorphicProposition, PolymorphicProposition> legalInputMap;
 
-  /** A helper list of all of the roles. */
+  /** A helper list of all of the roles, in GDL order. */
   private final Role[]                                              roles;
 
   private PolymorphicComponentFactory                               componentFactory;
@@ -89,7 +90,7 @@ public class PolymorphicPropNet
    * Creates a new PropNet from a list of Components, along with indices over
    * those components.
    * @param theRoles
-   *          Roles of the game this propnet implements a state machine for
+   *          Roles of the game this propnet implements a state machine for - in GDL order.
    * @param theComponents
    *          A list of Components.
    * @param theComponentFactory
@@ -699,6 +700,40 @@ public class PolymorphicPropNet
   }
 
   /**
+   * @return the goal propositions, ordered first by the role to which they apply and then by the numerical goal value.
+   *
+   * This method is inefficient.  If calling frequently, modify this code to cache the value.
+   */
+  public PolymorphicProposition[] getOrderedGoalPropositions()
+  {
+    // Ensure the goals have been cached.
+    getGoalPropositions();
+
+    // Count the goals.
+    int lNumGoals = 0;
+    for (PolymorphicProposition[] lGoals : goalPropositions.values())
+    {
+      lNumGoals += lGoals.length;
+    }
+
+    PolymorphicProposition[] lOrderedGoals = new PolymorphicProposition[lNumGoals];
+    lNumGoals = 0;
+    for (Role lRole : roles)
+    {
+      int lSortFrom = lNumGoals;
+      PolymorphicProposition[] lGoals = goalPropositions.get(lRole);
+      for (PolymorphicProposition lGoal : lGoals)
+      {
+        lOrderedGoals[lNumGoals++] = lGoal;
+      }
+      int lSortTo = lNumGoals;
+      Arrays.sort(lOrderedGoals, lSortFrom, lSortTo);
+    }
+
+    return lOrderedGoals;
+  }
+
+  /**
    * @return the INIT proposition for the propNet, or null if it has been optimised away.
    */
   public PolymorphicProposition getInitProposition()
@@ -893,8 +928,7 @@ public class PolymorphicPropNet
             }
           }
         }
-        for (Set<PolymorphicProposition> goalProps : goalPropositionsMutable
-            .values())
+        for (Set<PolymorphicProposition> goalProps : goalPropositionsMutable.values())
         {
           goalPropositions = null;
           goalProps.remove(p);
