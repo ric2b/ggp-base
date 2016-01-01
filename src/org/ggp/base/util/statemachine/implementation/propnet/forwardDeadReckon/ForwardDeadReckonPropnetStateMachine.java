@@ -498,8 +498,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   // !! ARR Work in progress - will need to return something
   private void findLatches(long xiDeadline)
   {
-    mLatches = new LatchAnalyser(fullPropNet, this).analyse(xiDeadline);
-    LOGGER.warn("Latches: " + mLatches.toString());
+    mLatches = new LatchAnalyser(fullPropNet, this).analyse(xiDeadline, mGameCharacteristics.getLatches());
+    if (mLatches.isComplete())
+    {
+      mGameCharacteristics.setLatches(mLatches.toString());
+    }
   }
 
   /**
@@ -4003,6 +4006,11 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   public Set<GdlSentence> getBasePropositions()
   {
     return fullPropNet.getBasePropositions().keySet();
+  }
+
+  public PolymorphicProposition getBaseProposition(int xiIndex)
+  {
+    return fullPropNet.getBasePropositionsArray()[xiIndex];
   }
 
   private ForwardDeadReckonInternalMachineState lastGoalState = null;

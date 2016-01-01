@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 
 import org.apache.lucene.util.OpenBitSet;
+import org.ggp.base.player.gamer.statemachine.sancho.PackedData;
 import org.ggp.base.player.gamer.statemachine.sancho.heuristic.Heuristic;
 import org.ggp.base.util.gdl.grammar.GdlSentence;
 import org.ggp.base.util.statemachine.MachineState;
@@ -99,7 +100,7 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
   /**
    * BitSet of which propositions are true in the state
    */
-  public final OpenBitSet                                 contents;
+  public OpenBitSet                                 contents;
 
   //  We cache the hash code to speed up equals, invalidating the cache on mutation operations
   private boolean                                  hashCached = false;
@@ -547,14 +548,28 @@ public class ForwardDeadReckonInternalMachineState implements ForwardDeadReckonC
     xiOutput.append('{');
     long[] lBits = contents.getBits();
     xiOutput.append(lBits.length);
-    xiOutput.append(',');
     for (int lii = 0; lii < lBits.length; lii++)
     {
-      xiOutput.append(lBits[lii]);
       xiOutput.append(',');
+      xiOutput.append(lBits[lii]);
     }
-    xiOutput.setLength(xiOutput.length() - 1);
     xiOutput.append('}');
+  }
+
+  public void load(PackedData xiPacked)
+  {
+    xiPacked.checkStr("{");
+    int lLength = xiPacked.loadInt();
+    long[] lBits = new long[lLength];
+    for (int lii = 0; lii < lBits.length; lii++)
+    {
+      xiPacked.checkStr(",");
+      lBits[lii] = xiPacked.loadLong();
+    }
+    xiPacked.checkStr("}");
+
+    assert(contents.getNumWords() == lLength);
+    contents = new OpenBitSet(lBits, lLength);
   }
 
   /**

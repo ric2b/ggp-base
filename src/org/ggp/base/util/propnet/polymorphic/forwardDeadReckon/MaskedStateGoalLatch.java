@@ -1,5 +1,6 @@
 package org.ggp.base.util.propnet.polymorphic.forwardDeadReckon;
 
+import org.ggp.base.player.gamer.statemachine.sancho.PackedData;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
 /**
@@ -9,7 +10,7 @@ public class MaskedStateGoalLatch
 {
   private final ForwardDeadReckonInternalMachineState mState;
   private final ForwardDeadReckonInternalMachineState mMask;
-  private final int mGoalValue;
+  private int mGoalValue;
 
   /**
    * Create an initially empty state/mask pair.
@@ -57,6 +58,10 @@ public class MaskedStateGoalLatch
     return lMatches;
   }
 
+  /**
+   * @return the value of the goal that is latched.  (MaskedStateGoalLatches are only created for single-player games
+   *         so a single goal value suffices.)
+   */
   public int getGoalValue()
   {
     return mGoalValue;
@@ -79,5 +84,21 @@ public class MaskedStateGoalLatch
     xiOutput.append(',');
     xiOutput.append(mGoalValue);
     xiOutput.append('}');
+  }
+
+  /**
+   * Load a state/mask pair from packed data.
+   *
+   * @param xiPacked - the packed data.
+   */
+  public void load(PackedData xiPacked)
+  {
+    xiPacked.checkStr("{");
+    mState.load(xiPacked);
+    xiPacked.checkStr(",");
+    mMask.load(xiPacked);
+    xiPacked.checkStr(",");
+    mGoalValue = xiPacked.loadInt();
+    xiPacked.checkStr("}");
   }
 }

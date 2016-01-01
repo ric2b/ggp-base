@@ -12,6 +12,7 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.ggp.base.player.gamer.statemachine.sancho.PackedData;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
@@ -78,8 +79,8 @@ public class LatchAnalyser
     private Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> mSimpleNegativeGoalLatches;
     private MaskedStateGoalLatch[] mComplexPositiveGoalLatches;
     private final Map<Role, ForwardDeadReckonInternalMachineState> mPerRolePositiveGoalLatchMasks;
-    private final Map<Role,int[]> mStaticGoalRanges;
-    private final Role[] mRoles;
+    private transient final Map<Role,int[]> mStaticGoalRanges;
+    private transient final Role[] mRoles;
 
     /**
      * Create a set of latch analysis results.
@@ -112,6 +113,14 @@ public class LatchAnalyser
 
       // Store off the roles.
       mRoles = xiStateMachine.getRoles();
+    }
+
+    /**
+     * @return whether latch analysis completed successfully.
+     */
+    public boolean isComplete()
+    {
+      return mAnalysisComplete;
     }
 
     /**
@@ -311,6 +320,25 @@ public class LatchAnalyser
     }
 
     /**
+     * Clear all latch state.
+     */
+    private void clear()
+    {
+      mAnalysisComplete = false;
+      mFoundPositiveBaseLatches = false;
+      mFoundNegativeBaseLatches = false;
+      mFoundSimplePositiveGoalLatches = false;
+      mFoundSimpleNegativeGoalLatches = false;
+      mFoundComplexPositiveGoalLatches = false;
+      mAllRolesHavePositiveGoalLatches = false;
+      mSimplePositiveGoalLatches.clear();
+      mSimpleNegativeGoalLatches.clear();
+      mComplexPositiveGoalLatches = new MaskedStateGoalLatch[0];
+      mPerRolePositiveGoalLatchMasks.clear();
+      mStaticGoalRanges.clear();
+    }
+
+    /**
      * @return a string representation of the latches, suitable for saving and reloading.
      */
     @Override
@@ -376,15 +404,13 @@ public class LatchAnalyser
       {
         xiOutput.append(',');
         xiOutput.append(xiLatches.size());
-        xiOutput.append(',');
         for (Map.Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry : xiLatches.entrySet())
         {
+          xiOutput.append(',');
           xiOutput.append(((ForwardDeadReckonProposition)(lEntry.getKey())).getInfo().index);
           xiOutput.append(',');
           lEntry.getValue().save(xiOutput);
-          xiOutput.append(',');
         }
-        xiOutput.setLength(xiOutput.length() - 1);
       }
       xiOutput.append('}');
     }
@@ -399,15 +425,112 @@ public class LatchAnalyser
       {
         xiOutput.append(',');
         xiOutput.append(xiLatches.length);
-        xiOutput.append(',');
         for (MaskedStateGoalLatch lLatch : xiLatches)
         {
-          lLatch.save(xiOutput);
           xiOutput.append(',');
+          lLatch.save(xiOutput);
         }
-        xiOutput.setLength(xiOutput.length() - 1);
       }
       xiOutput.append('}');
+    }
+
+    /**
+     * Load a set of latch analysis results from a packed representation.
+     *
+     * @param xiPacked - the previously saved latches.
+     * @param xiStateMachine - a state machine to use when unpacking the state.
+     *
+     * @return whether the latches were successfully loaded.
+     */
+    private boolean load(PackedData xiPacked, ForwardDeadReckonPropnetStateMachine xiStateMachine)
+    {
+      xiPacked.checkStr("{v1,");
+      mAnalysisComplete = xiPacked.loadBool();
+      if (!mAnalysisComplete) return false;
+
+      xiPacked.checkStr(",");
+      mFoundPositiveBaseLatches = loadBaseLatches(xiPacked, mPositiveBaseLatchMask);
+      xiPacked.checkStr(",");
+      mFoundNegativeBaseLatches = loadBaseLatches(xiPacked, mNegativeBaseLatchMask);
+      xiPacked.checkStr(",");
+      mFoundSimplePositiveGoalLatches = loadSimpleLatches(xiPacked, mSimplePositiveGoalLatches, xiStateMachine);
+      xiPacked.checkStr(",");
+      mFoundSimpleNegativeGoalLatches = loadSimpleLatches(xiPacked, mSimpleNegativeGoalLatches, xiStateMachine);
+      xiPacked.checkStr(",");
+      mComplexPositiveGoalLatches = loadComplexLatches(xiPacked, xiStateMachine);
+      mFoundComplexPositiveGoalLatches = (mComplexPositiveGoalLatches.length > 0);
+      xiPacked.checkStr(",");
+      mAllRolesHavePositiveGoalLatches = xiPacked.loadBool();
+      // !! ARR Deal with mPerRolePositiveGoalLatchMasks
+
+      LOGGER.info("Loaded saved latches");
+      return true;
+    }
+
+    private static boolean loadBaseLatches(PackedData xiPacked,
+                                           ForwardDeadReckonInternalMachineState xoLatches)
+    {
+      boolean lFound;
+      xiPacked.checkStr("{");
+      lFound = xiPacked.loadBool();
+      if (lFound)
+      {
+        xiPacked.checkStr(",");
+        xoLatches.load(xiPacked);
+      }
+      xiPacked.checkStr("}");
+      return lFound;
+    }
+
+    private static boolean loadSimpleLatches(PackedData xiPacked,
+                                             Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> xoLatches,
+                                             ForwardDeadReckonPropnetStateMachine xiStateMachine)
+    {
+      xiPacked.checkStr("{");
+      boolean lFound = xiPacked.loadBool();
+      if (lFound)
+      {
+        xiPacked.checkStr(",");
+        int lSize = xiPacked.loadInt();
+        for (int lii = 0; lii < lSize; lii++)
+        {
+          xiPacked.checkStr(",");
+          PolymorphicProposition lProposition = xiStateMachine.getBaseProposition(xiPacked.loadInt());
+          xiPacked.checkStr(",");
+          ForwardDeadReckonInternalMachineState lState = xiStateMachine.createEmptyInternalState();
+          lState.load(xiPacked);
+
+          xoLatches.put(lProposition, lState);
+        }
+      }
+      xiPacked.checkStr("}");
+      return lFound;
+    }
+
+    private static MaskedStateGoalLatch[] loadComplexLatches(PackedData xiPacked,
+                                                             ForwardDeadReckonPropnetStateMachine xiStateMachine)
+    {
+      MaskedStateGoalLatch[] lLatches;
+
+      xiPacked.checkStr("{");
+      if (xiPacked.loadBool())
+      {
+        xiPacked.checkStr(",");
+        int lNumLatches = xiPacked.loadInt();
+        lLatches = new MaskedStateGoalLatch[lNumLatches];
+        for (int lii = 0; lii < lNumLatches; lii++)
+        {
+          xiPacked.checkStr(",");
+          lLatches[lii] = new MaskedStateGoalLatch(xiStateMachine, 0);
+          lLatches[lii].load(xiPacked);
+        }
+      }
+      else
+      {
+        lLatches = new MaskedStateGoalLatch[0];
+      }
+      xiPacked.checkStr("}");
+      return lLatches;
     }
   }
 
@@ -441,18 +564,28 @@ public class LatchAnalyser
     mComplexPositiveGoalLatchList = new ArrayList<>();
 
     mLatches = new Latches(mSourceNet, mStateMachine);
-
   }
 
   /**
    * Analyse a propnet for latches.
    *
    * @param xiDeadline - the (latest) time to run until.
+   * @param xiSaved    - the saved version of the latches (or null if there is no saved version).
    *
    * @return the results of the latch analysis.
    */
-  public Latches analyse(long xiDeadline)
+  public Latches analyse(long xiDeadline, String xiSaved)
   {
+    // Attempt to reload the latches.
+    if (xiSaved != null)
+    {
+      if (mLatches.load(new PackedData(xiSaved), mStateMachine))
+      {
+        return mLatches;
+      }
+    }
+
+    // Analyse the propnet for latches.
     mDeadline = xiDeadline;
     try
     {
@@ -468,17 +601,7 @@ public class LatchAnalyser
       mNegativeBaseLatches.clear();
       mComplexPositiveGoalLatchList.clear();
 
-      mLatches.mSimplePositiveGoalLatches.clear();
-      mLatches.mSimpleNegativeGoalLatches.clear();
-      mLatches.mComplexPositiveGoalLatches = new MaskedStateGoalLatch[0];
-      mLatches.mFoundPositiveBaseLatches = false;
-      mLatches.mFoundNegativeBaseLatches = false;
-      mLatches.mFoundSimplePositiveGoalLatches = false;
-      mLatches.mFoundSimpleNegativeGoalLatches = false;
-      mLatches.mFoundComplexPositiveGoalLatches = false;
-      mLatches.mAllRolesHavePositiveGoalLatches = false;
-      mLatches.mPerRolePositiveGoalLatchMasks.clear();
-      mLatches.mStaticGoalRanges.clear();
+      mLatches.clear();
     }
 
     return mLatches;
