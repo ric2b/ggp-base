@@ -150,6 +150,9 @@ public class KnownGameTest extends Assert
 
     // Check that we know the number of factors.
     assertNotEquals("Factors not learned", 0, mGamer.getCharacteristics().getNumFactors());
+
+    // Check that we have latch analysis results.
+    assertNotNull("Latches not learned", mGamer.getCharacteristics().getLatchesBasePositive());
   }
 
   /**

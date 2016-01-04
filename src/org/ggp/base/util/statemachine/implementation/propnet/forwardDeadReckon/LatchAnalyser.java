@@ -80,6 +80,8 @@ public class LatchAnalyser
     private final Map<Role, ForwardDeadReckonInternalMachineState> mPerRolePositiveGoalLatchMasks;
     private transient final Map<Role,int[]> mStaticGoalRanges;
     private transient final Role[] mRoles;
+    // WARNING: This class is saved in the game characteristics file.  If adding new state to this class, take care that
+    //          the saving and loading function remains back-compatible.
 
     /**
      * Create a set of latch analysis results.
@@ -345,7 +347,7 @@ public class LatchAnalyser
      *
      * @param xiStore - the game characteristics to store the latch results in.
      */
-    public void save(RuntimeGameCharacteristics xiStore)
+    private void save(RuntimeGameCharacteristics xiStore)
     {
       if (!mAnalysisComplete) return;
 
@@ -354,7 +356,7 @@ public class LatchAnalyser
       xiStore.setLatchesGoalPositive(packSimpleGoalLatches(mFoundSimplePositiveGoalLatches, mSimplePositiveGoalLatches));
       xiStore.setLatchesGoalNegative(packSimpleGoalLatches(mFoundSimpleNegativeGoalLatches, mSimpleNegativeGoalLatches));
       xiStore.setLatchesGoalComplex(packComplexGoalLatches(mFoundComplexPositiveGoalLatches, mComplexPositiveGoalLatches));
-      // !! ARR: Deal with mAllRolesHavePositiveGoalLatches & mPerRolePositiveGoalLatchMasks
+      xiStore.setLatchesGoalPerRole(packPerRoleGoalLatches(mAllRolesHavePositiveGoalLatches, mPerRolePositiveGoalLatchMasks));
     }
 
     private static String packBaseLatches(boolean xiFound, ForwardDeadReckonInternalMachineState xiLatches)
@@ -407,6 +409,26 @@ public class LatchAnalyser
         {
           lOutput.append(',');
           lLatch.save(lOutput);
+        }
+      }
+      lOutput.append('}');
+      return lOutput.toString();
+    }
+
+    private String packPerRoleGoalLatches(boolean xiFound,
+                                          Map<Role, ForwardDeadReckonInternalMachineState> xiLatches)
+    {
+      StringBuilder lOutput = new StringBuilder();
+      lOutput.append('{');
+      lOutput.append(xiFound);
+      if (xiFound)
+      {
+        for (int lii = 0; lii < mRoles.length; lii++)
+        {
+          lOutput.append(',');
+          lOutput.append(lii);
+          lOutput.append(',');
+          xiLatches.get(mRoles[lii]).save(lOutput);
         }
       }
       lOutput.append('}');

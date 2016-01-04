@@ -42,6 +42,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private static final String LATCHES_GOAL_POSITIVE         = "latches_goal_positive";
   private static final String LATCHES_GOAL_NEGATIVE         = "latches_goal_negative";
   private static final String LATCHES_GOAL_COMPLEX          = "latches_goal_complex";
+  private static final String LATCHES_GOAL_PER_ROLE         = "latches_goal_per_role";
 
   private final XMLPropertiesConfiguration mConfigFile;
   private boolean                          mLoadedConfig;
@@ -77,6 +78,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private String              mLatchesGoalPositive         = null;
   private String              mLatchesGoalNegative         = null;
   private String              mLatchesGoalComplex          = null;
+  private String              mLatchesGoalPerRole          = null;
 
   /**
    * Create game characteristics, loading any state from previous games.
@@ -151,6 +153,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
           mLatchesGoalPositive           = lConfigFile.getString(LATCHES_GOAL_POSITIVE, null);
           mLatchesGoalNegative           = lConfigFile.getString(LATCHES_GOAL_NEGATIVE, null);
           mLatchesGoalComplex            = lConfigFile.getString(LATCHES_GOAL_COMPLEX, null);
+          mLatchesGoalPerRole            = lConfigFile.getString(LATCHES_GOAL_PER_ROLE, null);
         }
       }
       catch (ConfigurationException lEx)
@@ -207,6 +210,7 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     if (mLatchesGoalPositive != null) {mConfigFile.setProperty(LATCHES_GOAL_POSITIVE, mLatchesGoalPositive);}
     if (mLatchesGoalNegative != null) {mConfigFile.setProperty(LATCHES_GOAL_NEGATIVE, mLatchesGoalNegative);}
     if (mLatchesGoalComplex  != null) {mConfigFile.setProperty(LATCHES_GOAL_COMPLEX,  mLatchesGoalComplex);}
+    if (mLatchesGoalPerRole  != null) {mConfigFile.setProperty(LATCHES_GOAL_PER_ROLE, mLatchesGoalPerRole);}
     if (mFactors             != null) {mConfigFile.setProperty(FACTORS_KEY, mFactors);}
 
     try
@@ -579,9 +583,11 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   public String getLatchesGoalPositive() {return mLatchesGoalPositive;}
   public String getLatchesGoalNegative() {return mLatchesGoalNegative;}
   public String getLatchesGoalComplex() {return mLatchesGoalComplex;}
+  public String getLatchesGoalPerRole() {return mLatchesGoalPerRole;}
   public void setLatchesBasePositive(String xiLatches) {mLatchesBasePositive = xiLatches;}
   public void setLatchesBaseNegative(String xiLatches) {mLatchesBaseNegative = xiLatches;}
   public void setLatchesGoalPositive(String xiLatches) {mLatchesGoalPositive = xiLatches;}
   public void setLatchesGoalNegative(String xiLatches) {mLatchesGoalNegative = xiLatches;}
   public void setLatchesGoalComplex(String xiLatches) {mLatchesGoalComplex = xiLatches;}
+  public void setLatchesGoalPerRole(String xiLatches) {mLatchesGoalPerRole = xiLatches;}
 }
