@@ -13,6 +13,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.PackedData;
+import org.ggp.base.player.gamer.statemachine.sancho.RuntimeGameCharacteristics;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicComponent;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicPropNet;
 import org.ggp.base.util.propnet.polymorphic.PolymorphicProposition;
@@ -36,8 +37,6 @@ import org.ggp.base.util.statemachine.Role;
 public class LatchAnalyser
 {
   private static final Logger LOGGER = LogManager.getLogger();
-
-  // !! ARR Do saving and reloading of latch analysis results.
 
   // Results of latch analysis.
   private final Latches mLatches;
@@ -339,131 +338,106 @@ public class LatchAnalyser
     }
 
     /**
-     * @return a string representation of the latches, suitable for saving and reloading.
-     */
-    @Override
-    public String toString()
-    {
-      StringBuilder lStr = new StringBuilder();
-      save(lStr);
-      return lStr.toString();
-    }
-
-    /**
-     * Save the contents of this latch.
+     * Save the latch analysis results.
      *
      * WARNING: State produced using this method is stored in game characteristic files.  Take care to ensure it remains
      *          back-compatible.
      *
-     * @param xiOutput - the output stream.
+     * @param xiStore - the game characteristics to store the latch results in.
      */
-    public void save(StringBuilder xiOutput)
+    public void save(RuntimeGameCharacteristics xiStore)
     {
-      xiOutput.append("{v1,");
-      xiOutput.append(mAnalysisComplete);
       if (!mAnalysisComplete) return;
 
-      xiOutput.append(',');
-      saveBaseLatches(xiOutput, mFoundPositiveBaseLatches, mPositiveBaseLatchMask);
-      xiOutput.append(',');
-      saveBaseLatches(xiOutput, mFoundNegativeBaseLatches, mNegativeBaseLatchMask);
-      xiOutput.append(',');
-      saveSimpleLatches(xiOutput, mFoundSimplePositiveGoalLatches, mSimplePositiveGoalLatches);
-      xiOutput.append(',');
-      saveSimpleLatches(xiOutput, mFoundSimpleNegativeGoalLatches, mSimpleNegativeGoalLatches);
-      xiOutput.append(',');
-      saveComplexLatches(xiOutput, mFoundComplexPositiveGoalLatches, mComplexPositiveGoalLatches);
-      xiOutput.append(',');
-      xiOutput.append(mAllRolesHavePositiveGoalLatches);
-      // !! ARR: Deal with mPerRolePositiveGoalLatchMasks
-
-      xiOutput.append('}');
+      xiStore.setLatchesBasePositive(packBaseLatches(mFoundPositiveBaseLatches, mPositiveBaseLatchMask));
+      xiStore.setLatchesBaseNegative(packBaseLatches(mFoundNegativeBaseLatches, mNegativeBaseLatchMask));
+      xiStore.setLatchesGoalPositive(packSimpleGoalLatches(mFoundSimplePositiveGoalLatches, mSimplePositiveGoalLatches));
+      xiStore.setLatchesGoalNegative(packSimpleGoalLatches(mFoundSimpleNegativeGoalLatches, mSimpleNegativeGoalLatches));
+      xiStore.setLatchesGoalComplex(packComplexGoalLatches(mFoundComplexPositiveGoalLatches, mComplexPositiveGoalLatches));
+      // !! ARR: Deal with mAllRolesHavePositiveGoalLatches & mPerRolePositiveGoalLatchMasks
     }
 
-    private static void saveBaseLatches(StringBuilder xiOutput,
-                                        boolean xiFound,
-                                        ForwardDeadReckonInternalMachineState xiLatches)
+    private static String packBaseLatches(boolean xiFound, ForwardDeadReckonInternalMachineState xiLatches)
     {
-      xiOutput.append('{');
-      xiOutput.append(xiFound);
+      StringBuilder lOutput = new StringBuilder();
+      lOutput.append('{');
+      lOutput.append(xiFound);
       if (xiFound)
       {
-        xiOutput.append(',');
-        xiLatches.save(xiOutput);
+        lOutput.append(',');
+        xiLatches.save(lOutput);
       }
-      xiOutput.append('}');
+      lOutput.append('}');
+      return lOutput.toString();
     }
 
-    private static void saveSimpleLatches(StringBuilder xiOutput,
-                                          boolean xiFound,
-                                          Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> xiLatches)
+    private static String packSimpleGoalLatches(
+                                           boolean xiFound,
+                                           Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> xiLatches)
     {
-      xiOutput.append('{');
-      xiOutput.append(xiFound);
+      StringBuilder lOutput = new StringBuilder();
+      lOutput.append('{');
+      lOutput.append(xiFound);
       if (xiFound)
       {
-        xiOutput.append(',');
-        xiOutput.append(xiLatches.size());
+        lOutput.append(',');
+        lOutput.append(xiLatches.size());
         for (Map.Entry<PolymorphicProposition, ForwardDeadReckonInternalMachineState> lEntry : xiLatches.entrySet())
         {
-          xiOutput.append(',');
-          xiOutput.append(((ForwardDeadReckonProposition)(lEntry.getKey())).getInfo().index);
-          xiOutput.append(',');
-          lEntry.getValue().save(xiOutput);
+          lOutput.append(',');
+          lOutput.append(((ForwardDeadReckonProposition)(lEntry.getKey())).getInfo().index);
+          lOutput.append(',');
+          lEntry.getValue().save(lOutput);
         }
       }
-      xiOutput.append('}');
+      lOutput.append('}');
+      return lOutput.toString();
     }
 
-    private static void saveComplexLatches(StringBuilder xiOutput,
-                                           boolean xiFound,
-                                           MaskedStateGoalLatch[] xiLatches)
+    private static String packComplexGoalLatches(boolean xiFound, MaskedStateGoalLatch[] xiLatches)
     {
-      xiOutput.append('{');
-      xiOutput.append(xiFound);
+      StringBuilder lOutput = new StringBuilder();
+      lOutput.append('{');
+      lOutput.append(xiFound);
       if (xiFound)
       {
-        xiOutput.append(',');
-        xiOutput.append(xiLatches.length);
+        lOutput.append(',');
+        lOutput.append(xiLatches.length);
         for (MaskedStateGoalLatch lLatch : xiLatches)
         {
-          xiOutput.append(',');
-          lLatch.save(xiOutput);
+          lOutput.append(',');
+          lLatch.save(lOutput);
         }
       }
-      xiOutput.append('}');
+      lOutput.append('}');
+      return lOutput.toString();
     }
 
-    /**
-     * Load a set of latch analysis results from a packed representation.
-     *
-     * @param xiPacked - the previously saved latches.
-     * @param xiStateMachine - a state machine to use when unpacking the state.
-     *
-     * @return whether the latches were successfully loaded.
-     */
-    private boolean load(PackedData xiPacked, ForwardDeadReckonPropnetStateMachine xiStateMachine)
+    private boolean load(RuntimeGameCharacteristics xiStore,
+                         ForwardDeadReckonPropnetStateMachine xiStateMachine)
     {
-      xiPacked.checkStr("{v1,");
-      mAnalysisComplete = xiPacked.loadBool();
-      if (!mAnalysisComplete) return false;
+      // At the moment, we either save all latch analysis results or none, so check an arbitrary one to determine
+      // whether we have saved latches.
+      if (xiStore.getLatchesBasePositive() == null) return false;
 
-      xiPacked.checkStr(",");
-      mFoundPositiveBaseLatches = loadBaseLatches(xiPacked, mPositiveBaseLatchMask);
-      xiPacked.checkStr(",");
-      mFoundNegativeBaseLatches = loadBaseLatches(xiPacked, mNegativeBaseLatchMask);
-      xiPacked.checkStr(",");
-      mFoundSimplePositiveGoalLatches = loadSimpleLatches(xiPacked, mSimplePositiveGoalLatches, xiStateMachine);
-      xiPacked.checkStr(",");
-      mFoundSimpleNegativeGoalLatches = loadSimpleLatches(xiPacked, mSimpleNegativeGoalLatches, xiStateMachine);
-      xiPacked.checkStr(",");
-      mComplexPositiveGoalLatches = loadComplexLatches(xiPacked, xiStateMachine);
+      // Load all the saved latch state.
+      mFoundPositiveBaseLatches = loadBaseLatches(new PackedData(xiStore.getLatchesBasePositive()),
+                                                  mPositiveBaseLatchMask);
+      mFoundNegativeBaseLatches = loadBaseLatches(new PackedData(xiStore.getLatchesBaseNegative()),
+                                                  mNegativeBaseLatchMask);
+      mFoundSimplePositiveGoalLatches = loadSimpleGoalLatches(new PackedData(xiStore.getLatchesGoalPositive()),
+                                                              mSimplePositiveGoalLatches,
+                                                              xiStateMachine);
+      mFoundSimpleNegativeGoalLatches = loadSimpleGoalLatches(new PackedData(xiStore.getLatchesGoalNegative()),
+                                                              mSimpleNegativeGoalLatches,
+                                                              xiStateMachine);
+      mComplexPositiveGoalLatches = loadComplexLatches(new PackedData(xiStore.getLatchesGoalComplex()),
+                                                       xiStateMachine);
       mFoundComplexPositiveGoalLatches = (mComplexPositiveGoalLatches.length > 0);
-      xiPacked.checkStr(",");
-      mAllRolesHavePositiveGoalLatches = xiPacked.loadBool();
-      // !! ARR Deal with mPerRolePositiveGoalLatchMasks
 
-      LOGGER.info("Loaded saved latches");
+      // !! ARR Deal with mAllRolesHavePositiveGoalLatches and mPerRolePositiveGoalLatchMasks
+
+      mAnalysisComplete = true;
       return true;
     }
 
@@ -482,7 +456,7 @@ public class LatchAnalyser
       return lFound;
     }
 
-    private static boolean loadSimpleLatches(PackedData xiPacked,
+    private static boolean loadSimpleGoalLatches(PackedData xiPacked,
                                              Map<PolymorphicProposition, ForwardDeadReckonInternalMachineState> xoLatches,
                                              ForwardDeadReckonPropnetStateMachine xiStateMachine)
     {
@@ -569,20 +543,16 @@ public class LatchAnalyser
   /**
    * Analyse a propnet for latches.
    *
-   * @param xiDeadline - the (latest) time to run until.
-   * @param xiSaved    - the saved version of the latches (or null if there is no saved version).
+   * @param xiDeadline        - the (latest) time to run until.
+   * @param xiCharacteristics - game characteristics.
    *
    * @return the results of the latch analysis.
    */
-  public Latches analyse(long xiDeadline, String xiSaved)
+  public Latches analyse(long xiDeadline, RuntimeGameCharacteristics xiCharacteristics)
   {
-    // Attempt to reload the latches.
-    if (xiSaved != null)
+    if (mLatches.load(xiCharacteristics, mStateMachine))
     {
-      if (mLatches.load(new PackedData(xiSaved), mStateMachine))
-      {
-        return mLatches;
-      }
+      return mLatches;
     }
 
     // Analyse the propnet for latches.
@@ -590,6 +560,7 @@ public class LatchAnalyser
     try
     {
       analyse();
+      mLatches.save(xiCharacteristics);
     }
     catch (TimeoutException lEx)
     {

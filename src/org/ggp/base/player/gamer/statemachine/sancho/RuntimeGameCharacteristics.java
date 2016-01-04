@@ -37,7 +37,11 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private static final String MAX_BRANCHING_FACTOR_KEY      = "max_branching_factor";
   private static final String FIXED_LENGTH_KEY              = "fixed_length";
   private static final String CONTROL_MASK                  = "control_mask";
-  private static final String LATCHES                       = "latches";
+  private static final String LATCHES_BASE_POSITIVE         = "latches_base_positive";
+  private static final String LATCHES_BASE_NEGATIVE         = "latches_base_negative";
+  private static final String LATCHES_GOAL_POSITIVE         = "latches_goal_positive";
+  private static final String LATCHES_GOAL_NEGATIVE         = "latches_goal_negative";
+  private static final String LATCHES_GOAL_COMPLEX          = "latches_goal_complex";
 
   private final XMLPropertiesConfiguration mConfigFile;
   private boolean                          mLoadedConfig;
@@ -68,7 +72,11 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
   private double              mVarianceHyperSequenceLength = 0;
   private long                mMaxFactorFailureTime        = 0;
   private String              mControlMask                 = null;
-  private String              mLatches                     = null;
+  private String              mLatchesBasePositive         = null;
+  private String              mLatchesBaseNegative         = null;
+  private String              mLatchesGoalPositive         = null;
+  private String              mLatchesGoalNegative         = null;
+  private String              mLatchesGoalComplex          = null;
 
   /**
    * Create game characteristics, loading any state from previous games.
@@ -138,7 +146,11 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
             LOGGER.debug("Persisted plans disbaled - not loading a plan");
           }
           mControlMask                   = lConfigFile.getString(CONTROL_MASK, null);
-          mLatches                       = lConfigFile.getString(LATCHES, null);
+          mLatchesBasePositive           = lConfigFile.getString(LATCHES_BASE_POSITIVE, null);
+          mLatchesBaseNegative           = lConfigFile.getString(LATCHES_BASE_NEGATIVE, null);
+          mLatchesGoalPositive           = lConfigFile.getString(LATCHES_GOAL_POSITIVE, null);
+          mLatchesGoalNegative           = lConfigFile.getString(LATCHES_GOAL_NEGATIVE, null);
+          mLatchesGoalComplex            = lConfigFile.getString(LATCHES_GOAL_COMPLEX, null);
         }
       }
       catch (ConfigurationException lEx)
@@ -188,10 +200,14 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     mConfigFile.setProperty(MOVES_IN_MULTIPLE_FACTORS_KEY, moveChoicesFromMultipleFactors);
     mConfigFile.setProperty(MAX_BRANCHING_FACTOR_KEY,      mMaxObservedChoices);
     mConfigFile.setProperty(FIXED_LENGTH_KEY,              mIsFixedMoveCount);
-    if (mPlan        != null) {mConfigFile.setProperty(PLAN_KEY,     mPlan);}
-    if (mControlMask != null) {mConfigFile.setProperty(CONTROL_MASK, mControlMask);}
-    if (mLatches     != null) {mConfigFile.setProperty(LATCHES, mLatches);}
-    if (mFactors     != null) {mConfigFile.setProperty(FACTORS_KEY, mFactors);}
+    if (mPlan                != null) {mConfigFile.setProperty(PLAN_KEY,     mPlan);}
+    if (mControlMask         != null) {mConfigFile.setProperty(CONTROL_MASK, mControlMask);}
+    if (mLatchesBasePositive != null) {mConfigFile.setProperty(LATCHES_BASE_POSITIVE, mLatchesBasePositive);}
+    if (mLatchesBaseNegative != null) {mConfigFile.setProperty(LATCHES_BASE_NEGATIVE, mLatchesBaseNegative);}
+    if (mLatchesGoalPositive != null) {mConfigFile.setProperty(LATCHES_GOAL_POSITIVE, mLatchesGoalPositive);}
+    if (mLatchesGoalNegative != null) {mConfigFile.setProperty(LATCHES_GOAL_NEGATIVE, mLatchesGoalNegative);}
+    if (mLatchesGoalComplex  != null) {mConfigFile.setProperty(LATCHES_GOAL_COMPLEX,  mLatchesGoalComplex);}
+    if (mFactors             != null) {mConfigFile.setProperty(FACTORS_KEY, mFactors);}
 
     try
     {
@@ -558,13 +574,14 @@ public class RuntimeGameCharacteristics extends GameCharacteristics
     return mControlMask;
   }
 
-  public void setLatches(String xiLatches)
-  {
-    mLatches = xiLatches;
-  }
-
-  public String getLatches()
-  {
-    return mLatches;
-  }
+  public String getLatchesBasePositive() {return mLatchesBasePositive;}
+  public String getLatchesBaseNegative() {return mLatchesBaseNegative;}
+  public String getLatchesGoalPositive() {return mLatchesGoalPositive;}
+  public String getLatchesGoalNegative() {return mLatchesGoalNegative;}
+  public String getLatchesGoalComplex() {return mLatchesGoalComplex;}
+  public void setLatchesBasePositive(String xiLatches) {mLatchesBasePositive = xiLatches;}
+  public void setLatchesBaseNegative(String xiLatches) {mLatchesBaseNegative = xiLatches;}
+  public void setLatchesGoalPositive(String xiLatches) {mLatchesGoalPositive = xiLatches;}
+  public void setLatchesGoalNegative(String xiLatches) {mLatchesGoalNegative = xiLatches;}
+  public void setLatchesGoalComplex(String xiLatches) {mLatchesGoalComplex = xiLatches;}
 }
