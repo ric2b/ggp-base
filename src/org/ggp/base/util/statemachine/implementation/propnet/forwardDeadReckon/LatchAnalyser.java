@@ -453,11 +453,12 @@ public class LatchAnalyser
       mFoundSimpleNegativeGoalLatches = loadSimpleGoalLatches(new PackedData(xiStore.getLatchesGoalNegative()),
                                                               mSimpleNegativeGoalLatches,
                                                               xiStateMachine);
-      mComplexPositiveGoalLatches = loadComplexLatches(new PackedData(xiStore.getLatchesGoalComplex()),
-                                                       xiStateMachine);
+      mComplexPositiveGoalLatches = loadComplexGoalLatches(new PackedData(xiStore.getLatchesGoalComplex()),
+                                                           xiStateMachine);
       mFoundComplexPositiveGoalLatches = (mComplexPositiveGoalLatches.length > 0);
-
-      // !! ARR Deal with mAllRolesHavePositiveGoalLatches and mPerRolePositiveGoalLatchMasks
+      mAllRolesHavePositiveGoalLatches = loadPerRoleGoalLatches(new PackedData(xiStore.getLatchesGoalPerRole()),
+                                                                mPerRolePositiveGoalLatchMasks,
+                                                                xiStateMachine);
 
       mAnalysisComplete = true;
       return true;
@@ -503,8 +504,8 @@ public class LatchAnalyser
       return lFound;
     }
 
-    private static MaskedStateGoalLatch[] loadComplexLatches(PackedData xiPacked,
-                                                             ForwardDeadReckonPropnetStateMachine xiStateMachine)
+    private static MaskedStateGoalLatch[] loadComplexGoalLatches(PackedData xiPacked,
+                                                                 ForwardDeadReckonPropnetStateMachine xiStateMachine)
     {
       MaskedStateGoalLatch[] lLatches;
 
@@ -527,6 +528,28 @@ public class LatchAnalyser
       }
       xiPacked.checkStr("}");
       return lLatches;
+    }
+
+    private boolean loadPerRoleGoalLatches(PackedData xiPacked,
+                                           Map<Role, ForwardDeadReckonInternalMachineState> xiLatches,
+                                           ForwardDeadReckonPropnetStateMachine xiStateMachine)
+    {
+      xiPacked.checkStr("{");
+      boolean lFound = xiPacked.loadBool();
+      if (lFound)
+      {
+        for (int lii = 0; lii < mRoles.length; lii++)
+        {
+          xiPacked.checkStr(",");
+          xiPacked.loadInt();
+          xiPacked.checkStr(",");
+          ForwardDeadReckonInternalMachineState lState = xiStateMachine.createEmptyInternalState();
+          lState.load(xiPacked);
+          xiLatches.put(mRoles[lii], lState);
+        }
+      }
+      xiPacked.checkStr("}");
+      return lFound;
     }
   }
 
