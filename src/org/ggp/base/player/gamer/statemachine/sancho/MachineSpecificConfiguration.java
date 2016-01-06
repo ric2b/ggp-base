@@ -25,7 +25,7 @@ public class MachineSpecificConfiguration
     /**
      * Player name to report.
      */
-    PLAYER_NAME("Sancho 1.61c"),
+    PLAYER_NAME("Sancho 1.61d"),
 
     /**
      * Location of the working copy - used for fine-grained version logging.
@@ -139,11 +139,6 @@ public class MachineSpecificConfiguration
      * Full path of file to dump tree to after each move
      */
     TREE_DUMP(null),
-
-    /**
-     * Full path of file to dump tree to after each move
-     */
-    TRISTATE_LATCH_ANALYSIS(false),
 
     /**
      * Limit on number of MCTS expansions to perform per turn (for testing)
