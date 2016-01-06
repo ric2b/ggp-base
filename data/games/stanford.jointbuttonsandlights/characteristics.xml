@@ -1,16 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
 <properties>
+  <entry key="plan">move b a a,move a b b,move a a a,move a a c</entry>
   <entry key="num_roles">1</entry>
   <entry key="simultaneous">false</entry>
   <entry key="pseudo_simultaneous">false</entry>
   <entry key="iterated">false</entry>
   <entry key="max_factor_failure_time">0</entry>
   <entry key="num_factors">3</entry>
-  <entry key="moves_in_multiple_factors">false</entry>
-  <entry key="max_branching_factor">0</entry>
+  <entry key="moves_in_multiple_factors">true</entry>
+  <entry key="max_branching_factor">27</entry>
   <entry key="fixed_length">false</entry>
-  <entry key="plan">move b a a,move a b b,move a a a,move a a c</entry>
   <entry key="control_mask">( ( true ( step 1 ) ), ( true ( step 5 ) ), ( true ( step 2 ) ), ( true ( step 4 ) ), ( true ( step 7 ) ), ( true ( step 3 ) ), ( true ( step 6 ) ) )</entry>
+  <entry key="latches_base_positive">{false}</entry>
+  <entry key="latches_base_negative">{true,{1,12288}}</entry>
+  <entry key="latches_goal_positive">{false}</entry>
+  <entry key="latches_goal_negative">{false}</entry>
+  <entry key="latches_goal_complex">{false}</entry>
+  <entry key="latches_goal_per_role">{false}</entry>
   <entry key="factors">v1~( true ( q 1 ) ),( true ( p 1 ) ),( true ( r 1 ) )~Role 0 ( move a a a ),Role 0 ( move c c c ),Role 0 ( move c c b ),Role 0 ( move c b c ),Role 0 ( move b c b ),Role 0 ( move b c a ),Role 0 ( move c b a ),Role 0 ( move a a c ),Role 0 ( move b b a ),Role 0 ( move b b c ),Role 0 ( move b a c ),Role 0 ( move a a b ),Role 0 ( move c b b ),Role 0 ( move c a c ),Role 0 ( move a c b ),Role 0 ( move b a b ),Role 0 ( move a c c ),Role 0 ( move c a a ),Role 0 ( move a b c ),Role 0 ( move c a b ),Role 0 ( move a c a ),Role 0 ( move b a a ),Role 0 ( move b c c ),Role 0 ( move c c a ),Role 0 ( move a b b ),Role 0 ( move b b b ),Role 0 ( move a b a );v1~( true ( q 2 ) ),( true ( p 2 ) ),( true ( r 2 ) )~Role 0 ( move a a a ),Role 0 ( move c c c ),Role 0 ( move c c b ),Role 0 ( move c b c ),Role 0 ( move b c b ),Role 0 ( move b c a ),Role 0 ( move c b a ),Role 0 ( move a a c ),Role 0 ( move b b a ),Role 0 ( move b b c ),Role 0 ( move b a c ),Role 0 ( move a a b ),Role 0 ( move c b b ),Role 0 ( move c a c ),Role 0 ( move a c b ),Role 0 ( move b a b ),Role 0 ( move a c c ),Role 0 ( move c a a ),Role 0 ( move a b c ),Role 0 ( move c a b ),Role 0 ( move a c a ),Role 0 ( move b a a ),Role 0 ( move b c c ),Role 0 ( move c c a ),Role 0 ( move a b b ),Role 0 ( move b b b ),Role 0 ( move a b a );v1~( true ( p 3 ) ),( true ( r 3 ) ),( true ( q 3 ) )~Role 0 ( move a a a ),Role 0 ( move c c b ),Role 0 ( move c c c ),Role 0 ( move c b c ),Role 0 ( move b c b ),Role 0 ( move b c a ),Role 0 ( move c b a ),Role 0 ( move a a c ),Role 0 ( move b b a ),Role 0 ( move b b c ),Role 0 ( move b a c ),Role 0 ( move a a b ),Role 0 ( move c b b ),Role 0 ( move c a c ),Role 0 ( move a c b ),Role 0 ( move b a b ),Role 0 ( move a c c ),Role 0 ( move c a a ),Role 0 ( move a b c ),Role 0 ( move c a b ),Role 0 ( move a c a ),Role 0 ( move b a a ),Role 0 ( move b c c ),Role 0 ( move c c a ),Role 0 ( move a b b ),Role 0 ( move b b b ),Role 0 ( move a b a )</entry>
 </properties>

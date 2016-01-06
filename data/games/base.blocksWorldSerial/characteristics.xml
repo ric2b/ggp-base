@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
 <properties>
+  <entry key="plan">unstack1 c a,stack1 b c,stack1 a b,unstack2 c a,stack2 b c,stack2 a b</entry>
   <entry key="num_roles">1</entry>
   <entry key="simultaneous">false</entry>
   <entry key="pseudo_simultaneous">false</entry>
@@ -9,8 +10,13 @@
   <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">6</entry>
-  <entry key="fixed_length">false</entry>
-  <entry key="plan">unstack1 c a,stack1 b c,stack1 a b,unstack2 c a,stack2 b c,stack2 a b</entry>
+  <entry key="fixed_length">true</entry>
   <entry key="control_mask">( ( true ( step2 3 ) ), ( true ( step2 2 ) ), ( true ( step2 4 ) ), ( true ( step1 4 ) ), ( true game1OverLock ), ( true ( step2 1 ) ), ( true ( step1 2 ) ), ( true ( step1 1 ) ), ( true ( step1 3 ) ) )</entry>
+  <entry key="latches_base_positive">{true,{1,68757225472}}</entry>
+  <entry key="latches_base_negative">{true,{1,230686720}}</entry>
+  <entry key="latches_goal_positive">{false}</entry>
+  <entry key="latches_goal_negative">{false}</entry>
+  <entry key="latches_goal_complex">{false}</entry>
+  <entry key="latches_goal_per_role">{false}</entry>
   <entry key="factors"></entry>
 </properties>

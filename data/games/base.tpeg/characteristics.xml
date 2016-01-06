@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
 <properties>
+  <entry key="plan">jump a c3 c c3,jump a c5 a c3,jump c c5 a c5,jump c c3 c c5,jump e c4 c c4,jump e c2 e c4,jump c c1 c c3,jump g c3 e c3,jump f c4 d c4,jump e c1 c c1,jump d c5 b c5,jump d c3 f c3,jump b c5 b c3,jump c c4 c c2,jump f c5 d c5,jump a c3 c c3,jump g c5 g c3,jump c c7 c c5,jump d c5 b c5,jump e c7 e c5,jump d c7 d c5,jump g c3 e c3,jump c c2 c c4,jump d c4 d c6,jump a c5 c c5,jump c c4 c c6,jump c c6 e c6,jump e c6 e c4,jump e c4 e c2,jump e c2 c c2,jump c c1 c c3</entry>
   <entry key="num_roles">1</entry>
   <entry key="simultaneous">false</entry>
   <entry key="pseudo_simultaneous">false</entry>
@@ -10,7 +11,12 @@
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">19</entry>
   <entry key="fixed_length">false</entry>
-  <entry key="plan">jump a c3 c c3,jump a c5 a c3,jump c c5 a c5,jump c c3 c c5,jump e c4 c c4,jump e c2 e c4,jump c c1 c c3,jump g c3 e c3,jump f c4 d c4,jump e c1 c c1,jump d c5 b c5,jump d c3 f c3,jump b c5 b c3,jump c c4 c c2,jump f c5 d c5,jump a c3 c c3,jump g c5 g c3,jump c c7 c c5,jump d c5 b c5,jump e c7 e c5,jump d c7 d c5,jump g c3 e c3,jump c c2 c c4,jump d c4 d c6,jump a c5 c c5,jump c c4 c c6,jump c c6 e c6,jump e c6 e c4,jump e c4 e c2,jump e c2 c c2,jump c c1 c c3</entry>
   <entry key="control_mask">( ( true ( pegs s32 ) ) )</entry>
+  <entry key="latches_base_positive">{false}</entry>
+  <entry key="latches_base_negative">{true,{3,0,0,384}}</entry>
+  <entry key="latches_goal_positive">{false}</entry>
+  <entry key="latches_goal_negative">{false}</entry>
+  <entry key="latches_goal_complex">{false}</entry>
+  <entry key="latches_goal_per_role">{false}</entry>
   <entry key="factors"></entry>
 </properties>

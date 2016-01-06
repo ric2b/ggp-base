@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
 <properties>
+  <entry key="plan">place 3 9,place 23 15,place 14 18,place 6 25,place 12 14,place 2 16,place 20 2,place 19 17,place 11 23,place 7 10,place 28 7,place 25 26,place 26 13,place 22 6,place 16 5,place 29 1,place 27 27,place 24 21,place 8 29,place 4 3,place 1 24,place 13 31,place 18 28,place 30 11,place 5 22,place 9 20,place 17 30,place 31 19,place 21 12,place 15 8,place 10 4</entry>
   <entry key="num_roles">1</entry>
   <entry key="simultaneous">false</entry>
   <entry key="pseudo_simultaneous">false</entry>
@@ -9,7 +10,12 @@
   <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">962</entry>
-  <entry key="fixed_length">false</entry>
-  <entry key="plan">place 3 9,place 23 15,place 14 18,place 6 25,place 12 14,place 2 16,place 20 2,place 19 17,place 11 23,place 7 10,place 28 7,place 25 26,place 26 13,place 22 6,place 16 5,place 29 1,place 27 27,place 24 21,place 8 29,place 4 3,place 1 24,place 13 31,place 18 28,place 30 11,place 5 22,place 9 20,place 17 30,place 31 19,place 21 12,place 15 8,place 10 4</entry>
+  <entry key="fixed_length">true</entry>
+  <entry key="latches_base_positive">{false}</entry>
+  <entry key="latches_base_negative">{true,{1,16392}}</entry>
+  <entry key="latches_goal_positive">{false}</entry>
+  <entry key="latches_goal_negative">{false}</entry>
+  <entry key="latches_goal_complex">{false}</entry>
+  <entry key="latches_goal_per_role">{false}</entry>
   <entry key="factors"></entry>
 </properties>

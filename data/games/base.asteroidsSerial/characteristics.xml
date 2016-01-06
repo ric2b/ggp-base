@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
 <properties>
+  <entry key="plan">turn1 clock,thrust1,turn1 clock,thrust1,thrust1,thrust1,turn1 clock,thrust1,thrust1,thrust1,turn2 clock,thrust2,turn2 clock,thrust2,thrust2,thrust2,turn2 clock,thrust2,thrust2,thrust2</entry>
   <entry key="num_roles">1</entry>
   <entry key="simultaneous">false</entry>
   <entry key="pseudo_simultaneous">false</entry>
@@ -10,7 +11,12 @@
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">3</entry>
   <entry key="fixed_length">false</entry>
-  <entry key="plan">turn1 clock,thrust1,turn1 clock,thrust1,thrust1,thrust1,turn1 clock,thrust1,thrust1,thrust1,turn2 clock,thrust2,turn2 clock,thrust2,thrust2,thrust2,turn2 clock,thrust2,thrust2,thrust2</entry>
   <entry key="control_mask">(  )</entry>
+  <entry key="latches_base_positive">{true,{4,4398046511104,8388608,0,1073741824}}</entry>
+  <entry key="latches_base_negative">{true,{4,9011597301252096,550026346496,0,0}}</entry>
+  <entry key="latches_goal_positive">{false}</entry>
+  <entry key="latches_goal_negative">{false}</entry>
+  <entry key="latches_goal_complex">{false}</entry>
+  <entry key="latches_goal_per_role">{false}</entry>
   <entry key="factors"></entry>
 </properties>

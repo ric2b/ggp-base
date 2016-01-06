@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
 <properties>
+  <entry key="plan">a 10,b 10,c 10,a 10,b 10,a 10</entry>
   <entry key="num_roles">1</entry>
   <entry key="simultaneous">false</entry>
   <entry key="pseudo_simultaneous">false</entry>
@@ -10,7 +11,12 @@
   <entry key="moves_in_multiple_factors">true</entry>
   <entry key="max_branching_factor">45</entry>
   <entry key="fixed_length">true</entry>
-  <entry key="plan">a 10,b 10,c 10,a 10,b 10,a 10</entry>
   <entry key="control_mask">( ( true ( step 2 ) ), ( true ( step 7 ) ), ( true ( step 3 ) ), ( true ( step 6 ) ), ( true ( step 4 ) ), ( true ( step 1 ) ), ( true ( step 5 ) ) )</entry>
+  <entry key="latches_base_positive">{false}</entry>
+  <entry key="latches_base_negative">{true,{1,844424930131968}}</entry>
+  <entry key="latches_goal_positive">{false}</entry>
+  <entry key="latches_goal_negative">{false}</entry>
+  <entry key="latches_goal_complex">{false}</entry>
+  <entry key="latches_goal_per_role">{false}</entry>
   <entry key="factors">v1~( true ( r 14 ) ),( true ( q 14 ) ),( true ( p 14 ) )~Role 0 ( b 14 ),Role 0 ( c 14 ),Role 0 ( a 14 );v1~( true ( r 10 ) ),( true ( q 10 ) ),( true ( p 10 ) )~Role 0 ( a 10 ),Role 0 ( b 10 ),Role 0 ( c 10 );v1~( true ( q 13 ) ),( true ( r 13 ) ),( true ( p 13 ) )~Role 0 ( c 13 ),Role 0 ( b 13 ),Role 0 ( a 13 );v1~( true ( q 8 ) ),( true ( p 8 ) ),( true ( r 8 ) )~Role 0 ( c 8 ),Role 0 ( b 8 ),Role 0 ( a 8 );v1~( true ( p 6 ) ),( true ( r 6 ) ),( true ( q 6 ) )~Role 0 ( b 6 ),Role 0 ( a 6 ),Role 0 ( c 6 );v1~( true ( p 12 ) ),( true ( q 12 ) ),( true ( r 12 ) )~Role 0 ( a 12 ),Role 0 ( c 12 ),Role 0 ( b 12 );v1~( true ( q 11 ) ),( true ( r 11 ) ),( true ( p 11 ) )~Role 0 ( a 11 ),Role 0 ( b 11 ),Role 0 ( c 11 );v1~( true ( r 9 ) ),( true ( q 9 ) ),( true ( p 9 ) )~Role 0 ( a 9 ),Role 0 ( b 9 ),Role 0 ( c 9 );v1~( true ( r 4 ) ),( true ( p 4 ) ),( true ( q 4 ) )~Role 0 ( b 4 ),Role 0 ( a 4 ),Role 0 ( c 4 );v1~( true ( p 7 ) ),( true ( q 7 ) ),( true ( r 7 ) )~Role 0 ( b 7 ),Role 0 ( a 7 ),Role 0 ( c 7 );v1~( true ( q 3 ) ),( true ( p 3 ) ),( true ( r 3 ) )~Role 0 ( a 3 ),Role 0 ( b 3 ),Role 0 ( c 3 );v1~( true ( r 5 ) ),( true ( q 5 ) ),( true ( p 5 ) )~Role 0 ( c 5 ),Role 0 ( a 5 ),Role 0 ( b 5 );v1~( true ( p 2 ) ),( true ( q 2 ) ),( true ( r 2 ) )~Role 0 ( c 2 ),Role 0 ( b 2 ),Role 0 ( a 2 );v1~( true ( p 15 ) ),( true ( r 15 ) ),( true ( q 15 ) )~Role 0 ( c 15 ),Role 0 ( a 15 ),Role 0 ( b 15 );v1~( true ( q 1 ) ),( true ( p 1 ) ),( true ( r 1 ) )~Role 0 ( a 1 ),Role 0 ( b 1 ),Role 0 ( c 1 )</entry>
 </properties>

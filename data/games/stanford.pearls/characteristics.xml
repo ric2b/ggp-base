@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
 <properties>
+  <entry key="plan">a,a,c,a,a,c,b,b,c,b,b</entry>
   <entry key="num_roles">1</entry>
   <entry key="simultaneous">false</entry>
   <entry key="pseudo_simultaneous">false</entry>
@@ -9,8 +10,13 @@
   <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">2</entry>
-  <entry key="fixed_length">false</entry>
-  <entry key="plan">a,a,c,a,a,c,b,b,c,b,b</entry>
+  <entry key="fixed_length">true</entry>
   <entry key="control_mask">( ( true p1 ) )</entry>
+  <entry key="latches_base_positive">{false}</entry>
+  <entry key="latches_base_negative">{true,{1,6152}}</entry>
+  <entry key="latches_goal_positive">{false}</entry>
+  <entry key="latches_goal_negative">{false}</entry>
+  <entry key="latches_goal_complex">{false}</entry>
+  <entry key="latches_goal_per_role">{false}</entry>
   <entry key="factors"></entry>
 </properties>
