@@ -341,7 +341,7 @@ public class LatchAnalyser
       if (mFoundNegativeBaseLatches)
         LOGGER.info("  " + mNegativeBaseLatchMask.size() + " negative base latches: " + mNegativeBaseLatchMask);
       else
-        LOGGER.info("0 negative base latches");
+        LOGGER.info("  0 negative base latches");
 
       LOGGER.info("  " + (mFoundSimplePositiveGoalLatches ? mSimplePositiveGoalLatches.size() : "0") + " simple positive goal latches");
       LOGGER.info("  " + (mFoundSimpleNegativeGoalLatches ? mSimpleNegativeGoalLatches.size() : "0") + " simple negative goal latches");

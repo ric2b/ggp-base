@@ -94,6 +94,7 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
   private boolean                               mSolvedFromStart                 = false;
   private Tlkio                                 mBroadcaster                     = null;
   private Watchdog                              mWatchdog                        = null;
+  public boolean                                mUTLearnCharacteristicsOnly      = false;
   /**
    * When adding additional state, you MUST null out references in {@link #tidyUp()}.
    */
@@ -945,8 +946,15 @@ public class Sancho extends SampleGamer implements WatchdogExpiryHandler
       mGameCharacteristics.setIsFixedSum();
     }
 
-    //  Dump the game characteristics to trace output
+    // Dump the game characteristics to trace output
     mGameCharacteristics.report();
+
+    // If we're running simply for the purposes of learning game characteristics, we're all done now.
+    if (mUTLearnCharacteristicsOnly)
+    {
+      LOGGER.info("Characteristics learned");
+      return;
+    }
 
     double avgMovesPerTurn = (double)totalMoveChoices/totalTurnSamples;
     LOGGER.info("Measured goal volatility is " +
