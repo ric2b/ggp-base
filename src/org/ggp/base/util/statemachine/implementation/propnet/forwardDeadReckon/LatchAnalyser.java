@@ -321,6 +321,34 @@ public class LatchAnalyser
     }
 
     /**
+     * Log the latch analysis results.
+     */
+    public void report()
+    {
+      if (!mAnalysisComplete)
+      {
+        LOGGER.warn("Latch analysis incomplete");
+        return;
+      }
+
+      LOGGER.info("Latch analysis results");
+
+      if (mFoundPositiveBaseLatches)
+        LOGGER.info("  " + mPositiveBaseLatchMask.size() + " positive base latches: " + mPositiveBaseLatchMask);
+      else
+        LOGGER.info("0 positive base latches");
+
+      if (mFoundNegativeBaseLatches)
+        LOGGER.info("  " + mNegativeBaseLatchMask.size() + " negative base latches: " + mNegativeBaseLatchMask);
+      else
+        LOGGER.info("0 negative base latches");
+
+      LOGGER.info("  " + (mFoundSimplePositiveGoalLatches ? mSimplePositiveGoalLatches.size() : "0") + " simple positive goal latches");
+      LOGGER.info("  " + (mFoundSimpleNegativeGoalLatches ? mSimpleNegativeGoalLatches.size() : "0") + " simple negative goal latches");
+      LOGGER.info("  " + mComplexPositiveGoalLatches.length + " complex positive goal latches");
+      LOGGER.info("  " + (mAllRolesHavePositiveGoalLatches ? "A" : "Not a") + "ll roles have positive goal latches");
+    }
+    /**
      * Clear all latch state.
      */
     private void clear()
@@ -754,7 +782,7 @@ public class LatchAnalyser
 
       if (lLatches.size() != 0)
       {
-        LOGGER.info("Goal '" + lGoal.getName() + "' is positively latched by any of: " + lLatches);
+        LOGGER.debug("Goal '" + lGoal.getName() + "' is positively latched by any of: " + lLatches);
       }
       else
       {
@@ -764,7 +792,6 @@ public class LatchAnalyser
 
     if (mLatches.mSimplePositiveGoalLatches.isEmpty())
     {
-      LOGGER.info("No simple positive goal latches");
       mLatches.mSimplePositiveGoalLatches = null;
     }
 
@@ -777,7 +804,7 @@ public class LatchAnalyser
 
       if (lLatches.size() != 0)
       {
-        LOGGER.info("Goal '" + lGoal.getName() + "' is negatively latched by any of: " + lLatches);
+        LOGGER.debug("Goal '" + lGoal.getName() + "' is negatively latched by any of: " + lLatches);
       }
       else
       {
@@ -787,7 +814,6 @@ public class LatchAnalyser
 
     if (mLatches.mSimpleNegativeGoalLatches.isEmpty())
     {
-      LOGGER.info("No simple negative goal latches");
       mLatches.mSimpleNegativeGoalLatches = null;
     }
 
@@ -826,7 +852,6 @@ public class LatchAnalyser
       mLatches.mAllRolesHavePositiveGoalLatches = false;
     }
 
-    LOGGER.info(mComplexPositiveGoalLatchList.size() + " complex positive goal latches");
     mLatches.mComplexPositiveGoalLatches =
       mComplexPositiveGoalLatchList.toArray(new MaskedStateGoalLatch[mComplexPositiveGoalLatchList.size()]);
     mLatches.mFoundComplexPositiveGoalLatches = (!mComplexPositiveGoalLatchList.isEmpty());

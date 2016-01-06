@@ -495,10 +495,10 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
    *
    * @param xiDeadline - the (latest) time to run until.
    */
-  // !! ARR Work in progress - will need to return something
   private void findLatches(long xiDeadline)
   {
     mLatches = new LatchAnalyser(fullPropNet, this).analyse(xiDeadline, mGameCharacteristics);
+    mLatches.report();
   }
 
   /**
