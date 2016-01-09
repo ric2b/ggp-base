@@ -60,10 +60,6 @@ public abstract class PuzzleBase extends Assert
     EXPECTED_SCORES.put("base.peg", 90);
     EXPECTED_SCORES.put("stanford.knightstourbig", 95);
 
-    // Can't solve some of the queens puzzles yet (or not reliably on CI).  Covered by #369.
-    EXPECTED_SCORES.put("base.queens06ug", 0);
-    EXPECTED_SCORES.put("base.queens08ug", 0);
-
     // Can't solve Futoshiki 6x6 yet.  Covered by #372.
     EXPECTED_SCORES.put("base.futoshiki6", 0);
   }
