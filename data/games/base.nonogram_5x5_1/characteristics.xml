@@ -8,8 +8,9 @@
   <entry key="max_factor_failure_time">0</entry>
   <entry key="num_factors">1</entry>
   <entry key="moves_in_multiple_factors">false</entry>
-  <entry key="max_branching_factor">19</entry>
+  <entry key="max_branching_factor">25</entry>
   <entry key="fixed_length">false</entry>
+  <entry key="plan">mark 1 3,mark 4 1,mark 3 1,mark 1 2,mark 2 5,mark 1 4,mark 3 5,mark 5 4,mark 4 5,mark 4 3,mark 3 3,mark 5 3,mark 2 1</entry>
   <entry key="control_mask">(  )</entry>
   <entry key="latches_base_positive">{true,{1,268435448}}</entry>
   <entry key="latches_base_negative">{false}</entry>

@@ -10,4 +10,10 @@
   <entry key="moves_in_multiple_factors">false</entry>
   <entry key="max_branching_factor">87</entry>
   <entry key="fixed_length">false</entry>
+  <entry key="latches_base_positive">{true,{15,103079215104,0,0,0,0,0,0,0,0,0,0,0,8444249301319680,0,0}}</entry>
+  <entry key="latches_base_negative">{true,{15,-4611580465311121408,17179869184,4611686018444165120,4503599627370496,67108864,18014398509547520,17592186044416,262144,70368744177920,68719476736,1024,274877906945,9007199523176448,4,0}}</entry>
+  <entry key="latches_goal_positive">{false}</entry>
+  <entry key="latches_goal_negative">{false}</entry>
+  <entry key="latches_goal_complex">{false}</entry>
+  <entry key="latches_goal_per_role">{false}</entry>
 </properties>

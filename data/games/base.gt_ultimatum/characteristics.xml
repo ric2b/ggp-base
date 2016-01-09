@@ -11,5 +11,11 @@
   <entry key="max_branching_factor">11</entry>
   <entry key="fixed_length">true</entry>
   <entry key="control_mask">( ( true ( round 4 ) ), ( true ( round 0 ) ), ( true ( round 6 ) ), ( true ( round 2 ) ), ( true ( round 1 ) ), ( true ( round 7 ) ), ( true ( round 3 ) ), ( true ( round 8 ) ), ( true ( control white ) ), ( true ( round 9 ) ), ( true ( round 5 ) ), ( true ( round 10 ) ), ( true ( control black ) ) )</entry>
+  <entry key="latches_base_positive">{true,{7,0,0,0,0,-4611686018427387904,255,0}}</entry>
+  <entry key="latches_base_negative">{true,{7,0,0,0,-2048,-2305561534236983297,-1,35184372088831}}</entry>
+  <entry key="latches_goal_positive">{false}</entry>
+  <entry key="latches_goal_negative">{false}</entry>
+  <entry key="latches_goal_complex">{false}</entry>
+  <entry key="latches_goal_per_role">{false}</entry>
   <entry key="factors"></entry>
 </properties>
