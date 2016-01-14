@@ -31,7 +31,7 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
 
   /**
    * The linkage array contains backward and forward pointers in the high and low words for
-   * each legal move.  A value other than 0xFFFF in the prev-word can be used an a O(1) test
+   * each legal move.  A value other than 0xFFFF in the prev-word can be used as an O(1) test
    * for presence of that move in the set, and the list can be enumerated to iterate over
    * the set legals
    */

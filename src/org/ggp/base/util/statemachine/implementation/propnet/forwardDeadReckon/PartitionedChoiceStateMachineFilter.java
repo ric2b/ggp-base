@@ -148,7 +148,7 @@ public class PartitionedChoiceStateMachineFilter implements StateMachineFilter
     }
 
     //  activePartition can only be null in an underlying terminal state, in which
-    //  we should no b asked about legal moves
+    //  we should not be asked about legal moves
     assert(activePartition != null);
 
     return activePartition.getNumChoices(xiRole);
@@ -168,7 +168,7 @@ public class PartitionedChoiceStateMachineFilter implements StateMachineFilter
     }
 
     //  activePartition can only be null in an underlying terminal state, in which
-    //  we should no b asked about legal moves
+    //  we should not be asked about legal moves
     assert(activePartition != null);
 
     return activePartition.getNumChoices(xiRoleIndex);
@@ -180,7 +180,7 @@ public class PartitionedChoiceStateMachineFilter implements StateMachineFilter
     ForwardDeadReckonLegalMoveInfo candidate;
 
     //  activePartition can only be null in an underlying terminal state, in which
-    //  we should no b asked about legal moves
+    //  we should not be asked about legal moves
     assert(activePartition != null);
 
     do
