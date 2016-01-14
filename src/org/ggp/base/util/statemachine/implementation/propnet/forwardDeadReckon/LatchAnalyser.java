@@ -879,14 +879,18 @@ public class LatchAnalyser
     // Only consider positive base latches, simply because there aren't any games where we need to do this for negative
     // base latches.
     LOGGER.info("Checking for latch pairs of " + mPositiveBaseLatches.size() + " 1-proposition latches");
-    for (ForwardDeadReckonProposition lBaseLatch1 : mPositiveBaseLatches)
+
+    ForwardDeadReckonProposition[] lBaseLatches = mPositiveBaseLatches.toArray(
+                                                         new ForwardDeadReckonProposition[mPositiveBaseLatches.size()]);
+    for (int lii = 0; lii < lBaseLatches.length; lii++)
     {
+      ForwardDeadReckonProposition lBaseLatch1 = lBaseLatches[lii];
       checkForTimeout();
 
       // !! ARR Do the "assume" for the first state here and then save/reload as required.
-      // !! ARR Don't do both 1/2 and 2/1.
-      for (ForwardDeadReckonProposition lBaseLatch2 : mPositiveBaseLatches)
+      for (int ljj = lii + 1; ljj < lBaseLatches.length; ljj++)
       {
+        ForwardDeadReckonProposition lBaseLatch2 = lBaseLatches[ljj];
         try
         {
           mTristateNet.reset();
