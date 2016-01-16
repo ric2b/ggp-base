@@ -47,7 +47,6 @@ import org.ggp.base.util.statemachine.StateMachine;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.FactorAnalyser.FactorInfo;
-import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.LatchAnalyser.Latches;
 import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBuilder;
 import org.ggp.base.util.statemachine.playoutPolicy.IPlayoutPolicy;
 import org.ggp.base.util.stats.Stats;
@@ -166,7 +165,7 @@ public class ForwardDeadReckonPropnetStateMachine extends StateMachine
   private int[]                                                        playoutStackMoveInitialChoiceIndex = null;
   private int[]                                                        playoutStackMoveNextChoiceIndex = null;
 
-  public Latches                                                       mLatches = null;
+  public LatchResults                                                  mLatches = new DummyLatchResults();
 
   /**
    * Current turn number within the overall game

@@ -58,7 +58,7 @@ public class LatchAnalyser
    *
    * All public methods are thread-safe and read-only.
    */
-  public static class Latches
+  public static class Latches implements LatchResults
   {
     // Private variables are largely manipulated by the enclosing LatchAnalyser class.  Once an instance of this class
     // has been returned by the latch analyser, the only possible access is through the public methods of this class.
@@ -116,83 +116,55 @@ public class LatchAnalyser
       mRoles = xiStateMachine.getRoles();
     }
 
-    /**
-     * @return whether latch analysis completed successfully.
-     */
+    @Override
     public boolean isComplete()
     {
       return mAnalysisComplete;
     }
 
-    /**
-     * @return whether any positively latched goals have been identified.
-     */
+    @Override
     public boolean hasPositivelyLatchedGoals()
     {
       return mFoundSimplePositiveGoalLatches || mFoundComplexPositiveGoalLatches;
     }
 
-    /**
-     * @return whether any negatively latched goals have been identified.
-     */
+    @Override
     public boolean hasNegativelyLatchedGoals()
     {
       return mFoundSimpleNegativeGoalLatches;
     }
 
-    /**
-     * @return whether the specified proposition is a positive latch.
-     *
-     * @param xiProposition - the proposition to test.
-     */
+    @Override
     public boolean isPositivelyLatchedBaseProp(PolymorphicProposition xiProposition)
     {
       return mPositiveBaseLatchMask.contains(((ForwardDeadReckonProposition)xiProposition).getInfo());
     }
 
-    /**
-     * @return whether the specified proposition is a negative latch.
-     *
-     * @param xiProposition - the proposition to test.
-     */
+    @Override
     public boolean isNegativelyLatchedBaseProp(PolymorphicProposition xiProposition)
     {
       return mNegativeBaseLatchMask.contains(((ForwardDeadReckonProposition)xiProposition).getInfo());
     }
 
-    /**
-     * @return a mask of all positively latched base props, or null if there are none.
-     *
-     * WARNING: Callers MUST NOT modify the returned mask.
-     */
+    @Override
     public ForwardDeadReckonInternalMachineState getPositiveBaseLatches()
     {
       return mFoundPositiveBaseLatches ? mPositiveBaseLatchMask : null;
     }
 
-    /**
-     * @return the number of positively latched base props.
-     */
+    @Override
     public long getNumPositiveBaseLatches()
     {
       return mFoundPositiveBaseLatches ? mPositiveBaseLatchMask.size() : 0;
     }
 
-    /**
-     * @return the number of negatively latched base props.
-     */
+    @Override
     public long getNumNegativeBaseLatches()
     {
       return mFoundNegativeBaseLatches ? mNegativeBaseLatchMask.size() : 0;
     }
 
-    /**
-     * WARNING: Callers should almost always call ForwardDeadReckonPropnetStateMachine.scoresAreLatched instead
-     *          (because it also handles emulated goals).
-     *
-     * @param xiState - state to test for latched score in
-     * @return true if all roles' scores are latched
-     */
+    @Override
     public boolean scoresAreLatched(ForwardDeadReckonInternalMachineState xiState)
     {
       if ((!mFoundComplexPositiveGoalLatches) && (!mAllRolesHavePositiveGoalLatches))
@@ -230,16 +202,7 @@ public class LatchAnalyser
       return true;
     }
 
-    /**
-     * Get the latched range of possible scores for a given role in a given state
-     *
-     * WARNING: Callers should almost always call ForwardDeadReckonPropnetStateMachine.getLatchedScoreRange instead.
-     *
-     * @param xiState - the state
-     * @param xiRole - the role
-     * @param xiGoals - the goal propositions for the specified role
-     * @param xoRange - array of length 2 to contain [min,max]
-     */
+    @Override
     public void getLatchedScoreRange(ForwardDeadReckonInternalMachineState xiState,
                                      Role xiRole,
                                      PolymorphicProposition[] xiGoals,
@@ -320,9 +283,7 @@ public class LatchAnalyser
       }
     }
 
-    /**
-     * Log the latch analysis results.
-     */
+    @Override
     public void report()
     {
       if (!mAnalysisComplete)
@@ -621,7 +582,7 @@ public class LatchAnalyser
    *
    * @return the results of the latch analysis.
    */
-  public Latches analyse(long xiDeadline, RuntimeGameCharacteristics xiCharacteristics)
+  public LatchResults analyse(long xiDeadline, RuntimeGameCharacteristics xiCharacteristics)
   {
     if (mLatches.load(xiCharacteristics, mStateMachine))
     {
@@ -651,7 +612,7 @@ public class LatchAnalyser
     return mLatches;
   }
 
-  private Latches analyse() throws TimeoutException
+  private LatchResults analyse() throws TimeoutException
   {
     // Do per-proposition analysis on all the base propositions.
     for (PolymorphicComponent lSourceComp1 : mSourceNet.getBasePropositionsArray())
