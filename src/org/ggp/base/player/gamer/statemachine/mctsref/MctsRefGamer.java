@@ -4,6 +4,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.exception.GamePreviewException;
 import org.ggp.base.player.gamer.statemachine.StateMachineGamer;
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration;
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.player.gamer.statemachine.sancho.ThreadControl;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
@@ -28,9 +30,9 @@ public class MctsRefGamer extends StateMachineGamer
   public StateMachine getInitialStateMachine()
   {
     mUnderlyingStateMachine = new ForwardDeadReckonPropnetStateMachine(ThreadControl.CPU_INTENSIVE_THREADS,
-                                                                      getMetaGamingTimeout(),
-                                                                      getRole(),
-                                                                      mGameCharacteristics);
+                                                                       getMetaGamingTimeout(),
+                                                                       getRole(),
+                                                                       mGameCharacteristics);
 
     System.gc();
 
@@ -55,6 +57,11 @@ public class MctsRefGamer extends StateMachineGamer
     long finishBy = xiTimeout - SAFETY_MARGIN;
     int iterations = 0;
     boolean lFirstDump = true;
+    int lMaxIterations = MachineSpecificConfiguration.getCfgInt(CfgItem.MAX_ITERATIONS_PER_TURN);
+    if (lMaxIterations == -1)
+    {
+      lMaxIterations = Integer.MAX_VALUE;
+    }
 
     System.out.println("Starting turn " + ++mTurnCount);
 
@@ -64,7 +71,7 @@ public class MctsRefGamer extends StateMachineGamer
     //  For now reset the tree every turn
     mTree.clear(currentState);
 
-    while(System.currentTimeMillis() < finishBy && !mTree.isSolved())
+    while((System.currentTimeMillis() < finishBy) && (!mTree.isSolved()) && (iterations < lMaxIterations))
     {
       iterations++;
       mTree.grow();
