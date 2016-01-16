@@ -141,6 +141,12 @@ public class MachineSpecificConfiguration
     TREE_DUMP(null),
 
     /**
+     * Whether to write out the propnet as a .dot file.  Useful for debugging, but can't be used if running more than
+     * one player inside the same Player instance (even if not multiple instances of Sancho).
+     */
+    WRITE_PROPNET_AS_DOT(false),
+
+    /**
      * Limit on number of MCTS expansions to perform per turn (for testing)
      */
     MAX_ITERATIONS_PER_TURN(-1),

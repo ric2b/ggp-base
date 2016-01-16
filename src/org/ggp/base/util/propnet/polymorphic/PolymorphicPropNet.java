@@ -15,6 +15,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration;
+import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
 import org.ggp.base.util.gdl.grammar.GdlConstant;
 import org.ggp.base.util.gdl.grammar.GdlPool;
 import org.ggp.base.util.gdl.grammar.GdlProposition;
@@ -847,6 +849,8 @@ public class PolymorphicPropNet
    */
   public void renderToFile(String filename)
   {
+    if (!MachineSpecificConfiguration.getCfgBool(CfgItem.WRITE_PROPNET_AS_DOT)) return;
+
     try
     {
       File f = new File(TEMP_DIR, filename);
