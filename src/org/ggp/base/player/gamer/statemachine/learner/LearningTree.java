@@ -12,6 +12,7 @@ import org.ggp.base.player.gamer.statemachine.sancho.RoleOrdering;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonInternalMachineState;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveInfo;
 import org.ggp.base.util.propnet.polymorphic.forwardDeadReckon.ForwardDeadReckonLegalMoveSet;
+import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.ForwardDeadReckonPropnetStateMachine;
 
@@ -179,119 +180,42 @@ public class LearningTree
     return lGoals;
   }
 
-  public double getAverageError()
-  {
-    double lTotalError = 0;
-    for (Object lState : mScoreMap.keySet())
-    {
-      lTotalError += getTotalDiff(mEvalFunc.evaluate((ForwardDeadReckonInternalMachineState)lState),
-                                  mScoreMap.get(lState));
-    }
-    return lTotalError / mScoreMap.size();
-  }
-
-  private double getTotalDiff(double[] xiA, double[]xiB)
-  {
-    double lTotalDiff = 0;
-    for (int lii = 0; lii < xiA.length; lii++)
-    {
-      lTotalDiff += Math.abs(xiA[lii] - xiB[lii]);
-    }
-    return lTotalDiff;
-  }
-
-  public int getWrongMoves(boolean xiDump)
-  {
-    int lBadStates = 0;
-    for (Object lState : mScoreMap.keySet())
-    {
-      if (!checkState((ForwardDeadReckonInternalMachineState)lState, xiDump))
-      {
-        lBadStates++;
-      }
-    }
-    return lBadStates;
-  }
-
-  private boolean checkState(ForwardDeadReckonInternalMachineState xiState, boolean xiDump)
-  {
-    // There are no moves to make in a terminal state, so we can't select the wrong one.
-    if (mStateMachine.isTerminal(xiState))
-    {
-      return true;
-    }
-
-    int lDepth = 0;
-    mStackState[lDepth] = new ForwardDeadReckonInternalMachineState(xiState);
-
-    // Iterate over all the children.
-    ForwardDeadReckonLegalMoveSet lLegals = mStateMachine.getLegalMoveSet(mStackState[lDepth]);
-    int lRoleWithChoice = -1;
-    int lNumChoices = -1;
-    for (int lii = 0; lii < mNumRoles; lii++)
-    {
-      // Store a legal move for this role.  For all roles but one, this will be the only move.  For the role with a
-      // choice, this will be the first legal move.
-      mStackJointMove[lDepth][lii] = lLegals.getContents(lii).iterator().next();
-
-      // Check if this is the role with a choice.
-      if (lLegals.getNumChoices(lii) > 1)
-      {
-        assert(lRoleWithChoice == -1) : "More than 1 role has a choice";
-        lRoleWithChoice = lii;
-        lNumChoices = 0;
-
-        // Copy out the legals before they're destroyed.
-        Iterator<ForwardDeadReckonLegalMoveInfo> lIterator = lLegals.getContents(lii).iterator();
-        while (lIterator.hasNext())
-        {
-          mStackLegals[lDepth][lNumChoices++] = lIterator.next();
-        }
-      }
-    }
-
-    if (lRoleWithChoice == -1)
-    {
-      // No role had a choice.  Therefore, we can't select the wrong move.
-      return true;
-    }
-
-    // A role had a choice.  That role is trying to maximise its value.
-    boolean lRight = false;
-    String lError = "";
-    double lBestValue = -1;
-    for (int lii = 0; lii < lNumChoices; lii++)
-    {
-      // Set the move for the role with a choice.  (All the others are set already.)
-      mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][lii];
-
-      // Get the next state.
-      mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
-      double lValue = mEvalFunc.evaluate(mStackState[lDepth + 1])[lRoleWithChoice];
-      if (lValue > lBestValue)
-      {
-        // We'd chose this move.
-        lBestValue = lValue;
-        lRight = mScoreMap.get(mStackState[lDepth + 1])[lRoleWithChoice] >= mScoreMap.get(mStackState[lDepth])[lRoleWithChoice];
-        lError = "  Choosing role score fell from " + mScoreMap.get(mStackState[lDepth])[lRoleWithChoice] +
-                 " to " + mScoreMap.get(mStackState[lDepth + 1])[lRoleWithChoice] +
-                 " because we thought the afterstate had value " + lValue +
-                 " when playing " + mStackJointMove[lDepth][lRoleWithChoice] +
-                 " in state " + mStackState[lDepth] +
-                 " giving afterstate " + mStackState[lDepth + 1];
-      }
-    }
-
-    if ((!lRight) && (xiDump))
-    {
-      LOGGER.warn(lError);
-    }
-    return lRight;
-  }
-
+  /**
+   * Get the next state in an epsilon-greedy fashion.
+   *
+   * @param xiState     - the current state.
+   * @param xiEpsilon   - epsilon (i.e. the chance of picking randomly)
+   * @param xiDumpMoves - whether to dump the selected moves.
+   *
+   * @return the next state.
+   */
   public ForwardDeadReckonInternalMachineState epsilonGreedySelection(ForwardDeadReckonInternalMachineState xiState,
                                                                       double xiEpsilon,
                                                                       boolean xiDumpMoves)
+  {
+    int lDepth = 0;
+    epsilonGreedySelection(xiState, xiEpsilon);
+    if (xiDumpMoves) LOGGER.info(Arrays.toString(mStackJointMove[lDepth]));
+    mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
+    return new ForwardDeadReckonInternalMachineState(mStackState[lDepth + 1]);
+  }
+
+  /**
+   * Get the best move (greedily) for the specified role.
+   *
+   * @param xiState - the current state.
+   * @param xiRoleIndex - the role.
+   *
+   * @return the best move.
+   */
+  public Move bestMove(ForwardDeadReckonInternalMachineState xiState, int xiRoleIndex)
+  {
+    int lDepth = 0;
+    epsilonGreedySelection(xiState, 0);
+    return mStackJointMove[lDepth][xiRoleIndex].mMove;
+  }
+
+  private void epsilonGreedySelection(ForwardDeadReckonInternalMachineState xiState, double xiEpsilon)
   {
     int lDepth = 0;
     mStackState[lDepth] = xiState;
@@ -325,16 +249,13 @@ public class LearningTree
     if (lRoleWithChoice == -1)
     {
       // No role had a choice.
-      if (xiDumpMoves) LOGGER.info(Arrays.toString(mStackJointMove[lDepth]));
-      mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
-      return new ForwardDeadReckonInternalMachineState(mStackState[lDepth + 1]);
+      return;
     }
 
     if (mRandom.nextDouble() < xiEpsilon)
     {
       // Pick a random choice.
       mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][mRandom.nextInt(lNumChoices)];
-      mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
     }
     else
     {
@@ -356,12 +277,10 @@ public class LearningTree
         }
       }
 
-      // Get the state for the best move.
+      // Record the best move.
       mStackJointMove[lDepth][lRoleWithChoice] = mStackLegals[lDepth][lBestMoveIndex];
-      mStateMachine.getNextState(mStackState[lDepth], null, mStackJointMove[lDepth], mStackState[lDepth + 1]);
     }
 
-    if (xiDumpMoves) LOGGER.info(Arrays.toString(mStackJointMove[lDepth]));
-    return new ForwardDeadReckonInternalMachineState(mStackState[lDepth + 1]);
+    return;
   }
 }

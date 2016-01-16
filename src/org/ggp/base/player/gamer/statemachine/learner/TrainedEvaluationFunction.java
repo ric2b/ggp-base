@@ -22,7 +22,7 @@ public class TrainedEvaluationFunction
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private static final double INITIAL_LEARNING_RATE = 0.05;
+  public static final double INITIAL_LEARNING_RATE = 0.05;
 
   private final int mInputSize;
   private final int mOutputSize;
@@ -43,8 +43,9 @@ public class TrainedEvaluationFunction
 
     mNetwork = new MultiLayerPerceptron(TransferFunctionType.SIGMOID,
                                         mInputSize,     // Input layer, 1 neuron per base proposition
-                                        mInputSize * 2, // Hidden layer(s)
-                                        mInputSize / 2,
+                                        //mInputSize * 2, // Hidden layer(s)
+                                        //mInputSize / 2,
+                                        mInputSize * 3, // Hidden layer(s)
                                         mOutputSize);   // Output layer, 1 neuron per role (except for fixed sum,
                                                         // where we only need 1).
     double lRange = 1 / Math.sqrt(mInputSize);
@@ -179,7 +180,12 @@ public class TrainedEvaluationFunction
     return lOutputs;
   }
 
-  public void train()
+  /**
+   * Train the network with the current training data (from calls to sample()).
+   *
+   * @return the average training error from the batch.
+   */
+  public double train()
   {
     // Convert the training data into the form required by Neuroph.
     mTrainingSet.clear();
@@ -197,6 +203,7 @@ public class TrainedEvaluationFunction
 
     // Train the network.
     mLearningRule.doOneLearningIteration(mTrainingSet);
+    return mLearningRule.getErrorFunction().getTotalError();
   }
 
   public void replaceWith(TrainedEvaluationFunction xiSource)
@@ -204,9 +211,11 @@ public class TrainedEvaluationFunction
     mNetwork.setWeights(xiSource.mNetwork.getWeights());
   }
 
-  public void cool()
+  public double cool()
   {
-    mLearningRule.setLearningRate(mLearningRule.getLearningRate() * 0.9999);
+    double lNewRate = mLearningRule.getLearningRate() * 0.9999;
+    mLearningRule.setLearningRate(lNewRate);
+    return lNewRate;
   }
 
   public void save()

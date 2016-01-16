@@ -14,11 +14,18 @@ import org.ggp.base.util.statemachine.implementation.propnet.forwardDeadReckon.F
 public class LearningGamer extends StateMachineGamer
 {
   private static final Logger LOGGER = LogManager.getLogger();
-  private static final long SAFETY_MARGIN = 2500;
+
+  private static final int PLY = 2;
+  private static final int DUMP_INTERVAL = 10;
+  private static final boolean RELOAD = true;
+  private static final String RELOAD_FROM = "data/games/stanford.breakthroughsmall/evaluation.6hrs.2ply.22500iter.err0.06.nnet";
+  private static final boolean TRAIN = false;
 
   private TrainedEvaluationFunction             mEvalFunc;
   private TrainedEvaluationFunction             mFrozenEvalFunc;
+
   private ForwardDeadReckonPropnetStateMachine  mUnderlyingStateMachine = null;
+  private int                                   mOurRoleIndex;
   private int                                   mTurn = 0;
 
   @Override
@@ -37,17 +44,17 @@ public class LearningGamer extends StateMachineGamer
   @Override
   public void stateMachineMetaGame(long xiTimeout)
   {
+    mOurRoleIndex = mUnderlyingStateMachine.getRoleOrdering().getOurRawRoleIndex();
     mUnderlyingStateMachine.enableGreedyRollouts(false, true);
     mTurn = 0;
 
     // Create and initialise a heuristic evaluation function.
-    boolean lReload = false;
     boolean l2PlayerFixedSum = true;
-    if (lReload)
+    if (RELOAD)
     {
-      String lFilename = "data/games/base.tictactoe/evaluation.0.5_14.nnet";
-      mEvalFunc = new TrainedEvaluationFunction(lFilename, l2PlayerFixedSum);
-      mFrozenEvalFunc = new TrainedEvaluationFunction(lFilename, l2PlayerFixedSum);
+      LOGGER.info("Reloading saved network");
+      mEvalFunc = new TrainedEvaluationFunction(RELOAD_FROM, l2PlayerFixedSum);
+      mFrozenEvalFunc = new TrainedEvaluationFunction(RELOAD_FROM, l2PlayerFixedSum);
     }
     else
     {
@@ -59,20 +66,25 @@ public class LearningGamer extends StateMachineGamer
                                                       l2PlayerFixedSum);
     }
 
-    // Use TreeStrap to train the evaluation function.
-    treeStrap(xiTimeout);
+    if (TRAIN)
+    {
+      // Use TreeStrap to train the evaluation function.
+      LOGGER.info("Training");
+      treeStrap(xiTimeout);
+    }
+    else
+    {
+      // Use the evaluation function to play the game.
+      LOGGER.info("Playing");
+    }
   }
 
   private void treeStrap(long xiTimeout)
   {
     double lEpsilon = 0.2;
     int lIterations = 0;
-
-    // Create a reference tree for test purposes.
-    LearningTree lReferenceTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, mFrozenEvalFunc);
-    lReferenceTree.search(mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState()), 9);
-    int lFewestWrongMoves = 9999;
-    double lSmallestStateError = 100;
+    double lAvgError = 0;
+    double lLearningRate = TrainedEvaluationFunction.INITIAL_LEARNING_RATE;
 
     while (true /* System.currentTimeMillis() < xiTimeout */)
     {
@@ -86,32 +98,19 @@ public class LearningGamer extends StateMachineGamer
       {
         mFrozenEvalFunc.replaceWith(mEvalFunc);
         mEvalFunc.save();
-        mEvalFunc.cool();
+        lLearningRate = mEvalFunc.cool();
         lEpsilon *= 1.01;
       }
 
-      if (lIterations % 100 == 0)
+      if (lIterations % DUMP_INTERVAL == 0)
       {
-        int lWrongMoves = lReferenceTree.getWrongMoves(false);
-        double lAverageError = lReferenceTree.getAverageError();
+        LOGGER.info("After " + lIterations + " iterations, err = " + (lAvgError * 100.0 / DUMP_INTERVAL) + ", rate = " + lLearningRate + ", epsilon = " + lEpsilon);
+        lAvgError = 0;
 
-        if ((lWrongMoves < lFewestWrongMoves) ||
-            ((lWrongMoves == lFewestWrongMoves) && (lAverageError < lSmallestStateError)))
+        if (lIterations % (DUMP_INTERVAL * 10) == 0)
         {
-          lFewestWrongMoves = lWrongMoves;
-          lSmallestStateError = lAverageError;
-
-          if (lWrongMoves < 10)
-          {
-            // Dump the states in which we get wrong moves.
-            LOGGER.info("--- Dumping " + lWrongMoves + " bad states");
-            lReferenceTree.getWrongMoves(true);
-          }
+          showSampleGame();
         }
-
-        LOGGER.info("After " + lIterations + " iterations, average error = " + lAverageError + ", wrong moves = " + lWrongMoves + ", low-water mark = " + lFewestWrongMoves);
-
-        showSampleGame();
       }
 
       // Clear the training set.
@@ -123,14 +122,14 @@ public class LearningGamer extends StateMachineGamer
         // Build a depth-limited game tree, by minimax, using the position evaluation function at the non-terminal
         // leaf nodes.  Builds the training set in the process.
         LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, mFrozenEvalFunc);
-        lTree.search(lState, 9);
+        lTree.search(lState, PLY);
 
         // Pick the next move epsilon-greedily.
         lState = lTree.epsilonGreedySelection(lState, lEpsilon, false);
       }
 
       // Train the evaluation function on all the samples gathered during the rollout.
-      mEvalFunc.train();
+      lAvgError += mEvalFunc.train();
 
       lIterations++;
     }
@@ -160,11 +159,10 @@ public class LearningGamer extends StateMachineGamer
     ForwardDeadReckonInternalMachineState currentState = mUnderlyingStateMachine.createInternalState(getCurrentState());
 
     // Read off the best move according to the learned weights.
-    // !! ARR ...
-
-    Move bestMove = null;
-    System.out.println("Playing: " + bestMove);
-    return bestMove;
+    LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, mEvalFunc);
+    Move lBestMove = lTree.bestMove(currentState, mOurRoleIndex);
+    LOGGER.info("Playing: " + lBestMove);
+    return lBestMove;
   }
 
   @Override
