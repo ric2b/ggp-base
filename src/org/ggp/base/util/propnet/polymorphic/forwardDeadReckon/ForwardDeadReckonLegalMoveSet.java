@@ -265,8 +265,9 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
         for(int index = master.firstActive[i]; index >= 0; index = master.linkage[i][index] & LINKAGE_MASK_NEXT)
         {
           linkage[i][index] = master.linkage[i][index];
-          if ( index == lastImmutableActive[i] )
+          if ( index == master.lastImmutableActive[i] )
           {
+            linkage[i][index] = (linkage[i][index] & LINKAGE_MASK_PREV) | LINKAGE_MASK_NEXT;
             break;
           }
         }
@@ -415,6 +416,8 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
           linkage[i][index] = INVALID_PREV;
           index = nextIndex;
         } while((index & LINKAGE_MASK_NEXT) != 0xFFFF);
+
+        linkage[i][lastImmutableActive[i]] = (linkage[i][lastImmutableActive[i]] & LINKAGE_MASK_PREV) | LINKAGE_MASK_NEXT;
       }
 
       lastActive[i] = lastImmutableActive[i];
