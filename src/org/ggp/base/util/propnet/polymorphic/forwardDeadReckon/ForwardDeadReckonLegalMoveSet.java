@@ -399,33 +399,49 @@ public class ForwardDeadReckonLegalMoveSet implements ForwardDeadReckonComponent
   }
 
   /**
-   * Empty the collection
+   * Empty the collection.
+   *
+   * After this returns, the only legal moves set are those that are always legal.
    */
   public void clear()
   {
     assert(valid());
 
-    for(int i = 0; i < roles.length; i++)
+    // Clear the legals for each role.
+    for (int ii = 0; ii < roles.length; ii++)
     {
-      if ( lastActive[i] >= 0 && lastActive[i] != lastImmutableActive[i] )
+      // If there are any legals (other than always-legals)...
+      if ((lastActive[ii] >= 0) && (lastActive[ii] != lastImmutableActive[ii]))
       {
-        int index = (lastImmutableActive[i] >= 0 ? (linkage[i][lastImmutableActive[i]] & LINKAGE_MASK_NEXT) : firstActive[i]);
+        // ...walk the list of active legals (other than always-legals).
+        // If there are any always-legals, start at the next legal after those.  Otherwise, start at the first legal.
+        int index = ((lastImmutableActive[ii] >= 0) ? (linkage[ii][lastImmutableActive[ii]] & LINKAGE_MASK_NEXT) :
+                                                      firstActive[ii]);
         do
         {
-          int nextIndex = linkage[i][index] & LINKAGE_MASK_NEXT;
-          linkage[i][index] = INVALID_PREV;
+          // Get the next legal in the list whilst the link is still valid.
+          int nextIndex = linkage[ii][index] & LINKAGE_MASK_NEXT;
+
+          // Remove the legal from the active legals.
+          linkage[ii][index] = INVALID_PREV;
+
+          // Move on to the next - whilst there still is a next.
           index = nextIndex;
         } while((index & LINKAGE_MASK_NEXT) != 0xFFFF);
 
-        linkage[i][lastImmutableActive[i]] = (linkage[i][lastImmutableActive[i]] & LINKAGE_MASK_PREV) | LINKAGE_MASK_NEXT;
+        // Clear the next link from the last always-legal (if any).
+        if (lastImmutableActive[ii] >= 0)
+        {
+          linkage[ii][lastImmutableActive[ii]] = (linkage[ii][lastImmutableActive[ii]] & LINKAGE_MASK_PREV) | LINKAGE_MASK_NEXT;
+        }
       }
 
-      lastActive[i] = lastImmutableActive[i];
-      numActive[i] = numAlwaysActive[i];
+      lastActive[ii] = lastImmutableActive[ii];
+      numActive[ii] = numAlwaysActive[ii];
 
-      if ( lastActive[i] == INVALID_INDEX )
+      if ( lastActive[ii] == INVALID_INDEX )
       {
-        firstActive[i] = INVALID_INDEX;
+        firstActive[ii] = INVALID_INDEX;
       }
     }
 
