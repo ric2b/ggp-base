@@ -59,9 +59,6 @@ public abstract class PuzzleBase extends Assert
     EXPECTED_SCORES.put("base.tpeg", 90);
     EXPECTED_SCORES.put("base.peg", 90);
     EXPECTED_SCORES.put("stanford.knightstourbig", 95);
-
-    // Can't solve Futoshiki 6x6 yet.  Covered by #372.
-    EXPECTED_SCORES.put("base.futoshiki6", 0);
   }
 
   private static HashMap<String, Integer> EXTRA_TIME = new HashMap<>();
