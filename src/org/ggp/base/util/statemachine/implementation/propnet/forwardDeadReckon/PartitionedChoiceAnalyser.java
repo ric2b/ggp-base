@@ -92,6 +92,7 @@ public class PartitionedChoiceAnalyser
 
       //  Do the input props that directly modify each base prop latch
       //  form a partitioning of the set of all input props?
+      Set <PolymorphicProposition> lInEveryPartition = new HashSet<>();
       Map<PolymorphicProposition, Set<PolymorphicProposition> > requiredBasesToInputsMap = new HashMap<>();
 
       for (PolymorphicProposition inputProp : stateMachine.getFullPropNet().getInputPropositions().values())
@@ -135,8 +136,14 @@ public class PartitionedChoiceAnalyser
 
         if (!foundSet)
         {
-          //  Input that is not in any partition - doesn't match the analysis pattern we are looking for
-          return null;
+          // Input that is not in any partition.  We are willing to accept a very small number of other inputs which
+          // will be considered legal in every partition.
+          lInEveryPartition.add(inputProp);
+          if (lInEveryPartition.size() > 2)
+          {
+            // Too many inputs that don't match the pattern we're looking for.  Game not suitable for partitioning.
+            return null;
+          }
         }
       }
 
@@ -162,13 +169,22 @@ public class PartitionedChoiceAnalyser
       {
         ForwardDeadReckonLegalMoveSet partitionMoves = new ForwardDeadReckonLegalMoveSet(stateMachine.getFullPropNet().getActiveLegalProps(0));
 
+        // Get the input props that are specific to this base prop.
         for (PolymorphicProposition inputProp : requiredBasesToInputsMap.get(p))
         {
           ForwardDeadReckonLegalMoveInfo moveInfo = inputToLegalInfoMap.get(inputProp);
           assert(moveInfo != null);
-
           partitionMoves.add(moveInfo);
         }
+
+        // Add any input props that should form part of every partition.
+        for (PolymorphicProposition inputProp : lInEveryPartition)
+        {
+          ForwardDeadReckonLegalMoveInfo moveInfo = inputToLegalInfoMap.get(inputProp);
+          assert(moveInfo != null);
+          partitionMoves.add(moveInfo);
+        }
+
         filter.addPartition(partitionMoves, null, ((ForwardDeadReckonProposition)p).getInfo());
       }
 
@@ -177,13 +193,22 @@ public class PartitionedChoiceAnalyser
       {
         ForwardDeadReckonLegalMoveSet partitionMoves = new ForwardDeadReckonLegalMoveSet(stateMachine.getFullPropNet().getActiveLegalProps(0));
 
+        // Get the input props that are specific to this base prop.
         for (PolymorphicProposition inputProp : requiredBasesToInputsMap.get(p))
         {
           ForwardDeadReckonLegalMoveInfo moveInfo = inputToLegalInfoMap.get(inputProp);
           assert(moveInfo != null);
-
           partitionMoves.add(moveInfo);
         }
+
+        // Add any input props that should form part of every partition.
+        for (PolymorphicProposition inputProp : lInEveryPartition)
+        {
+          ForwardDeadReckonLegalMoveInfo moveInfo = inputToLegalInfoMap.get(inputProp);
+          assert(moveInfo != null);
+          partitionMoves.add(moveInfo);
+        }
+
         filter.addPartition(partitionMoves, ((ForwardDeadReckonProposition)p).getInfo(), null);
       }
 
