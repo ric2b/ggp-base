@@ -33,6 +33,7 @@ public class LearningTree
   private final int mNumRoles;
   private final RoleOrdering mRoleOrdering;
   private final Random mRandom = new Random();
+  private ForwardDeadReckonLegalMoveInfo[] mBestJointMove;
 
   /**
    * Per-stack-frame variables that are created as members to avoid object allocation during recursion.
@@ -161,6 +162,10 @@ public class LearningTree
       if ((lBestGoals == null) || (lChildGoals[lRoleWithChoice] > lBestGoals[lRoleWithChoice]))
       {
         lBestGoals = lChildGoals;
+        if (xiDepth == 0)
+        {
+          mBestJointMove = mStackJointMove[xiDepth].clone();
+        }
       }
     }
 
@@ -208,11 +213,20 @@ public class LearningTree
    *
    * @return the best move.
    */
-  public Move bestMove(ForwardDeadReckonInternalMachineState xiState, int xiRoleIndex)
+  public Move bestMoveImmediate(ForwardDeadReckonInternalMachineState xiState, int xiRoleIndex)
   {
     int lDepth = 0;
     epsilonGreedySelection(xiState, 0);
     return mStackJointMove[lDepth][xiRoleIndex].mMove;
+  }
+
+  public Move bestMove(ForwardDeadReckonInternalMachineState xiState, int xiRoleIndex, int xiDepth)
+  {
+    // Do a depth-limited search, using the evaluation function at the cut-off depth.
+    search(xiState, xiDepth);
+    Move lBest = mBestJointMove[xiRoleIndex].mMove;
+    mEvalFunc.clearSamples();
+    return lBest;
   }
 
   private void epsilonGreedySelection(ForwardDeadReckonInternalMachineState xiState, double xiEpsilon)

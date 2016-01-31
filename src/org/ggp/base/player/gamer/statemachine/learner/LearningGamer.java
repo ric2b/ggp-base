@@ -160,8 +160,8 @@ public class LearningGamer extends StateMachineGamer
 
     // Read off the best move according to the learned weights.
     LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, mEvalFunc);
-    Move lBestMove = lTree.bestMove(currentState, mOurRoleIndex);
-    LOGGER.info("Playing: " + lBestMove);
+    Move lBestMove = lTree.bestMove(currentState, mOurRoleIndex, 4);
+    LOGGER.info("Playing: " + lBestMove + " vs immediate best: " + lTree.bestMoveImmediate(currentState, mOurRoleIndex));
     return lBestMove;
   }
 
