@@ -57,5 +57,16 @@
 	<classpathentry kind="lib" path="src/external/Neuroph/libs/javaml-0.1.7.jar"/>
 	<classpathentry kind="lib" path="src/external/Neuroph/libs/slf4j-api-1.7.5.jar"/>
 	<classpathentry kind="lib" path="src/external/Neuroph/libs/slf4j-nop-1.7.6.jar"/>
+	<classpathentry kind="lib" path="src/external/jCuda/jcuda-0.7.5.jar"/>
+	<classpathentry kind="lib" path="src/external/jCuda/jcublas-0.7.5.jar"/>
+	<classpathentry kind="lib" path="src/external/jCuda/jcufft-0.7.5.jar"/>
+	<classpathentry kind="lib" path="src/external/jCuda/jcurand-0.7.5.jar"/>
+	<classpathentry kind="lib" path="src/external/jCuda/jcusolver-0.7.5.jar"/>
+	<classpathentry kind="lib" path="src/external/jCuda/jcusparse-0.7.5.jar"/>
+	<classpathentry kind="lib" path="src/external/jCudnn/jcudnn-0.7.5.jar" sourcepath="src/external/jCudnn/jcudnn-0.7.5-sources.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="jar:platform:/resource/GGP/src/external/jCudnn/jcudnn-0.7.5-javadoc.jar!/"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
