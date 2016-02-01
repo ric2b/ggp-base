@@ -51,10 +51,6 @@ public abstract class PuzzleBase extends Assert
     EXPECTED_SCORES.put("stanford.untwistycomplex2", 0);
     EXPECTED_SCORES.put("base.mineClearingSmall", 78); // !! ARR Wild guess.  SPD to change to best possible score.
 
-    // 31x31 legal-guided queens is deliberately at our limit an doesn't reliably pass on CI.  Not likely that there's
-    // anything we can do that will assist with this.
-    EXPECTED_SCORES.put("base.queens31lg", 0);
-
     // Puzzles where we ought to get 100, but don't (or don't reliably).  Covered by issue 260.
     EXPECTED_SCORES.put("base.tpeg", 90);
     EXPECTED_SCORES.put("base.peg", 90);
@@ -76,6 +72,13 @@ public abstract class PuzzleBase extends Assert
     // Recent puzzles which we fail.  Covered by issue #379.
     SKIP.add("base.nonogram_10x10_1");
     SKIP.add("base.rubiksCube");
+
+    // Hidato solution isn't efficient enough for snap-ci.  Issue #361.
+    SKIP.add("base.hidato37");
+
+    // 31x31 legal-guided queens is deliberately at our limit an doesn't reliably pass on CI.  Not likely that there's
+    // anything we can do that will assist with this.
+    SKIP.add("base.queens31lg");
 
     // Games which we fail.  Covered by issue #260.
     SKIP.add("base.asteroidsParallel");
