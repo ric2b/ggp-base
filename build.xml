@@ -75,6 +75,7 @@
             <src path="src"/>
             <src path="src_py"/>
             <src path="src_clj"/>
+            <exclude name="org/ggp/base/apps/utilities/**"/>
             <classpath refid="GGP.classpath"/>
         </javac>
     </target>
