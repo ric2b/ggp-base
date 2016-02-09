@@ -15,10 +15,12 @@ public class LearningGamer extends StateMachineGamer
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private static final int PLY = 2;
-  private static final int DUMP_INTERVAL = 10;
+  private static final int PLY = 4;
+  private static final int DUMP_INTERVAL = 1;
+  private static final int SAVE_INTERVAL = 10;
+
   private static final boolean RELOAD = true;
-  private static final String RELOAD_FROM = "data/games/stanford.breakthroughsmall/evaluation.6hrs.2ply.22500iter.err0.06.nnet";
+  private static final String RELOAD_FROM = "data/games/stanford.breakthroughsmall/evaluation.15mins.4ply.10iter.err0.09.nnet";
   private static final boolean TRAIN = false;
 
   private TrainedEvaluationFunction             mEvalFunc;
@@ -94,7 +96,7 @@ public class LearningGamer extends StateMachineGamer
 
       // Every so often, update the frozen (target) evaluation function from the training one.  This is necessary for
       // stability.
-      if (lIterations % 100 == 0)
+      if (lIterations % SAVE_INTERVAL == 0)
       {
         mFrozenEvalFunc.replaceWith(mEvalFunc);
         mEvalFunc.save();
@@ -160,7 +162,7 @@ public class LearningGamer extends StateMachineGamer
 
     // Read off the best move according to the learned weights.
     LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, mEvalFunc);
-    Move lBestMove = lTree.bestMove(currentState, mOurRoleIndex, 4);
+    Move lBestMove = lTree.bestMove(currentState, mOurRoleIndex, PLY);
     LOGGER.info("Playing: " + lBestMove + " vs immediate best: " + lTree.bestMoveImmediate(currentState, mOurRoleIndex));
     return lBestMove;
   }

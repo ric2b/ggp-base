@@ -34,6 +34,7 @@ public class LearningTree
   private final RoleOrdering mRoleOrdering;
   private final Random mRandom = new Random();
   private ForwardDeadReckonLegalMoveInfo[] mBestJointMove;
+  private double[] mBestGoals;
 
   /**
    * Per-stack-frame variables that are created as members to avoid object allocation during recursion.
@@ -165,6 +166,7 @@ public class LearningTree
         if (xiDepth == 0)
         {
           mBestJointMove = mStackJointMove[xiDepth].clone();
+          mBestGoals = lChildGoals.clone();
         }
       }
     }
@@ -226,6 +228,7 @@ public class LearningTree
     search(xiState, xiDepth);
     Move lBest = mBestJointMove[xiRoleIndex].mMove;
     mEvalFunc.clearSamples();
+    LOGGER.info("Best " + xiDepth + "-ply move is " + lBest + " scoring " + mBestGoals[xiRoleIndex]);
     return lBest;
   }
 
