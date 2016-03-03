@@ -1,56 +1,65 @@
-=====================================
-= GENERAL GAME PLAYING BASE PACKAGE =
-=====================================
 
-Application Suite for the General Game Playing Project;
- - A GUI-based GameKiosk        (for playing human-vs-computer matches)
- - A GUI-based GamePlayer       (for running computer players)
- - A GUI-based GameServer       (for hosting matches)
- - A GUI-based GDLValidator     (for validating game rulesheets)
+## FORKED FROM THE GENERAL GAME PLAYING BASE PACKAGE 
 
-Support code for the above.
 
-                            == QUICK START GUIDE ===
+GGP-Base is an application suite for the General Game Playing Project.
+It includes some very useful utilities and examples to help Player developers.
+ 
+### QUICK START GUIDE
 
-    Getting started is as simple as writing a new player that inherits from the
-StateMachineGamer class. StateMachineGamer is based on the state machine view
-of general game playing, in which playing a game is represented as proceeding
-through a state machine. The underlying state machine, which you can access via
-getStateMachine() when inheriting from StateMachineGamer, provides methods that
-you can use to investigate the game being player:
+##### Set-up
+  - [Install the Java Dev Kit (JDK) for Java 7 or later](http://www.oracle.com/technetwork/java/javase/downloads/index.html)
+  - [Install the Eclipse IDE](http://www.eclipse.org/downloads/packages/eclipse-ide-java-developers/marsr) (you can of course use other editors/IDE's)
+  - Clone this repository or download it [as a zip](https://github.com/ric2b/ggp-base/archive/master.zip)
+  
+##### Adding the project to Eclipse
+  1. After opening Eclipse choose `File->Import` on the toolbar
+  2. Pick either `General->Existing Projects into Workspace` or `Git->Projects from Git` and add the project root folder
+  3. Use the Package Explorer (on the left) to browse the contents of the project. 
 
-    * Each game has a starting state.
-        getInitialState() is the starting state.
+##### Running a utility
+  1. Via the Package Explorer, browse to the path of the utility. (Main paths are on the next section)
+  2. Click the _Run_ button on the toolbar. (To make sure that it's running the correct app, click the drop-down of the _Run_ button and select _Run as_
 
-    * Each state has legal moves for every player.
-        getLegalMoves(state, role) are the legal moves for <role> in <state>.
+  > Note: Previously run apps are easily acessible via the drop-down menu of the _Run_ button, on the toolbar.
+  
+##### Running a player
+  1. Run the Player app (`org.ggp.base.apps.player/Player.java`)
+  2. Pick the network Port (default is 9147)
+  3. Pick the player
 
-    * Some states are terminal, and in those states "goal" values are defined
-      for every player, indicating whether they won or lost.
-        isTerminal(state) indicates whether a state is terminal.
-        getGoal(state, role) is the goal value for <role> in <state>.
+##### Hosting a Human vs AI match - Kiosk
+  1. Run the Kiosk app (`org.ggp.base.apps.kiosk/Kiosk.java`)
+  2. Select a local player or _REMOTE PLAYER_
+  3. Configure the rules and select a game
+  4. Start the match
 
-    * Given a legal move for each player, you can transition from one state to
-      the next state, after the players make their respective moves.
-        getNextState(state, moves) is the result of making <moves> at <state>.
+##### Hosting an AI vs AI match - Server
+  1. Run the Server app (`org.ggp.base.apps.server/Server.java`)
+  2. Select the game repository
+  3. Select a game
+  4. Configure the match
+  5. Add Players on the bottom of the window, if not automatically detected
+  6. Choose the roles for each Player and start the match
 
-    A simple Prover-based state machine implementation is included in GGP Base,
-so you don't need to worry about the details of converting a game description
-into a state machine. To write a gamer based on StateMachineGamer, derive your
-class from players.gamer.statemachine.StateMachineGamer. Applications like the
-PlayerPanel should automatically recognize your new class and it should appear
-in their lists of available players right away.
+### Paths to the main utilities
 
-    For examples of simple players, see src/player/gamer/statemachine/reflex,
-where two extremely simple "reflex-based" players are included: LegalGamer and
-RandomGamer. LegalGamer always chooses the first legal move available, and the
-RandomGamer always chooses a random legal move.
+Player: This application lets you run any players on the project folder
+> org.ggp.base.apps.player/Player.java
 
-                              === MISC NOTES ===
+Kiosk: Game server that includes a limited selection of games with intuitive GUI interfaces, allowing matches between AI and human players
+> org.ggp.base.apps.kiosk/Kiosk.java
 
-* This is the 4/1/2010 release of GGP code for CS227B, compiled and maintained
-  by Sam Schreiber with help and support from Ethan Dreyfuss, Eric Schkufza,
-  Keith Schwarz, Steven Bills, and Mike Mintz.
+Server: The main game server, used to manage any GDL written game between AI players (or single-player games) 
+> org.ggp.base.apps.server/Server.java
+
+GDLValidator: Used to validate GDL code
+> org.ggp.base.util.gdl/GdlValidator
+
+### MISC NOTES 
+
+* GGP-Base is compiled and maintained by Sam Schreiber with help and support 
+  from Ethan Dreyfuss, Eric Schkufza, Keith Schwarz, Steven Bills, and Mike Mintz.
 
 * This project is licensed under the New BSD License. Licensing information for
   the project can be found in the licenses/LICENSE file. Licensing information
