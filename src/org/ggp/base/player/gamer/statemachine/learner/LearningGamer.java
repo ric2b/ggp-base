@@ -15,13 +15,15 @@ public class LearningGamer extends StateMachineGamer
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private static final int PLY = 4;
+  private static final int PLY = 2;
   private static final int DUMP_INTERVAL = 1;
   private static final int SAVE_INTERVAL = 10;
 
   private static final boolean RELOAD = true;
-  private static final String RELOAD_FROM = "data/games/stanford.breakthroughsmall/evaluation.15mins.4ply.10iter.err0.09.nnet";
+  //private static final String RELOAD_FROM = "data/games/stanford.breakthroughsmall/evaluation.6hrs.2ply.22500iter.err0.06.nnet";
+  private static final String RELOAD_FROM = "data/games/base.breakthrough/evaluation.18hrs.4ply.100iter.nnet";
   private static final boolean TRAIN = false;
+  private static final String NAME = "Learner";
 
   private TrainedEvaluationFunction             mEvalFunc;
   private TrainedEvaluationFunction             mFrozenEvalFunc;
@@ -83,7 +85,7 @@ public class LearningGamer extends StateMachineGamer
 
   private void treeStrap(long xiTimeout)
   {
-    double lEpsilon = 0.2;
+    double lEpsilon = 0.01;
     int lIterations = 0;
     double lAvgError = 0;
     double lLearningRate = TrainedEvaluationFunction.INITIAL_LEARNING_RATE;
@@ -101,7 +103,7 @@ public class LearningGamer extends StateMachineGamer
         mFrozenEvalFunc.replaceWith(mEvalFunc);
         mEvalFunc.save();
         lLearningRate = mEvalFunc.cool();
-        lEpsilon *= 1.01;
+        lEpsilon *= 1.001;
       }
 
       if (lIterations % DUMP_INTERVAL == 0)
@@ -191,6 +193,6 @@ public class LearningGamer extends StateMachineGamer
   @Override
   public String getName()
   {
-    return "Learner";
+    return NAME;
   }
 }
