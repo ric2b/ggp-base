@@ -45,7 +45,7 @@ public class TrainedEvaluationFunction
                                         mInputSize,     // Input layer, 1 neuron per base proposition
                                         //mInputSize * 2, // Hidden layer(s)
                                         //mInputSize / 2,
-                                        mInputSize * 3, // Hidden layer(s)
+                                        mInputSize, // Hidden layer(s)
                                         mOutputSize);   // Output layer, 1 neuron per role (except for fixed sum,
                                                         // where we only need 1).
     double lRange = 1 / Math.sqrt(mInputSize);
@@ -59,7 +59,6 @@ public class TrainedEvaluationFunction
 
     LOGGER.info("Created an evaluation function with " + mNetwork.getInputsCount() + " inputs & " +
                 mNetwork.getOutputsCount() + " outputs");
-
   }
 
   @SuppressWarnings("unchecked")
@@ -70,6 +69,10 @@ public class TrainedEvaluationFunction
     mInputSize = mNetwork.getInputsCount();
     mOutputSize = mNetwork.getOutputsCount();
     m2PlayerFixedSum = xi2PlayerFixedSum;
+
+    LOGGER.info("Reloaded an evaluation function with " + mNetwork.getInputsCount() + " inputs, " +
+                mNetwork.getLayerAt(1).getNeuronsCount() + " hidden units & " +
+                mNetwork.getOutputsCount() + " outputs");
 
     // Create a training set.
     mTrainingSet = new DataSet(mInputSize, mOutputSize);
