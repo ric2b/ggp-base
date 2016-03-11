@@ -22,7 +22,8 @@ public class TrainedEvaluationFunction
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  public static final double INITIAL_LEARNING_RATE = 0.05;
+  private static final boolean USE_RELU = true;
+  public final double INITIAL_LEARNING_RATE;
 
   private final int mInputSize;
   private final int mOutputSize;
@@ -41,15 +42,30 @@ public class TrainedEvaluationFunction
     mInputSize = xiInputSize;
     mOutputSize = xi2PlayerFixedSum ? 1 : xiOutputSize;
 
-    mNetwork = new MultiLayerPerceptron(TransferFunctionType.SIGMOID,
+    TransferFunctionType lTransferFunction;
+    double lInitialWeightMin;
+    double lInitialWeightMax;
+    if (USE_RELU)
+    {
+      lTransferFunction = TransferFunctionType.RECTIFIED_LINEAR;
+      INITIAL_LEARNING_RATE = 0.005;
+      lInitialWeightMin = -0.5;
+      lInitialWeightMax = 0.5;
+    }
+    else
+    {
+      lTransferFunction = TransferFunctionType.SIGMOID;
+      INITIAL_LEARNING_RATE = 0.05;
+      lInitialWeightMax = 1 / Math.sqrt(mInputSize);
+      lInitialWeightMin = -lInitialWeightMax;
+    }
+
+    mNetwork = new MultiLayerPerceptron(lTransferFunction,
                                         mInputSize,     // Input layer, 1 neuron per base proposition
-                                        //mInputSize * 2, // Hidden layer(s)
-                                        //mInputSize / 2,
-                                        mInputSize, // Hidden layer(s)
+                                        mInputSize,     // Hidden layer(s)
                                         mOutputSize);   // Output layer, 1 neuron per role (except for fixed sum,
                                                         // where we only need 1).
-    double lRange = 1 / Math.sqrt(mInputSize);
-    mNetwork.randomizeWeights(-lRange, lRange);
+    mNetwork.randomizeWeights(lInitialWeightMin, lInitialWeightMax);
 
     // Create a training set.
     mTrainingSet = new DataSet(mInputSize, mOutputSize);
@@ -79,6 +95,8 @@ public class TrainedEvaluationFunction
 
     // Create a learning rule.
     mLearningRule = createLearningRule();
+
+    INITIAL_LEARNING_RATE = 0.001; // !! ARR Pick a sensible value.  Dependent on unit used in saved file.
   }
 
   private BackPropagation createLearningRule()
@@ -190,7 +208,6 @@ public class TrainedEvaluationFunction
    */
   public double train()
   {
-    // Convert the training data into the form required by Neuroph.
     mTrainingSet.clear();
     for (Entry<ForwardDeadReckonInternalMachineState, double[]> lEntry : mTrainingData.entrySet())
     {
@@ -202,6 +219,33 @@ public class TrainedEvaluationFunction
         mTrainingSet.addRow(convertStateToInputs(lState),
                             normaliseOutputs(lEntry.getValue()));
       }
+    }
+
+    // !! ARR Test code to do lots of iterations on a single sample set.  Useful when doing 9-ply TTT.
+    double lTotalErr = 0;
+    double lLastTotalErr = 100000;
+    int lNumBonusIterations = 0;
+    for (int lii = 0; lii < lNumBonusIterations; lii++)
+    {
+      if (lii % 10 == 0)
+      {
+        LOGGER.info("Iteration " + lii + ", err " + ((lTotalErr * 100.0) / 10.0));
+
+        if (lTotalErr > lLastTotalErr)
+        {
+          LOGGER.info("Halving learning rate");
+          mLearningRule.setLearningRate(mLearningRule.getLearningRate() * 0.5);
+          lLastTotalErr = 100000;
+        }
+        else
+        {
+          lLastTotalErr = lTotalErr;
+        }
+
+        lTotalErr = 0;
+      }
+      mLearningRule.doOneLearningIteration(mTrainingSet);
+      lTotalErr += mLearningRule.getErrorFunction().getTotalError();
     }
 
     // Train the network.

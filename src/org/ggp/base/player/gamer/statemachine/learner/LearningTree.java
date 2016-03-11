@@ -276,7 +276,7 @@ public class LearningTree
     }
     else
     {
-      double lBestValue = -1;
+      double lBestValue = Double.NEGATIVE_INFINITY;
       int lBestMoveIndex = -1;
       for (int lii = 0; lii < lNumChoices; lii++)
       {

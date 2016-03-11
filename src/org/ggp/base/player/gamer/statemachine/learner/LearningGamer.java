@@ -15,14 +15,15 @@ public class LearningGamer extends StateMachineGamer
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private static final int PLY = 2;
-  private static final int DUMP_INTERVAL = 1;
-  private static final int SAVE_INTERVAL = 10;
+  private static final int PLY = 9;
+  private static final int DUMP_INTERVAL = 10;
+  private static final int SAVE_INTERVAL = 100;
+  private static final boolean FREEZE = false;
 
-  private static final boolean RELOAD = true;
+  private static final boolean RELOAD = false;
   //private static final String RELOAD_FROM = "data/games/stanford.breakthroughsmall/evaluation.6hrs.2ply.22500iter.err0.06.nnet";
   private static final String RELOAD_FROM = "data/games/base.breakthrough/evaluation.18hrs.4ply.100iter.nnet";
-  private static final boolean TRAIN = false;
+  private static final boolean TRAIN = true;
   private static final String NAME = "Learner";
 
   private TrainedEvaluationFunction             mEvalFunc;
@@ -88,19 +89,15 @@ public class LearningGamer extends StateMachineGamer
     double lEpsilon = 0.01;
     int lIterations = 0;
     double lAvgError = 0;
-    double lLearningRate = TrainedEvaluationFunction.INITIAL_LEARNING_RATE;
+    double lLearningRate = mEvalFunc.INITIAL_LEARNING_RATE;
 
     while (true /* System.currentTimeMillis() < xiTimeout */)
     {
-      // Do sample playouts through the tree, from the root state, learning as we go.
-      ForwardDeadReckonInternalMachineState lState =
-                                 mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState());
-
       // Every so often, update the frozen (target) evaluation function from the training one.  This is necessary for
       // stability.
       if (lIterations % SAVE_INTERVAL == 0)
       {
-        mFrozenEvalFunc.replaceWith(mEvalFunc);
+        if (FREEZE) mFrozenEvalFunc.replaceWith(mEvalFunc);
         mEvalFunc.save();
         lLearningRate = mEvalFunc.cool();
         lEpsilon *= 1.001;
@@ -121,11 +118,14 @@ public class LearningGamer extends StateMachineGamer
       mEvalFunc.clearSamples();
 
       // Do a rollout with n-ply lookahead at each step.
+      ForwardDeadReckonInternalMachineState lState =
+                                 mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState());
+
       while (!mUnderlyingStateMachine.isTerminal(lState))
       {
         // Build a depth-limited game tree, by minimax, using the position evaluation function at the non-terminal
         // leaf nodes.  Builds the training set in the process.
-        LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, mFrozenEvalFunc);
+        LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, FREEZE ? mFrozenEvalFunc : mEvalFunc);
         lTree.search(lState, PLY);
 
         // Pick the next move epsilon-greedily.
@@ -143,7 +143,7 @@ public class LearningGamer extends StateMachineGamer
   {
     LOGGER.info("--- Sample game");
 
-    LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, mFrozenEvalFunc);
+    LearningTree lTree = new LearningTree(mUnderlyingStateMachine, mEvalFunc, FREEZE ? mFrozenEvalFunc : mEvalFunc);
     ForwardDeadReckonInternalMachineState lState =
                                  mUnderlyingStateMachine.createInternalState(mUnderlyingStateMachine.getInitialState());
     while (!mUnderlyingStateMachine.isTerminal(lState))
