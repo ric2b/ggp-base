@@ -22,7 +22,7 @@ public class TrainedEvaluationFunction
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private static final boolean USE_RELU = true;
+  private static final boolean USE_RELU = false;
   public final double INITIAL_LEARNING_RATE;
 
   private final int mInputSize;
@@ -62,7 +62,7 @@ public class TrainedEvaluationFunction
 
     mNetwork = new MultiLayerPerceptron(lTransferFunction,
                                         mInputSize,     // Input layer, 1 neuron per base proposition
-                                        mInputSize,     // Hidden layer(s)
+                                        mInputSize * 3, // Hidden layer(s)
                                         mOutputSize);   // Output layer, 1 neuron per role (except for fixed sum,
                                                         // where we only need 1).
     mNetwork.randomizeWeights(lInitialWeightMin, lInitialWeightMax);
@@ -214,7 +214,7 @@ public class TrainedEvaluationFunction
       ForwardDeadReckonInternalMachineState lState = lEntry.getKey();
 
       // Add additional weight to states that have been seen often.
-      for (int lii = 0; lii < mTrainingCount.get(lState); lii++)
+      // for (int lii = 0; lii < mTrainingCount.get(lState); lii++)
       {
         mTrainingSet.addRow(convertStateToInputs(lState),
                             normaliseOutputs(lEntry.getValue()));
@@ -222,30 +222,40 @@ public class TrainedEvaluationFunction
     }
 
     // !! ARR Test code to do lots of iterations on a single sample set.  Useful when doing 9-ply TTT.
-    double lTotalErr = 0;
-    double lLastTotalErr = 100000;
-    int lNumBonusIterations = 0;
+    double lTrainingErr = 0;
+    int lNumBonusIterations = 100000;
     for (int lii = 0; lii < lNumBonusIterations; lii++)
     {
       if (lii % 10 == 0)
       {
-        LOGGER.info("Iteration " + lii + ", err " + ((lTotalErr * 100.0) / 10.0));
-
-        if (lTotalErr > lLastTotalErr)
+        double lRealErr = 0;
+        double lMaxErr = 0;
+        mTrainingSet.clear();
+        for (Entry<ForwardDeadReckonInternalMachineState, double[]> lEntry : mTrainingData.entrySet())
         {
-          LOGGER.info("Halving learning rate");
-          mLearningRule.setLearningRate(mLearningRule.getLearningRate() * 0.5);
-          lLastTotalErr = 100000;
-        }
-        else
-        {
-          lLastTotalErr = lTotalErr;
-        }
+          ForwardDeadReckonInternalMachineState lState = lEntry.getKey();
+          double lSampleErr = Math.abs(evaluate(lState)[0] - lEntry.getValue()[0]);
+          lRealErr += lSampleErr;
+          lMaxErr = Math.max(lMaxErr, lSampleErr);
 
-        lTotalErr = 0;
+          // Don't train samples with a "small" error.
+          if (lSampleErr > 3)
+          {
+            mTrainingSet.addRow(convertStateToInputs(lState),
+                                normaliseOutputs(lEntry.getValue()));
+          }
+        }
+        lRealErr /= mTrainingData.size();
+
+        LOGGER.info("Iteration " + lii +
+                    ", training err " + ((lTrainingErr * 100.0) / 10.0) +
+                    ", real err = " + lRealErr +
+                    ", max err = " + lMaxErr +
+                    ", samples in set = " + mTrainingSet.size());
+        lTrainingErr = 0;
       }
       mLearningRule.doOneLearningIteration(mTrainingSet);
-      lTotalErr += mLearningRule.getErrorFunction().getTotalError();
+      lTrainingErr += mLearningRule.getErrorFunction().getTotalError();
     }
 
     // Train the network.
