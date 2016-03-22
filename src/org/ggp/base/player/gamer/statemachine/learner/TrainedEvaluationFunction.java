@@ -22,7 +22,6 @@ public class TrainedEvaluationFunction
 {
   private static final Logger LOGGER = LogManager.getLogger();
 
-  private static final boolean USE_RELU = false;
   public final double INITIAL_LEARNING_RATE;
 
   private final int mInputSize;
@@ -42,23 +41,10 @@ public class TrainedEvaluationFunction
     mInputSize = xiInputSize;
     mOutputSize = xi2PlayerFixedSum ? 1 : xiOutputSize;
 
-    TransferFunctionType lTransferFunction;
-    double lInitialWeightMin;
-    double lInitialWeightMax;
-    if (USE_RELU)
-    {
-      lTransferFunction = TransferFunctionType.RECTIFIED_LINEAR;
-      INITIAL_LEARNING_RATE = 0.005;
-      lInitialWeightMin = -0.5;
-      lInitialWeightMax = 0.5;
-    }
-    else
-    {
-      lTransferFunction = TransferFunctionType.SIGMOID;
-      INITIAL_LEARNING_RATE = 0.05;
-      lInitialWeightMax = 1 / Math.sqrt(mInputSize);
-      lInitialWeightMin = -lInitialWeightMax;
-    }
+    TransferFunctionType lTransferFunction = TransferFunctionType.SIGMOID;
+    INITIAL_LEARNING_RATE = 0.05;
+    double lInitialWeightMax = 1 / Math.sqrt(mInputSize);
+    double lInitialWeightMin = -lInitialWeightMax;
 
     mNetwork = new MultiLayerPerceptron(lTransferFunction,
                                         mInputSize,     // Input layer, 1 neuron per base proposition
@@ -208,6 +194,8 @@ public class TrainedEvaluationFunction
    */
   public double train()
   {
+    TObjectIntHashMap<ForwardDeadReckonInternalMachineState> lLastRequiredIteration = new TObjectIntHashMap<>();
+
     mTrainingSet.clear();
     for (Entry<ForwardDeadReckonInternalMachineState, double[]> lEntry : mTrainingData.entrySet())
     {
@@ -219,6 +207,8 @@ public class TrainedEvaluationFunction
         mTrainingSet.addRow(convertStateToInputs(lState),
                             normaliseOutputs(lEntry.getValue()));
       }
+
+      lLastRequiredIteration.put(lState, 0);
     }
 
     // !! ARR Test code to do lots of iterations on a single sample set.  Useful when doing 9-ply TTT.
@@ -238,11 +228,16 @@ public class TrainedEvaluationFunction
           lRealErr += lSampleErr;
           lMaxErr = Math.max(lMaxErr, lSampleErr);
 
-          // Don't train samples with a "small" error.
-          if (lSampleErr > 3)
+          // Only train samples with a "large" error or those that have recently had a large error.
+          if ((lSampleErr > 3) || (lLastRequiredIteration.get(lState) > lii - 100))
           {
             mTrainingSet.addRow(convertStateToInputs(lState),
                                 normaliseOutputs(lEntry.getValue()));
+
+            if (lSampleErr > 3)
+            {
+              lLastRequiredIteration.put(lState, lii);
+            }
           }
         }
         lRealErr /= mTrainingData.size();
