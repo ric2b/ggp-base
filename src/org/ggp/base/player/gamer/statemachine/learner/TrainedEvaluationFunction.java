@@ -34,8 +34,12 @@ public class TrainedEvaluationFunction
   HashMap<ForwardDeadReckonInternalMachineState, double[]> mTrainingData = new HashMap<>();
   TObjectIntHashMap<ForwardDeadReckonInternalMachineState> mTrainingCount = new TObjectIntHashMap<>();
 
+  private static final boolean TTT_MANUAL_FEATURES = true;
+
   public TrainedEvaluationFunction(int xiInputSize, int xiOutputSize, boolean xi2PlayerFixedSum)
   {
+    if (TTT_MANUAL_FEATURES) xiInputSize += 8;
+
     // Create a neural network.
     m2PlayerFixedSum = xi2PlayerFixedSum;
     mInputSize = xiInputSize;
@@ -169,12 +173,52 @@ public class TrainedEvaluationFunction
   private double[] convertStateToInputs(ForwardDeadReckonInternalMachineState xiState)
   {
     double[] lInputs = new double[mInputSize];
+    int lNumProps = mInputSize;
+    if (TTT_MANUAL_FEATURES) lNumProps -= 8;
     OpenBitSet lState = xiState.getContents();
-    for (int lii = 0; lii < mInputSize; lii++)
+    for (int lii = 0; lii < lNumProps; lii++)
     {
       lInputs[lii] = lState.fastGet(lii + xiState.firstBasePropIndex) ? 1 : -1;
     }
+
+    if (TTT_MANUAL_FEATURES)
+    {
+      int[][] lLines = {{1, 1, 1, 2, 1, 3},
+                        {2, 1, 2, 2, 2, 3},
+                        {3, 1, 3, 2, 3, 3},
+                        {1, 1, 2, 1, 3, 1},
+                        {1, 2, 2, 2, 3, 2},
+                        {1, 3, 2, 3, 3, 3},
+                        {1, 1, 2, 2, 3, 3},
+                        {3, 1, 2, 2, 1, 3}};
+
+      for (int lii = 0; lii < 8; lii++)
+      {
+        lInputs[lNumProps + lii] = scoreLine(lState, lLines[lii]);
+      }
+    }
+
     return lInputs;
+  }
+
+  private int scoreLine(OpenBitSet xiState, int[] xiLine)
+  {
+    int lScore = 0;
+
+    for (int lCell = 0; lCell < 6; lCell += 2)
+    {
+      int lX = xiLine[lCell] - 1;
+      int lY = xiLine[lCell + 1] - 1;
+
+      int lCellIndex = (lX * 9) + (lY * 3);
+      int lPlayer1PropIndex = lCellIndex + 2; // X-player (blank 1st, then o-player)
+      int lPlayer2PropIndex = lCellIndex + 1; // O-player
+
+      if (xiState.fastGet(lPlayer1PropIndex)) lScore++;
+      if (xiState.fastGet(lPlayer2PropIndex)) lScore--;
+    }
+
+    return lScore;
   }
 
   private double[] normaliseOutputs(double[] lGDLOutputs)
