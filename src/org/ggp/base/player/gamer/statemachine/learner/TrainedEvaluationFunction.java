@@ -258,8 +258,11 @@ public class TrainedEvaluationFunction
     // !! ARR Test code to do lots of iterations on a single sample set.  Useful when doing 9-ply TTT.
     double lTrainingErr = 0;
     int lNumBonusIterations = 100000;
+    double lLimit = 3.0;
     for (int lii = 0; lii < lNumBonusIterations; lii++)
     {
+      if (lii == 4500) mLearningRule.setLearningRate(mLearningRule.getLearningRate() * 0.5);
+
       if (lii % 10 == 0)
       {
         double lRealErr = 0;
@@ -273,12 +276,12 @@ public class TrainedEvaluationFunction
           lMaxErr = Math.max(lMaxErr, lSampleErr);
 
           // Only train samples with a "large" error or those that have recently had a large error.
-          if ((lSampleErr > 3) || (lLastRequiredIteration.get(lState) > lii - 100))
+          if ((lSampleErr > lLimit) || (lLastRequiredIteration.get(lState) > lii - 100))
           {
             mTrainingSet.addRow(convertStateToInputs(lState),
                                 normaliseOutputs(lEntry.getValue()));
 
-            if (lSampleErr > 3)
+            if (lSampleErr > lLimit)
             {
               lLastRequiredIteration.put(lState, lii);
             }
@@ -292,6 +295,12 @@ public class TrainedEvaluationFunction
                     ", max err = " + lMaxErr +
                     ", samples in set = " + mTrainingSet.size());
         lTrainingErr = 0;
+
+        if (mTrainingSet.size() == 0)
+        {
+          LOGGER.info("Training complete");
+          System.exit(1);
+        }
       }
       mLearningRule.doOneLearningIteration(mTrainingSet);
       lTrainingErr += mLearningRule.getErrorFunction().getTotalError();
