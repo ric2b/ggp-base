@@ -2,6 +2,7 @@ package org.ggp.base.player.gamer.statemachine.learner;
 
 import gnu.trove.map.hash.TObjectIntHashMap;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
@@ -261,7 +262,7 @@ public class TrainedEvaluationFunction
     double lLimit = 3.0;
     for (int lii = 0; lii < lNumBonusIterations; lii++)
     {
-      if (lii == 4500) mLearningRule.setLearningRate(mLearningRule.getLearningRate() * 0.5);
+      if (lii == 4000) mLearningRule.setLearningRate(mLearningRule.getLearningRate() * 0.5);
 
       if (lii % 10 == 0)
       {
@@ -299,6 +300,8 @@ public class TrainedEvaluationFunction
         if (mTrainingSet.size() == 0)
         {
           LOGGER.info("Training complete");
+          LOGGER.info("Weights: " + Arrays.toString(mNetwork.getWeights()));
+          mNetwork.save("complete.nnet");
           System.exit(1);
         }
       }
