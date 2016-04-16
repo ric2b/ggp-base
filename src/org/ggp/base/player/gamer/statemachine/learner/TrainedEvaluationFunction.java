@@ -241,6 +241,9 @@ public class TrainedEvaluationFunction
   {
     TObjectIntHashMap<ForwardDeadReckonInternalMachineState> lLastRequiredIteration = new TObjectIntHashMap<>();
 
+    StringBuilder lXs = new StringBuilder();
+    StringBuilder lYs = new StringBuilder();
+
     mTrainingSet.clear();
     for (Entry<ForwardDeadReckonInternalMachineState, double[]> lEntry : mTrainingData.entrySet())
     {
@@ -249,12 +252,26 @@ public class TrainedEvaluationFunction
       // Add additional weight to states that have been seen often.
       // for (int lii = 0; lii < mTrainingCount.get(lState); lii++)
       {
-        mTrainingSet.addRow(convertStateToInputs(lState),
-                            normaliseOutputs(lEntry.getValue()));
+        double[] lInputs = convertStateToInputs(lState);
+        double[] lOutputs = normaliseOutputs(lEntry.getValue());
+        mTrainingSet.addRow(lInputs, lOutputs);
+
+        lXs.append("X_train = np.append(X_train, [");
+        lXs.append(Arrays.toString(lInputs));
+        lXs.append("], axis=0)\n");
+
+        lYs.append("Y_train = np.append(Y_train, ");
+        lYs.append(Arrays.toString(lOutputs));
+        lYs.append(")\n");
       }
 
       lLastRequiredIteration.put(lState, 0);
     }
+
+    lXs.setLength(lXs.length() - 2);
+    lYs.setLength(lYs.length() - 1);
+    LOGGER.info(lXs);
+    LOGGER.info(lYs);
 
     // !! ARR Test code to do lots of iterations on a single sample set.  Useful when doing 9-ply TTT.
     double lTrainingErr = 0;
