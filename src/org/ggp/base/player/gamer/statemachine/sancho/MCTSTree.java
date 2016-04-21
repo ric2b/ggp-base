@@ -2,7 +2,10 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import gnu.trove.map.hash.TObjectLongHashMap;
 
-import java.util.Arrays;
+import java.io.BufferedOutputStream;
+import java.io.DataOutputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -155,6 +158,7 @@ public class MCTSTree
   final StateSimilarityMap                             mStateSimilarityMap;
   private final ForwardDeadReckonInternalMachineState  mNonFactorInitialState;
   public boolean                                       mIsIrrelevantFactor = false;
+  private final DataOutputStream                       mDatabase;
 
   /**
    * The highest score seen in the current turn (for our role).
@@ -426,6 +430,18 @@ public class MCTSTree
         mRoleRationality[i] = 1;
       }
     }
+
+    // If we're creating a database, open it now.
+    DataOutputStream lDatabase = null;
+    if (CREATING_DATABASE)
+    {
+      try
+      {
+        lDatabase = new DataOutputStream(new BufferedOutputStream(new FileOutputStream("states.db")));
+      }
+      catch (IOException lEx) { /* Oh well */ }
+    }
+    mDatabase = lDatabase;
 
     // Create the variables used by TreeNodes to avoid unnecessary object allocation.
     mNodeHeuristicInfo            = new HeuristicInfo(mNumRoles);
@@ -1335,15 +1351,24 @@ public class MCTSTree
                          int xiNumVisits,
                          double xiAverageScore)
   {
+    assert(CREATING_DATABASE);
+    long[] lBits = xiState.getContents().getBits();
+
     if ((xiTerminal) || (xiComplete) || (xiNumVisits > 1000))
     {
-      // !! ARR Write to file instead.  Will need to dump the number of longs in the array.
-      // !! ARR Should dump just the base props?  (Are the others even stable?)
-      LOGGER.info(xiTerminal + "," +
-                  xiComplete + "," +
-                  xiNumVisits + "," +
-                  xiAverageScore + "," +
-                  Arrays.toString(xiState.getContents().getBits()));
+      try
+      {
+        mDatabase.writeBoolean(xiTerminal);
+        mDatabase.writeBoolean(xiComplete);
+        mDatabase.writeInt(xiNumVisits);
+        mDatabase.writeDouble(xiAverageScore);
+        mDatabase.writeInt(lBits.length);
+        for (long lLong : lBits)
+        {
+          mDatabase.writeLong(lLong);
+        }
+      }
+      catch (IOException lEx) { /* Oh well. */ }
     }
   }
 }
