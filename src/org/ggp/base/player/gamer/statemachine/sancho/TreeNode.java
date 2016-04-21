@@ -1773,7 +1773,7 @@ public class TreeNode
   public void reset(MCTSTree xiTree)
   {
     // Throughout this function, we do our best to reset existing objects wherever possible, rather than discarding the
-    // old ones and allocating new ones.  The reduces the GC burden.
+    // old ones and allocating new ones.  This reduces the GC burden.
 
     // Increment the sequence number for this node so that any remaining TreeNodeRefs pointing to the previous
     // incarnation can spot that we've re-used this node under their feet.
@@ -2036,6 +2036,11 @@ public class TreeNode
     if (mComplete)
     {
       mTree.mNumCompletedBranches--;
+    }
+
+    if (MCTSTree.CREATING_DATABASE)
+    {
+      mTree.storeState(mState, mTerminal, mComplete, mNumVisits, getAverageScore(0));
     }
 
     // LOGGER.debug("    Freeing (" + ourIndex + "): " + state);

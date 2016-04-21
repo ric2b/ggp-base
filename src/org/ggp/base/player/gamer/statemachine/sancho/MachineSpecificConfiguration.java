@@ -154,7 +154,12 @@ public class MachineSpecificConfiguration
     /**
      * Reference player uses an exponential moving average during updates.
      */
-    REF_USES_MOVING_AVERAGE(false);
+    REF_USES_MOVING_AVERAGE(false),
+
+    /**
+     * Are we creating a database of states and their scores.
+     */
+    CREATING_DATABASE(false);
 
 
     /**

@@ -2,6 +2,7 @@ package org.ggp.base.player.gamer.statemachine.sancho;
 
 import gnu.trove.map.hash.TObjectLongHashMap;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -83,6 +84,11 @@ public class MCTSTree
   public final boolean                                 USE_UCB_TUNED;
 
   static final short  MAX_HYPER_RECURSION_DEPTH = 3;
+
+  /**
+   * Whether we're creating a database of moves.
+   */
+  public static final boolean CREATING_DATABASE = MachineSpecificConfiguration.getCfgBool(CfgItem.CREATING_DATABASE);
 
   /**
    * MixMax bias to use in this game.  0 turns it off entirely
@@ -1312,5 +1318,32 @@ public class MCTSTree
                     forceSynchronous,
                     selectTime,
                     expandTime);
+  }
+
+  /**
+   * Permanently store the values associate with a state.
+   *
+   * @param xiState         - the state.
+   * @param xiTerminal      - whether the state is terminal.
+   * @param xiComplete      - whether the state is complete.
+   * @param xiNumVisits     - the number of times the state has been visited.
+   * @param xiAverageScore  - the average score for the state.
+   */
+  public void storeState(ForwardDeadReckonInternalMachineState xiState,
+                         boolean xiTerminal,
+                         boolean xiComplete,
+                         int xiNumVisits,
+                         double xiAverageScore)
+  {
+    if ((xiTerminal) || (xiComplete) || (xiNumVisits > 1000))
+    {
+      // !! ARR Write to file instead.  Will need to dump the number of longs in the array.
+      // !! ARR Should dump just the base props?  (Are the others even stable?)
+      LOGGER.info(xiTerminal + "," +
+                  xiComplete + "," +
+                  xiNumVisits + "," +
+                  xiAverageScore + "," +
+                  Arrays.toString(xiState.getContents().getBits()));
+    }
   }
 }
