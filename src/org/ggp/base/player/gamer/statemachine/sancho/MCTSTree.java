@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
+import org.apache.commons.compress.utils.IOUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ggp.base.player.gamer.statemachine.sancho.MachineSpecificConfiguration.CfgItem;
@@ -477,6 +478,17 @@ public class MCTSTree
     mNumIncompleteNodes = 0;
   }
 
+  /**
+   * Terminate the MCTS tree.  It must not be used again after this call.
+   */
+  public void terminate()
+  {
+    empty();
+    if (mDatabase != null)
+    {
+      IOUtils.closeQuietly(mDatabase);
+    }
+  }
   TreeNode allocateNode(ForwardDeadReckonInternalMachineState state,
                         TreeNode parent,
                         boolean disallowTransposition)

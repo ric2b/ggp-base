@@ -1391,6 +1391,11 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         moveConsequenceSearcher = null;
       }
 
+      for (MCTSTree lTree : factorTrees)
+      {
+        lTree.terminate();
+      }
+
       mTerminateRequested = true;
       notifyAll();
     }
