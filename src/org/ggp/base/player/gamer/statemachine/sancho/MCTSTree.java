@@ -436,11 +436,15 @@ public class MCTSTree
     DataOutputStream lDatabase = null;
     if (CREATING_DATABASE)
     {
+      LOGGER.info("Creating state database");
       try
       {
         lDatabase = new DataOutputStream(new BufferedOutputStream(new FileOutputStream("states.db")));
       }
-      catch (IOException lEx) { /* Oh well */ }
+      catch (IOException lEx)
+      {
+        LOGGER.warn("Failed to create state database", lEx);
+      }
     }
     mDatabase = lDatabase;
 
