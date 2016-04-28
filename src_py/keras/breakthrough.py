@@ -7,6 +7,11 @@ from keras import backend as K
 import numpy as np
 import sys
 import struct
+import random
+
+gNumPseudoProps = 4 + 1 # 4 x goal + 1 x terminal?
+gNumProps = 64 + 64 + 2 # 64 x black pawn, 64 x white pawn, 2 x control props
+gNumSamples = 0
 
 def readDatabase(filename="states.db"):
 	lStructFormat = '>??idi3Q'
@@ -22,71 +27,84 @@ def readDatabase(filename="states.db"):
 	lNumCompleteWins   = 0
 	lNumCompleteLosses = 0
 
-	# Invent some data
-	#X_data = np.array([[-1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 0.0, 1.0, -3.0, 0.0, -1.0, -1.0, -1.0, -1.0]])
-	#X_data = np.append(X_data, [[-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, -1.0, 0.0, 2.0]], axis=0)
-	X_data = np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
-	#X_data = np.array()
-	Y_data = np.array([0.5])
+	# Pre-allocate arrays to hold the data
+	X_data = np.zeros((30000, gNumProps))
+	Y_data = np.zeros((30000,))
 
-	# For now, only record the states with estimated scores.  (Just count  the other states.)
+	# Read the states.  Use some of them and discard others.
+	# Aim for approximatley equals numbers of terminal/complete/estimated states.
+	# Aim for approximately equals numbers of wins and losses (for terminal & complete states).
 	with open("states.db", "rb") as f:
-	    while True:
-	        data = f.read(lStructLen)
-	        if not data: break
-	        (lTerminal, lComplete, lVisits, lScore, lStateSize, lState0, lState1, lState2) = fnStructUnpack(data)
-	        assert(lStateSize == 3)
-	        #print lTerminal, lComplete, lVisits, lScore, bin(lState0), bin(lState1), bin(lState2)
-	        if lTerminal:
-	          lNumTerminal += 1
-	          if lScore > 99:
-	            lNumTerminalWins += 1
-	          else:
-	            lNumTerminalLosses += 1
-	        elif lComplete:
-	          lNumComplete += 1
-	          if lScore > 99:
-	            lNumCompleteWins += 1
-	          else:
-	            lNumCompleteLosses += 1
-	        else:
-	          lNumEstimate += 1
-	          (X_data, Y_data) = addSample(X_data, Y_data, [lState0, lState1, lState2], lScore)
+		while True:
+			data = f.read(lStructLen)
+			if not data: break
+			(lTerminal, lComplete, lVisits, lScore, lStateSize, lState0, lState1, lState2) = fnStructUnpack(data)
+			assert(lStateSize == 3)
+			if lTerminal:
+				lNumTerminal += 1
+				if lScore > 99:
+					lNumTerminalWins += 1
+					addSample(500, X_data, Y_data, [lState0, lState1, lState2], lScore)
+			 	else:
+					lNumTerminalLosses += 1
+					addSample(170, X_data, Y_data, [lState0, lState1, lState2], lScore)
+			elif lComplete:
+				lNumComplete += 1
+				if lScore > 99:
+					lNumCompleteWins += 1
+					addSample(250, X_data, Y_data, [lState0, lState1, lState2], lScore)
+				else:
+					lNumCompleteLosses += 1
+					addSample(90, X_data, Y_data, [lState0, lState1, lState2], lScore)
+			else:
+				lNumEstimate += 1
+				addSample(1, X_data, Y_data, [lState0, lState1, lState2], lScore)
 
 	print "  Terminal:", lNumTerminal, "of which", lNumTerminalWins, "wins and", lNumTerminalLosses, "losses."
 	print "  Complete:", lNumComplete, "of which", lNumCompleteWins, "wins and", lNumCompleteLosses, "losses."
 	print "  Estimate:", lNumEstimate
 
+	print "  Samples: ", gNumSamples
+	X_data = np.resize(X_data, (gNumSamples, gNumProps))
+	Y_data = np.resize(Y_data, (gNumSamples,))
 	return (X_data, Y_data)
 
-def addSample(xiXData, xiYData, xiState, xiScore):
+def addSample(xiOdds, xiXData, xiYData, xiState, xiScore):
+
+	if random.random() > 1.0 / xiOdds:
+		return
+
+	global gNumSamples
+
 	# Expand the state
 	assert(xiState[2] <= 127)
 	lBits = []
-	for ii in range(0, 3):
-		for jj in range(0, 7 if ii == 2 else 64):
+	for ii in range(0, 3):				
+		for jj in range(gNumPseudoProps if ii == 0 else 0, # The first long of packed bits begin with the pseudo-props added by Sancho.  Skip those.
+			            7 if ii == 2 else 64):             # Only the last 7 bits of the final long are valid.  Stop at that point.
 			lBits.append(float(xiState[ii] & 1))
 			xiState[ii] >>= 1
 	#print lBits
-	xiXData = np.append(xiXData, [lBits], axis=0)
-	xiYData = np.append(xiYData, xiScore / 100.0)
-	return (xiXData, xiYData)
+	xiXData[gNumSamples] = lBits
+	xiYData[gNumSamples] = xiScore / 100.0
+	gNumSamples += 1
 
 print "Reading data..."
 (X_data, Y_data) = readDatabase()
+values = Y_data * 100;
+print "Min value: ", values.min()
+print "Max value: ", values.max()
+print "Mean value:", values.mean()
+print "Std. Dev.:  ", values.std()
 
 print "Compiling network..."
-batch_size = 6000
-epochs = 100000
-nb_epochs = 100
-
-num_props = 64 + 64 + 2 + 4 + 1 # 64 x black pawn, 64 x white pawn, 2 x control props, 4 x goal pseduo-props + 1 x ?
+nb_epochs = 1000
 
 model = Sequential()
-model.add(Dense(num_props * 3, input_dim=num_props, init="glorot_uniform", activation="tanh"))
+model.add(Dense(20, input_dim=gNumProps, init="glorot_uniform", activation="tanh"))
 model.add(Dense(1, init="glorot_uniform", activation="sigmoid"))
 
-optimizer = SGD(lr=0.05, momentum=0.97, decay=1e-6, nesterov=False) # This is a very hot start and cooling agressively.  More usually, lr=0.05, decay=1e-6
+optimizer = SGD(lr=0.8, momentum=0.97, decay=1e-8, nesterov=False) # "Standard" parameters would be lr=0.05, decay=1e-6
 # optimizer = Adam(lr=0.01, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
 model.compile(loss='mean_squared_error', optimizer=optimizer)
 print optimizer.get_config()
@@ -97,12 +115,14 @@ samples = Y_train.size
 
 print "Training network..."
 model.fit(X_train, Y_train,
-          batch_size=samples, 
-          nb_epoch=nb_epochs,
-          verbose=2)
+		  batch_size=samples, 
+		  nb_epoch=nb_epochs,
+		  validation_split=0.2,
+		  verbose=2)
 
 np.set_printoptions(threshold=np.nan, precision=1, suppress=True)
 errors = abs((np.reshape(model.predict(X_data, batch_size=100, verbose=1), samples) - Y_data) * 100)
 #print errors
-print "Max error:", errors.max()
+print "Max error: ", errors.max()
 print "Mean error:", errors.mean()
+print "Std. Dev.: ", errors.std()
