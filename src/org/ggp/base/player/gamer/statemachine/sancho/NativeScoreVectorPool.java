@@ -7,7 +7,7 @@ import sun.misc.Unsafe;
 public class NativeScoreVectorPool implements ScoreVectorPool
 {
   private static final Unsafe mUnsafe = getUnsafe();
-  private final long mScores;
+  private long mScores;
   private final int  mNumRoles;
   private final int  mInstanceSize;
 
@@ -55,7 +55,11 @@ public class NativeScoreVectorPool implements ScoreVectorPool
   @Override
   public void terminate()
   {
-    mUnsafe.freeMemory(mScores);
+    if (mScores != 0)
+    {
+      mUnsafe.freeMemory(mScores);
+      mScores = 0;
+    }
   }
 
   /**
