@@ -184,7 +184,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     mEdgePool = new UncappedPool<>(nodeTableSize * 2);
     mPathPool = new UncappedPool<>(PIPELINE_SIZE * 2);
     mRAVEStatsPool = new UncappedPool<>(nodeTableSize);
-    mScoreVectorPool = new NativeScoreVectorPool(nodeTableSize, numRoles); // !! ARR Need to free this off somewhere
+    mScoreVectorPool = new NativeScoreVectorPool(nodeTableSize, numRoles);
     mLogName = xiLogName;
   }
 
@@ -1391,10 +1391,15 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
         moveConsequenceSearcher = null;
       }
 
-      for (MCTSTree lTree : factorTrees)
+      if (factorTrees != null)
       {
-        lTree.terminate();
+        for (MCTSTree lTree : factorTrees)
+        {
+          lTree.terminate();
+        }
       }
+
+      mScoreVectorPool.terminate();
 
       mTerminateRequested = true;
       notifyAll();
