@@ -68,6 +68,8 @@ public abstract class PuzzleBase extends Assert
   {
     // Puzzles with broken GDL.
     SKIP.add("stanford.arithmetic");
+    SKIP.add("stanford.besthunter");
+    SKIP.add("stanford.untwistycomplex");
 
     // Recent puzzles which we fail.  Covered by issue #379.
     SKIP.add("base.nonogram_10x10_1");
