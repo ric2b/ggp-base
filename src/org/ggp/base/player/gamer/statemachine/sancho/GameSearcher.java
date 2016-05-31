@@ -184,7 +184,7 @@ public class GameSearcher implements Runnable, ActivityController, LocalSearchRe
     mEdgePool = new UncappedPool<>(nodeTableSize * 2);
     mPathPool = new UncappedPool<>(PIPELINE_SIZE * 2);
     mRAVEStatsPool = new UncappedPool<>(nodeTableSize);
-    mScoreVectorPool = new ScoreVectorPool(nodeTableSize, numRoles);
+    mScoreVectorPool = new NativeScoreVectorPool(nodeTableSize, numRoles); // !! ARR Need to free this off somewhere
     mLogName = xiLogName;
   }
 
