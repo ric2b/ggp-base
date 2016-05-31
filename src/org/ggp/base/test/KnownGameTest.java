@@ -36,12 +36,14 @@ public class KnownGameTest extends Assert
   private static HashSet<String> SKIP = new HashSet<>();
   static
   {
+    SKIP.add("stanford.besthunter"); // Illegal GDL (Zero-arity relation should be a proposition).
     SKIP.add("stanford.firesheep");
     SKIP.add("stanford.go");          // Illegal GDL (unsafe rule).
     SKIP.add("stanford.kono");
     SKIP.add("stanford.madness");
     SKIP.add("stanford.pilgrimage");
     SKIP.add("stanford.skirmishbad"); // Illegal GDL (unsafe rule).
+    SKIP.add("stanford.untwistycomplex"); // Illegal GDL (missing "base"s).
     SKIP.add("stanford.yinsh");       // GDL refers to rule as if it were a proposition (using "true (order ...)").
     SKIP.add("stanford.zertz");       // Illegal GDL (unsafe rule).
 
