@@ -42,6 +42,7 @@ public class KnownGameTest extends Assert
     SKIP.add("stanford.kono");
     SKIP.add("stanford.madness");
     SKIP.add("stanford.pilgrimage");
+    SKIP.add("stanford.skirmish"); // Covered by #385.
     SKIP.add("stanford.skirmishbad"); // Illegal GDL (unsafe rule).
     SKIP.add("stanford.untwistycomplex"); // Illegal GDL (missing "base"s).
     SKIP.add("stanford.yinsh");       // GDL refers to rule as if it were a proposition (using "true (order ...)").
